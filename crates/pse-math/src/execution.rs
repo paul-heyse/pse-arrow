@@ -5,7 +5,7 @@
 #[path = "source_bindings.rs"]
 mod source_bindings;
 pub(crate) use source_bindings::SourceWorker;
-pub use source_bindings::{SourceBindings, SourceBody};
+pub use source_bindings::{ExecutionAttribution, SourceBindings, SourceBody};
 
 use crate::{
     MathError,
@@ -2730,10 +2730,43 @@ impl PreparedBody {
         let scalar_builds = scalars.builds();
         let scalars = scalars.freeze();
         let scalar_new_bytes = scalars.unowned_bytes();
-        let compiled = CompiledBody {
-            owner: None,
-            optimization: options,
-            scalar_products: scalars.clone(),
+        let retained_bytes = retained_numeric
+            .checked_mul(size_of::<f64>())
+            .and_then(|n| {
+                n.checked_add(
+                    (self.inputs + coordinates.len()) * size_of::<usize>()
+                        + 2 * size_of::<Vec<usize>>(),
+                )
+            })
+            .and_then(|n| n.checked_add(retained_instructions))
+            .and_then(|n| n.checked_add(retained_modules))
+            .and_then(|n| n.checked_add(descriptor_bytes))
+            .and_then(|n| n.checked_add(first_layout.retained_bytes()))
+            .and_then(|n| {
+                n.checked_add(
+                    layouts
+                        .values()
+                        .flatten()
+                        .map(JetLayout::frame_layout_bytes)
+                        .sum::<usize>(),
+                )
+            })
+            .and_then(|n| {
+                n.checked_add(size_of::<
+                    EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
+                >())
+            })
+            .and_then(|n| n.checked_add(evidence_bytes))
+            .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
+            .and_then(|n| {
+                n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>())
+            })
+            .and_then(|n| n.checked_add(scalar_new_bytes))
+            .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
+            .and_then(|n| n.checked_add(size_of::<Optimization>()))
+            .and_then(|n| n.checked_add(size_of::<ExecutionTemplate>() + 2 * size_of::<usize>()))
+            .ok_or(MathError::Limit("retained program storage"))?;
+        let template = Arc::new(ExecutionTemplate {
             directional,
             product,
             direct_product: None,
@@ -2747,41 +2780,6 @@ impl PreparedBody {
             worker_bytes,
             order_worker_bytes,
             census,
-            retained_bytes: retained_numeric
-                .checked_mul(size_of::<f64>())
-                .and_then(|n| {
-                    n.checked_add(
-                        (self.inputs + coordinates.len()) * size_of::<usize>()
-                            + 2 * size_of::<Vec<usize>>(),
-                    )
-                })
-                .and_then(|n| n.checked_add(retained_instructions))
-                .and_then(|n| n.checked_add(retained_modules))
-                .and_then(|n| n.checked_add(descriptor_bytes))
-                .and_then(|n| n.checked_add(first_layout.retained_bytes()))
-                .and_then(|n| {
-                    n.checked_add(
-                        layouts
-                            .values()
-                            .flatten()
-                            .map(JetLayout::frame_layout_bytes)
-                            .sum::<usize>(),
-                    )
-                })
-                .and_then(|n| {
-                    n.checked_add(size_of::<
-                        EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
-                    >())
-                })
-                .and_then(|n| n.checked_add(evidence_bytes))
-                .and_then(|n| n.checked_add(prepared_support.retained_bytes()))
-                .and_then(|n| {
-                    n.checked_add(required_provider_keys.capacity() * size_of::<ProviderKey>())
-                })
-                .and_then(|n| n.checked_add(scalar_new_bytes))
-                .and_then(|n| n.checked_add(scalars.descriptor_bytes()))
-                .and_then(|n| n.checked_add(size_of::<Optimization>()))
-                .ok_or(MathError::Limit("retained program storage"))?,
             outputs: Arc::new(selected),
             layouts: Arc::new(layouts),
             first_layout,
@@ -2789,6 +2787,13 @@ impl PreparedBody {
             required_provider_keys: Arc::new(required_provider_keys),
             provider_visit_capacity,
             limits,
+        });
+        let compiled = CompiledBody {
+            optimization: options,
+            scalar_products: scalars.clone(),
+            template,
+            owner: None,
+            retained_bytes,
             support: prepared_support.clone(),
             #[cfg(test)]
             scalar_builds,
@@ -3093,17 +3098,28 @@ pub struct ArithmeticOrigin {
 pub struct CompiledBody {
     optimization: Optimization,
     scalar_products: library::ScalarProducts,
+    template: Arc<ExecutionTemplate>,
+    owner: Option<Arc<dyn crate::AllocationOwner>>,
+    retained_bytes: usize,
+    support: PreparedSupport,
+    #[cfg(test)]
+    scalar_builds: usize,
+}
+
+/// Immutable numerical realization, independent of its source preparation owner.
+/// Source correspondence is established by the enclosing `CompiledBody`, never by
+/// possession of these programs or their layouts.
+#[derive(Clone)]
+pub(crate) struct ExecutionTemplate {
     directional: bool,
     product: ProductKind,
     direct_product: Option<Arc<products::DirectProduct>>,
     reverse_product: Option<Arc<reverse::ReverseProduct>>,
-    owner: Option<Arc<dyn crate::AllocationOwner>>,
     scratch_bytes: usize,
     evaluation_cache_bytes: usize,
     worker_bytes: usize,
     order_worker_bytes: EnumMap<DerivativeOrder, usize>,
     census: EnumMap<DerivativeOrder, Option<CompiledOrderCensus>>,
-    retained_bytes: usize,
     inputs: usize,
     input_formals: Arc<Vec<usize>>,
     coordinate_offsets: Arc<Vec<usize>>,
@@ -3115,16 +3131,16 @@ pub struct CompiledBody {
     limits: EvaluationLimits,
     required_provider_keys: Arc<Vec<ProviderKey>>,
     provider_visit_capacity: usize,
-    support: PreparedSupport,
-    #[cfg(test)]
-    scalar_builds: usize,
 }
 impl std::fmt::Debug for CompiledBody {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("CompiledBody")
-            .field("inputs", &self.inputs)
-            .field("outputs", &self.outputs.len())
-            .field("profiles", &self.layouts.values().flatten().count())
+            .field("inputs", &self.template.inputs)
+            .field("outputs", &self.template.outputs.len())
+            .field(
+                "profiles",
+                &self.template.layouts.values().flatten().count(),
+            )
             .finish()
     }
 }
@@ -3135,7 +3151,7 @@ impl CompiledBody {
     }
     /// Exactly the provider keys selected in this compiled artifact, including control arms.
     pub(crate) fn required_provider_keys(&self) -> &[ProviderKey] {
-        &self.required_provider_keys
+        &self.template.required_provider_keys
     }
     /// Actual admitted provider occurrences of one numeric staged program. Visit
     /// control arms conservatively without exporting or allocating new programs.
@@ -3166,17 +3182,17 @@ impl CompiledBody {
                 }
             }
         }
-        if let Some(program) = &self.programs[order] {
+        if let Some(program) = &self.template.programs[order] {
             stages(program, &mut visit);
         }
     }
     pub(crate) fn evaluation_limits(&self) -> EvaluationLimits {
-        self.limits
+        self.template.limits
     }
     /// Compact facts from the actual admitted compilation, without support copies or
     /// library exports at inspection time. Scalar and dualized orders remain separate.
     pub fn census(&self) -> impl Iterator<Item = &CompiledOrderCensus> {
-        self.census.values().flatten()
+        self.template.census.values().flatten()
     }
     /// Count original arithmetic source checks without allocating diagnostic storage.
     pub fn arithmetic_origin_count(&self, order: DerivativeOrder) -> usize {
@@ -3228,14 +3244,14 @@ impl CompiledBody {
                 }
             }
         }
-        let check_order = if self.direct_product.is_some() {
+        let check_order = if self.template.direct_product.is_some() {
             DerivativeOrder::Value
-        } else if self.reverse_product.is_some() {
+        } else if self.template.reverse_product.is_some() {
             DerivativeOrder::First
         } else {
             order
         };
-        if let Some(stages) = &self.programs[check_order] {
+        if let Some(stages) = &self.template.programs[check_order] {
             collect(stages, check_order, &mut 0, &mut visitor);
         }
     }
@@ -3245,13 +3261,14 @@ impl CompiledBody {
     }
     /// Authored formal IDs in numerical input order. Evaluate accepts this compact signature.
     pub fn input_formals(&self) -> &[usize] {
-        &self.input_formals
+        &self.template.input_formals
     }
     /// Individually shared evaluator component identities and known payload estimates.
     /// Body, support and shallow evaluator wrappers are observed separately.
     pub fn allocation_components(&self) -> Vec<(&'static str, usize, usize)> {
         let layout_bytes = size_of::<EnumMap<DerivativeOrder, Option<JetLayout>>>()
             + self
+                .template
                 .layouts
                 .values()
                 .flatten()
@@ -3268,34 +3285,47 @@ impl CompiledBody {
                 .sum::<usize>();
         let mut components = vec![
             (
+                "execution_template",
+                Arc::as_ptr(&self.template) as usize,
+                size_of::<ExecutionTemplate>() + 2 * size_of::<usize>(),
+            ),
+            (
                 "input_formals",
-                Arc::as_ptr(&self.input_formals) as usize,
-                size_of::<Vec<usize>>() + self.input_formals.capacity() * size_of::<usize>(),
+                Arc::as_ptr(&self.template.input_formals) as usize,
+                size_of::<Vec<usize>>()
+                    + self.template.input_formals.capacity() * size_of::<usize>(),
             ),
             (
                 "coordinate_offsets",
-                Arc::as_ptr(&self.coordinate_offsets) as usize,
-                size_of::<Vec<usize>>() + self.coordinate_offsets.capacity() * size_of::<usize>(),
+                Arc::as_ptr(&self.template.coordinate_offsets) as usize,
+                size_of::<Vec<usize>>()
+                    + self.template.coordinate_offsets.capacity() * size_of::<usize>(),
             ),
             (
                 "outputs",
-                Arc::as_ptr(&self.outputs) as usize,
-                size_of::<Vec<usize>>() + self.outputs.capacity() * size_of::<usize>(),
+                Arc::as_ptr(&self.template.outputs) as usize,
+                size_of::<Vec<usize>>() + self.template.outputs.capacity() * size_of::<usize>(),
             ),
-            ("layouts", Arc::as_ptr(&self.layouts) as usize, layout_bytes),
+            (
+                "layouts",
+                Arc::as_ptr(&self.template.layouts) as usize,
+                layout_bytes,
+            ),
             (
                 "programs",
-                Arc::as_ptr(&self.programs) as usize,
+                Arc::as_ptr(&self.template.programs) as usize,
                 self.retained_bytes
                     .saturating_sub(self.support.retained_bytes())
+                    .saturating_sub(size_of::<ExecutionTemplate>() + 2 * size_of::<usize>())
                     .saturating_sub(
-                        self.direct_product
+                        self.template
+                            .direct_product
                             .as_ref()
                             .map_or(0, |product| product.retained_bytes),
                     ),
             ),
         ];
-        if let Some(product) = &self.direct_product {
+        if let Some(product) = &self.template.direct_product {
             components.push((
                 "direct_product",
                 Arc::as_ptr(product) as usize,
@@ -3306,17 +3336,17 @@ impl CompiledBody {
     }
     /// Whether this product carries one directional Taylor axis instead of a full Jacobian.
     pub fn is_directional(&self) -> bool {
-        self.directional
+        self.template.directional
     }
     /// Highest residual order actually compiled, distinct from symbolic availability.
     pub fn compiled_order(&self) -> DerivativeOrder {
-        if let Some(product) = &self.direct_product {
+        if let Some(product) = &self.template.direct_product {
             product.order
-        } else if let Some(product) = &self.reverse_product {
+        } else if let Some(product) = &self.template.reverse_product {
             product.order
-        } else if self.layouts[DerivativeOrder::Second].is_some() {
+        } else if self.template.layouts[DerivativeOrder::Second].is_some() {
             DerivativeOrder::Second
-        } else if self.layouts[DerivativeOrder::First].is_some() {
+        } else if self.template.layouts[DerivativeOrder::First].is_some() {
             DerivativeOrder::First
         } else {
             DerivativeOrder::Value
@@ -3355,17 +3385,17 @@ impl CompiledBody {
     }
     /// Upper bound on owned numeric frame and stage scratch.
     pub fn scratch_bytes(&self) -> usize {
-        self.scratch_bytes
+        self.template.scratch_bytes
     }
     /// Conservative complete attempt-owned evaluator extent: numeric scratch plus
     /// cloned library instructions and stage descriptors; shared Arc payloads excluded.
     pub fn worker_bytes(&self) -> usize {
-        self.worker_bytes
+        self.template.worker_bytes
     }
     /// Conservative retained result and input-signature extent of one occurrence's
     /// cache at the compiled derivative ceiling, including applicability evidence.
     pub(crate) fn evaluation_cache_bytes(&self) -> usize {
-        self.evaluation_cache_bytes
+        self.template.evaluation_cache_bytes
     }
     /// Storage retained by the immutable evaluator templates: their numeric buffers and
     /// library instruction streams, excluding attempt frames and returned derivative
@@ -3383,17 +3413,14 @@ impl CompiledBody {
     /// Independent scratch attached to the enclosing execution's immutable controls.
     pub fn worker_scoped(&self, scope: pse_kernels::ExecutionScope) -> Worker {
         Worker {
+            numeric: self.numeric_frame_scoped(scope),
             body: self.clone(),
-            programs: EnumMap::default(),
-            frame: Vec::new(),
-            direct_product: None,
-            reverse_worker: None,
-            product_scratch: Vec::new(),
-            prepared_provider_bank: None,
-            prepaid_bytes: self.worker_bytes,
-            used_bytes: 0,
-            scope: Some(scope),
         }
+    }
+    /// Fresh numerical state retains its execution allocation admission. It supplies
+    /// no source correspondence or authority; sourceful callers retain their body.
+    pub(crate) fn numeric_frame_scoped(&self, scope: pse_kernels::ExecutionScope) -> NumericFrame {
+        self.template.frame(Some(scope), self.owner.clone())
     }
     /// Exact selected admitted demand retained by this evaluator product.
     pub fn prepared_support(&self) -> &PreparedSupport {
@@ -3417,15 +3444,15 @@ impl CompiledBody {
         Ok(self)
     }
     pub(crate) fn projection_second_pairs(&self) -> Arc<Vec<(usize, usize)>> {
-        self.layouts[DerivativeOrder::Second]
+        self.template.layouts[DerivativeOrder::Second]
             .as_ref()
             .map_or_else(|| Arc::new(Vec::new()), |layout| layout.pairs.clone())
     }
     pub(crate) fn projection_first_layout(&self) -> Arc<FirstLayout> {
-        self.first_layout.clone()
+        self.template.first_layout.clone()
     }
     pub(crate) fn first_result_entries(&self) -> usize {
-        self.first_layout.axes.len()
+        self.template.first_layout.axes.len()
     }
     pub(crate) fn projection_witnesses(
         &self,
@@ -3450,7 +3477,7 @@ impl CompiledBody {
             }
         }
         let mut out = Vec::new();
-        if let Some(stages) = &self.programs[order] {
+        if let Some(stages) = &self.template.programs[order] {
             collect(stages, &mut out);
         }
         out
@@ -3782,26 +3809,56 @@ struct WorkerProgram {
     instantiated: bool,
 }
 
-/// Worker-local numeric frame and Symbolica scratch.
-pub struct Worker {
-    // Private native evaluators and numeric frames must drain before the shared
-    // body/support allocation owners and execution scope are released.
+/// Mutable numerical state of one execution attempt. It carries no source witness.
+pub(crate) struct NumericFrame {
     programs: EnumMap<DerivativeOrder, Option<WorkerProgram>>,
     frame: Vec<f64>,
-    body: CompiledBody,
-    scope: Option<pse_kernels::ExecutionScope>,
     direct_product: Option<products::DirectWorker>,
     reverse_worker: Option<reverse::ReverseWorker>,
     product_scratch: Vec<f64>,
     prepared_provider_bank: Option<u64>,
     prepaid_bytes: usize,
     used_bytes: usize,
+    template: Arc<ExecutionTemplate>,
+    // Execution allocation admission survives a source-free frame. This anchor
+    // supplies no PreparedBody, support or source-correspondence witness.
+    _owner: Option<Arc<dyn crate::AllocationOwner>>,
+    scope: Option<pse_kernels::ExecutionScope>,
+}
+impl ExecutionTemplate {
+    /// Cold scratch starts without instantiated orders or inherited trial values.
+    pub(crate) fn frame(
+        self: &Arc<Self>,
+        scope: Option<pse_kernels::ExecutionScope>,
+        owner: Option<Arc<dyn crate::AllocationOwner>>,
+    ) -> NumericFrame {
+        NumericFrame {
+            programs: EnumMap::default(),
+            frame: Vec::new(),
+            direct_product: None,
+            reverse_worker: None,
+            product_scratch: Vec::new(),
+            prepared_provider_bank: None,
+            prepaid_bytes: self.worker_bytes,
+            used_bytes: 0,
+            template: self.clone(),
+            _owner: owner,
+            scope,
+        }
+    }
+}
+
+/// Source-bearing worker paired with one private numerical frame.
+pub struct Worker {
+    // Numeric evaluators and their controls drain before source/support owners.
+    numeric: NumericFrame,
+    body: CompiledBody,
 }
 impl Clone for Worker {
     fn clone(&self) -> Self {
         // A new mutable evaluator never inherits previous values or eagerly copies
         // warmed orders. Instruction templates remain immutable and shared.
-        match &self.scope {
+        match &self.numeric.scope {
             Some(scope) => self.body.worker_scoped(scope.clone()),
             None => self.body.worker(),
         }
@@ -3811,13 +3868,99 @@ impl std::fmt::Debug for Worker {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Worker")
             .field("body", &self.body)
-            .field("frame_entries", &self.frame.len())
+            .field("frame_entries", &self.numeric.frame.len())
             .finish_non_exhaustive()
     }
 }
 impl Worker {
     /// Prepare finite selected provider demands before entering native callbacks.
     pub fn prepare_providers(&mut self, providers: &mut ProviderBindings) -> Result<(), MathError> {
+        self.numeric.prepare_providers(providers)
+    }
+    /// Current numerical state without instantiating an unused order.
+    pub fn census(&self) -> WorkerCensus {
+        self.numeric.census()
+    }
+    #[cfg(test)]
+    pub(crate) fn instantiated_orders(&self) -> Vec<DerivativeOrder> {
+        self.numeric.instantiated_orders()
+    }
+    /// Required authored input IDs in compact numerical order.
+    pub fn input_formals(&self) -> &[usize] {
+        self.numeric.input_formals()
+    }
+    pub(crate) fn set_scope(&mut self, scope: pse_kernels::ExecutionScope) {
+        self.numeric.set_scope(scope);
+    }
+    pub(crate) fn detach_controls(&mut self) {
+        self.numeric.detach_controls();
+    }
+    pub(crate) fn reset_scratch(&mut self) -> Result<(), MathError> {
+        self.numeric.reset_scratch()
+    }
+    /// Evaluate the requested order, publishing no partial result on failure.
+    pub fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut ProviderBindings,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        self.numeric.evaluate(inputs, order, providers, cancelled)
+    }
+    pub(crate) fn evaluate_trial_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut ProviderBindings,
+        cancelled: &Arc<AtomicBool>,
+        result: &mut TrialEvaluation,
+    ) -> Result<(), MathError> {
+        self.numeric
+            .evaluate_trial_into(inputs, order, providers, cancelled, result)
+    }
+    /// Evaluate a directional derivative without assembling selected partials.
+    pub fn evaluate_directional(
+        &mut self,
+        inputs: &[f64],
+        direction: &[f64],
+        providers: &mut ProviderBindings,
+        cancelled: &Arc<AtomicBool>,
+    ) -> Result<Evaluation, MathError> {
+        self.numeric
+            .evaluate_directional(inputs, direction, providers, cancelled)
+    }
+    /// Publish one complete finite requested product into caller-owned storage.
+    pub fn evaluate_product_into(
+        &mut self,
+        inputs: &[f64],
+        bindings: ProductValues<'_>,
+        providers: &mut ProviderBindings,
+        cancel: &Arc<AtomicBool>,
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        self.numeric
+            .evaluate_product_into(inputs, bindings, providers, cancel, output)
+    }
+    pub(crate) fn evaluate_product_trial_into(
+        &mut self,
+        inputs: &[f64],
+        bindings: ProductValues<'_>,
+        providers: &mut ProviderBindings,
+        cancel: &Arc<AtomicBool>,
+        output: &mut [f64],
+        trial: &mut TrialEvaluation,
+    ) -> Result<(), MathError> {
+        self.numeric
+            .evaluate_product_trial_into(inputs, bindings, providers, cancel, output, trial)
+    }
+}
+impl NumericFrame {
+    /// Prepare finite selected provider demands before entering native callbacks.
+    pub(crate) fn prepare_providers(
+        &mut self,
+        providers: &mut ProviderBindings,
+    ) -> Result<(), MathError> {
         self.check_scope()?;
         if self.prepared_provider_bank == Some(providers.identity()) {
             return Ok(());
@@ -3852,17 +3995,17 @@ impl Worker {
             }
             Ok(())
         }
-        for stages in self.body.programs.values().flatten() {
+        for stages in self.template.programs.values().flatten() {
             prepare(stages, providers)?;
         }
-        if let Some(product) = &self.body.reverse_product {
+        if let Some(product) = &self.template.reverse_product {
             product.prepare(providers)?;
         }
         self.prepared_provider_bank = Some(providers.identity());
         Ok(())
     }
     /// Copy current owner facts without instantiating an unused order or exporting code.
-    pub fn census(&self) -> WorkerCensus {
+    pub(crate) fn census(&self) -> WorkerCensus {
         WorkerCensus {
             frame_entries: self.frame.len(),
             frame_capacity: self.frame.capacity(),
@@ -3887,8 +4030,8 @@ impl Worker {
         .collect()
     }
     /// Required authored input IDs, ordered by their compact numerical offsets.
-    pub fn input_formals(&self) -> &[usize] {
-        self.body.input_formals()
+    pub(crate) fn input_formals(&self) -> &[usize] {
+        &self.template.input_formals
     }
     /// Attach original execution controls while constructing a nested problem worker.
     pub(crate) fn set_scope(&mut self, scope: pse_kernels::ExecutionScope) {
@@ -3927,7 +4070,7 @@ impl Worker {
         Ok(())
     }
     /// Evaluate only the requested order, publishing no result on failure.
-    pub fn evaluate(
+    pub(crate) fn evaluate(
         &mut self,
         inputs: &[f64],
         order: DerivativeOrder,
@@ -3957,7 +4100,7 @@ impl Worker {
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
         result.clear();
-        if self.body.product != ProductKind::SelectedPartials {
+        if self.template.product != ProductKind::SelectedPartials {
             return Err(MathError::Contract(
                 "product artifact requires its runtime bindings".into(),
             ));
@@ -3970,7 +4113,7 @@ impl Worker {
     }
     /// Evaluate DF(x)v from seeds in requested derivative-coordinate order, without assembling
     /// output-by-coordinate partials. Returned jacobian contains one action per output.
-    pub fn evaluate_directional(
+    pub(crate) fn evaluate_directional(
         &mut self,
         inputs: &[f64],
         direction: &[f64],
@@ -4000,8 +4143,8 @@ impl Worker {
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
         result.clear();
-        if !self.body.directional
-            || direction.len() != self.body.coordinate_offsets.len()
+        if !self.template.directional
+            || direction.len() != self.template.coordinate_offsets.len()
             || direction.iter().any(|v| !v.is_finite())
         {
             return Err(MathError::Contract(
@@ -4032,7 +4175,7 @@ impl Worker {
     ) -> Result<(), MathError> {
         result.clear();
         self.check_scope()?;
-        if inputs.len() != self.body.inputs || inputs.iter().any(|v| !v.is_finite()) {
+        if inputs.len() != self.template.inputs || inputs.iter().any(|v| !v.is_finite()) {
             return Err(MathError::Contract(
                 "finite ordered formal inputs required".into(),
             ));
@@ -4043,12 +4186,12 @@ impl Worker {
         self.prepare_providers(providers)?;
         self.prepare_order(order)?;
         let (Some(layout), Some(program)) = (
-            self.body.layouts[order].as_ref(),
+            self.template.layouts[order].as_ref(),
             self.programs[order].as_mut(),
         ) else {
             return Err(MathError::Contract("uncompiled derivative order".into()));
         };
-        let frame = &mut self.frame[..layout.frame_entries(self.body.slots)?];
+        let frame = &mut self.frame[..layout.frame_entries(self.template.slots)?];
         let n = layout.coordinates.len();
         for (slot, &value) in inputs.iter().enumerate() {
             layout.clear_frame_slot(frame, slot);
@@ -4056,9 +4199,9 @@ impl Worker {
         }
         if order >= DerivativeOrder::First {
             if let Some(direction) = direction {
-                for (axis, &slot) in self.body.coordinate_offsets.iter().enumerate() {
-                    if self.body.product == ProductKind::WeightedHessianAction
-                        && self.body.reverse_product.is_none()
+                for (axis, &slot) in self.template.coordinate_offsets.iter().enumerate() {
+                    if self.template.product == ProductKind::WeightedHessianAction
+                        && self.template.reverse_product.is_none()
                     {
                         layout.set_frame_value(frame, slot, 1 + axis, 1.0);
                         layout.set_frame_value(frame, slot, n, direction[axis]);
@@ -4074,11 +4217,11 @@ impl Worker {
         }
         let context = EvaluationContext {
             cancelled,
-            max_result_bytes: self.body.limits.scratch_bytes,
+            max_result_bytes: self.template.limits.scratch_bytes,
         };
         result
             .provider_visits
-            .try_reserve_exact(self.body.provider_visit_capacity)
+            .try_reserve_exact(self.template.provider_visit_capacity)
             .map_err(|_| MathError::Limit("provider completion observations"))?;
         evaluate_stages(
             &mut program.stages,
@@ -4100,7 +4243,7 @@ impl Worker {
         result.second_requested = order >= DerivativeOrder::Second;
         result.first_requested = order >= DerivativeOrder::First;
         result.first_layout = if order >= DerivativeOrder::First {
-            self.body.first_layout.clone()
+            self.template.first_layout.clone()
         } else {
             Arc::default()
         };
@@ -4108,21 +4251,21 @@ impl Worker {
         // the actually demanded order, and retain it for the next trial.
         result
             .values
-            .try_reserve_exact(self.body.outputs.len())
+            .try_reserve_exact(self.template.outputs.len())
             .map_err(|_| MathError::Limit("trial value storage"))?;
         if order >= DerivativeOrder::First {
             result
                 .first
-                .try_reserve_exact(self.body.first_layout.axes.len())
+                .try_reserve_exact(self.template.first_layout.axes.len())
                 .map_err(|_| MathError::Limit("trial first storage"))?;
         }
         if order >= DerivativeOrder::Second {
             result
                 .second
-                .try_reserve_exact(self.body.outputs.len() * layout.pairs.len())
+                .try_reserve_exact(self.template.outputs.len() * layout.pairs.len())
                 .map_err(|_| MathError::Limit("trial second storage"))?;
         }
-        for (row, &slot) in self.body.outputs.iter().enumerate() {
+        for (row, &slot) in self.template.outputs.iter().enumerate() {
             let jet = &frame[layout.frame_slot_range(slot)];
             if jet.iter().any(|v| !v.is_finite()) {
                 return Err(MathError::Contract(
@@ -4131,7 +4274,7 @@ impl Worker {
             }
             result.values.push(layout.frame_value(frame, slot, 0));
             if order >= DerivativeOrder::First {
-                for (axis, _) in self.body.first_layout.entries(row) {
+                for (axis, _) in self.template.first_layout.entries(row) {
                     result.first.push(layout.frame_value(frame, slot, 1 + axis));
                 }
             }
@@ -4155,19 +4298,19 @@ impl Worker {
         {
             return Ok(());
         }
-        let layout = self.body.layouts[order]
+        let layout = self.template.layouts[order]
             .as_ref()
             .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
-        let template = self.body.programs[order]
+        let template = self.template.programs[order]
             .as_ref()
             .ok_or_else(|| MathError::Contract("uncompiled derivative order".into()))?;
-        let entries = layout.frame_entries(self.body.slots)?;
+        let entries = layout.frame_entries(self.template.slots)?;
         let frame_growth = entries
             .saturating_sub(self.frame.len())
             .checked_mul(size_of::<f64>())
             .ok_or(MathError::Limit("order worker frame"))?;
         let clone_bytes = if self.programs[order].is_none() {
-            self.body.order_worker_bytes[order]
+            self.template.order_worker_bytes[order]
         } else {
             0
         };
@@ -8061,6 +8204,7 @@ mod compact_tests {
         assert_eq!(result.values, vec![1.; 128]);
         let packed = program
             .worker()
+            .numeric
             .evaluate_trial(
                 &inputs,
                 DerivativeOrder::First,
@@ -8111,8 +8255,9 @@ mod compact_tests {
             .unwrap();
         assert_eq!(program.scalar_builds, 1);
         let mut worker = program.worker();
-        assert!(worker.programs.values().all(Option::is_none));
+        assert!(worker.numeric.programs.values().all(Option::is_none));
         let result = worker
+            .numeric
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Second,
@@ -8123,9 +8268,9 @@ mod compact_tests {
         // x² + 3xy in requested [Y, X] coordinates has no Y² component.
         assert_eq!(result.second_pairs.as_ref(), &[(0, 1), (1, 1)]);
         assert_eq!(result.second, [3., 2.]);
-        assert!(worker.programs[DerivativeOrder::Second].is_some());
-        assert!(worker.programs[DerivativeOrder::First].is_none());
-        assert!(worker.programs[DerivativeOrder::Value].is_none());
+        assert!(worker.numeric.programs[DerivativeOrder::Second].is_some());
+        assert!(worker.numeric.programs[DerivativeOrder::First].is_none());
+        assert!(worker.numeric.programs[DerivativeOrder::Value].is_none());
         let public = result.clone().into_evaluation();
         assert_eq!(public.hessians, [0., 3., 3., 2.]);
         for i in 0..2 {
@@ -8133,13 +8278,14 @@ mod compact_tests {
                 assert_eq!(result.second(0, i, j), public.hessians[i * 2 + j]);
             }
         }
-        worker.frame.fill(12345.0);
-        let extent = worker.body.layouts[DerivativeOrder::Value]
+        worker.numeric.frame.fill(12345.0);
+        let extent = worker.body.template.layouts[DerivativeOrder::Value]
             .as_ref()
             .unwrap()
-            .frame_entries(worker.body.slots)
+            .frame_entries(worker.body.template.slots)
             .unwrap();
         let value = worker
+            .numeric
             .evaluate_trial(
                 &[2.0, 3.0, 1.0],
                 DerivativeOrder::Value,
@@ -8149,7 +8295,7 @@ mod compact_tests {
             .unwrap();
         assert_eq!(value.values, public.values);
         assert!(value.second.is_empty());
-        assert!(worker.frame[extent..].iter().all(|v| *v == 12345.0));
+        assert!(worker.numeric.frame[extent..].iter().all(|v| *v == 12345.0));
     }
 
     #[test]
@@ -8283,6 +8429,7 @@ mod compact_tests {
             .unwrap();
         let mut worker = program.worker();
         let zero = worker
+            .numeric
             .evaluate_trial(
                 &[0., 3., 4.],
                 DerivativeOrder::Second,
@@ -8295,6 +8442,7 @@ mod compact_tests {
         assert!(zero.first_entries(1).next().is_none());
         assert_eq!(zero.clone().into_evaluation().jacobian, [0.; 6]);
         let positive = worker
+            .numeric
             .evaluate_trial(
                 &[2., 3., 4.],
                 DerivativeOrder::Second,
@@ -8384,7 +8532,7 @@ mod compact_tests {
             .find(|c| c.order == DerivativeOrder::First)
             .unwrap();
         assert_eq!(actual.frame_entries, 40);
-        assert!(actual.frame_entries < selected.slots * actual.derivative_components);
+        assert!(actual.frame_entries < selected.template.slots * actual.derivative_components);
         assert_eq!(actual.result_entries, 16);
         assert_eq!(
             (
@@ -8805,7 +8953,7 @@ mod compact_tests {
                 "upgrade must not repeat scalar optimization"
             );
             assert_eq!(
-                program.layouts.values().flatten().count(),
+                program.template.layouts.values().flatten().count(),
                 order as usize + 1
             );
             let expected = compiled(&body, &[Y, X], order);
@@ -8922,7 +9070,7 @@ mod compact_tests {
             .filter(|requested| *requested <= order)
             {
                 let operations = |program: &CompiledBody| {
-                    program.programs[requested]
+                    program.template.programs[requested]
                         .as_ref()
                         .unwrap()
                         .iter()
@@ -8981,13 +9129,14 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(program.scalar_builds, 0);
-        assert!(program.layouts[DerivativeOrder::Value].is_none());
-        assert!(program.layouts[DerivativeOrder::Second].is_none());
-        assert!(program.programs[DerivativeOrder::Value].is_none());
-        assert_eq!(program.layouts.values().flatten().count(), 1);
+        assert!(program.template.layouts[DerivativeOrder::Value].is_none());
+        assert!(program.template.layouts[DerivativeOrder::Second].is_none());
+        assert!(program.template.programs[DerivativeOrder::Value].is_none());
+        assert_eq!(program.template.layouts.values().flatten().count(), 1);
         let mut worker = program.worker();
         let mut result = TrialEvaluation::default();
         worker
+            .numeric
             .evaluate_directional_trial_into(
                 &[2., 3., 1.],
                 &[1., 0.],
@@ -8997,9 +9146,16 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(result.first.len(), 1);
-        assert!(worker.programs[DerivativeOrder::Value].is_none());
-        assert!(worker.programs[DerivativeOrder::First].is_some());
-        assert!(worker.clone().programs.values().all(Option::is_none));
+        assert!(worker.numeric.programs[DerivativeOrder::Value].is_none());
+        assert!(worker.numeric.programs[DerivativeOrder::First].is_some());
+        assert!(
+            worker
+                .clone()
+                .numeric
+                .programs
+                .values()
+                .all(Option::is_none)
+        );
     }
 
     #[test]
@@ -9016,51 +9172,51 @@ mod compact_tests {
             )
             .unwrap();
         let mut worker = program.worker();
-        assert!(worker.frame.is_empty());
-        assert_eq!(worker.used_bytes, 0);
-        let first = program.order_worker_bytes[DerivativeOrder::First]
-            + program.layouts[DerivativeOrder::First]
+        assert!(worker.numeric.frame.is_empty());
+        assert_eq!(worker.numeric.used_bytes, 0);
+        let first = program.template.order_worker_bytes[DerivativeOrder::First]
+            + program.template.layouts[DerivativeOrder::First]
                 .as_ref()
                 .unwrap()
-                .frame_entries(program.slots)
+                .frame_entries(program.template.slots)
                 .unwrap()
                 * size_of::<f64>();
-        worker.prepaid_bytes = first - 1;
+        worker.numeric.prepaid_bytes = first - 1;
         assert!(matches!(
             eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First),
             Err(MathError::Limit("prepaid order worker storage"))
         ));
-        assert!(worker.frame.is_empty());
-        assert!(worker.programs.values().all(Option::is_none));
-        assert_eq!(worker.used_bytes, 0);
-        worker.prepaid_bytes = program.worker_bytes();
+        assert!(worker.numeric.frame.is_empty());
+        assert!(worker.numeric.programs.values().all(Option::is_none));
+        assert_eq!(worker.numeric.used_bytes, 0);
+        worker.numeric.prepaid_bytes = program.worker_bytes();
         let result = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First).unwrap();
-        assert_eq!(worker.used_bytes, first);
+        assert_eq!(worker.numeric.used_bytes, first);
         assert_eq!(
-            worker.frame.len(),
-            program.layouts[DerivativeOrder::First]
+            worker.numeric.frame.len(),
+            program.template.layouts[DerivativeOrder::First]
                 .as_ref()
                 .unwrap()
-                .frame_entries(program.slots)
+                .frame_entries(program.template.slots)
                 .unwrap()
         );
-        assert!(worker.programs[DerivativeOrder::Value].is_none());
-        assert!(worker.programs[DerivativeOrder::Second].is_none());
-        let first_program = worker.programs[DerivativeOrder::First]
+        assert!(worker.numeric.programs[DerivativeOrder::Value].is_none());
+        assert!(worker.numeric.programs[DerivativeOrder::Second].is_none());
+        let first_program = worker.numeric.programs[DerivativeOrder::First]
             .as_ref()
             .unwrap()
             .stages
             .as_ptr();
-        let used = worker.used_bytes;
+        let used = worker.numeric.used_bytes;
         assert_eq!(
             eval(&mut worker, &[2., 3., 1.], DerivativeOrder::First)
                 .unwrap()
                 .jacobian,
             result.jacobian
         );
-        assert_eq!(worker.used_bytes, used);
+        assert_eq!(worker.numeric.used_bytes, used);
         assert_eq!(
-            worker.programs[DerivativeOrder::First]
+            worker.numeric.programs[DerivativeOrder::First]
                 .as_ref()
                 .unwrap()
                 .stages
@@ -9070,8 +9226,8 @@ mod compact_tests {
         for order in [DerivativeOrder::Value, DerivativeOrder::Second] {
             eval(&mut worker, &[2., 3., 1.], order).unwrap();
         }
-        assert!(worker.programs.values().all(Option::is_some));
-        assert!(worker.used_bytes <= worker.prepaid_bytes);
+        assert!(worker.numeric.programs.values().all(Option::is_some));
+        assert!(worker.numeric.used_bytes <= worker.numeric.prepaid_bytes);
         assert_eq!(
             program.scalar_builds, 1,
             "callbacks never run the scalar optimizer"
@@ -9096,19 +9252,23 @@ mod compact_tests {
             program.worker_scoped(pse_kernels::ExecutionScope::new(first_stop.clone(), None));
         let expected = eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
         let mut clone = original.clone();
-        assert!(clone.frame.is_empty());
-        assert!(clone.programs.values().all(Option::is_none));
-        assert_eq!(clone.used_bytes, 0);
+        assert!(Arc::ptr_eq(
+            &original.numeric.template,
+            &clone.numeric.template
+        ));
+        assert!(clone.numeric.frame.is_empty());
+        assert!(clone.numeric.programs.values().all(Option::is_none));
+        assert_eq!(clone.numeric.used_bytes, 0);
         let second_stop = pse_diagnostics::Cancellation::default();
         clone.set_scope(pse_kernels::ExecutionScope::new(second_stop.clone(), None));
         first_stop.cancel();
         assert!(eval(&mut original, &[2., 3., 1.], DerivativeOrder::Second).is_err());
         assert!(eval(&mut clone, &[f64::NAN, 3., 1.], DerivativeOrder::Value).is_err());
-        assert!(clone.frame.is_empty());
+        assert!(clone.numeric.frame.is_empty());
         let actual = eval(&mut clone, &[2., 3., 1.], DerivativeOrder::First).unwrap();
         assert_eq!(actual.values, expected.values);
         assert_eq!(actual.jacobian, expected.jacobian);
-        assert!(clone.programs[DerivativeOrder::Second].is_none());
+        assert!(clone.numeric.programs[DerivativeOrder::Second].is_none());
         assert!(!second_stop.is_cancelled());
         let mut cancelled_worker = program.worker();
         control.cancel();
@@ -9121,8 +9281,91 @@ mod compact_tests {
             ),
             Err(MathError::Cancelled)
         ));
-        assert!(cancelled_worker.frame.is_empty());
-        assert!(cancelled_worker.programs.values().all(Option::is_none));
+        assert!(cancelled_worker.numeric.frame.is_empty());
+        assert!(
+            cancelled_worker
+                .numeric
+                .programs
+                .values()
+                .all(Option::is_none)
+        );
+    }
+
+    #[test]
+    fn numeric_template_executes_nested_stages_without_retaining_preparation() {
+        let source_owner = Arc::new("original source admission");
+        let source_owner_weak = Arc::downgrade(&source_owner);
+        let body = nested_branch_body().with_owner(source_owner.clone());
+        let original_source = Arc::downgrade(&body.data);
+        let execution_owner = Arc::new("execution allocation admission");
+        let execution_owner_weak = Arc::downgrade(&execution_owner);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let program = body
+            .compile_branch_local(
+                &[0],
+                &[X, Y],
+                DerivativeOrder::Second,
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap()
+            .with_owner(execution_owner.clone());
+        let mut sourceful = program.worker();
+        let expected = eval(&mut sourceful, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
+        let mut numeric = program.numeric_frame_scoped(pse_kernels::ExecutionScope::new(
+            pse_diagnostics::Cancellation::default(),
+            None,
+        ));
+        drop(sourceful);
+        drop(program);
+        drop(body);
+        drop(source_owner);
+        drop(execution_owner);
+        assert!(original_source.upgrade().is_none());
+        assert!(source_owner_weak.upgrade().is_none());
+        assert!(execution_owner_weak.upgrade().is_some());
+        assert!(
+            numeric
+                .census()
+                .instantiated_orders
+                .iter()
+                .all(|ready| !ready)
+        );
+        for (inputs, values, first, second) in [
+            ([2., 3., 1.], vec![4.], vec![4., 0.], vec![2., 0., 0., 0.]),
+            ([-2., 3., 1.], vec![9.], vec![0., 6.], vec![0., 0., 0., 2.]),
+        ] {
+            let actual = numeric
+                .evaluate(
+                    &inputs,
+                    DerivativeOrder::Second,
+                    &mut ProviderBindings::new(),
+                    &Arc::new(AtomicBool::new(false)),
+                )
+                .unwrap();
+            assert_eq!(actual.values, values);
+            assert_eq!(actual.jacobian, first);
+            assert_eq!(actual.hessians, second);
+            if inputs[0] > 0. {
+                assert_eq!(actual, expected);
+            }
+        }
+        // An invalid input never becomes a partial numeric result or warms another order.
+        assert!(
+            numeric
+                .evaluate(
+                    &[f64::NAN, 3., 1.],
+                    DerivativeOrder::Value,
+                    &mut ProviderBindings::new(),
+                    &Arc::new(AtomicBool::new(false))
+                )
+                .is_err()
+        );
+        assert!(!numeric.census().instantiated_orders[0]);
+        drop(numeric);
+        assert!(execution_owner_weak.upgrade().is_none());
     }
 
     #[test]
@@ -9145,8 +9388,8 @@ mod compact_tests {
             program.worker_scoped(pse_kernels::ExecutionScope::new(stop_control.clone(), None));
         let prior = eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Second).unwrap();
         assert!(eval(&mut worker, &[2., 3., -1.], DerivativeOrder::Value).is_err());
-        let frame = worker.frame.as_ptr();
-        let used = worker.used_bytes;
+        let frame = worker.numeric.frame.as_ptr();
+        let used = worker.numeric.used_bytes;
         worker.detach_controls();
         stop_control.cancel();
         drop(stop);
@@ -9156,9 +9399,9 @@ mod compact_tests {
             "detached storage cannot retain cancellation"
         );
         assert!(worker.reset_scratch().is_ok());
-        assert_eq!(worker.frame.as_ptr(), frame);
-        assert!(worker.frame.iter().all(|v| v.is_nan()));
-        assert_eq!(worker.used_bytes, used);
+        assert_eq!(worker.numeric.frame.as_ptr(), frame);
+        assert!(worker.numeric.frame.iter().all(|v| v.is_nan()));
+        assert_eq!(worker.numeric.used_bytes, used);
         assert!(
             eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Second).is_err(),
             "detached scratch is not an evaluator permission"
@@ -9175,11 +9418,13 @@ mod compact_tests {
         );
         assert_ne!(actual.values, prior.values);
         assert!(
-            cold.programs[DerivativeOrder::First].is_none(),
+            cold.numeric.programs[DerivativeOrder::First].is_none(),
             "independent worker stays lazy and cold"
         );
         // A reset qualifier cannot be inferred for a future external evaluator.
-        let stages = worker.programs[DerivativeOrder::Second].as_mut().unwrap();
+        let stages = worker.numeric.programs[DerivativeOrder::Second]
+            .as_mut()
+            .unwrap();
         fn disqualify(stages: &mut [CompiledStage]) -> bool {
             for stage in stages {
                 match stage {
@@ -9820,6 +10065,7 @@ mod compact_tests {
             [9.]
         );
         let mut trial = worker
+            .numeric
             .evaluate_trial(
                 &[2., 3., 1.],
                 DerivativeOrder::Value,
@@ -9932,8 +10178,8 @@ mod compact_tests {
                 )
             );
         }
-        let slots = worker.body.slots;
-        for stage in &worker.programs[DerivativeOrder::Value]
+        let slots = worker.body.template.slots;
+        for stage in &worker.numeric.programs[DerivativeOrder::Value]
             .as_ref()
             .unwrap()
             .stages
@@ -9981,7 +10227,7 @@ mod compact_tests {
             }
         }
         assert_poisoned(
-            &worker.programs[DerivativeOrder::Value]
+            &worker.numeric.programs[DerivativeOrder::Value]
                 .as_ref()
                 .unwrap()
                 .stages,
@@ -10028,10 +10274,10 @@ mod compact_tests {
         .into_iter()
         .enumerate()
         {
-            worker.prepare_order(order).unwrap();
+            worker.numeric.prepare_order(order).unwrap();
             let expected = (8 * (index + 1), 5 * (index + 1), index + 1);
             assert_eq!(instantiation_counts(), expected);
-            worker.prepare_order(order).unwrap();
+            worker.numeric.prepare_order(order).unwrap();
             assert_eq!(
                 instantiation_counts(),
                 expected,
@@ -10059,7 +10305,7 @@ mod compact_tests {
         let cancelled = pse_diagnostics::Cancellation::new(true);
         worker.set_scope(pse_kernels::ExecutionScope::new(cancelled, None));
         assert!(matches!(
-            worker.prepare_order(DerivativeOrder::Value),
+            worker.numeric.prepare_order(DerivativeOrder::Value),
             Err(MathError::Cancelled)
         ));
         worker.set_scope(pse_kernels::ExecutionScope::new(
@@ -10067,7 +10313,7 @@ mod compact_tests {
             Some(std::time::Instant::now()),
         ));
         assert!(matches!(
-            worker.prepare_order(DerivativeOrder::Value),
+            worker.numeric.prepare_order(DerivativeOrder::Value),
             Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
         ));
         assert_eq!(
@@ -10079,6 +10325,7 @@ mod compact_tests {
         worker.reset_scratch().unwrap();
         assert!(
             worker
+                .numeric
                 .programs
                 .values()
                 .flatten()
@@ -10088,13 +10335,19 @@ mod compact_tests {
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(
             instantiation_counts(),
             (32, 20, 3),
             "reset retries without cloning templates"
         );
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(instantiation_counts(), (32, 20, 3));
         assert_eq!(
             eval(&mut worker, &[4., 5., 1.], DerivativeOrder::Value)
@@ -10103,7 +10356,10 @@ mod compact_tests {
             [16.]
         );
         let mut replacement = worker.clone();
-        replacement.prepare_order(DerivativeOrder::Value).unwrap();
+        replacement
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(
             instantiation_counts(),
             (40, 25, 4),
@@ -10136,27 +10392,36 @@ mod compact_tests {
         });
         let mut worker = program.worker();
         assert!(matches!(
-            worker.prepare_order(DerivativeOrder::First),
+            worker.numeric.prepare_order(DerivativeOrder::First),
             Err(MathError::Library(_))
         ));
         assert_eq!(instantiation_counts(), (4, 1, 1));
-        assert!(worker.programs[DerivativeOrder::First].is_none());
-        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
+        assert!(worker.numeric.programs[DerivativeOrder::First].is_none());
+        assert_eq!(
+            worker.numeric.used_bytes,
+            worker.numeric.frame.len() * size_of::<f64>()
+        );
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.fail_at = None);
-        worker.prepare_order(DerivativeOrder::First).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::First)
+            .unwrap();
         assert_eq!(instantiation_counts(), (12, 6, 2));
         assert_eq!(
-            worker.used_bytes,
-            worker.frame.len() * size_of::<f64>()
-                + program.order_worker_bytes[DerivativeOrder::First]
+            worker.numeric.used_bytes,
+            worker.numeric.frame.len() * size_of::<f64>()
+                + program.template.order_worker_bytes[DerivativeOrder::First]
         );
         assert!(
-            worker.programs[DerivativeOrder::First]
+            worker.numeric.programs[DerivativeOrder::First]
                 .as_ref()
                 .unwrap()
                 .instantiated
         );
-        worker.prepare_order(DerivativeOrder::First).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::First)
+            .unwrap();
         assert_eq!(instantiation_counts(), (12, 6, 2));
     }
 
@@ -10171,18 +10436,24 @@ mod compact_tests {
         // Cancellation in the last leaf is detected before publishing even though
         // every evaluator has been instantiated and there is no next stage check.
         assert!(matches!(
-            worker.prepare_order(DerivativeOrder::Value),
+            worker.numeric.prepare_order(DerivativeOrder::Value),
             Err(MathError::Cancelled)
         ));
         assert_eq!(instantiation_counts(), (8, 5, 1));
-        assert!(worker.programs[DerivativeOrder::Value].is_none());
-        assert_eq!(worker.used_bytes, worker.frame.len() * size_of::<f64>());
+        assert!(worker.numeric.programs[DerivativeOrder::Value].is_none());
+        assert_eq!(
+            worker.numeric.used_bytes,
+            worker.numeric.frame.len() * size_of::<f64>()
+        );
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = None);
         worker.set_scope(pse_kernels::ExecutionScope::new(
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(instantiation_counts(), (16, 10, 2));
         worker.detach_controls();
         worker.reset_scratch().unwrap();
@@ -10192,12 +10463,12 @@ mod compact_tests {
         ));
         INSTANTIATION_PROBE.with_borrow_mut(|probe| probe.cancel_at = Some(18));
         assert!(matches!(
-            worker.prepare_order(DerivativeOrder::Value),
+            worker.numeric.prepare_order(DerivativeOrder::Value),
             Err(MathError::Cancelled)
         ));
         assert_eq!(instantiation_counts(), (18, 11, 2));
         assert!(
-            !worker.programs[DerivativeOrder::Value]
+            !worker.numeric.programs[DerivativeOrder::Value]
                 .as_ref()
                 .unwrap()
                 .instantiated
@@ -10207,9 +10478,15 @@ mod compact_tests {
             pse_diagnostics::Cancellation::default(),
             None,
         ));
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(instantiation_counts(), (26, 16, 2));
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(instantiation_counts(), (26, 16, 2));
         assert_eq!(
             eval(&mut worker, &[2., 3., 1.], DerivativeOrder::Value)
@@ -10757,11 +11034,13 @@ mod compact_tests {
                 &pse_kernels::ExecutionScope::new(cancel.clone(), None),
             )
             .unwrap();
-        let second = compiled.layouts[DerivativeOrder::Second].as_ref().unwrap();
+        let second = compiled.template.layouts[DerivativeOrder::Second]
+            .as_ref()
+            .unwrap();
         assert_eq!(second.pairs.as_slice(), &[(0, 1), (2, 2)]);
         assert_eq!(second.width(), 6, "dense shape would need ten components");
         assert_eq!(
-            compiled.census[DerivativeOrder::Second]
+            compiled.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .second_pairs,
             2
@@ -10921,7 +11200,7 @@ mod compact_tests {
                 &scalars,
             )
             .unwrap();
-        let census = compiled.census[DerivativeOrder::Value].unwrap();
+        let census = compiled.template.census[DerivativeOrder::Value].unwrap();
         assert_eq!(census.arithmetic_blocks, 1);
         // The exported library census, rather than a source-tree estimate, remains linear.
         assert!(census.library_instructions < DEPTH * 16);
@@ -10978,7 +11257,7 @@ mod compact_tests {
                 &scope,
             )
             .unwrap();
-        let census = compiled.census[DerivativeOrder::Second].unwrap();
+        let census = compiled.template.census[DerivativeOrder::Second].unwrap();
         assert_eq!(census.arithmetic_blocks, 1);
         assert!(
             census.library_instructions < DEPTH * 64,
@@ -11048,7 +11327,12 @@ mod compact_tests {
             DerivativeOrder::First,
             DerivativeOrder::Second,
         ] {
-            assert_eq!(compiled.census[order].unwrap().native_arithmetic_blocks, 1);
+            assert_eq!(
+                compiled.template.census[order]
+                    .unwrap()
+                    .native_arithmetic_blocks,
+                1
+            );
         }
         let mut first = compiled.worker();
         let mut second = compiled.worker();
@@ -11161,13 +11445,13 @@ mod compact_tests {
         );
         drop(entered);
         assert_eq!(
-            compiled.census[DerivativeOrder::First]
+            compiled.template.census[DerivativeOrder::First]
                 .unwrap()
                 .arithmetic_blocks,
             1
         );
         assert_eq!(
-            compiled.census[DerivativeOrder::Second]
+            compiled.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .arithmetic_blocks,
             1
@@ -11207,7 +11491,7 @@ mod compact_tests {
             )
             .unwrap();
         assert_eq!(
-            action.census[DerivativeOrder::First]
+            action.template.census[DerivativeOrder::First]
                 .unwrap()
                 .arithmetic_blocks,
             1
@@ -11360,7 +11644,7 @@ mod compact_tests {
                 &scope,
             )
             .unwrap();
-        let census = compiled.census[DerivativeOrder::Value].unwrap();
+        let census = compiled.template.census[DerivativeOrder::Value].unwrap();
         assert_eq!(census.arithmetic_blocks, 1);
         assert_eq!(
             census.native_arithmetic_blocks, 1,
@@ -11473,7 +11757,7 @@ mod compact_tests {
             Some(Value::Count(3))
         );
         assert_eq!(
-            compiled.census[DerivativeOrder::Second]
+            compiled.template.census[DerivativeOrder::Second]
                 .unwrap()
                 .arithmetic_blocks,
             1
@@ -11747,14 +12031,18 @@ mod compact_tests {
         );
         assert!(program.retained_bytes() + program.worker_bytes() <= bound);
         assert!(matches!(
-            &program.programs[DerivativeOrder::Value].as_ref().unwrap()[0],
+            &program.template.programs[DerivativeOrder::Value]
+                .as_ref()
+                .unwrap()[0],
             CompiledStage::Block {
                 evaluator: BlockEvaluator::Native(_),
                 ..
             }
         ));
         assert!(matches!(
-            &program.programs[DerivativeOrder::First].as_ref().unwrap()[0],
+            &program.template.programs[DerivativeOrder::First]
+                .as_ref()
+                .unwrap()[0],
             CompiledStage::Block {
                 evaluator: BlockEvaluator::Native(_),
                 ..
@@ -11804,7 +12092,9 @@ mod compact_tests {
             eval(&mut expected, &[2., 3., 5.], DerivativeOrder::Second).unwrap()
         );
         assert!(matches!(
-            &program.programs[DerivativeOrder::Second].as_ref().unwrap()[0],
+            &program.template.programs[DerivativeOrder::Second]
+                .as_ref()
+                .unwrap()[0],
             CompiledStage::Block {
                 evaluator: BlockEvaluator::Native(_),
                 ..
@@ -11990,14 +12280,26 @@ mod compact_tests {
         );
         assert_eq!(count("math.evaluator_template_instantiations"), None);
         let mut worker = program.worker();
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
-        worker.prepare_order(DerivativeOrder::Value).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::Value)
+            .unwrap();
         assert_eq!(
             count("math.evaluator_template_instantiations"),
             Some(Value::Count(1))
         );
-        worker.prepare_order(DerivativeOrder::First).unwrap();
-        worker.prepare_order(DerivativeOrder::First).unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::First)
+            .unwrap();
+        worker
+            .numeric
+            .prepare_order(DerivativeOrder::First)
+            .unwrap();
         assert_eq!(
             count("math.evaluator_template_instantiations_completed"),
             Some(Value::Count(2))

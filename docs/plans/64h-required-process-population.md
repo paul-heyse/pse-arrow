@@ -36,10 +36,12 @@ The existing [notebook register](../process-simulator-design/reference/notebook-
 remains the owner of its documented/held/archive entry list. The present crosswalk
 preserves every mandatory family in the
 [adopted scope](../process-simulator-design/delivery/idaes-scope-and-capability-coverage.md).
-It does **not** establish a closed total of scientific configurations or parameterized
-test instances: inherited settings, callable configurations, operating envelopes,
-full test parameters and transitive input closures are not all resolved. The
-specific remaining enumeration work is stated below. No completion percentage can
+It does **not** establish a closed total ofscientific configurations or
+parameterized test instances. The seven bounded source-expansion groups now
+have explicit handoffs below;selected inherited/callable cases,ordinary
+scientific inputs,operating envelopes,realized data-dependent populations
+andexecutable closures remain unresolved asstated in the final handoff.
+No completion percentage can
 be calculated from this investigation.
 
 ## Population rules
@@ -144,7 +146,7 @@ E02/E03/E04 supply only the storage/distribution/cycle capability each row consu
 
 | Required scientific demand / owner | Exact source configurations and shipped consumers | Data / route / independent-reference prerequisite |
 | --- | --- | --- |
-| Steam/power equipment and integrated plant — F02 | [C power source][power]: `unit_models/{boiler_fireside,boiler_heat_exchanger,boiler_heat_exchanger_2D,heater_1D,cross_flow_heat_exchanger_1D,heat_exchanger_3streams,drum,drum1D,downcomer,waterwall_section,waterpipe,watertank,steamheater,feedwater_heater_0D,feedwater_heater_0D_dynamic,cpu,balance}.py`; `unit_models/helm` turbine inlet/stage/outlet/multistage, pump/compressor/mixer/splitter/steam valve/phase separator/condenser | Source-tree coverage is recorded, but per-unit categorical/test-instance expansion remains open. Preserve subcritical boiler/plant, supercritical steam cycle and SCPC full plant as distinct integrated cases, not a steam property evaluator witness. Requires correlation/surrogate data, geometry, steam phase presentation, pressure and work/heat sign, operating envelope and costing inputs. |
+| Steam/power equipment and integrated plant — F02 | [C power source][power]: `unit_models/{boiler_fireside,boiler_heat_exchanger,boiler_heat_exchanger_2D,heater_1D,cross_flow_heat_exchanger_1D,heat_exchanger_3streams,drum,drum1D,downcomer,waterwall_section,waterpipe,watertank,steamheater,feedwater_heater_0D,feedwater_heater_0D_dynamic,cpu,balance}.py`; `unit_models/helm` turbine inlet/stage/outlet/multistage, pump/compressor/mixer/splitter/steam valve/phase separator/condenser | Detailed equipment/plant sections below resolve the selected configurations and inline/artifact inputs; remaining inherited-balance and direct costing populations are identified in the final handoff. Preserve subcritical boiler/plant, supercritical steam cycle and SCPC full plant as distinct integrated cases. Ordinary correlation/geometry/property provenance,envelopes and independent native/reference acceptance remain required. |
 | NGCC — F02 | X `docs/power_gen/ngcc/ngcc.ipynb` → `mod/power_gen/ngcc.py` → `gas_turbine.py`, `hrsg.py`, `steam_turbine.py`; C natural-gas PR/flue-gas and Helmholtz steam units | Shipped `ngcc_init.json.gz`, `gas_turbine_init.json.gz`, `hrsg_init.json.gz`, `steam_turbine_init.json.gz` are reference initialization dependencies, not ordinary scientific truth. Notebook load sweep and generated tabulations are separate from initial design. Need exact serializer/core compatibility, load specifications and full subflowsheet/plant outputs. |
 | Fixed bed 0D — F03/E02 | C `gas_solid_contactors/unit_models/fixed_bed_0D.py`, `tests/test_FB0D.py::{TestIronOC,TestIronOC_EnergyBalanceType}` and `flowsheets/dyn_TGA_example.py` | Upstream requires dynamic=True and holdup=True. Gas/solid packages, reaction basis, initial solid inventory and enthalpy-total versus omitted-energy behavior need separate evidence; this is not a generic steady vessel. |
 | Fixed bed 1D — F03/E03 | [C fixed bed][fixed-bed]; forward/reverse flow, simple/Ergun pressure-drop law, heat/phase/reaction/energy options; `test_FB1D.py` selectors in E table | Reverse flow with collocation is rejected upstream. Finite-difference flow direction requires compatible upwind scheme; wrong direction/scheme is a refusal. Required native dynamic accumulation, reaction/no-reaction cases and original integrated conservation are not established by this investigation. |
@@ -156,7 +158,7 @@ E02/E03/E04 supply only the storage/distribution/cycle capability each row consu
 | TSA zeolite — F05/E04 | [C TSA][tsa] `TestTsaZeolite`: zeolite_13x, fixed bed count 120, no compressor, steam=none; X TSA notebook | Isotherm/thermal/source coefficients and cycle operation are required ordinary scientific inputs. Compare product streams, recovery/purity, stage times, pressure drop, cycle inventories and energy; notebook presence does not qualify the cycle. |
 | TSA MgMOF — F05/E04 | C `TestTsaMgmof`: mmen_mg_mof_74, bed count calculated (`None`), compressor=False, simplified steam | A different adsorbent law, bed-sizing freedom and steam approximation; not an additional rendering of zeolite. Record ordinary isotherm provenance, heat conditions, sizing role and requested steam products. |
 | TSA polystyrene — F05/E04 | C `TestTsaPolystyrene`: polystyrene_amine, one bed, compressor=True with flue-gas properties, rigorous steam with IAPWS95 | Adds compressor work/efficiency and steam-heater property closure; no substitution by simplified steam. DAC electric-boiler/NGCC-retrofit costing cases depend on separate JSON coefficient files in `temperature_swing_adsorption/costing`. |
-| Solid oxide cell/module/SOEC — F05/E03/G05 | [C SOC source][soc]: conductive/porous slabs, channel, triple-phase boundary, contact resistor, cell and simple module; `soec_design.py`; X `soc_pid_control.ipynb` → `mod/power_gen/soc_dynamic_flowsheet.py` | Preserve thin/resolved fuel electrode, oxygen electrode, electrolyte/interconnect; co/counterflow, gas holdup, contact resistance, heat loss, custom voltage and kinetic modifier choices. Thin region plus its x-grid is rejected upstream. X operating scenarios consume `soec_flowsheet_operating_conditions.csv` and `max_production.json.gz`/`power_mode.json.gz`; other shipped initializations must be dispositioned. Full per-option/test population and ordinary electrochemical data remain open. |
+| Solid oxide cell/module/SOEC — F05/E03/G05 | [C SOC source][soc]: conductive/porous slabs, channel, triple-phase boundary, contact resistor, cell and simple module; `soec_design.py`; X `soc_pid_control.ipynb` → `mod/power_gen/soc_dynamic_flowsheet.py` | Preserve thin/resolved layers,co/counterflow,gas/solid storage,contact/heat-loss/custom voltage/kinetic choices andtheir refusals. Detailed cell/submodel/controller sections resolve source fixtures,operating CSV andsaved-state roles. Ordinary electrochemical data,actual dynamic/nonzero-extension cases,native physics andscientific acceptance remain open. |
 | Gas network — F06/E03 | [C gas distribution][gas-network]: natural-gas properties, compressor/node/pipeline; `test_pipeline.py::TestSolvePipelineSquare` nominal/sweep, `TestSolveDynamicPipeline` inlet-pressure/outlet-flow simulation and optimization; `test_pipeline_compressor.py` dynamic coupling; node supply/demand and inlet/outlet counts | Exact gas composition/conventions, isothermal/compression law, pressure-flow boundary roles and temporal/spatial discretization are required. Forward/backward/Radau/Legendre construction tests do not all establish transient solutions. Negative signed flow alone grants no composition/enthalpy reversal semantics. Linepack and network balance require E03. |
 
 The pinned power-unit declarations expose the following additional finite axes.
@@ -1535,9 +1537,11 @@ fixtures: counterflow/contact/holdup; cocurrent/no-contact/no-holdup; each with
 interconnect; and no-contact interconnect heat-loss or exchange-current ports.
 Their axial/electrode/electrolyte/interconnect meshes and species differ from
 the replication benchmark; these build/unit checks are not solved voltage
-curves. Remaining submodel thermal/material-boundary, gas-holdup/dynamic,
-SOEC-design and X controller/operating-table/saved-initialization populations
-remain required and unresolved here.
+curves. Remaining submodel thermal/material-boundary and gas-holdup/dynamic
+test populations are identified in the final handoff. The later SOEC-design
+and modern controller sections resolve their source configurations,
+operating tables and saved-initialization roles;their execution/native
+acceptance remains required.
 
 No native matched SOC declaration/case was found in bounded process/reference
 inspection. E03/F05/G05 still require ordinary electrochemical/transport data,
@@ -2257,8 +2261,10 @@ Additional shipped cardinal_sine(100 rows),cardinal_sine_2500(2500),
 griewank_data(10201) andexponential_function_data(10201 plus header) files
 are not consumed by these seven selected entry points. Their remaining
 benchmark consumers/source selection stay open,not excluded oradded to a
-training population merely because files exist. C's full polynomial/RBF/
-kriging/sampling test parameterizations remain a separate unresolved expansion.
+training population merely because files exist. The later core PySMO/ALAMO/
+sampling section resolves its finite source families;these extra filenames
+are not inputs tothose inspected core orsixhelper selections. Coordinator
+selection ofany additional actual consumer remains separate from file presence.
 No native matched benchmark/training/equation/optimization case has been
 established;G04 retains each selected stage andordinary analytic-function/
 process-data distinctions. Ephemeral AST/text/file inspection established
@@ -3682,8 +3688,9 @@ noCSV,coaltrainer,saved-stateinput orphysicaltime trajectory isloaded by
 default. Original empirical/geometry/fluegas provenance,envelopes andsigned
 work/duty/boundary accounting remainordinary-source obligations. Native
 F02/D02/D04 needeachstandalone/coupled specification role,partialadmission,
-profile/conservation andproperdomain products. Archivedsupercritical wrapper
-comparison andremainingunitcategorical cases stillremainrequiredcensuswork.
+profile/conservation andproperdomain products. The later archived-wrapper
+section resolves the same core calls/science;wrapper disposition and the
+remaining inherited configuration work stay with the final handoff.
 Source/AST readsran noenthalpyfunction,network,serializer,initializer orsolver.
 
 ## Carbon purification surrogate configuration/input closure — 2026-11-05
@@ -5715,6 +5722,947 @@ nonidentity scaler behavior and full independent physical/custom/dynamic/
 derivative qualification remain required. Only source/AST inspection ran;
 no unit or initializer executed.
 
+## Generic and Helmholtz valve law/configuration closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/unit_models/valve.py`,
+`tests/test_valve.py`,`power_generation/unit_models/helm/valve_steam.py`
+and V `apis/v2_0_0/examples/unit_models/test_valve.py` resolve separate
+valve formulations. Their inputs are inline curve/coefficient selections and
+IAPWS/Helmholtz property functions;no measured valve map or external data
+file is read. Integrated throttle/level-control consumers remain the distinct
+steam-train/subcritical/NGCC cases above.
+
+| Owner | Actual configuration and constitutive meaning |
+|---|---|
+| Generic Valve | PressureChanger with compressorFalse and adiabatic assumption **forced**,default componentTotal material balance;zero work and no heat. Inherited balance/dynamic/holdup options retain CV/property requirements. Default linear opening;quick-opening sqrt(opening),equal-percentage alpha**(opening−1),or callable customization. Invalid noncallable selection is refused. Opening initialized/fixed1 with bounds0..1;equal-percentage alpha initialized/fixed100. Default coefficient initialized/fixed .1 mol/(s sqrt(Pa)) in package units. Default squared-flow law uses **Pin−Pout**,regardless of fluid phase. Custom pressure-flow callback must supply its actual equation and referenced flow;scaling reports missing members rather than inferring the law. |
+| HelmValve | Steady/no holdup,pressure changeTrue,no heat/work forced. Asserts Helmholtz parameter block,PH coordinates and phase presentationMIX/L/G;LG or alternate coordinates are refused. Expected fluid selectorVap(default)/Liq chooses **Pin²−Pout²** versus **Pin−Pout** squared-flow law. Curve linear/quick/equal-percentage/custom;missing custom callback is refused. Supplying callback with a noncustom selection only warns and uses the selected builtin. Opening initialized1 has no source0..1 bounds and is not automatically fixed;Cv initialized .1 also startsfree. Equal-percentage alpha initialized/fixed**1**,so its default function is independent of opening,unlike generic alpha100. |
+| Helm initialization roles | `calculate_cv` or `calculate_opening` selects coefficient/opening inference from pressure/flow inputs;otherwise fixed pressure drop can release inletflow during initialization. Outlet-pressure specification is temporarily converted to deltaP;fixed/active/value roles are restored afterward. These are inverse/rating roles for the selected law,not an empirical calibration dataset. |
+
+The Helm declaration labels Cv mol/(s Pa) for both laws;that dimension is
+consistent with the squared-pressure vapor law but not the liquid difference
+law,which needs mol/(s sqrt(Pa)). Preserve source behavior for reference
+diagnosis and use an explicit dimensionally coherent native liquid
+declaration;do not silently treat the same numerical Cv as interchangeable.
+Squared-flow laws do not identify flow sign;opening0 with positive prescribed
+flow is infeasible,quick-opening has an endpoint derivative singularity and
+equal-percentage has nonzero flow factor at opening0 for finite positive
+alpha. These require selected physical direction/shutoff/domain controls.
+
+C's three curve cases use IAPWS mixed PH water,1000 mol/s,Pin200000 Pa,
+h from300 K/same pressure,opening .5. Cv is calculated separately for
+each function to **force** Pout100000 Pa;the outlet pressure is an initial
+guess,not fixed. Legacy/scaler-object versions repeat the same physical
+triplet. Source checks optimal solve/numerical controls and outlet1000 mol/s
+(rel.001),which alone primarily checks mass closure since inletflow is
+already fixed;it supplies no independent measured curve. V repeats the
+linear specification atPin202650/Pout101325 Pa,h from298 K;targets
+outflow1000/Pout101325(rel1e-6),h1880.557 J/mol(rel.001).
+
+Native D04/F02/G05 requires actual pressure law,phase/coordinate package,
+coefficient dimensions,curve/alpha and custom-declaration meaning,physical
+direction/opening constraints,complete enthalpy/flow/pressure outputs and
+inverse-initialization roles. Ordinary Cv/map provenance,liquid-dimension
+reconciliation,closed/zero/reverse-flow and inherited dynamic cases,plus
+complete independent valve/control/derivative qualification remain required.
+Only source/AST inspection ran;no valve or property solver executed.
+
+## SSLW equipment-cost and heat-utility configured population — 2026-11-05
+
+**Interface-checked, source only:** C `models/costing/SSLW.py`,
+`tests/test_SSLW.py`,`core/util/utility_minimization.py` and its test
+resolve additional G06 equipment/assessment cases. SSLW uses inline
+coefficient tables and declared currency conversions,not external experiment
+or trained-model files. Core currency units,index/year,correlation formula,
+equipment/material and quantity units are part of each scientific input;
+ordinary source provenance/admission remains independent of these reference
+coefficients. The library's flowsheet base currency is USD2018,while many
+equipment equations are in USD_CE500 and pump/motor base terms include
+USD_CE394. A raw numeric capital cost cannot be compared across those units.
+
+| Consumer family | Exact finite parameterized scientific selections |
+|---|---|
+| Heat exchanger160 | Four types floating/fixed head,U-tube,kettle vaporizer×four tube lengths8/12/16/20 ft×ten shell/tube material pairs:carbon/carbon,carbon/brass,carbon/stainless,carbon/Monel,carbon/titanium,carbon/CrMo,CrMo/CrMo,stainless/stainless,Monel/Monel,titanium/titanium. All area1000 m2,hot inlet2 atm. Default U-tube,stainless/stainless,12 ft. |
+| Vertical vessel80 | Ten materials carbon,low-alloy,304/316 stainless,Carpenter20CB3,Nickel200,Monel400,Inconel600,Incoloy825,titanium×weight-limit selector1/2×aspect-ratio selector1/2×platforms/laddersTrue/False. Diameter2 m,**length .00075 m**,default shell thickness1.25 in;this extreme test geometry is not a demonstrated valid design/envelope. |
+| Vertical trays15/horizontal vessel10 | Same geometry;vertical adds10 trays with sieve/valve/bubble-cap×carbon/303 stainless/316 stainless/Carpenter20CB3/Monel. Horizontal uses ten vessel materials,weight-limit1,no platforms. Trays and weight-limit2 are explicitly refused for horizontal vessels;missing diameter/length references and invalid enum/selector values have separate guards. |
+| Fired heater21 | Three materials carbon/CrMo/stainless×seven sources fuel,reformer,pyrolysis,hot water,salts,DowthermA,steam boiler. Duty1000 kJ/s,inlet2 atm. Default fuel/carbon. Source/duty/pressure correlation validity is not established by unit-consistent cost equations. |
+| Turbine1 | Expander flag,shaft work−1224638 W;expected raw capital213199 in the equation's USD_CE500(rel1e-5). Actual power sign is part of cost size,not an absolute-value assumption. |
+| Centrifugal pump162 | Nine materials cast iron,ductile iron,cast steel,bronze,stainless,HastelloyC,Monel,nickel,titanium×type factor[1.1,1.2,1.3,1.4,2.1,2.2]×open/enclosed/explosion-proof motor. All work10143.79 W,deltaP50000 Pa,inlet density986.64 kg/m3,volume flow .182592 m3/s. |
+| Gear pump27/reciprocating12 | Same work/deltaP/density/flow;gear uses nine centrifugal materials×three motors. Reciprocating uses ductile iron/stainless/NiAlBronze/carbon×three motors. NiAlBronze/carbon are explicitly excluded from nonreciprocating methods;other materials excluded from reciprocating. Pump costing requires compressorTrue,positive head/size and suitable hydraulic meaning;it does not solve pump efficiency. |
+| Compressor27 | Centrifugal/reciprocating/screw×electric motor/steam turbine/gas turbine drive×carbon/stainless/nickel alloy,work101410.4 W,compressionTrue/isentropic. Default centrifugal/electric/stainless. Another27 wrong-direction controls exercise a **warning**,not hard rejection;pump/isothermal/adiabatic misuse likewise warns. Matching a cost value does not validate the upstream work model. |
+| Fan16/blower10 | Fan four types centrifugal-backward/centrifugal-straight/vane-axial/tube-axial×carbon/fiberglass/stainless/nickel alloy,inlet .182592 m3/s,head factor default1.45. Blower centrifugal/rotary×carbon/aluminum/fiberglass/stainless/nickel alloy,work101410.4 W. These dedicated methods require compression direction;fan/blower are separate from the generic gateway's behavior. |
+
+The table defines541 selected cost combinations plus27 warning controls,
+not541 validated scientific designs. Most assert zero DOF,units and solver
+termination without independent expected full cost factors. Named numeric
+controls(rel1e-5) are:default HX base87704.6 USD_CE500,pressure factor
+.982982,material factor4.08752,total476063 USD2018;carbon vertical
+vessel/selector1/1/platformsTrue35958 USD2018;nickel centrifugal pump/
+factor1.4/enclosed motor62868.3 USD2018;default compressor300695
+USD2018;and turbine above. Tray/gear/reciprocating/heater/fan/blower
+grids do not each carry independent expected cost datasets.
+
+Common equipment unit count is fixed1 by default,integer/reals selectable
+with bounds1..100;unfixing it changes optimization/discrete semantics and
+per-unit sizing,not just a display multiplier. Vessel count is separately
+supplied. Explicit class mappings select vertical vessels for CSTR/Flash,
+horizontal for PFR/StoichiometricReactor,HX for HX0D/NTU and dedicated
+compressor/pump/turbine methods. Generic pressure gateway's `blower` branch
+actually calls pump costing;default mover=`compressor` is checked before
+the thermodynamic pump fallback. Native declarations must select the actual
+equipment method and inputs rather than infer correct costing from that
+gateway label. Correlation log/power domains,valid geometry/pressure/work
+envelopes and original source data remain required controls.
+
+Power costing additionally has frozen reference dictionaries at C
+`models_extra/power_generation/costing/`:BB_costing_data contains1063
+account entries across seven technology keys1..7,SHA256
+`1d6f97e397c3ac0b6c58c066128888ffc778fd08663cba909afdcafe21f2da3c`;
+generic_ccs_costing_data is a separate technology6 dictionary,SHA256
+`ff28650646e74b772ee2eca5abaf28fbf66eb1896c7cbcac67249871469a4a89`;
+sCO2_costing_parameters has13 equipment keys,SHA256
+`fa3385c544cc57563423571aa5474e57754bda39e468eef8452e5bee08b805ef`.
+These counts identify input artifacts,not1063 mandatory physical cases or
+qualification of their account-selection/scaling consumers. Per-consumer
+account/capture/year/range choices and ordinary provenance remain required.
+
+Heat-utility source selects the Duran–Grossmann heat-target formulation,
+candidate pinch temperatures from stream inlets,minimum approach supplied
+by consumer,default smoothing1e-6,working duty unitsMW. A separate
+hard-coded temperature regularization1 shifts heating outlet/cooling inlet
+in initialization and regularizes capacity-flow denominators in equations.
+These conventions differ from an exact unsmoothed heat cascade and need
+explicit units/domain correspondence. Nonnegative utility/heat-content
+variables have lower bound1e-8;an objective must actually minimize them.
+The source adds no exchanger network,area,material selection or utility price.
+
+Its textbook test(Biegler/Grossmann/Westerberg1997,p529,Example16.1)
+uses four independent IDEAL one-component heaters with **synthetic**
+constant Cp1e6 J/(mol K),zero formation terms,reference300 K/1e5 Pa.
+Cold streams:1.5 mol/s,160→400 K and1.3 mol/s,100→250 K;
+hot streams1 mol/s,400→120 K and2 mol/s,340→120 K;all100000 Pa,
+pure componentA. Duties are360/195/−280/−440 MW. Approach20 K,
+minimize hot+cold utility;targets hot60/cold225 MW(abs1 MW),QAh
+[540,719,0,60],QAc[476,554,30,120] MW(abs1). Hydrogen-like
+critical/molar-mass metadata do not make Cp1e6 a physical hydrogen model.
+Initialization/curve arrays are reporting/numerical controls,not independent
+process or utility-cost data.
+
+Native G06 requires ordinary cost/property/utility data with year/index,
+equipment selection,sizing/parallel roles,thermal boundaries and explicit
+fit/envelope permissions;original energy,unit-conversion,optimization and
+statistical/derivative products remain independent. Later QGESS lifecycle
+anddirect-account sections resolve those source consumers;ordinary economic
+inputs,unselected physical geometry/utility cases andacceptance remain open. Only
+source/AST/JSON inspection and finite-combination arithmetic ran;no cost,
+heat-target,property or solver execution occurred.
+
+## Helmholtz mixing, splitting and compression boundary closure — 2026-11-05
+
+**Interface-checked, source only:** C power `helm/{mixer,splitter,
+phase_separator,pump,compressor}.py` and corresponding `test_mixer`,
+`test_splitter`,`test_phase_separator`,`test_compare_to_generic` sources
+resolve specialized pure-fluid boundaries. Their shared independent
+property/external-function input is the declared Helmholtz fluid package;
+all selected cases use IAPWS95. No measurement file,trained coefficient or
+saved-state file is read. In-memory save/restore during initialization is
+not an independently supplied initial-state artifact.
+
+| Owner | Actual configuration,finite specification and products |
+|---|---|
+| HelmMixer | Steady/no holdup only,inlet list/count(default2),inconsistent supplied list/count refused. Direct total-molar-flow/enthalpy-flow balances;pressure modes none,minimum(default),equality,switchable minimum/equality. Minimum uses sequential smooth minimum with eps .001 in package pressure units;switchable builds both and starts with minimum active. Missing pressure closure in none is consumer responsibility. No chemistry/species conversion or storage is added. |
+| Mixer minimum case | Three feeds(F mol/s,h J/mol,P Pa)=(11000,4000,120000),(10000,5000,200000),(13000,6000,300000). All fixed. Targets F34000,h5058.823529…,P120000(rel1e-7) after initialization. A local Pout150000 variable is unused in this branch. |
+| Mixer equality case | Same F/h,pressure inlet values are **guesses**,outletP fixed150000 Pa. All inlet pressures solve to150000 Pa,not to their different guesses;same total/weighted h targets(rel1e-7). This differs from pressure-reducing mixing and is a different boundary-role selection. |
+| HelmSplitter | Steady/no holdup only,outlet list/count(default2),same list/count consistency guard. Total split only;outlet molar enthalpy and pressure equal inlet,no material-component or phase-selective split law. Split fractions have no source0..1 bounds,although their sum=1. Selected three outlets:inlet10000 mol/s,h4000 J/mol,P101325 Pa,second/third fractions .3/.2 supplied as values;initializer fixes enough fractions from the end and solves first .5. Targets5000/3000/2000 mol/s and identical h/P(rel1e-7). |
+| Splitter inverse initialization | With fixed outletflow,the source computes a provisional fraction as **inletflow/outletflow**,opposite to its balance's outletflow/inletflow meaning. That branch is not exercised by the three-outlet fixture. It is an explicit source discrepancy requiring an independent fixed-outlet-flow control;do not infer valid inverse behavior from the standard split test. Initializer otherwise fixes n−1 fractions and restores original fixed/active roles. |
+| HelmPhaseSeparator | Steady/no holdup only;separate mixed,liquid and vapor states with equal pressures,phase enthalpies copied from mixed-state products and flows from vapor fraction. Intended pure-fluid mixed-PH interface,not a general chemical flash. Selected150000 mol/s,12 MPa,h28365.2608 J/mol;initializer initially leaves three boundary DOF,then test fixes inputs. Source checks total flow closure,vapor-flow=feed×quality,vapor enthalpy agreement(abs.001);no independently tabulated quality/temperature/liquid enthalpy target or solver-optimal assertion follows that solve. |
+| HelmPump | Steady/no holdup,pressure/workTrue,no heat forced;asserts Helmholtz PH/MIX-L-G package. Work uses **outlet** volume×deltaP/efficiency;efficiency alias isentropic references pump efficiency. No density-independent incompressible law is added. Efficiency initialized .9 but not automatically fixed;pressure ratio initialized .7 is a guess,not a declared pump compression direction. |
+| HelmIsentropicCompressor | Same steady/PH package guards and work/pressure/no-heat boundary;efficiency .9 initialized/fixed,ratio1.5 initiallyfree. Ideal outlet h from inlet entropy/outletP;actual h rise divides ideal rise by efficiency. Its named ideal-work expression uses inlet h−ideal h (negative for compression),while actual energy balance gives positive shaft input. Output/sign conventions must be mapped explicitly. |
+
+The pump/generic comparison uses10000 mol/s,h4000 J/mol,101325→
+202650 Pa,efficiency .7;outletT and work must agree(rel1e-7). The
+compressor comparison uses1000 mol/s,h from500 K/2222782.4 Pa,
+pressure ratio2.7,efficiency .324,same T/work agreement(rel1e-7).
+Pump versus isentropic-compressor at the **liquid pump input** above allows
+rel.001 difference,not exact physical formulation identity. Turbine comparison
+uses1000 mol/s at500 K/1 MPa,ratio .7,eta .9,the already selected
+generic/Helm turbine case. These compare two implementations sharing one
+property source;they are not independent ordinary property/shaft-work data.
+
+The NTU condenser case is already owned by the feedwater-heater section:
+steady100 mol/s,h30000 hot stream/cold1200 mol/s,h1800,P101325,
+area1000 m2,U500;hot pressure is solved,9000 Pa only a guess,target
+14036.3360 Pa(rel.01). Its so-called dynamic test instead places the
+**steady unit** on0..3 s/four BACKWARD time elements with identical inputs;
+it does not exercise fluid/wall storage or a disturbance. Preserve that
+qualification boundary for every consumer of this condenser fixture.
+
+Native D04/F02 requires explicit pure-fluid mixing/splitting/phase
+availability,pressure and energy boundaries,flow/quality/material closure,
+inverse initialization/fixed-free roles and actual pump/compressor work
+signs. Source split-fraction/efficiency/flow domains,ordinary property/curve
+data and complete independent component/derivative/plant/dynamic evidence
+remain required. Only source inspection and weighted-flow arithmetic ran;
+no Helmholtz external function or unit executed.
+
+## QGESS technology, location and lifecycle input closure — 2026-11-05
+
+**Interface-checked, source only:** C `models/costing/QGESS.py`,
+`tests/test_QGESS.py`, `models_extra/power_generation/costing/
+power_plant_costing_dictionaries.py` and `core/base/costing_base.py`
+resolve the newer G06 assessment implementation. This is a separate owner
+from `power_plant_capcost.py` consumed by the archived plants above. Shared
+coefficient files do not establish API or numerical equivalence between them.
+No costing model, currency registry or solver was executed for this census.
+
+| Configuration / finite source population | Exact interpretation and guards |
+|---|---|
+| Ten technology presets | 1 supercritical coal;2 subcritical coal;3 two-stage slurry gasification;4 single-stage slurry gasification;5 dry-feed gasification;6 natural gas;7 advanced ultrasupercritical coal;8 polymer-layer accounts;9 sensor/control accounts;10 UKy rare-earth case. The construction/default/full-argument tests each parameterize1–10. These are assessment presets,not ten independently validated process flowsheets. Missing technology is refused. Technology10 requires selected external/user equipment accounts;the built-in BB/CCS dictionaries are loaded for1–9. |
+| Optional calculation flags | Fixed O&M,variable O&M,tax/credit,production-credit phaseout,NPV,capital-expenditure period and economy of numbers all defaultFalse. Lang factor defaultsNone;currency year2018. Taxes require fixed O&M. Capital-period input is used under NPV and must be a list summing exactly100;the tests use10/60/30 percent over three preceding years. No full Boolean Cartesian product is asserted admissible. |
+| Global assumptions | Default location Washington DC/Northeast average1;capacity factor.85 except technology10 .92. Lang factor1 for1–9 when unset;technology10 sums eleven installation percentages to1.97. Technology1–7 overnight percentage.202,TASC/TOC1.093,fixed-charge factor.0707;8 uses.202/1.047/.0664;9 .202/1.070/.0690;10 TASC/TOC1.144 and fixed-charge.1002 with its separate installation/overhead accounting. These mutable source assumptions are required inputs,not local economic recommendations. |
+| Labor / maintenance | Seven hourly rates27.90,23.26,30.29,24.06,23.43,46.82,38.50 in selected-year USD for skilled,unskilled,supervisor,maintenance,technician,engineer,operator. Technology10 uses2/5/2/3/1/2/0 people per shift and25% burden;others0/0/0/0/0/0/6 and30%. Maintenance triples(labor split,labor TPC fraction,material TPC fraction):1/2/7(.4,.016,.016),3/4/5(.35,.03,.03),6/9(.4,.019,.019),8(.4,.019,.016). Technology10 has separate fixed-O&M equations. |
+| NPV / learning | Discount10%,life20years,capital escalation3.6%,loan interest6%,repayment10years,debt50% of capex,operating/revenue inflation3%;cumulative units5,learning rate.04. Direct purchase-cost,fixed-O&M,revenue and debt expressions may replace calculated values;these fixed/free and calculation-bypass roles are separate scientific cases. |
+| Tax / phaseout | Source percentages income26,mineral depletion14,production incentive10,royalty6.5. A supplied phaseout dictionary must have ascending keys and descending values;tests use2031–33→75/50/25. Eleven explicit year probes2021/23/27–35 use string-keyed2028–33→90/75/60/45/30/15 and expect factors1/1/1/.9/.75/.6/.45/.3/.15/0/0. Future USD2027–35 are synthetic equal-index units registered by the test. They are neither forecast price data nor validation of tax law. |
+| Currency / location refusals | Unsupported currency lookup fails;phaseout year must be four leading/trailing digits. Six currency-name controls2021,2023,2019_Sep,UKy_2019,2008_Nov,2018_Dec exercise parsing. Location must be a string list of length2/3 with known country/city and min/max/average selector(defaultaverage). Null,wrong types/lengths,unknown country/city/selector are explicit refusal controls. |
+| Equipment account invocation | Named preloaded account groups for technologies1–7,or explicit account lists;CCS selectorA/B,parallel count default1,scale-downFalse,currency2018,multiplicative project contingencyTrue. Additional accounts must be a **list of dictionaries**. Conflicting selected built-in accounts require explicit override permission. Parallel-train scaling and additive versus multiplicative contingency change the economics and require separate correspondence. |
+
+The ordinary capital-only fixture has no selected physical equipment and
+checks aggregation/solver construction for each technology. The full fixture
+sets Lang2,all flagsTrue,USD2023 and the three-year expenditure schedule;
+purchase100 MUSD2018,annual fixed cost10 MUSD2018/year,revenue15
+MUSD2018/year,debt50 MUSD2018 are explicitly supplied. Physical rate inputs
+are coal1tonne/hour,natural gas1MBtu/s,water1gallon/s,chemical/waste
+1kg/s,pure product1kg/s,mixed product.1kg/s. Two named copies of several
+resource streams deliberately exercise dictionary/group aggregation. Product
+prices are1 and.25 USD2018/kg;transport coefficients10 USD2018/kg for
+feed/product/CO2,with no CO2 capture-rate supplied in this fixture. Additional
+chemical/waste expenses1 USD2018/day and land.30 USD2018/s exercise
+annualization. The three-location comparison uses technology10 and DC1,
+West Coast1.1363,Midwest1.0455;it tests affected capital/fixed components
+separately from unchanged non-overhead resource costs. It is not three
+independently sourced regional plant designs.
+
+The recursive numeric inputs are the previously identified BB/generic-CCS
+account dictionaries,the inline installation/labor/maintenance/finance
+tables,core currency definitions and `core/base/location_factors.json`.
+The location file has192 unique country/city rows in139 countries,SHA256
+`250b8ff8f4d6ed175333bead6b43db2ad0858e4b55f1221957d8b7cf18ddf0f0`;
+each row has min/max/average. Default DC bypasses reading this file,but a
+selected other location requires it. The resource-price helper contains29
+priced resources with **different currency years and denominator units**:
+11 USD2018 fuel/water/chemical/waste items,6 USD2018_Dec capture-related
+items,5 USD2016 cooling/heating utilities,1 USD2013 sulfolane item and6
+USD2018_Dec hydrogen-catalyst/waste items. Natural gas4.42USD2018/MBtu,
+coal51.96USD2018/ton,water.00190USD2018/gallon,electricity71.7
+USD2018_Dec/MWh are examples of distinct bases. Resource and price inputs
+must be dictionaries;explicit prices override defaults and every resource
+requires a price. No external commodity-price feed is read.
+
+Source anomalies remain part of the execution contract:phaseout text
+mentions unit fractions,but the calculation divides supplied percentages
+by100 and no per-value0–100 bound is enforced here. The in-range branch
+indexes a **string** year;the all-config test's integer keys are only used
+before the first phaseout year. In-range integer-key and missing-interior-year
+cases therefore remain required compatibility/refusal probes. Capital
+percentage validation checks exact sum100,not individual positivity. These
+source facts cannot silently become native policy or a claim of accepted
+economics. Unit controls additionally distinguish one-time versus annual
+land/chemical/waste costs,dimensionless inputs and invalid transport/rate
+units,including time in the wrong place.
+
+G06 must map original ordinary purchase/accounts/resource/location/finance
+inputs to native assessment declarations and fix which calculated versus
+supplied costs are demanded. These reference tables and synthetic tests
+remain oracle material until independently sourced/admitted. Price-year
+conversion,account overlap,parallel scaling,learning,net-tax smoothing,
+cashflow signs and complete lifecycle outputs require independent numerical
+checks;no native lifecycle equivalence or current-policy validity is
+established. The pinned reference environment and all ten presets remain
+required;this source census does not close G06 or H01.
+
+## PETSc chemistry, steam-pressure control and controller selectors — 2026-11-05
+
+**Interface-checked, source only:** X `docs/dae/{petsc_chem,petsc_pid}.ipynb`,
+`mod/dae/petsc/pid_steam_tank.py`,C `core/solvers/{features,petsc}.py`,
+`tests/{test_petsc,test_petsc_pid}.py` and
+`models/control/{controller.py,tests/test_controller.py}` resolve E02/G05
+source inputs. These are distinct from the enzyme NMPC and SOC controller
+families above. No DAE,controller,external property function or solver ran.
+
+The chemistry benchmark uses five differential concentrations and one
+algebraic concentration over0–180 min;the notebook requests10 backward
+finite-difference elements,but integrates the whole interval with PETSc
+Crank–Nicolson,adaptive basic stepping,initial step.01 and saved trajectory.
+Source reaction constants are18.7,.58,.09,.42,equilibrium34.4,mass-transfer
+3.3,algebraic multiplier115.83,gas-input scalar.9 andHenry scalar737.
+The five differential initial values are(.444,.00123,0,.007,0);
+algebraic consistency gives y6=.35999964. Rates involve y1⁴√y2,
+y3y4,y1y5,y1y4² andy6²√y2,so positivity/domain and consistent initialization
+matter. The source's `pCO2` name alone does not establish the gas/species
+identity or physical units of every coefficient. This is an explicitly
+normalized benchmark until its cited Chemical Akzo Nobel test-set source is
+independently admitted;do not invent elemental conservation for y labels.
+
+Its six endpoint targets are(.1150794920661702,.001203831471567715,
+.1611562887407974,.0003656156421249283,.01708010885264404,
+.004873531310307455),with relative1e-3 notebook assertions. These stored
+targets are oracle data,not fresh reference execution or native allowances.
+The notebook also requests all six trajectories and181 one-minute
+interpolated samples. Endpoint agreement cannot qualify the fast initial
+y2 transient or interpolation accuracy. C's separate algebraically equivalent
+test helper embeds y6 in the indexed state array,fixes its unused derivative
+and replaces constantH by an unindexed variable/equality. It adds consistent
+skip-initial-solve and split/rejoined-trajectory controls;the latter compares
+y2/y5 at101 points with absolute1e-4. That altered representation is a
+structural/trajectory control,not a second chemical mechanism.
+
+| Steam PI case | Exact physical-time and forcing selections |
+|---|---|
+| Shared plant / controller | IAPWS95 PH,liquid/vapor presentation;two steady no-holdup valves around a dynamic2m3 adiabatic heater/tank. Component-total material balance and inherited enthalpy/pressure closure;explicit vapor volume-fraction relation. Feedh50000J/mol,upstream500000Pa,downstream101325Pa,both Cv=.001mol/(sPa),outlet valve opening1. Each valve uses squared-pressure-difference flow law,not generic linear-pressure law. Flow100mol/s is an initialization guess. |
+| Shared PI specifications | Tank pressure target300000Pa;inlet opening is manipulated,initial opening1 fixed and later openings free. Proportional1e-6/Pa,integral1e-5/(Pa s),bias0,smooth output limits0–1 with default smoothing1e-4. Initial physical derivatives fixed0;initial integral is calculated to match the supplied initial manipulated value. Neither zero integral nor zero inventory is the initial condition. |
+| Constant boundary | Notebook0–12s,one backward element;PETSc backward Euler,initial step.1,saved trajectory. Request opening and tank-pressure histories. |
+| Smooth ramp | Fresh0–24s model,one element;explicit time variable initially fixed0. Upstream pressure smoothly clamped from500000 to600000Pa over10–12s with slope50000Pa/s. Same PETSc settings. The smooth min/max transitions have their own residual meaning. |
+| Segmented ramp | Fresh0/10/12/24s grid,three elements. Only the12s representative pressure constraint is active and that pressure free;other segment representatives fixed500000/600000Pa. Explicit time drives a linear ramp in the middle interval. This has different breakpoint handling from the smooth-clamp model. |
+| Core integration control | C requests0–24s,five backward elements and integration boundaries first/third-grid-point/last. It interpolates25 one-second outputs,checks inlet pressure at5/20s,tank target at9/22s,and reconstructs final vapor material/energy derivatives. Those few assertions do not establish complete inventory/energy conservation or every transient output. |
+
+The plant helper contains no CSV,trained model orinitial-state cache. Its
+recursive closure is IAPWS95/Helmholtz executable+water data,Heater/Valve/
+control-volume/arc/state-propagation,PID controller,Pyomo DAE and legacy
+Ipopt initialization,then the IDAES ASL `petsc` executable and PETSc
+SNES/TS adapters. Saved trajectories additionally require matching
+`PetscBinaryIOTrajectory`, `PetscBinaryIO` and `petsc_conf` helpers,whether
+importable or found alongside the executable. They are not supplied merely
+by a Python `petsc4py` installation. Exact binary/data/helper/PETSc versions
+and core2.13/examples compatibility remain to freeze at execution. Generated
+trajectory JSON/binary/variable maps are outputs,not original physical data.
+Upstream skips for missing PETSc and notebook skip metadata cannot become
+passes or exclusions in the required parity population.
+
+The released controller admits P/PI/PD/PID;unbounded,smooth-clamped or
+logistic output;no antiwindup,conditional integration orback-calculation;
+calculated versus supplied initial integral;and derivative on negative PV
+(default) versus error. It requires dynamic operation and explicit referenced
+PV(Var/Expression)/MV(Var). Antiwindup is refused without integral action or
+with unbounded output. The finite unit fixtures select defaultPI,P,PD,PID,
+PID derivative-on-error,logisticPID,smoothPD,conditional-integration smoothPI
+and back-calculation logisticPID,with separate dimensional consistency checks.
+Their synthetic PV meters/MV kelvin and component counts establish equations
+and units,not a tuned physical control response. Default bounded-output
+limits.05/1,logistic steepness4,conditional steepness200 and gain_b.1/time
+must not overwrite the steam case's actual0/1 limits and chosen gains.
+
+E02/G05 ordinary owners must supply independent water/datum,Cv/vessel and
+controller provenance;map original inventories,fluxes,initial integral,
+forcing breakpoints,physical time and demanded raw/interpolated products at
+the native temporal/control owners. Complete state/rate/algebraic residual,
+positivity,inventory/energy closure,step/refinement,controller saturation/
+antiwindup and native/reference trajectory checks remain required. These
+smooth and prescribed segment examples do not qualify arbitrary event/reset
+sensitivity,MHE or all admissible controller combinations. H01 remains open.
+
+## Effective inherited control-volume balance population — 2026-11-05
+
+**Interface-checked, source only:** C `core/base/control_volume_base.py`,
+`control_volume0d.py`,`control_volume1d.py`,`process_base.py`,both
+`extended_control_volume{0d,1d}.py` and their four primary test modules
+resolve the shared base balance choices. The underscore spelling appears
+in test filenames,not the two implementation filenames. This matrix
+specializes the shared enum axes above;unit-specific forced choices and
+refusals in each family section still take precedence. No volume,state,
+balance or discretizer was constructed here.
+
+| Requested axis | Effective0D/1D behavior and finite acceptance/refusal roles |
+|---|---|
+| Material none/component-phase/component-total/element-total/total | None omits material equations;component-phase and component-total are implemented;element-total uses declared component elemental composition and removes detected linearly dependent element equations. **Total-material is refused by both base volumes.** It is not granted by its enum value. |
+| Energy none/enthalpy-total/enthalpy-phase/energy-total/energy-phase/isothermal | None omits energy equations;enthalpy-total is implemented,including internal-energy storage where selected. Both base volumes explicitly refuse the other four choices. Extended volumes additionally supply isothermal constraints only;they do not add phase-enthalpy or full-energy balance families. |
+| Momentum none/pressure-total/pressure-phase/momentum-total/momentum-phase | None omits momentum equations;pressure-total is implemented with optional deltaP/custom pressure contribution. All other modes are refused. A pressure balance does not itself provide friction,gravity,acceleration or a hydraulic constitutive law. |
+| Effective defaults | Material/energy `useDefault` asks the representative state for its defaults;missing default methods fail. Representative state is0D outlet or1D first spatial point. Momentum defaults explicitly to pressure-total,not a property-selected mode. State/reaction builders require explicit Boolean equilibrium arguments;omitted/invalid arguments fail. |
+| Storage/time | Dynamic inherits parent;holdup defaults to dynamic. Steady/no-holdup,steady/holdup and dynamic/holdup are admissible base choices;dynamic/no-holdup and dynamic child inside steady parent refuse. A steady child inside dynamic parent remains permitted. Holdup without dynamic constructs algebraic stored quantities,not accumulation. Dynamic units require compatible dimensional or jointly unitless time conventions. |
+| Geometry/state allocation |0D requires volume before holdup equations;material/element/energy storage uses outlet-state density×phase volume.1D uses cross-sectional area×density per physical length,with uniform scalar area or time/position-dependent area and explicit physical length. Multi-phase volume fractions sum1 but require additional physical allocation closure. Flow direction changes signed spatial flux;information direction changes the defined-state boundary and is a separate choice. |
+| Reaction terms | Component balances separately admit rate,equilibrium and property-owned inherent generation,with declared reaction indices/stoichiometry and matching built blocks. Missing indices,missing reaction block or disabled requested equilibrium constraints fail. Rate extent uses volume or local area×rate;component-total sums actual phase membership. Reaction rate and material flow bases must be molar/mass;cross-basis conversion requires component molecular weight. Undefined basis fails for reaction/custom conversion. |
+| Phase transfer | Component-phase balances add phase-equilibrium generation from declared phase-pair/component membership;component-total cancels internal phase transfer. Requested equilibrium requires state equilibrium enabled. A one-phase request is converted to no explicit phase-transfer terms with deprecation warning,not a two-phase solve. Material transfer and custom molar/mass sources remain separately selected external terms. |
+| Element balance restrictions | Requires element_list/element_comp and defined molar/mass basis,with mass-to-moles conversion through molecular weights. Explicit rate/equilibrium/phase-equilibrium generation flags refuse because internal chemistry/phase transfer conserves these element totals;external elemental transfer/custom elemental sources are supported. This is not a claim that any supplied reaction conserves an undeclared element projection. |
+| Enthalpy/pressure terms | Heat,work,enthalpy transfer and custom power contributions are independent opt-ins,defaultFalse/None. Reaction heat requires previously constructed rate/equilibrium extents. Holdup uses internal-energy density rather than transported enthalpy density. DeltaP/custom pressure are independent opt-ins. Source signs/units are retained in the consuming unit specifications above. |
+| Extended isothermal |0D equates inlet/outlet T;1D equates adjacent spatial temperatures,skipping first point. Both steady/dynamic structural fixtures exist. Heat,reaction heat,work,enthalpy transfer or custom energy contribution requests are refused with this mode. It cannot calculate isothermal duty;that requires full enthalpy accounting plus a temperature specification. |
+|1D approximation | Explicit transformation method/scheme required:finite difference BACKWARD/FORWARD orcollocation LAGRANGE-RADAU/LAGRANGE-LEGENDRE. Missing/mismatched methods/schemes fail;local application additionally requires finite_elements and collocation_points where relevant and refuses transformation of an external spatial domain. FORWARD balances skip last point;other schemes skip first. Geometry's flow direction and selected scheme jointly determine the physical boundary correspondence. |
+
+The finite base tests use `PhysicalParameterTestBlock` and
+`ReactionParameterTestBlock`,not an independent fluid/reaction dataset.
+Their principal roles are default versus missing-default;component-phase/
+component-total/element and total-refusal;steady/dynamic storage;rate/
+equilibrium/inherent/phase transfer;external transfer/custom terms;molar/
+mass/undefined bases and missing molecular weight;reaction heat and four
+energy/momentum refusal families.1D adds distributed area,forward/backward
+discretization and flow direction;extended tests add the isothermal success/
+dynamic construction plus five forbidden energy-term choices. Scaling
+variants repeat these meanings rather than create additional physics.
+Dummy flow/density/energy terms are free synthetic values;structural
+construction and dimensional checks do not establish closed physical
+inventories,thermal allocation or solved trajectories.
+
+Actual selected package defaults differ:legacy activity-coefficient and
+flue-gas packages choose component-total/enthalpy-total;all six modular
+coordinates do likewise. Saponification chooses **component-phase** and
+enthalpy-total. These packages use molar transport. The natural-gas
+pipeline package supplies molar transport but does not implement a default
+balance selector here;its unit consumers explicitly choose balances.
+Generic MEA packages get defaults through their selected modular state
+definition. An explicit unit override remains effective over these defaults.
+
+Helmholtz defaults component-total/enthalpy-total,but its material-basis
+method always reports molar while its mass-coordinate material-flow/density
+expressions use mass. Thus mass-basis dynamic/reaction/element consumers
+require an explicit dimensional/correspondence probe rather than inferring
+correct basis conversion from the state-variable label. This is a retained
+reference-source inconsistency,not permission to adopt inconsistent native
+units. PH/PS/PU/TPX and L/G/LG/MIX parameter choices stay in the pure-fluid
+population above.
+
+This closes the shared base **source-choice matrix**,not every physical
+case or native capability. Native D01/E01 must combine each selected unit's
+forced terms with actual property methods,phase membership,geometry and
+initial/boundary closure;record omitted equations and refused configurations
+explicitly. Ordinary density/internal-energy/reaction records,independent
+source/flux/inventory accounting and each requested dynamic/distributed
+native/reference trajectory remain required. No Cartesian-product count or
+reference construction result is asserted.
+
+## Six fixed robustness populations and historical outcome roles — 2026-11-05
+
+**Interface-checked, source only:** V `robustness/unit_models/
+test_{cstr,flash,hx0d,pressure_changer,requil,rgibbs}.py` and their six JSONs,
+V `robustness/baseline.py`,C `diagnostics_tools/convergence_analysis.py`
+and `parameter_sweep.py` resolve G03/H04's fixed input populations. Each
+JSON stores200 unique realized rows,with no value outside its own declared
+input bounds. This was a stdlib JSON/arithmetic inspection;no sampler,
+model construction,initializer,diagnostic or Ipopt run occurred.
+
+All six are steady models. Builders first initialize one nominal point;
+the convergence owner then clones that initialized model separately for
+every stored sample,sets the sampled inputs and solves with legacy Ipopt.
+It does not rerun the unit initializer at each sampled point or warm-start
+each point from the previous sample. Regenerating unseeded Latin-hypercube
+samples changes the scientific/numerical population;replay the stored
+row identities instead. Baseline files contain success,error,iteration/
+restoration/regularization counts,time and numerical-warning flag,**not
+full physical output vectors or independent conservation assessments**.
+
+| Fixed population | Actual model,nominal point and sampled coordinates(envelope) | Historical JSON outcomes(success/failure;warning flagTrue) |
+|---|---|---|
+| `cstr.json` | Saponification CSTR,rate reactions,heat/reaction heat/pressure change,no equilibrium reactions. Nominal flow.001m3/s,water55388/reactants100/products1e-8mol/m3,Tin/Tout303.15K,P101325Pa,V.0015m3,deltaP0;outletT fixed,duty solved. Nine sampled inputs:flow.001–1m3/s,NaOH/ethyl acetate10–200mol/m3 each,sodium acetate/ethanol1e-8–10 each,P2000–900000Pa,Tin300–320K,V.001–1m3,Tout300–320K. Water stays fixed. |200/0;0 |
+| `flash.json` | IAPWS95 LG,nonideal separator with enthalpy split;nominal100mol/s,h24000J/mol,101325Pa,duty0/deltaP0. Three sampled inputs:flow.1–10000mol/s,P50000–500000Pa,h10–80000J/mol. This spans several water states,not a single fixed phase. |179/21;160 |
+| `hx0d.json` | Legacy liquid BT,Ideal activity model,cocurrent HX;nominal hot5mol/s365K,cold1mol/s300K,both.5/.5 and101325Pa,A1m2,U100W/(m2K). Four sampled inputs:hot flow1–100mol/s,hotT340–380K,A.1–100m2,U10–1000W/(m2K);cold feed stays fixed. No experimental HX dataset is loaded. |148/52;127 |
+| `isothermal_pressure_changer.json` | Mass-coordinate IAPWS95,default compression flag,isothermal generic pressure changer. Nominal27500kg/s,h4000J/kg,P2e6Pa,deltaP−1000Pa;four sampled inputs:flow1–1e6kg/s,P10–2e8Pa,h20000–4.4e6J/kg,deltaP−5e5–5e5Pa. The **nominal** enthalpy lies below the sampled lower bound. No stored row has nonpositive P+deltaP,but the declared continuous rectangle allows it. Negative deltaP with default compression is retained as source behavior,not a pump/turbine equivalence claim. |194/6;199 |
+| `requil.json` | Saponification EquilibriumReactor with equilibrium reactionsFalse;kinetic reaction rate constrainedzero,heat/reaction heat/pressure change. Same nominal inlet as CSTR,duty0/deltaP0,outletT solved. Seven sampled inputs:flow.001–1m3/s,reactants40–120mol/m3 each,products1e-8–30 each,P2000–900000Pa,Tin300–320K. This is not the CSTR's volume/residence-time law or an equilibrium-constant model. |151/49;113 |
+| `rgibbs.json` | Eight-species methane-combustion Gibbs reactor,element balances,heat/pressure change;nominal230mol/s,1500K/101325Pa,Tout2844.38K,deltaP0. H2/CH4/O2 fractions.0435/.1304/.1739;CO2/CO/H2O/NH3 each1e-5;N2 is **free**,solved from inlet sum1. Nine sampled inputs:flow10–1000mol/s,H2/CH4/O2 each1e-5–.2,H2O1e-5–.1,P50000–400000Pa,Tin1000–2000K,Tout2000–3000K,deltaP0–1e5Pa. Other trace fractions stay fixed;N2 remains the dependent remainder. Explicit model scaling and initialized outlet guesses are part of this source realization. |199/1;67 |
+
+Thus the stored aggregate is1071 successes/129 failures,with666 explicit
+True numerical-warning flags. Failed-solve/error rows are not automatically
+included in that warning count. The52 HX failures retain a bad-solver-status
+loading error and−1 metric sentinels;other unsuccessful termination records
+can have errorNone. None is an accepted current failure baseline.
+
+Immutable JSON identities(SHA256) are:
+
+- CSTR `75de996d77212fdeb9d2985b18b3e78b8b35431b091c3362c167dd5bdbae0c68`.
+- Flash `a4f7e588b93559966ab2b3546a2e5a055e341fc93a71d9f9a8a514f94758dea1`.
+- HX `9829d1299bcc43ab783c8de7fd89647346a46ff7ca6d48ad902ed93eb061301e`.
+- Pressure changer `8b2f8e9823e628fa249c0ee916d79705412a75f6d97a09168353ee118f05be5b`.
+- Equilibrium reactor `8ecdd7f208797a7a574de727e81a13c06941d6a803fa9126f6158ee170533338`.
+- Gibbs reactor `50629d661db5262da8d24a41664944f0c72391bef1bcd8a28d1d66cd0b3c7839`.
+
+V's newer `assert_baseline_not_regressed` is used by flash,pressure changer,
+equilibrium and Gibbs;CSTR/HX call the core baseline-comparison method.
+V's comparison tolerates iteration increases within relative.1/absolute1,
+accepts improvement from stored failure to success and fails newly lost
+successful samples/new warnings. This is convergence-regression policy,
+not physical or zero-failure scientific acceptance. Gibbs's generator also
+adds H2 twice with successive upper bounds.1 then.2;the stored specification
+has the final.2 bound. Preserve the saved population rather than treating
+those generator calls as two independent H2 dimensions.
+
+Recursive scientific inputs are the selected saponification thermo/reaction,
+BT liquid property and methane-combustion coefficient tables,IAPWS95
+external water/data closure,and the six exact nominal initialization
+policies(BlockTriangularization tolerance2e-5,HX0D initializer,or scaled
+single-CV Gibbs initializer). No trainer or external observation dataset
+is read. JSON historical metrics remain oracle-only;ordinary chemical/
+caloric/envelope records still need independent admission. Exact Ipopt/
+initializer/core2.13 compatibility and all realized sample outcomes remain
+unexecuted here.
+
+The source denominator is now six fixed models×their actual200 rows,not six
+new samplers or a promise that every point in each rectangle is physical.
+G03/H04 must preserve required rows,declare invalid/infeasible/failed roles
+explicitly,request complete physical outputs and original conservation/
+domain checks,and compare native/reference outcomes without weakening the
+zero-failure target or silently dropping historical failures. H01 scientific
+and executable readiness remains open.
+
+## Six SOC submodel fixtures and coupled boundary conservation — 2026-11-05
+
+**Interface-checked, source only:** C `soc_submodels/tests/
+test_{channel,porous_conductive_slab,conductive_slab,triple_phase_boundary,
+contact_resistor,common}.py`,their six implementation owners and `testing.py`
+resolve the remaining low-level F05/E03 source population. All listed
+fixtures construct **steady** flowsheets,including those with time lists
+or holdup. `testing._cell_flowsheet_model(dynamic,...)` ignores its dynamic
+argument and always constructs dynamicFalse. No transient acceptance follows
+from its signature. No model,property expression,initializer or solver ran.
+
+| Source / finite fixture | Actual geometry,material/boundary specifications and meaning |
+|---|---|
+| Channel:no holdup | Oxygen-side O2/H2O,opposite_flowTrue,below_electrodeFalse;3 axial volumes,time0/1s butsteady. Thickness.002m,plane.08×.08m,Tz1000K,film100W/(m2K). Both heat fluxes0;electrode-facing material flux0. Inlet flow/T/P/composition fixed at initialized values,not independently measured inlet data. Construction/unit checks only. |
+| Channel:steady holdup | Fuel H2/H2O/N2,forward flow,below_electrodeTrue,5 axial volumes,time0/1s;shared .08m plane and1000K,thickness.002m/film100. Same zero-flux/fixed-inlet boundary pattern. Stored gas terms are constructed,but there is no physical-time integration. |
+| Porous slab:no holdup | O2/N2,3 axial×4 thickness volumes,time0/1s,thickness.001m,plane.08m,T1000K,current0. Porosity.48,tortuosity5.4,solidCp450J/(kgK),density3210kg/m3,k1.86W/(mK),resistivity prefactor2.98e-5ohm m,thermal exponent−1392K. One boundary's temperature/concentration deviation,reference concentration,material/heat flux fixed at source-initialized values. These dimensions/transport parameters differ from the Herring replication cell. |
+| Porous slab:steady solid+gas holdup | H2/H2O/N2,7 axial×11 thickness volumes,time0 only;has_holdupTrue/has_gas_holdupTrue. Same material coefficients;shared boundary references start reference concentration1mol/m3,deviations/fluxes0,reference concentration derivative0. Gas storage without other holdup is refused. Dynamic gas accumulation exists in the implementation but has no dynamic trajectory fixture in this six-file population. |
+| Conductive slab:no holdup / steady holdup |3×4 versus7×11 volumes,time0/1s versus0 only;electrolyte thickness140micrometers,plane.08m,T1000K,current0,Cp470J/(kgK),density5160kg/m3,k2.16W/(mK),resistivity prefactor1.07e-4ohm m,thermal exponent7237K. x0 temperature deviation/heat flux0;holdup version shares both boundary references. Standalone initializer explicitly raises NotImplementedError:the submodel expects enclosing-cell boundary selection. |
+| Fuel reaction boundary | H2/N2/H2O,5 axial volumes,time0;below_electrolyteTrue,per-electron stoichiometryH2−.5/H2O+.5/electron+1,N2 inert. Reference concentration1mol/m3,deviation0,heat atx0=0,T1000K,current0. Exchange-current prefactor1.375e10,activation120kJ/mol,alpha1/2=.5/.5,H2/H2O powers1/1. Selected initializer fixesx0 and uses user scaling. Separate modifier fixture adds log_exchange_current_modifier fixed0;no nonzero degradation response is tested. |
+| Oxygen reaction boundary | O2/N2,7 axial volumes,time0/1/2s butsteady;O2−.25/electron−1,N2 inert,same kinetics with O2power.25. Tz andcurrent fixed**0**,reference concentrations1,deviations/heat0. This is an equation/unit-construction fixture,not a physically admissible0K solve. Unknown inert species,nonzero inert stoichiometry and missing electron coefficient are explicit source refusals. |
+| Contact resistance:shared / self-contained |3 axial volumes/time0 with shared plane/T/current references,versus7/time0/1s with self-created variables,Tz/current fixed0 in the latter. Area-resistance prefactor4.6e-5ohm m2,thermal exponent0,contact fraction1,deviation/heat0. The shared1000K fixture initializes withx0 heat fixed,then switches to fixedx1 heat. No fitted contact dataset or transient contact storage is selected. |
+
+All submodels require normalized strictly increasing face grids beginning0
+and ending1;shared versus locally created boundary variables is a finite
+coupling role,not duplicate physics. Conductive/porous/channel storage
+choices inherit the base dynamic/holdup constraints. Reaction-boundary and
+contact-resistance units force dynamicFalse/has_holdupFalse;their custom
+voltage-drop ports defaultFalse. Across-thickness thermodynamic-temperature
+selection is exposed at submodel level;the enclosing cell's stricter
+configuration refusal remains as recorded above. List membership alone
+does not establish all needed caloric/diffusion coefficients.
+
+The two coupled fuel/oxygen reaction-boundary conservation tests use one
+axial volume,shared .08m plane,T1000K,current1000A/m2 and120000Pa seed.
+Fuel seed fractions H2/H2O/N2=.05/.5/.45;oxygen.21/.79. Their two
+stoichiometric representations include gas/electrons only,or additionally
+oxide ion/vacancy terms. Fuel coefficients areH2−1/H2O+1/electrons+2;
+oxygenO2−1/electrons−4,with corresponding−1/+1 and+2/−2 oxide/vacancy
+coefficients when selected. Do not compare raw reaction extent without
+normalizing electron/charge convention.
+
+Each then requests3 pressures(1/3/5bar)×4 temperatures(900–1100K
+uniform)×3 H2 fractions(.1/.3/.5)×3 O2 fractions(.1/.2/.3)×5 current
+densities(−1000,−500,0,500,1000A/m2):**540 points per representation**,
+1080 total,plus initial solves. FuelN2=.4,H2O=.6−H2;oxygenN2=1−O2.
+Both gas concentrations use the loop'sP/(RT),despite the pressure variable's
+fuel-oriented name. Tests inspect net energy flux plus electrical work
+and H/O/N elemental flux cancellation;there are no dynamic inventories.
+They do not assert optimal termination for every loop solve or compare
+independent measured voltage/current. `pytest.approx(0,rel=1e-4)` retains
+its near-zero absolute behavior;it is not a justified1e-4 relative physical
+budget. Full finite outcomes and dimensional allowances remain required.
+
+The common caloric test selects the **11** gas entries actually present in
+`h_params`:Ar,CH4,CO,CO2,C2H4,H2,H2O,H2S,N2,O2,SO2. It evaluates71
+temperatures500–1200K at10K steps,1000mol/s/101325Pa,one species fraction1
+and others1e-19;compares ideal internal energy,enthalpy and entropy to the
+selected gas-property helper at relative1e-6. This is781 gas/T points,
+not15×71 or independent measurement validation. The broader15-name gas
+admission list also includes C2H6/C3H8/NO/N2O without corresponding entries
+in this h table. `common._element_dict` additionally assignsC2H4 four
+carbon atoms;the H/O/N boundary tests cannot detect that erroneous carbon
+projection. Preserve it as a reference inconsistency;ordinary native
+chemical identity must come from its own correct admitted composition.
+
+Recursive inputs are inline gas caloric/collision/elemental tables,the
+listed geometry/kinetic/solid/resistance coefficients,and selected Ideal
+gas helper equations;these six tests load no CSV/cache/trainer or saved
+initial state. Ipopt/initializer/scaling and complete core2.13 numerical
+behavior remain unqualified. F05/E03 must supply ordinary electrochemical/
+transport/solid provenance,actual nonzero state/boundary selections and
+native layer/port/charge/work correspondence. Dynamic gas/solid storage,
+nonzero custom voltage/modifier response and physical refinement/error
+cases remain required authored acceptance,with no shipped transient
+fixture inferred from this source population. This closes the six-file
+source census,not SOC scientific or native execution acceptance.
+
+## Residual EOS algebra, ragged phases and parameter consumers — 2026-11-05
+
+**Interface-checked, source only:** C `modular_properties/eos/tests/
+test_{ceos_PR,ideal,enrtl}.py`,`base/tests/test_{generic_property_integration,
+nonvap,nonvap_PR,noncondense,noncondense_PR}.py` and
+`coolprop/{coolprop_wrapper.py,tests/test_coolprop_wrapper.py}` resolve
+the residual D02/D03 source group. These add the following finite scientific
+or synthetic roles to the previously recorded BT/ASU/HC/electrolyte/Henry
+population. No property,external library,model or solver was executed.
+
+| Exact source population | Selected model/input and demanded behavior |
+|---|---|
+| PR EOS algebra | Synthetica/b/c,criticalT100/200/300K,P1/2/3bar,omega.1/.2/.3,all9 kappas0;state300K/101325Pa,liquid composition.6/.3/.1,vapor.1/.2/.7,distinct equilibrium-temperature100K. Dummy caloric/phase-equilibrium callbacks isolate compressibility,volume/density,enthalpy/internal energy,entropy/Gibbs,fugacity/log/equilibrium expressions and derivatives. These independently assigned phase compositions are **not** a solved ternary flash. Wrong phase,unknown option,mixing rule and inconsistent configuration are refusal controls. |
+| PR critical-mixture solve | Same synthetic critical inputs,one liquid phase,FTPx,1mol/s,300K/1bar,compositiona/b/c=.4/.6/1e-8. Critical-property initialization and ipopt_v2 solve targetZc.321379,Pc158138Pa,Tc158.138K,rhoc374.238mol/m3 atrelative1e-5. Nominal component criticalZ/density inputs1 are synthetic. This is critical-point equation support,not a measured fluid datum or stable phase envelope. |
+| Ideal EOS algebra | Dummy three-component vapor/liquid orsolid/liquid blocks at300K/101325Pa;constant caloric callbacks42/7 andsynthetic saturation11×T. Finite methods include cp/cv/ratio,phase density/volume,formation-enthalpy on/off,internal energy,enthalpy/entropy/Gibbs,fugacity/log fugacity atstate/equilibrium/bubble/dew coordinates,osmotic pressure and missing-method/invalid-phase refusals. The initially.5-per-component fractions need not normalize;these are equation controls,not admissible physical feeds. |
+| Ideal Henry/nonvolatile controls | Four-component CO2/H2O/N2/O2 at1mol/s,300K/1bar,.4/.6/1e-8/1e-8 with dummy Henry/saturation methods;separate NaCl/H2O.4/.6 atsame state with liquid-only NaCl. State,equilibrium and bubble/dew fugacity/log branches preserve actual phase membership. Independent Henry-form/real-fluid checks remain in their earlier section. |
+| ENRTL algebra/parameters | One aqueous phase,FTPx,300K;H2O/C6H12,apparent NaCl/HCl/NaOH andtrue Na+/H+/Cl−/OH−. Dummy liquid densities andrelative permittivity101/102 isolate symmetric-reference fractions,charge-weighted fractions,alpha/G/tau andosmotic pressure. Seven parameter controls:defaults,explicit overrides,asymmetric-alpha refusal,duplicate symmetric-alpha warning,invalid alpha pair,allowed asymmetric tau,invalid tau pair. Explicit water–NaCl-pair alpha.6 andtau.1 versusreverse−.1 are synthetic overrides,not independently admitted electrolyte interactions. |
+| Inherent reaction integration | Four synthetic vapor speciesa/b/c/d,Ideal FTPx,identical **negativeCp−40J/(molK)** andzero formation enthalpy. Inherent a↔b hasconstant reaction heat−20000J/mol,van'tHoff referenceK2 at350K,mole-fraction mass action. Four consumers:Heater and2-element backward1D CV,each component-phase/component-total. Feed100mol/s,350K/101325Pa,each fraction.25;heater duty0,1D area1m2/length1m. Targets outleta/b/c/d=1/6,1/3,1/4,1/4,T350K,flow100. This tests inherent-reaction ownership/transport,not physical heat-capacity validity. |
+| Nonvolatile/noncondensable phase membership | Four exact configs below×two fixedT states each. Unknown orabsent phase members must remain absent,not tiny invented flows. Demand all phase flows/fractions/compositions andbulk reconstruction,not only the vapor-fraction sentinel. |
+
+The four ragged-membership configs all use receiving FTPx,SmoothVLE,
+reference300K/1bar,1mol/s/101325Pa,
+benzene/toluene/special fractions.4/.4/.2 at360K and380K. Ideal variants
+use fugacity equality/IdealBubbleDew andPerrys/RPP4 liquid/gas methods;
+PR uses log-fugacity equality/LogBubbleDew,all nine kappa entries0 and
+PR liquid/vapor roots with RPP4 ideal-gas caloric data. Actual source targets
+at absolute1e-4 are:
+
+| Special species / EOS |360K vapor fraction |380K vapor fraction | Source identity limits |
+|---|---|---|---|
+| Liquid-only `l_only`,Ideal |0 |.3104 | Special species hasN2 elemental label but toluene-like MW.0921405kg/mol,Tc591.8K/Pc41bar and liquidCp/enthalpy. It is a synthetic nonvolatile component,not validated nitrogen. |
+| Liquid-only `l_only`,PR |0 |.2896 | Same critical/MW convention,omega.263 andtoluene-like ideal-gasCp/formation enthalpy;no chemical identity is inferred. |
+| Vapor-only `N2`,Ideal |.7553 |1 | Named N2 has the same toluene-like MW/critical/caloric inputs;it is a noncondensable **structural surrogate**,not physical nitrogen thermochemistry. |
+| Vapor-only `N2`,PR |.7782 |1 | Same synthetic substitution plusomega.263. Liquid phase contains onlybenzene/toluene. The PR/Ideal difference is not an independent nitrogen-data validation. |
+
+At single-phase limits,the disappearing phase's intensives remain
+formulation outputs rather than evidence of a nonzero phase inventory.
+The Ideal noncondensable tests carry an unnecessary cubic-library skip;
+that metadata cannot remove their required behavior. All eight fixed
+states and their complete ragged membership remain in the denominator.
+
+CoolProp's modular wrapper is a separate data/expression consumer from
+the native water provider. It reads selected component JSON/ancillary
+coefficient forms from the installed CoolProp library,validates expression
+form/tau convention,andconstructs supported saturation/liquid-density/
+caloric/entropy expressions. Missing property,unrecognized form,unsupported
+tau convention andunknown component fail;aliases/cache behavior do not add
+scientific fluids. The wrapper test disables superancillaries globally.
+
+Its fixed pure-benzene consumer is PR liquid,FTPx,flow1mol/s,101325Pa,
+composition1,reference298.15K/101325Pa;11 points300–400K by10K compare
+six property roles against CoolProp's selected backend. Two additional
+one-phase PR benzene consumers set idealCp/formationh/s to0 to isolate
+residual properties. Liquid sweeps useP1–10bar andT from installed
+benzeneTMIN to PR saturation atthatP in10K steps;vapor starts1K above
+PR saturation andsteps to installedTMAX. Entropy sweeps compare pressure
+changes from101325Pa:liquidT grid ends atatmospheric saturation,vaporT
+grid starts1K above10bar saturation. Vapor fixture also selects CoolProp
+NBP reference anduses PR atmospheric saturationT as its native reference.
+Z,density,residualh andentropy differences are distinct outputs. These
+comparisons target **PR::benzene**,not HEOS-benzene equivalence or phase
+stability. Exact TMIN/TMAX/saturation values,andtherefore realized sweep
+cardinalities,depend on the frozen installed data/library andmust be
+retained before execution;this census did not query them.
+
+No CSV,trainer orsaved initializer is read by this group. Recursive inputs
+are inline synthetic/correlation/interaction tables,property/reaction
+methods,cubic_roots andthe selected CoolProp library's exact JSON/ancillary
+data. Full SRK support remains required but no solved SRK case is supplied
+by these selected tests;the PR/SRK mismatch test in SmoothVLE2 explicitly
+refuses it. D02 must author a supported SRK scientific case with original
+ordinary inputs rather than borrow the refused mismatch as positive
+evidence. Similarly,native ragged membership,inherent chemistry,critical
+products and demanded derivative/datum/phase behavior need actual cases
+and independent physical checks. Synthetic source parameters stayoracle
+or explicitly authored analytic controls;they cannot become ordinary
+nitrogen/electrolyte records by their labels. This closes this finite source
+group while ordinary science,loaded-library readiness and native/reference
+acceptance remain open.
+
+## Direct power-cost account, capture and sCO2 case population — 2026-11-05
+
+**Interface-checked, source only:** C `power_generation/costing/tests/
+test_{power_plant_costing,power_plant_capcost,NGCC_capcost,CCS_capcost}.py`,
+`power_plant_costing.py`,`power_plant_capcost.py` andthe already identified
+QGESS/dictionary owners resolve G06's direct account population.
+`PowerPlantCostingData` **inherits the newer QGESSCostingData**,adding
+sCO2/ASU methods. The old `power_plant_capcost` QGESS implementation is a
+different owner. Different argument/currency/override conventions cannot
+be normalized into scientific equivalence merely by similar test names.
+No account model,dictionary regeneration,initializer orsolver ran.
+
+The common coal-plant fixture uses equipment technology2/CCS-A andseven
+groups(29 accounts),with fixed physical scaling quantities:
+
+| Scaling input | Exact accounts / units |
+|---|---|
+| Coal7238.95ton/day |1.1/1.2/1.3/1.4/2.1/2.2/4.11/4.15/4.16 |
+| Fuel603246lb/hour |3.6/3.9/7.3/7.5 |
+| Feedwater5316158lb/hour |3.1/3.3/3.5/4.9/8.4 |
+| Turbine769600kW |8.1 |
+| Condenser2016MBtu/hour |8.3 |
+| Circulating water463371gallon/min |9.2/9.3/9.4/9.6/9.7/14.5 |
+| Ash66903lb/hour |10.6/10.7/10.9 |
+
+The newer test repeats these **same technology2 equipment selections**
+under ten global lifecycle presets1–10,Lang2,all optional lifecycle flags
+enabled,USD2018,phaseout2031–33→75/50/25 andcapital percentages10/60/30.
+It also consumes650MW output,natural gas1.2MBtu/s,solvent40ton/day at
+500USD2018/ton. That is ten lifecycle/account interactions,not ten
+different equipment technologies. Old/new fixed-only,variable-only,both,
+empty/no-argument,inventory/land/transport andinvalid-unit/currency tests
+retain their calculation-bypass/default/refusal roles. Old O&M additionally
+specifies650MW nameplate,800MUSD total plant cost,labor40USD/hour,
+burden30%,10operators/shift,technology1 andcapacity factor.85;newer
+global O&M assumptions remain those in the QGESS section above.
+
+Both generations separately select seven mixed-technology account groups:
+technology1/A coal7613.37ton/day(1.1/1.2/1.3);3/A feedwater1576062.15
+lb/hour(3.1/3.3/3.5);4/A syngas182335.921lb/hour(6.1/6.2/6.3);
+5/A HRSG1777.86MBtu/hour(7.1/7.2);6/A turbine212500kW(8.1/8.2/8.5);
+7/B feedwater3298815.58lb/hour(4.9/8.4);6/B CO2493587.88lb/hour
+(5.1.a.epri). These are independently imposed assessment capacities,
+not a coupled plant material/energy solution. Currency controls use the
+same coal accounts at2018,2019_Sep,2020 andCE500;compare converted costs,
+not raw currency numbers. Expression-valued scaling is valid;incompatible
+sum-of-units orwrong dimensions refuse. Four custom-account roles add a
+new account,refuse a selected conflict,allow a conflict on an unselected
+account,andexplicitly overwrite a selected account. New API uses a list
+of dictionaries;old API uses one dictionary. Those exact override inputs
+and resulting account coverage must be retained independently.
+
+Varying parallel equipment and scale-down policy is exposed by newer
+QGESS,but these BB fixtures use their defaults. The only explicit parallel
+train counts in these selected tests are the sCO2 compressor/motor cases
+below;do not attribute an unexecuted BB train-scaling sweep to them.
+
+The old NGCC CCS-B/USD2018 test uses a module-scoped model progressively
+extended through16 groups(60 selected accounts). Its exact scaling inputs
+and group selectors are:
+
+| Group | Fixed scaling quantity / accounts |
+|---|---|
+| Feedwater |1085751lb/hour;3.1/3.3/8.4 |
+| Raw water |2902gallon/min;3.2/3.4/3.5/9.5/14.6 |
+| Fuel gas |205630lb/hour;3.6/3.9/6.1/6.3/6.4 |
+| Water discharge |657gallon/min;3.7 |
+| Flue gas |(8658430/60)/.025ft3/min;7.6 |
+| Gas turbine |477000kW;6.5 |
+| HRSG |(538.1−277.1)×8658430/1e6MBtu/hour;7.1/7.2 |
+| Stack |(8658430/60)/.061ft3/min;7.3/7.4/7.5 |
+| Steam turbine |263000kW;8.1/8.2/8.5/14.3 |
+| Condenser / cooling tower |1332/1357MBtu/hour;8.3 /9.1 |
+| Circulating water |217555gallon/min;9.2/9.3/9.4/9.6/9.7/14.5 |
+| Gross power |740000kW;11.1/11.7/11.9/13.1/13.2/13.3/14.4/14.7/14.8/14.9/14.10 |
+| Auxiliary load |14000kW;11.2/11.3/11.4/11.5/11.6/12.1/12.2/12.3/12.4/12.5/12.6/12.7/12.8/12.9 |
+| Combined turbine output |689800kW;11.8 |
+| Gas turbine ancillary |477000kW;14.1 |
+
+Source total plant cost target574.09MUSD2018(abs.1) assumes all those
+groups have been added before the final module test. Running the final
+test in isolation need not construct the same population. The native
+case must declare the complete account graph explicitly,with individual
+account and total outputs,without depending on Python test ordering.
+
+The old CCS test's44 accounts use technology6/defaultCCS-B,USD2013:
+single6.1–6.8.ccs scale absorber4999m3,packing3773m3,stripper386m3,
+packing291m3,condenser/reboiler1500m2 each,lean-rich40700m2 andlean
+cooler600m2. Accounts6.9–6.26 each have two additive correlations(.1/.2):
+CO2product245000lb/hour andflue gas2e6m3/hour. Those cover blower,DCC/
+packing,pretreatment pump/cooler/tank,wash column/packing/cooler/pump,
+condenser pump,reflux drum,lean-solvent pump,storage/wash tanks,reclaimer/
+cooler andfiltration. This is44 cost correlations over26 equipment
+categories,not44 simulated capture units. It targets total100.86MUSD2013
+atrelative1e-3. The regeneration test writes inline coefficient declarations
+to a temporary JSON andcompares exact expected content;it does not fetch
+new vendor data orprove scientific cost accuracy.
+
+Both generations' sCO2 fixture selects10 cost blocks,USD2017:coal heater
+1461.5MW/620C;turbine1006.2MW/620C;generator1006.2MW;three
+recuperator-law exchangers at453/216/81C withUA computed from
+1461e6W/21.45K,911.7e6W/5.21K and739421217W/5K;main compressor
+5.99m3/s and159.7MW motor in5 trains;bypass6.89m3/s and124.3MW
+motor in4 trains. A supplied UA initialization is a guess before the
+heat/LMTD equation,not its final specification. Even the CO2 cooler uses
+**Recuperator**,not Direct-air-cooler correlation. Per-train scaling divides
+total capacity bycount,then sums train equipment costs. Temperature
+correction uses a branch at550C;required-temperature omission fails and
+non-temperature-corrected families usefactor1. The bound-check helper only
+prints diagnostics;it is not an enforcing physical validity guard. Separate
+ASU scales13078tonO2/day atUSD2017;no air-separation thermodynamic model
+is constructed by that cost test.
+
+Recursive input closure is the frozen BB,genericCCS andsCO2 coefficient
+files already identified,inline custom accounts/physical capacities,
+currency/index definitions andthe selected old/new calculation owner.
+No commodity-price feed,process dataset,trainer orsaved state is read.
+Reference expected costs are oracle outputs;ordinary correlation/vendor/
+year/scale provenance and valid economic envelopes remain required.
+Native G06 needs each selected account once,correct unit/year conversion,
+capacity/train/contingency/override identity,all component andaggregate
+costs,andindependent scaling/aggregation checks. Failing physical domains,
+unknown account/technology/currency andunavailable outputs stay explicit.
+This resolves the four-file source population while exact reference
+compatibility,ordinary admission andnative economic/scientific acceptance
+remain open.
+
+## Core PySMO, ALAMO and sampling source population — 2026-11-05
+
+**Interface-checked, source only:** C `core/surrogate/pysmo/tests/
+test_{polynomial_regression,radial_basis_function,kriging,sampling,
+sampling_modified,utils}.py`,`tests/{test_pysmo_surrogate,test_alamopy}.py`,
+`sampling/tests/{test_data_utils,test_scaling}.py` andtheir implementation
+owners resolve the remaining core G04 source group. Most low-level
+parameter decorators vary **array versus dataframe versus invalid list**,
+not statistical models. Those boundary/label/refusal roles stay required
+without multiplying the scientific denominator. No sampler,fit,pickle/
+surrogate loader,expression evaluator,trainer orsolver ran.
+
+The three low-level fit modules share synthetic quadratic
+y=(x1+1)²+(x2+1)²:441 original rows on21×21 uniform0–10 grid and25
+regression rows on5×5 grid. Separate one-input fixtures use ten integer
+x0–9 withy=(x+1)²,8-point prediction inputs,200-row sizing andconstant/
+wrong-dimension controls. These are analytic data,not process experiments.
+
+| Fit/source role | Actual finite model selections and statistical/solver meaning |
+|---|---|
+| Polynomial | Positive integer degree capped at10 with warning;noninteger/nonpositive orsample-inadequate degree refuses. Defaults3 cross-validation repetitions,.75 training split,4 adaptive samples/iteration,.5 maximum original-data fraction,up to10 adaptive iterations when original population exceeds regression data;equal populations oradaptive count0 disables adaptation. Pyomo(default),MLE andBFGS are distinct fit routes;multinomials0/1 andcustom terms change feature basis. Bad split/count/method/shape/file arguments have explicit guards. |
+| Polynomial actual fit controls | Full25 regression rows/degree2 calls `training` anddirect fitting with ok-status target;first5 rows/degree1 expects poor-fit warning. Custom sin(x1)/sin(x2) data andsubsequent no-extra-term refit are distinct selected roles. Three `test_polyregression_01..03` degree2 routing tests patch the chosen MLE/BFGS/Pyomo optimizer to return synthetic weights10;they **do not** establish fit quality. Degree10 against only20 training rows returns infinite error. Separate direct linear-estimator tests andconfidence products are mathematical controls. |
+| RBF | Six kernels linear,cubic,thin-plate spline,Gaussian,multiquadric,inverse multiquadric;algebraic(default),Pyomo,BFGS;regularizationTrue(default)/False. Parametric kernels search24 shape values.001–1000;fixed kernels use0. Regularization searches21 values1e-5–1 or0 when disabled. These are finite LOOCV hyperparameter grids,not24×21 new physical models. Three training-route fixtures use one-input quadratic data,Gaussian/default kernel,regularizationFalse;Pyomo/BFGS repeated-fit cases retain unstable-solution warnings. Six kernel prediction andexpression cases preserve each kernel's actual transformed/near-zero behavior. |
+| Kriging | Squared-exponential exponent2,regularizationTrue(default)/False andnumerical_gradientsTrue(default)/False. True compares boundedTNC andL-BFGS-B objectives andselects the better;False uses250-iteration basin hopping. Logtheta bounds−3..3;regularization1e-6.. .1 when enabled,**1e-10 fixed** when disabled. The main training comparison uses the first3 quadratic regression rows andresets NumPy seed0 before both fits;it recomputes expected statistics through the same implementation,not an independent statistical oracle. Other prediction/expression/serialization controls use the25-row population. |
+| Trained wrappers | Shared linear synthetic five-rowx1=1..5/x2=5..9/z1=10..50;polynomialdegree1+multinomials,linearRBF andnumerical-gradient kriging. Trainer-construction fixtures use first4 rows,boundsx1[0,5]/x2[0,10]. One/two-output fit/evaluate/embed/save/load cases separately preserve output order,scaling,domain andrequired expression products. JSON strings in the tests are inline fitted-artifact oracles,not newly reproduced training. |
+| Richer wrapper bases | Six-row polynomial fixture adds(3.4,1.1) withz1−84.53625/z2−.230209269 to the five-row linear data;degree1,multinomials and3CV. Separate six-rowx1=1..6/x2=5..10 uses linear combinations plus sin(x1)+cos(x2),or exp(x1/x2),degree1,no multinomials,MLE,10CV. Ratiox1/x2 is another extra-feature role;its zero-denominator domain must remain explicit. One-input cubicRBF/kriging usesx1=1..5,z1=10..50. Gaussian two-output RBF disablesregularization;two-output kriging usespermutedx2=(7,6,9,5,8),regularization/numerical gradientsTrue,seed0. |
+| Confidence products | Six-row/two-output polynomial fixture compares90%/99% coefficient confidence intervals witht multipliers1.8331129326536335/3.2498355440153697. Low-level confidence andresidual-covariance controls remain distinct from prediction intervals,parameter identifiability andprocess-output uncertainty. The validation fixtures largely reuse first4 training rows;they are not independent holdout evidence. |
+
+The common end-to-end analytic fixture is ten inline(x1,x2,z1) rows
+within[−1.5,1.5]²,shared exactly by polynomial,RBF,kriging andALAMO
+workflows. It is the six-hump-style polynomial target
+4x1²−2.1x1⁴+x1⁶/3+x1x2−4x2²+4x2⁴,with rounded stored responses.
+Polynomial selectsdegree6/multinomials;RBF cubic/no regularization;
+kriging no regularization/basin hopping/seed0;ALAMO linear terms,
+monomialpowers2–6 andtwo-variable powers1/2. Each fits,evaluates training
+metrics andembeds an algebraic surrogate. These tests do not solve a new
+surrogate-based process optimization orindependent holdout campaign.
+The ALAMO validation workflow explicitly reuses **the same ten rows** as
+validation. Existing X reformer/sCO2 optimization stages remain separate.
+
+ALAMO's four-row construction andone/two-output trace parsing,known
+polynomial/transcendental expression evaluation,labels/bounds,embedding
+andserialization controls are distinct from real external training. Wrapper
+Gaussian-RBF options `grbfcns`/`rbfparam` explicitly refuse;they are not
+supported ALAMO capabilities supplied by PySMO's separate RBF implementation.
+Missing ormalformed trace,label/output-count mismatch andexisting output
+file refusal remain required failures. Three shipped trace fixtures and
+one control file are input artifacts,not executed training receipts:
+
+| C `core/surrogate/tests` artifact | SHA256 |
+|---|---|
+| `alamotrace.trc` | `8586a5afcb02f2f74fcebee4abfd631f93ca84702e8e54924c158e56c0a3ed44` |
+| `alamotrace2.trc` | `950af01e3abc5eb547da96bba9cdef343093c7b055f2ebc62860e07ed619f8c7` |
+| `alamotrace_w_validation.trc` | `479c654468fa1d21d630cdcc347a805cdd07204b9ec24303a0a7d2c8362dd365` |
+| `alamo_test.alm` | `6a214dcdfa0ce15ffb503ec385678ccd01658af184e0abc6894f0ca438cbefdb` |
+
+The sampling population is likewise finite at its actual source selections:
+
+| Sampler/data boundary | Exact shipped selections / refusals |
+|---|---|
+| LHS,Halton,Hammersley | Selection from ten correlated rows or441-row quadratic grid;creation from two bound rows,three coordinates. Each probes requestedcountNone(default5),10,1. Halton/Hammersley reject dimension>10. Nonpositive/noninteger count,selection count larger than data,wrong mode/type andequal/ill-shaped bounds refuse. No stochastic seed is inferred for unseeded tests. |
+| Uniform grid | Selection2D counts(2,5),(3,2),(4,2),both edges included(defaultTrue) andmid-cell(edgesFalse);creation3D counts(2,5,9),(3,2,10),(4,2,28). These request90/60/224 gridpoints before selection/deduplication. Product count exceeding available selection rows refuses. |
+| CVT | Ten-row selection/two-row-bound creation,count5/10/1;default centroid tolerance1e-7,explicit high/negative/tiny tolerance controls. LHS/CVT repeat creation atseed1000 forcounts5/1/10/100 tocheck repeatability. Repeatability is not independent-space coverage. |
+| Custom distributions | Per-coordinate random/uniform/normal,selection2D orcreation3D,counts5/10/1;seed1000 repeatability5/1/10/100. Normal isgenerated in normalized space withmean.5/sigma1/6. Bounds enforcementFalse(default) permits tails outside0..1;True repeatedly resamples tail draws andwarns that the law changed. Two10000-draw one-dimensional controls distinguish both. Distribution list length/type/name andBoolean bounds option refuse invalid values. |
+| Selection semantics | Scale feature space,choose nearest existing rows,then deduplicate;requested count is not guaranteed realized count. Retain source row identities,selected columns andactual unique cardinality. Replacing selection by freshly evaluated analytic points changes the case. |
+| Split/scaler consumers | Five-row train/validation fraction.7→3/2 andnine-row train/validation/test fractions.6/.35→5/3/1,unseeded versusseed42 with exact row identity assertions. Mean/sample-standard-deviation andmin/max normalization of five-rowA/B data preserve offset/factor/ordered labels,round trips andserialization;constant-feature controls use their explicit fallback rather than an invented division byzero. Wrong labels/order/factor shape are refusals. |
+
+Custom sampling recreates `default_rng(seed)` for **each** coordinate;
+atfixed seed,identical uniform/random distribution columns can therefore
+receive identical normalized draws. It cannot establish independently
+sampled coordinates. LHS/CVT seed selection uses global NumPy state;
+realized samples/versions andsubsequent trainer randomness need explicit
+custody. `test_sampling_modified.py` supplies older unittest variants of
+the same scaling/LHS/uniform/Hammersley/CVT families,not additional named
+physical data orcustom/ALAMO trainers. NumPy evaluator tests use three-point
+sin/abs/atan/atanh andscalar constant expressions;they test evaluation,
+not new regression models.
+
+Recursive input closure is the inline analytic arrays/expressions,three
+trace fixtures/control file,andselected NumPy/SciPy/pandas/Pyomo/Ipopt/
+ALAMO implementations. Low-level `solution.pickle` andfitted JSON outputs
+are generated andmay be overwritten under the selected policy;they are
+not preexisting scientific input data orcompatible historical pickles by
+default. Ordinary analytic/process-data roles,fit/validation separation,
+rank/confounding,failed/unstable outcomes,statistical uncertainty and
+evaluation-versus-embedding-versus-optimization products stay explicit.
+G04 still owes selected native fitting/equation/backend/refusal contracts
+andindependent acceptance. This closes these named core source families;
+exact executable/trainer versions,realized stochastic populations and
+native/reference scientific results remain held/unattempted as applicable.
+
+## Notebook wrapper correspondence and disposition boundary — 2026-11-05
+
+**Interface-checked, source only:** the existing55-family notebook
+register's exact documented paths,X `build.py`/`util.py` andall their
+present derivative notebook code cells resolve the final authorized H01
+source/disposition group. The separately registered empty `testnew/foo`
+remains excluded non-science machinery;it is not a56th documented process
+family. JSON/AST comparisons read no outputs andexecuted no notebook,
+generator,model,helper orsolver.
+
+The actual generator removes cells by tags,so unfiltered AST equality is
+the wrong duplicate criterion:
+
+| Derivative | Canonical cell tags omitted |
+|---|---|
+| `_test` |exercise,noauto |
+| `_doc` |exercise,testing,noauto |
+| `_usr` /`_solution` |testing,auto |
+| `_exercise` |testing,solution,auto |
+
+There are55doc,54test,55usr,eight exercise andeight solution variants:
+**180** present derivatives ofthe55 source families. Code statements were
+compared after applying **only the declared tag filter**,ignoring cell
+boundaries/AST location fields;non-Python cells were compared as exact raw
+text.177 derivatives match their filtered canonical source. The three
+exceptions are already attributed in the sCO2 source closure:ALAMOusr adds
+future-division import;PySMOtest adds unusedos import;PySMOusr changes the
+default temperature-unit key to`temperatureo`. The latter is an actual
+readiness defect,not a proved compatible rendering. These comparisons
+establish source correspondence,not execution or equivalence of every
+rendered workflow's demanded evidence.
+
+Tagged removals can remove meaningful selected stages orchecks. Preserve
+the union of complete scientific cases at their native/reference case
+owners,without counting pedagogical scaffolding as a second model:
+
+- Flash tutorial retains legacy IdealBT/FTPz,Liq+Vap,1mol/s,368K,
+  101325Pa,.5/.5 feed,duty0/deltaP0;two50-point duty sweeps−17000 to
+  25000W respectively request vapor flow andvapor benzene fraction.
+  A distinct inverse case frees duty to attain vapor benzene fraction.6.
+  Some renderings omit inverse solve/reinitialization orunfinished exercise
+  code. The sweep helper writes0 for failed solves;native acceptance must
+  retain failure rather than treat that placeholder as physical zero.
+- NRTL state/flash tutorials retain the complete estimation functions and
+  separate368K construction probes. Exercise definitions are incomplete
+  andlater replaced by complete definitions;their omission bytest/doc does
+  not create a new parameter model. Preserve the earlier recorded shared
+  experiment/normalization/uncertainty distinctions.
+- Introduction/full-short variants remove instructional code andsome
+  solver calls according to tags. Their analytic quadratic example
+  minimizesx²+y² subject tox+y=1;it is a teaching solver/control case,
+  not an additional process thermodynamic family. Notebook environment
+  checks andscript-run syntax are source machinery,not scientific inputs.
+- Visualizer variants can omit HDA solve andbefore/after visualization;
+  retain selected native solve/report/inspection products without requiring
+  GUI imitation. Diagnostic/scaling variants omit some solves,structural/
+  numerical assertions,nominal-term inspection orunit checks. Mixer
+  renderings omit explicit flow/enthalpy comparison calculations;these are
+  evidence differences,not permission to drop original conservation.
+- Eight exercise/solution pairs are flash,HDA tutorial,full/short
+  introduction,diagnostics toolbox,two NRTL fits andHDA distillation.
+  A complete scientific driver selects the completed equations/stages;
+  running raw instructional cells containing unfinished syntax is not a
+  scientific failure control. Test/doc/user suffix does not establish
+  execution readiness orfull required output coverage.
+
+This source reconciliation supports excluding duplicate **wrappers**,
+not underlying scientific stages. Held NETL remains required withits own
+physical/data/PETSc closure. Previously inspected archived supercritical
+plant/steam wrappers use the same core calls/specifications asmodern;
+their entry-point retirement/deduplication is coordinator disposition.
+Archived NGFC/SOFC/SOEC/rSOFC/combined/reconciliation sources have the
+distinct ROM/material/geometry/statistical roles already recorded;they are
+not blanket duplicates. Missing original helper/metadata andpinned-version
+compatibility stay explicit.
+
+The coordinator also owns conditional supplemental MatOpt(six archived
+design families) andPECOS adoption,plus obsolete DMF infrastructure
+disposition. No fresh adjacent legacy track was opened in this increment.
+Conditional application entry points do not silently enlarge orshrink the
+accepted process-only claim. Original published notebook-register status
+is not edited here;this companion supplies its current source evidence.
+
+All seven authorized source groups now have concrete source handoffs.
+The remaining H01 work is **case/readiness/scientific authoring and
+coordinator disposition** as enumerated below,including loaded-data-derived
+case cardinality andrealized stochastic rows. Neither177 wrapper matches,
+the55-family register,norcompletion ofthis source pass establishes a fully
+frozen executable scientific denominator orPlan64/H01 completion.
+
 ## Original scientific source leads
 
 These links identify scientific formulation or parameter provenance to investigate
@@ -5758,13 +6706,13 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 
 | Source category / exact population entry | Disposition and closure result |
 | --- | --- |
-| Modern documented notebook families | Required scientific behavior; the existing 55-family register retains exact entry points. This investigation read code-cell imports, configuration/data accesses and the named helper sources above. Generated `_doc`, `_test`, `_usr`, exercise/solution/source renderings do not add members; meaningful science changes still require explicit variants. The full normalized-wrapper content equivalence has not been established. |
+| Modern documented notebook families | Required scientific behavior;the existing55-family register retains exact entry points. Final wrapper comparison applies actual generator tagfilters toall180 present derivatives,with177 source matches/three attributed exceptions. Renderings do not add models;omitted scientific stages/checks remain in the required union andthe PySMOunit typo remains a readiness defect. Source correspondence establishes no executable orscientific qualification. |
 | Modern HDA/custom/methanol helpers | Required with the consuming cases. Local `mod/hda`, `mod/methanol`, `mod/properties`, reactor `egprod_ideal.py`, `egprod_reaction.py`, `msr_reaction.py` and custom liquid-extraction modules must accompany the reference source. Modular and legacy HDA formulations cannot be declared duplicates without a scientific correspondence. |
 | Modern power helpers and saved initialization | Required with NGCC/SOC cases. Nested helper imports identified above and shipped compressed initialization are reference prerequisites. Generated stream CSVs, plots and solver transcripts are outputs, not original physical input data. Serializer compatibility and all recursively loaded files remain execution-readiness work. |
 | Modern surrogate helper/data/artifacts | Required selected training/evaluation/embedding/optimization stages. `AR_training_methods.py` itself imports TensorFlow and multiple trainer families; a helper import can require more than the notebook's chosen fitted family. Reformer/sCO2 datasets, JSON/`.keras` metadata/scaling and local property code are separate input artifacts; obsolete pickle compatibility is not assumed. |
-| Held NETL-32D fixed-bed notebook | Required, held execution: `held/flowsheets/CO2_adsorption_desorption/CO2_Adsorption_Desorption_1DFixedBed.ipynb` → `mod/co2_adsorption_desorption/{NETL_32D_gas_phase_thermo,NETL_32D_solid_phase_thermo,NETL_32D_adsorption_reactions,simulation_utilities}.py` plus core fixed bed/PETSc. This is not zeolite TSA0D and cannot be deduplicated into that row. Resolve adsorption/desorption input profiles, inventory transfer, parameters and PETSc compatibility. |
+| Held NETL-32D fixed-bed notebook | Required, held execution: exact local gas/solid/reaction/simulation helpers,adsorption/desorption profiles,parameters and inventory handoff are resolved in its section above. Core fixed-bed/PETSc compatibility,ordinary scientific records and native/reference trajectory/inventory acceptance remain open. This is not zeolite TSA0D and cannot be deduplicated into that row. |
 | Archived reconciliation: boiler, economizer parmest/reconciliation | Conditional supplemental source selection remains open; scientific reconciliation is already mandatory G02 behavior. Detailed statistical/input roles above are resolved,including250 complete/250 empty raw rows,reconciled fitting inputs,26 parameter groups and12-case boiler loop. Missing historical DMF helper and exact2.13 compatibility remain explicit prerequisites;no science is excluded. |
-| Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Conditional archived entry-point selection; released core power/SOC behavior remains required above. Models/ROMs/helper data may differ from modern cases; content equivalence and all nested prerequisites have not been established. No blanket duplicate/exclusion declaration. |
+| Archived NGFC, rSOFC/SOEC, SOEC, SOFC, combined SOFC/SOEC, subcritical boiler | Source contents and actual physical/ROM/costing/dispatch input closures are inspected in the detailed archived sections;distinct ROM weights,SOEC material/geometry/reaction laws and electrolysis-only rSOFC use are preserved. Archived entry-point adoption remains conditional and coordinator-owned;required released process behavior stays required. Exact environment/serializer compatibility and independent science/native mappings are unqualified. No blanket duplicate/exclusion declaration. |
 | Archived supercritical plant/steam-cycle entry points | Scientific comparison above resolves identical core calls/inputs and the same .25 throttle change; differences are resource/table imports. Same-case wrapper candidates await coordinator disposition. Core/modern plant cases remain required even if archived wrappers retire. |
 | Six archived MatOpt design families and C `apps/matopt` | Conditional supplemental whole-distribution track, outside the process-only equivalence claim. Retain materials-design scope for any later whole-release claim; no deletion or rejection of the library. |
 | Archived PECOS data quality | Conditional supplemental workflow; do not claim its application-specific data-quality behavior from native process inspection. |
@@ -5774,26 +6722,57 @@ each consumer's originating point/step/coverage and required-versus-optional pro
 
 ## Next closure work and consumers
 
-H01 remains open for the following concrete work; these are missing denominator
-and readiness products, not missing test passes to be replaced by a source-count claim:
+**Interface-checked handoff, 2026-11-05:** selected family sections now resolve
+the principal D–G models,actual shipped scientific specifications and recursively
+read numeric/data/helper roles. Solid-liquid/thickener,power units,grid,TSA,
+SOC benchmark/controller and modern/archived process examples are no longer
+uninspected families. This does **not** establish a complete released
+configuration denominator,executable reference readiness or scientific acceptance.
+The seven authorized source groups have now been resolved to the following
+bounded handoffs. They are source-choice and input-role products,not accepted
+native cases. API/scaling/test-count expansion is not itself additional science.
 
-1. Expand the inherited per-model admissible balance/dynamic/holdup configurations,
-   callable policies and actual parameterized scientific fixtures, including full
-   remaining fluid/configuration selections, solid-liquid/thickener, power units, SOC, grid and
-   surrogate benchmarks. Record physically invalid/unsupported combinations as
-   refusals. The tables preserve their mandatory owners while enumeration proceeds.
-2. Inspect all remaining archive contents and compare candidate wrappers scientifically.
-   Keep held required behavior separate from optional archived entry points. Reconcile
-   any actual scope change with A01/the coordinator before dropping a demand.
-3. Resolve complete helper/data/external-artifact closures for each first executable
-   case; freeze actual Python/solver/external-function/trainer versions. Source
-   accessibility does not qualify the examples/core environment. Original scientific
-   parameter provenance and ordinary-versus-oracle permission are B's source-owner work.
-4. Map the selected native declaration/case, fixed/free roles, envelope, physical
-   outputs, derivative/statistical products, comparison allowances and original
-   conservation/feasibility checks at the existing typed case/conformance/reference
-   owners. H02's ordinary recycle/HX correspondence remains its independent first-case
-   owner; this inventory does not replace it.
+| Source population / owner | Resolved source handoff | Remaining actionable case/readiness product |
+|---|---|---|
+| Effective inherited balances — D01/E01/H01 | [Base/extended matrix](#effective-inherited-control-volume-balance-population--2026-11-05):implemented/omitted/refused balances,storage/defaults,reaction/basis/geometry andboundary policies. | Map selected actual unit/property/phase cases andordinary densities/internal energy to native balances andcomplete original conservation. Base enum grids are not physical case specifications;Helmholtz mass-basis inconsistency needs explicit correspondence. |
+| Residual property/EOS consumers — D02/D03 | [Algebra/ragged/parameter consumers](#residual-eos-algebra-ragged-phases-and-parameter-consumers--2026-11-05):eight ragged states,critical/inherent/ENRTL/Ideal controls andCoolProp benzene consumers. | Admit correct ordinary science rather than mislabeled synthetic N2/negativeCp;author the required positive SRK case;freeze installed data-derived sweep points andnative phase/datum/derivative products. |
+| Six SOC submodels — F05/E03 | [Fixtures/boundary conservation](#six-soc-submodel-fixtures-and-coupled-boundary-conservation--2026-11-05):steady storage/port roles,1080 coupled points,781 caloric points,source anomalies. | Ordinary electrochemical/solid/transport inputs;native layers/charge/work;actual dynamic/nonzero extension cases andtrajectory/refinement acceptance. The inspected source supplies no transient fixture for those demands. |
+| Core surrogate/sampling — G04 | [Fit/sampling census](#core-pysmo-alamo-and-sampling-source-population--2026-11-05):basis/solver/CV/adaptation,analytic rows,sixsamplers,trace artifacts,statistical/evaluation/embedding roles. | Freeze realized stochastic rows/versions;independent validation andfailure policy;native fitting/expression/backend/refusal choices. Mock/reused-data controls do not qualify statistical performance. |
+| Six robustness populations — G03/H04 | [Fixed-row census](#six-fixed-robustness-populations-and-historical-outcome-roles--2026-11-05):six exact200-row models,nominal/cloning policies,hashes and1071 historical successes/129 failures. | Preserve every row andattributed outcome;admit scientifically valid envelopes,declare infeasible/domain roles andrequest all physical outputs/conservation. Historical regression statistics remain oracle-only,not a failure waiver. |
+| Direct power-cost accounts — G06 | [Four-file account population](#direct-power-cost-account-capture-and-sco2-case-population--2026-11-05):29common accounts,16NGCC groups/60accounts,44CCS correlations,10sCO2 blocks/ASU,old/new calculation roles. | Ordinary year/vendor/capacity/envelope records;explicit complete account graph andunit/currency/train/override semantics;independent component/aggregate cost acceptance. No module-test ordering is allowed asnative scientific authority. |
+| Wrappers/dispositions — A01/H01 | [Exact tag-filter comparison](#notebook-wrapper-correspondence-and-disposition-boundary--2026-11-05):55families,180derivatives,177matches/3attributed exceptions;complete scientific stages retained. | Coordinator disposition ofsame-case archived wrappers/conditional MatOpt/PECOS andsource-register reconciliation. Preserve held required science andfix/attribute incompatible driver selections withoutediting external sources. |
+
+Missing or unqualified prerequisites are not all source-enumeration problems:
+
+| Exact selected dependency | Current state / action needed before its run |
+|---|---|
+| Reformer shipped Keras weights | Both selected folders lack required `idaes_info.json`. Labels/bounds/scalers for those exact weights are unavailable in the fixed archive. Recover authoritative metadata or select and attribute a fresh complete training result;neither invent scalers nor count a new fit as the old fit. The truncated `pysmo_poly_surr.json` is also unusable,and helper kriging filename mismatch selects training rather than the differently named cache. |
+| Six older PySMO helpers | Obsolete import paths and absent module-relative `data_files/`;the named data files are available under the notebook tree. Exact reference-driver/path adaptation remains to settle without editing external sources;legacy Matyas XLS additionally needs a compatible reader and actual sheet/column inspection. These are compatibility/placement prerequisites,not lost datasets. |
+| Archived boiler/economizer reconciliation | Historical `idaes.core.dmf.model_data` implementation is absent from core2.13;filter/bin/deviation semantics cannot be recovered from its deprecation stub. The referenced `FOCAPD_paper` material is not bundled. Existing raw/reconciled/result files and their distinct statistical roles are retained. Recover exact helper/source behavior or attribute a separately specified reference;do not silently invent the statistical operation. |
+| Executables / compiled artifacts | Exact legacy Ipopt/ipopt_v2 options,Helmholtz data/expressions/shared library,cubic-roots library,PETSc ASL+trajectory readers,k_aug/dot_sens,ma57/PyNumero/ASL,ALAMO and selected TensorFlow/Keras/ONNX/OMLT stacks must be frozen/tested only for their consuming case closure. This census did not prepare or establish host availability of these dependencies. Missing execution dependencies hold required cases;no substitution/version bump is implied. |
+| Saved-state and trainer compatibility | Named modern/archived snapshot readers,component/index/fixed-active completeness,old PySMO pickle handling and trainer metadata require actual pinned-environment construction/loading. File decoding and known serializer ignore-missing behavior are insufficient. Generated missing load caches can be produced by the selected initialization branch,with fresh execution attribution. |
+| Ordinary scientific inputs and allowed comparison | B/D/F/G must independently source/admit coefficients,phase/datum/basis,physical/envelope/normalization,geometry/economic/statistical inputs and required outputs. Reference data have not acquired ordinary permission. These are outstanding scientific authoring decisions,not absent user answers or evidence that another source scan can complete acceptance. |
+| Data-derived finite cases | Freeze actual installed CoolProp TMIN/TMAX/PR saturation-derived benzene grids andrealized stochastic sampler/adaptive-training row identities under exact versions before their runs. Their source rules are resolved,but reading Python alone cannot supply those realized values without executing the selected reference capability. Already stored robustness rows need replay,not regeneration. |
+
+The next executable boundary is the existing H02/H03 five-case ordinary
+recycle/exchanger contract and D02's already selected native water
+property/pump/turbine consumer. Complete original-source custody,fixed/free
+roles,all required outputs,mismatch controls and canonical readback there;
+the current source census cannot substitute for those actual comparisons.
+Then E01/E02 can consume the enzyme vessel's resolved initial/forcing and
+normalized thermal contract for the selected lumped-storage increment,after
+ordinary kinetic/caloric meaning is settled. The already implemented stock
+projections are starting support,not that complete trajectory. E03's reactive
+fixed-bed and E04's TSA physical cycle are subsequent separate closures;
+neither requires first finishing every power/grid/surrogate case.
+
+Carry the remaining cases through existing native source/case/conformance,
+temporal and reference-exchange owners. Freeze outputs,derivative/statistical
+products,dimensional comparison allowances and independent original
+conservation/feasibility checks before reading candidate values. No generic
+catalog,second result store or broad reference-environment preparation is
+needed for this handoff. H01,H02/H03 and H04–H07 remain open at their own
+actual implementation/qualification boundaries.
 
 D01 can use the scientific/consumer groups immediately. E01 can settle the three
 first physics increments without awaiting all power/grid cases. F01 has separate

@@ -702,12 +702,13 @@ three actual-child controls exposed a remaining H2 peer-close race. The receivin
 custody correction and targeted verification are tracked in
 [65h](65h-integration-and-qualification.md#resumed-joint-receiving-verification).
 The symmetric peer-EOF correction now passes all thirteen selected receiving controls,
-including unchanged scientific deadline and independent-failure assertions; stress and
-broader receiving selections continue. No whole-series acceptance follows.
+including unchanged scientific deadline and independent-failure assertions. The twenty-iteration
+stress selection passed all 160 executions with unchanged assertions, followed by the broader
+262-control native/receipt/ingress receiving selection. No whole-series acceptance follows.
 
 Generated host dispatch and both physical/mathematical consuming receipt-replay cutovers
 are now merged on main. Original complete-population and ownership controls pass in their
-implementation checkouts; receiving checks remain separate. Replay deletes the initial
+implementation checkouts and the receiving selection above. Replay deletes the initial
 deep copies and their copy-only pricing rather than allocating another admitted copy.
 The required scientific configuration/input census continues under its existing packet
 owner. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
@@ -716,6 +717,22 @@ for the generated facade and its receiving 30/30 schema pass; see
 for receipt ownership and remaining receiving admission.
 Integrate coherent changes on main and retain actual per-packet acceptance limits.
 Plan64e's storage/distributed-physics E02/E03 remain distinct from Plan65k's portability E02/E03.
+
+J04's original-file directory export/independent reader is also integrated on main. Receiving
+controls pass 97/97 and a moved actual bundle preserves all eighteen original files and its
+complete 97-test population; [65j](65j-workflow-lifecycle-and-developer-evidence.md#original-file-directory-delivery)
+owns the acquisition/publication mechanisms and remaining lifecycle boundary. Compact remains
+explicitly bounded; this adds no pruning lease or snapshot guarantee. The fully merged clean
+implementation worktree is removed.
+
+For E03, the refined proposed ADR-0246/65k target transfers the parent's already prepared
+Value/First execution closure rather than reconstructing and compiling source in the child.
+The passive supplier packing inspector is integrated and its seventeen receiving controls
+pass. Execution-attribution extraction passes eleven receiving controls while preserving the
+original weak-source checks. Numerical frame extraction is merged and its receiving selection
+passes 102/102. Root-core/backend integration and supplier-owned checked f64 loading now proceed
+in isolated worktrees; complete restoration and actual child acceptance follow their concrete
+interfaces. No loader or private-child activation is yet claimed.
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto

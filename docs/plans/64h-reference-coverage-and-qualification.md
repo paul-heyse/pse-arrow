@@ -677,6 +677,124 @@ terms,extensive/intensive authority and a callback's ineffective intermediate
 solve condition remain explicit. Ordinary closure data and complete
 nonidentity/physical/custom/dynamic qualification remain required.
 
+**Update, 2026-11-05 — valve census:** the
+[valve-law closure](64h-required-process-population.md#generic-and-helmholtz-valve-lawconfiguration-closure--2026-11-05)
+resolves generic pressure-difference versus Helm vapor squared-pressure/
+liquid-difference laws,distinct equal-percentage defaults and PH/phase guards.
+Three calibrated curve fixtures and V's distinct water case remain explicit;
+ordinary Cv provenance,liquid coefficient dimensions,shutoff/direction and
+complete physical/control/derivative qualification remain required.
+
+**Update, 2026-11-05 — equipment-cost/utility census:** the
+[SSLW/heat-target closure](64h-required-process-population.md#sslw-equipment-cost-and-heat-utility-configured-population--2026-11-05)
+resolves541 finite cost combinations/27 warning controls,actual geometry/
+units/defaults,three power-cost artifact hashes and the four-stream utility
+case. Construction grids and dictionary counts do not establish cost-envelope
+or physical validity;ordinary inputs,remaining QGESS account consumers and
+full independent cost/thermal/optimization qualification remain required.
+
+**Update, 2026-11-05 — Helmholtz boundary census:** the
+[mix/split/compression closure](64h-required-process-population.md#helmholtz-mixing-splitting-and-compression-boundary-closure--2026-11-05)
+resolves minimum/equal-pressure inputs,three-outlet/phase splits,PH pump/
+compressor comparisons and actual work signs. Fixed-outlet splitter inversion
+and the condenser test's steady unit on a time grid remain explicit gaps;
+ordinary data and full independent physical/inverse/dynamic qualification
+remain required.
+
+**Update, 2026-11-05 — QGESS lifecycle census:** the
+[technology/location/lifecycle closure](64h-required-process-population.md#qgess-technology-location-and-lifecycle-input-closure--2026-11-05)
+separates the newer assessment owner from archived power costing,ten
+technology presets,capital-only/full-input fixtures,192 location rows and29
+mixed-basis resource prices. Synthetic future currency units,phaseout key/
+percentage behavior and calculation bypasses remain explicit. Ordinary
+account/price/finance provenance,native mappings and complete independent
+lifecycle qualification remain required;H01/G06 are open.
+
+**Update, 2026-11-05 — PETSc/control census:** the
+[chemistry/steam/controller closure](64h-required-process-population.md#petsc-chemistry-steam-pressure-control-and-controller-selectors--2026-11-05)
+resolves five-differential/one-algebraic chemistry initial data,three steam
+forcing cases and actual PID selectors/refusals. PETSc/ASL/trajectory-reader
+and water external-function closure is explicit;source skips confer no
+qualification. Ordinary normalized-chemistry and steam/control records,native
+initial-state/forcing correspondence and full trajectory/conservation checks
+remain required.
+
+**Update, 2026-11-05 — denominator handoff:** the
+[remaining population and readiness handoff](64h-required-process-population.md#next-closure-work-and-consumers)
+replaces the earlier broad uninspected-family list with seven bounded source/
+disposition products and exact unavailable versus unprepared prerequisites.
+Held NETL and selected archived process content stay retained;missing reformer
+metadata/historical reconciliation helper are distinguished from available
+source expansion. H01 is not complete. Existing H02/H03 ordinary comparisons
+and D02 native water consumers are the next executable boundary,followed by
+E01/E02's selected physical storage closure after ordinary science admission.
+
+**Update, 2026-11-05 — inherited balance source closure:** the
+[effective balance matrix](64h-required-process-population.md#effective-inherited-control-volume-balance-population--2026-11-05)
+resolves implemented/omitted/refused base0D/1D modes,extended isothermal,
+storage inheritance,reaction/basis/phase allocation and spatial boundary
+policies. Actual package defaults and the Helmholtz mass-coordinate/molar-
+reported-basis inconsistency are explicit. Unit-specific physical closure,
+ordinary records and native/reference conservation/trajectory acceptance
+remain required;this is source analysis only.
+
+**Update, 2026-11-05 — fixed robustness population closure:** the
+[six-population handoff](64h-required-process-population.md#six-fixed-robustness-populations-and-historical-outcome-roles--2026-11-05)
+resolves all1200 stored input rows,actual nominal/model/sampled roles,
+artifact identities,clone/init policy and historical1071 successes/129
+failures. Stored solver statistics contain no complete physical outputs;
+upstream regression tolerance is not scientific acceptance. Ordinary valid
+envelopes,exact execution compatibility and complete native/reference
+physical outcomes remain required.
+
+**Update, 2026-11-05 — SOC submodel source closure:** the
+[six-submodel census](64h-required-process-population.md#six-soc-submodel-fixtures-and-coupled-boundary-conservation--2026-11-05)
+resolves actual steady/storage fixtures,1080 coupled boundary conservation
+requests and781 caloric gas/T points. The helper's ignored dynamic argument,
+0K structural fixtures,missing caloric entries and erroneous C2H4 carbon
+projection remain explicit. Ordinary electrochemical/material inputs,
+nonzero/dynamic acceptance and native numerical correspondence remain open.
+
+**Update, 2026-11-05 — residual EOS/property source closure:** the
+[algebra/ragged/parameter consumer census](64h-required-process-population.md#residual-eos-algebra-ragged-phases-and-parameter-consumers--2026-11-05)
+resolves eight ragged-phase states,synthetic critical/inherent/ENRTL/Ideal
+controls and CoolProp-backed benzene expression/residual sweeps. Toluene-
+like coefficients under N2 labels,negative syntheticCp andthe absence of a
+solved SRK witness are explicit. Installed data-dependent sweep cardinality,
+ordinary scientific inputs,native phase/chemistry and full acceptance remain
+required;no property or solver executed.
+
+**Update, 2026-11-05 — direct cost-account source closure:** the
+[four-file account census](64h-required-process-population.md#direct-power-cost-account-capture-and-sco2-case-population--2026-11-05)
+resolves old/new ownership,29 common accounts,16NGCC groups/60accounts,
+44CCS correlations,ten sCO2 blocks,ASU andunit/year/override roles. The
+ten global presets retain technology2 equipment;order-dependent module
+assembly andcooler-as-recuperator selection stay explicit. Ordinary economic
+provenance,exact compatibility andcomplete native/reference cost acceptance
+remain required.
+
+**Update, 2026-11-05 — core surrogate/sampling source closure:** the
+[PySMO/ALAMO/sampling census](64h-required-process-population.md#core-pysmo-alamo-and-sampling-source-population--2026-11-05)
+resolves actual fit/kernel/solver/CV cases,shared analytic training inputs,
+confidence/embedding/serialization roles,six samplers andfour ALAMO input
+artifacts. Array-format duplicates,mocked fits,reused validation rows and
+per-coordinate seeded-generator reuse retain their limits. Native statistical/
+backend contracts,realized stochastic custody andindependent scientific
+acceptance remain required;no fit/sampler/trainer ran.
+
+**Update, 2026-11-05 — seven-group source handoff:** the
+[wrapper comparison](64h-required-process-population.md#notebook-wrapper-correspondence-and-disposition-boundary--2026-11-05)
+applies actual generator tag filters across55documented families and180
+present derivatives:177matches andthree exact sCO2 exceptions. Complete
+scientific stages survive wrapper exclusion;held NETL anddistinct archived
+science remain retained. The [final seven-group handoff](64h-required-process-population.md#next-closure-work-and-consumers)
+now distinguishes resolved source choices from ordinary scientific authoring,
+missing metadata/historical helper,loaded-data/stochastic case freezing,
+execution compatibility,native acceptance andcoordinator disposition. No
+further principal source group in this authorized seven-group pass is
+uninspected;H01's executable scientific denominator andqualification remain
+open. No reference preparation,scientific execution orproduct changes ran.
+
 ## H02/H03 — Packet D matched independent references
 
 Fix the ideal benzene/toluene recycle and BT_PR/relational-density exchanger scientific contracts independently. Retain the exchanger's unknown-area/pressure-extrapolation permissions and scoped costing meaning. Rating and design use explicit corresponding fixed/free roles; substitution of another property model is improved/different science, not matched-physics parity.

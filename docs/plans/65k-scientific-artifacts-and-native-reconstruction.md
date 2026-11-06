@@ -754,6 +754,8 @@ definition-before-read, fixed builtin identity/arity, complete extent and pre-gr
 Refuse external functions, callbacks and unsupported instruction/control-flow profiles. Omit
 preparation-only optimization/hot-start state; promise execution correspondence, not later
 preparation/vectorization equivalence. Do not implement an independent arithmetic interpreter.
+The existing feature-gated `BlockEvaluator::Native` is outside this first f64 interpreter
+profile. Refuse it recursively rather than silently recompiling it as interpreted.
 Sources: [private and exported instruction owners](../../vendor/symbolica/src/evaluate/instruction.rs),
 [external-function restoration](../../vendor/symbolica/src/evaluate/external.rs) and
 [native evaluator preparation](../../crates/pse-math/src/library/admission.rs).
@@ -796,6 +798,45 @@ and reap. Child entry must perform no source admission, symbolic analysis/differ
 MPFR restoration. No complete loader, native split, activation, memory bound or speed claim is
 established by this source investigation. Packed-atom inspection remains useful passive work;
 canonical atom remapping is not the next prerequisite for this private profile.
+
+Execution now separates two bounded prerequisites: extraction of the existing numerical
+template/frame, preserving all current sourceful modes, and supplier-owned checked f64
+export/loading. Root-core/backend integration follows their concrete interfaces, then complete
+native restoration and the actual child cutover. Keep `SourceBindings`' original weak-source
+checks unchanged, including the original owner's independent death; an execution projection
+must not extend that source lifetime or issue a source witness. Shared provider state remains
+one bank for existing in-process consumers even though the delegated profile refuses providers.
+
+The attribution prerequisite is integrated: `SourceBindings` composes immutable
+`ExecutionAttribution` with the original weak source witness. `execution_attribution(compiled)`
+calls the unchanged `check_compiled` before sharing the three original `Arc` maps. Existing
+sourceful workers retain this projection and their compiled body; they use one unchanged
+control-refusal/error projection policy. No passive constructor or source witness is exposed
+by the projection. **Tested:** `scripts/pse test pse-math --lib --profile local -E
+'test(source_bindings::)'` passed 11/11 against zero failures in configured unbounded/cache-off
+mode with complete capture and settlement. Original-source death, crossed compiled sources,
+shared map allocations, attribution framing, direct refusals and original error allocation
+retention are covered. This establishes that prerequisite only, not transferred activation.
+
+The numerical prerequisite `4a570b6e8` is integrated on main. Mandatory source/support/scalar
+preparation stays in `CompiledBody`; immutable `ExecutionTemplate` and mutable `NumericFrame`
+serve all existing ordinary/directional/direct/reverse modes through one numerical engine.
+Sourceful `Worker` delegates to that frame. Cold clones share immutable programs and retain no
+warmed results; lazy-order retry, resets and provider preparation retain their original behavior.
+The frame holds the existing execution allocation owner until after numerical/template drain,
+without retaining the original prepared-source witness. Actual template/Arc backing participates
+in retained allocation accounting.
+
+Independent read-only review of all five changed files and adjacent attribution/allocation
+consumers found no material correctness issues within that extraction. **Tested:** default and
+`compiled-evaluator` all-target checks of `pse-math` report zero errors/warnings in the isolated
+implementation; both isolated and receiving-main compact/product/reverse/source-binding/product-
+contract selections pass **102/102** with `compiled-evaluator`, explicit native compiler,
+unbounded/cache-off placement and complete capture/settlement. Actual native blocks execute in
+that population. The source-free frame control covers nested stages and refusal plus independent
+source death and admission retention. This preserves in-process modes; native/JIT blocks remain
+outside the first private f64 transfer profile. Root-core/backend extraction is the next distinct
+package, followed by complete restoration and child activation.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
