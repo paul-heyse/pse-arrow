@@ -64,9 +64,10 @@ commitments. Physical operations, physical boundaries and mathematical proofs ha
 separately ordered sequences; preserve their versions, order and multiplicity without inventing
 an interleaved chronology.
 
-The parent retains its immutable receipt-bearing portable bytes and body through reap and
-original-coordinate verification. No second decoded receipt tree is needed solely for
-delegation. The child receives the complete unknown-coordinate Value/First execution/diagnostic
+The parent retains its actual admitted body, admission owners and any original receipt-bearing
+bytes already retained by that body through reap and original-coordinate verification. Live
+execution does not require constructing a portable source recipe solely for delegation. The
+child receives the complete unknown-coordinate Value/First execution/diagnostic
 closure, original bindings, intervals, residual identities, parameter bits, structural Jacobian
 support, solve/evaluation limits and deadline, plus attempt-bound evidence commitments. The
 single selected-partials First template contains the required Value programs. Registry,
@@ -96,6 +97,14 @@ attribution. Issue the parent's execution-attribution projection only after the 
 it gains no general source-binding witness. Reconstruct and poison fresh mutable frames/buffers
 under existing reset rules; do not transmit warmed working state.
 
+Capture the complete attribution maps from the actual held root worker and frame them with
+the existing attribution ordering under a distinct private-transfer checksum domain. Check
+shape, unambiguous local closure tokens and that checksum on restoration. Arbitrary authored
+semantic identifiers are not automatically body-local occurrence tokens. A matching checksum
+detects inconsistent data; it cannot authenticate a consistently replaced caller-controlled
+record. Only the original issuer and authenticated attempt establish origin. Existing body,
+source and root identities keep their meaning.
+
 The supplier profile preserves exact f64 constant bits, instruction/operand order, stack extent,
 parameter/constant boundary and result aliases. Validate every index, nonempty Add/Mul,
 destination protection, definition-before-read, fixed builtin discriminant/arity, extent and
@@ -110,6 +119,15 @@ worker/scratch allocations under the original owner; serialized counts cannot gr
 Preserve original admission/cancellation errors. Requested backing admission is not an RSS or
 whole-solve resource bound. Packed-atom inspection is independent passive functionality;
 canonical atom remapping is not needed for this child route.
+
+Owned decoding can grow vector capacities that are subsequently moved into the restored
+template. Derive restoration demand from the actual received data, then obtain a nonblocking
+reservation from the original parent's pool before materialization. Bind demand and grant to
+the existing attempt/execution/request references; neither a count in a DTO nor a successful
+decode grants that reservation. Keep decoding/conversion, call stack and opaque native work
+under their separately admitted owners. The handshake preserves the original parent deadline,
+scientific verification and actual process reap. Qualify generated message nesting separately
+from the numerical stage envelope before recursive validation, conversion and encoding.
 
 ### Compensating controls
 
@@ -162,3 +180,5 @@ owns the scope and assessment. Sources: [admission/capture](../../crates/pse-com
 - 2026-11-05: Refined the proposed realization to the parent's compiled unknown Value/First
   template after exact evaluator/stage/constructor inspection. This avoids canonical atom
   remapping and repeated child preparation; no acceptance or activation is claimed.
+- 2026-11-05: Refined complete attribution framing and actual received-capacity admission.
+  These are proposed private handoff controls; formal acceptance and activation remain separate.
