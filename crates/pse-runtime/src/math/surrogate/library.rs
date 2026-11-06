@@ -290,6 +290,29 @@ pub enum SurrogateFailure<E: std::error::Error + 'static> {
     /// Caught callback or library panic; cannot become a recoverable failed sample.
     #[error("surrogate library panic: {0}")]
     Panic(String),
+    /// Physical worker construction or settlement failure.
+    #[error(transparent)]
+    Runtime(#[from] crate::math::MathRuntimeError),
+    /// The original scientific failure and independent physical cleanup both failed.
+    #[error("{operation}; surrogate cleanup also failed: {cleanup}")]
+    Settlement {
+        /// Original typed scientific failure.
+        #[source]
+        operation: Box<Self>,
+        /// Every failed physical cleanup attempt.
+        cleanup: Box<crate::math::MathRuntimeError>,
+    },
+}
+impl<E: std::error::Error + 'static> SurrogateFailure<E> {
+    fn with_cleanup(self, cleanup: Result<(), crate::math::MathRuntimeError>) -> Self {
+        match cleanup {
+            Ok(()) => self,
+            Err(cleanup) => Self::Settlement {
+                operation: Box::new(self),
+                cleanup: Box::new(cleanup),
+            },
+        }
+    }
 }
 /// Actual work counts include partial failed/interrupted attempts; opaque factor counts stay unknown.
 #[derive(Clone, Copy, Debug, Default)]
@@ -363,8 +386,97 @@ struct Callback<E: FidelityEvaluator> {
     terminal: Option<SurrogateFailure<E::Error>>,
     disabled: bool,
     abort: Option<Arc<std::sync::atomic::AtomicBool>>,
+    // The existing admitted reservation survives final evaluator destruction on
+    // failed/abandoned construction; successful actors replace it with residency.
+    construction: Option<Arc<dyn pse_math::construction::ConstructionAdmission>>,
 }
-struct Evaluated<E: FidelityEvaluator>(Arc<Mutex<Callback<E>>>);
+/// Custody of the existing callback allocation, including abandoned constructors.
+pub(super) struct CallbackOwner<E: FidelityEvaluator> {
+    callback: Option<Arc<Mutex<Callback<E>>>>,
+}
+impl<E: FidelityEvaluator> Clone for CallbackOwner<E> {
+    fn clone(&self) -> Self {
+        Self {
+            callback: self.callback.clone(),
+        }
+    }
+}
+impl<E: FidelityEvaluator> CallbackOwner<E> {
+    pub(super) fn new(evaluator: E, scope: ExecutionScope, limit: u64) -> Self {
+        Self {
+            callback: Some(Arc::new(Mutex::new(Callback {
+                evaluator,
+                observation: pse_diagnostics::observation::current(),
+                scope,
+                limit,
+                work: SurrogateWork::default(),
+                terminal: None,
+                disabled: false,
+                abort: None,
+                construction: None,
+            }))),
+        }
+    }
+    fn lock_recover(
+        &self,
+    ) -> Result<(std::sync::MutexGuard<'_, Callback<E>>, bool), crate::math::MathRuntimeError> {
+        let callback = self.callback.as_ref().ok_or_else(|| {
+            crate::math::MathRuntimeError::Internal("surrogate callback owner retired".into())
+        })?;
+        Ok(match callback.lock() {
+            Ok(guard) => (guard, false),
+            Err(poison) => (poison.into_inner(), true),
+        })
+    }
+    fn lock(
+        &self,
+    ) -> Result<std::sync::MutexGuard<'_, Callback<E>>, crate::math::MathRuntimeError> {
+        let (guard, poisoned) = self.lock_recover()?;
+        if poisoned {
+            Err(crate::math::MathRuntimeError::Internal(
+                "surrogate callback lock poisoned".into(),
+            ))
+        } else {
+            Ok(guard)
+        }
+    }
+    pub(super) fn correspondence(
+        &self,
+    ) -> Result<FidelityCorrespondence, crate::math::MathRuntimeError> {
+        Ok(self.lock()?.evaluator.correspondence().clone())
+    }
+    pub(super) fn retain_construction(&self) -> Result<(), crate::math::MathRuntimeError> {
+        self.lock()?.construction = pse_math::construction::current();
+        Ok(())
+    }
+    pub(super) fn release_construction(&self) -> Result<(), crate::math::MathRuntimeError> {
+        drop(self.lock()?.construction.take());
+        Ok(())
+    }
+    pub(super) fn finish(&mut self) -> Result<(), crate::math::MathRuntimeError> {
+        let Some(callback) = self.callback.take().and_then(Arc::into_inner) else {
+            return Ok(());
+        };
+        let callback = match callback.into_inner() {
+            Ok(callback) => callback,
+            Err(poison) => poison.into_inner(),
+        };
+        // Callback fields are destroyed before a caught evaluator-panic payload.
+        // Retain the same reservation independently through payload destruction too.
+        let construction = callback.construction.clone();
+        let result = catch_unwind(AssertUnwindSafe(|| drop(callback))).map_err(|payload| {
+            super::super::joined_pool::worker_panic("surrogate evaluator destruction", payload)
+        });
+        drop(construction);
+        result
+    }
+}
+impl<E: FidelityEvaluator> Drop for CallbackOwner<E> {
+    fn drop(&mut self) {
+        let _ = self.finish();
+    }
+}
+struct Evaluated<E: FidelityEvaluator>(CallbackOwner<E>);
 impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
     type Param = Array2<f64>;
     type Output = Array2<f64>;
@@ -373,10 +485,9 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
         reason = "argmin 0.11 CostFunction requires this Error alias; it only stops the library while the original typed failure remains in Callback::terminal"
     )]
     fn cost(&self, x: &Self::Param) -> Result<Self::Output, argmin::core::Error> {
-        let mut cb = match self.0.lock() {
-            Ok(callback) => callback,
-            Err(poisoned) => {
-                let mut callback = poisoned.into_inner();
+        let mut cb = match self.0.lock_recover() {
+            Ok((callback, false)) => callback,
+            Ok((mut callback, true)) => {
                 callback.disabled = true;
                 if callback.terminal.is_none() {
                     callback.terminal = Some(SurrogateFailure::Math(
@@ -388,6 +499,7 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                 }
                 return Err(argmin::core::Error::msg("surrogate terminal latch"));
             }
+            Err(_) => return Err(argmin::core::Error::msg("surrogate callback owner retired")),
         };
         let observation = cb.observation.clone();
         let _entered = observation
@@ -433,6 +545,9 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                             SurrogateFailure::Math(_) => "math",
                             SurrogateFailure::Callback(_) => "callback",
                             SurrogateFailure::Panic(_) => "panic",
+                            SurrogateFailure::Runtime(_) | SurrogateFailure::Settlement { .. } => {
+                                "runtime"
+                            }
                         },
                     );
                 }
@@ -460,8 +575,11 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                     )));
                 }
                 Ok(Err(e)) => cb.terminal = Some(SurrogateFailure::Callback(e)),
-                Err(_) => {
-                    cb.terminal = Some(SurrogateFailure::Panic("evaluator callback unwound".into()))
+                Err(payload) => {
+                    cb.terminal = Some(SurrogateFailure::Panic(format!(
+                        "evaluator callback unwound: {}",
+                        pse_diagnostics::panic::settle_payload(payload, "opaque callback panic")
+                    )))
                 }
             }
             if let Some(context) = &observation {
@@ -474,6 +592,9 @@ impl<E: FidelityEvaluator> CostFunction for Evaluated<E> {
                             SurrogateFailure::Callback(_) => "callback",
                             SurrogateFailure::Math(_) => "math",
                             SurrogateFailure::Panic(_) => "panic",
+                            SurrogateFailure::Runtime(_) | SurrogateFailure::Settlement { .. } => {
+                                "runtime"
+                            }
                         },
                     );
                 }
@@ -505,7 +626,7 @@ struct Worker<E: FidelityEvaluator> {
     solver: EgorSolver<GpMixtureParams<f64>>,
     state: Option<EgorState<f64>>,
     problem: Problem<Evaluated<E>>,
-    callback: Arc<Mutex<Callback<E>>>,
+    callback: CallbackOwner<E>,
     correspondence: FidelityCorrespondence,
     options: SurrogateOptions,
     key: ContentHash,
@@ -524,7 +645,7 @@ impl<E: FidelityEvaluator> Debug for Worker<E> {
 impl<E: FidelityEvaluator> Worker<E> {
     /// Construct only inside a task with the requested CPU and workspace admission; no evaluation yet.
     fn new(
-        evaluator: E,
+        callback: CallbackOwner<E>,
         options: SurrogateOptions,
         scope: ExecutionScope,
     ) -> Result<Self, SurrogateFailure<E::Error>> {
@@ -532,7 +653,15 @@ impl<E: FidelityEvaluator> Worker<E> {
         let _construction = observation
             .as_ref()
             .map(|context| context.phase("surrogate.library.construct"));
-        let correspondence = evaluator.correspondence().clone();
+        let correspondence = callback
+            .lock()
+            .map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?
+            .evaluator
+            .correspondence()
+            .clone();
         if let Some(context) = &observation {
             context.source_ref(
                 "surrogate.fidelity.source",
@@ -598,16 +727,15 @@ impl<E: FidelityEvaluator> Worker<E> {
             .timeout(remaining.as_secs_f64())
             .check()
             .map_err(|e| MathError::Library(e.to_string()))?;
-        let callback = Arc::new(Mutex::new(Callback {
-            evaluator,
-            observation,
-            scope,
-            limit: options.evaluations,
-            work: SurrogateWork::default(),
-            terminal: None,
-            disabled: false,
-            abort: None,
-        }));
+        {
+            let mut callback = callback.lock().map_err(|_| {
+                crate::math::MathRuntimeError::Internal("surrogate callback lock poisoned".into())
+                    .into_math()
+            })?;
+            callback.observation = observation;
+            callback.scope = scope;
+            callback.limit = options.evaluations;
+        }
         let problem = Problem::new(Evaluated(callback.clone()));
         Ok(Self {
             solver: EgorSolver::new(config),
@@ -679,7 +807,10 @@ impl<E: FidelityEvaluator> Worker<E> {
             } else {
                 self.solver.next_iter(&mut self.problem, state)
             }
-        }));
+        }))
+        .map_err(|payload| {
+            pse_diagnostics::panic::settle_payload(payload, "opaque iteration panic")
+        });
         let terminal = self
             .callback
             .lock()
@@ -699,9 +830,11 @@ impl<E: FidelityEvaluator> Worker<E> {
                 self.disabled = true;
                 return Err(MathError::Library(e.to_string()).into());
             }
-            Err(_) => {
+            Err(detail) => {
                 self.disabled = true;
-                return Err(SurrogateFailure::Panic("egobox iteration unwound".into()));
+                return Err(SurrogateFailure::Panic(format!(
+                    "egobox iteration unwound: {detail}"
+                )));
             }
         };
         if !initialize {
@@ -799,14 +932,14 @@ enum Command<E: std::error::Error + 'static> {
         cancel: pse_columnar::CancellationToken,
         reply: std::sync::mpsc::SyncSender<Result<SurrogateSnapshot, SurrogateFailure<E>>>,
     },
-    Stop(std::sync::mpsc::SyncSender<()>),
+    Stop(std::sync::mpsc::SyncSender<Result<(), crate::math::MathRuntimeError>>),
 }
 /// Channel owner of the full solver/state, permanently retained inside one actual local-rayon worker.
 /// Library non-Send strategies never cross threads. Read-only snapshots do not replace worker state.
 pub(super) struct RetainedSurrogate<E: FidelityEvaluator> {
     commands: std::sync::mpsc::Sender<Command<E::Error>>,
     pool: Option<JoinedPool>,
-    callback: Arc<Mutex<Callback<E>>>,
+    callback: CallbackOwner<E>,
     summary: SurrogateStateSummary,
     proposal: Option<SurrogateProposal>,
     key: ContentHash,
@@ -825,16 +958,48 @@ impl<E: FidelityEvaluator> Debug for RetainedSurrogate<E> {
 }
 impl<E: FidelityEvaluator> Drop for RetainedSurrogate<E> {
     fn drop(&mut self) {
+        let _ = self.retire();
+    }
+}
+impl<E: FidelityEvaluator> RetainedSurrogate<E> {
+    /// Consume the owner only after solver destruction and all actual worker joins.
+    pub(super) fn finish(mut self) -> Result<(), crate::math::MathRuntimeError> {
+        let result = self.retire();
+        let result = crate::math::MathRuntimeError::settle(result, self.callback.finish());
+        // The final callback/evaluator reference is retained by this channel owner.
+        // Its destruction must not replace failures already collected from the team.
+        let destroyed = catch_unwind(AssertUnwindSafe(|| drop(self))).map_err(|payload| {
+            super::super::joined_pool::worker_panic("surrogate owner destruction", payload)
+        });
+        crate::math::MathRuntimeError::settle(result, destroyed)
+    }
+    fn retire(&mut self) -> Result<(), crate::math::MathRuntimeError> {
+        let Some(pool) = self.pool.take() else {
+            return Ok(());
+        };
         let (reply, finished) = std::sync::mpsc::sync_channel(1);
-        if self.commands.send(Command::Stop(reply)).is_ok() {
-            let _ = finished.recv();
-        }
-        // Stop acknowledges solver/state destruction; JoinedPool then joins every OS worker.
-        drop(self.pool.take());
+        let stopped = self
+            .commands
+            .send(Command::Stop(reply))
+            .map_err(|_| {
+                crate::math::MathRuntimeError::Infrastructure(
+                    "surrogate stop submission lost".into(),
+                )
+            })
+            .and_then(|()| {
+                finished.recv().map_err(|_| {
+                    crate::math::MathRuntimeError::Infrastructure(
+                        "surrogate destruction acknowledgement lost".into(),
+                    )
+                })?
+            });
+        // An acknowledgement proves solver destruction, never physical worker departure.
+        crate::math::MathRuntimeError::settle(stopped, pool.finish())
     }
 }
 impl<E: FidelityEvaluator> RetainedSurrogate<E> {
     /// Construct once inside an admitted task. The complete library object remains inside its local pool.
+    #[cfg(test)]
     pub(super) fn new(
         evaluator: E,
         options: SurrogateOptions,
@@ -842,144 +1007,228 @@ impl<E: FidelityEvaluator> RetainedSurrogate<E> {
     ) -> Result<Self, SurrogateFailure<E::Error>> {
         Self::new_with_spawn(evaluator, options, scope, spawn_pool_worker)
     }
+    pub(super) fn new_with_owner(
+        callback: CallbackOwner<E>,
+        options: SurrogateOptions,
+        scope: ExecutionScope,
+    ) -> Result<Self, SurrogateFailure<E::Error>> {
+        Self::new_from_owner_with_spawn(callback, options, scope, spawn_pool_worker)
+    }
+    #[cfg(test)]
     fn new_with_spawn(
         evaluator: E,
         options: SurrogateOptions,
         scope: ExecutionScope,
         spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
     ) -> Result<Self, SurrogateFailure<E::Error>> {
-        options.validate(evaluator.correspondence())?;
-        let allowance = scope.remaining(options.time).map_err(scope_math)?;
-        let deadline = std::time::Instant::now()
-            .checked_add(allowance)
-            .ok_or(MathError::Limit("surrogate deadline extent"))?;
-        let scope = ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
-        let pool = JoinedPool::new(options.threads, options.stack_bytes, spawn)?;
-        let iterations = options.iterations;
-        let (commands, receiver) = std::sync::mpsc::channel();
-        let (ready, initialized) = std::sync::mpsc::sync_channel(1);
-        let observation = pse_diagnostics::observation::current();
-        pool.spawn(move || {
-            let _entered = observation
-                .as_ref()
-                .map(pse_diagnostics::observation::ObservationContext::enter);
-            let built = catch_unwind(AssertUnwindSafe(|| Worker::new(evaluator, options, scope)));
-            let mut worker = match built {
-                Ok(Ok(worker)) => worker,
-                Ok(Err(error)) => {
-                    let _ = ready.send(Err(error));
-                    return;
-                }
-                Err(_) => {
-                    let _ = ready.send(Err(SurrogateFailure::Panic(
-                        "egobox construction unwound".into(),
-                    )));
-                    return;
-                }
-            };
-            if ready
-                .send(Ok((
-                    worker.callback.clone(),
-                    worker.key(),
-                    worker.retained_bytes(),
-                )))
-                .is_err()
-            {
-                return;
-            }
-            while let Ok(command) = receiver.recv() {
-                match command {
-                    Command::Advance(reply) => {
-                        let result = catch_unwind(AssertUnwindSafe(|| {
-                            let proposal = worker.advance()?;
-                            let callback = worker.callback.lock().map_err(|_| {
-                                crate::math::MathRuntimeError::Internal(
-                                    "surrogate callback lock poisoned".into(),
+        // Keep the evaluator's final owner outside every fallible/unwinding
+        // constructor. Clones lent to constructors can never destroy it there.
+        let callback = CallbackOwner::new(evaluator, scope.clone(), options.evaluations);
+        Self::new_from_owner_with_spawn(callback, options, scope, spawn)
+    }
+    fn new_from_owner_with_spawn(
+        mut callback: CallbackOwner<E>,
+        options: SurrogateOptions,
+        scope: ExecutionScope,
+        spawn: impl FnMut(rayon::ThreadBuilder) -> std::io::Result<std::thread::JoinHandle<()>>,
+    ) -> Result<Self, SurrogateFailure<E::Error>> {
+        let mut pool_owner: Option<JoinedPool> = None;
+        let construction = catch_unwind(AssertUnwindSafe(
+            || -> Result<Self, SurrogateFailure<E::Error>> {
+                options.validate(
+                    callback
+                        .lock()
+                        .map_err(|_| {
+                            crate::math::MathRuntimeError::Internal(
+                                "surrogate callback lock poisoned".into(),
+                            )
+                            .into_math()
+                        })?
+                        .evaluator
+                        .correspondence(),
+                )?;
+                let allowance = scope.remaining(options.time).map_err(scope_math)?;
+                let deadline = std::time::Instant::now()
+                    .checked_add(allowance)
+                    .ok_or(MathError::Limit("surrogate deadline extent"))?;
+                let scope =
+                    ExecutionScope::new(scope.cancellation_control().clone(), Some(deadline));
+                let pool = pool_owner.insert(JoinedPool::new(
+                    options.threads,
+                    options.stack_bytes,
+                    spawn,
+                )?);
+                let iterations = options.iterations;
+                let (commands, receiver) = std::sync::mpsc::channel();
+                let (ready, initialized) = std::sync::mpsc::sync_channel(1);
+                let observation = pse_diagnostics::observation::current();
+                let worker_callback = callback.clone();
+                pool.spawn(move || {
+                    let _entered = observation
+                        .as_ref()
+                        .map(pse_diagnostics::observation::ObservationContext::enter);
+                    let built = catch_unwind(AssertUnwindSafe(|| {
+                        Worker::new(worker_callback.clone(), options, scope)
+                    }));
+                    let mut worker = match built {
+                        Ok(Ok(worker)) => worker,
+                        Ok(Err(error)) => {
+                            let _ = ready.send(Err(error));
+                            return;
+                        }
+                        Err(payload) => {
+                            let _ = ready.send(Err(SurrogateFailure::Panic(format!(
+                                "egobox construction unwound: {}",
+                                pse_diagnostics::panic::settle_payload(
+                                    payload,
+                                    "opaque construction panic"
                                 )
-                                .into_math()
-                            })?;
-                            Ok(SurrogateAdvance {
-                                state: SurrogateStateSummary {
-                                    initialized: worker.state.is_some(),
-                                    iteration: worker.state.as_ref().map_or(0, |state| state.iter),
-                                    termination: worker
-                                        .state
-                                        .as_ref()
-                                        .map(|state| state.termination_status.clone()),
-                                    disabled: worker.disabled,
-                                },
-                                proposal,
-                                work: callback.work,
-                            })
-                        }));
-                        let result = match result {
-                            Ok(result) => result,
-                            Err(_) => {
-                                worker.disabled = true;
-                                Err(SurrogateFailure::Panic(
-                                    "egobox state update unwound".into(),
-                                ))
-                            }
-                        };
-                        let _ = reply.send(result);
-                    }
-                    Command::Snapshot {
-                        allocation,
-                        cancel,
-                        reply,
-                    } => {
-                        let result = catch_unwind(AssertUnwindSafe(|| {
-                            let check = || -> Result<(), SurrogateFailure<E::Error>> {
-                                cancel.checkpoint().map_err(|_| MathError::Cancelled)?;
-                                let callback = worker.callback.lock().map_err(|_| {
-                                    crate::math::MathRuntimeError::Internal(
-                                        "surrogate callback lock poisoned".into(),
-                                    )
-                                    .into_math()
-                                })?;
-                                callback.scope.check().map_err(scope_math)?;
-                                if callback.abort.as_ref().is_some_and(|flag| {
-                                    flag.load(std::sync::atomic::Ordering::Acquire)
-                                }) {
-                                    return Err(MathError::Cancelled.into());
-                                }
-                                Ok(())
-                            };
-                            check()?;
-                            let snapshot = SurrogateSnapshot {
-                                state: worker.state.clone(),
-                                _allocation: allocation,
-                            };
-                            check()?;
-                            Ok(snapshot)
-                        }))
-                        .unwrap_or_else(|_| {
-                            Err(SurrogateFailure::Panic("egobox snapshot unwound".into()))
-                        });
-                        let _ = reply.send(result);
-                    }
-                    Command::Stop(reply) => {
-                        drop(worker);
-                        let _ = reply.send(());
+                            ))));
+                            return;
+                        }
+                    };
+                    if ready
+                        .send(Ok((
+                            worker.callback.clone(),
+                            worker.key(),
+                            worker.retained_bytes(),
+                        )))
+                        .is_err()
+                    {
                         return;
                     }
-                }
-            }
+                    while let Ok(command) = receiver.recv() {
+                        match command {
+                            Command::Advance(reply) => {
+                                let result = catch_unwind(AssertUnwindSafe(|| {
+                                    let proposal = worker.advance()?;
+                                    let callback = worker.callback.lock().map_err(|_| {
+                                        crate::math::MathRuntimeError::Internal(
+                                            "surrogate callback lock poisoned".into(),
+                                        )
+                                        .into_math()
+                                    })?;
+                                    Ok(SurrogateAdvance {
+                                        state: SurrogateStateSummary {
+                                            initialized: worker.state.is_some(),
+                                            iteration: worker
+                                                .state
+                                                .as_ref()
+                                                .map_or(0, |state| state.iter),
+                                            termination: worker
+                                                .state
+                                                .as_ref()
+                                                .map(|state| state.termination_status.clone()),
+                                            disabled: worker.disabled,
+                                        },
+                                        proposal,
+                                        work: callback.work,
+                                    })
+                                }));
+                                let result = match result {
+                                    Ok(result) => result,
+                                    Err(payload) => {
+                                        worker.disabled = true;
+                                        Err(SurrogateFailure::Panic(format!(
+                                            "egobox state update unwound: {}",
+                                            pse_diagnostics::panic::settle_payload(
+                                                payload,
+                                                "opaque state update panic"
+                                            )
+                                        )))
+                                    }
+                                };
+                                let _ = reply.send(result);
+                            }
+                            Command::Snapshot {
+                                allocation,
+                                cancel,
+                                reply,
+                            } => {
+                                let result = catch_unwind(AssertUnwindSafe(|| {
+                                    let check = || -> Result<(), SurrogateFailure<E::Error>> {
+                                        cancel.checkpoint().map_err(|_| MathError::Cancelled)?;
+                                        let callback = worker.callback.lock().map_err(|_| {
+                                            crate::math::MathRuntimeError::Internal(
+                                                "surrogate callback lock poisoned".into(),
+                                            )
+                                            .into_math()
+                                        })?;
+                                        callback.scope.check().map_err(scope_math)?;
+                                        if callback.abort.as_ref().is_some_and(|flag| {
+                                            flag.load(std::sync::atomic::Ordering::Acquire)
+                                        }) {
+                                            return Err(MathError::Cancelled.into());
+                                        }
+                                        Ok(())
+                                    };
+                                    check()?;
+                                    let snapshot = SurrogateSnapshot {
+                                        state: worker.state.clone(),
+                                        _allocation: allocation,
+                                    };
+                                    check()?;
+                                    Ok(snapshot)
+                                }))
+                                .unwrap_or_else(|payload| {
+                                    Err(SurrogateFailure::Panic(format!(
+                                        "egobox snapshot unwound: {}",
+                                        pse_diagnostics::panic::settle_payload(
+                                            payload,
+                                            "opaque snapshot panic"
+                                        )
+                                    )))
+                                });
+                                let _ = reply.send(result);
+                            }
+                            Command::Stop(reply) => {
+                                let destroyed = catch_unwind(AssertUnwindSafe(|| drop(worker)))
+                                    .map_err(|payload| {
+                                        super::super::joined_pool::worker_panic(
+                                            "surrogate solver destruction",
+                                            payload,
+                                        )
+                                    });
+                                let _ = reply.send(destroyed);
+                                return;
+                            }
+                        }
+                    }
+                });
+                let initialized = initialized
+                    .recv()
+                    .map_err(|_| {
+                        SurrogateFailure::Panic("surrogate worker initialization lost".into())
+                    })
+                    .and_then(|result| result);
+                let (callback, key, workspace) = initialized?;
+                Ok(Self {
+                    commands,
+                    pool: pool_owner.take(),
+                    callback,
+                    summary: SurrogateStateSummary::default(),
+                    proposal: None,
+                    key,
+                    workspace,
+                    disabled: false,
+                    iterations,
+                })
+            },
+        ));
+        let construction = construction.unwrap_or_else(|payload| {
+            Err(SurrogateFailure::Panic(format!(
+                "surrogate construction unwound: {}",
+                pse_diagnostics::panic::settle_payload(payload, "opaque construction panic")
+            )))
         });
-        let (callback, key, workspace) = initialized.recv().map_err(|_| {
-            SurrogateFailure::Panic("surrogate worker initialization lost".into())
-        })??;
-        Ok(Self {
-            commands,
-            pool: Some(pool),
-            callback,
-            summary: SurrogateStateSummary::default(),
-            proposal: None,
-            key,
-            workspace,
-            disabled: false,
-            iterations,
-        })
+        match construction {
+            Ok(owner) => Ok(owner),
+            Err(operation) => {
+                let operation =
+                    operation.with_cleanup(pool_owner.take().map_or(Ok(()), JoinedPool::finish));
+                Err(operation.with_cleanup(callback.finish()))
+            }
+        }
     }
     /// Original scope remains unchanged; supervisor cancellation is a separate additional observer.
     pub(super) fn bind_abort(
@@ -1223,6 +1472,37 @@ mod tests {
             expected_observation: None,
         }
     }
+    #[derive(Debug)]
+    struct ConstructorEvaluator {
+        evaluator: Evaluator,
+        correspondence_calls: AtomicUsize,
+        panic_at: Option<usize>,
+    }
+    impl Drop for ConstructorEvaluator {
+        fn drop(&mut self) {
+            panic!("constructor evaluator destructor failed");
+        }
+    }
+    impl FidelityEvaluator for ConstructorEvaluator {
+        type Error = MathError;
+        fn correspondence(&self) -> &FidelityCorrespondence {
+            let call = self.correspondence_calls.fetch_add(1, Ordering::SeqCst) + 1;
+            if self.panic_at == Some(call) {
+                panic!("constructor correspondence failed");
+            }
+            self.evaluator.correspondence()
+        }
+        fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
+            self.evaluator.evaluate(x, out)
+        }
+    }
+    fn constructor_evaluator(panic_at: Option<usize>) -> ConstructorEvaluator {
+        ConstructorEvaluator {
+            evaluator: evaluator(Arc::new(AtomicUsize::new(0))),
+            correspondence_calls: AtomicUsize::new(0),
+            panic_at,
+        }
+    }
     fn scope() -> ExecutionScope {
         ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None)
     }
@@ -1281,7 +1561,7 @@ mod tests {
                 cancel.cancel();
             }
             let dropper = std::thread::spawn(move || {
-                drop(task);
+                task.finish().unwrap();
                 drop(owner);
                 drained.send(()).unwrap();
             });
@@ -1314,6 +1594,227 @@ mod tests {
             dropper.join().unwrap();
             assert_eq!(pool.reserved(), 0);
         }
+    }
+    #[test]
+    fn finish_preserves_stop_submission_failure_and_every_worker_join_failure() {
+        let mut options = options();
+        options.threads = 2;
+        let mut task = RetainedSurrogate::new_with_spawn(
+            evaluator(Arc::new(AtomicUsize::new(0))),
+            options,
+            scope(),
+            |thread| {
+                std::thread::Builder::new()
+                    .stack_size(thread.stack_size().unwrap())
+                    .spawn(move || {
+                        let index = thread.index();
+                        thread.run();
+                        panic!("retained worker {index} exit failure");
+                    })
+            },
+        )
+        .unwrap();
+        let (disconnected, receiver) = std::sync::mpsc::channel();
+        drop(receiver);
+        // Disconnect the real command receiver, letting its worker destroy state;
+        // the replacement injects a definite failure to submit Stop.
+        task.commands = disconnected;
+        let result = task.finish();
+        assert!(
+            matches!(result, Err(crate::math::MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), crate::math::MathRuntimeError::Infrastructure(message) if message.contains("stop submission"))
+            && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Settlement { operation, cleanup }
+                if matches!(operation.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("retained worker 0"))
+                && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("retained worker 1"))))
+        );
+    }
+    #[test]
+    fn finish_preserves_lost_destruction_acknowledgement_and_joins_actual_workers() {
+        let mut task =
+            RetainedSurrogate::new(evaluator(Arc::new(AtomicUsize::new(0))), options(), scope())
+                .unwrap();
+        let (relay, commands) = std::sync::mpsc::channel();
+        let original = std::mem::replace(&mut task.commands, relay);
+        let relay = std::thread::spawn(move || {
+            match commands.recv().unwrap() {
+                Command::Stop(reply) => drop(reply),
+                _ => panic!("expected consuming Stop"),
+            }
+            // Definite acknowledgement loss; closing the original command lane
+            // still destroys the actual worker before its pool can finish.
+            drop(original);
+        });
+        let result = task.finish();
+        relay.join().unwrap();
+        assert!(
+            matches!(result, Err(crate::math::MathRuntimeError::Infrastructure(message))
+            if message.contains("acknowledgement lost"))
+        );
+    }
+    #[test]
+    fn constructor_preserves_scientific_failure_and_worker_exit_failure() {
+        let cancel = pse_diagnostics::Cancellation::default();
+        let scope = ExecutionScope::new(cancel.clone(), None);
+        let result = RetainedSurrogate::new_with_spawn(
+            evaluator(Arc::new(AtomicUsize::new(0))),
+            options(),
+            scope,
+            move |thread| {
+                cancel.cancel();
+                std::thread::Builder::new()
+                    .stack_size(thread.stack_size().unwrap())
+                    .spawn(move || {
+                        thread.run();
+                        panic!("construction cleanup worker failure");
+                    })
+            },
+        );
+        assert!(
+            matches!(result, Err(SurrogateFailure::Settlement { operation, cleanup })
+            if matches!(*operation, SurrogateFailure::Math(MathError::Cancelled))
+            && matches!(*cleanup, crate::math::MathRuntimeError::Panic(ref message) if message.contains("construction cleanup worker failure")))
+        );
+    }
+    #[test]
+    fn construction_cancellation_worker_failure_and_evaluator_destructor_failure_all_survive() {
+        let cancel = pse_diagnostics::Cancellation::default();
+        let scope = ExecutionScope::new(cancel.clone(), None);
+        let result = RetainedSurrogate::new_with_spawn(
+            constructor_evaluator(None),
+            options(),
+            scope,
+            move |thread| {
+                cancel.cancel();
+                Ok(std::thread::spawn(move || {
+                    thread.run();
+                    panic!("cancelled construction worker exit failed");
+                }))
+            },
+        );
+        assert!(
+            matches!(result, Err(SurrogateFailure::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), SurrogateFailure::Settlement { operation, cleanup }
+                if matches!(operation.as_ref(), SurrogateFailure::Math(MathError::Cancelled))
+                && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("cancelled construction worker exit failed")))
+            && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("constructor evaluator destructor failed")))
+        );
+    }
+    #[test]
+    fn partial_pool_construction_and_all_destructor_failures_survive() {
+        let mut options = options();
+        options.threads = 2;
+        let result = RetainedSurrogate::new_with_spawn(
+            constructor_evaluator(None),
+            options,
+            scope(),
+            |thread| {
+                if thread.index() == 1 {
+                    return Err(std::io::Error::other("partial constructor team refused"));
+                }
+                Ok(std::thread::spawn(move || {
+                    thread.run();
+                    panic!("partial constructor worker exit failed");
+                }))
+            },
+        );
+        assert!(
+            matches!(result, Err(SurrogateFailure::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), SurrogateFailure::Runtime(crate::math::MathRuntimeError::Settlement { operation, cleanup })
+                if matches!(operation.as_ref(), crate::math::MathRuntimeError::Math(MathError::Library(message)) if message.contains("partial constructor team refused"))
+                && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("partial constructor worker exit failed")))
+            && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("constructor evaluator destructor failed")))
+        );
+    }
+    #[test]
+    fn pre_pool_constructor_refusal_survives_evaluator_destructor_failure() {
+        for cancelled in [false, true] {
+            let mut options = options();
+            let cancel = pse_diagnostics::Cancellation::default();
+            if cancelled {
+                cancel.cancel();
+            } else {
+                options.threads = 0;
+            }
+            let result = RetainedSurrogate::new(
+                constructor_evaluator(None),
+                options,
+                ExecutionScope::new(cancel, None),
+            );
+            assert!(
+                matches!(result, Err(SurrogateFailure::Settlement { operation, cleanup })
+                if matches!(operation.as_ref(), SurrogateFailure::Math(MathError::Cancelled | MathError::Contract(_)))
+                && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("constructor evaluator destructor failed")))
+            );
+        }
+    }
+    #[test]
+    fn constructor_panic_and_evaluator_destructor_panic_do_not_abort() {
+        const CHILD: &str = "PSE_SURROGATE_CONSTRUCTOR_PANIC_CHILD";
+        if std::env::var_os(CHILD).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "math::surrogate::library::tests::constructor_panic_and_evaluator_destructor_panic_do_not_abort", "--nocapture"])
+                .env(CHILD, "1").output().unwrap();
+            assert!(
+                output.status.success(),
+                "constructor/destructor child failed: {:?}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            assert!(
+                String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+                "child must execute the exact constructor control"
+            );
+            return;
+        }
+        // The first correspondence call validates before pool creation; the second
+        // runs inside Worker::new. Neither can destroy the retained evaluator while unwinding.
+        for panic_at in [1, 2] {
+            let result =
+                RetainedSurrogate::new(constructor_evaluator(Some(panic_at)), options(), scope());
+            assert!(
+                matches!(result, Err(SurrogateFailure::Settlement { operation, cleanup })
+                if matches!(operation.as_ref(), SurrogateFailure::Panic(message) if message.contains("constructor correspondence failed"))
+                && matches!(cleanup.as_ref(), crate::math::MathRuntimeError::Panic(message) if message.contains("constructor evaluator destructor failed")))
+            );
+        }
+    }
+    #[test]
+    fn finish_preserves_worker_failure_when_final_evaluator_destruction_also_panics() {
+        #[derive(Debug)]
+        struct Destructive(Evaluator);
+        impl Drop for Destructive {
+            fn drop(&mut self) {
+                panic!("retained evaluator destructor failure");
+            }
+        }
+        impl FidelityEvaluator for Destructive {
+            type Error = MathError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                self.0.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), MathError> {
+                self.0.evaluate(x, out)
+            }
+        }
+        let task = RetainedSurrogate::new_with_spawn(
+            Destructive(evaluator(Arc::new(AtomicUsize::new(0)))),
+            options(),
+            scope(),
+            |thread| {
+                Ok(std::thread::spawn(move || {
+                    thread.run();
+                    panic!("retained worker cleanup failure");
+                }))
+            },
+        )
+        .unwrap();
+        let result = task.finish();
+        assert!(
+            matches!(result, Err(crate::math::MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(*operation, crate::math::MathRuntimeError::Panic(ref message) if message.contains("worker cleanup failure"))
+            && matches!(*cleanup, crate::math::MathRuntimeError::Panic(ref message) if message.contains("retained evaluator destructor failure")))
+        );
     }
     #[test]
     fn retained_pool_constructor_failures_join_every_created_worker() {

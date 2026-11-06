@@ -5,7 +5,7 @@ use super::{MathRuntimeError, MathService};
 use pse_backend_native::ProblemError;
 use pse_diagnostics::Cancellation;
 mod library;
-use library::RetainedSurrogate;
+use library::{CallbackOwner, RetainedSurrogate};
 /// Runtime-owned retained library surrogate contracts.
 pub use library::{
     CorrelationSpec, FidelityCorrespondence, FidelityEvaluator, RegressionSpec, SurrogateAdvance,
@@ -108,7 +108,7 @@ impl ActorGate {
 struct Actor {
     observation: Option<pse_diagnostics::observation::ObservationContext>,
     sender: Sender<Command>,
-    join: Mutex<Option<JoinHandle<()>>>,
+    join: Mutex<Option<JoinHandle<Result<(), MathRuntimeError>>>>,
     gate: ActorGate,
     abort: Cancellation,
     owner: Mutex<Option<Arc<pse_columnar::AllocationLease>>>,
@@ -120,16 +120,59 @@ impl std::fmt::Debug for Actor {
 }
 impl Drop for Actor {
     fn drop(&mut self) {
-        self.abort.cancel();
-        let _ = self.sender.send(Command::Stop);
-        let slot = match self.join.get_mut() {
+        let _ = self.retire();
+    }
+}
+impl Actor {
+    fn retire(&self) -> Result<(), MathRuntimeError> {
+        let mut result = Ok(());
+        let mut slot = match self.join.lock() {
             Ok(slot) => slot,
-            Err(poison) => poison.into_inner(),
+            Err(poison) => {
+                result = Err(MathRuntimeError::Internal(
+                    "surrogate actor join owner poisoned".into(),
+                ));
+                poison.into_inner()
+            }
         };
-        if let Some(join) = slot.take() {
-            let _ = join.join();
+        // Taking the existing physical join owner closes command admission before
+        // waiting for an already admitted command to release its serialization gate.
+        let Some(join) = slot.take() else {
+            return result;
+        };
+        drop(slot);
+        self.abort.cancel();
+        let guard = match self.gate.mutex.lock() {
+            Ok(guard) => guard,
+            Err(poison) => {
+                result = MathRuntimeError::settle(result, Err(ActorGate::poison()));
+                poison.into_inner()
+            }
+        };
+        let _gate = ActorGateGuard {
+            guard: Some(guard),
+            released: &self.gate.released,
+        };
+        let stopped = self.sender.send(Command::Stop).map_err(|_| {
+            MathRuntimeError::Infrastructure("surrogate actor stop submission lost".into())
+        });
+        result = MathRuntimeError::settle(result, stopped);
+        MathRuntimeError::settle(result, join_actor(join))
+    }
+    fn check_admission(&self) -> Result<(), MathRuntimeError> {
+        let slot = self.join.lock().map_err(|_| {
+            MathRuntimeError::Internal("surrogate actor join owner poisoned".into())
+        })?;
+        if slot.is_some() {
+            Ok(())
+        } else {
+            Err(MathRuntimeError::Retiring)
         }
     }
+}
+fn join_actor(join: JoinHandle<Result<(), MathRuntimeError>>) -> Result<(), MathRuntimeError> {
+    join.join()
+        .map_err(|payload| super::joined_pool::worker_panic("surrogate actor", payload))?
 }
 impl Actor {
     fn snapshot(
@@ -142,6 +185,7 @@ impl Actor {
             cancel.cancelled(),
             None,
         )?;
+        self.check_admission()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Snapshot(owner, cancel.clone(), reply))
@@ -152,6 +196,7 @@ impl Actor {
     }
     fn advance(&self) -> Result<SurrogateAdvance, MathRuntimeError> {
         let _gate = self.gate.lock()?;
+        self.check_admission()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Advance(reply))
@@ -162,6 +207,7 @@ impl Actor {
     }
     fn proposal(&self) -> ProposalResult {
         let _gate = self.gate.lock()?;
+        self.check_admission()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Proposal(reply))
@@ -181,6 +227,7 @@ impl Actor {
             scope.cancellation_control().cancelled(),
             scope.deadline(),
         )?;
+        self.check_admission()?;
         let (reply, answer) = mpsc::sync_channel(1);
         if let (Some(caller), Some(producer)) =
             (pse_diagnostics::observation::current(), &self.observation)
@@ -199,6 +246,7 @@ impl Actor {
     }
     fn work(&self) -> Result<SurrogateWork, MathRuntimeError> {
         let _gate = self.gate.lock()?;
+        self.check_admission()?;
         let (reply, answer) = mpsc::sync_channel(1);
         self.sender
             .send(Command::Work(reply))
@@ -224,6 +272,14 @@ pub struct SurrogateHandle {
     task: pse_ids::ContentHash,
 }
 impl SurrogateHandle {
+    /// Close command admission, interrupt this handle's work and join its actual
+    /// actor, library team and thread-local destruction under the retained charge.
+    /// # Errors
+    /// Original stop, solver destruction and physical worker settlement failures.
+    pub fn finish(self) -> Result<(), MathRuntimeError> {
+        self.cancel();
+        self.actor.retire()
+    }
     /// Passive actor observations; reading does not queue behind its scientific work.
     pub fn observations(&self) -> Option<pse_diagnostics::observation::OperationReader> {
         self.actor
@@ -292,6 +348,11 @@ fn failure(error: SurrogateFailure<ProblemError>) -> MathRuntimeError {
         SurrogateFailure::Callback(e) => e.into(),
         SurrogateFailure::Math(e) => e.into(),
         SurrogateFailure::Panic(message) => MathRuntimeError::Panic(message),
+        SurrogateFailure::Runtime(error) => error,
+        SurrogateFailure::Settlement { operation, cleanup } => MathRuntimeError::Settlement {
+            operation: Box::new(failure(*operation)),
+            cleanup,
+        },
     }
 }
 fn scope_error(error: pse_kernels::ProviderError) -> MathRuntimeError {
@@ -301,7 +362,24 @@ fn scope_error(error: pse_kernels::ProviderError) -> MathRuntimeError {
     }
 }
 fn actor<E: FidelityEvaluator<Error = ProblemError>>(
-    evaluator: E,
+    mut callback: CallbackOwner<E>,
+    options: SurrogateOptions,
+    scope: pse_kernels::ExecutionScope,
+    abort: Cancellation,
+) -> Result<Actor, MathRuntimeError> {
+    let constructed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        actor_inner(callback.clone(), options, scope, abort)
+    }))
+    .unwrap_or_else(|payload| {
+        Err(super::joined_pool::worker_panic(
+            "surrogate actor construction",
+            payload,
+        ))
+    });
+    MathRuntimeError::settle(constructed, callback.finish())
+}
+fn actor_inner<E: FidelityEvaluator<Error = ProblemError>>(
+    callback: CallbackOwner<E>,
     options: SurrogateOptions,
     scope: pse_kernels::ExecutionScope,
     abort: Cancellation,
@@ -328,25 +406,28 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
             // Construct here: egobox's boxed strategies are Sync but not Send.
             let initialized_task = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut task =
-                    RetainedSurrogate::new(evaluator, options, scope).map_err(failure)?;
-                task.bind_abort(flag)?;
+                    RetainedSurrogate::new_with_owner(callback, options, scope).map_err(failure)?;
+                if let Err(error) = task.bind_abort(flag) {
+                    return MathRuntimeError::settle(Err(error.into()), task.finish());
+                }
                 Ok::<_, MathRuntimeError>(task)
             }));
             let mut task = match initialized_task {
                 Ok(Ok(task)) => task,
                 Ok(Err(error)) => {
                     let _ = ready.send(Err(error));
-                    return;
+                    return Ok(());
                 }
-                Err(_) => {
-                    let _ = ready.send(Err(MathRuntimeError::Panic(
-                        "egobox construction unwound".into(),
+                Err(payload) => {
+                    let _ = ready.send(Err(super::joined_pool::worker_panic(
+                        "egobox construction",
+                        payload,
                     )));
-                    return;
+                    return Ok(());
                 }
             };
             if ready.send(Ok(())).is_err() {
-                return;
+                return task.finish();
             }
             while let Ok(command) = commands.recv() {
                 match command {
@@ -434,10 +515,15 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
                     Command::Stop => break,
                 }
             }
+            let result = task.finish();
             if let Some(diagnostic) = diagnostic {
-                diagnostic.finish(pse_diagnostics::observation::Outcome::Completed);
+                diagnostic.finish(if result.is_ok() {
+                    pse_diagnostics::observation::Outcome::Completed
+                } else {
+                    pse_diagnostics::observation::Outcome::Failed
+                });
             }
-            // Full solver/state and local rayon pool drop here before this thread exits.
+            result
         })
         .map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?;
     match initialized.recv() {
@@ -449,28 +535,30 @@ fn actor<E: FidelityEvaluator<Error = ProblemError>>(
             abort,
             owner: Mutex::new(None),
         }),
-        Ok(Err(error)) => {
-            let _ = join.join();
-            Err(error)
-        }
-        Err(_) => {
-            let _ = join.join();
+        Ok(Err(error)) => MathRuntimeError::settle(Err(error), join_actor(join)),
+        Err(_) => MathRuntimeError::settle(
             Err(MathRuntimeError::Panic(
                 "egobox construction response lost".into(),
-            ))
-        }
+            )),
+            join_actor(join),
+        ),
     }
 }
 impl MathService {
     /// Construct full library state inside its permanent worker under original task admission.
     /// The finite local clock begins at submission, before waiting for CPU or a job slot.
-    pub async fn prepare_surrogate<E: FidelityEvaluator<Error = ProblemError>>(
-        self: &Arc<Self>,
+    pub fn prepare_surrogate<'a, E: FidelityEvaluator<Error = ProblemError>>(
+        self: &'a Arc<Self>,
         evaluator: E,
         options: SurrogateOptions,
         scope: pse_kernels::ExecutionScope,
-        driver: &crate::CancelSource,
-    ) -> Result<SurrogateHandle, MathRuntimeError> {
+        driver: &'a crate::CancelSource,
+    ) -> impl Future<Output = Result<SurrogateHandle, MathRuntimeError>> + Send + 'a {
+        let mut callback = CallbackOwner::new(evaluator, scope.clone(), options.evaluations);
+        // Establish custody eagerly so even an unpolled abandoned future cannot
+        // destroy the evaluator while another failure is already unwinding.
+        async move {
+            let prepared = futures_util::FutureExt::catch_unwind(std::panic::AssertUnwindSafe(async {
         if options.stack_bytes != self.policy.stack_bytes
             || options.foreign_bytes > self.policy.foreign_bytes
         {
@@ -478,11 +566,11 @@ impl MathService {
                 "surrogate stack/foreign allocation policy",
             ));
         }
-        let workspace = options.workspace_bytes(evaluator.correspondence())?;
+        let correspondence = Arc::new(callback.correspondence()?);
+        let workspace = options.workspace_bytes(&correspondence)?;
         if workspace > self.policy.workspace_bytes {
             return Err(MathRuntimeError::Limit("surrogate retained workspace"));
         }
-        let correspondence = Arc::new(evaluator.correspondence().clone());
         let task_scope = scope.clone();
         let task = options.key(&correspondence)?;
         scope.check().map_err(scope_error)?;
@@ -496,26 +584,46 @@ impl MathService {
         let control = Cancellation::default();
         let worker_scope = scope.clone();
         let worker_control = control.clone();
-        let operation = self.job_retained_scoped(
+        let worker_callback = callback.clone();
+        let operation = self.job_retained_scoped_with_finish(
             cores,
             workspace,
             control.clone(),
             scope.deadline(),
             move |flag| {
+                worker_callback.retain_construction()?;
                 if flag.load(std::sync::atomic::Ordering::Acquire) {
                     return Err(MathRuntimeError::Cancelled);
                 }
-                let actor = actor(evaluator, options, worker_scope, worker_control)?;
+                let actor = actor(worker_callback, options, worker_scope, worker_control)?;
                 Ok((Arc::new(actor), workspace))
             },
+            |actor: Arc<Actor>| actor.retire(),
         );
         tokio::pin!(operation);
-        let (actor, owner) = tokio::select! {result=&mut operation=>result?,()=driver.cancelled()=>{scope.cancellation_control().cancel();control.cancel();let _=operation.await;return Err(MathRuntimeError::Cancelled);}};
+        let (actor, owner) = tokio::select! {
+            result=&mut operation=>result?,
+            ()=driver.cancelled()=>{
+                scope.cancellation_control().cancel();control.cancel();
+                let cleanup = match operation.await {
+                    Ok((actor, _owner)) => actor.retire(),
+                    Err(MathRuntimeError::Cancelled) => Ok(()),
+                    Err(error) => Err(error),
+                };
+                return MathRuntimeError::settle(Err(MathRuntimeError::Cancelled), cleanup);
+            }
+        };
         // The actor itself owns the lease so its Drop joins library/pool destruction before releasing it,
         // including when the last handle disappears during a detached active job.
-        *actor.owner.lock().map_err(|_| {
+        let attached = actor.owner.lock().map(|mut slot| *slot = Some(owner.clone())).map_err(|_| {
             MathRuntimeError::Internal("surrogate allocation owner poisoned".into())
-        })? = Some(owner.clone());
+        });
+        if let Err(error) = attached {
+            return MathRuntimeError::settle(Err(error), actor.retire());
+        }
+        if let Err(error) = callback.release_construction() {
+            return MathRuntimeError::settle(Err(error), actor.retire());
+        }
         Ok(SurrogateHandle {
             service: self.clone(),
             actor,
@@ -528,6 +636,9 @@ impl MathService {
             workspace,
             task,
         })
+        })).await.unwrap_or_else(|payload| Err(super::joined_pool::worker_panic("surrogate preparation", payload)));
+            MathRuntimeError::settle(prepared, callback.finish())
+        }
     }
     /// Advance on the same owning thread under the same task deadline and admitted CPU team.
     /// Consumers independently screen/correct proposals against the original scientific problem.
@@ -555,7 +666,19 @@ impl MathService {
             },
         );
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result.map(|(mut advance,owner)|{advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance}),()=driver.cancelled()=>{handle.scope.cancellation_control().cancel();control.cancel();let _=operation.await;Err(MathRuntimeError::Cancelled)}}
+        tokio::select! {
+            result=&mut operation=>result.map(|(mut advance,owner)|{
+                advance.proposal=advance.proposal.map(|proposal|proposal.with_owner(owner));advance
+            }),
+            ()=driver.cancelled()=>{
+                handle.scope.cancellation_control().cancel();control.cancel();
+                let settled = match operation.await {
+                    Ok(_) | Err(MathRuntimeError::Cancelled) => Ok(()),
+                    Err(error) => Err(error),
+                };
+                MathRuntimeError::settle(Err(MathRuntimeError::Cancelled), settled)
+            }
+        }
     }
 }
 
@@ -926,16 +1049,454 @@ mod tests {
             destroyed,
         )
     }
+    #[derive(Debug)]
+    struct DestructivePreparation {
+        evaluator: Evaluator,
+        panic_correspondence: bool,
+    }
+    impl Drop for DestructivePreparation {
+        fn drop(&mut self) {
+            panic!("public evaluator destructor failed");
+        }
+    }
+    impl FidelityEvaluator for DestructivePreparation {
+        type Error = ProblemError;
+        fn correspondence(&self) -> &FidelityCorrespondence {
+            assert!(!self.panic_correspondence, "public correspondence panic");
+            self.evaluator.correspondence()
+        }
+        fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+            self.evaluator.evaluate(x, out)
+        }
+    }
+    #[tokio::test]
+    async fn public_pre_admission_failure_survives_evaluator_destructor_panic() {
+        for panic_correspondence in [false, true] {
+            let (evaluator, mut options, threads, destroyed) = fixture();
+            let (service, _cache) = super::super::tests::service_with_policy(
+                128 << 20,
+                super::super::MathPolicy {
+                    stack_bytes: options.stack_bytes,
+                    foreign_bytes: options.foreign_bytes,
+                    workspace_bytes: 16 << 20,
+                    worker_bytes: 8 << 20,
+                    inner_session_bytes: 0,
+                    ..Default::default()
+                },
+            );
+            let baseline = service.pool.reserved();
+            if !panic_correspondence {
+                options.stack_bytes += 1;
+            }
+            let result = service
+                .prepare_surrogate(
+                    DestructivePreparation {
+                        evaluator,
+                        panic_correspondence,
+                    },
+                    options,
+                    pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+                    &crate::CancelSource::new(),
+                )
+                .await;
+            assert!(
+                matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+                if (matches!(operation.as_ref(), MathRuntimeError::Limit("surrogate stack/foreign allocation policy"))
+                    || matches!(operation.as_ref(), MathRuntimeError::Panic(message) if message.contains("public correspondence panic")))
+                && matches!(cleanup.as_ref(), MathRuntimeError::Panic(message) if message.contains("public evaluator destructor failed")))
+            );
+            assert!(threads.lock().unwrap().is_empty());
+            assert!(destroyed.load(Ordering::Acquire));
+            assert_eq!(service.pool.reserved(), baseline);
+        }
+    }
+    #[test]
+    fn actor_spawn_refusal_survives_evaluator_destructor_panic() {
+        let (evaluator, mut options, _, destroyed) = fixture();
+        // An aligned stack exceeding the process address space forces the actual
+        // native thread builder's refusal without replacing its production path.
+        options.stack_bytes = usize::MAX / 4 + 1;
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
+        let owner = CallbackOwner::new(
+            DestructivePreparation {
+                evaluator,
+                panic_correspondence: false,
+            },
+            scope.clone(),
+            options.evaluations,
+        );
+        let result = actor(owner, options, scope, Cancellation::default());
+        assert!(
+            matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), MathRuntimeError::Infrastructure(_))
+            && matches!(cleanup.as_ref(), MathRuntimeError::Panic(message) if message.contains("public evaluator destructor failed")))
+        );
+        assert!(destroyed.load(Ordering::Acquire));
+    }
+    #[test]
+    fn abandoning_unpolled_preparation_contains_evaluator_destructor_panic() {
+        let (evaluator, options, threads, destroyed) = fixture();
+        let (service, _cache) =
+            super::super::tests::service_with_policy(128 << 20, Default::default());
+        let driver = crate::CancelSource::new();
+        let preparation = service.prepare_surrogate(
+            DestructivePreparation {
+                evaluator,
+                panic_correspondence: false,
+            },
+            options,
+            pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+            &driver,
+        );
+        let abandoned =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(preparation)));
+        assert!(abandoned.is_ok());
+        assert!(destroyed.load(Ordering::Acquire));
+        assert!(threads.lock().unwrap().is_empty());
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failed_or_cancelled_construction_keeps_original_memory_through_final_evaluator_destruction()
+     {
+        use std::time::Duration;
+        #[derive(Debug)]
+        struct GatedPreparation {
+            evaluator: Evaluator,
+            calls: std::sync::atomic::AtomicUsize,
+            cancel: bool,
+            constructed: Sender<()>,
+            construction_gate: Mutex<mpsc::Receiver<()>>,
+            destroying: Sender<()>,
+            destruction_gate: mpsc::Receiver<()>,
+        }
+        impl FidelityEvaluator for GatedPreparation {
+            type Error = ProblemError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                if self.calls.fetch_add(1, Ordering::SeqCst) == 2 {
+                    self.constructed.send(()).unwrap();
+                    let _ = self
+                        .construction_gate
+                        .lock()
+                        .unwrap()
+                        .recv_timeout(Duration::from_secs(10));
+                    assert!(self.cancel, "actual retained constructor failed");
+                }
+                self.evaluator.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+                self.evaluator.evaluate(x, out)
+            }
+        }
+        impl Drop for GatedPreparation {
+            fn drop(&mut self) {
+                let _ = self.destroying.send(());
+                let _ = self.destruction_gate.recv_timeout(Duration::from_secs(10));
+                panic!("final evaluator destruction failed");
+            }
+        }
+        for cancelled in [false, true] {
+            let (evaluator, options, _, destroyed) = fixture();
+            let (service, _cache) = super::super::tests::service_with_policy(
+                128 << 20,
+                super::super::MathPolicy {
+                    stack_bytes: options.stack_bytes,
+                    foreign_bytes: options.foreign_bytes,
+                    workspace_bytes: 16 << 20,
+                    worker_bytes: 8 << 20,
+                    inner_session_bytes: 0,
+                    ..Default::default()
+                },
+            );
+            let baseline = service.pool.reserved();
+            let (constructed, constructing) = mpsc::channel();
+            let (release_construction, construction_gate) = mpsc::channel();
+            let (destroying, destruction) = mpsc::channel();
+            let (release_destruction, destruction_gate) = mpsc::channel();
+            let evaluator = GatedPreparation {
+                evaluator,
+                calls: 0.into(),
+                cancel: cancelled,
+                constructed,
+                construction_gate: Mutex::new(construction_gate),
+                destroying,
+                destruction_gate,
+            };
+            let driver = Arc::new(crate::CancelSource::new());
+            let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
+            let task_scope = scope.clone();
+            let task_driver = driver.clone();
+            let task_service = service.clone();
+            let task = tokio::spawn(async move {
+                task_service
+                    .prepare_surrogate(evaluator, options, task_scope, &task_driver)
+                    .await
+            });
+            constructing.recv_timeout(Duration::from_secs(5)).unwrap();
+            if cancelled {
+                driver.cancel();
+                tokio::time::timeout(
+                    Duration::from_secs(5),
+                    scope.cancellation_control().cancelled(),
+                )
+                .await
+                .unwrap();
+            }
+            release_construction.send(()).unwrap();
+            destruction.recv_timeout(Duration::from_secs(5)).unwrap();
+            let charged = service.pool.reserved();
+            let pending = !task.is_finished();
+            release_destruction.send(()).unwrap();
+            let result = task.await.unwrap();
+            assert!(pending);
+            assert!(
+                charged > baseline,
+                "the original construction reservation must survive the last evaluator destructor"
+            );
+            let error = result.unwrap_err();
+            assert!(
+                error
+                    .to_string()
+                    .contains("final evaluator destruction failed")
+            );
+            assert!(error.to_string().contains(if cancelled {
+                "cancel"
+            } else {
+                "actual retained constructor failed"
+            }));
+            assert!(destroyed.load(Ordering::Acquire));
+            assert_eq!(service.pool.reserved(), baseline);
+        }
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn failed_construction_keeps_original_memory_through_evaluator_panic_payload_destruction()
+    {
+        use std::time::Duration;
+        struct Payload {
+            entered: Sender<()>,
+            release: mpsc::Receiver<()>,
+        }
+        impl Drop for Payload {
+            fn drop(&mut self) {
+                let _ = self.entered.send(());
+                let _ = self.release.recv_timeout(Duration::from_secs(10));
+            }
+        }
+        #[derive(Debug)]
+        struct Panicking {
+            evaluator: Evaluator,
+            calls: std::sync::atomic::AtomicUsize,
+            entered: Sender<()>,
+            release: Option<mpsc::Receiver<()>>,
+        }
+        impl FidelityEvaluator for Panicking {
+            type Error = ProblemError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                assert!(
+                    self.calls.fetch_add(1, Ordering::SeqCst) != 2,
+                    "payload control constructor failed"
+                );
+                self.evaluator.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+                self.evaluator.evaluate(x, out)
+            }
+        }
+        impl Drop for Panicking {
+            fn drop(&mut self) {
+                std::panic::panic_any(Payload {
+                    entered: self.entered.clone(),
+                    release: self.release.take().unwrap(),
+                });
+            }
+        }
+        let (evaluator, options, _, destroyed) = fixture();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                worker_bytes: 8 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let (entered, entering) = mpsc::channel();
+        let (release, gate) = mpsc::channel();
+        let evaluator = Panicking {
+            evaluator,
+            calls: 0.into(),
+            entered,
+            release: Some(gate),
+        };
+        let task_service = service.clone();
+        let task = tokio::spawn(async move {
+            task_service
+                .prepare_surrogate(
+                    evaluator,
+                    options,
+                    pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+                    &crate::CancelSource::new(),
+                )
+                .await
+        });
+        entering.recv_timeout(Duration::from_secs(5)).unwrap();
+        let charged = service.pool.reserved();
+        let pending = !task.is_finished();
+        release.send(()).unwrap();
+        let result = task.await.unwrap();
+        assert!(pending);
+        assert!(
+            charged > baseline,
+            "original reservation must outlive the caught payload's destructor"
+        );
+        assert!(destroyed.load(Ordering::Acquire));
+        assert!(
+            matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), MathRuntimeError::Panic(message) if message.contains("payload control constructor failed"))
+            && matches!(cleanup.as_ref(), MathRuntimeError::Panic(_)))
+        );
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn cancellation_after_constructed_actor_preserves_retirement_error_and_tls_custody() {
+        use std::time::Duration;
+        struct Departure {
+            entered: Sender<()>,
+            release: mpsc::Receiver<()>,
+        }
+        impl Drop for Departure {
+            fn drop(&mut self) {
+                let _ = self.entered.send(());
+                let _ = self.release.recv_timeout(Duration::from_secs(10));
+            }
+        }
+        thread_local! {
+            static DEPARTURE: std::cell::RefCell<Option<Departure>> = const { std::cell::RefCell::new(None) };
+        }
+        #[derive(Debug)]
+        struct CleanupFailure {
+            evaluator: Evaluator,
+            entered: Sender<()>,
+            release: Option<mpsc::Receiver<()>>,
+        }
+        impl FidelityEvaluator for CleanupFailure {
+            type Error = ProblemError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                self.evaluator.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+                if let Some(release) = self.release.take() {
+                    DEPARTURE.with(|slot| {
+                        *slot.borrow_mut() = Some(Departure {
+                            entered: self.entered.clone(),
+                            release,
+                        })
+                    });
+                }
+                self.evaluator.evaluate(x, out)
+            }
+        }
+        impl Drop for CleanupFailure {
+            fn drop(&mut self) {
+                panic!("actual constructed actor cleanup failed");
+            }
+        }
+        let (evaluator, options, _, destroyed) = fixture();
+        let workspace = options.workspace_bytes(evaluator.correspondence()).unwrap();
+        let (service, _cache) = super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                worker_bytes: 8 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let cores = service.cpu.available_permits();
+        let (entered, entering) = mpsc::channel();
+        let (release, gate) = mpsc::channel();
+        let (ready, constructed) = tokio::sync::oneshot::channel();
+        let cancel = Cancellation::default();
+        let worker_cancel = cancel.clone();
+        let worker_service = service.clone();
+        let task = tokio::spawn(async move {
+            worker_service
+                .job_retained_scoped_with_finish(
+                    1,
+                    workspace,
+                    worker_cancel,
+                    None,
+                    move |flag| {
+                        let scope = pse_kernels::ExecutionScope::new(Cancellation::default(), None);
+                        let callback = CallbackOwner::new(
+                            CleanupFailure {
+                                evaluator,
+                                entered,
+                                release: Some(gate),
+                            },
+                            scope.clone(),
+                            options.evaluations,
+                        );
+                        callback.retain_construction()?;
+                        let actor =
+                            Arc::new(actor(callback, options, scope, Cancellation::default())?);
+                        actor.advance()?;
+                        let _ = ready.send(());
+                        let until = Instant::now() + Duration::from_secs(5);
+                        while !flag.is_cancelled() && Instant::now() < until {
+                            std::thread::yield_now();
+                        }
+                        Ok((actor, workspace))
+                    },
+                    |actor: Arc<Actor>| actor.retire(),
+                )
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(5), constructed)
+            .await
+            .unwrap()
+            .unwrap();
+        cancel.cancel();
+        entering.recv_timeout(Duration::from_secs(5)).unwrap();
+        let charged = service.pool.reserved();
+        let available = service.cpu.available_permits();
+        let pending = !task.is_finished();
+        release.send(()).unwrap();
+        let result = task.await.unwrap();
+        assert!(pending);
+        assert!(
+            charged > baseline,
+            "actor retirement must retain the original job reservation"
+        );
+        assert_eq!(
+            available,
+            cores - 1,
+            "actor retirement still owns the original job compute"
+        );
+        assert!(
+            matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), MathRuntimeError::Cancelled)
+            && matches!(cleanup.as_ref(), MathRuntimeError::Panic(message) if message.contains("actual constructed actor cleanup failed")))
+        );
+        assert!(destroyed.load(Ordering::Acquire));
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.cpu.available_permits(), cores);
+    }
     #[test]
     fn actual_actor_retains_non_send_library_and_same_pool_then_joins_destruction() {
         fn assert_send_sync<T: Send + Sync>() {}
         assert_send_sync::<SurrogateHandle>();
         let (e, o, threads, destroyed) = fixture();
         let control = Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(Cancellation::new(false), None);
         let task = actor(
-            e,
+            CallbackOwner::new(e, scope.clone(), o.evaluations),
             o,
-            pse_kernels::ExecutionScope::new(Cancellation::new(false), None),
+            scope,
             control,
         )
         .unwrap();
@@ -952,8 +1513,147 @@ mod tests {
         assert!(observed.iter().all(|thread| *thread == observed[0]));
         drop(observed);
         assert!(!destroyed.load(Ordering::Acquire));
+        task.retire().unwrap();
+        assert!(matches!(task.work(), Err(MathRuntimeError::Retiring)));
         drop(task);
         assert!(destroyed.load(Ordering::Acquire));
+    }
+    #[test]
+    fn actor_retirement_preserves_poison_stop_and_join_failures() {
+        let (sender, receiver) = mpsc::channel();
+        drop(receiver);
+        let actor = Actor {
+            observation: None,
+            sender,
+            join: Mutex::new(Some(std::thread::spawn(|| {
+                panic!("actor worker exit failure")
+            }))),
+            gate: ActorGate::default(),
+            abort: Cancellation::default(),
+            owner: Mutex::new(None),
+        };
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = actor.join.lock().unwrap();
+            panic!("injected join mutex poison");
+        }));
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = actor.gate.mutex.lock().unwrap();
+            panic!("injected gate poison");
+        }));
+        let error = actor.retire().unwrap_err();
+        let detail = error.to_string();
+        for cause in [
+            "join owner poisoned",
+            "actor gate poisoned",
+            "stop submission lost",
+            "actor worker exit failure",
+        ] {
+            assert!(
+                detail.contains(cause),
+                "missing independent failure: {cause}: {detail}"
+            );
+        }
+        assert!(matches!(error, MathRuntimeError::Settlement { cleanup, .. }
+            if matches!(*cleanup, MathRuntimeError::Panic(ref message) if message.contains("actor worker exit failure"))));
+    }
+    #[tokio::test]
+    async fn consuming_handle_finish_fences_borrowed_actor_and_keeps_charge_through_tls_exit() {
+        use std::time::Duration;
+        struct Departure {
+            entered: Sender<()>,
+            release: mpsc::Receiver<()>,
+        }
+        impl Drop for Departure {
+            fn drop(&mut self) {
+                let _ = self.entered.send(());
+                let _ = self.release.recv();
+            }
+        }
+        thread_local! {
+            static DEPARTURE: std::cell::RefCell<Option<Departure>> = const { std::cell::RefCell::new(None) };
+        }
+        #[derive(Debug)]
+        struct Gated {
+            evaluator: Evaluator,
+            entered: Sender<()>,
+            release: Option<mpsc::Receiver<()>>,
+        }
+        impl FidelityEvaluator for Gated {
+            type Error = ProblemError;
+            fn correspondence(&self) -> &FidelityCorrespondence {
+                self.evaluator.correspondence()
+            }
+            fn evaluate(&mut self, x: &[f64], out: &mut [f64]) -> Result<(), Self::Error> {
+                if let Some(release) = self.release.take() {
+                    DEPARTURE.with(|slot| {
+                        *slot.borrow_mut() = Some(Departure {
+                            entered: self.entered.clone(),
+                            release,
+                        })
+                    });
+                }
+                self.evaluator.evaluate(x, out)
+            }
+        }
+        let (evaluator, options, _, destroyed) = fixture();
+        let (entered, departing) = mpsc::channel();
+        let (release, gate) = mpsc::channel();
+        let evaluator = Gated {
+            evaluator,
+            entered,
+            release: Some(gate),
+        };
+        let (service, _cache) = super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                stack_bytes: options.stack_bytes,
+                foreign_bytes: options.foreign_bytes,
+                workspace_bytes: 16 << 20,
+                worker_bytes: 8 << 20,
+                inner_session_bytes: 0,
+                ..Default::default()
+            },
+        );
+        let baseline = service.pool.reserved();
+        let handle = service
+            .prepare_surrogate(
+                evaluator,
+                options,
+                pse_kernels::ExecutionScope::new(Cancellation::default(), None),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        service
+            .advance_surrogate(&handle, &crate::CancelSource::new())
+            .await
+            .unwrap();
+        let retained = handle.retained_bytes();
+        let actor = handle.actor.clone();
+        let (send, finished) = mpsc::channel();
+        let finisher = std::thread::spawn(move || send.send(handle.finish()).unwrap());
+        departing.recv_timeout(Duration::from_secs(5)).unwrap();
+        let pending = matches!(finished.try_recv(), Err(mpsc::TryRecvError::Empty));
+        let charged = service.pool.reserved();
+        let queued_actor = actor.clone();
+        let queued = std::thread::spawn(move || queued_actor.work());
+        release.send(()).unwrap();
+        let result = finished.recv_timeout(Duration::from_secs(5)).unwrap();
+        finisher.join().unwrap();
+        let refused = queued.join().unwrap();
+        assert!(
+            pending,
+            "consuming finish must await actual TLS destruction"
+        );
+        assert!(
+            charged >= baseline + retained,
+            "retained charge must survive physical TLS exit"
+        );
+        result.unwrap();
+        assert!(matches!(refused, Err(MathRuntimeError::Retiring)));
+        assert!(destroyed.load(Ordering::Acquire));
+        drop(actor);
+        assert_eq!(service.pool.reserved(), baseline);
     }
     #[tokio::test]
     async fn handle_cancel_wakes_scope_waiter_before_actor_gate_release() {
@@ -1047,7 +1747,12 @@ mod tests {
             Some(Instant::now() - std::time::Duration::from_secs(1)),
         );
         assert!(matches!(
-            actor(e, o, scope, Cancellation::default()),
+            actor(
+                CallbackOwner::new(e, scope.clone(), o.evaluations),
+                o,
+                scope,
+                Cancellation::default()
+            ),
             Err(MathRuntimeError::Math(pse_math::MathError::Scope(
                 pse_kernels::ProviderError::Deadline
             )))
@@ -1078,7 +1783,11 @@ mod tests {
             Some(Instant::now() + std::time::Duration::from_secs(20)),
         );
         let task = actor(
-            Failed(e.correspondence.clone()),
+            CallbackOwner::new(
+                Failed(e.correspondence.clone()),
+                scope.clone(),
+                o.evaluations,
+            ),
             o,
             scope.clone(),
             Cancellation::default(),
@@ -1127,7 +1836,7 @@ mod tests {
             Some(Instant::now() + std::time::Duration::from_secs(20)),
         );
         let task = actor(
-            Slow(e.correspondence.clone()),
+            CallbackOwner::new(Slow(e.correspondence.clone()), scope.clone(), o.evaluations),
             o,
             scope,
             Cancellation::default(),

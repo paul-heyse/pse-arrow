@@ -132,8 +132,10 @@ impl MathService {
             let generated=|| construct(&request,&coordinates,&stop);
             let points=if request.kind.quadratic() {
                 let pool=super::joined_pool::JoinedPool::new(threads,stack,super::joined_pool::spawn_pool_worker)?;
-                // install completes before Drop joins the team, inside the admitted job.
-                pool.install(generated)??
+                let result=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| pool.install(generated)))
+                    .map_err(|payload| super::joined_pool::worker_panic("design generation",payload))
+                    .and_then(|result| result.map_err(MathRuntimeError::from)).and_then(|result| result);
+                MathRuntimeError::settle(result,pool.finish())?
             } else { generated()? };
             if stop.is_cancelled() { return Err(MathRuntimeError::Cancelled); }
             let algorithm=if request.kind==DesignKind::Grid {

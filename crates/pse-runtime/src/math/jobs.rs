@@ -923,7 +923,13 @@ impl MathService {
                             },
                             Some(entry),
                             retain_foreign,
-                            move |flag, storage| work(flag, events, storage),
+                            (
+                                move |flag, storage| work(flag, events, storage),
+                                |value| {
+                                    drop(value);
+                                    Ok(())
+                                },
+                            ),
                         )
                         .await;
                     let _ = sender.send(result);
@@ -987,6 +993,32 @@ impl MathService {
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         self.admitted(cores, bytes, cancel, (None, deadline, false), None, work)
             .await
+    }
+    /// Select the actual value owner's fallible retirement when a joined product
+    /// cannot escape. Admission, cancellation, joins and charges use the same job.
+    pub(super) async fn job_retained_scoped_with_finish<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        cancel: Cancellation,
+        deadline: Option<std::time::Instant>,
+        work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
+        finish: impl FnMut(T) -> Result<(), MathRuntimeError> + Send + 'static,
+    ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        self.admitted_storage(
+            cores,
+            bytes,
+            AdmissionControl {
+                cancel,
+                admitted: None,
+                deadline,
+                source_owns_deadline: false,
+            },
+            None,
+            false,
+            (move |flag, _| work(flag), finish),
+        )
+        .await
     }
     /// Construct under a source-issued bound or its explicitly prepaid opaque
     /// fallback, preserving the same admission, thread, join and retention owner.
@@ -1337,7 +1369,13 @@ impl MathService {
             },
             entry,
             false,
-            move |flag, _| work(flag),
+            (
+                move |flag, _| work(flag),
+                |value| {
+                    drop(value);
+                    Ok(())
+                },
+            ),
         )
         .await
     }
@@ -1348,12 +1386,15 @@ impl MathService {
         control: AdmissionControl,
         entry: Option<AdmissionEntry>,
         retain_foreign: bool,
-        work: impl FnOnce(
-            Cancellation,
-            Option<Arc<pse_columnar::AllocationLease>>,
-        ) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
+        (work, mut finish): (
+            impl FnOnce(
+                Cancellation,
+                Option<Arc<pse_columnar::AllocationLease>>,
+            ) -> Result<(T, usize), MathRuntimeError>
+            + Send
+            + 'static,
+            impl FnMut(T) -> Result<(), MathRuntimeError> + Send + 'static,
+        ),
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
         let metrics = Arc::new(crate::tooling::operational_metrics::NativeJobLifecycle::new());
         let AdmissionControl {
@@ -1453,10 +1494,7 @@ impl MathService {
                 // Inclusive supervisor wait overlaps worker execution; it is not exclusive CPU time.
                 let joining_phase = pse_diagnostics::observation::phase("native.join.wait");
                 let stop = async {
-                    match deadline {
-                        Some(deadline) => pse_diagnostics::stop::StopSignal::stopped(&crate::stop::NativeStop { control: &cancel, deadline: Some(deadline) }).await,
-                        None => std::future::pending().await,
-                    }
+                    pse_diagnostics::stop::StopSignal::stopped(&crate::stop::NativeStop { control: &cancel, deadline }).await
                 };
                 let (joined, reason) = pse_diagnostics::stop::drain_on_stop(stop, &mut joining, |reason| {
                     match reason {
@@ -1471,33 +1509,39 @@ impl MathService {
                         }
                     }
                 }).await;
-                let result = match reason {
-                    Some(pse_diagnostics::stop::StopReason::Cancelled) => Err(MathRuntimeError::Cancelled),
-                    Some(pse_diagnostics::stop::StopReason::Deadline) => Err(Self::admission_timeout()),
-                    None => joined.map_err(|e| MathRuntimeError::Infrastructure(e.to_string()))?
-                        .map_err(|_| MathRuntimeError::Panic("native worker panic".into()))?,
+                let joined = joined.map_err(|source| MathRuntimeError::WorkerJoin { operation: "native math join", source })
+                    .and_then(|joined| joined.map_err(|payload| super::joined_pool::worker_panic("native math worker", payload)))
+                    .and_then(|result| result);
+                let mut dispose = |value: T| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finish(value)))
+                    .unwrap_or_else(|payload| Err(super::joined_pool::worker_panic("unpublished native result retirement", payload)));
+                let stopped = match reason {
+                    Some(pse_diagnostics::stop::StopReason::Cancelled) => Some(MathRuntimeError::Cancelled),
+                    Some(pse_diagnostics::stop::StopReason::Deadline) => Some(Self::admission_timeout()),
+                    None if joined.is_ok() && cancel.flag().load(Ordering::Acquire) => Some(MathRuntimeError::Cancelled),
+                    None if joined.is_ok() && deadline.is_some_and(|at| std::time::Instant::now() >= at) => Some(Self::admission_timeout()),
+                    None => None,
+                };
+                let result = match (stopped, joined) {
+                    (None, joined) => joined,
+                    (Some(stopped), Ok((value, _))) => MathRuntimeError::settle(Err(stopped), dispose(value)),
+                    // The native callback's plain cancellation acknowledges this
+                    // stop; independent action/cleanup failures remain separate.
+                    (Some(stopped), Err(MathRuntimeError::Cancelled)) => Err(stopped),
+                    (Some(stopped), Err(error)) => MathRuntimeError::settle(Err(stopped), Err(error)),
                 };
                 drop(joining_phase);
-                metrics.returned(result.is_err());
-                // Native thread, TLS and foreign destruction have joined. Release CPU
-                // before optional retention yields for the escaped result's growth.
-                drop(compute);
                 let result = result.and_then(|(value, retained)| {
-                    if cancel.flag().load(Ordering::Acquire) {
-                        return Err(MathRuntimeError::Cancelled);
+                    let growth = retained.checked_sub(lease.size()).filter(|n| *n > 0)
+                        .map_or(Ok(()), |more| service.pressure.try_grow(&lease, more).map_err(MathRuntimeError::from));
+                    match growth {
+                        Ok(()) => Ok((value, pse_columnar::AllocationLease::new(lease.split(retained)))),
+                        Err(error) => MathRuntimeError::settle(Err(error), dispose(value)),
                     }
-                    // The admission-only clock ends at dispatch. Preserve actual task expiry.
-                    if deadline.is_some_and(|at| std::time::Instant::now() >= at) {
-                        return Err(Self::admission_timeout());
-                    }
-                    if let Some(more) = retained.checked_sub(lease.size()).filter(|n| *n > 0) {
-                        service.pressure.try_grow(&lease, more)?;
-                    }
-                    Ok((
-                        value,
-                        pse_columnar::AllocationLease::new(lease.split(retained)),
-                    ))
                 });
+                // Native/TLS join and any refused value destruction are settled.
+                // Escaped residency receives no compute loan.
+                metrics.returned(result.is_err());
+                drop(compute);
                 drop(lease);
                 result
             }
@@ -1525,6 +1569,117 @@ mod construction_tests {
     use super::*;
     use datafusion::execution::memory_pool::{FairSpillPool, MemoryConsumer, MemoryPool};
     use pse_math::construction::ConstructionAdmission;
+    #[tokio::test]
+    async fn cancelled_native_job_preserves_original_action_and_independent_cleanup_failure() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let cancel = Cancellation::default();
+        let worker_cancel = cancel.clone();
+        let worker_service = service.clone();
+        let (started, start) = tokio::sync::oneshot::channel();
+        let task = tokio::spawn(async move {
+            worker_service
+                .job_scoped(1, 1024, worker_cancel, None, move |flag| {
+                    let _ = started.send(());
+                    let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                    while !flag.is_cancelled() && std::time::Instant::now() < until {
+                        std::thread::yield_now();
+                    }
+                    MathRuntimeError::settle::<()>(
+                        Err(MathRuntimeError::Internal(
+                            "original native action failed".into(),
+                        )),
+                        Err(MathRuntimeError::Infrastructure(
+                            "independent native cleanup failed".into(),
+                        )),
+                    )
+                })
+                .await
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), start)
+            .await
+            .unwrap()
+            .unwrap();
+        cancel.cancel();
+        let result = task.await.unwrap();
+        assert!(
+            matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+            if matches!(operation.as_ref(), MathRuntimeError::Cancelled)
+            && matches!(cleanup.as_ref(), MathRuntimeError::Settlement { operation, cleanup }
+                if matches!(operation.as_ref(), MathRuntimeError::Internal(message) if message == "original native action failed")
+                && matches!(cleanup.as_ref(), MathRuntimeError::Infrastructure(message) if message == "independent native cleanup failed")))
+        );
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+    #[tokio::test(flavor = "multi_thread")]
+    async fn unpublished_result_destruction_keeps_compute_and_memory_on_cancel_or_growth_refusal() {
+        struct Unpublished {
+            entered: Option<tokio::sync::oneshot::Sender<()>>,
+            release: std::sync::mpsc::Receiver<()>,
+        }
+        impl Drop for Unpublished {
+            fn drop(&mut self) {
+                if let Some(entered) = self.entered.take() {
+                    let _ = entered.send(());
+                }
+                let _ = self
+                    .release
+                    .recv_timeout(std::time::Duration::from_secs(10));
+                panic!("unpublished result destructor failed");
+            }
+        }
+        for cancelled in [false, true] {
+            let (service, _cache) =
+                super::super::tests::service_with_policy(128 << 20, Default::default());
+            let baseline = service.pool.reserved();
+            let cores = service.cpu.available_permits();
+            let (entered, entering) = tokio::sync::oneshot::channel();
+            let (release, gate) = std::sync::mpsc::channel();
+            let worker_service = service.clone();
+            let task = tokio::spawn(async move {
+                worker_service
+                    .job_retained_scoped(1, 1024, Cancellation::default(), None, move |flag| {
+                        if cancelled {
+                            flag.cancel();
+                        }
+                        Ok((
+                            Unpublished {
+                                entered: Some(entered),
+                                release: gate,
+                            },
+                            if cancelled { 0 } else { 256 << 20 },
+                        ))
+                    })
+                    .await
+            });
+            tokio::time::timeout(std::time::Duration::from_secs(5), entering)
+                .await
+                .unwrap()
+                .unwrap();
+            let charged = service.pool.reserved();
+            let available = service.cpu.available_permits();
+            let pending = !task.is_finished();
+            release.send(()).unwrap();
+            let result = task.await.unwrap();
+            assert!(pending);
+            assert!(
+                charged > baseline,
+                "unpublished destruction must retain its original reservation"
+            );
+            assert_eq!(
+                available,
+                cores - 1,
+                "unpublished destruction still owns actual compute"
+            );
+            assert!(
+                matches!(result, Err(MathRuntimeError::Settlement { operation, cleanup })
+                if (matches!(operation.as_ref(), MathRuntimeError::Cancelled) == cancelled)
+                && matches!(cleanup.as_ref(), MathRuntimeError::Panic(message) if message.contains("unpublished result destructor failed")))
+            );
+            assert_eq!(service.pool.reserved(), baseline);
+            assert_eq!(service.cpu.available_permits(), cores);
+        }
+    }
     #[tokio::test]
     async fn storage_aware_submission_detaches_only_prepaid_foreign_through_actual_join() {
         let (service, _cache) = super::super::tests::service_with_policy(
