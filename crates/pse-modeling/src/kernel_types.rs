@@ -69,10 +69,10 @@ fn steady_accuracy_goals_check_each_present_physical_member_without_sample_time(
         let text = format!(
             "package p {{ def Root {{ var temperature: Temperature; annotation accuracy_goal temperature(selected_output,steady,{member},required_class=estimated,use_policy=assess,refine=true); }} }}"
         );
-        assert!(crate::check(&source(&text), &context).is_ok(), "{member}");
+        assert!(check(&source(&text), &context).is_ok(), "{member}");
         let invalid = text.replace("{K}", "{m}");
         assert!(
-            crate::check(&source(&invalid), &context).is_err(),
+            check(&source(&invalid), &context).is_err(),
             "{member} must be checked even when earlier optional members are absent"
         );
     }

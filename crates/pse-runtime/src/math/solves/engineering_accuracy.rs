@@ -39,6 +39,13 @@ pub(super) fn retained_failure(
 ) -> Result<pse_math::engineering_accuracy::GoalFailure, ProblemError> {
     let bytes = error.retained_bytes();
     let cause = pse_model::diagnostic::DiagnosticCause::from_shared(error);
+    retained_cause(cause, bytes, budget)
+}
+fn retained_cause(
+    cause: pse_model::diagnostic::DiagnosticCause,
+    bytes: usize,
+    budget: &Arc<WorkerBudget>,
+) -> Result<pse_math::engineering_accuracy::GoalFailure, ProblemError> {
     let bytes = bytes
         .saturating_add(cause.allocation_overhead())
         .saturating_add(size_of::<pse_model::diagnostic::DiagnosticCause>());
@@ -46,6 +53,20 @@ pub(super) fn retained_failure(
         .charge(bytes)
         .map_err(MathRuntimeError::into_problem)?;
     Ok(pse_math::engineering_accuracy::GoalFailure::new(cause, bytes).with_owner(Arc::new(owner)))
+}
+fn withheld_square(
+    goals: &[pse_model::engineering_accuracy::AccuracyGoal],
+    error: native::square_response::Withheld,
+    budget: &Arc<WorkerBudget>,
+) -> Result<Vec<GoalResult>, ProblemError> {
+    let bytes = error.retained_bytes();
+    let cause = pse_model::diagnostic::DiagnosticCause::new(error);
+    let failure = retained_cause(cause, bytes, budget)?;
+    let mut results = absent(goals, U::Regularity);
+    for result in &mut results {
+        result.failure = Some(failure.clone());
+    }
+    Ok(results)
 }
 impl PreparedSolve {
     /// Produce selected-coordinate evidence with one shared fresh original-square action.
@@ -254,7 +275,7 @@ impl PreparedSolve {
             Some(&case.prepared.compiled().structure),
         ) {
             Ok(scope) => scope,
-            Err(_) => return Ok(absent(goals, U::Regularity)),
+            Err(error) => return withheld_square(goals, error, budget),
         };
         let n = point.len();
         let bytes = native::square_response::SparseFactor::allowance(n)
@@ -298,7 +319,7 @@ impl PreparedSolve {
                     cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
                 }));
             }
-            Err(_) => return Ok(absent(goals, U::Regularity)),
+            Err(error) => return withheld_square(goals, error, budget),
         }
         let worker = service
             .case_worker(case.case.clone(), case.providers.clone(), scope, budget)
@@ -355,7 +376,7 @@ impl PreparedSolve {
                     cause: pse_model::diagnostic::DiagnosticCause::from_shared(cause),
                 }));
             }
-            Err(_) => return Ok(absent(goals, U::Regularity)),
+            Err(error) => return withheld_square(goals, error, budget),
         };
         // This receipt names completed derivative/guard evaluation and the factor's actual
         // original matching, physical feasibility and inactive-bound admission.
@@ -746,7 +767,7 @@ mod refinement_tests {
                 bindings,
                 Limits::default(),
                 ModelingCaseBindings::default(),
-                DerivativeOrder::First,
+                DerivativeOrder::Value,
                 fixture::compiler_profile(),
                 solver,
                 NumericalInputs::default(),
@@ -938,7 +959,7 @@ mod refinement_tests {
                 Bindings::default(),
                 Limits::default(),
                 ModelingCaseBindings::default(),
-                DerivativeOrder::First,
+                DerivativeOrder::Value,
                 fixture::compiler_profile(),
                 solver,
                 NumericalInputs::default(),
@@ -946,6 +967,7 @@ mod refinement_tests {
             )
             .await
             .unwrap();
+        assert!(prepared.solve.required_order() >= DerivativeOrder::First);
         let scope = pse_kernels::ExecutionScope::new(
             Cancellation::default(),
             Some(std::time::Instant::now() + std::time::Duration::from_secs(30)),

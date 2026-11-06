@@ -49,6 +49,46 @@ pub enum Withheld {
     #[error("square response action: {0}")]
     Cause(#[source] std::sync::Arc<ProblemError>),
 }
+impl Withheld {
+    /// Retained original cause extent, excluding the receiving shared wrapper.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>().saturating_add(match self {
+            Self::Infeasible(detail)
+            | Self::Structural(detail)
+            | Self::Neighborhood(detail)
+            | Self::Numerical(detail) => detail.capacity(),
+            Self::Cause(cause) => cause.retained_bytes(),
+            Self::NoCandidate | Self::Rank { .. } | Self::Memory => 0,
+        })
+    }
+}
+impl pse_diagnostics::TypedDiagnostic for Withheld {
+    fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+        use pse_diagnostics::DiagnosticCode as C;
+        match self {
+            Self::NoCandidate | Self::Neighborhood(_) => Some(C::NativeUnsupported),
+            Self::Structural(_) => Some(C::NativeStructural),
+            Self::Infeasible(_) | Self::Rank { .. } | Self::Numerical(_) => {
+                Some(C::NativeNumerical)
+            }
+            Self::Memory => Some(C::RuntimeResourceLimit),
+            Self::Cause(cause) => pse_diagnostics::TypedDiagnostic::diagnostic_code(cause.as_ref()),
+        }
+    }
+    fn diagnostic_children(
+        &self,
+    ) -> Option<Box<dyn Iterator<Item = &dyn pse_diagnostics::TypedDiagnostic> + '_>> {
+        match self {
+            Self::Cause(cause) => {
+                let cause: &dyn pse_diagnostics::TypedDiagnostic = cause.as_ref();
+                Some(Box::new(std::iter::once(cause)))
+            }
+            _ => None,
+        }
+    }
+}
+impl pse_model::diagnostic::DiagnosticProjection for Withheld {}
+
 /// A complete original equality scope admitted using library-owned matching.
 #[derive(Clone, Debug)]
 pub struct SquareScope {
@@ -527,6 +567,30 @@ fn spectrum(a: &Mat<f64>, bytes: usize) -> Result<Vec<f64>, ProblemError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn square_withholding_preserves_original_structural_and_neighborhood_causes() {
+        use pse_model::diagnostic::DiagnosticProjection;
+        for (error, code) in [
+            (
+                Withheld::Structural("original derivative support".into()),
+                pse_diagnostics::DiagnosticCode::NativeStructural,
+            ),
+            (
+                Withheld::Neighborhood("original active bound".into()),
+                pse_diagnostics::DiagnosticCode::NativeUnsupported,
+            ),
+        ] {
+            let description = error.to_string();
+            assert!(error.retained_bytes() > size_of::<Withheld>());
+            let cause = pse_model::diagnostic::DiagnosticCause::new(error);
+            let projected = cause.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation);
+            assert_eq!(projected.code, code);
+            assert!(matches!(
+                projected.observations.get("detail"),
+                Some(pse_model::diagnostic::Observation::Text(actual)) if actual == &description
+            ));
+        }
+    }
     fn sparse(matrix: &Mat<f64>) -> faer::sparse::SparseColMat<usize, f64> {
         let mut entries = Vec::new();
         for column in 0..matrix.ncols() {

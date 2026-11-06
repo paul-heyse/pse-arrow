@@ -252,14 +252,22 @@ fn execution_attribution_requires_original_compiled_binding_and_retains_only_map
     bindings.frame(&mut source_hash);
     attribution.frame(&mut execution_hash);
     assert_eq!(source_hash.finish_hash(), execution_hash.finish_hash());
-    assert!(bindings.execution_attribution(&compile(&fixture_body(false))).is_err());
+    assert!(
+        bindings
+            .execution_attribution(&compile(&fixture_body(false)))
+            .is_err()
+    );
     drop(body);
     assert!(original.upgrade().is_none());
     assert_eq!(Arc::strong_count(&owner), 1);
     // Allocation identity still permits the original compiled pairing after the
     // source dies; equal replacement content cannot recreate its source witness.
     assert!(bindings.execution_attribution(&compiled).is_ok());
-    assert!(bindings.execution_attribution(&compile(&fixture_body(true))).is_err());
+    assert!(
+        bindings
+            .execution_attribution(&compile(&fixture_body(true)))
+            .is_err()
+    );
     drop(compiled);
     drop(bindings);
     assert_eq!(attribution.checked_members()[&id(1)], id(11));
@@ -287,14 +295,21 @@ fn execution_attribution_preserves_direct_refusals_and_original_cause() {
     let message = String::from("original owned mathematical failure");
     let allocation = message.as_ptr();
     let projected = attribution.evaluation_error(MathError::Contract(message));
-    let MathError::Instance { instance, cause, .. } = projected else {
+    let MathError::Instance {
+        instance, cause, ..
+    } = projected
+    else {
         panic!("missing execution attribution")
     };
     assert_eq!(instance, id(10));
     let MathError::Contract(message) = *cause else {
         panic!("original cause changed")
     };
-    assert_eq!(message.as_ptr(), allocation, "original payload must move intact");
+    assert_eq!(
+        message.as_ptr(),
+        allocation,
+        "original payload must move intact"
+    );
 }
 #[test]
 fn current_issued_support_rebinds_cached_code_after_original_source_dies() {

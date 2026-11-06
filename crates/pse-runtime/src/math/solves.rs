@@ -3243,6 +3243,29 @@ impl MathService {
         let prepared = self
             .discover_class(prepared, values.clone(), &profile)
             .await?;
+        // Selected-output assessment consumes the full original Jacobian even when
+        // a complete causal producer needs only Value from its outer source. Its
+        // component derivatives do not supply this original derivative support.
+        // Keep unsupported source orders unavailable rather than declaring First.
+        let first = pse_kernels::DerivativeOrder::First;
+        let prepared = if prepared.prepared.plan.order() < first
+            && prepared.prepared.plan.available_order() >= first
+            && numerics.policy.goals.iter().any(|goal| {
+                use pse_model::generated::enums::{
+                    AccuracyGoalSubject, AccuracyObservation, NumericalTarget,
+                };
+                goal.subject == AccuracyGoalSubject::SelectedOutput
+                    && goal.observation == AccuracyObservation::Steady
+                    && matches!(
+                        goal.target_kind,
+                        NumericalTarget::Variable | NumericalTarget::Observable
+                    )
+            }) {
+            self.prepare_order(prepared, first, Cancellation::default())
+                .await?
+        } else {
+            prepared
+        };
         let structure = prepared.prepared.plan.structure();
         let entries = structure
             .variables()
