@@ -186,8 +186,10 @@ semantic comparison and original evidence delivery. Original candidate branches 
 their frozen changes. No older plan branch is merged wholesale. Main now contains the
 FeedFlash delivery, source-driven adapter helper imports, original failed-rerun intent and
 checkout-aware StudyModule preparation hint. The recorded-result consumer cutover and combined
-regeneration are integrated; the finite pure-source bootstrap is receiving in its own checkout.
-General runtime-root bootstrap remains open.
+regeneration and finite pure-source recorded-result bootstrap are integrated. The latter passed
+its selected generator, ordinary and service controls in its owning checkout; general runtime-root
+bootstrap remains open. Full combined generation subsequently passed fifteen targets on main;
+ordinary/service receiving remains a distinct check of that integrated world.
 
 C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
 still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source
@@ -256,10 +258,15 @@ evidence. No test deadline, host capacity or test-parallelism rule was widened t
 
 D01/D02 now own the selected affine preparation demand mismatch exposed by H03; D records
 the actual full-curvature versus selected-row producer distinction and its remaining construction
-contract. H retains simultaneous refinement and compiler-retention obligations while advancing
-the existing single-clock integrated route. F/E's first actual developer-evidence analytical
-consumer is receiving on explicitly selected original members, without scientific association
-or verdict authority.
+contract. H retains simultaneous refinement and compiler-retention obligations. Its first aqueous
+integrated one/four-cell delivery is now integrated, with four targeted native controls passing in
+its owning checkout; original stock/clock, actual coordinate/quadrature attribution and independent
+prefix closure are distinct from terminal authored whole-domain reports. F/E's first actual
+developer-evidence analytical consumer is integrated on explicitly selected original members.
+Eleven targeted controls and actual product-reader success/failure/FIFO journeys passed in its
+owning checkout, without scientific association or verdict authority. Main combined receiving
+is in progress. A's next unit preserves original per-experiment fit assessment and profile-point
+outcomes rather than discarding completed evidence on later member failure.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input

@@ -1,6 +1,6 @@
 ---
 title: "Plan66h: Inventory, distributed and cyclic physics"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -96,7 +96,7 @@ native lifetime. Exact maintained source links and limits are in
 |---|---|---|---|
 | H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
 | H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
-| H03 | planned | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Actual distributed temporal accumulation, boundaries, mappings and coupled consumer delivered, removing only the corresponding dynamics refusal |
+| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | First finite aqueous cascade is integrated with one/four-cell integrated trajectories and independent boundary/stock controls. Simultaneous refinement, broader physical families, original protected export and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
 | H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
@@ -109,6 +109,36 @@ global input/output/storage balance. This does not qualify a continuum pipe, rea
 fixed bed or non-isothermal family. H03 then exposes the actual additional inventory,
 energy, constitutive and solver needs of the iron-oxide consumer; H04 can separately
 use a ready lumped cycle without waiting for all distributed families.
+
+### First H03 delivery — November6
+
+Main now includes [the authored aqueous cascade](../../packages/reference/process/models/aqueous-inventory.pse),
+three original integrated fixtures and their
+[native controls](../../crates/pse-runtime/src/workflow/modeling/aqueous_inventory_tests.rs).
+One parent physical timeline evolves actual `PhaseInventory` cell members. Each interior cell
+owns its original `V/N` material stock, incoming/outgoing flux and initial conditions; the inlet
+is a boundary, not stored material. Original constructor geometry remains distinct from numerical
+initial guesses. The selected uniform backward spatial scheme admits forward/zero flow;
+non-isothermal, reactive, multiphase and alternative spatial schemes are not qualified here.
+
+**Tested, targeted in the owning checkout:** `scripts/pse test pse-runtime --lib --features
+solver-ipopt,solver-kinsol,solver-root-isolation,solver-diffsol -E 'test(aqueous_integrated_) |
+test(aqueous_geometry)'` passed four controls, zero failures/pending/build warnings, with the
+refreshed original scientific input capsule and complete capture/settlement. One/four cells,
+nonzero original clock, nonzero/zero tracer stock and zero-flow operation are compared with
+the independent finite-cell/Erlang response. Independent prefix closure consumes actual native
+coordinate bindings and boundary quadrature IDs at every requested time; wrong-component joins
+and a missing intermediate time fail the comparator. Authored whole-domain integral checks and
+reports are terminal-only under the existing contract; the test does not claim earlier authored
+closure observations. Constructor/derived geometry overrides refuse through native admission.
+Main receiving and protected independent trajectory delivery remain separate work.
+
+The simultaneous 61-point candidates remain required, unqualified source in the scientific
+checkout. D corrected the unrelated full-curvature estimate used for selected affine proof.
+The four-cell compiler frontier also exposed repeated retention charging of shared syntax/symbol
+owners. Its actual allocation census and correction belong to the existing compiler owners;
+semantic identities, configured retention guards and physical allowances are not changed merely
+to clear that refusal. This is separate from actual native allocation/RSS measurement.
 
 For each increment retain immutable original initial/profile/schedule specifications
 separately from mutable preparation overlays and actual applied inputs. The existing
