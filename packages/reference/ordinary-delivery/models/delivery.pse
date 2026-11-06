@@ -87,8 +87,10 @@ material port overheated_port=overheated;
 annotation connectivity overheated_port(0,1);
 stage "overheated_tear" {override connect recycle:overheated_port -> mixer.inlet_ports[recycle_flash.recycled];}
 }
-def Exchanger(force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD):exchanger_costing.CostedExchangerModel {
+def Exchanger(force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD,cost_design:costing.hx_design=costing.utube,cost_material:costing.hx_material=costing.stainless_stainless,cost_tubes:costing.tube_length=costing.twelve):exchanger_costing.CostedExchangerModel {
 override child exchanger:heat_exchange.HeatExchanger=heat_exchange.HeatExchanger(hot_inlet_pkg=ordinary_bt.PR(defined_state=true),hot_outlet_pkg=ordinary_bt.PR(defined_state=false),cold_inlet_pkg=ordinary_bt.PR(defined_state=true),cold_outlet_pkg=ordinary_bt.PR(defined_state=false),driving_force=force,cocurrent=true);
+// The same constructor selections govern actual cost and its authored reference scale.
+override child cost:costing.HeatExchangerCost=costing.HeatExchangerCost(design=cost_design,material=cost_material,tubes=cost_tubes);
 // These reference magnitudes are the selected rating area and fixed coefficient;
 // they supply local numerical context, not a coupled output-error certificate.
 annotation engineering_scale exchanger.area(kind=reference_difference,value=1{m^2});
@@ -101,8 +103,8 @@ annotation engineering_scale exchanger.coefficient(kind=reference_difference,val
 param cost_reference_area:Area=1{m^2};
 param cost_reference_pressure:Pressure=101325{Pa};
 let cost_reference_area_count:Scalar=cost_reference_area/costing.square_foot();
-let cost_reference_base:CapitalCost=costing.currency_unit()*costing.base_amount(cost_reference_area_count*costing.oversize_factor(cost.oversize),costing.design_coefficients[cost.design].constant,costing.design_coefficients[cost.design].linear,costing.design_coefficients[cost.design].quadratic);
-let cost_reference_capital:CapitalCost=cost_reference_base*costing.material_amount(cost_reference_area_count,cost.material)*costing.pressure_factor((cost_reference_pressure-costing.atmospheric_pressure())/costing.hundred_psi())*costing.length_factor[cost.tubes];
+let cost_reference_base:CapitalCost=costing.currency_unit()*costing.base_amount(cost_reference_area_count*costing.oversize_factor(cost.oversize),costing.design_coefficients[cost_design].constant,costing.design_coefficients[cost_design].linear,costing.design_coefficients[cost_design].quadratic);
+let cost_reference_capital:CapitalCost=cost_reference_base*costing.material_amount(cost_reference_area_count,cost_material)*costing.pressure_factor((cost_reference_pressure-costing.atmospheric_pressure())/costing.hundred_psi())*costing.length_factor[cost_tubes];
 annotation engineering_scale cost.base_cost_per_unit(kind=magnitude,value=cost_reference_base);
 annotation engineering_scale cost.capital_cost(kind=magnitude,value=cost_reference_capital);
 // These requirements protect actual energy consumers. They do not assert an

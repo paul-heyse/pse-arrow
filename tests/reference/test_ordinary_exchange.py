@@ -152,6 +152,71 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
             ).read_bytes()
         )
 
+    def test_actual_physical_owners_and_typed_identity_wrappers_agree(self) -> None:
+        checked: set[str] = set()
+        for case in exchange.CASE_NAMES:
+            contract = self.contract(case)
+            for item in (*contract.specification, *contract.observables):
+                for field in (
+                    "quantity",
+                    "quantity_kind",
+                    "canonical_unit",
+                    "representation_unit",
+                    "basis",
+                    "reference_state",
+                    "subject",
+                ):
+                    if not item.physical.HasField(field):
+                        continue
+                    owner = exchange._message(item.physical, field)
+                    identity = exchange._message(owner, "id")
+                    self.assertEqual(
+                        exchange._identity(owner), exchange._identity(identity)
+                    )
+                    checked.add(owner.DESCRIPTOR.full_name)
+                    for invalid in (b"", bytes(16), bytes(15), bytes(17)):
+                        changed = type(owner)()
+                        changed.CopyFrom(owner)
+                        changed.id.id = invalid
+                        with (
+                            self.subTest(owner=owner.DESCRIPTOR.full_name),
+                            self.assertRaises(ValueError),
+                        ):
+                            exchange._identity(changed)
+                    for missing in ("owner", "wrapper"):
+                        changed = type(owner)()
+                        changed.CopyFrom(owner)
+                        if missing == "owner":
+                            changed.ClearField("id")
+                        else:
+                            changed.id.ClearField("id")
+                        with (
+                            self.subTest(
+                                owner=owner.DESCRIPTOR.full_name, missing=missing
+                            ),
+                            self.assertRaises(ValueError),
+                        ):
+                            exchange._identity(changed)
+        self.assertEqual(checked, set(exchange._IDENTITY_OWNERS))
+        with self.assertRaisesRegex(ValueError, "unsupported"):
+            exchange._identity(self.contract(exchange.CASE_NAMES[0]))
+
+    def test_species_display_alias_keeps_the_original_subject_identity(self) -> None:
+        for case in exchange.CASE_NAMES:
+            original = next(
+                item.physical
+                for item in self.contract(case).specification
+                if ".z[" in item.key
+            )
+            for label in ("species", "chemistry.species", "display alias"):
+                changed = type(original)()
+                changed.CopyFrom(original)
+                changed.subject.name = label
+                exchange._validate_physical(changed, "MoleFraction")
+                self.assertEqual(
+                    exchange._identity(changed.subject), exchange._SPECIES_KIND_ID
+                )
+
     def test_all_five_actual_contracts_produce_the_complete_ordered_population(
         self,
     ) -> None:
@@ -232,7 +297,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
 
         def mutations() -> list[Message]:
             result = []
-            for _ in range(16):
+            for _ in range(19):
                 copy = self.contract_type()
                 copy.CopyFrom(original)
                 result.append(copy)
@@ -277,6 +342,31 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
             )
             numerical_start.key = "exchanger.hot.outlet.T"
             numerical_start.value = exchange.float_bits(360.0)
+            species = next(
+                item for item in result[16].specification if ".z[" in item.key
+            )
+            species.physical.subject.id.id = bytes([0x52]) * 16
+            species.physical.quantity.key.subject_kind.id = bytes([0x52]) * 16
+            duty = next(
+                item for item in result[17].observables if item.key.endswith(".duty")
+            )
+            transported = next(
+                item
+                for item in original.observables
+                if item.key.endswith(".energy_flow")
+            )
+            duty.physical.reference_state.CopyFrom(transported.physical.reference_state)
+            duty.physical.quantity.key.reference_state.CopyFrom(
+                transported.physical.quantity.key.reference_state
+            )
+            duty_role = next(
+                item for item in result[18].observables if item.key.endswith(".duty")
+            )
+            self.assertEqual(
+                duty_role.physical.representation_unit.symbol,
+                transported.physical.representation_unit.symbol,
+            )
+            duty_role.physical.CopyFrom(transported.physical)
             return result
 
         with patch.object(

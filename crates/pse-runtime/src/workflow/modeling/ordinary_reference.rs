@@ -1040,6 +1040,37 @@ mod tests {
         let directory = original_tree()?;
         let inputs = OriginalInputs::capture(directory.path())?;
         inputs.verify_checkout()?;
+        for name in [
+            "campaign",
+            "physical",
+            "ordinary-delivery",
+            "data/ordinary-bt",
+        ] {
+            let captured = pr_jacobian_tests::captured_package_sources(&inputs.files, name)
+                .map(|(path, bytes)| (path.to_owned(), bytes.to_vec()))
+                .collect::<BTreeMap<_, _>>();
+            assert_eq!(
+                captured,
+                pr_jacobian_tests::documents(
+                    &directory.path().join("packages/reference").join(name)
+                )?,
+                "captured native admission must preserve the original authored document population"
+            );
+        }
+        for relative in [
+            "packages/reference/data/ordinary-bt/source-artifacts/yaws-critical.tsv",
+            "packages/reference/data/ordinary-bt/source-artifacts/crc-vaporization.tsv",
+            "packages/reference/data/ordinary-bt/source-artifacts/poling-wagner.tsv",
+            "packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json",
+        ] {
+            assert!(inputs.files.contains_key(relative));
+            assert!(inputs.artifacts.iter().any(|input| input.path == relative));
+        }
+        assert!(
+            pr_jacobian_tests::captured_package_sources(&inputs.files, "data/ordinary-bt")
+                .all(|(path, _)| !path.starts_with("source-artifacts/")),
+            "raw scientific inputs retain attestation custody without becoming authored documents"
+        );
         let relative = "packages/reference/ordinary-delivery/models/root.pse";
         let original_hash = inputs
             .artifacts
