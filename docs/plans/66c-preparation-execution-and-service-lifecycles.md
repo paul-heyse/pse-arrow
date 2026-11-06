@@ -144,6 +144,26 @@ supervisor or per-service detached cleanup task.
 
 ## Packages
 
+### Bounded placement decisions — November6
+
+**Interface-checked decision:** retain explicit engineering-service preparation/launch for
+the current finite independent-client delivery. Multiple clients and reconnects consume the
+actual authenticated live service; they do not require login activation or an installed
+engineering-service profile. `pse-host::manager::InstalledServiceSpec` and its inspect/start/
+stop operations, currently consumed by `telemetry_service`, are reusable mechanisms, but
+their existence does not qualify engineering update/readiness/drain. Reopen the installed
+profile when a selected client requires service continuity across the current launch owner's
+lifetime; compare image/update identity, credentials, activation result and physical drain
+before selecting it. C02 still delivers its service/client population and acceptance.
+
+**Interface-checked decision:** retain the current process-isolated provider boundary for
+the selected worker/native-child consumers. No independently distributed in-process provider
+requiring a native plugin ABI is selected in the present delivery population. Proto exchanges
+data and supplies no allocator, callback, thread/panic or unload contract. Reopen an ABI binding
+for a named distribution consumer when its complete library/interface and lifetime comparison
+justifies replacing process isolation. This records the bounded choice; it neither rejects
+dynamic libraries nor closes C04's distinct canonical reconstruction and receiving work.
+
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | in-progress | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed; root compiler/solver selection and scoped reentry work. Nine targeted native identity/cache controls pass. Cross-worktree receiving and remaining actual callers still need confirmation; checks and caches are preserved. |
