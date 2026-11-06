@@ -1,0 +1,49 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+// Numerical reference controls consume the complete original seed data transport.
+// The raw declaration-only fixture intentionally omits external data and is used
+// only by the pre-execution refusal controls, never to qualify these solves.
+@id("66d04000000000000000000000000100") package feed_flash_fixtures {
+@id("66d04000000000000000000000000101") use flashing @"1.0.0";
+@id("66d04000000000000000000000000102") use bt_ideal @"1.0.0";
+@id("66d04000000000000000000000000103") use chem @"1.0.0";
+@id("66d04000000000000000000000000104") use numerical_policy @"1.0.0";
+@id("66d04000000000000000000000000105") use references @"1.0.0";
+
+@id("66d04000000000000000000000000110") test feed_flash_equilibrium_isothermal oracle references.idaes_bt_ideal fixture {dof 0;route steady;procedure solve;fix root.flash.inlet.flow=1{mol/s};fix root.flash.inlet.T=368{K};fix root.flash.inlet.pressure=101325{Pa};fix root.flash.inlet.z[chem.benzene]=0.5{1};fix root.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;limits body_occurrences(1000000);} } {
+@id("66d04000000000000000000000000111") child root:flashing.FeedFlash=flashing.FeedFlash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),isothermal=true);
+@id("66d04000000000000000000000000112") expect root.flash.outlet.T==368{K} tolerance numerical_policy.temperature;
+@id("66d04000000000000000000000000113") expect root.flash.outlet.flow==1{mol/s} tolerance numerical_policy.molar_flow;
+@id("66d04000000000000000000000000114") expect root.flash.outlet.pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("66d04000000000000000000000000115") expect root.flash.liquid_component_flow[chem.benzene]+root.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000116") expect root.flash.liquid_component_flow[chem.toluene]+root.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000117") expect root.flash.outlet.beta==0.3961 tolerance numerical_policy.dimensionless;
+}
+@id("66d04000000000000000000000000120") test feed_flash_equilibrium_isenthalpic oracle references.idaes_bt_ideal fixture {dof 0;route steady;procedure solve;fix root.flash.inlet.flow=1{mol/s};fix root.flash.inlet.T=368{K};fix root.flash.inlet.pressure=101325{Pa};fix root.flash.inlet.z[chem.benzene]=0.5{1};fix root.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;limits body_occurrences(1000000);} } {
+@id("66d04000000000000000000000000121") child root:flashing.FeedFlash=flashing.FeedFlash(inlet_pkg=bt_ideal.BTIdeal(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),isothermal=false);
+@id("66d04000000000000000000000000122") expect root.flash.outlet.T==368{K} tolerance numerical_policy.temperature;
+@id("66d04000000000000000000000000123") expect root.flash.outlet.flow==1{mol/s} tolerance numerical_policy.molar_flow;
+@id("66d04000000000000000000000000124") expect root.flash.outlet.pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("66d04000000000000000000000000125") expect root.flash.liquid_component_flow[chem.benzene]+root.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000126") expect root.flash.liquid_component_flow[chem.toluene]+root.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000127") expect root.flash.outlet.beta==0.3961 tolerance numerical_policy.dimensionless;
+}
+@id("66d04000000000000000000000000130") test feed_flash_liquid_isothermal oracle references.idaes_bt_ideal fixture {dof 0;route steady;procedure solve;fix root.flash.inlet.flow=1{mol/s};fix root.flash.inlet.T=368{K};fix root.flash.inlet.pressure=101325{Pa};fix root.flash.inlet.z[chem.benzene]=0.5{1};fix root.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;limits body_occurrences(1000000);} } {
+@id("66d04000000000000000000000000131") child root:flashing.FeedFlash=flashing.FeedFlash(inlet_pkg=bt_ideal.BTLiquid(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),isothermal=true);
+@id("66d04000000000000000000000000132") expect root.flash.outlet.T==368{K} tolerance numerical_policy.temperature;
+@id("66d04000000000000000000000000133") expect root.flash.outlet.flow==1{mol/s} tolerance numerical_policy.molar_flow;
+@id("66d04000000000000000000000000134") expect root.flash.outlet.pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("66d04000000000000000000000000135") expect root.flash.liquid_component_flow[chem.benzene]+root.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000136") expect root.flash.liquid_component_flow[chem.toluene]+root.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000137") expect root.flash.outlet.beta==0.3961 tolerance numerical_policy.dimensionless;
+}
+@id("66d04000000000000000000000000140") test feed_flash_liquid_isenthalpic oracle references.idaes_bt_ideal fixture {dof 0;route steady;procedure solve;fix root.flash.inlet.flow=1{mol/s};fix root.flash.inlet.T=368{K};fix root.flash.inlet.pressure=101325{Pa};fix root.flash.inlet.z[chem.benzene]=0.5{1};fix root.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;limits body_occurrences(1000000);} } {
+@id("66d04000000000000000000000000141") child root:flashing.FeedFlash=flashing.FeedFlash(inlet_pkg=bt_ideal.BTLiquid(defined_state=true),outlet_pkg=bt_ideal.BTIdeal(defined_state=false),isothermal=false);
+@id("66d04000000000000000000000000142") annotation check root.flash.outlet.T(root.flash.outlet.T<368{K});
+@id("66d04000000000000000000000000143") expect root.flash.outlet.flow==1{mol/s} tolerance numerical_policy.molar_flow;
+@id("66d04000000000000000000000000144") expect root.flash.outlet.pressure==101325{Pa} tolerance numerical_policy.pressure;
+@id("66d04000000000000000000000000145") expect root.flash.liquid_component_flow[chem.benzene]+root.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000146") expect root.flash.liquid_component_flow[chem.toluene]+root.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+@id("66d04000000000000000000000000147") annotation check root.flash.outlet.beta(root.flash.outlet.beta>=0 and root.flash.outlet.beta<0.3961);
+}
+}

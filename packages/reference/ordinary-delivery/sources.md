@@ -20,6 +20,8 @@ are adopted here.
 | `ordinary_delivery.ordinary_exchanger` | Co-current Peng–Robinson exchanger with relational density on all four states; equimolar sides at 101325 Pa, hot 5 mol/s at 365 K, cold 1 mol/s at 300 K, zero pressure drops, coefficient 100 W/(m² K); cold outlet fixed at 331.6111111111111 K and area free | Solve design area and the original side balances; evaluate SSLW costing at that actual area. The source-to-publication journey runs this case from a freshly reopened canonical source. |
 | `ordinary_delivery.ordinary_rating` | Same exchanger physics and feeds; area fixed at 1 m² and cold outlet temperature free; explicit Ipopt | Use the public Rust design-to-rating composition below, then independently qualify the unchanged rating specification. It is a different question over the same physical definition. |
 | `ordinary_delivery.ordinary_arithmetic_closure` | Same design specification, side balances and costing; replace the logarithmic mean temperature difference with the compatible arithmetic mean closure | Compare against the arithmetic-mean formulation, retaining the changed closure as part of scientific correspondence. |
+| `ordinary_delivery.ordinary_feed_flash_isothermal` | Frozen ordinary liquid BT feed, equimolar, 1 mol/s, 368 K, 101325 Pa; equilibrium outlet at unchanged temperature and pressure | Calculate heat supplied to equilibrate the feed; retain both component flows, phase-stream identities and the original same-datum energy balance. Independently compare the vapor fraction with the binary Raoult/Rachford–Rice closed form using the selected Poling Wagner2.5,5 records. |
+| `ordinary_delivery.ordinary_feed_flash_isenthalpic` | Same frozen liquid feed and pressure; zero heat supplied and free outlet temperature | Retain the original enthalpy balance and demonstrate cooling on equilibration, with distinct liquid/vapor output identities and original unit/source readback. |
 
 The ideal recycle and PR exchanger are distinct thermodynamic realizations. Both
 use the ordinary Wagner 2.5,5 vapor-pressure selection, gas heat-capacity integral
@@ -30,13 +32,23 @@ declarations and source package when constructing an independent reference.
 
 ## Formulation controls and permitted claims
 
-All five ordinary cases explicitly select Ipopt. This retains the controlled method
+All ordinary cases explicitly select Ipopt. This retains the controlled method
 used for their native acceptance when additional solver backends are linked. The
 three historical recycle preservation controls separately select POUNCE and require
 the `solver-pounce` feature; their original physics, stage expectations and accuracy
 checks remain unchanged. Automatic selection and other methods for these ordinary
 cases remain unqualified by this delivery evidence; that limitation is not a claim
 that those methods are unsupported elsewhere.
+
+The feed-flash cases compose the existing generic process flash through
+`flashing.FeedFlash`; they do not duplicate phase-equilibrium or caloric equations.
+Their frozen liquid input deliberately differs from an already equilibrated feed,
+so temperature continuity requires latent heat while zero heat requires a changed
+outlet temperature. Both states consume the ordinary published-data selections and
+the same native enthalpy datum. They retain the exact Perry benzene liquid-Cp
+extrapolation and FeOS unknown-path permissions described below. Native physical
+and original-readback controls do not extend the five existing binary IDAES
+interchange comparisons to these new cases.
 
 The ordinary ideal and PR states select 300–450 K consuming bounds, bubble/dew
 starts of 365/370 K, and the inherited `SmoothVLE` parameters
@@ -78,7 +90,8 @@ identity. The immutable authored source/specification remains unchanged.
 This is explicit composition of the existing Rust operation interface. It does
 not add authored fixed/free stage overlays or claim that the generic declared
 cold-start case now converges, and it does not fabricate an initializer report.
-Current acceptance evidence belongs to Plan64c.
+Plan66g owns remaining delivery and acceptance; the five existing binary comparisons
+retain their original scientific conditions and evidence scope.
 
 The native composition reuses `recycle_flash.RecycleLoop` through the ordinary
 `RecycleModel` interface. The existing `RecycleMixer`/`PhaseAwareMixer`

@@ -20,6 +20,49 @@ use numerical_policy @"1.0.0";
 use temperature_driving_force @"1.0.0";
 use correlations @"1.0.0";
 use references @"1.0.0";
+use flashing @"1.0.0";
+
+// Supply a frozen liquid feed using the same published caloric datum as the
+// equilibrium outlet. Neither state adopts historical BT oracle coefficients.
+def FeedFlash(isothermal:Boolean=true) {
+child unit:flashing.FeedFlash=flashing.FeedFlash(inlet_pkg=ordinary_bt.Liquid(defined_state=true),outlet_pkg=ordinary_bt.Ideal(defined_state=false),isothermal=isothermal);
+// The two authored consumers fix this throughput. Freeze the exposure before
+// solving; do not infer a tolerance from the solved phase fraction or heat duty.
+param feed_capacity:Flow=1{mol/s};
+annotation caloric_context unit.flash.inlet.h(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound(feed_capacity,numerical_policy.molar_flow),unit.flash.inlet.energy_flow,unit.flash.inlet.flow);
+annotation caloric_context unit.flash.inlet.enthalpy(ordinary_bt.liquid_precision_response(),numerical_policy.temperature,numerical_policy.power,recycle_flash.exposure_bound(feed_capacity,numerical_policy.molar_flow),unit.flash.inlet.energy_flow,unit.flash.inlet.flow);
+annotation energy_context unit.flash.outlet.h(numerical_policy.power,recycle_flash.exposure_bound(feed_capacity,numerical_policy.molar_flow),unit.flash.outlet.energy_flow,unit.flash.outlet.flow);
+annotation energy_context unit.flash.outlet.enthalpy_binding(numerical_policy.power,recycle_flash.exposure_bound(feed_capacity,numerical_policy.molar_flow),unit.flash.outlet.energy_flow,unit.flash.outlet.flow);
+annotation engineering_scale unit.flash.inlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,ordinary_bt.liquid_enthalpy_span()));
+annotation engineering_scale unit.flash.outlet.energy_flow(kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,ordinary_bt.phase_enthalpy_span()));
+annotation engineering_scale unit.flash.outlet.phase_energy_flow[chemistry.liquid](kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,ordinary_bt.liquid_enthalpy_span()));
+annotation engineering_scale unit.flash.outlet.phase_energy_flow[chemistry.vapor](kind=reference_difference,value=ideal_caloric_state.power_span(feed_capacity,ordinary_bt.vapor_enthalpy_span()));
+annotation report unit.flash.inlet.T("ordinary feed flash inlet temperature");
+annotation report unit.flash.outlet.T("ordinary feed flash outlet temperature");
+annotation report unit.flash.outlet.beta("ordinary feed flash vapor fraction");
+annotation report unit.flash.inlet.energy_flow("ordinary feed flash inlet energy");
+annotation report unit.flash.outlet.energy_flow("ordinary feed flash outlet energy");
+}
+
+case ordinary_feed_flash_isothermal fixture {dof 0;route steady;procedure solve;
+fix root.unit.flash.inlet.flow=1{mol/s};fix root.unit.flash.inlet.T=368{K};fix root.unit.flash.inlet.pressure=101325{Pa};fix root.unit.flash.inlet.z[chem.benzene]=0.5{1};fix root.unit.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
+permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
+permission benzene_liquid_cp_extrapolation records(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]) allow_unknown false allow_extrapolation true;
+child root:FeedFlash=FeedFlash(isothermal=true);
+expect root.unit.flash.outlet.T==368{K} tolerance numerical_policy.temperature;
+expect root.unit.flash.liquid_component_flow[chem.benzene]+root.unit.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+expect root.unit.flash.liquid_component_flow[chem.toluene]+root.unit.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+}
+
+case ordinary_feed_flash_isenthalpic fixture {dof 0;route steady;procedure solve;
+fix root.unit.flash.inlet.flow=1{mol/s};fix root.unit.flash.inlet.T=368{K};fix root.unit.flash.inlet.pressure=101325{Pa};fix root.unit.flash.inlet.z[chem.benzene]=0.5{1};fix root.unit.flash.inlet.z[chem.toluene]=0.5{1};policy {backend ipopt;} } {
+permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
+permission benzene_liquid_cp_extrapolation records(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.perry7_caloric_fit]) allow_unknown false allow_extrapolation true;
+child root:FeedFlash=FeedFlash(isothermal=false);
+expect root.unit.flash.heat==0{W} tolerance numerical_policy.energy_transfer_rate;
+expect root.unit.flash.liquid_component_flow[chem.benzene]+root.unit.flash.vapor_component_flow[chem.benzene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+expect root.unit.flash.liquid_component_flow[chem.toluene]+root.unit.flash.vapor_component_flow[chem.toluene]==0.5{mol/s} tolerance numerical_policy.component_flow;
+}
 
 // Reuse the process definitions and original topology; change scientific selections.
 fn component_h(T:Temperature,p:chemistry.phase,j:chemistry.species)->MolarEnthalpy=if p==chemistry.liquid then ordinary_bt.liquid_h(T,j) else ordinary_bt.vapor_h(T,j);

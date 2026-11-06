@@ -41,4 +41,27 @@ transport energy=outlet.phase_energy_flow[chemistry.vapor] tolerance numerical_p
 @id("9831058f431c593f9bc32b14157eea80") annotation connectivity liquid_port(0,1);
 @id("c621453b79875bb4820b432e350d5034") annotation connectivity vapor_port(0,1);
 }
+// A feed flash supplies equilibrium phase streams at the feed pressure. Its
+// thermal specification selects either temperature continuity (with calculated
+// heat duty) or zero heat duty (with calculated outlet temperature). The child
+// retains the same physical component and energy balances as a process flash.
+@id("65d04000000000000000000000000001") def FeedFlash(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.EquilibriumThermoPackage,isothermal:Boolean=true,holdup:Boolean=false) {
+@id("65d04000000000000000000000000002") require not analysis.dynamic : "feed flash is a steady boundary unit without temporal accumulation";
+@id("65d04000000000000000000000000003") child flash:Flash=Flash(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg);
+@id("65d0400000000000000000000000000d") require not holdup : "feed flash has no material or energy storage";
+@id("65d04000000000000000000000000004") eq pressure:flash.delta_pressure==0{Pa};
+@id("65d04000000000000000000000000005") when isothermal {
+@id("65d04000000000000000000000000006") eq temperature:flash.outlet.T==flash.inlet.T;
+}
+@id("65d04000000000000000000000000007") when not isothermal {
+@id("65d04000000000000000000000000008") eq adiabatic:flash.heat==0{W};
+}
+@id("65d04000000000000000000000000009") material port liquid=flash.liquid_state;
+@id("65d0400000000000000000000000000a") material port vapor=flash.vapor_state;
+@id("65d0400000000000000000000000000b") annotation connectivity liquid(0,1);
+@id("65d0400000000000000000000000000c") annotation connectivity vapor(0,1);
+@id("65d0400000000000000000000000000e") annotation report flash.heat("feed flash heat duty");
+@id("65d0400000000000000000000000000f") annotation report flash.liquid_flow("feed flash liquid flow");
+@id("65d04000000000000000000000000010") annotation report flash.vapor_flow("feed flash vapor flow");
+}
 }

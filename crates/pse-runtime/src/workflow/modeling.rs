@@ -11,6 +11,13 @@ pub(in crate::workflow) mod cases;
 mod conformance;
 pub(super) mod declared;
 pub(crate) mod engagement;
+#[cfg(all(
+    test,
+    feature = "solver-ipopt",
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation"
+))]
+mod feed_flash_tests;
 mod path_pipeline;
 mod preparation;
 #[cfg(all(test, feature = "property-coolprop", feature = "solver-ipopt"))]
