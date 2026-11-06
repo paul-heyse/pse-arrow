@@ -804,7 +804,7 @@ pub enum PointArithmeticUnavailable {
         requested: DerivativeOrder,
         /// Minimum order requiring this predicate; Value for value domains.
         minimum: DerivativeOrder,
-        /// Whether its exact closed representation exists.
+        /// Whether its exact predicate representation exists.
         represented: bool,
         /// Actual retained predicate fidelity.
         fidelity: Fidelity,
@@ -2044,6 +2044,16 @@ impl CasePlan {
             return Ok(PointArithmeticAssessment::Unavailable(reason));
         }
         let mut outputs = Vec::new();
+        // Original rows keep independent mappings even when they consume the same
+        // DAG root. Native Functions need each exact output root only once.
+        let mut output_slots = BTreeMap::new();
+        let mut output = |expression| {
+            *output_slots.entry(expression).or_insert_with(|| {
+                let slot = outputs.len();
+                outputs.push(expression);
+                slot
+            })
+        };
         let mut rows = Vec::with_capacity(program.rows.len());
         for row in &program.rows {
             if cancel.load(Ordering::Acquire) {
@@ -2052,23 +2062,21 @@ impl CasePlan {
             let expression = row
                 .expression
                 .ok_or_else(|| MathError::Contract("point arithmetic row missing".into()))?;
-            let value = outputs.len();
-            outputs.push(expression);
+            let value = output(expression);
             let mut residual = |bound: f64| -> Option<usize> {
                 if !bound.is_finite() {
                     return None;
                 }
-                let output = outputs.len();
-                if bound == 0.0 {
-                    outputs.push(expression);
+                let expression = if bound == 0.0 {
+                    expression
                 } else {
                     let constant = program.nodes.len();
                     program.nodes.push(Node::Const(Constant::Float(-bound)));
                     let node = program.nodes.len();
                     program.nodes.push(Node::Sum(vec![expression, constant]));
-                    outputs.push(node);
-                }
-                Some(output)
+                    node
+                };
+                Some(output(expression))
             };
             let lower_residual = residual(row.lower);
             let upper_residual = if row.lower == row.upper {
@@ -2089,9 +2097,7 @@ impl CasePlan {
             let expression = o
                 .expression
                 .ok_or_else(|| MathError::Contract("point arithmetic objective missing".into()))?;
-            let output = outputs.len();
-            outputs.push(expression);
-            Some(output)
+            Some(output(expression))
         } else {
             None
         };

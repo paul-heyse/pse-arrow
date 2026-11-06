@@ -252,6 +252,71 @@ fn point_arithmetic_projects_original_bounds_rectangular_objective_and_first_gua
         Err(FactorableError::Math(MathError::Cancelled))
     ));
 }
+#[test]
+fn point_arithmetic_shared_outputs_preserve_original_row_and_bound_mappings() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let assembly = case(
+        &registry,
+        b.prepare(&[x.clone(), x.clone(), x]).unwrap(),
+        &[(-4.0, 4.0)],
+        &[2],
+    );
+    let mut rows = assembly.structure().rows().to_vec();
+    rows[0].lower = 0.0;
+    rows[0].upper = 0.0;
+    rows[1].lower = 1.0;
+    rows[1].upper = 3.0;
+    let structure = Arc::new(
+        CaseStructure::new(
+            assembly.structure().variables().to_vec(),
+            assembly.structure().parameters().to_vec(),
+            assembly.structure().instances().to_vec(),
+            rows,
+            assembly.structure().objective().cloned(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let cancel = Arc::new(AtomicBool::new(false));
+    let plan = CasePlan::prepare(
+        structure,
+        assembly.bodies().clone(),
+        &registry,
+        DerivativeOrder::Value,
+        AssemblyLimits::default(),
+        &cancel,
+    )
+    .unwrap();
+    let program = plan
+        .point_arithmetic_program(&CaseValues::default(), 100_000, &cancel)
+        .unwrap()
+        .unwrap();
+    assert_eq!(program.rows.len(), 2);
+    let first = &program.rows[0];
+    let second = &program.rows[1];
+    assert_eq!(first.value, second.value);
+    assert_eq!(program.objective, Some(first.value));
+    assert_eq!(first.lower_residual, Some(first.value));
+    assert_eq!(first.upper_residual, Some(first.value));
+    let original = program.graph.residuals[first.value];
+    assert!(matches!(program.graph.nodes[original], Node::Var(0)));
+    for (slot, bound) in [(second.lower_residual, -1.0), (second.upper_residual, -3.0)] {
+        let root = program.graph.residuals[slot.unwrap()];
+        let Node::Sum(children) = &program.graph.nodes[root] else {
+            panic!("original nonzero-bound subtraction missing");
+        };
+        assert_eq!(children[0], original);
+        assert!(
+            matches!(program.graph.nodes[children[1]], Node::Const(Constant::Float(value)) if value == bound)
+        );
+    }
+    assert_eq!(program.graph.residuals.len(), 3);
+    let mut repeated = program.graph.clone();
+    repeated.residuals.push(original);
+    assert_ne!(program.graph.identity(), repeated.identity());
+}
 /// Deterministic points in a box (splitmix64); no test dependency.
 struct Points(u64);
 impl Points {

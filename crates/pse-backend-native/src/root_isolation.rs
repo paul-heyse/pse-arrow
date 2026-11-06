@@ -9,7 +9,6 @@ use pse_math::{
         Constant, Constraint, Fidelity, Node, ObligationKind, ObligationScope,
         PointArithmeticProgram, Predicate, ProjectedObligation, Rational, RootIsolationProgram,
     },
-    guarded::Condition,
     implicit::{
         ChartChainCoverage, ChartChainEvidence, ChartChainProof, ChartChainRequest, ChartChainWork,
         ProofInterval, RootActionEvidence, RootNeighborhoodEvidence, RootPointEvidence,
@@ -3808,6 +3807,7 @@ impl SelectionVerifier for Ibex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pse_math::guarded::Condition;
     #[derive(Debug)]
     struct TestCompute {
         available: Arc<std::sync::atomic::AtomicUsize>,
