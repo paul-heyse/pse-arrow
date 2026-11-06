@@ -1088,6 +1088,22 @@ impl ResolvedSyntax {
     pub fn retained_bytes(&self) -> usize {
         extent::syntax(self)
     }
+    /// Actual shared allocation owners and their conservative known payload extents.
+    /// These process-local addresses convey no semantic identity or execution authority.
+    pub fn allocation_components(&self) -> [(&'static str, usize, usize); 2] {
+        [
+            (
+                "arena",
+                Arc::as_ptr(&self.arena) as usize,
+                extent::arena(&self.arena),
+            ),
+            (
+                "symbols",
+                self.symbols.allocation_identity(),
+                self.symbols.retained_bytes(),
+            ),
+        ]
+    }
 }
 
 /// Frame every complete language type explicitly; no Debug rendering establishes physical meaning.

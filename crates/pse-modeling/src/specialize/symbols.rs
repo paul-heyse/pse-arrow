@@ -25,6 +25,11 @@ struct Table {
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Symbols(Arc<Table>);
 impl Symbols {
+    /// Process-local immutable table allocation, used only for live retained accounting.
+    /// Equal independently allocated tables retain distinct identities.
+    pub fn allocation_identity(&self) -> usize {
+        Arc::as_ptr(&self.0) as usize
+    }
     /// Number of actual scalar declarations.
     pub fn len(&self) -> usize {
         self.0.values.len()

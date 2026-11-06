@@ -401,6 +401,22 @@ struct PlannedInstance {
     contributions: Vec<Contribution>,
 }
 impl PlannedModeling {
+    pub(super) fn repeated_shared_bytes(&self, seen: &mut SourceAllocations) -> usize {
+        self.instances
+            .iter()
+            .map(|instance| {
+                let input = &instance.input;
+                if seen.insert(("body-input", Arc::as_ptr(input) as usize)) {
+                    repeated_syntax_bytes(seen, &input.syntax)
+                        .saturating_add(repeated_support_bytes(seen, &input.support))
+                } else {
+                    // Only the actual shared BodyInput allocation is already charged.
+                    // Consumer slots, contributions and occurrence maps stay per-instance.
+                    body_key_heap(&(input.clone(),))
+                }
+            })
+            .fold(0, usize::saturating_add)
+    }
     pub(super) fn body_requests(
         &self,
     ) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> + '_ {
@@ -974,6 +990,67 @@ mod dependency_tests {
     use super::*;
     use crate::workspace::{CompilerWorkspace, WorkspaceLimits};
     use pse_modeling::{Bindings, Limits, specialize::root_instance};
+
+    #[test]
+    fn frontier_accounting_shares_only_actual_snapshot_owners_and_retains_copy_payloads() {
+        let build = || {
+            let rows = crate::authored_transfer_tests::rows(
+                "package p {def Root {var x:Scalar;eq a:x==1;eq b:x==1;}}",
+            );
+            let root = crate::authored_transfer_tests::root(&rows, "p", "Root");
+            let mut workspace = CompilerWorkspace::new(
+                crate::authored_transfer_tests::context(),
+                WorkspaceLimits::default(),
+            )
+            .unwrap();
+            workspace
+                .publish_modeling(rows, PhysicalScope::default())
+                .unwrap();
+            workspace
+                .plan_modeling_cancellable(
+                    root,
+                    root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    Arc::new(AtomicBool::new(false)),
+                )
+                .unwrap()
+        };
+        let first = build();
+        let independent = build();
+        let support = &first.projection.regions[0].support;
+        let copy = support.clone();
+        let other = &independent.projection.regions[0].support;
+        let (registry, facts) = support.premises().unwrap().context();
+        let (other_registry, other_facts) = other.premises().unwrap().context();
+        assert_eq!(
+            pse_quantity::physical_identity::identity(registry, facts),
+            pse_quantity::physical_identity::identity(other_registry, other_facts)
+        );
+        assert!(!std::ptr::eq(registry, other_registry));
+        assert!(!std::ptr::eq(facts, other_facts));
+        let shared = registry.allocation_extent() + facts.allocation_extent();
+        let mut seen = SourceAllocations::new();
+        assert_eq!(repeated_support_bytes(&mut seen, support), 0);
+        assert_eq!(repeated_support_bytes(&mut seen, &copy), shared);
+        assert!(
+            copy.retained_bytes() > shared,
+            "the copy's maps and captured reads remain owned"
+        );
+        assert_eq!(
+            repeated_support_bytes(&mut seen, other),
+            0,
+            "equal independently captured snapshots are separate allocations"
+        );
+        let mut seen = SourceAllocations::new();
+        assert_eq!(repeated_model_bytes(&mut seen, &first.model), 0);
+        assert_eq!(
+            repeated_model_bytes(&mut seen, &first.model.clone()),
+            first.model.retained_bytes(),
+            "a repeated complete model includes its syntax, counted once without nested subtraction"
+        );
+        assert_eq!(repeated_model_bytes(&mut seen, &independent.model), 0);
+    }
 
     #[test]
     fn original_supplier_rows_retain_unknown_incidence_and_reconstruction_descriptors() {

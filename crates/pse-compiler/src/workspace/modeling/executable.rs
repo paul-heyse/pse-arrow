@@ -1316,6 +1316,76 @@ pub struct ModelingPreparationFrontier {
     environment: ContentHash,
     providers: BTreeMap<ContentHash, pse_kernels::AdmittedProvider>,
 }
+// A census borrows the complete frontier until it finishes. Addresses identify
+// live allocation owners only; no scientific identity or value equality participates.
+type SourceAllocations = BTreeSet<(&'static str, usize)>;
+fn repeated_source_allocation(
+    seen: &mut SourceAllocations,
+    kind: &'static str,
+    identity: usize,
+    bytes: usize,
+) -> usize {
+    if seen.insert((kind, identity)) {
+        0
+    } else {
+        bytes
+    }
+}
+fn repeated_syntax_bytes(
+    seen: &mut SourceAllocations,
+    syntax: &pse_modeling::resolved::ResolvedSyntax,
+) -> usize {
+    syntax
+        .allocation_components()
+        .into_iter()
+        .map(|(kind, id, bytes)| repeated_source_allocation(seen, kind, id, bytes))
+        .fold(0, usize::saturating_add)
+}
+fn repeated_support_bytes(
+    seen: &mut SourceAllocations,
+    support: &pse_modeling::resolved::PhysicalSupport,
+) -> usize {
+    let Ok(premises) = support.premises() else {
+        return 0;
+    };
+    let (registry, facts) = premises.context();
+    repeated_source_allocation(
+        seen,
+        "support-registry",
+        std::ptr::from_ref(registry) as usize,
+        registry.allocation_extent(),
+    )
+    .saturating_add(repeated_source_allocation(
+        seen,
+        "support-facts",
+        std::ptr::from_ref(facts) as usize,
+        facts.allocation_extent(),
+    ))
+}
+fn repeated_model_bytes(seen: &mut SourceAllocations, model: &Arc<SpecializedModel>) -> usize {
+    if seen.insert(("model", Arc::as_ptr(model) as usize)) {
+        repeated_syntax_bytes(seen, &model.resolved)
+    } else {
+        // Its complete extent includes the nested syntax already; do not visit it twice.
+        model.retained_bytes()
+    }
+}
+fn repeated_projection_bytes(seen: &mut SourceAllocations, projection: &Projection) -> usize {
+    repeated_model_bytes(seen, &projection.model)
+        .saturating_add(
+            projection
+                .regions
+                .iter()
+                .map(|region| {
+                    repeated_syntax_bytes(seen, &region.syntax)
+                        .saturating_add(repeated_support_bytes(seen, &region.support))
+                })
+                .fold(0, usize::saturating_add),
+        )
+        .saturating_add(projection.original.as_ref().map_or(0, |original| {
+            repeated_projection_bytes(seen, &original.projection)
+        }))
+}
 impl ModelingPreparationFrontier {
     /// Every compiler-issued portable body dependency, including the original view.
     /// Repeated consumer uses of the same complete identity issue one request.
@@ -1332,7 +1402,7 @@ impl ModelingPreparationFrontier {
     }
     /// Conservative owned planning bytes, including retained direct implicit products.
     pub fn retained_bytes(&self) -> usize {
-        2 * size_of::<Self>()
+        let raw = 2 * size_of::<Self>()
             + 256
             + self
                 .physical_premises
@@ -1346,7 +1416,16 @@ impl ModelingPreparationFrontier {
                 projection_body_bytes(projection) + plan.retained_bytes()
             })
             + self.providers.len()
-                * (size_of::<(ContentHash, pse_kernels::AdmittedProvider)>() + 128)
+                * (size_of::<(ContentHash, pse_kernels::AdmittedProvider)>() + 128);
+        let mut seen = SourceAllocations::new();
+        let repeated = repeated_model_bytes(&mut seen, &self.model)
+            .saturating_add(repeated_projection_bytes(&mut seen, &self.projection))
+            .saturating_add(self.primary.repeated_shared_bytes(&mut seen))
+            .saturating_add(self.original.as_ref().map_or(0, |(projection, plan)| {
+                repeated_projection_bytes(&mut seen, projection)
+                    .saturating_add(plan.repeated_shared_bytes(&mut seen))
+            }));
+        raw.saturating_sub(repeated)
     }
 }
 
