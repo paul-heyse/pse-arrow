@@ -1,6 +1,6 @@
 ---
 title: "Plan66c: Preparation, execution and service lifecycles"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -164,13 +164,27 @@ for a named distribution consumer when its complete library/interface and lifeti
 justifies replacing process isolation. This records the bounded choice; it neither rejects
 dynamic libraries nor closes C04's distinct canonical reconstruction and receiving work.
 
+**Interface-checked decision:** retain scientific transport's current `OwnedExecutor` batch
+joins for the selected worker connection. The actual I/O owner closes its request/client and
+joins the public Hyper driver before `OwnedExecutor::finish` repeatedly takes and awaits all
+executor tasks, including descendants registered by a preceding task. Every `JoinError` is
+retained; authenticated peer EOF and native/process settlement remain separate owners. See
+[`transport.rs`](../../crates/pse-runtime/src/scientific_worker/transport.rs) and CR05's exact
+TaskTracker characterization. Replacing this loop with tracker `close`/`wait` would additionally
+need equivalent typed panic/error capture and an end-of-spawning argument, while retaining the
+same socket/native joins. No observed completed-task accumulation or separate shutdown subtree
+currently justifies that added mechanism. Reopen for a selected long-lived connection with
+demonstrated retained-handle growth or a concrete independent-subtree shutdown requirement.
+This closes the conditional library-substitution choice, not C03/C05's remaining receiving
+and physical-settlement population; no new shutdown test or memory benefit is claimed.
+
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
-| C02 | planned | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Complete selected typed service effects, authentication/reconnect and original identity consumers; remove replaced route/effect/status/error maps while preserving native guards. |
+| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is implemented in the candidate, with contextual effects/authentication retained and receiving pending. Complete selected typed service effects, reconnect and original identity consumers with their replaced maps deleted. |
 | C03 | planned | Existing queue/retirement owners; C02 selected operations; D's provider support | Every selected prepared-worker/session path has transactional handoff, per-handle cancellation/close and result-bearing physical finish; true native batch behavior is integrated where selected. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
-| C05 | planned | Working C02–C04 producer/consumer slices and B04 where representation changes | Complete actual transport/native/process failure population, independent sessions and retained response lifetime; simplify task accounting only where all settlement responsibilities survive. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Correct checkout environment activation in native test/check launch, then receive the selected service scope under its requested placement. Complete actual transport/native/process failure population, independent sessions and retained response lifetime; simplify task accounting only where all settlement responsibilities survive. |
 
 ### C01 — Make preparation representations compose
 
@@ -184,6 +198,11 @@ when every caller has moved. This is a bounded prerequisite to affected generati
 not a reason to rebuild all preparation for every plan package.
 
 ### C02 — Complete actual local operation/service consumers
+
+The common engineering RPC candidate now consumes source-generated ingress, edit, identifier,
+status/progress and outgoing mappings. Native source-parent, membership, provider, effect and
+authentication checks remain with their existing owners. Receiving is pending after the native
+test launch exposed a separate checkout-environment activation defect; no service pass is inferred.
 
 Migrate all selected engineering contract/workbench/prepared-study and simulation/fit/horizon
 submission/status/cancel/progress/read paths, plus their preparation, worker and reference service
@@ -229,6 +248,13 @@ and native receiving acceptance exist. Historical readable records can retain un
 
 ### C05 — Verify actual shutdown and transport composition
 
+Original receiving exposed a native launcher gap: a caller without exported placement values
+did not activate the checkout's explicit unbounded selection, so managed test launch chose the
+default finite functional scope and rustc was killed at its 40 GiB limit. Repair test/check launch
+through the existing environment activation owner, preserving caller precedence and explicit
+finite class/memory choices. This is separate from C01's refreshed immutable compiler receipt;
+it requires no reduced build width, cache change, new admission policy or host configuration.
+
 Complete slow/abandoned upload and download, partial progress with terminal stream error,
 deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,
 reconnect, child crash, task panic, listener error and independent native shutdown refusal.
@@ -241,7 +267,8 @@ coverage gap instead. No task-library substitution is a package-completion requi
 
 ## Verification and decision limits
 
-Work is **planned**. This document adds no new functional qualification. Implementation uses
+Implementation is active. C01's targeted evidence and the remaining launcher/service work are
+bounded above; neither establishes broader lifecycle qualification. Implementation uses
 targeted native routes and matching prepared profiles, with Arrow `force_validate` where consumed.
 Client and independently launched process journeys must exercise actual settlement and original
 scientific outcomes; mocks establish only their bounded interface. L owns comprehensive population,

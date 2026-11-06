@@ -1,6 +1,6 @@
 ---
 title: "Plan66g: Properties, equipment and steady workflows"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -100,7 +100,7 @@ physical identity. Specific mechanisms and limits are in
 | G01 | planned | 66l's selected scientific/configuration/input identity; existing source admission | Every required property/equipment row has a concrete existing/missing science, ordinary-data, numerical-product or qualification disposition and a consuming case |
 | G02 | planned | G01 selected state/property closure; 66a coordinate/product and 66d provider slice where changed | Missing state/caloric/phase and pure-fluid outputs delivered through actual equipment consumers; existing implementations receive only missing evidence |
 | G03 | planned | G01 selected chemistry/transport inputs; native physical membership and basis | Required transport, reaction and electrolyte/speciation increments operate with conserved quantities, validity, derivatives and independent consuming expectations |
-| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Remaining generic equipment configurations and candidate FeedFlash closure delivered through admission, execution and exact protected read, preserving explicit unsupported cases |
+| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Seven targeted branch controls pass for thermal/component closure, original readback and temporal/holdup refusals. Explicit unknown-Cp/Perry extrapolation qualifiers and actual-flow exposure guards remain. Other equipment/water/configuration, independent reference-binary and protected/client acceptance remain open. |
 | G05 | planned | Working selected equipment/recycle/initialization closure | HDA, methanol and custom extension consumers deliver their distinct simulation/design outcomes with original scientific inputs and complete linked outputs |
 | G06 | planned | Changed producers and 66b/66e/66f receiving consumers | Selected declarations, native clients, diagnostics, retained/exported readers and source/reference mappings migrate together; replaced adapters and fixtures are deleted |
 | G07 | planned | Selected G02–G06 deliveries and 66l independent expectations | Configuration-specific missing acceptance is complete, required failures remain attributable, scope claims reconcile with 66l and enduring contracts are published |

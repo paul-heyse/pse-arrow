@@ -1,6 +1,6 @@
 ---
 title: "Plan66a: Scientific operations and product semantics"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -89,12 +89,22 @@ stocks and cumulative boundary flow. The scientific owner will first exercise ex
 stock/temporal composition and report any exposed shared seam before extending the compiler.
 Generic unsupported dynamic/Radau/reactive/energy cases retain their current refusals.
 
+A02's actual fitting seam is `PreparedFit::assess_candidate`: it currently flattens original
+experiment checks/reports and returns an error when a later assessment fails, discarding prior
+completed evidence. Retain producer-owned experiment outcomes and their original `InstanceId`
+before extending permission. The joined producer owns final selection; optimizer callback caches
+and a caller's trajectory map cannot supply it. Original physical time, authored target/source
+and mesh-site correspondence describe trajectory points; neither row ordinals nor a newly hashed
+time label supplies that authority. Preserve global fit qualification separately from local
+experiment/trajectory evidence, including partial or failed outcomes. Extend the actual retained
+and independent consumers with that same producer context; a native accessor alone cannot close A02.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | planned | A01; actual fit/Study/trajectory product producers | Implement missing experiment/member governing scope through producers, native permission, generated observations, storage and independent readers. Remove quantity-only or client-reconstructed permission paths. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Producer/assessment investigation identified the fitting evidence-loss seam and original coordinate contract above. Implement missing experiment/member governing scope through producers, native permission, generated observations, storage and independent readers. Remove quantity-only or client-reconstructed permission paths; no new member permission is yet implemented. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |

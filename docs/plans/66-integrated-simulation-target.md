@@ -183,7 +183,10 @@ main and three current-main-based branches in the existing warm checkout directo
 `p66-results` owns B01/B03/E02 generation and actual export/read consumers; `p66-science`
 owns the FeedFlash/ordinary-input delivery and subsequent ready physics; `p66-host` owns
 semantic comparison and original evidence delivery. Original candidate branches retain
-their frozen changes. No older plan branch is merged wholesale.
+their frozen changes. No older plan branch is merged wholesale. Main now contains the
+FeedFlash delivery, source-driven adapter helper imports, original failed-rerun intent and
+checkout-aware StudyModule preparation hint. The recorded-result consumer cutover is being
+integrated with combined regeneration; general source/bootstrap separation remains open.
 
 C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
 still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source
@@ -209,14 +212,28 @@ and verified sequential developer-member delivery with offline staged publicatio
 Semantic coverage remains explicitly selected and original-world bounded. Transfer receipts
 establish original verification and bytes accepted by a sink; destination sync and publication
 retain their separate outcomes. These are partial B02/E05/F02/F04 deliveries, not completion of
-their full caller population. Combined main receiving remains in progress.
+their full caller population. Main subsequently passed four targeted project delivery controls
+and thirteen selected semantic/developer controls, with zero failures/pending/build warnings
+and complete original capture/settlement. The project reader and archive now consume the same
+verified sequential transfer owner; accepted sink bytes, flush/sync and publication remain
+separate outcomes. Review-pack/scientific delivery and assembled acceptance remain open.
 
 **Tested, targeted:** four selected `pse-codegen` map/presence/collection controls passed with
 zero failures/pending and complete capture/settlement. Full `just codegen` passed 14 targets.
 This includes regeneration of already-declared original fixture observations; it does not
 establish scientific fixture correctness or general future-source bootstrap. The host branch's
 five semantic and six selected delivery controls passed against zero before integration;
-the map correction's stricter Buf receiving and combined main checks remain separate work.
+the stricter Buf controls distinguish a valid generated world from an intentionally invalid
+map fixture. Recorded-result ordinary/service and original fixture controls pass in their
+owning checkout; their combined main receiving remains separate work.
+
+The engineering RPC cutover removes its handwritten request/result/identifier/progress and
+source-edit maps in favor of source-generated adapters while preserving native contextual
+admission. Its first receiving attempt ran no tests: native test launch had skipped checkout
+environment activation and allocated the default finite 40 GiB scope despite the checkout's
+unbounded selection. The kernel terminated rustc at that cgroup limit. C/F own the launcher
+correction and precedence controls; the intended response is to apply the existing selection,
+not reduce concurrency or disable caches. RPC receiving and B03 completion remain pending.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input

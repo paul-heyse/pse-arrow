@@ -1,6 +1,6 @@
 ---
 title: "Plan66b: Contracts, generation and interpretation"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -51,8 +51,9 @@ result cannot mint current execution, membership, publication or restoration per
 Generation scope follows useful consumer capabilities. Ordinary recorded-result export needs
 messages, validators, descriptors and its small output-only adapter closure; it must not acquire
 an engineering service dependency. The engineering service and independent host have their own
-compilation and presentation needs while sharing the same source world. A semantic world is not
-a requirement to compile every adapter whenever one consumer is built.
+compilation and presentation needs while sharing source declarations. Each descriptor pool owns
+its exact complete import closure; source agreement does not make distinct pools interchangeable.
+A semantic world is not a requirement to compile every adapter whenever one consumer is built.
 
 In `xtask/src/codegen/engineering.rs`, register the native roots
 `PackResultSelection`, `PackResultPredicate`, `PackResultContext` and `PackScientificState`
@@ -70,6 +71,21 @@ adapter compilation; do not hand-edit generated files, temporarily weaken declar
 a hand-maintained mirror. Use an explicit adapter-group declaration only where actual additional
 consumers justify it: roots, direction, destination and visibility must feed generation and its
 ownership output once. A new crate per projection and a universal policy catalogue are unnecessary.
+
+The selected finite bootstrap cut moves the four passive recorded-result declarations to the
+existing `pse-model` owner and keeps `from_read` contextual assembly in runtime. A positive pure
+generation feature compiles those source declarations without runtime adapters. It publishes
+`recorded_result.proto`, one generated message/validator/adapter owner and a complete recorded-result
+descriptor pool. Full engineering generation regenerates that source file and imports its exact
+definition with per-type Buffa extern mappings; it does not emit those types again. Admit imported
+definition ownership, exact dependency/file agreement and output/provenance collisions before
+publication. Both early and full generation preflight their own complete outputs. Full engineering
+retains its complete pool; recorded-root reflection uses its own pool. Never share
+`SharedCorpusContext` across differing corpora or invoke native callbacks with a foreign pool's
+descriptors merely because names or fields match. Exercise each own-pool traversal, exact full-world
+import and foreign-world refusal, plus a source-forward shape change before stale runtime adapters
+compile. This is dependency factoring within the existing source-owned contracts and exact-world
+policy, not a new metadata convention, scientific schema or current permission.
 
 The existing `xtask/src/codegen/proto_projection/composition.rs` already composes the complete
 typed request, Buffa corpus, maintained validators and service generation. Retain that foundation.
@@ -147,7 +163,7 @@ separate. Exact sources are `vendor/buffa/src/message.rs`, `encode_sink.rs`, `ps
 |---|---|---|---|
 | B01 | in-progress | Existing source declarations, typed supplier composition and current exact pins | Consumer-scoped generation and source bootstrap work; ordinary result adapters and complete inspection fields are generated in the one world, duplicate broad roots/implementations are removed, default and service receiving closures compile. |
 | B02 | in-progress | Existing metadata/checker; native semantic owners for each selected crossing | All selected crossings carry explicit presence/unknown/interpretation/local-rule/adoption policy; semantic comparison is consumable independently; stale and foreign worlds cannot acquire native authority. |
-| B03 | planned | B01 closure needed by each consumer, B02 policy needed at its boundary | Complete finite native/projection correspondence across engineering, worker/reference, independent-host and developer families; move real consumers and delete replaced mechanical maps and tests together. |
+| B03 | in-progress | B01 closure needed by each consumer, B02 policy needed at its boundary | Common engineering service callers are migrating to their already-generated native adapters; handwritten request/result/ID/progress and source-edit maps are removed in the candidate. Receiving remains pending. Complete other finite worker/reference/host/developer/storage families with their actual callers and deletions; this service slice does not close the population. |
 | B04 | planned | Actual large producer/consumer and B03 mapping for that family | Selected production boundaries perform early selection and bounded encoding, retain validation/ownership through segmented output where useful, and remove redundant materialization without weakening extents. |
 | B05 | planned | Each delivered B01–B04 family, its outcome-owned consumer | Cross-representation/evolution/extension controls and surviving-source inventories cover the complete selected population; remaining assembled verification is handed to L with explicit omissions. |
 
@@ -213,7 +229,8 @@ do not manufacture an unused format matrix. Remove fixtures/tests solely support
 
 ## Verification, decisions and completion
 
-The target is authorized; work is **planned**, not newly Tested by this document. Use targeted
+Implementation is active. Selected generator and consumer evidence is recorded at the coordinator;
+general bootstrap and the full consumer population remain open. Use targeted
 native checks/tests with explicit `force_validate` on Arrow-consuming closures and `just codegen`
 when declarations/generators change. Check receiving default/service and independent-host closures
 as they migrate. L owns the final integrated population, independent journeys, hygiene and benefit
