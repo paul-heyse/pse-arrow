@@ -174,6 +174,15 @@ async fn execute_journey(
             .execute_declared(&services, &declared, &cancel)
             .await?
     };
+    if independent_reference {
+        ordinary_reference::retain_native_context(
+            name,
+            &package,
+            services.preparation(),
+            &declared,
+            &outcome,
+        )?;
+    }
     recycle_tests::retain_declared(
         recording,
         &package,
