@@ -629,6 +629,1272 @@ index 8c90a1dd6de9c14c3d47c945b75f0a5a595c8008..36fd188de3ea15c67789dc379b7e8b5e
  
  const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
  
+diff --git a/src/evaluate.rs b/src/evaluate.rs
+index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..683b60683f0331d8a47e54d2b1db8d517247319d 100644
+--- a/src/evaluate.rs
++++ b/src/evaluate.rs
+@@ -32,6 +32,7 @@ mod evaluator;
+ #[cfg(feature = "native_code_generation")]
+ mod export;
+ mod external;
++mod f64_transfer;
+ mod function_map;
+ mod instruction;
+ mod optimize;
+@@ -45,6 +46,7 @@ pub use evaluator::*;
+ #[cfg(feature = "native_code_generation")]
+ pub use export::*;
+ pub use external::*;
++pub use f64_transfer::*;
+ pub use function_map::*;
+ pub use instruction::{
+     ComplexPhase, ExportedConstantFunction, ExportedInstructions, ExportedSubEvaluator,
+diff --git a/src/evaluate/f64_transfer.rs b/src/evaluate/f64_transfer.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..7f13be0c2ca9f7ad34a440d41201e4d02d8e7849
+--- /dev/null
++++ b/src/evaluate/f64_transfer.rs
+@@ -0,0 +1,722 @@
++//! Checked transfer of the existing straight-line binary64 interpreter program.
++//!
++//! This is execution correspondence, not symbolic/preparation-state serialization.
++//! Inspection is allocation-free and passive. Restoration asks the caller to admit
++//! actual requested backing before allocating validation scratch or evaluator storage.
++use super::{ComplexPhase, ExpressionEvaluator, Instr, OptimizationSettings, Symbol};
++use std::{collections::TryReserveError, error::Error, fmt};
++
++const MAGIC: &[u8; 8] = b"SYMEVF64";
++const VERSION: u16 = 1;
++const HEADER: usize = 8 + 2 + 2 + 5 * 8;
++
++/// Actual populations and requested Rust backing for one inspected program.
++///
++/// These are derived facts, never serialized allocation allowances. Requested
++/// backing excludes allocator metadata/RSS, borrowed encoded bytes, and outer
++/// native owners. Validation scratch is released before final backing is allocated.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub struct F64ProgramExtents {
++    /// Complete fixed-profile encoded byte length.
++    pub encoded_bytes: usize,
++    /// Parameter slots at the beginning of the stack.
++    pub parameters: usize,
++    /// End of the protected parameter/constant prefix.
++    pub reserved: usize,
++    /// Exact constant population; `reserved - parameters`.
++    pub constants: usize,
++    /// Complete numerical stack extent, including unused temporary slots.
++    pub stack: usize,
++    /// Ordered result indices, including aliases and repeated results.
++    pub results: usize,
++    /// Ordered supplier instructions.
++    pub instructions: usize,
++    /// All Add/Mul operand entries, in their original order and multiplicity.
++    pub nary_operands: usize,
++    /// Requested f64 stack backing.
++    pub stack_bytes: usize,
++    /// Requested instruction-vector and nested operand-vector backing.
++    pub instruction_bytes: usize,
++    /// Requested result-index backing.
++    pub result_bytes: usize,
++    /// Requested definition-bitset backing used before materialization.
++    pub validation_bytes: usize,
++    /// Requested final vector backing; the evaluator value itself is caller-owned.
++    pub retained_bytes: usize,
++    /// Maximum requested backing during this restoration, excluding borrowed input.
++    pub peak_bytes: usize,
++}
++
++/// A structural, supported-profile or encoding refusal; no evaluator is returned.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub enum F64TransferError {
++    /// The fixed-profile header or version is unsupported.
++    Header,
++    /// A checked size/index calculation cannot be represented on this platform.
++    Overflow(&'static str),
++    /// The exact encoded extent is truncated, overlong or inconsistent.
++    Encoding(&'static str),
++    /// Unsupported supplier state or instruction.
++    Unsupported(&'static str),
++    /// An index or protected destination is invalid.
++    Index(&'static str, usize),
++    /// A temporary is consumed before any preceding instruction defines it.
++    Undefined(usize),
++    /// The caller supplied a differently sized encoding destination.
++    Destination { expected: usize, actual: usize },
++}
++impl fmt::Display for F64TransferError {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        write!(f, "checked f64 program: {self:?}")
++    }
++}
++impl Error for F64TransferError {}
++
++/// Original admission, structural/dataflow, and allocation failures remain distinct.
++#[derive(Debug)]
++pub enum F64RestoreError<E> {
++    /// Original supplier profile or dataflow refusal.
++    Program(F64TransferError),
++    /// The caller's unchanged admission/cancellation error payload.
++    Admission(E),
++    /// Original fallible reservation failure.
++    Allocation(TryReserveError),
++}
++impl<E> From<F64TransferError> for F64RestoreError<E> {
++    fn from(error: F64TransferError) -> Self {
++        Self::Program(error)
++    }
++}
++impl<E: fmt::Display> fmt::Display for F64RestoreError<E> {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        match self {
++            Self::Program(error) => error.fmt(f),
++            Self::Admission(error) => error.fmt(f),
++            Self::Allocation(error) => error.fmt(f),
++        }
++    }
++}
++impl<E: Error + 'static> Error for F64RestoreError<E> {
++    fn source(&self) -> Option<&(dyn Error + 'static)> {
++        Some(match self {
++            Self::Program(error) => error,
++            Self::Admission(error) => error,
++            Self::Allocation(error) => error,
++        })
++    }
++}
++
++fn add(a: usize, b: usize, what: &'static str) -> Result<usize, F64TransferError> {
++    a.checked_add(b).ok_or(F64TransferError::Overflow(what))
++}
++fn backing<T>(entries: usize, what: &'static str) -> Result<usize, F64TransferError> {
++    std::alloc::Layout::array::<T>(entries)
++        .map(|layout| layout.size())
++        .map_err(|_| F64TransferError::Overflow(what))
++}
++fn shape(
++    parameters: usize,
++    reserved: usize,
++    stack: usize,
++    instructions: usize,
++    results: usize,
++) -> Result<F64ProgramExtents, F64TransferError> {
++    if parameters > reserved || reserved > stack {
++        return Err(F64TransferError::Encoding(
++            "parameter/constant/stack boundaries",
++        ));
++    }
++    let constants = reserved - parameters;
++    let stack_bytes = backing::<f64>(stack, "stack backing")?;
++    let result_bytes = backing::<usize>(results, "result backing")?;
++    let instruction_bytes = backing::<(Instr, ComplexPhase)>(instructions, "instruction backing")?;
++    let validation_bytes = stack / 8 + usize::from(stack % 8 != 0);
++    backing::<u8>(validation_bytes, "validation backing")?;
++    let encoded_bytes = add(
++        add(
++            HEADER,
++            backing::<u64>(constants, "constant encoding")?,
++            "constant encoding",
++        )?,
++        backing::<u64>(results, "result encoding")?,
++        "result encoding",
++    )?;
++    Ok(F64ProgramExtents {
++        encoded_bytes,
++        parameters,
++        reserved,
++        constants,
++        stack,
++        results,
++        instructions,
++        nary_operands: 0,
++        stack_bytes,
++        instruction_bytes,
++        result_bytes,
++        validation_bytes,
++        retained_bytes: 0,
++        peak_bytes: 0,
++    })
++}
++impl F64ProgramExtents {
++    fn finish(mut self) -> Result<Self, F64TransferError> {
++        backing::<u8>(self.encoded_bytes, "encoded backing")?;
++        self.instruction_bytes = add(
++            self.instruction_bytes,
++            backing::<usize>(self.nary_operands, "operand backing")?,
++            "instruction backing",
++        )?;
++        self.retained_bytes = add(
++            add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
++            self.result_bytes,
++            "retained backing",
++        )?;
++        self.peak_bytes = self.retained_bytes.max(self.validation_bytes);
++        Ok(self)
++    }
++}
++
++/// Borrowed native program. Profile/indices/layout are checked without allocation;
++/// complete definition-before-read validation is performed by the receiving restore.
++pub struct F64ProgramRef<'a> {
++    evaluator: &'a ExpressionEvaluator<f64>,
++    extents: F64ProgramExtents,
++}
++impl fmt::Debug for F64ProgramRef<'_> {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        f.debug_struct("F64ProgramRef")
++            .field("extents", &self.extents)
++            .finish_non_exhaustive()
++    }
++}
++impl ExpressionEvaluator<f64> {
++    /// Borrow the supported fixed f64 execution profile, without exporting symbols,
++    /// callbacks, optimization settings, hot starts or warmed stack values.
++    pub fn f64_transfer(&self) -> Result<F64ProgramRef<'_>, F64TransferError> {
++        if !self.external_fns.is_empty() {
++            return Err(F64TransferError::Unsupported("external function state"));
++        }
++        let mut extents = shape(
++            self.param_count,
++            self.reserved_indices,
++            self.stack.len(),
++            self.instructions.len(),
++            self.result_indices.len(),
++        )?;
++        for index in &self.result_indices {
++            check_index(*index, extents.stack, "result")?;
++        }
++        for (instruction, phase) in &self.instructions {
++            let wire = NativeInstruction::from_instr(instruction, *phase)?;
++            validate_instruction(wire, &mut extents)?;
++            extents.encoded_bytes = add(
++                extents.encoded_bytes,
++                wire.encoded_len()?,
++                "instruction encoding",
++            )?;
++        }
++        Ok(F64ProgramRef {
++            evaluator: self,
++            extents: extents.finish()?,
++        })
++    }
++}
++impl F64ProgramRef<'_> {
++    /// Actual derived storage and encoded extents; this does not grant admission.
++    pub fn extents(&self) -> F64ProgramExtents {
++        self.extents
++    }
++    /// Exact caller-provisioned encoding extent.
++    pub fn encoded_len(&self) -> usize {
++        self.extents.encoded_bytes
++    }
++    /// Write into an exactly caller-provisioned destination, allocating nothing.
++    pub fn write_into(&self, output: &mut [u8]) -> Result<(), F64TransferError> {
++        if output.len() != self.extents.encoded_bytes {
++            return Err(F64TransferError::Destination {
++                expected: self.extents.encoded_bytes,
++                actual: output.len(),
++            });
++        }
++        let mut writer = Writer {
++            bytes: output,
++            position: 0,
++        };
++        writer.bytes(MAGIC);
++        writer.bytes(&VERSION.to_le_bytes());
++        writer.bytes(&0u16.to_le_bytes());
++        for count in [
++            self.extents.parameters,
++            self.extents.reserved,
++            self.extents.stack,
++            self.extents.instructions,
++            self.extents.results,
++        ] {
++            writer.index(count);
++        }
++        for constant in &self.evaluator.stack[self.extents.parameters..self.extents.reserved] {
++            writer.bytes(&constant.to_bits().to_le_bytes());
++        }
++        for result in &self.evaluator.result_indices {
++            writer.index(*result);
++        }
++        for (instruction, phase) in &self.evaluator.instructions {
++            NativeInstruction::from_instr(instruction, *phase)?.write(&mut writer);
++        }
++        debug_assert_eq!(writer.position, self.extents.encoded_bytes);
++        Ok(())
++    }
++}
++
++#[derive(Clone, Copy)]
++enum Operands<'a> {
++    Native(&'a [usize]),
++    Encoded(&'a [u8]),
++}
++impl Operands<'_> {
++    fn len(self) -> usize {
++        match self {
++            Self::Native(values) => values.len(),
++            Self::Encoded(bytes) => bytes.len() / 8,
++        }
++    }
++    fn get(self, index: usize) -> usize {
++        match self {
++            Self::Native(values) => values[index],
++            Self::Encoded(bytes) => {
++                u64::from_le_bytes(bytes[index * 8..index * 8 + 8].try_into().unwrap()) as usize
++            }
++        }
++    }
++}
++#[derive(Clone, Copy)]
++struct NativeInstruction<'a> {
++    opcode: u8,
++    phase: ComplexPhase,
++    destination: usize,
++    first: usize,
++    second: usize,
++    power: i64,
++    operands: Operands<'a>,
++}
++impl<'a> NativeInstruction<'a> {
++    fn from_instr(instruction: &'a Instr, phase: ComplexPhase) -> Result<Self, F64TransferError> {
++        let mut result = Self {
++            opcode: 0,
++            phase,
++            destination: 0,
++            first: 0,
++            second: 0,
++            power: 0,
++            operands: Operands::Native(&[]),
++        };
++        match instruction {
++            Instr::Add(destination, operands) | Instr::Mul(destination, operands) => {
++                result.opcode = u8::from(matches!(instruction, Instr::Mul(..)));
++                result.destination = *destination;
++                result.operands = Operands::Native(operands);
++            }
++            Instr::Pow(destination, base, power) => {
++                result.opcode = 2;
++                result.destination = *destination;
++                result.first = *base;
++                result.power = *power;
++            }
++            Instr::Powf(destination, base, power) => {
++                result.opcode = 3;
++                result.destination = *destination;
++                result.first = *base;
++                result.second = *power;
++            }
++            Instr::BuiltinFun(destination, symbol, argument) => {
++                result.opcode = builtin_code(*symbol)?;
++                result.destination = *destination;
++                result.first = *argument;
++            }
++            _ => {
++                return Err(F64TransferError::Unsupported(
++                    "control flow or external instruction",
++                ));
++            }
++        }
++        Ok(result)
++    }
++    fn encoded_len(self) -> Result<usize, F64TransferError> {
++        let phase = if matches!(self.phase, ComplexPhase::PartialReal(_)) {
++            9
++        } else {
++            1
++        };
++        let payload = match self.opcode {
++            0 | 1 => add(
++                16,
++                backing::<u64>(self.operands.len(), "operand encoding")?,
++                "operand encoding",
++            )?,
++            2 | 3 => 24,
++            _ => 16,
++        };
++        add(1 + phase, payload, "instruction encoding")
++    }
++    fn write(self, writer: &mut Writer<'_>) {
++        writer.bytes(&[self.opcode]);
++        match self.phase {
++            ComplexPhase::Real => writer.bytes(&[0]),
++            ComplexPhase::Imag => writer.bytes(&[1]),
++            ComplexPhase::Any => writer.bytes(&[2]),
++            ComplexPhase::PartialReal(count) => {
++                writer.bytes(&[3]);
++                writer.index(count);
++            }
++        }
++        writer.index(self.destination);
++        match self.opcode {
++            0 | 1 => {
++                writer.index(self.operands.len());
++                for index in 0..self.operands.len() {
++                    writer.index(self.operands.get(index));
++                }
++            }
++            2 => {
++                writer.index(self.first);
++                writer.bytes(&self.power.to_le_bytes());
++            }
++            3 => {
++                writer.index(self.first);
++                writer.index(self.second);
++            }
++            _ => writer.index(self.first),
++        }
++    }
++}
++fn builtin_code(symbol: Symbol) -> Result<u8, F64TransferError> {
++    [
++        Symbol::EXP,
++        Symbol::LOG,
++        Symbol::SIN,
++        Symbol::COS,
++        Symbol::SQRT,
++        Symbol::ABS,
++        Symbol::CONJ,
++    ]
++    .iter()
++    .position(|candidate| symbol == *candidate)
++    .map(|index| index as u8 + 4)
++    .ok_or(F64TransferError::Unsupported("builtin symbol"))
++}
++fn builtin_symbol(code: u8) -> Symbol {
++    match code {
++        4 => Symbol::EXP,
++        5 => Symbol::LOG,
++        6 => Symbol::SIN,
++        7 => Symbol::COS,
++        8 => Symbol::SQRT,
++        9 => Symbol::ABS,
++        10 => Symbol::CONJ,
++        _ => unreachable!("inspected builtin"),
++    }
++}
++fn check_index(index: usize, stack: usize, kind: &'static str) -> Result<(), F64TransferError> {
++    if index >= stack {
++        return Err(F64TransferError::Index(kind, index));
++    }
++    Ok(())
++}
++fn validate_instruction(
++    instruction: NativeInstruction<'_>,
++    extents: &mut F64ProgramExtents,
++) -> Result<(), F64TransferError> {
++    check_index(instruction.destination, extents.stack, "destination")?;
++    if instruction.destination < extents.reserved {
++        return Err(F64TransferError::Index(
++            "protected destination",
++            instruction.destination,
++        ));
++    }
++    // Numerica 3.0.1's native f64 Real::pow takes u64 but debug-asserts this
++    // range before an i32 cast. Symbolica supplies unsigned_abs for negatives.
++    // A checked transfer must not turn this unsupported domain into a panic or
++    // a release-build truncated exponent, nor replace it with different arithmetic.
++    if instruction.opcode == 2 && instruction.power.unsigned_abs() > i32::MAX as u64 {
++        return Err(F64TransferError::Unsupported(
++            "integer power exceeds Numerica f64 range",
++        ));
++    }
++    if let ComplexPhase::PartialReal(count) = instruction.phase {
++        if instruction.opcode > 1 || count > instruction.operands.len() {
++            return Err(F64TransferError::Unsupported(
++                "PartialReal outside Add/Mul operand extent",
++            ));
++        }
++    }
++    match instruction.opcode {
++        0 | 1 => {
++            if instruction.operands.len() == 0 {
++                return Err(F64TransferError::Encoding("empty Add/Mul"));
++            }
++            for index in 0..instruction.operands.len() {
++                check_index(instruction.operands.get(index), extents.stack, "operand")?;
++            }
++            extents.nary_operands = add(
++                extents.nary_operands,
++                instruction.operands.len(),
++                "operand population",
++            )?;
++        }
++        2 | 4..=10 => check_index(instruction.first, extents.stack, "operand")?,
++        3 => {
++            check_index(instruction.first, extents.stack, "operand")?;
++            check_index(instruction.second, extents.stack, "operand")?;
++        }
++        _ => return Err(F64TransferError::Unsupported("opcode")),
++    }
++    Ok(())
++}
++
++struct Writer<'a> {
++    bytes: &'a mut [u8],
++    position: usize,
++}
++impl Writer<'_> {
++    fn bytes(&mut self, bytes: &[u8]) {
++        let end = self.position + bytes.len();
++        self.bytes[self.position..end].copy_from_slice(bytes);
++        self.position = end;
++    }
++    fn index(&mut self, index: usize) {
++        self.bytes(&(index as u64).to_le_bytes());
++    }
++}
++struct Cursor<'a> {
++    bytes: &'a [u8],
++    position: usize,
++}
++impl<'a> Cursor<'a> {
++    fn take(&mut self, count: usize) -> Result<&'a [u8], F64TransferError> {
++        let end = add(self.position, count, "cursor")?;
++        let result = self
++            .bytes
++            .get(self.position..end)
++            .ok_or(F64TransferError::Encoding("truncated encoding"))?;
++        self.position = end;
++        Ok(result)
++    }
++    fn byte(&mut self) -> Result<u8, F64TransferError> {
++        Ok(self.take(1)?[0])
++    }
++    fn u64(&mut self) -> Result<u64, F64TransferError> {
++        Ok(u64::from_le_bytes(self.take(8)?.try_into().unwrap()))
++    }
++    fn index(&mut self) -> Result<usize, F64TransferError> {
++        usize::try_from(self.u64()?).map_err(|_| F64TransferError::Overflow("index/count"))
++    }
++    fn instruction(&mut self) -> Result<NativeInstruction<'a>, F64TransferError> {
++        let opcode = self.byte()?;
++        if opcode > 10 {
++            return Err(F64TransferError::Unsupported("opcode"));
++        }
++        let phase = match self.byte()? {
++            0 => ComplexPhase::Real,
++            1 => ComplexPhase::Imag,
++            2 => ComplexPhase::Any,
++            3 => ComplexPhase::PartialReal(self.index()?),
++            _ => return Err(F64TransferError::Unsupported("complex phase")),
++        };
++        let destination = self.index()?;
++        let mut result = NativeInstruction {
++            opcode,
++            phase,
++            destination,
++            first: 0,
++            second: 0,
++            power: 0,
++            operands: Operands::Encoded(&[]),
++        };
++        match opcode {
++            0 | 1 => {
++                let count = self.index()?;
++                let bytes = self.take(backing::<u64>(count, "operand encoding")?)?;
++                // Validate every encoded usize conversion before the borrowed fast accessor.
++                for raw in bytes.chunks_exact(8) {
++                    usize::try_from(u64::from_le_bytes(raw.try_into().unwrap()))
++                        .map_err(|_| F64TransferError::Overflow("operand index"))?;
++                }
++                result.operands = Operands::Encoded(bytes);
++            }
++            2 => {
++                result.first = self.index()?;
++                result.power = i64::from_le_bytes(self.take(8)?.try_into().unwrap());
++            }
++            3 => {
++                result.first = self.index()?;
++                result.second = self.index()?;
++            }
++            _ => result.first = self.index()?,
++        }
++        Ok(result)
++    }
++}
++
++/// Borrowed, allocation-free structural inspection. Dataflow validation and admission
++/// remain separate; only `restore_with` can return the existing supplier evaluator.
++#[derive(Clone, Copy, Debug)]
++pub struct F64ProgramView<'a> {
++    bytes: &'a [u8],
++    extents: F64ProgramExtents,
++    instruction_start: usize,
++}
++impl<'a> F64ProgramView<'a> {
++    /// Inspect the supported header, exact populations, indices and complete encoding.
++    /// No symbolic state or allocation is restored, and the bytes grant no allowance.
++    pub fn inspect(bytes: &'a [u8]) -> Result<Self, F64TransferError> {
++        let mut cursor = Cursor { bytes, position: 0 };
++        if cursor.take(8)? != MAGIC
++            || cursor.take(2)? != VERSION.to_le_bytes()
++            || cursor.take(2)? != [0, 0]
++        {
++            return Err(F64TransferError::Header);
++        }
++        let mut extents = shape(
++            cursor.index()?,
++            cursor.index()?,
++            cursor.index()?,
++            cursor.index()?,
++            cursor.index()?,
++        )?;
++        cursor.take(backing::<u64>(extents.constants, "constant encoding")?)?;
++        for _ in 0..extents.results {
++            check_index(cursor.index()?, extents.stack, "result")?;
++        }
++        let instruction_start = cursor.position;
++        for _ in 0..extents.instructions {
++            let instruction = cursor.instruction()?;
++            validate_instruction(instruction, &mut extents)?;
++        }
++        if cursor.position != bytes.len() {
++            return Err(F64TransferError::Encoding("unconsumed encoding"));
++        }
++        extents.encoded_bytes = bytes.len();
++        Ok(Self {
++            bytes,
++            extents: extents.finish()?,
++            instruction_start,
++        })
++    }
++    /// Actual derived populations and requested backing, never native admission.
++    pub fn extents(&self) -> F64ProgramExtents {
++        self.extents
++    }
++    /// Admit actual requested backing once, before any validation/materialization
++    /// allocation, then check definition-before-read and restore fresh supplier storage.
++    /// The unchanged generic admission error is retained with its original source chain.
++    pub fn restore_with<E>(
++        self,
++        admit: impl FnOnce(&F64ProgramExtents) -> Result<(), E>,
++    ) -> Result<ExpressionEvaluator<f64>, F64RestoreError<E>> {
++        admit(&self.extents).map_err(F64RestoreError::Admission)?;
++        let mut defined =
++            reserve::<u8>(self.extents.validation_bytes).map_err(F64RestoreError::Allocation)?;
++        defined.resize(self.extents.validation_bytes, 0);
++        let mut cursor = Cursor {
++            bytes: self.bytes,
++            position: self.instruction_start,
++        };
++        for _ in 0..self.extents.instructions {
++            let instruction = cursor.instruction()?;
++            let check = |index: usize| -> Result<(), F64TransferError> {
++                if index >= self.extents.reserved && defined[index / 8] & (1 << (index % 8)) == 0 {
++                    return Err(F64TransferError::Undefined(index));
++                }
++                Ok(())
++            };
++            match instruction.opcode {
++                0 | 1 => {
++                    for index in 0..instruction.operands.len() {
++                        check(instruction.operands.get(index))?;
++                    }
++                }
++                2 | 4..=10 => check(instruction.first)?,
++                3 => {
++                    check(instruction.first)?;
++                    check(instruction.second)?;
++                }
++                _ => unreachable!(),
++            }
++            defined[instruction.destination / 8] |= 1 << (instruction.destination % 8);
++        }
++        cursor.position = HEADER + 8 * self.extents.constants;
++        for _ in 0..self.extents.results {
++            let index = cursor.index()?;
++            if index >= self.extents.reserved && defined[index / 8] & (1 << (index % 8)) == 0 {
++                return Err(F64TransferError::Undefined(index).into());
++            }
++        }
++        drop(defined);
++        let mut stack = reserve(self.extents.stack).map_err(F64RestoreError::Allocation)?;
++        stack.resize(self.extents.stack, f64::NAN);
++        cursor.position = HEADER;
++        for value in &mut stack[self.extents.parameters..self.extents.reserved] {
++            *value = f64::from_bits(cursor.u64()?);
++        }
++        let mut result_indices =
++            reserve(self.extents.results).map_err(F64RestoreError::Allocation)?;
++        for _ in 0..self.extents.results {
++            result_indices.push(cursor.index()?);
++        }
++        let mut instructions =
++            reserve(self.extents.instructions).map_err(F64RestoreError::Allocation)?;
++        for _ in 0..self.extents.instructions {
++            let wire = cursor.instruction()?;
++            let instruction = match wire.opcode {
++                0 | 1 => {
++                    let mut operands =
++                        reserve(wire.operands.len()).map_err(F64RestoreError::Allocation)?;
++                    for index in 0..wire.operands.len() {
++                        operands.push(wire.operands.get(index));
++                    }
++                    if wire.opcode == 0 {
++                        Instr::Add(wire.destination, operands)
++                    } else {
++                        Instr::Mul(wire.destination, operands)
++                    }
++                }
++                2 => Instr::Pow(wire.destination, wire.first, wire.power),
++                3 => Instr::Powf(wire.destination, wire.first, wire.second),
++                _ => Instr::BuiltinFun(wire.destination, builtin_symbol(wire.opcode), wire.first),
++            };
++            instructions.push((instruction, wire.phase));
++        }
++        Ok(ExpressionEvaluator {
++            stack,
++            param_count: self.extents.parameters,
++            reserved_indices: self.extents.reserved,
++            instructions,
++            result_indices,
++            external_fns: Vec::new(),
++            settings: OptimizationSettings::default(),
++        })
++    }
++}
++
++fn reserve<T>(entries: usize) -> Result<Vec<T>, TryReserveError> {
++    #[cfg(test)]
++    {
++        let attempt = ALLOCATION_ATTEMPTS.with(|count| {
++            count.set(count.get() + 1);
++            count.get()
++        });
++        if FAIL_RESERVATION_AT.with(|count| count.get()) == Some(attempt) {
++            return Err(Vec::<u8>::new().try_reserve_exact(usize::MAX).unwrap_err());
++        }
++    }
++    let mut values = Vec::new();
++    values.try_reserve_exact(entries)?;
++    Ok(values)
++}
++#[cfg(test)]
++thread_local! {
++    static ALLOCATION_ATTEMPTS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
++    static FAIL_RESERVATION_AT: std::cell::Cell<Option<usize>> = const { std::cell::Cell::new(None) };
++}
++#[cfg(test)]
++mod tests;
+diff --git a/src/evaluate/f64_transfer/tests.rs b/src/evaluate/f64_transfer/tests.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..91f669857047cbc7dff02d843839651f9dfb8a3c
+--- /dev/null
++++ b/src/evaluate/f64_transfer/tests.rs
+@@ -0,0 +1,512 @@
++use super::*;
++use crate::{
++    atom::{Atom, AtomCore},
++    parse, symbol,
++};
++use std::{cell::Cell, convert::Infallible};
++
++fn fixture() -> ExpressionEvaluator<f64> {
++    ExpressionEvaluator {
++        stack: vec![
++            12.,
++            13.,
++            -0.,
++            f64::from_bits(0x7ff8_0000_0000_1234),
++            14.,
++            15.,
++            16.,
++            17.,
++        ],
++        param_count: 2,
++        reserved_indices: 4,
++        instructions: vec![
++            (Instr::Add(4, vec![0, 2]), ComplexPhase::Any),
++            (Instr::Mul(5, vec![4, 1]), ComplexPhase::PartialReal(1)),
++            (Instr::Pow(6, 5, -1), ComplexPhase::Real),
++        ],
++        result_indices: vec![6, 0, 2, 3, 6],
++        external_fns: vec![],
++        settings: OptimizationSettings::default(),
++    }
++}
++fn encode(source: &ExpressionEvaluator<f64>) -> Vec<u8> {
++    let source = source.f64_transfer().unwrap();
++    let mut bytes = vec![0; source.encoded_len()];
++    source.write_into(&mut bytes).unwrap();
++    bytes
++}
++fn restore(bytes: &[u8]) -> ExpressionEvaluator<f64> {
++    F64ProgramView::inspect(bytes)
++        .unwrap()
++        .restore_with(|_| Ok::<_, Infallible>(()))
++        .unwrap()
++}
++fn bits(values: &[f64]) -> Vec<u64> {
++    values.iter().map(|value| value.to_bits()).collect()
++}
++fn set_index(bytes: &mut [u8], offset: usize, index: u64) {
++    bytes[offset..offset + 8].copy_from_slice(&index.to_le_bytes());
++}
++fn allocations() -> usize {
++    ALLOCATION_ATTEMPTS.with(Cell::get)
++}
++fn reset_allocations() {
++    ALLOCATION_ATTEMPTS.with(|count| count.set(0));
++    FAIL_RESERVATION_AT.with(|count| count.set(None));
++}
++
++#[test]
++fn exact_bits_aliases_order_and_cold_state_roundtrip() {
++    let mut source = fixture();
++    let bytes = encode(&source);
++    let native = source.f64_transfer().unwrap().extents();
++    assert_eq!(F64ProgramView::inspect(&bytes).unwrap().extents(), native);
++    let mut restored = restore(&bytes);
++    assert_eq!(source.instructions, restored.instructions);
++    assert_eq!(source.result_indices, restored.result_indices);
++    assert_eq!(bits(source.get_constants()), bits(restored.get_constants()));
++    for (index, value) in restored.stack.iter().enumerate() {
++        if !(2..4).contains(&index) {
++            assert!(value.is_nan());
++        }
++    }
++    for params in [[2., 3.], [-2., 1.5], [4., 2.]] {
++        let mut before = vec![0.; 5];
++        let mut after = vec![0.; 5];
++        source.try_evaluate(&params, &mut before).unwrap();
++        restored.try_evaluate(&params, &mut after).unwrap();
++        assert_eq!(bits(&before), bits(&after));
++    }
++    assert_eq!(
++        encode(&source),
++        bytes,
++        "warmed parameter/intermediate slots are never encoded"
++    );
++    source.settings.verbose = true;
++    source.settings.n_cores = 7;
++    assert_eq!(
++        encode(&source),
++        bytes,
++        "preparation settings are not encoded"
++    );
++    let cold = restore(&bytes);
++    assert!(cold.settings.abort_check.is_none());
++    assert!(cold.settings.hot_start.is_none());
++    assert!(cold.external_fns.is_empty());
++}
++
++#[test]
++fn nary_operand_order_is_not_reassociated() {
++    let source = ExpressionEvaluator {
++        stack: vec![0.; 4],
++        param_count: 3,
++        reserved_indices: 3,
++        instructions: vec![(Instr::Add(3, vec![0, 1, 2]), ComplexPhase::Any)],
++        result_indices: vec![3],
++        external_fns: vec![],
++        settings: OptimizationSettings::default(),
++    };
++    let mut restored = restore(&encode(&source));
++    assert_eq!(
++        restored.evaluate_single(&[1e16, -1e16, 1.]).to_bits(),
++        1f64.to_bits()
++    );
++    assert_eq!(restored.instructions, source.instructions);
++}
++
++#[test]
++fn fixed_builtins_integer_power_and_powf_use_supplier_execution() {
++    let mut source = ExpressionEvaluator {
++        stack: vec![0.; 10],
++        param_count: 1,
++        reserved_indices: 1,
++        instructions: vec![],
++        result_indices: (1..10).collect(),
++        external_fns: vec![],
++        settings: OptimizationSettings::default(),
++    };
++    for (index, symbol) in [
++        Symbol::EXP,
++        Symbol::LOG,
++        Symbol::SIN,
++        Symbol::COS,
++        Symbol::SQRT,
++        Symbol::ABS,
++        Symbol::CONJ,
++    ]
++    .into_iter()
++    .enumerate()
++    {
++        source
++            .instructions
++            .push((Instr::BuiltinFun(index + 1, symbol, 0), ComplexPhase::Real));
++    }
++    source
++        .instructions
++        .push((Instr::Pow(8, 0, -3), ComplexPhase::Real));
++    source
++        .instructions
++        .push((Instr::Powf(9, 0, 0), ComplexPhase::Any));
++    let mut restored = restore(&encode(&source));
++    let mut a = [0.; 9];
++    let mut b = [0.; 9];
++    source.try_evaluate(&[1.], &mut a).unwrap();
++    restored.try_evaluate(&[1.], &mut b).unwrap();
++    assert_eq!(bits(&a), bits(&b));
++    assert_eq!(source.instructions, restored.instructions);
++}
++
++#[test]
++fn integer_power_source_domain_endpoints_and_refusals_precede_admission() {
++    for exponent in [-(i32::MAX as i64), i32::MAX as i64] {
++        let mut source = ExpressionEvaluator {
++            stack: vec![0.; 2],
++            param_count: 1,
++            reserved_indices: 1,
++            instructions: vec![(Instr::Pow(1, 0, exponent), ComplexPhase::Any)],
++            result_indices: vec![1],
++            external_fns: vec![],
++            settings: OptimizationSettings::default(),
++        };
++        let bytes = encode(&source);
++        let mut restored = restore(&bytes);
++        assert_eq!(source.instructions, restored.instructions);
++        for base in [-1., 1.] {
++            assert_eq!(
++                source.evaluate_single(&[base]).to_bits(),
++                restored.evaluate_single(&[base]).to_bits()
++            );
++        }
++    }
++    let bytes = encode(&fixture());
++    for exponent in [
++        i64::MIN,
++        i64::MAX,
++        -(i32::MAX as i64) - 1,
++        i32::MAX as i64 + 1,
++    ] {
++        let mut source = fixture();
++        source.instructions[2].0 = Instr::Pow(6, 5, exponent);
++        assert!(matches!(
++            source.f64_transfer(),
++            Err(F64TransferError::Unsupported(_))
++        ));
++        let mut forged = bytes.clone();
++        let end = forged.len();
++        forged[end - 8..].copy_from_slice(&exponent.to_le_bytes());
++        reset_allocations();
++        let called = Cell::new(false);
++        let inspected = F64ProgramView::inspect(&forged).map(|view| {
++            view.restore_with(|_| {
++                called.set(true);
++                Ok::<_, Infallible>(())
++            })
++        });
++        assert!(matches!(inspected, Err(F64TransferError::Unsupported(_))));
++        assert!(!called.get());
++        assert_eq!(allocations(), 0);
++    }
++    // Floating powers have their original separate f64 semantics, not an integer
++    // cast or a substitute implementation for refused integer instructions.
++    let mut source = ExpressionEvaluator {
++        stack: vec![0.; 3],
++        param_count: 2,
++        reserved_indices: 2,
++        instructions: vec![(Instr::Powf(2, 0, 1), ComplexPhase::Any)],
++        result_indices: vec![2],
++        external_fns: vec![],
++        settings: OptimizationSettings::default(),
++    };
++    let mut restored = restore(&encode(&source));
++    for power in [i64::MAX as f64, 0.5, -0.5] {
++        assert_eq!(
++            source.evaluate_single(&[1., power]).to_bits(),
++            restored.evaluate_single(&[1., power]).to_bits()
++        );
++    }
++}
++
++#[test]
++fn actual_requested_growth_requires_native_admission_even_for_tiny_encoding() {
++    let mut bytes = encode(&fixture());
++    set_index(&mut bytes, 28, 1_000_000);
++    let view = F64ProgramView::inspect(&bytes).unwrap();
++    assert!(bytes.len() < 512);
++    assert_eq!(view.extents().stack, 1_000_000);
++    assert_eq!(view.extents().stack_bytes, 8_000_000);
++    reset_allocations();
++    let result = view.restore_with(|actual| {
++        assert_eq!(actual.stack_bytes, 8_000_000);
++        assert_eq!(allocations(), 0);
++        Err("original growth denial")
++    });
++    assert!(matches!(
++        result,
++        Err(F64RestoreError::Admission("original growth denial"))
++    ));
++    assert_eq!(allocations(), 0);
++}
++
++#[test]
++fn scalar_phases_are_preserved_and_partial_real_is_nary_bounded() {
++    for phase in [
++        ComplexPhase::Real,
++        ComplexPhase::Imag,
++        ComplexPhase::Any,
++        ComplexPhase::PartialReal(0),
++        ComplexPhase::PartialReal(2),
++    ] {
++        let mut source = fixture();
++        source.instructions[0].1 = phase;
++        let restored = restore(&encode(&source));
++        assert_eq!(source.instructions, restored.instructions);
++    }
++    let mut source = fixture();
++    source.instructions[0].1 = ComplexPhase::PartialReal(3);
++    assert!(source.f64_transfer().is_err());
++    source.instructions[0].1 = ComplexPhase::Any;
++    source.instructions[2].1 = ComplexPhase::PartialReal(1);
++    assert!(source.f64_transfer().is_err());
++}
++
++#[test]
++fn structurally_malformed_bytes_never_invoke_admission() {
++    let original = encode(&fixture());
++    let start = F64ProgramView::inspect(&original)
++        .unwrap()
++        .instruction_start;
++    let mut cases = vec![];
++    for count in 0..original.len() {
++        cases.push(original[..count].to_vec());
++    }
++    let mut bad = original.clone();
++    bad.push(0);
++    cases.push(bad);
++    for (offset, value) in [(0, 0), (8, 2), (10, 1), (start, 11), (start + 1, 9)] {
++        let mut bad = original.clone();
++        bad[offset] = value;
++        cases.push(bad);
++    }
++    for (offset, value) in [
++        (12, u64::MAX),
++        (20, u64::MAX),
++        (28, u64::MAX),
++        (36, u64::MAX),
++        (44, u64::MAX),
++        (HEADER + 16, 8),
++        (start + 2, 0),
++        (start + 2, 8),
++        (start + 10, 0),
++        (start + 10, u64::MAX),
++        (start + 18, 8),
++        (start + 26, u64::MAX),
++    ] {
++        let mut bad = original.clone();
++        set_index(&mut bad, offset, value);
++        cases.push(bad);
++    }
++    for bad in cases {
++        reset_allocations();
++        let calls = Cell::new(0);
++        let result = F64ProgramView::inspect(&bad).map(|view| {
++            view.restore_with(|_| {
++                calls.set(calls.get() + 1);
++                Ok::<_, Infallible>(())
++            })
++        });
++        assert!(result.is_err());
++        assert_eq!(calls.get(), 0);
++        assert_eq!(allocations(), 0);
++    }
++}
++
++#[test]
++fn definition_before_read_and_results_are_checked_after_admission() {
++    let original = encode(&fixture());
++    let start = F64ProgramView::inspect(&original)
++        .unwrap()
++        .instruction_start;
++    for (offset, index) in [(start + 18, 4), (start + 18, 6), (HEADER + 16, 7)] {
++        let mut bytes = original.clone();
++        set_index(&mut bytes, offset, index);
++        let view = F64ProgramView::inspect(&bytes).unwrap();
++        reset_allocations();
++        let calls = Cell::new(0);
++        let result = view.restore_with(|_| {
++            assert_eq!(allocations(), 0);
++            calls.set(calls.get() + 1);
++            Ok::<_, Infallible>(())
++        });
++        assert!(matches!(
++            result,
++            Err(F64RestoreError::Program(F64TransferError::Undefined(_)))
++        ));
++        assert_eq!(calls.get(), 1);
++        assert_eq!(
++            allocations(),
++            1,
++            "only admitted definition scratch, no evaluator allocation"
++        );
++    }
++}
++
++#[derive(Debug)]
++struct Denied {
++    payload: Box<str>,
++    cause: Box<std::io::Error>,
++}
++impl fmt::Display for Denied {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        self.payload.fmt(f)
++    }
++}
++impl Error for Denied {
++    fn source(&self) -> Option<&(dyn Error + 'static)> {
++        Some(&*self.cause)
++    }
++}
++
++#[test]
++fn original_admission_error_and_source_survive_without_any_allocation() {
++    let bytes = encode(&fixture());
++    let view = F64ProgramView::inspect(&bytes).unwrap();
++    let expected = view.extents();
++    let denied = Denied {
++        payload: "original cancellation payload".into(),
++        cause: Box::new(std::io::Error::new(
++            std::io::ErrorKind::Interrupted,
++            "original source",
++        )),
++    };
++    let cause = &*denied.cause as *const std::io::Error;
++    reset_allocations();
++    let calls = Cell::new(0);
++    let error = view
++        .restore_with(|actual| {
++            assert_eq!(*actual, expected);
++            assert_eq!(allocations(), 0);
++            calls.set(calls.get() + 1);
++            Err(denied)
++        })
++        .unwrap_err();
++    assert_eq!(calls.get(), 1);
++    assert_eq!(allocations(), 0);
++    let original = error.source().unwrap().downcast_ref::<Denied>().unwrap();
++    assert_eq!(original.payload.as_ref(), "original cancellation payload");
++    assert_eq!(&*original.cause as *const _, cause);
++    assert_eq!(
++        original
++            .source()
++            .unwrap()
++            .downcast_ref::<std::io::Error>()
++            .unwrap()
++            .kind(),
++        std::io::ErrorKind::Interrupted
++    );
++    assert!(matches!(error, F64RestoreError::Admission(_)));
++}
++
++#[test]
++fn allocation_refusal_is_distinct_at_every_materialization_step() {
++    let bytes = encode(&fixture());
++    let view = F64ProgramView::inspect(&bytes).unwrap();
++    reset_allocations();
++    view.restore_with(|_| Ok::<_, Infallible>(())).unwrap();
++    let requests = allocations();
++    assert!(requests >= 6);
++    for failed in 1..=requests {
++        reset_allocations();
++        FAIL_RESERVATION_AT.with(|value| value.set(Some(failed)));
++        let calls = Cell::new(0);
++        let error = view
++            .restore_with(|_| {
++                assert_eq!(allocations(), 0);
++                calls.set(calls.get() + 1);
++                Ok::<_, Infallible>(())
++            })
++            .unwrap_err();
++        assert_eq!(calls.get(), 1);
++        assert!(matches!(error, F64RestoreError::Allocation(_)));
++        assert!(
++            error
++                .source()
++                .unwrap()
++                .downcast_ref::<TryReserveError>()
++                .is_some()
++        );
++        assert_eq!(allocations(), failed);
++    }
++    reset_allocations();
++}
++
++#[test]
++fn producer_refuses_control_flow_externals_and_protected_destinations() {
++    for instruction in [
++        Instr::IfElse(0, super::super::Label(0)),
++        Instr::Goto(super::super::Label(0)),
++        Instr::Label(super::super::Label(0)),
++        Instr::Join(4, 0, 0, 0),
++        Instr::ExternalFun(4, 0, vec![0]),
++        Instr::Add(0, vec![0]),
++        Instr::Add(4, vec![]),
++    ] {
++        let mut source = fixture();
++        source.instructions = vec![(instruction, ComplexPhase::Any)];
++        assert!(source.f64_transfer().is_err());
++    }
++    let mut source = fixture();
++    source
++        .external_fns
++        .push(super::super::ExternalFunctionContainer {
++            export_name: "unused external".into(),
++            symbol: Symbol::EXP,
++            tags: vec![],
++            fixed_args: vec![],
++            imp: None,
++            constant_index: None,
++            stack: vec![],
++            body: None,
++        });
++    assert!(source.f64_transfer().is_err());
++    let source = fixture();
++    let borrowed = source.f64_transfer().unwrap();
++    assert!(matches!(
++        borrowed.write_into(&mut []),
++        Err(F64TransferError::Destination { .. })
++    ));
++}
++
++#[test]
++fn actual_direct_producer_value_and_first_derivatives_roundtrip() {
++    let x = symbol!("checked_transfer_x");
++    let y = symbol!("checked_transfer_y");
++    let parameters = [Atom::var(x), Atom::var(y)];
++    let value = parse!(
++        "checked_transfer_x^3+checked_transfer_x*checked_transfer_y+sin(checked_transfer_x)+exp(checked_transfer_y)+log(checked_transfer_x)+sqrt(checked_transfer_y)+(checked_transfer_x+checked_transfer_y)^(checked_transfer_x-checked_transfer_y)"
++    );
++    let expressions = [value.clone(), value.derivative(x), value.derivative(y)];
++    let mut source = Atom::evaluator_multiple(&expressions, &parameters)
++        .direct_translation(true)
++        .cores(1)
++        .horner_iterations(10)
++        .cpe_iterations(Some(1))
++        .max_common_pair_cache_entries(65536)
++        .max_common_pair_distance(256)
++        .max_horner_scheme_variables(500)
++        .verbose(false)
++        .build()
++        .unwrap()
++        .map_coeff(&|coefficient| coefficient.re.to_f64());
++    let bytes = encode(&source);
++    let mut restored = restore(&bytes);
++    assert_eq!(source.instructions, restored.instructions);
++    for parameters in [[1.2, 0.7], [2.3, 1.8], [4.1, 2.2]] {
++        let mut before = [0.; 3];
++        let mut after = [0.; 3];
++        source.try_evaluate(&parameters, &mut before).unwrap();
++        restored.try_evaluate(&parameters, &mut after).unwrap();
++        assert_eq!(bits(&before), bits(&after));
++        assert!(after.iter().all(|value| value.is_finite()));
++    }
++    assert_eq!(encode(&source), bytes);
++}
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
 --- a/src/poly/univariate.rs

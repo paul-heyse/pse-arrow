@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "49ab1087c8580140c45a182db9fda5b7fa3f14cfde53c29ad2d7ea16115c05e9",
+  "delta_sha256": "b33aae8d38bffecc6ef586eff798d400cf82298a5444fcc4d8f0a6e9f822185b",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -28,7 +28,7 @@
     },
     "Cargo.toml": {
       "mode": "100644",
-      "sha256": "0182e6d1e5ba60d43405ea25b71fdd103dbf3002e939415d96a39b6b9ed825d2"
+      "sha256": "77052f02d816a1914c7a9ab3197800096ee556d7053f406e567941eaef8ac85d"
     },
     "Cargo.toml.orig": {
       "mode": "100644",
@@ -304,7 +304,7 @@
     },
     "src/atom.rs": {
       "mode": "100644",
-      "sha256": "8a80326d8fba8686ee894d7de87834e0c4a04cb2ed881a77d56673119ad0f5aa"
+      "sha256": "b06021b47fd68afb69426d769762f0d0c51c1977225d1519e8649045031b0086"
     },
     "src/atom/alias.rs": {
       "mode": "100644",
@@ -312,7 +312,7 @@
     },
     "src/atom/coefficient.rs": {
       "mode": "100644",
-      "sha256": "c23a44275b971ea1174eea8508c4f251a082e936e7683dc63852c87af094824a"
+      "sha256": "bb2c8713d54984ca6e80417a60a9dc19eb1eb54344575ea70621023d38f8a288"
     },
     "src/atom/core.rs": {
       "mode": "100644",
@@ -322,13 +322,17 @@
       "mode": "100644",
       "sha256": "de1d6e78fd654877f216dda8bbc13c581a0a4820a07684feea26cf0ec5e6e5e1"
     },
+    "src/atom/packing.rs": {
+      "mode": "100644",
+      "sha256": "61e5e57a3d12b8a050ffc0843d580ada3d98414b2a8f8922f95eb2e9d8220d5f"
+    },
     "src/atom/properties.rs": {
       "mode": "100644",
       "sha256": "b10705cdecfd2b2c24bfc79b66064f01d9ac06d5d5e347cc68afe8ad6aba3ec0"
     },
     "src/atom/representation.rs": {
       "mode": "100644",
-      "sha256": "88e16330628e16ea2ba8804cdef2cdb4abb1a09e6b7f6f4ef891834c605577e7"
+      "sha256": "7d3e49923c699d207527bc7e5f33bc4ec1276e1e4ead730dffeffaf494d56bc4"
     },
     "src/coefficient.rs": {
       "mode": "100644",
@@ -392,7 +396,7 @@
     },
     "src/evaluate.rs": {
       "mode": "100644",
-      "sha256": "2c253d7b16c46778d811389f600d8bf8653384d70907bced47c9314868b21d34"
+      "sha256": "6ff9fe286457f32029396541b3619c09c623d4a32a90275e8e937f0c14063b6c"
     },
     "src/evaluate/backend.rs": {
       "mode": "100644",
@@ -421,6 +425,14 @@
     "src/evaluate/external.rs": {
       "mode": "100644",
       "sha256": "025b9a73d310afd29993e079af59a90e5a264656dc174b6f794bd1121a4a11e0"
+    },
+    "src/evaluate/f64_transfer.rs": {
+      "mode": "100644",
+      "sha256": "e352c14f8db8e20206668d0dcd50f97ed0d08a90969c11a740a8ef1b09b7717c"
+    },
+    "src/evaluate/f64_transfer/tests.rs": {
+      "mode": "100644",
+      "sha256": "a0e56f979fcc63355e2dc322571a22000da7716c75901c0fa7a6001d68bdab80"
     },
     "src/evaluate/function_map.rs": {
       "mode": "100644",
@@ -581,6 +593,10 @@
     "tests/numerica_api.py": {
       "mode": "100644",
       "sha256": "c00a163071aff9063fd117fa7a271fa6a78e3a43221532e2ed776b367388bd1e"
+    },
+    "tests/packing.rs": {
+      "mode": "100644",
+      "sha256": "2d0e358b22001d52934e3bb3f48c082c0ef03c10b79ccbb799002df0129e524a"
     },
     "tests/pattern_matching.rs": {
       "mode": "100644",

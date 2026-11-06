@@ -1,0 +1,88 @@
+# Checked binary64 evaluator transfer
+
+The maintained Symbolica **3.0.1** supplier exposes
+[`evaluate::f64_transfer`](symbolica/src/evaluate/f64_transfer.rs) through its public
+`evaluate` module. It transfers the existing `ExpressionEvaluator<f64>` execution
+program, not symbolic preparation or a project-owned arithmetic interpreter. The
+[complete archive delta](deltas/readme.md) remains the source-reconstruction owner.
+The native delegation contract and activation status belong to Plan65k E03 and
+proposed ADR-0246.
+
+`ExpressionEvaluator<f64>::f64_transfer` borrows native instructions and their actual
+stack boundaries. `F64ProgramRef::extents` and `encoded_len` allocate nothing;
+`write_into` requires an exactly caller-provisioned byte slice. Constants retain their
+original binary64 bits, including signed zero and NaN payloads. Parameters and mutable
+intermediates are absent from the encoding. Instruction and operand order, repeated
+operands, integer exponents, exact stack extent, protected parameter/constant prefix,
+result indices and result aliases are preserved. The versioned fixed-width
+little-endian profile carries no serialized allocation allowance.
+
+`F64ProgramView::inspect` checks framing/version, complete byte exhaustion, checked
+integer conversions and requested layouts, populations, every index, protected
+destinations, nonempty Add/Mul and the supported instruction profile without allocating.
+This is passive structural inspection; definition-before-read validation remains
+outstanding. `restore_with` calls the supplied native admission callback exactly once
+with those derived extents, before requesting validation scratch or evaluator backing.
+A denial retains the caller's original generic error value and source chain. Reservation
+failures retain `TryReserveError` separately from program and admission refusals.
+
+After admission, an initially empty definition bitset checks reads before each write
+and checks every result. Parameters and constants are initially defined; temporary
+destinations may be reused only under the original instruction order. The bitset is
+released before final exact-reservation vectors are materialized. Fresh parameters
+and intermediate stack slots contain NaN; constants keep their original bits. The
+restored evaluator uses its existing instruction implementation. No Atom, coefficient
+conversion, symbol registration, normalization, differentiation, hot-start tree,
+optimization setting, external function, callback or warmed worker value is restored.
+Default preparation settings are inert for this execution profile. Later preparation,
+complex evaluation, vectorization and native compilation equivalence are not promised.
+
+The initial profile supports Add, Mul, integer Pow, Powf and the existing unary
+EXP/LOG/SIN/COS/SQRT/ABS/CONJ builtins. Builtins use fixed profile discriminants, not
+serialized Symbols or tags. All external-function state and all control-flow
+instructions refuse, including unused external state. The f64 execution loop and its
+operation counter ignore `ComplexPhase`; the scalar flags are preserved as metadata.
+The supplier emits `PartialReal` only for Add/Mul, where inspection checks its prefix
+count against the actual operand population.
+
+Integer Pow has an additional exact-source restriction: Numerica **3.0.1** native f64
+`Real::pow(u64)` debug-asserts `e <= i32::MAX`, then casts to i32. Symbolica handles a
+negative integer exponent by taking its unsigned absolute value and applying an
+inverse. This profile therefore admits only `|e| <= i32::MAX`; neighboring values and
+i64 MIN/MAX refuse during native export and encoded inspection, before admission.
+The i64 encoding remains exact for accepted values. There is no Powf substitution or
+arithmetic rewrite, no complete i64 power support claim, and no library absence claim.
+The separate Powf path retains its existing supplier behavior.
+
+Extents describe requested Rust vector backing, not allocator metadata, actual
+allocator usable size, RSS or a whole execution bound. The definition scratch and
+materialization phases do not overlap; their maximum is reported. Borrowed input bytes,
+the evaluator value itself, outer Arcs/native templates, gather/scatter buffers and
+native frames remain the consumer's accounting responsibility. A tiny valid encoding
+can request a large stack: successful passive inspection never grants that allocation.
+Every native scientific caller retains its own admission, context and permission checks.
+
+**Tested, targeted:** the pinned-toolchain, configured-unbounded command
+`cargo test --manifest-path vendor/symbolica/Cargo.toml --locked --no-default-features
+--features integer-gmp,float-mpfr,native_code_generation --lib
+evaluate::f64_transfer::tests::` passed 12/12 with zero failures, ignored tests or
+warnings. It checks original producer Value/First derivative streams, operand-order
+sensitivity, every fixed builtin, exact bits/aliases and cold reset, malformed/truncated/
+overlong encodings, integer-power boundaries, definition-before-read, denied growth,
+unchanged admission error/source, and distinct failures at each reservation step.
+The reservation fault selector is test-only; it returns an actual fallible reservation
+error without provoking machine exhaustion.
+
+The first pure lib-test build encountered six existing tests requiring the native-code
+generation feature, plus seven new Symbol constant-pattern errors and two unused
+imports. The new errors/imports were corrected and the actual required feature closure
+selected without changing or suppressing upstream tests. Its first functional run
+passed 9/10; the deliberately executed i64 MIN power exposed the Numerica premise
+above. The final 12-control run tests explicit refusal of that unsupported domain.
+The standalone supplier lock uses Rug 1.29; the repository lock selects Rug 1.30.
+Neither lockfile or source version is changed. **Interface-checked:** the configured
+unbounded, cache-off `scripts/pse check pse-math --all-targets` passed against the
+repository lock with zero errors, warnings or incomplete records and complete original
+capture/settlement. Actual native compiled-stage fixture execution, live-child activation
+and scientific qualification remain separate consumer obligations; the supplier probe
+and consuming compile are not universal coverage.

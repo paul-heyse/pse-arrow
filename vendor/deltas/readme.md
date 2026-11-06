@@ -50,7 +50,7 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `symbolica` | 6 | 0 | 2 | 0 | [symbolica.patch](symbolica.patch) |
+| `symbolica` | 7 | 0 | 4 | 0 | [symbolica.patch](symbolica.patch) |
 
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
 replacement adds 138 and deletes 103 paths relative to the published wrapper, including the
@@ -131,11 +131,21 @@ capture `target/`, caches or other untracked build artifacts. This maintenance s
 only the provenance delta; any intentional implementation change requires its own functional
 qualification.
 
-For the build-authenticated native suppliers, run
-`scripts/pse-env -- .venv/bin/python scripts/supplier_source.py <directory> ...` after an
-intentional source edit. This implements that reconstruction procedure and publishes the
-complete delta plus its derived `<directory>.source.json` receipt only after independently
-reapplying the delta to the checksum-verified archive and comparing every path, byte and mode.
+The checked binary64 evaluator transfer refresh follows this complete tracked-tree
+procedure for Symbolica only. Its checksum-verified 3.0.1 archive plus delta was
+independently reapplied and compared across all 159 files, bytes and executable modes.
+The [supplier contract and focused controls](../symbolica-f64-transfer.md) retain its
+separate execution-profile and qualification limits.
+
+For the build-authenticated native suppliers, refresh the complete delta in the private
+Git work directory described above after an intentional source edit. Independently reapply
+that delta to a second extraction of the checksum-verified archive and compare every tracked
+path, byte and executable mode. Derive the existing `<directory>.source.json` receipt only
+after that comparison passes: retain the pinned package, version and archive checksum;
+set `delta_sha256` from the complete delta bytes; and derive each `files` entry's `sha256`
+and `100644`/`100755` mode from the compared tracked tree. Publish the delta and derived
+receipt together. The complete tracked file population includes intentional new paths,
+so stage those paths before collecting `git ls-files --stage`; build caches remain excluded.
 When `native-source.json` selects a replacement native release, the same owner additionally
 downloads/checks that release, verifies its complete projection and allows changes only in the
 explicit maintained integration files before publishing the checked receipt.
