@@ -62,10 +62,10 @@ fn registry() -> QuantityRegistry {
 }
 
 // The test payload consists only of witnesses actually admitted just above;
-// this models the private parent-to-child recipe channel, never user DTO authority.
+// its authority stays in this isolated record-replay test, never a product channel.
 #[allow(
     unsafe_code,
-    reason = "controlled test fixture transfers actual admitted quantity records through the private scientific recipe boundary"
+    reason = "isolated test fixture owns the complete quantity-record replay population"
 )]
 fn qualified_record_fixture(
     value: &impl serde::Serialize,
@@ -76,7 +76,7 @@ fn qualified_record_fixture(
     // SAFETY: Only this module's actual successful admissions enter this
     // isolated immutable test channel, with their exact complete payload.
     unsafe {
-        QualifiedScientificRecipe::from_admitted_process_message(
+        QualifiedScientificRecipe::from_admitted_record_fixture(
             payload,
             digest,
             pse_ids::ContentHash::from_bytes([91; 32]),

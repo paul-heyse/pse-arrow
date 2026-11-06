@@ -221,14 +221,12 @@ mod native_receiving {
             payload,
         })
     }
-    /// Receive a compiler-issued canonical product through its original qualification.
+    /// Exercise complete decode/index/replay with this isolated fixture's actual root.
     /// # Safety
-    /// The original canonical owner must authenticate eligible producer, namespace,
-    /// dependencies, qualification and exact selected request, with its original
-    /// physical/semantic owners and operation/cancellation lifetime. A caller hash,
-    /// decoded DTO or validator success is insufficient. This test-only prerequisite
-    /// does not establish full receiving/decode/adoption/reconstruction admission.
-    unsafe fn receive_canonical(
+    /// The caller owns this complete immutable fixture and keeps its records inside
+    /// the isolated test. This establishes no canonical qualification, production
+    /// receiving admission or private-process authority.
+    unsafe fn receive_fixture(
         payload: Arc<[u8]>,
         mut scope: NativeRecipeScope,
         expected: &BodySpec,
@@ -237,38 +235,8 @@ mod native_receiving {
         cancelled: &Arc<AtomicBool>,
         allowance: TraversalAllowance,
     ) -> Result<ReceivedNative, MathError> {
-        scope.source = NativeRecipeSource::CanonicalProduct;
-        // SAFETY: the caller retains the original canonical premise above.
-        unsafe {
-            index_exact_recipe(
-                payload,
-                scope,
-                expected,
-                expected_identity,
-                cancelled,
-                allowance,
-            )
-        }?
-        .reconstruct(registry, cancelled)
-    }
-    /// Receive the trusted parent's immutable admission on its private child channel.
-    /// # Safety
-    /// The original child owner must authenticate image/build, attempt, profile,
-    /// deadline, request/execution and complete physical/factory context while the
-    /// parent retains scientific authority and original settlement ownership. Public
-    /// stdin, decoded DTOs or self-supplied hashes are insufficient. This test-only
-    /// prerequisite does not establish the full original workspace/F03 envelope.
-    unsafe fn receive_private(
-        payload: Arc<[u8]>,
-        mut scope: NativeRecipeScope,
-        expected: &BodySpec,
-        expected_identity: Option<SemanticBodyHash>,
-        registry: &QuantityRegistry,
-        cancelled: &Arc<AtomicBool>,
-        allowance: TraversalAllowance,
-    ) -> Result<ReceivedNative, MathError> {
-        scope.source = NativeRecipeSource::AdmittedProcessMessage;
-        // SAFETY: the caller retains the original private-process premise above.
+        scope.source = NativeRecipeSource::Fixture;
+        // SAFETY: the caller retains the complete isolated fixture premise above.
         unsafe {
             index_exact_recipe(
                 payload,
@@ -329,7 +297,7 @@ mod native_receiving {
         }
         fn scope(payload: &[u8]) -> NativeRecipeScope {
             NativeRecipeScope {
-                source: NativeRecipeSource::CanonicalProduct,
+                source: NativeRecipeSource::Fixture,
                 payload_digest: native_recipe_payload_hash(payload),
                 qualification: ContentHash::from_bytes([17; 32]),
                 request: ContentHash::from_bytes([18; 32]),
@@ -369,14 +337,13 @@ mod native_receiving {
             ));
         }
         #[test]
-        fn scientific_recipe_native_receivers_decode_index_and_consume_same_actual_root() {
+        fn scientific_recipe_native_fixture_decodes_indexes_and_consumes_same_actual_root() {
             let (recipe, registry) = fixture();
             let bytes = payload(&recipe);
             let cancel = Arc::new(AtomicBool::new(false));
-            // SAFETY: isolated admitted compiler fixture exercises each origin
-            // premise locally; actual runtime authentication gates remain open.
-            let canonical = unsafe {
-                receive_canonical(
+            // SAFETY: the complete immutable fixture stays within this test.
+            let received = unsafe {
+                receive_fixture(
                     bytes.clone(),
                     scope(&bytes),
                     &recipe.spec,
@@ -387,26 +354,10 @@ mod native_receiving {
                 )
             }
             .unwrap();
-            // SAFETY: this is the same locally authored, exact-root fixture as
-            // the canonical receiver above; no runtime origin authority is claimed.
-            let private = unsafe {
-                receive_private(
-                    bytes.clone(),
-                    scope(&bytes),
-                    &recipe.spec,
-                    recipe.semantic_identity,
-                    &registry,
-                    &cancel,
-                    allowance(&recipe),
-                )
-            }
-            .unwrap();
-            for received in [canonical, private] {
-                assert_eq!(received.body.spec(), &recipe.spec);
-                assert_eq!(received.body.quantities, recipe.outputs);
-                assert_eq!(received.payload.as_ref(), bytes.as_ref());
-                assert!(!received.body.has_portable_payload());
-            }
+            assert_eq!(received.body.spec(), &recipe.spec);
+            assert_eq!(received.body.quantities, recipe.outputs);
+            assert_eq!(received.payload.as_ref(), bytes.as_ref());
+            assert!(!received.body.has_portable_payload());
         }
         #[test]
         fn scientific_recipe_native_actual_complete_surviving_nodes_match_dom_membership() {
@@ -430,7 +381,7 @@ mod native_receiving {
             let digest = pse_ids::scientific_replay::admitted_recipe_payload_hash(&json);
             // SAFETY: independent legacy DOM oracle over the same fixture meaning.
             let oracle = unsafe {
-                pse_ids::scientific_replay::QualifiedScientificRecipe::from_canonical_product(
+                pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_record_fixture(
                     json,
                     digest,
                     scope(&bytes).qualification,
@@ -471,7 +422,7 @@ mod native_receiving {
                 // SAFETY: the local fixture supplies origin; deliberately corrupt
                 // digest content tests refusal without changing that premise.
                 unsafe {
-                    receive_canonical(
+                    receive_fixture(
                         bytes.clone(),
                         wrong_digest,
                         &recipe.spec,
@@ -490,7 +441,7 @@ mod native_receiving {
                 // SAFETY: this locally authored private fixture preserves origin;
                 // only its interpretation is changed to test explicit refusal.
                 unsafe {
-                    receive_private(
+                    receive_fixture(
                         encoded.clone(),
                         scope(&encoded),
                         &recipe.spec,
@@ -508,7 +459,7 @@ mod native_receiving {
                 // SAFETY: this local exact-root fixture supplies origin; the
                 // deliberately foreign expected context must be refused.
                 unsafe {
-                    receive_canonical(
+                    receive_fixture(
                         bytes.clone(),
                         scope(&bytes),
                         &context,
@@ -524,7 +475,7 @@ mod native_receiving {
                 // SAFETY: this locally authored private fixture supplies origin;
                 // the deliberately foreign expected body identity tests refusal.
                 unsafe {
-                    receive_private(
+                    receive_fixture(
                         bytes.clone(),
                         scope(&bytes),
                         &recipe.spec,
@@ -541,7 +492,7 @@ mod native_receiving {
                 // SAFETY: the same local exact-root fixture supplies origin;
                 // cancellation changes no lifetime or authentication premise.
                 unsafe {
-                    receive_canonical(
+                    receive_fixture(
                         bytes.clone(),
                         scope(&bytes),
                         &recipe.spec,
@@ -662,7 +613,7 @@ mod native_receiving {
                 // SAFETY: the local private fixture supplies origin and exact
                 // root bytes; the added proof deliberately tests replay refusal.
                 unsafe {
-                    receive_private(
+                    receive_fixture(
                         bytes.clone(),
                         scope(&bytes),
                         &recipe.spec,

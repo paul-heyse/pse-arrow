@@ -3,6 +3,7 @@
 //! Generated structural adoption and bounded Buffa; no scientific authority is created here.
 use super::{Hello, MathRuntimeError, Request, Response, RootInput};
 use crate::math::native_root_generated as native_projection;
+use crate::math::native_root_protocol::{RestoreGrant, RestorePreparation};
 use crate::math::{
     native_root_error::NativeRootWireError, native_root_generated::pb::pse::native_root::v2 as pb,
 };
@@ -98,11 +99,30 @@ macro_rules! frame {
         }
     };
 }
+impl Frame for RootInput {
+    type Wire = pb::NativeRootInput;
+    fn into_wire(self) -> Result<Self::Wire, BoundaryProjectionError> {
+        native_projection::encode_native_root_input(self)
+    }
+    fn from_wire(wire: Self::Wire) -> Result<Self, BoundaryProjectionError> {
+        native_projection::decode_native_root_input(wire)
+    }
+    fn preflight(&self) -> Result<(), MathRuntimeError> {
+        // RootInput -> RootExecutionSnapshot -> ExecutionSnapshot.
+        snapshot_depth(&self.execution.numerical, 2)
+    }
+}
 frame!(
-    RootInput,
-    pb::NativeRootInput,
-    encode_native_root_input,
-    decode_native_root_input
+    RestorePreparation,
+    pb::NativeRootRestorePreparation,
+    encode_native_root_restore_preparation,
+    decode_native_root_restore_preparation
+);
+frame!(
+    RestoreGrant,
+    pb::NativeRootRestoreGrant,
+    encode_native_root_restore_grant,
+    decode_native_root_restore_grant
 );
 frame!(
     Hello,

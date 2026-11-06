@@ -103,7 +103,7 @@ no execution pass. Controls proposed here do not assert support for new scientif
 | ID | State | Prerequisite | Delivery and targeted acceptance |
 | --- | --- | --- | --- |
 | E02 | in progress | E01; narrow working 65a/65b and receiving operation from 65i I02 | First remove kernel portable descriptor mirrors while retaining contextual receipt replay and truthful interpretation changes. Generate portable scientific records/adapters and migrate existing producers/readers. Buffa generation and supported `Validate` discharge local correspondence; native reconstruction and completion-owned selectors discharge scientific admission/use. Cover ordering, exact bits, missing/unknown alternatives, scope/coverage and refusal classes. Remove migrated capture/restore pairs and duplicated shape declarations; retain qualification. Test changed native variants against independent known meaning. |
-| E03 | in progress | Parent-admitted closed-root preparation; working generated envelope; 65d transport/settlement primitives | Refined ADR-0246 selects the parent's compiled unknown First template, which includes Value, with checked supplier f64 loading and complete native compiled-stage/root-core restoration. Separate execution from preparation without dummy bodies or weakened source checks; preserve provider-free restrictions, original context/attribution, numerical policy and cancellation/drain. Test actual direct/child roots, malformed layouts/programs, stale image, substituted commitments and unknown completion. Activate and delete the selected private source-reconstruction path only after complete acceptance; canonical/source E02 remains separate. |
+| E03 | in progress | Parent-admitted closed-root preparation; working generated envelope; 65d transport/settlement primitives | Compiled unknown Value/First transfer, checked supplier f64 loading, complete root/attribution restoration and the attempt-bound parent grant are integrated; old private source replay/production process authority is deleted. Targeted receiving controls pass 76/76. Complete matching deployed-lane acceptance and remaining actual context/substitution/settlement population, preserving provider-free restrictions, original verification and numerical policy; canonical/source E02 remains separate. |
 
 E02/E03 retain their previous labels. Old 65e anchors redirect here; this table alone owns
 their progress. The detailed historical assessments below supply preserved prerequisites and
@@ -735,7 +735,7 @@ the scientific architecture owners and retire completed planning through the rep
 ### Live admitted-body delegation
 
 [Proposed ADR-0246](../adr/0246-live-admitted-body-delegation.md) is refined during resumed
-execution before private transfer implementation. The selected next target is the original
+execution before private transfer implementation. The selected target is the original
 parent's **compiled unknown-coordinate First execution template**, which already includes its
 Value programs. The parent prepares this product through `source.problem(&scope)` before
 encoding today. KINSOL residual/Jacobian/JVP callbacks and `Problem::verify` use the unknown
@@ -788,7 +788,7 @@ retains complete original admission/evidence through proposal screening and reap
 durable receiving remains under ADR-0245; this route neither replays receipts nor changes their
 membership/hash interpretation.
 
-**Interface-checked only:** actual `compile_selected` builds orders through the selected ceiling,
+**Initial interface assessment:** actual `compile_selected` builds orders through the selected ceiling,
 and source review follows the consumed fields through the stage interpreter and callbacks.
 Confirm the actual emitted supplier instruction population with the existing root/guard/branch/
 applicability fixtures before choosing the initial checked profile. Qualify asymmetric/sparse
@@ -924,9 +924,76 @@ pse-model --lib --profile local --features pse-math/compiled-evaluator -E
 zero failures with native compiler/KLU, unbounded/cache-off placement and complete capture and
 settlement. This covers nested guards/evidence/branches, asymmetric/sparse correspondence,
 structural zero versus gathered NaN, malformed metadata, denied growth, cancellation and owner
-lifetimes. Runtime still separately owes pre-admitted decoded DTO/conversion storage, actual
-wire-depth qualification, root/attribution/attempt binding and the private-child cutover. The
+lifetimes. This prerequisite selection did not exercise runtime decoded DTO/conversion storage,
+wire depth, root/attribution/attempt binding or the private-child cutover delivered below. The
 native stage depth of 512 grants no Buffa wire or Rust call-stack allowance.
+
+#### Integrated compiled-root handoff
+
+**Implemented:** [`implicit::transfer`](../../crates/pse-math/src/implicit_transfer.rs)
+captures the actual held `RootExecution` worker, complete definition, ordered unknowns/intervals,
+residual rows/offsets, parameters, requirements, native order, CSC support and attribution maps.
+`RootExecutionSnapshot::restore_extents` checks the actual received capacities without
+allocation. `into_restore_parts` transfers existing backing into numerical and metadata owners;
+`restore` admits metadata/construction/validation and rebuilds the same fixed root over
+`CheckedExecution`. No source binding witness or general implicit-function factor is restored.
+Attribution checks its complete distinct-domain commitment and local closure-token shape;
+arbitrary authored identities are not treated as local occurrence tokens. Late capture refusal
+keeps the complete snapshot and allocation owner together, so actual fields drain before the
+owner releases its reservation.
+
+The private [`NativeRoot v4 protocol`](../../crates/pse-runtime/src/math/native_root_protocol.rs)
+replaces source/registry/receipt reconstruction fields with this snapshot and reserves the
+retired field identities. The parent retains its original `AdmittedBody`, `SourceBindings` and
+physical context, prepares through the unchanged sourceful route, and independently verifies
+the proposal after actual child reap. The child sends attempt/execution/request-bound
+`RestorePreparation::{Demand,Refused}`. Only a matching parent `RestoreGrant`, backed by a
+nonblocking reservation from the original pool, permits materialization. Preparation refusal
+is terminal and drains without waiting for a grant or sending another response.
+
+[`RestorationAdmission`](../../crates/pse-runtime/src/math/native_child/admission.rs)
+is private, nonserializable and bound to the original scope. Its checked atomic monotonic debit
+covers numerical restoration plus metadata input, construction and validation; overflow or
+denied growth leaves the prior debit unchanged. Dropping a partial allocation does not renew
+the envelope. Parent reservations survive actual reap and original verification, including
+fallback/error settlement. DTO decoding/conversion, stack and opaque foreign work retain their
+separate original launch admissions. This is backing accounting, not an allocator or whole-RSS
+bound; strict whole-native-bound requests still refuse.
+
+[`snapshot::restore_and_solve`](../../crates/pse-runtime/src/math/native_child/snapshot.rs)
+calls the existing concrete `Kinsol.solve_root` on the restored root. It performs no source
+admission, receipt replay, symbolic analysis/differentiation or MPFR reconstruction. KINSOL's
+own native numerical factorization still runs. Typed supplier/transfer causes and allocation,
+unsupported, malformed and original mathematical/control classes survive the diagnostic
+boundary without parsing display strings. The old private source reconstruction and its
+production process-message replay authority are deleted. Compiler record interpretation tests
+use the explicit nondefault `pse-ids/fixtures` constructor; that fixture capability grants no
+product readiness or canonical authority. Canonical E02's JSON v3 receiver remains separate.
+
+The source-owned transfer-refinement flag is now `enters_boundary`, preserving its original
+direction and protobuf field number. This removes the collision with Buffa's owned-view `into`
+method rather than filtering the supplier warning or dropping owned views. The change is a
+deliberate native/JSON field rename under the design-phase breaking-change authorization; no
+old-name alias is retained. Existing historical canonical read/migration obligations remain
+part of E02. The generator's precise reserved-method rule is in
+[`owned_view`](../../vendor/buffa-codegen/src/owned_view.rs).
+
+Buffa 0.9.2 [`DecodeOptions`](../../vendor/buffa/src/message.rs) and the generated bounded frame
+codec retain explicit message/element/depth/unknown-field limits. Borrowed preflight checks
+actual nested Stage/Node depth before recursive validation, conversion or encoding, including
+the enclosing root and fixed leaf allowance. The native stage maximum does not bypass the
+wire maximum. Twenty nested branches round-trip; thirty-two refuse at the wire boundary.
+
+**Tested:** the receiving `scripts/pse test pse-runtime pse-math pse-compiler pse-ids --lib
+--profile local --features pse-runtime/solver-kinsol,pse-runtime/compiled-evaluator,pse-math/compiled-evaluator`
+selection over native child/protocol, root transfer, scientific replay and typed portability
+passes **76/76**, against zero failures, retries or incomplete records, with complete original
+capture and settlement. Conditions: configured unbounded placement, prepared compiler/KLU and
+the earlier cache-off/nonincremental qualification context. The exact deployed lane test was
+excluded pending fresh matching fixture preparation. The selection includes actual
+self-executable child solve/refusal, wrong-grant/attempt, denied-growth, cancellation/deadline,
+owner lifetime and malformed snapshot controls. It does not establish deployed-lane acceptance,
+whole-series scientific qualification, whole-process memory bounds or measured acceleration.
 
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),

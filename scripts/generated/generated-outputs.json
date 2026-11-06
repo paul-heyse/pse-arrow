@@ -1052,11 +1052,19 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/implicit_transfer.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/jets.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/source_bindings.rs",
           "kind": "file"
         },
         {
@@ -1249,10 +1257,6 @@
         },
         {
           "path": "crates/pse-quantity/src/operation.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/precondition.rs",
           "kind": "file"
         },
         {
@@ -1664,7 +1668,15 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/implicit_transfer.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/jets.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/source_bindings.rs",
           "kind": "file"
         },
         {
@@ -1677,62 +1689,6 @@
         },
         {
           "path": "crates/pse-model/src/generated/enums.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/basis.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/conversion.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/dimension.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/entity_kind.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/enums.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/ids.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/kind.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/operation.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/precondition.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/quantity_type.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/reference_state.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/registry.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/unit.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-quantity/src/unit_set.rs",
           "kind": "file"
         },
         {

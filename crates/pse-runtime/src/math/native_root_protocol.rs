@@ -3,12 +3,9 @@
 //! Source-owned private root data, independent of native execution preparation.
 use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_ids::{ContentHash, SemanticId};
-use pse_math::{
-    implicit::{Options, Unknown},
-    jets::EvaluationLimits,
-};
+use pse_math::implicit::{Options, transfer::RootExecutionSnapshot};
 use pse_model::diagnostic::BoundaryDiagnostic;
-use std::{collections::BTreeMap, time::Duration};
+use std::time::Duration;
 
 /// Existing private root request/frame byte bound.
 pub const REQUEST_LIMIT: usize = 16 << 20;
@@ -16,50 +13,65 @@ pub const REQUEST_LIMIT: usize = 16 << 20;
 pub const RESPONSE_LIMIT: usize = 1 << 20;
 
 pse_contract::projection_struct! {
-/// Complete reconstructible input. Opaque recipe bytes retain their original replay authority.
+/// Complete parent-captured execution. Decoding cannot issue source or attempt authority.
 #[derive(Clone, Debug)]
 pub struct RootInput {
     projection: { name: "NativeRootInput", rust_path: crate::math::native_root_protocol::RootInput,
-        version: 3, direction: Direction::Both, reserved_tags: [5], reserved_names: ["registry_digest"] };
-    /// Original admitted recipe; decoded envelope data cannot issue its replay permit.
-    pub body: Vec<u8> => { tag: 1, direction: Direction::Both, rules: [LocalRule::Length { min: 1, max: REQUEST_LIMIT as u64 }] };
-    /// Complete expected native physical/math/provider interpretation.
+        version: 4, direction: Direction::Both,
+        reserved_tags: [1, 3, 4, 5, 6, 7, 10, 11, 12],
+        reserved_names: ["body", "source", "registry", "registry_digest", "unknowns", "rows", "evaluation", "max_entries", "preconditions"] };
+    /// Original parent-held physical/math/provider interpretation, without replay permission.
     pub spec: pse_math::binding::BodySpec => { tag: 2, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Actual receiving diagnostic maps, separate from arithmetic identity.
-    pub source: RootBindings => { tag: 3, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Complete unadmitted physical declarations; the receiving native builder admits them.
-    pub registry: pse_quantity::QuantityRegistryBuilder => { tag: 4, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Ordered original physical unknowns and intervals.
-    pub unknowns: Vec<Unknown> => { tag: 6, direction: Direction::Both, rules: [] };
-    /// Ordered original residual identities.
-    pub rows: Vec<SemanticId> => { tag: 7, direction: Direction::Both, rules: [] };
     /// Ordinary numerical parameters, preserving exact binary64 bits.
     pub parameters: Vec<f64> => { tag: 8, direction: Direction::Both, rules: [] };
     /// Original initialization, accuracy and native solve controls.
     pub options: Options => { tag: 9, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Original compiled-body resource allowance.
-    pub evaluation: EvaluationLimits => { tag: 10, direction: Direction::Both, rules: [LocalRule::Required] };
-    /// Existing original sparse construction allowance.
-    pub max_entries: usize => { tag: 11, direction: Direction::Both, rules: [] };
-    /// Original prerequisite declarations, distinct from grants that they currently hold.
-    pub preconditions: Vec<pse_quantity::PhysicalPrecondition> => { tag: 12, direction: Direction::Both, rules: [] };
+    /// Exact cold execution and full metadata captured from the actual original root worker.
+    pub execution: RootExecutionSnapshot => { tag: 13, direction: Direction::Both, rules: [LocalRule::Required] };
+}
+}
+pse_contract::projection_enum! {
+    /// Passive preparation either derives demand or retains its original typed refusal.
+    #[derive(Clone, Debug)]
+    pub enum RestorePreparationOutcome {
+        projection: { name: "NativeRootRestorePreparationOutcome", rust_path: crate::math::native_root_protocol::RestorePreparationOutcome,
+            version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        /// Checked positive demand from actual received native capacities; still no grant.
+        Demand(usize => { rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] }) => 1;
+        /// Original preparation failure; restoration and native solving have not started.
+        Refused(BoundaryDiagnostic) => 2;
+    }
+}
+pse_contract::projection_struct! {
+/// Trusted child's preparation result, still requiring actual parent admission on success.
+#[derive(Clone, Debug)]
+pub struct RestorePreparation {
+    projection: { name: "NativeRootRestorePreparation", rust_path: crate::math::native_root_protocol::RestorePreparation,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original attempt, never a new operation.
+    pub attempt: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
+    /// Original execution binding.
+    pub execution: ContentHash => { tag: 2, direction: Direction::Both, rules: [] };
+    /// Exact original payload binding.
+    pub request: ContentHash => { tag: 3, direction: Direction::Both, rules: [] };
+    /// Original refusal or checked demand, never both and never an absent default success.
+    pub result: RestorePreparationOutcome => { tag: 4, direction: Direction::Both, rules: [LocalRule::Required] };
 }
 }
 pse_contract::projection_struct! {
-/// Current diagnostic context is transported separately from arithmetic identity.
-/// Decoding grants no authority: the receiving constructor checks the replayed body.
+/// Recorded parent pool admission on this exact private attempt; not source authority.
 #[derive(Clone, Debug)]
-pub struct RootBindings {
-    projection: { name: "NativeRootBindings", rust_path: crate::math::native_root_protocol::RootBindings,
-        version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
-    /// Actual receiving assembly instance.
-    pub instance: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
-    /// Original checked member to actual receiving member map.
-    pub checked_members: BTreeMap<SemanticId, SemanticId> => { tag: 2, direction: Direction::Both, rules: [] };
-    /// Original checked source to actual receiving source map.
-    pub checked_sources: BTreeMap<SemanticId, SemanticId> => { tag: 3, direction: Direction::Both, rules: [] };
-    /// Actual authored locations; absence is never invented attribution.
-    pub occurrences: BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation> => { tag: 4, direction: Direction::Both, rules: [] };
+pub struct RestoreGrant {
+    projection: { name: "NativeRootRestoreGrant", rust_path: crate::math::native_root_protocol::RestoreGrant,
+        version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Same original attempt whose demand was received.
+    pub attempt: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
+    /// Same original execution binding.
+    pub execution: ContentHash => { tag: 2, direction: Direction::Both, rules: [] };
+    /// Same original payload binding.
+    pub request: ContentHash => { tag: 3, direction: Direction::Both, rules: [] };
+    /// Bytes actually reserved by the original parent's pool and retained through reap.
+    pub admitted_bytes: usize => { tag: 4, direction: Direction::Both, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
 }
 }
 
@@ -145,6 +157,8 @@ pub fn projection_graph() -> Result<ProjectionGraph, ProjectionError> {
     graph.register::<Hello>()?;
     graph.register::<Request>()?;
     graph.register::<Response>()?;
+    graph.register::<RestorePreparation>()?;
+    graph.register::<RestoreGrant>()?;
     Ok(graph)
 }
 
@@ -156,6 +170,9 @@ mod tests {
         let graph = projection_graph().unwrap();
         for name in [
             "MathExecutionSnapshot",
+            "MathRootExecutionSnapshot",
+            "NativeRootRestorePreparation",
+            "NativeRootRestoreGrant",
             "MathStageSnapshot",
             "MathBlockSnapshot",
             "MathApplicabilitySnapshot",
@@ -173,17 +190,17 @@ mod tests {
             "ImplicitOptions",
             "NativePathBuf",
             "PlatformPathBytes",
-            "PhysicalRegistryDeclarations",
-            "PhysicalPrerequisiteDeclaration",
-            "PhysicalPrerequisitePredicate",
         ] {
             assert!(
                 graph.definitions().contains_key(name),
                 "actual native dependency absent: {name}"
             );
         }
-        assert_eq!(graph.definitions()["NativeRootInput"].version, 3);
-        assert_eq!(graph.definitions()["NativeRootInput"].reserved_tags, [5]);
+        assert_eq!(graph.definitions()["NativeRootInput"].version, 4);
+        assert_eq!(
+            graph.definitions()["NativeRootInput"].reserved_tags,
+            [1, 3, 4, 5, 6, 7, 10, 11, 12]
+        );
         assert!(graph.definitions()["NativePathBuf"].checked_record);
     }
 }

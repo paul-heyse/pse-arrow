@@ -40,14 +40,16 @@ pub fn native_recipe_payload_hash(payload: &[u8]) -> ContentHash {
 pub enum NativeRecipeSource {
     /// Eligible canonical compiler product, qualified by the original runtime owner.
     CanonicalProduct,
-    /// Authenticated private parent-to-child compiler admission.
-    AdmittedProcessMessage,
+    /// Isolated fixture record origin; never production qualification.
+    #[cfg(any(test, feature = "fixtures"))]
+    Fixture,
 }
 impl NativeRecipeSource {
     fn domain(self) -> &'static str {
         match self {
             Self::CanonicalProduct => "qualified-recipe",
-            Self::AdmittedProcessMessage => "admitted-process-message",
+            #[cfg(any(test, feature = "fixtures"))]
+            Self::Fixture => "admitted-record-fixture",
         }
     }
 }
@@ -60,7 +62,7 @@ pub struct NativeRecipeScope {
     pub source: NativeRecipeSource,
     /// Verified exact immutable binary-payload digest.
     pub payload_digest: ContentHash,
-    /// Original qualified product or private execution identity.
+    /// Original qualified product identity; isolated fixtures use a test-case label.
     pub qualification: ContentHash,
     /// Original selected request identity.
     pub request: ContentHash,
@@ -158,35 +160,35 @@ impl QualifiedScientificRecipe {
             "qualified-recipe",
         )
     }
-    /// Cross the private parent-to-native-child scientific admission boundary.
+    /// Issue replay records for an isolated immutable scientific test fixture.
     ///
     /// # Safety
-    /// The exact payload must come directly from an admitted compiler body in the
-    /// trusted parent, over its private inherited process channel. Before minting,
-    /// the child must authenticate the expected executable/build, attempt, profile,
-    /// original deadline and complete physical/factory closure. The parent remains
-    /// the original scientific assessment authority. Arbitrary DTOs, caller hashes,
-    /// public stdin or descriptor-only providers do not qualify. Reserve
-    /// `scratch_bytes` before decoding. This grants no canonical publication role.
+    /// The caller must own the complete fixture record population and keep its
+    /// replay authority inside the isolated test. Authentic and deliberately corrupt
+    /// fixture records may exercise admission/refusal; neither results nor scope
+    /// labels qualify a production product. This constructor must never receive
+    /// external product data or supply publication/readiness authority. Integrity
+    /// hashing alone is not admission. Select only through test dependencies.
     ///
     /// # Errors
     /// Oversized, malformed or digest-mismatching descriptors are refused.
+    #[cfg(any(test, feature = "fixtures"))]
     #[allow(
         unsafe_code,
-        reason = "ADR-0185 controlled private process scientific authority; no unsafe memory operation"
+        reason = "isolated scientific-record fixture authority; unavailable in the default product API"
     )]
-    pub unsafe fn from_admitted_process_message(
+    pub unsafe fn from_admitted_record_fixture(
         payload: Vec<u8>,
         expected_digest: ContentHash,
-        execution: ContentHash,
+        fixture_case: ContentHash,
         request: ContentHash,
     ) -> Result<Self, IdError> {
         Self::qualified(
             payload,
             expected_digest,
-            execution,
+            fixture_case,
             request,
-            "admitted-process-message",
+            "admitted-record-fixture",
         )
     }
     fn qualified(
@@ -267,9 +269,9 @@ impl RecordAuthority {
     /// No caller-supplied index is accepted, and no JSON value tree is constructed.
     ///
     /// # Safety
-    /// Only the audited monomorphic compiler canonical/private receivers may call
+    /// Only the audited monomorphic compiler canonical receiver may call
     /// this primitive. They must authenticate the original runtime provenance,
-    /// qualification/execution, request, physical context and eligible producer;
+    /// qualification, request, physical context and eligible producer;
     /// verify the exact immutable bytes against `scope.payload_digest` under the
     /// binary interpretation; decode/adopt those same bytes once into a private
     /// native Recipe; index a borrow of that root here; then consume that SAME
@@ -282,6 +284,9 @@ impl RecordAuthority {
     /// admit decode, complete validation, adoption, root and receipt ownership,
     /// restoration, cancellation and original operation/process settlement.
     /// These traversal extents do not establish that enclosing F03 admission.
+    /// With the nondefault fixture feature, isolated tests may instead index their
+    /// complete owned fixture under `NativeRecipeSource::Fixture`. Such records
+    /// must never enter a product workflow or imply canonical qualification.
     ///
     /// # Errors
     /// Changed source shape, unsupported normalization and exhausted or failed
@@ -436,17 +441,21 @@ mod tests {
     }
     fn native_scope() -> NativeRecipeScope {
         NativeRecipeScope {
-            source: NativeRecipeSource::CanonicalProduct,
+            source: NativeRecipeSource::Fixture,
             payload_digest: ContentHash::from_bytes([11; 32]),
             qualification: ContentHash::from_bytes([12; 32]),
             request: ContentHash::from_bytes([13; 32]),
         }
     }
     #[test]
-    fn native_membership_authority_retains_v1_queries_and_all_original_scope_domains() {
+    fn native_membership_authority_retains_v1_queries_and_original_fixture_scope() {
         let value = serde_json::json!({"records": [{"a": [1,2]}], "empty": null});
         let original = native_scope();
         let baseline = native_fixture(&value, original, None);
+        assert_ne!(
+            NativeRecipeSource::Fixture.domain(),
+            NativeRecipeSource::CanonicalProduct.domain()
+        );
         assert!(baseline.admits(&value).unwrap());
         assert!(baseline.admits(&serde_json::json!({"a":[1,2]})).unwrap());
         assert!(!baseline.admits(&serde_json::json!({"a":[2,1]})).unwrap());
@@ -468,10 +477,6 @@ mod tests {
             },
             NativeRecipeScope {
                 payload_digest: ContentHash::from_bytes([16; 32]),
-                ..original
-            },
-            NativeRecipeScope {
-                source: NativeRecipeSource::AdmittedProcessMessage,
                 ..original
             },
         ] {
@@ -540,7 +545,7 @@ mod tests {
         let bytes = br#"{"receipt":{"branches":[2],"request":"a"},"other":[]}"#.to_vec();
         // SAFETY: pure authority fixture explicitly supplies its complete trusted record.
         let permit = unsafe {
-            QualifiedScientificRecipe::from_canonical_product(
+            QualifiedScientificRecipe::from_admitted_record_fixture(
                 bytes.clone(),
                 admitted_recipe_payload_hash(&bytes),
                 ContentHash::from_bytes([1; 32]),
@@ -585,7 +590,7 @@ mod tests {
         );
         // SAFETY: isolated trusted compiler/store fixture supplies the complete exact admitted record.
         let permit = unsafe {
-            QualifiedScientificRecipe::from_canonical_product(
+            QualifiedScientificRecipe::from_admitted_record_fixture(
                 payload.clone(),
                 admitted_recipe_payload_hash(&payload),
                 ContentHash::from_bytes([1; 32]),

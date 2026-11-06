@@ -29,6 +29,8 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "NativeRootHello",
         "NativeRootRequest",
         "NativeRootResponse",
+        "NativeRootRestorePreparation",
+        "NativeRootRestoreGrant",
     ];
     let adapters = boundary_projection::native_adapters_scoped(
         &graph,

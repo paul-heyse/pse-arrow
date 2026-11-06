@@ -10877,7 +10877,7 @@ impl NativeInto<
                 3,
             >>::FIELD_LAYOUT,
             1,
-            &[(1, "boundary"), (2, "into")],
+            &[(1, "boundary"), (2, "enters_boundary")],
             path,
         )?;
         let value = match <pse_modeling::portable::RefinementWire as pse_contract::boundary_projection::ProjectionAlternative<
@@ -10896,10 +10896,10 @@ impl NativeInto<
                                         crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::ModelingBoundaryFacts,
                                     >(field_0, &child_path(path, "boundary"))?,
                                 ),
-                                into: native_into::<
+                                enters_boundary: native_into::<
                                     _,
                                     bool,
-                                >(field_1, &child_path(path, "into"))?,
+                                >(field_1, &child_path(path, "enters_boundary"))?,
                                 ..Default::default()
                             }),
                         ),
@@ -11033,7 +11033,7 @@ impl NativeFrom<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
-                    &[(1, "boundary"), (2, "into")],
+                    &[(1, "boundary"), (2, "enters_boundary")],
                     path,
                 )?;
                 let fields = (
@@ -11047,7 +11047,10 @@ impl NativeFrom<
                         )?,
                         &child_path(path, "boundary"),
                     )?,
-                    native_from::<_, bool>(wire.into, &child_path(path, "into"))?,
+                    native_from::<
+                        _,
+                        bool,
+                    >(wire.enters_boundary, &child_path(path, "enters_boundary"))?,
                 );
                 Ok(
                     <pse_modeling::portable::RefinementWire as pse_contract::boundary_projection::ProjectionAlternative<

@@ -16,6 +16,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# Isolated scientific-record fixtures; never selected by a product dependency.
+fixtures = []
+
 [dependencies]
 pse-contract.workspace = true
 hex.workspace = true

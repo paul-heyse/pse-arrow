@@ -46,7 +46,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // SAFETY: this binary is a controlled deployment role. serve_private rejects
             // generic stdin pipes/files and checks the actual parent. Its launcher owns
             // the private socket, authenticates this executable/build/attempt, supplies
-            // compiler-produced source, retains the original clock/charges, and joins us.
+            // its captured numerical root, admits restoration in the original pool,
+            // retains the original clock/charges, and joins us.
             unsafe { pse_runtime::math::native_child::serve_private(attempt, parent) }
         })?
         .join()

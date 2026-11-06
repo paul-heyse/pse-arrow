@@ -126,60 +126,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `values` | 1 | `Repeated(Named("Array16U8"))` | `Both` | `[Length { min: 3, max: 3 }]` | `{}` |
 
-## `Array8OptionalUnitId`
-
-Rust owner: `[core::option::Option<pse_quantity::ids::UnitId>; 8]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `values` | 1 | `Repeated(Optional(Named("UnitId")))` | `Both` | `[Length { min: 8, max: 8 }]` | `{}` |
-
-## `Array8PhysicalRatio`
-
-Rust owner: `[pse_quantity::dimension::Ratio; 8]`. Source: `crates/pse-contract/src/boundary_projection/array.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `values` | 1 | `Repeated(Named("PhysicalRatio"))` | `Both` | `[Length { min: 8, max: 8 }]` | `{}` |
-
-## `BasisId`
-
-Rust owner: `pse_quantity::ids::BasisId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `BasisKind`
-
-Rust owner: `pse_quantity::enums::BasisKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["molar", "mass", "volume", "energy", "standard_volume", "dimensionless"]`.
-
-## `BasisRule`
-
-Rust owner: `pse_quantity::enums::BasisRule`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["preserve", "require_equal", "registered_conversion", "cancel", "declared_result"]`.
-
 ## `CapturedBuildInfo`
 
 Rust owner: `pse_buildinfo::BuildInfo`. Source: `crates/pse-buildinfo/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
@@ -195,65 +141,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `lockfile_hash` | 5 | `Scalar(String)` | `Both` | `[]` | `{}` |
 | `cargo_lock_sha256` | 6 | `Scalar(String)` | `Both` | `[]` | `{}` |
 | `uv_lock_sha256` | 7 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-## `CompositionBasis`
-
-Rust owner: `pse_quantity::enums::CompositionBasis`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["mole_fraction", "mass_fraction", "volume_fraction", "molality", "molarity"]`.
-
-## `ConversionId`
-
-Rust owner: `pse_quantity::ids::ConversionId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `ConversionKind`
-
-Rust owner: `pse_quantity::enums::ConversionKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["scale", "affine", "kernel"]`.
-
-## `DeclaredDefinedUnit`
-
-Rust owner: `pse_quantity::unit::DefinedUnit`. Source: `crates/pse-quantity/src/unit.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-| `symbol` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `composition` | 3 | `Repeated(Named("UnitFactor"))` | `Both` | `[]` | `{}` |
-
-## `DeclaredDerivedKind`
-
-Rust owner: `pse_quantity::kind::DerivedKind`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
-| `extensive` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `addition_kind` | 3 | `Named("QuantityAdditionKind")` | `Both` | `[]` | `{}` |
-| `definition` | 4 | `Named("KindDefinition")` | `Both` | `[]` | `{}` |
 
 ## `DiagnosticCode`
 
@@ -367,16 +254,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["workflow", "modeling", "routing", "native", "implicit", "presolve", "evaluation", "property", "fit", "shooting", "simulation", "initialization", "modeling.admission", "modeling.conditional_unit.admission", "modeling.diagnostics", "modeling.diagnostic_samples", "modeling.nonlinear", "modeling.qualification", "modeling.staged", "modeling.study", "modeling.trajectory", "modeling.dynamic", "dynamic-test", "fitting", "horizon", "compiler", "authoring", "quantity", "diagnostic", "binding", "study", "continuation", "study.admission", "study.policy", "study.binding", "applicability", "modeling-conservation-transfer", "modeling-event-reset", "nonlinear-explanation", "objective-levels", "shooting-trajectory-projection", "test"]`.
 
-## `EntityKindId`
-
-Rust owner: `pse_quantity::ids::EntityKindId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
 ## `FileObservation`
 
 Rust owner: `pse_buildinfo::identity::FileObservation`. Source: `crates/pse-buildinfo/src/identity.rs`. Interpretation version: 1. Direction: `Both`.
@@ -418,16 +295,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `lower` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
 | `upper` | 3 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
 
-## `InvariantId`
-
-Rust owner: `pse_quantity::ids::InvariantId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
 ## `KernelDerivativeOrder`
 
 Rust owner: `pse_kernels::DerivativeOrder`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
@@ -440,31 +307,20 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `First` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `Second` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
-## `KindDefinition`
+## `KernelDerivativeRequirements`
 
-Rust owner: `pse_quantity::kind::KindDefinition`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `monomial` | 1 | `Repeated(Named("KindFactor"))` | `Both` | `[]` | `{}` |
-| `canonical_unit` | 2 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-| `basis` | 3 | `Optional(Named("BasisId"))` | `Both` | `[]` | `{}` |
-| `reference_state` | 4 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
-| `scale_kind` | 5 | `Named("ScaleKind")` | `Both` | `[]` | `{}` |
-| `subject_kind` | 6 | `Optional(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
-
-## `KindFactor`
-
-Rust owner: `pse_quantity::kind::KindFactor`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_kernels::DerivativeRequirements`. Source: `crates/pse-kernels/src/lib.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `kind` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
-| `exponent` | 2 | `Named("PhysicalRatio")` | `Both` | `[]` | `{}` |
+| `residual_available` | 1 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `output_smoothness` | 2 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `selector_neighborhood` | 3 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `inner_minimum` | 4 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `requested_output` | 5 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `residual_compilation` | 6 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
 
 ## `MathApplicabilitySnapshot`
 
@@ -573,6 +429,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `scratch_bytes` | 3 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 | `provider_calls` | 4 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
 
+## `MathExecutionAttributionSnapshot`
+
+Rust owner: `pse_math::execution::source_bindings::ExecutionAttributionSnapshot`. Source: `crates/pse-math/src/source_bindings.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `instance` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `checked_members` | 2 | `Map(Scalar(SemanticId), Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `checked_sources` | 3 | `Map(Scalar(SemanticId), Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `occurrences` | 4 | `Map(Scalar(SemanticId), Named("ModelSourceLocation"))` | `Both` | `[]` | `{}` |
+
 ## `MathExecutionSnapshot`
 
 Rust owner: `pse_math::execution::transfer::ExecutionSnapshot`. Source: `crates/pse-math/src/execution/transfer.rs`. Interpretation version: 1. Direction: `Both`.
@@ -609,6 +478,39 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `order` | 4 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
 | `slot_offsets` | 5 | `Optional(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
 | `slot_components` | 6 | `Optional(Repeated(Scalar(U64)))` | `Both` | `[]` | `{}` |
+
+## `MathRootDefinitionSnapshot`
+
+Rust owner: `pse_math::implicit::transfer::RootDefinitionSnapshot`. Source: `crates/pse-math/src/implicit_transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 1, max: 1 }]` | `{}` |
+| `id` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `identity` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `unknowns` | 4 | `Repeated(Named("ImplicitUnknown"))` | `Both` | `[]` | `{}` |
+| `rows` | 5 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `inputs` | 6 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `residual_offsets` | 7 | `Repeated(Scalar(F64Bits))` | `Both` | `[Float64Domain(Finite)]` | `{}` |
+| `requirements` | 8 | `Named("KernelDerivativeRequirements")` | `Both` | `[Required]` | `{}` |
+| `native_order` | 9 | `Named("KernelDerivativeOrder")` | `Both` | `[]` | `{}` |
+| `col_ptr` | 10 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `row_idx` | 11 | `Repeated(Scalar(U64))` | `Both` | `[]` | `{}` |
+| `attribution_commitment` | 12 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+
+## `MathRootExecutionSnapshot`
+
+Rust owner: `pse_math::implicit::transfer::RootExecutionSnapshot`. Source: `crates/pse-math/src/implicit_transfer.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `definition` | 1 | `Named("MathRootDefinitionSnapshot")` | `Both` | `[Required]` | `{}` |
+| `attribution` | 2 | `Named("MathExecutionAttributionSnapshot")` | `Both` | `[Required]` | `{}` |
+| `numerical` | 3 | `Named("MathExecutionSnapshot")` | `Both` | `[Required]` | `{}` |
 
 ## `MathSourceCheckSnapshot`
 
@@ -767,19 +669,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `platform` | 1 | `Named("PlatformPathBytes")` | `Both` | `[Required]` | `{}` |
 
-## `NativeRootBindings`
-
-Rust owner: `pse_runtime::math::native_root_protocol::RootBindings`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 2. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `instance` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
-| `checked_members` | 2 | `Map(Scalar(SemanticId), Scalar(SemanticId))` | `Both` | `[]` | `{}` |
-| `checked_sources` | 3 | `Map(Scalar(SemanticId), Scalar(SemanticId))` | `Both` | `[]` | `{}` |
-| `occurrences` | 4 | `Map(Scalar(SemanticId), Named("ModelSourceLocation"))` | `Both` | `[]` | `{}` |
-
 ## `NativeRootHello`
 
 Rust owner: `pse_runtime::math::native_root_protocol::Hello`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 2. Direction: `Both`.
@@ -799,23 +688,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `NativeRootInput`
 
-Rust owner: `pse_runtime::math::native_root_protocol::RootInput`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 3. Direction: `Both`.
+Rust owner: `pse_runtime::math::native_root_protocol::RootInput`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 4. Direction: `Both`.
 
-Reserved numbers: `[5]`. Reserved names: `["registry_digest"]`.
+Reserved numbers: `[1, 3, 4, 5, 6, 7, 10, 11, 12]`. Reserved names: `["body", "source", "registry", "registry_digest", "unknowns", "rows", "evaluation", "max_entries", "preconditions"]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `body` | 1 | `Scalar(Bytes)` | `Both` | `[Length { min: 1, max: 16777216 }]` | `{}` |
 | `spec` | 2 | `Named("MathBodySpec")` | `Both` | `[Required]` | `{}` |
-| `source` | 3 | `Named("NativeRootBindings")` | `Both` | `[Required]` | `{}` |
-| `registry` | 4 | `Named("PhysicalRegistryDeclarations")` | `Both` | `[Required]` | `{}` |
-| `unknowns` | 6 | `Repeated(Named("ImplicitUnknown"))` | `Both` | `[]` | `{}` |
-| `rows` | 7 | `Repeated(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
 | `parameters` | 8 | `Repeated(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
 | `options` | 9 | `Named("ImplicitOptions")` | `Both` | `[Required]` | `{}` |
-| `evaluation` | 10 | `Named("MathEvaluationLimits")` | `Both` | `[Required]` | `{}` |
-| `max_entries` | 11 | `Scalar(U64)` | `Both` | `[]` | `{}` |
-| `preconditions` | 12 | `Repeated(Named("PhysicalPrerequisiteDeclaration"))` | `Both` | `[]` | `{}` |
+| `execution` | 13 | `Named("MathRootExecutionSnapshot")` | `Both` | `[Required]` | `{}` |
 
 ## `NativeRootOutcome`
 
@@ -856,6 +738,43 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `request` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
 | `result` | 4 | `Named("NativeRootOutcome")` | `Both` | `[Required]` | `{}` |
 
+## `NativeRootRestoreGrant`
+
+Rust owner: `pse_runtime::math::native_root_protocol::RestoreGrant`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `attempt` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `execution` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `request` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `admitted_bytes` | 4 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+
+## `NativeRootRestorePreparation`
+
+Rust owner: `pse_runtime::math::native_root_protocol::RestorePreparation`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `attempt` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `execution` | 2 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `request` | 3 | `Scalar(ContentHash)` | `Both` | `[]` | `{}` |
+| `result` | 4 | `Named("NativeRootRestorePreparationOutcome")` | `Both` | `[Required]` | `{}` |
+
+## `NativeRootRestorePreparationOutcome`
+
+Rust owner: `pse_runtime::math::native_root_protocol::RestorePreparationOutcome`. Source: `crates/pse-runtime/src/math/native_root_protocol.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Demand (alternative tag 1).value` | 1 | `Scalar(U64)` | `Both` | `[UnsignedRange { min: 1, max: 18446744073709551615 }]` | `{}` |
+| `Refused (alternative tag 2).value` | 1 | `Named("ModelBoundaryDiagnostic")` | `Both` | `[]` | `{}` |
+
 ## `NonnegativeDuration`
 
 Rust owner: `core::time::Duration`. Source: `crates/pse-contract/src/boundary_projection/standard.rs`. Interpretation version: 1. Direction: `Both`.
@@ -867,221 +786,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `secs` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 | `nanos` | 2 | `Scalar(U32)` | `Both` | `[UnsignedRange { min: 0, max: 999999999 }]` | `{}` |
 
-## `Opcode`
-
-Rust owner: `pse_quantity::enums::Opcode`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["Const", "SymbolRef", "Add", "Sub", "Affine", "WeightedMean", "Mul", "Div", "Pow", "Neg", "Abs", "Exp", "Log", "Log10", "Sqrt", "Sin", "Cos", "Tan", "Asin", "Acos", "Atan", "Sinh", "Cosh", "Tanh", "Erf", "SmoothMax", "SmoothMin", "SmoothAbs", "SafeSqrt", "SafeLog", "Conditional", "SumOver", "ProdOver", "MinOver", "MaxOver", "Gather", "Broadcast", "Derivative", "Integral", "KernelCall", "ImplicitRef", "UnitConvert", "PiecewiseLinear"]`.
-
-## `OperationId`
-
-Rust owner: `pse_quantity::ids::OperationId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `PhysicalBasis`
-
-Rust owner: `pse_quantity::basis::Basis`. Source: `crates/pse-quantity/src/basis.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("BasisId")` | `Both` | `[]` | `{}` |
-| `kind` | 2 | `Named("BasisKind")` | `Both` | `[]` | `{}` |
-| `composition_basis` | 3 | `Optional(Named("CompositionBasis"))` | `Both` | `[]` | `{}` |
-| `rate_basis` | 4 | `Optional(Named("RateBasis"))` | `Both` | `[]` | `{}` |
-| `reference_conditions` | 5 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
-
-## `PhysicalConversionDeclaration`
-
-Rust owner: `pse_quantity::conversion::ConversionRule`. Source: `crates/pse-quantity/src/conversion.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("ConversionId")` | `Both` | `[]` | `{}` |
-| `from` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `to` | 3 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `kind` | 4 | `Named("ConversionKind")` | `Both` | `[]` | `{}` |
-| `kernel` | 5 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
-| `required_parameters` | 6 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
-| `scale` | 7 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
-| `offset` | 8 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
-
-## `PhysicalDimensionVector`
-
-Rust owner: `pse_quantity::dimension::DimensionVector`. Source: `crates/pse-quantity/src/dimension.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `exponents` | 1 | `Named("Array8PhysicalRatio")` | `Both` | `[]` | `{}` |
-
-## `PhysicalEntityKind`
-
-Rust owner: `pse_quantity::entity_kind::EntityKind`. Source: `crates/pse-quantity/src/entity_kind.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("EntityKindId")` | `Both` | `[]` | `{}` |
-| `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-## `PhysicalInputConversionDeclaration`
-
-Rust owner: `pse_quantity::operation::InputConversion`. Source: `crates/pse-quantity/src/operation.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `operand` | 1 | `Scalar(U16)` | `Both` | `[]` | `{}` |
-| `conversion` | 2 | `Named("ConversionId")` | `Both` | `[]` | `{}` |
-
-## `PhysicalOperationDeclaration`
-
-Rust owner: `pse_quantity::operation::QuantityOperation`. Source: `crates/pse-quantity/src/operation.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("OperationId")` | `Both` | `[]` | `{}` |
-| `opcode` | 2 | `Named("Opcode")` | `Both` | `[]` | `{}` |
-| `input_kinds` | 3 | `Repeated(Named("QuantityKindId"))` | `Both` | `[]` | `{}` |
-| `result_kind` | 4 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
-| `basis_rule` | 5 | `Named("BasisRule")` | `Both` | `[]` | `{}` |
-| `reference_rule` | 6 | `Named("ReferenceRule")` | `Both` | `[]` | `{}` |
-| `scale_rule` | 7 | `Named("QuantityScaleRule")` | `Both` | `[]` | `{}` |
-| `shape_rule` | 8 | `Named("QuantityShapeRule")` | `Both` | `[]` | `{}` |
-| `basis_source` | 9 | `Optional(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `reference_source` | 10 | `Optional(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `scale_source` | 11 | `Optional(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `shape_source` | 12 | `Optional(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `subject_rule` | 13 | `Named("SubjectRule")` | `Both` | `[]` | `{}` |
-| `subject_source` | 14 | `Optional(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `result_subject_kind` | 15 | `Optional(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
-| `result_basis` | 16 | `Optional(Named("BasisId"))` | `Both` | `[]` | `{}` |
-| `result_reference_state` | 17 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
-| `input_conversions` | 18 | `Repeated(Named("PhysicalInputConversionDeclaration"))` | `Both` | `[]` | `{}` |
-| `precondition_invariants` | 19 | `Repeated(Named("InvariantId"))` | `Both` | `[]` | `{}` |
-
-## `PhysicalPrerequisiteDeclaration`
-
-Rust owner: `pse_quantity::precondition::PhysicalPrecondition`. Source: `crates/pse-quantity/src/precondition.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("InvariantId")` | `Both` | `[]` | `{}` |
-| `operand_positions` | 2 | `Repeated(Scalar(U16))` | `Both` | `[]` | `{}` |
-| `requirement` | 3 | `Named("PhysicalPrerequisitePredicate")` | `Both` | `[]` | `{}` |
-
-## `PhysicalPrerequisitePredicate`
-
-Rust owner: `pse_quantity::precondition::PhysicalRequirement`. Source: `crates/pse-quantity/src/precondition.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `EqualOperandBases (alternative tag 1).required` | 1 | `Optional(Named("BasisId"))` | `Both` | `[]` | `{}` |
-| `OperandQuantityContract (alternative tag 2).required` | 1 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `OperandQuantityContract (alternative tag 2).match_shape` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `SameReferenceDifferences (alternative tag 3).required` | 1 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `SameReferenceDifferences (alternative tag 3).match_shape` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-
-## `PhysicalQuantityKind`
-
-Rust owner: `pse_quantity::kind::QuantityKind`. Source: `crates/pse-quantity/src/kind.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
-| `dimension` | 2 | `Named("PhysicalDimensionVector")` | `Both` | `[]` | `{}` |
-| `extensive` | 3 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `addition_kind` | 4 | `Named("QuantityAdditionKind")` | `Both` | `[]` | `{}` |
-| `category` | 5 | `Optional(Named("QuantityKindCategory"))` | `Both` | `[]` | `{}` |
-| `definition` | 6 | `Optional(Named("KindDefinition"))` | `Both` | `[]` | `{}` |
-
-## `PhysicalRatio`
-
-Rust owner: `pse_quantity::dimension::Ratio`. Source: `crates/pse-quantity/src/dimension.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `num` | 1 | `Scalar(I16)` | `Both` | `[]` | `{}` |
-| `den` | 2 | `Scalar(I16)` | `Both` | `[]` | `{}` |
-
-## `PhysicalRegistryDeclarations`
-
-Rust owner: `pse_quantity::registry::QuantityRegistryBuilder`. Source: `crates/pse-quantity/src/registry.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `entity_kinds` | 1 | `Repeated(Named("PhysicalEntityKind"))` | `Both` | `[]` | `{}` |
-| `units` | 2 | `Repeated(Named("PhysicalUnit"))` | `Both` | `[]` | `{}` |
-| `defined_units` | 3 | `Repeated(Named("DeclaredDefinedUnit"))` | `Both` | `[]` | `{}` |
-| `kinds` | 4 | `Repeated(Named("PhysicalQuantityKind"))` | `Both` | `[]` | `{}` |
-| `derived_kinds` | 5 | `Repeated(Named("DeclaredDerivedKind"))` | `Both` | `[]` | `{}` |
-| `bases` | 6 | `Repeated(Named("PhysicalBasis"))` | `Both` | `[]` | `{}` |
-| `reference_states` | 7 | `Repeated(Named("ReferenceState"))` | `Both` | `[]` | `{}` |
-| `quantity_types` | 8 | `Repeated(Named("QuantityType"))` | `Both` | `[]` | `{}` |
-| `conversions` | 9 | `Repeated(Named("PhysicalConversionDeclaration"))` | `Both` | `[]` | `{}` |
-| `operations` | 10 | `Repeated(Named("PhysicalOperationDeclaration"))` | `Both` | `[]` | `{}` |
-| `reduction_domains` | 11 | `Repeated(Named("Tuple2OfOperationIdAndEntityKindId"))` | `Both` | `[]` | `{}` |
-| `unit_sets` | 12 | `Repeated(Named("PhysicalUnitSet"))` | `Both` | `[]` | `{}` |
-| `neutral` | 13 | `Repeated(Named("QuantityTypeId"))` | `Both` | `[]` | `{}` |
-
-## `PhysicalUnit`
-
-Rust owner: `pse_quantity::unit::Unit`. Source: `crates/pse-quantity/src/unit.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-| `symbol` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `dimension` | 3 | `Named("PhysicalDimensionVector")` | `Both` | `[]` | `{}` |
-| `scale_to_canonical` | 4 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
-| `offset_to_canonical` | 5 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
-| `is_affine` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `reference_state` | 7 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
-| `definition` | 8 | `Optional(Repeated(Named("UnitFactor")))` | `Both` | `[]` | `{}` |
-
-## `PhysicalUnitSet`
-
-Rust owner: `pse_quantity::unit_set::UnitSet`. Source: `crates/pse-quantity/src/unit_set.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("UnitSetId")` | `Both` | `[]` | `{}` |
-| `base` | 2 | `Named("Array8OptionalUnitId")` | `Both` | `[]` | `{}` |
-
 ## `PlatformPathBytes`
 
 Rust owner: `pse_contract::boundary_projection::path::PlatformPathBytes`. Source: `crates/pse-contract/src/boundary_projection/path.rs`. Interpretation version: 1. Direction: `Both`.
@@ -1092,212 +796,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `Unix (alternative tag 1).value` | 1 | `Scalar(Bytes)` | `Both` | `[]` | `{}` |
 | `Windows (alternative tag 2).value` | 1 | `Repeated(Scalar(U16))` | `Both` | `[]` | `{}` |
-
-## `QuantityAdditionKind`
-
-Rust owner: `pse_quantity::enums::QuantityAdditionKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["additive", "origin_sensitive"]`.
-
-## `QuantityKindCategory`
-
-Rust owner: `pse_quantity::enums::QuantityKindCategory`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["count", "indicator"]`.
-
-## `QuantityKindId`
-
-Rust owner: `pse_quantity::ids::QuantityKindId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `QuantityScaleRule`
-
-Rust owner: `pse_quantity::enums::QuantityScaleRule`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["preserve", "point", "difference", "addition", "weighted_mean"]`.
-
-## `QuantityShapeRule`
-
-Rust owner: `pse_quantity::enums::QuantityShapeRule`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["scalar", "preserve", "same_indices", "explicit_broadcast", "reduce_bound_index"]`.
-
-## `QuantityType`
-
-Rust owner: `pse_quantity::quantity_type::QuantityType`. Source: `crates/pse-quantity/src/quantity_type.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `name` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{}` |
-| `key` | 3 | `Named("QuantityTypeKey")` | `Both` | `[]` | `{}` |
-| `canonical_unit` | 4 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-| `nominal_magnitude` | 5 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{}` |
-
-## `QuantityTypeId`
-
-Rust owner: `pse_quantity::ids::QuantityTypeId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `QuantityTypeKey`
-
-Rust owner: `pse_quantity::quantity_type::QuantityTypeKey`. Source: `crates/pse-quantity/src/quantity_type.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `kind` | 1 | `Named("QuantityKindId")` | `Both` | `[]` | `{}` |
-| `basis` | 2 | `Optional(Named("BasisId"))` | `Both` | `[]` | `{}` |
-| `reference_state` | 3 | `Optional(Named("ReferenceStateId"))` | `Both` | `[]` | `{}` |
-| `scale_kind` | 4 | `Named("ScaleKind")` | `Both` | `[]` | `{}` |
-| `shape` | 5 | `Repeated(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
-| `subject_kind` | 6 | `Optional(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
-
-## `RateBasis`
-
-Rust owner: `pse_quantity::enums::RateBasis`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["per_volume", "per_mass", "per_area"]`.
-
-## `ReferenceCondition`
-
-Rust owner: `pse_quantity::reference_state::ReferenceCondition`. Source: `crates/pse-quantity/src/reference_state.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
-| `quantity_type` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `unit` | 3 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-
-## `ReferenceRule`
-
-Rust owner: `pse_quantity::enums::ReferenceRule`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["preserve", "require_equal", "registered_conversion", "cancel", "declared_result"]`.
-
-## `ReferenceState`
-
-Rust owner: `pse_quantity::reference_state::ReferenceState`. Source: `crates/pse-quantity/src/reference_state.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Named("ReferenceStateId")` | `Both` | `[]` | `{}` |
-| `name` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `kind` | 3 | `Named("ReferenceStateKind")` | `Both` | `[]` | `{}` |
-| `temperature` | 4 | `Optional(Named("ReferenceCondition"))` | `Both` | `[]` | `{}` |
-| `pressure` | 5 | `Optional(Named("ReferenceCondition"))` | `Both` | `[]` | `{}` |
-| `include_enthalpy_of_formation` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `subject` | 7 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
-
-## `ReferenceStateId`
-
-Rust owner: `pse_quantity::ids::ReferenceStateId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `ReferenceStateKind`
-
-Rust owner: `pse_quantity::enums::ReferenceStateKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["elemental_at_conditions", "compound_at_conditions", "ideal_gas_at_conditions", "custom"]`.
-
-## `ScaleKind`
-
-Rust owner: `pse_quantity::enums::ScaleKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["point", "difference"]`.
-
-## `SubjectRule`
-
-Rust owner: `pse_quantity::enums::SubjectRule`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-
-Allowed canonical members: `["preserve", "require_equal", "declared_result"]`.
-
-## `Tuple2OfOperationIdAndEntityKindId`
-
-Rust owner: `(pse_quantity::ids::OperationId, pse_quantity::ids::EntityKindId)`. Source: `crates/pse-contract/src/boundary_projection/tuple_pair.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `first` | 1 | `Named("OperationId")` | `Both` | `[]` | `{}` |
-| `second` | 2 | `Named("EntityKindId")` | `Both` | `[]` | `{}` |
 
 ## `Tuple2OfUsizeAndOptionalUsize`
 
@@ -1332,34 +830,3 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `first` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 | `second` | 2 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 | `third` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
-
-## `UnitFactor`
-
-Rust owner: `pse_quantity::unit::UnitFactor`. Source: `crates/pse-quantity/src/unit.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `unit` | 1 | `Named("UnitId")` | `Both` | `[]` | `{}` |
-| `exponent` | 2 | `Named("PhysicalRatio")` | `Both` | `[]` | `{}` |
-
-## `UnitId`
-
-Rust owner: `pse_quantity::ids::UnitId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `UnitSetId`
-
-Rust owner: `pse_quantity::ids::UnitSetId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |

@@ -757,7 +757,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `ReducedLaw (alternative tag 2).map` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
 | `ReducedLaw (alternative tag 2).reconstruction` | 2 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
 | `Transfer (alternative tag 3).boundary` | 1 | `Named("ModelingBoundaryFacts")` | `Both` | `[]` | `{}` |
-| `Transfer (alternative tag 3).into` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+| `Transfer (alternative tag 3).enters_boundary` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
 
 ## `ModelingResolvedArgumentRecord`
 

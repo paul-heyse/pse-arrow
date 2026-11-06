@@ -58502,13 +58502,13 @@ pub mod modeling_refinement_facts {
             super::ModelingBoundaryFacts,
             ::buffa::Inline<super::ModelingBoundaryFacts>,
         >,
-        /// Field 2: `into`
+        /// Field 2: `enters_boundary`
         #[serde(
-            rename = "into",
+            rename = "enters_boundary",
             with = "::buffa::json_helpers::proto_bool",
             skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
         )]
-        pub into: bool,
+        pub enters_boundary: bool,
         #[serde(skip)]
         #[doc(hidden)]
         pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -58517,7 +58517,7 @@ pub mod modeling_refinement_facts {
         fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
             f.debug_struct("Alternative3")
                 .field("boundary", &self.boundary)
-                .field("into", &self.into)
+                .field("enters_boundary", &self.enters_boundary)
                 .finish()
         }
     }
@@ -58556,7 +58556,7 @@ pub mod modeling_refinement_facts {
                         ),
                     )
                 }
-                2u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.into),
+                2u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.enters_boundary),
                 _ => {
                     ::core::debug_assert!(
                         false,
@@ -58570,7 +58570,7 @@ pub mod modeling_refinement_facts {
         fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
             match field.number() {
                 1u32 => self.boundary.is_set(),
-                2u32 => self.into,
+                2u32 => self.enters_boundary,
                 _ => false,
             }
         }
@@ -58659,7 +58659,7 @@ pub mod modeling_refinement_facts {
                     += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                         + inner_size as u64;
             }
-            if self.into {
+            if self.enters_boundary {
                 size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
             }
             size += self.__buffa_unknown_fields.encoded_len() as u64;
@@ -58680,8 +58680,8 @@ pub mod modeling_refinement_facts {
                 );
                 self.boundary.write_to(__cache, buf);
             }
-            if self.into {
-                ::buffa::types::put_bool_field(2u32, self.into, buf);
+            if self.enters_boundary {
+                ::buffa::types::put_bool_field(2u32, self.enters_boundary, buf);
             }
             self.__buffa_unknown_fields.write_to(buf);
         }
@@ -58712,7 +58712,7 @@ pub mod modeling_refinement_facts {
                         tag,
                         ::buffa::encoding::WireType::Varint,
                     )?;
-                    self.into = ::buffa::types::decode_bool(buf)?;
+                    self.enters_boundary = ::buffa::types::decode_bool(buf)?;
                 }
                 _ => {
                     self.__buffa_unknown_fields
@@ -58723,7 +58723,7 @@ pub mod modeling_refinement_facts {
         }
         fn clear(&mut self) {
             self.boundary = ::buffa::MessageField::none();
-            self.into = false;
+            self.enters_boundary = false;
             self.__buffa_unknown_fields.clear();
         }
     }
@@ -58747,9 +58747,9 @@ pub mod modeling_refinement_facts {
                 enc.write_field_name("boundary")?;
                 enc.write_message(&*self.boundary)?;
             }
-            if self.into {
-                enc.write_field_name("into")?;
-                enc.write_bool(self.into)?;
+            if self.enters_boundary {
+                enc.write_field_name("enters_boundary")?;
+                enc.write_bool(self.enters_boundary)?;
             }
             enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
             ::core::result::Result::Ok(())
@@ -58765,7 +58765,7 @@ pub mod modeling_refinement_facts {
                     "boundary" => {
                         dec.merge_message(self.boundary.get_or_insert_default())?
                     }
-                    "into" => self.into = dec.read_bool()?,
+                    "enters_boundary" => self.enters_boundary = dec.read_bool()?,
                     _ => dec.skip_value()?,
                 }
             }
@@ -206659,8 +206659,8 @@ pub mod __buffa {
                 pub boundary: ::buffa::MessageFieldView<
                     super::super::super::__buffa::view::ModelingBoundaryFactsView<'a>,
                 >,
-                /// Field 2: `into`
-                pub into: bool,
+                /// Field 2: `enters_boundary`
+                pub enters_boundary: bool,
                 pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
             }
             impl<'a> ::buffa::MessageView<'a> for Alternative3View<'a> {
@@ -206736,7 +206736,9 @@ pub mod __buffa {
                                 tag,
                                 ::buffa::encoding::WireType::Varint,
                             )?;
-                            view.into = ::buffa::types::decode_bool(&mut cur)?;
+                            view.enters_boundary = ::buffa::types::decode_bool(
+                                &mut cur,
+                            )?;
                         }
                         _ => {
                             ::buffa::encoding::skip_field_depth(
@@ -206780,7 +206782,7 @@ pub mod __buffa {
                             }
                             None => ::buffa::MessageField::none(),
                         },
-                        into: self.into,
+                        enters_boundary: self.enters_boundary,
                         __buffa_unknown_fields: self
                             .__buffa_unknown_fields
                             .to_owned()?
@@ -206804,7 +206806,7 @@ pub mod __buffa {
                                 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                                 + inner_size as u64;
                     }
-                    if self.into {
+                    if self.enters_boundary {
                         size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
                     }
                     size += self.__buffa_unknown_fields.encoded_len() as u64;
@@ -206826,8 +206828,8 @@ pub mod __buffa {
                         );
                         self.boundary.write_to(__cache, buf);
                     }
-                    if self.into {
-                        ::buffa::types::put_bool_field(2u32, self.into, buf);
+                    if self.enters_boundary {
+                        ::buffa::types::put_bool_field(2u32, self.enters_boundary, buf);
                     }
                     self.__buffa_unknown_fields.write_to(buf);
                 }
@@ -206858,8 +206860,8 @@ pub mod __buffa {
                             __map.serialize_entry("boundary", __v)?;
                         }
                     }
-                    if self.into {
-                        __map.serialize_entry("into", &self.into)?;
+                    if self.enters_boundary {
+                        __map.serialize_entry("enters_boundary", &self.enters_boundary)?;
                     }
                     __map.end()
                 }
@@ -206967,6 +206969,11 @@ pub mod __buffa {
                 > {
                     &self.0.reborrow().boundary
                 }
+                /// Field 2: `enters_boundary`
+                #[must_use]
+                pub fn enters_boundary(&self) -> bool {
+                    self.0.reborrow().enters_boundary
+                }
             }
             impl ::core::convert::From<::buffa::OwnedView<Alternative3View<'static>>>
             for Alternative3OwnedView {
@@ -207024,7 +207031,11 @@ pub mod __buffa {
                                 ),
                             )
                         }
-                        2u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.into),
+                        2u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Bool(
+                                self.enters_boundary,
+                            )
+                        }
                         _ => {
                             ::core::debug_assert!(
                                 false,
@@ -207038,7 +207049,7 @@ pub mod __buffa {
                 fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
                     match field.number() {
                         1u32 => self.boundary.is_set(),
-                        2u32 => self.into,
+                        2u32 => self.enters_boundary,
                         _ => false,
                     }
                 }
@@ -378253,8 +378264,8 @@ pub mod __buffa {
                         'a,
                     >,
                 >,
-                /// Field 2: `into`
-                pub into: bool,
+                /// Field 2: `enters_boundary`
+                pub enters_boundary: bool,
                 pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
             }
             impl<'a> Alternative3LazyView<'a> {
@@ -378306,7 +378317,9 @@ pub mod __buffa {
                                     tag,
                                     ::buffa::encoding::WireType::Varint,
                                 )?;
-                                view.into = ::buffa::types::decode_bool(&mut cur)?;
+                                view.enters_boundary = ::buffa::types::decode_bool(
+                                    &mut cur,
+                                )?;
                             }
                             _ => {
                                 ::buffa::encoding::skip_field_depth(
@@ -378379,7 +378392,7 @@ pub mod __buffa {
                             }
                             ::core::option::Option::None => ::buffa::MessageField::none(),
                         },
-                        into: self.into,
+                        enters_boundary: self.enters_boundary,
                         __buffa_unknown_fields: self
                             .__buffa_unknown_fields
                             .to_owned()?
@@ -378413,7 +378426,7 @@ pub mod __buffa {
                                 + ::buffa::encoding::varint_len(__frag.len() as u64) as u64
                                 + __frag.len() as u64;
                     }
-                    if self.into {
+                    if self.enters_boundary {
                         size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
                     }
                     size += self.__buffa_unknown_fields.encoded_len() as u64;
@@ -378441,8 +378454,8 @@ pub mod __buffa {
                         ::buffa::encoding::encode_varint(__frag.len() as u64, buf);
                         buf.put_slice(__frag);
                     }
-                    if self.into {
-                        ::buffa::types::put_bool_field(2u32, self.into, buf);
+                    if self.enters_boundary {
+                        ::buffa::types::put_bool_field(2u32, self.enters_boundary, buf);
                     }
                     self.__buffa_unknown_fields.write_to(buf);
                 }
@@ -378637,8 +378650,8 @@ pub mod __buffa {
                             }
                         }
                     }
-                    if self.into {
-                        __map.serialize_entry("into", &self.into)?;
+                    if self.enters_boundary {
+                        __map.serialize_entry("enters_boundary", &self.enters_boundary)?;
                     }
                     __map.end()
                 }

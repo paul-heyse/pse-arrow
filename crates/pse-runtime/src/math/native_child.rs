@@ -4,20 +4,18 @@
 //! One child owns one fresh serial KINSOL solve. Parent admission and original screening
 //! remain authoritative; this is neither continuation nor distributed decomposition.
 use super::native_root_protocol::{
-    Hello, REQUEST_LIMIT, RESPONSE_LIMIT, Request, Response, RootBindings, RootInput, RootOutcome,
+    Hello, REQUEST_LIMIT, RESPONSE_LIMIT, Request, Response, RestoreGrant, RestorePreparation,
+    RestorePreparationOutcome, RootInput, RootOutcome,
 };
 use super::{MathRuntimeError, MathService, Submission, solves::SolveHandle};
 use pse_columnar::AllocationLease;
-use pse_compiler::{
-    typed_math::{AdmittedBody, portable_payload_hash, reconstruct_portable},
-    workspace::CompilerContext,
-};
+use pse_compiler::{typed_math::AdmittedBody, workspace::CompilerContext};
 use pse_diagnostics::Cancellation;
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::{DerivativeOrder, ExecutionScope};
 use pse_math::{
     SourceBindings, SourceBody,
-    implicit::{InnerSolver, Options, Problem, Unknown},
+    implicit::{Options, Problem, Unknown},
     jets::EvaluationLimits,
 };
 use pse_model::HeapUsage;
@@ -30,9 +28,11 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+mod admission;
+mod snapshot;
 mod wire;
 
-const PROTOCOL: &str = "pse.private-native-root.v3";
+const PROTOCOL: &str = "pse.private-native-root.v4";
 /// Explicit child native-owner stack, charged to its parent's finite worker allocation.
 pub const NATIVE_CHILD_STACK_BYTES: usize = pse_structural::incidence::MATCHING_STACK;
 
@@ -70,7 +70,8 @@ fn native_profile() -> Result<ContentHash, MathRuntimeError> {
 pub struct PortableRootSource {
     body: Arc<AdmittedBody>,
     bindings: SourceBindings,
-    context: CompilerContext,
+    // Original physical declaration owners survive capture, child drain and screening.
+    _context: CompilerContext,
     unknowns: Vec<Unknown>,
     rows: Vec<SemanticId>,
     parameters: Vec<f64>,
@@ -126,11 +127,10 @@ impl PortableRootSource {
             ));
         }
         bindings.check(body.math())?;
-        body.portable_payload_bytes()?;
         Ok(Self {
             body,
             bindings,
-            context,
+            _context: context,
             unknowns,
             rows,
             parameters,
@@ -139,20 +139,13 @@ impl PortableRootSource {
             max_entries,
         })
     }
-    fn wire(&self) -> Result<RootInput, MathRuntimeError> {
-        Ok(RootInput {
-            body: self.body.portable_payload()?,
+    fn wire(&self, execution: pse_math::implicit::transfer::RootExecutionSnapshot) -> RootInput {
+        RootInput {
             spec: self.body.spec().clone(),
-            source: RootBindings::capture(&self.bindings),
-            registry: self.context.quantities.to_builder(),
-            preconditions: self.context.preconditions.declarations().to_vec(),
-            unknowns: self.unknowns.clone(),
-            rows: self.rows.clone(),
             parameters: self.parameters.clone(),
             options: self.options.clone(),
-            evaluation: self.evaluation,
-            max_entries: self.max_entries,
-        })
+            execution,
+        }
     }
     fn problem(&self, scope: &ExecutionScope) -> Result<Arc<Problem>, MathRuntimeError> {
         compile_problem(
@@ -174,8 +167,9 @@ impl PortableRootSource {
 pub struct NativeChild {
     executable: PathBuf,
     observation: pse_buildinfo::FileObservation,
-    /// Separately charged allowance for SUNDIALS/KLU/private allocator, registry and
-    /// compiled-program populations and startup/main/foreign stack unknowns. This is
+    /// Separately charged allowance for SUNDIALS/KLU/private allocator, native DTO
+    /// conversion and startup/main/foreign stack unknowns. Checked restoration has
+    /// its own actual parent pool reservation. This is
     /// admission accounting, not an allocator-enforced complete process/RSS maximum.
     opaque_bytes: usize,
     /// Explicit strict whole-child memory selection; currently refused before launch.
@@ -224,29 +218,6 @@ pub struct PortableRootResult {
     pub executable_sha256: String,
 }
 
-impl RootBindings {
-    fn capture(bindings: &SourceBindings) -> Self {
-        Self {
-            instance: bindings.instance(),
-            checked_members: bindings.checked_members().clone(),
-            checked_sources: bindings.checked_sources().clone(),
-            occurrences: bindings.occurrences().clone(),
-        }
-    }
-    fn bind(
-        self,
-        body: &pse_math::guarded::PreparedBody,
-    ) -> Result<SourceBindings, MathRuntimeError> {
-        SourceBindings::new(
-            self.instance,
-            body,
-            self.checked_members,
-            self.checked_sources,
-            self.occurrences,
-        )
-        .map_err(Into::into)
-    }
-}
 impl MathService {
     /// Execute a complete portable authored root on one independent serial process lane.
     /// Queue, startup, IPC, native work, original screen and actual reap share one deadline.
@@ -282,20 +253,8 @@ impl MathService {
             deadline: Some(deadline),
         };
         let bytes = child.opaque_bytes;
-        let recipe_extent = source.body.portable_payload_bytes()?;
-        let replay_extent =
-            pse_ids::scientific_replay::QualifiedScientificRecipe::scratch_bytes(recipe_extent)
-                .map_err(infrastructure)?;
-        let source_bytes = source
-            .bindings
-            .retained_bytes()
-            .checked_mul(2)
-            .ok_or_else(|| MathRuntimeError::Limit("native child source attribution extent"))?;
-        let known_bytes = replay_extent
-            .checked_mul(2)
-            .and_then(|n| n.checked_add(4 * REQUEST_LIMIT + 2 * RESPONSE_LIMIT))
-            .and_then(|n| n.checked_add(NATIVE_CHILD_STACK_BYTES))
-            .and_then(|n| n.checked_add(source_bytes))
+        let known_bytes = (4 * REQUEST_LIMIT + 2 * RESPONSE_LIMIT)
+            .checked_add(NATIVE_CHILD_STACK_BYTES)
             .ok_or_else(|| MathRuntimeError::Limit("native child construction extent"))?;
         let service = self.clone();
         self.submit_source_timed(1, bytes, submission, move |flag, _| {
@@ -306,10 +265,23 @@ impl MathService {
             let _known = service.reserve("math:native-child-known-extents", known_bytes)?;
             let original = source.problem(&scope)?;
             original.validate_options(&source.options)?;
-            let payload = wire::encode(source.wire()?, REQUEST_LIMIT)?;
-            let result = launch(&child, payload, &scope)?;
-            checkpoint(&scope)?;
+            let captured = pse_math::implicit::transfer::capture(
+                &original.root_execution(),
+                &scope,
+                |facts| {
+                    service
+                        .reserve("math:native-child-captured-execution", facts.capture_bytes)
+                        .map(|owner| -> Arc<dyn pse_math::AllocationOwner> { owner })
+                },
+            )
+            .map_err(snapshot::root_transfer_error)?;
+            let (execution, _capture_owner) = captured.into_parts();
+            let payload = wire::encode(source.wire(execution), REQUEST_LIMIT)?;
+            let (result, _restore_owner) = launch(&child, payload, &scope, |bytes| {
+                service.reserve("math:native-child-restored-execution", bytes)
+            })?;
             if let Some(point) = &result.proposal {
+                checkpoint(&scope)?;
                 original.verify(
                     &source.parameters,
                     point,
@@ -380,12 +352,20 @@ struct OwnedChild {
     reaped: bool,
 }
 impl OwnedChild {
+    fn abort_and_wait(&mut self) -> Result<(), MathRuntimeError> {
+        let stopped = self.process.kill().map_err(infrastructure);
+        let waited = self
+            .process
+            .wait()
+            .map(|_| {
+                self.reaped = true;
+            })
+            .map_err(infrastructure);
+        MathRuntimeError::settle(stopped, waited)
+    }
     fn reap(&mut self, scope: &ExecutionScope, abort: bool) -> Result<(), MathRuntimeError> {
         if abort {
-            self.process.kill().map_err(infrastructure)?;
-            self.process.wait().map_err(infrastructure)?;
-            self.reaped = true;
-            return Ok(());
+            return self.abort_and_wait();
         }
         loop {
             if let Some(status) = self.process.try_wait().map_err(infrastructure)? {
@@ -402,10 +382,7 @@ impl OwnedChild {
                 .ok_or_else(|| infrastructure("missing owned process descriptor"))
                 .and_then(|fd| wait_ready(scope, fd, rustix::event::PollFlags::IN));
             if let Err(error) = readiness {
-                let _ = self.process.kill();
-                self.process.wait().map_err(infrastructure)?;
-                self.reaped = true;
-                return Err(error);
+                return MathRuntimeError::settle(Err(error), self.abort_and_wait());
             }
         }
     }
@@ -422,7 +399,8 @@ fn launch(
     child: &NativeChild,
     payload: Vec<u8>,
     scope: &ExecutionScope,
-) -> Result<PortableRootResult, MathRuntimeError> {
+    admit: impl FnOnce(usize) -> Result<Arc<AllocationLease>, MathRuntimeError>,
+) -> Result<(PortableRootResult, Option<Arc<AllocationLease>>), MathRuntimeError> {
     let _telemetry = tracing::info_span!(
         "pse.native.child.launch",
         pse.owner.stage = true,
@@ -486,17 +464,22 @@ fn launch(
         .env("RAYON_NUM_THREADS", "1")
         .spawn()
         .map_err(infrastructure)?;
+    // Declared before the process owner: fallback process drain must precede
+    // dropping a reservation even when explicit reaping itself fails.
+    let mut restoration = None;
     let mut owned = OwnedChild {
         process,
         process_fd: None,
         channel,
         reaped: false,
     };
-    owned.process_fd = Some(owned_process_fd(owned.process.id())?);
-    owned
-        .channel
-        .set_nonblocking(true)
-        .map_err(infrastructure)?;
+    let setup = owned_process_fd(owned.process.id()).and_then(|descriptor| {
+        owned.process_fd = Some(descriptor);
+        owned.channel.set_nonblocking(true).map_err(infrastructure)
+    });
+    if let Err(error) = setup {
+        return MathRuntimeError::settle(Err(error), owned.reap(scope, true));
+    }
     let result = (|| {
         let hello: Hello = receive(&mut owned.channel, RESPONSE_LIMIT, scope)?;
         if hello.protocol != PROTOCOL
@@ -540,6 +523,47 @@ fn launch(
             source: payload,
         };
         send(&mut owned.channel, envelope, REQUEST_LIMIT, scope)?;
+        let prepared: RestorePreparation = receive(&mut owned.channel, RESPONSE_LIMIT, scope)?;
+        if prepared.attempt != attempt
+            || prepared.execution != execution
+            || prepared.request != request
+        {
+            return Err(contract(
+                "native child restoration belongs to another attempt/profile",
+            ));
+        }
+        match prepared.result {
+            RestorePreparationOutcome::Refused(cause) => {
+                return Ok(PortableRootResult {
+                    proposal: None,
+                    refusal: Some(cause),
+                    child_pid: hello.pid,
+                    attempt,
+                    executable_sha256: hello.executable.sha256,
+                });
+            }
+            RestorePreparationOutcome::Demand(bytes) => {
+                if bytes == 0 {
+                    return Err(contract(
+                        "native child requested an empty restoration grant",
+                    ));
+                }
+                checkpoint(scope)?;
+                restoration = Some(admit(bytes)?);
+                checkpoint(scope)?;
+                send(
+                    &mut owned.channel,
+                    RestoreGrant {
+                        attempt,
+                        execution,
+                        request,
+                        admitted_bytes: bytes,
+                    },
+                    RESPONSE_LIMIT,
+                    scope,
+                )?;
+            }
+        }
         let response: Response = receive(&mut owned.channel, RESPONSE_LIMIT, scope)?;
         if response.attempt != attempt
             || response.execution != execution
@@ -562,10 +586,8 @@ fn launch(
         })
     })();
     let drained = owned.reap(scope, result.is_err());
-    checkpoint(scope)?;
-    let result = result?;
-    drained?;
-    Ok(result)
+    let result = MathRuntimeError::settle(result, drained)?;
+    Ok((result, restoration))
 }
 
 #[cfg(target_os = "linux")]
@@ -735,11 +757,12 @@ fn receive<T: wire::Frame>(
 /// Entry point of the private native worker, never a public stdin DTO admission API.
 /// # Safety
 /// The controlled deployment launcher must own this inherited Unix socket and provide
-/// direct compiler-issued source bytes. It must authenticate the executable/build/attempt,
-/// retain the original deadline and charges, screen original coordinates, and reap the child.
+/// a capture from its actual admitted original root. It must authenticate the executable,
+/// build and attempt, admit derived restoration demand in its original pool, retain the
+/// original deadline and charges, screen original coordinates, and reap the child.
 #[allow(
     unsafe_code,
-    reason = "ADR-0185 trusted private child composition root forwards direct admitted-source authority"
+    reason = "ADR-0185 trusted private process role; proposed ADR-0246 narrows delegation to the captured numerical root"
 )]
 pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), MathRuntimeError> {
     let mut channel = UnixStream::from(
@@ -818,9 +841,48 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     }
     context.source_ref("native.attempt", attempt.to_string().as_bytes());
     let _entered = context.enter();
+    let prepared = snapshot::prepare(&request, &scope);
+    let preparation = RestorePreparation {
+        attempt,
+        execution: request.execution,
+        request: request.request,
+        result: match &prepared {
+            Ok((_, facts)) => RestorePreparationOutcome::Demand(facts.restore_peak_bytes),
+            Err(error) => RestorePreparationOutcome::Refused(
+                error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native),
+            ),
+        },
+    };
+    send(&mut channel, preparation, RESPONSE_LIMIT, &scope)?;
+    let (input, facts) = match prepared {
+        Ok(prepared) => prepared,
+        Err(_) => {
+            // This is the terminal original refusal, already delivered in the
+            // preparation phase. A second response could block the peer's reap.
+            diagnostic.finish(pse_diagnostics::observation::Outcome::Failed);
+            drop(registration);
+            diagnostics.stop_publisher();
+            return Ok(());
+        }
+    };
     let solve_span = tracing::info_span!("pse.native.child.execute", pse.owner.stage = true, native.attempt = %attempt, native.operation = %context.id());
     let result = solve_span
-        .in_scope(|| reconstruct_and_solve(&request, &scope))
+        .in_scope(|| {
+            let grant: RestoreGrant = receive(&mut channel, RESPONSE_LIMIT, &scope)?;
+            if grant.attempt != attempt
+                || grant.execution != request.execution
+                || grant.request != request.request
+                || grant.admitted_bytes != facts.restore_peak_bytes
+            {
+                return Err(contract(
+                    "native child restoration grant differs from its original demand",
+                ));
+            }
+            let owner = admission::RestorationAdmission::new(grant.admitted_bytes, scope.clone())?;
+            pse_math::construction::scoped(owner.clone(), || {
+                snapshot::restore_and_solve(input, owner, &scope)
+            })
+        })
         .map_err(|error| error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Native));
     let solve_success = result.is_ok();
     context.boolean("native.solve.return.success", solve_success);
@@ -851,86 +913,6 @@ pub unsafe fn serve_private(attempt: SemanticId, parent: u32) -> Result<(), Math
     drop(registration);
     diagnostics.stop_publisher();
     sent
-}
-
-/// Reconstruct native declaration data, then bind its complete original scientific context.
-/// Prerequisite declarations do not issue grants or replace qualified receipt replay.
-fn reconstruct_physical_context(
-    declarations: pse_quantity::QuantityRegistryBuilder,
-    prerequisites: Vec<pse_quantity::PhysicalPrecondition>,
-    expected: ContentHash,
-) -> Result<pse_quantity::QuantityRegistry, MathRuntimeError> {
-    let registry = declarations.build().map_err(pse_math::MathError::from)?;
-    let prerequisites = pse_quantity::PhysicalPreconditions::new(prerequisites)
-        .map_err(pse_math::MathError::from)?;
-    if pse_compiler::workspace::physical_identity(&registry, &prerequisites) != expected {
-        return Err(MathRuntimeError::Internal(
-            "native child reconstructed physical context differs from original body".into(),
-        ));
-    }
-    Ok(registry)
-}
-
-#[allow(
-    unsafe_code,
-    reason = "ADR-0185 private inherited-channel scope issues the restricted exact admitted recipe authority"
-)]
-fn reconstruct_and_solve(
-    request: &Request,
-    scope: &ExecutionScope,
-) -> Result<Vec<f64>, MathRuntimeError> {
-    checkpoint(scope)?;
-    let wire: RootInput = wire::decode(&request.source, REQUEST_LIMIT)?;
-    if !wire.spec.providers.is_empty() {
-        return Err(MathRuntimeError::Internal(
-            "native child physical registry or provider closure differs".into(),
-        ));
-    }
-    let registry =
-        reconstruct_physical_context(wire.registry, wire.preconditions, wire.spec.physical)?;
-    pse_math::initialize()?;
-    checkpoint(scope)?;
-    // SAFETY: this function is reached only by serve_private's trusted inherited socket
-    // role after exact executable/build/attempt and payload binding. The parent captured
-    // this recipe directly from AdmittedBody and bound its actual physical context.
-    let permit = unsafe {
-        pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_process_message(
-            wire.body.clone(),
-            portable_payload_hash(&wire.body),
-            request.execution,
-            request.request,
-        )
-    }
-    .map_err(infrastructure)?;
-    let body = reconstruct_portable(&permit, &registry, scope.cancellation())?;
-    if body.spec() != &wire.spec || !body.math().providers().is_empty() {
-        return Err(MathRuntimeError::Internal(
-            "native child reconstructed source differs".into(),
-        ));
-    }
-    let bindings = wire.source.bind(body.math())?;
-    let problem = compile_problem(
-        (&body, &bindings),
-        &wire.unknowns,
-        &wire.rows,
-        wire.parameters.len(),
-        wire.evaluation,
-        wire.max_entries,
-        scope,
-    )?;
-    let mut options = wire.options;
-    options.time_limit = scope
-        .remaining(options.time_limit)
-        .map_err(pse_math::MathError::Scope)?;
-    let mut worker = pse_backend_native::implicit::Kinsol.worker();
-    let point = worker.solve(
-        problem,
-        &wire.parameters,
-        &options,
-        scope.cancellation_control(),
-    )?;
-    checkpoint(scope)?;
-    Ok(point)
 }
 
 #[cfg(test)]

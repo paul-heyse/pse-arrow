@@ -71,8 +71,9 @@ child receives the complete unknown-coordinate Value/First execution/diagnostic
 closure, original bindings, intervals, residual identities, parameter bits, structural Jacobian
 support, solve/evaluation limits and deadline, plus attempt-bound evidence commitments. The
 single selected-partials First template contains the required Value programs. Registry,
-source-value preparation, factorization/backsolve machinery and later product preparation
-stay parent-side. Any recursively encountered provider or external-function requirement refuses.
+source-value preparation, general implicit-function factor/backsolve machinery and later
+product preparation stay parent-side. KINSOL still performs its own native solve factorization
+in the child. Any recursively encountered provider or external-function requirement refuses.
 
 Only the authenticated private handler issues a process-local, nonserializable one-attempt
 execution capability, bound to channel, executable/build, request, native profile, deadline
@@ -165,7 +166,8 @@ owns the scope and assessment. Sources: [admission/capture](../../crates/pse-com
 [root problem](../../crates/pse-math/src/implicit.rs),
 [KINSOL callbacks](../../crates/pse-backend-native/src/implicit.rs),
 [original binding checks](../../crates/pse-math/src/source_bindings.rs),
-[parent authority](../../crates/pse-ids/src/scientific_replay.rs),
+[complete root capture/restoration](../../crates/pse-math/src/implicit_transfer.rs),
+[separate canonical replay authority](../../crates/pse-ids/src/scientific_replay.rs),
 [supplier evaluator serialization/execution](../../vendor/symbolica/src/evaluate/evaluator.rs),
 [supplier instructions](../../vendor/symbolica/src/evaluate/instruction.rs),
 [packed representation](../../vendor/symbolica/src/atom/representation.rs),

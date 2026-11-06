@@ -5883,7 +5883,7 @@ impl<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
-                    &[(1, "boundary"), (2, "into")],
+                    &[(1, "boundary"), (2, "enters_boundary")],
                     path,
                 )?;
                 let fields = (
@@ -5899,7 +5899,10 @@ impl<
                         )?,
                         &child_path(path, "boundary"),
                     )?,
-                    native_from::<_, bool>(wire.into, &child_path(path, "into"))?,
+                    native_from::<
+                        _,
+                        bool,
+                    >(wire.enters_boundary, &child_path(path, "enters_boundary"))?,
                 );
                 Ok(
                     <pse_modeling::portable::RefinementWire as pse_contract::boundary_projection::ProjectionAlternative<

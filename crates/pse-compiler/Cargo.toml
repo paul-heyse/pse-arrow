@@ -45,4 +45,5 @@ pse-kernels.workspace = true
 pse-quantity.workspace = true
 
 [dev-dependencies]
+pse-ids = { workspace = true, features = ["fixtures"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }

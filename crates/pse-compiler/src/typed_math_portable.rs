@@ -488,9 +488,10 @@ pub(super) fn reconstruct_fixture(
     registry: &QuantityRegistry,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<AdmittedBody, MathError> {
-    // SAFETY: private immutable compiler/store test fixture; public callers cannot issue this permit.
+    // SAFETY: the complete immutable record population remains in this isolated
+    // compiler fixture, including deliberately corrupt negative cases.
     let permit = unsafe {
-        pse_ids::scientific_replay::QualifiedScientificRecipe::from_canonical_product(
+        pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_record_fixture(
             payload.to_vec(),
             digest,
             ContentHash::from_bytes([1; 32]),
@@ -595,7 +596,7 @@ fn region_composition_refuses_qualified_restored_support_as_live_context() {
     // SAFETY: This private compiler fixture retains the complete immutable record
     // of actual successful source admission. It cannot issue production authority.
     let recipe = unsafe {
-        pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_process_message(
+        pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_record_fixture(
             payload,
             digest,
             ContentHash::from_bytes([1; 32]),

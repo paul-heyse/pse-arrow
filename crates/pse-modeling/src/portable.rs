@@ -288,7 +288,7 @@ pub enum RefinementWire {
         /// Original complete boundary attribution.
         boundary: BoundaryWire => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
         /// Whether the original direction is into that boundary.
-        into: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+        enters_boundary: bool => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 3;
 }
 }
@@ -323,7 +323,7 @@ impl RefinementWire {
                         coordinates: coordinates.iter().map(ValueWire::capture).collect(),
                     },
                 },
-                into: *direction == crate::TransferDirection::Into,
+                enters_boundary: *direction == crate::TransferDirection::Into,
             },
         }
     }
@@ -341,7 +341,10 @@ impl RefinementWire {
                 map: *map,
                 reconstruction: *reconstruction,
             },
-            Self::Transfer { boundary, into } => R::Transfer {
+            Self::Transfer {
+                boundary,
+                enters_boundary,
+            } => R::Transfer {
                 boundary: match boundary {
                     BoundaryWire::Declared(v) => crate::BoundaryRef::Declared(*v),
                     BoundaryWire::Bound {
@@ -357,7 +360,7 @@ impl RefinementWire {
                             .collect::<Result<_>>()?,
                     },
                 },
-                direction: if *into {
+                direction: if *enters_boundary {
                     crate::TransferDirection::Into
                 } else {
                     crate::TransferDirection::OutOf

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+use std::convert::Infallible;
 
 fn numerical_snapshot() -> pse_math::transfer::ExecutionSnapshot {
     let source = source();
@@ -18,7 +19,7 @@ fn numerical_snapshot() -> pse_math::transfer::ExecutionSnapshot {
         )
         .unwrap();
     let captured = pse_math::transfer::capture(&compiled, &scope, |_| {
-        Ok::<Arc<dyn pse_math::AllocationOwner>, std::convert::Infallible>(Arc::new(()))
+        Ok::<Arc<dyn pse_math::AllocationOwner>, Infallible>(Arc::new(()))
     })
     .unwrap();
     captured.into_parts().0
@@ -188,79 +189,59 @@ fn private_native_corrupt_admitted_frame_is_internal() {
     );
 }
 
+fn capture_root(
+    problem: &Problem,
+    scope: &ExecutionScope,
+) -> pse_math::implicit::transfer::RootExecutionSnapshot {
+    pse_math::implicit::transfer::capture(&problem.root_execution(), scope, |_| {
+        Ok::<Arc<dyn pse_math::AllocationOwner>, Infallible>(Arc::new(()))
+    })
+    .unwrap()
+    .into_parts()
+    .0
+}
+
+fn restore_root(
+    source: &PortableRootSource,
+    problem: &Problem,
+    scope: &ExecutionScope,
+) -> Arc<pse_math::implicit::RootExecution> {
+    let bytes = wire::encode(source.wire(capture_root(problem, scope)), REQUEST_LIMIT).unwrap();
+    let input: RootInput = wire::decode(&bytes, REQUEST_LIMIT).unwrap();
+    let facts = input.execution.restore_extents().unwrap();
+    let owner =
+        admission::RestorationAdmission::new(facts.restore_peak_bytes, scope.clone()).unwrap();
+    snapshot::restore(input, owner, scope).unwrap().0
+}
+
 #[test]
-fn private_native_typed_registry_requires_original_complete_physical_context() {
+fn private_native_input_carries_actual_root_execution_without_a_source_replay_payload() {
     let source = source();
-    assert!(!source.context.preconditions.declarations().is_empty());
-    let decode = |input| {
-        wire::decode::<RootInput>(&wire::encode(input, REQUEST_LIMIT).unwrap(), REQUEST_LIMIT)
-            .unwrap()
-    };
-    let input = decode(source.wire().unwrap());
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let original = source.problem(&scope).unwrap();
+    let captured = capture_root(&original, &scope);
+    let input = source.wire(captured);
+    let bytes = wire::encode(input, REQUEST_LIMIT).unwrap();
+    let input: RootInput = wire::decode(&bytes, REQUEST_LIMIT).unwrap();
+    assert_eq!(input.spec, *source.body.spec());
+    assert_eq!(input.execution.definition.identity, original.identity);
+    assert_eq!(input.execution.definition.rows, original.rows);
     assert_eq!(
-        input.preconditions,
-        source.context.preconditions.declarations()
+        input.execution.numerical.coordinate_offsets.len(),
+        original.unknowns.len()
     );
-    let registry =
-        reconstruct_physical_context(input.registry, input.preconditions, input.spec.physical)
-            .unwrap();
-    assert_eq!(&registry, source.context.quantities.as_ref());
-
-    // Native admission observes every decoded declaration, including duplicates.
-    let mut duplicate = source.wire().unwrap();
-    let unit = source.context.quantities.units().next().unwrap().clone();
-    let expected = unit.id.as_id();
-    duplicate.registry.unit(unit);
-    let duplicate = decode(duplicate);
+    assert_eq!(
+        input.execution.attribution.checked_members,
+        *source.bindings.checked_members()
+    );
     assert!(
-        matches!(reconstruct_physical_context(duplicate.registry, duplicate.preconditions, duplicate.spec.physical),
-        Err(MathRuntimeError::Math(pse_math::MathError::Quantity(pse_quantity::QuantityError::Registry {
-            rule: "registry.unique_id", subject, .. }))) if subject == expected)
+        input
+            .execution
+            .restore_extents()
+            .unwrap()
+            .restore_peak_bytes
+            > 0
     );
-
-    // Preserve identities and message shape while changing one valid native unit scale.
-    // The complete source-owned tuple supplies the actual declaration, without JSON edits.
-    use pse_contract::boundary_projection::ProjectionRecord as _;
-    let mut changed_scale = source.wire().unwrap();
-    let mut fields = changed_scale.registry.into_projection_fields();
-    fields.1[0].scale_to_canonical *= 2.0;
-    changed_scale.registry =
-        pse_quantity::QuantityRegistryBuilder::from_projection_fields(fields).unwrap();
-    let changed_scale = decode(changed_scale);
-    assert!(matches!(
-        reconstruct_physical_context(
-            changed_scale.registry,
-            changed_scale.preconditions,
-            changed_scale.spec.physical
-        ),
-        Err(MathRuntimeError::Internal(_))
-    ));
-
-    // Prerequisites are part of the original physical meaning; their declaration identity
-    // alone is insufficient. No receipt authority or native solve is reached on mismatch.
-    let mut changed = source.wire().unwrap();
-    changed.preconditions[0].operand_positions.push(491);
-    let changed = decode(changed);
-    assert!(matches!(
-        reconstruct_physical_context(
-            changed.registry,
-            changed.preconditions,
-            changed.spec.physical
-        ),
-        Err(MathRuntimeError::Internal(_))
-    ));
-
-    let mut missing = source.wire().unwrap();
-    missing.preconditions.clear();
-    let missing = decode(missing);
-    assert!(matches!(
-        reconstruct_physical_context(
-            missing.registry,
-            missing.preconditions,
-            missing.spec.physical
-        ),
-        Err(MathRuntimeError::Internal(_))
-    ));
 }
 
 fn source() -> PortableRootSource {
@@ -427,16 +408,15 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
     assert!(!source.bindings.checked_members().is_empty());
     assert!(!source.bindings.checked_sources().is_empty());
     assert!(!source.bindings.occurrences().is_empty());
-    let bytes = wire::encode(source.wire().unwrap(), REQUEST_LIMIT).unwrap();
+    let scope = ExecutionScope::new(Cancellation::default(), None);
+    let original = source.problem(&scope).unwrap();
+    let bytes = wire::encode(source.wire(capture_root(&original, &scope)), REQUEST_LIMIT).unwrap();
     let wire: RootInput = wire::decode(&bytes, REQUEST_LIMIT).unwrap();
     assert_eq!(
-        wire.source.bind(source.body.math()).unwrap(),
-        source.bindings
+        wire.execution.attribution.checked_members,
+        *source.bindings.checked_members()
     );
-    let scope = ExecutionScope::new(Cancellation::default(), None);
-    let native_interval_error = source
-        .problem(&scope)
-        .unwrap()
+    let native_interval_error = restore_root(&source, &original, &scope)
         .evaluate_unknown(
             &source.parameters,
             &[11.0],
@@ -457,7 +437,7 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
         lower: -1.0,
         upper: 12.0,
     }];
-    let error = compile_problem(
+    let wider = compile_problem(
         (&source.body, &source.bindings),
         &unknowns,
         &source.rows,
@@ -466,14 +446,15 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
         source.max_entries,
         &scope,
     )
-    .unwrap()
-    .evaluate_unknown(
-        &source.parameters,
-        &[11.0],
-        DerivativeOrder::First,
-        scope.cancellation(),
-    )
-    .unwrap_err();
+    .unwrap();
+    let error = restore_root(&source, &wider, &scope)
+        .evaluate_unknown(
+            &source.parameters,
+            &[11.0],
+            DerivativeOrder::First,
+            scope.cancellation(),
+        )
+        .unwrap_err();
     let pse_math::MathError::Instance {
         instance,
         checked_members,
@@ -499,15 +480,15 @@ fn native_child_source_bindings_wire_keeps_actual_receiver_and_refuses_missing_m
     assert_eq!(&checked_sources, source.bindings.checked_sources());
     assert_eq!(&occurrences, source.bindings.occurrences());
     for missing in 0..4 {
-        let mut wire = RootBindings::capture(&source.bindings);
+        let mut wire = capture_root(&original, &scope);
         match missing {
-            0 => wire.checked_members.clear(),
-            1 => wire.checked_sources.clear(),
-            2 => wire.occurrences.clear(),
-            _ => wire.instance = SemanticId::NIL,
+            0 => wire.attribution.checked_members.clear(),
+            1 => wire.attribution.checked_sources.clear(),
+            2 => wire.attribution.occurrences.clear(),
+            _ => wire.attribution.instance = SemanticId::NIL,
         }
         assert!(
-            wire.bind(source.body.math()).is_err(),
+            wire.restore_extents().is_err(),
             "missing actual source slot {missing}"
         );
     }
@@ -566,7 +547,7 @@ fn native_child_value_source_keeps_unknown_jacobian_without_parameter_jet_prepar
 #[test]
 fn native_child_source_requires_actual_physical_registry_before_launch() {
     let mut source = source();
-    source.context.quantities = Arc::new(
+    source._context.quantities = Arc::new(
         pse_quantity::QuantityRegistryBuilder::new()
             .build()
             .unwrap(),
@@ -575,7 +556,7 @@ fn native_child_source_requires_actual_physical_registry_before_launch() {
         PortableRootSource::new(
             source.body,
             source.bindings,
-            source.context,
+            source._context,
             source.unknowns,
             source.rows,
             source.parameters,
@@ -592,7 +573,7 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
     let mut source = source();
     let quantity = source.body.quantities()[0];
     let unit = source
-        .context
+        ._context
         .quantities
         .quantity_type(quantity)
         .unwrap()
@@ -613,10 +594,10 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
             derivatives: DerivativeOrder::First,
             smoothness: DerivativeOrder::First,
         },
-        &source.context.quantities,
+        &source._context.quantities,
     )
     .unwrap();
-    source.context.providers.insert(
+    source._context.providers.insert(
         "opaque".into(),
         pse_compiler::typed_math::ProviderCall {
             descriptor,
@@ -627,7 +608,7 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
         PortableRootSource::new(
             source.body,
             source.bindings,
-            source.context,
+            source._context,
             source.unknowns,
             source.rows,
             source.parameters,
@@ -813,6 +794,27 @@ fn private_native_fake_process() {
         channel.write_all(b"{").unwrap();
         return;
     }
+    let demand = if mode == "growth" { usize::MAX } else { 1 };
+    send(
+        &mut channel,
+        RestorePreparation {
+            attempt,
+            execution: request.execution,
+            request: if mode == "preparation" {
+                ContentHash::from_bytes([0; 32])
+            } else {
+                request.request
+            },
+            result: RestorePreparationOutcome::Demand(demand),
+        },
+        RESPONSE_LIMIT,
+        &scope,
+    )
+    .unwrap();
+    let Ok(grant) = receive::<RestoreGrant>(&mut channel, RESPONSE_LIMIT, &scope) else {
+        return;
+    };
+    assert_eq!(grant.admitted_bytes, demand);
     if mode == "late" {
         std::thread::sleep(Duration::from_secs(30));
     }
@@ -842,6 +844,37 @@ fn fake_child(mode: &str, marker: &Path) -> NativeChild {
     let mut child = NativeChild::qualify(std::env::current_exe().unwrap(), 128 << 20).unwrap();
     child.test_mode = Some((mode.into(), marker.to_path_buf()));
     child
+}
+
+#[test]
+fn private_native_preparation_refusal_is_terminal_typed_and_reaped_without_a_grant() {
+    let source = source();
+    let scope = ExecutionScope::new(
+        Cancellation::default(),
+        Some(Instant::now() + Duration::from_secs(10)),
+    );
+    let original = source.problem(&scope).unwrap();
+    let mut input = source.wire(capture_root(&original, &scope));
+    // Structurally encodable data still cannot establish valid Root correspondence.
+    input.execution.definition.col_ptr.pop();
+    let payload = wire::encode(input, REQUEST_LIMIT).unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("owned-child");
+    let child = fake_child("actual", &marker);
+    let (result, grant) = launch(&child, payload, &scope, |_| {
+        panic!("a refused passive preparation must not request allocation admission");
+    })
+    .unwrap();
+    assert!(grant.is_none());
+    assert!(result.proposal.is_none());
+    let refusal = result.refusal.unwrap();
+    assert_eq!(
+        refusal.class,
+        pse_model::diagnostic::BoundaryClass::Internal
+    );
+    let pid: u32 = std::fs::read_to_string(marker).unwrap().parse().unwrap();
+    assert_eq!(pid, result.child_pid);
+    assert!(!Path::new(&format!("/proc/{pid}")).exists());
 }
 
 #[tokio::test]
@@ -934,6 +967,8 @@ async fn private_native_process_death_foreign_attempt_and_original_residual_refu
         "oversize",
         "truncated",
         "invalid",
+        "growth",
+        "preparation",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let marker = directory.path().join("owned-child");
