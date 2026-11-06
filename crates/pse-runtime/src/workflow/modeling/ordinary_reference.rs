@@ -204,6 +204,49 @@ fn diagnostics(path: &Path, destination: Option<&Path>, case: &str) -> TestResul
     Ok((String::from_utf8_lossy(&bytes).into_owned(), exceeded))
 }
 
+fn retained_destination() -> TestResult<Option<PathBuf>> {
+    std::env::var_os("PSE_ORDINARY_REFERENCE_CONTRACTS")
+        .map(|destination| {
+            let destination = PathBuf::from(destination);
+            if !destination.is_absolute() || !destination.is_dir() {
+                return Err(
+                    "contract evidence destination must already exist and be absolute".into(),
+                );
+            }
+            Ok(destination)
+        })
+        .transpose()
+}
+
+/// Retain the existing factual owner, including native coordinates and original quality.
+pub(super) fn retain_native_context(
+    name: &str,
+    package: &ModelingPackage,
+    services: &crate::workflow::PreparationServices,
+    declared: &DeclaredExecution,
+    outcome: &DeclaredAlgebraicOutcome,
+) -> TestResult {
+    let Some(destination) = retained_destination()? else {
+        return Ok(());
+    };
+    let context = package.declared_review_context(
+        services,
+        declared,
+        Some(outcome),
+        &crate::workflow::ReviewContextRequest {
+            // This selected full-source capture uses the owner's supported finite maximum.
+            maximum_bytes: 256 << 20,
+            ..Default::default()
+        },
+        None,
+    )?;
+    serde_json::to_writer(
+        std::fs::File::create(destination.join(format!("{name}.native-context.json")))?,
+        context.document(),
+    )?;
+    Ok(())
+}
+
 fn source_path(root: &Path, relative: &str) -> TestResult<PathBuf> {
     let relative_path = Path::new(relative);
     if relative.is_empty()
@@ -924,16 +967,10 @@ pub(super) fn check(
     let short = case_name
         .strip_prefix("ordinary_delivery.")
         .ok_or("ordinary case namespace absent")?;
-    let evidence = if let Some(destination) = std::env::var_os("PSE_ORDINARY_REFERENCE_CONTRACTS") {
-        let destination = PathBuf::from(destination);
-        if !destination.is_absolute() || !destination.is_dir() {
-            return Err("contract evidence destination must already exist and be absolute".into());
-        }
+    let evidence = retained_destination()?;
+    if let Some(destination) = &evidence {
         std::fs::write(destination.join(format!("{short}.contract.bin")), &bytes)?;
-        Some(destination)
-    } else {
-        None
-    };
+    }
     // Source/native and generated wire validation already occur in encode. The
     // generic codec's roundtrip/unknown preservation is tested by its own controls;
     // a redundant local decode would keep a second metadata forest through solve.
