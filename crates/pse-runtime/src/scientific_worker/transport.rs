@@ -735,18 +735,7 @@ impl Server {
             },
         });
         #[cfg(test)]
-        if let Some(handle) = closing
-            && std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("close-pending")
-        {
-            let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
-            // Test-child observation of the actual committed queue handoff,
-            // independent of thread scheduling or later acknowledgement.
-            std::fs::write(
-                marker.with_extension("close-queued"),
-                handle.generation.to_string(),
-            )
-            .unwrap();
-        }
+        observe_close_handoff_for_test(closing);
         Ok(Submitted { response: received })
     }
 }
@@ -1088,6 +1077,26 @@ pub(super) fn serve_with_preparation(
     let native = join_native(runtime, native).and_then(std::convert::identity);
     let failures = result.err().into_iter().chain(native.err()).collect();
     super::retirement_result(failures)
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "assertions in the explicitly launched controlled test child"
+)]
+fn observe_close_handoff_for_test(closing: Option<p::Handle>) {
+    if let Some(handle) = closing
+        && std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("close-pending")
+    {
+        let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
+        // Test-child observation of the actual committed queue handoff,
+        // independent of thread scheduling or later acknowledgement.
+        std::fs::write(
+            marker.with_extension("close-queued"),
+            handle.generation.to_string(),
+        )
+        .unwrap();
+    }
 }
 
 #[cfg(test)]
