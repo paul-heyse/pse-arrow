@@ -36,10 +36,8 @@ mod tests {
         #[command(flatten)]
         args: Args,
     }
-    #[test]
-    fn schema_semantics_cli_report_retains_known_policy_beside_independent_buf_disposition() {
+    fn compare_original(descriptors: &[u8]) -> (i32, serde_json::Value) {
         let directory = tempfile::tempdir().unwrap();
-        let descriptors = crate::developer_evidence_contracts::DESCRIPTORS;
         std::fs::write(directory.path().join("old.bin"), descriptors).unwrap();
         std::fs::write(directory.path().join("new.bin"), descriptors).unwrap();
         let args = Parsed::try_parse_from([
@@ -87,25 +85,20 @@ mod tests {
         );
         assert_eq!(report["payload"]["native"].as_array().unwrap().len(), 3);
         assert_eq!(report["payload"]["differences"], serde_json::json!([]));
-        // A Buf refusal of the original artifact remains an independent command failure;
-        // it neither erases nor upgrades an available native semantic assessment.
-        if code == 1 {
-            assert_eq!(report["outcome"], "failure");
-            assert!(!report["failures"].as_array().unwrap().is_empty());
-            assert!(report["payload"]["native"].as_array().unwrap().iter().any(
-                |category| matches!(category["outcome"].as_str(), Some("failed" | "unavailable"))
-            ));
-        } else {
-            assert_eq!(code, 0);
-            assert_eq!(report["outcome"], "success");
-            assert!(
-                report["payload"]["native"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .all(|category| category["outcome"] == "compatible")
-            );
-        }
+        (code, report)
+    }
+    #[test]
+    fn schema_semantics_cli_known_world_passes_native_semantics_and_buf() {
+        let (code, report) = compare_original(crate::developer_evidence_contracts::DESCRIPTORS);
+        assert_eq!(code, 0, "{report}");
+        assert_eq!(report["outcome"], "success");
+        assert!(
+            report["payload"]["native"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|category| category["outcome"] == "compatible")
+        );
         assert!(Parsed::try_parse_from(["schema", "--descriptor", "new.bin"]).is_ok());
         assert!(
             Parsed::try_parse_from([
@@ -127,6 +120,58 @@ mod tests {
             ])
             .is_err()
         );
+    }
+    #[test]
+    fn schema_semantics_cli_explicit_bad_map_retains_independent_buf_refusal() {
+        use buffa::Message as _;
+        use buffa_descriptor::generated::descriptor::FileDescriptorSet;
+        let mut original =
+            FileDescriptorSet::decode_from_slice(crate::developer_evidence_contracts::DESCRIPTORS)
+                .unwrap();
+        let owner = original
+            .file
+            .iter_mut()
+            .find(|file| file.name.as_deref() == Some("developer_evidence.proto"))
+            .unwrap()
+            .message_type
+            .iter_mut()
+            .find(|owner| owner.name.as_deref() == Some("DiagnosticFacts"))
+            .unwrap();
+        let old_type = owner
+            .field
+            .iter()
+            .find(|field| field.name.as_deref() == Some("observations"))
+            .unwrap()
+            .type_name
+            .clone()
+            .unwrap();
+        let (prefix, name) = old_type.rsplit_once('.').unwrap();
+        let entry = owner
+            .nested_type
+            .iter_mut()
+            .find(|entry| entry.name.as_deref() == Some(name))
+            .unwrap();
+        assert_eq!(entry.options.as_option().unwrap().map_entry, Some(true));
+        entry.name = Some("NoncanonicalEntry".into());
+        owner
+            .field
+            .iter_mut()
+            .find(|field| field.name.as_deref() == Some("observations"))
+            .unwrap()
+            .type_name = Some(format!("{prefix}.NoncanonicalEntry"));
+        // Keep the complete original world linked while deliberately violating the
+        // Protobuf implicit-map spelling. Native metadata meaning alone cannot grant
+        // wire/tool compatibility, even when both acquired worlds have identical bytes.
+        let (code, report) = compare_original(&original.encode_to_vec());
+        assert_eq!(code, 1);
+        assert_eq!(report["outcome"], "failure");
+        assert_eq!(report["observation"]["completeness"], "partial");
+        assert_eq!(report["failures"].as_array().unwrap().len(), 3);
+        for category in report["payload"]["native"].as_array().unwrap() {
+            assert_eq!(category["outcome"], "failed");
+            let stderr: Vec<u8> = serde_json::from_value(category["stderr"].clone()).unwrap();
+            assert!(String::from_utf8_lossy(&stderr).contains("incorrect implicit map entry name"));
+        }
     }
 }
 pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result<i32, HostError> {
