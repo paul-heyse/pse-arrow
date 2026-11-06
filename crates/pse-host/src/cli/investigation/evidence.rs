@@ -242,6 +242,22 @@ pub(super) enum Action {
     },
 }
 
+// Signal observation is independent of the original copy/publication result.
+// A completed receipt must survive a listener failure; two failures retain both causes.
+fn transfer_completion(
+    operation: Result<crate::developer_evidence::MemberExport, HostError>,
+    control: std::io::Result<()>,
+) -> Result<(crate::developer_evidence::MemberExport, Option<HostError>), HostError> {
+    match (operation, control) {
+        (Ok(receipt), control) => Ok((receipt, control.err().map(HostError::from))),
+        (Err(operation), Ok(())) => Err(operation),
+        (Err(operation), Err(control)) => Err(HostError::Settlement {
+            operation: Box::new(operation),
+            cleanup: Box::new(control.into()),
+        }),
+    }
+}
+
 /// Dispatch only passive owner reads. Explicit preparation/execution stay separate.
 pub(super) fn inspect(
     action: Action,
@@ -355,7 +371,7 @@ pub(super) fn inspect(
         } => {
             let input = root.join(input);
             let destination = root.join(destination);
-            let payload = super::super::runtime()?.block_on(async {
+            let (payload, control_failure) = super::super::runtime()?.block_on(async {
                 let cancel = tokio_util::sync::CancellationToken::new();
                 let worker_cancel = cancel.clone();
                 let mut operation = tokio::task::spawn_blocking(move ||
@@ -363,27 +379,31 @@ pub(super) fn inspect(
                         &input, member, &destination, &worker_cancel,
                     ));
                 tokio::select! {
-                    result = &mut operation => result.map_err(HostError::from)?,
+                    result = &mut operation => transfer_completion(
+                        result.map_err(HostError::from).and_then(std::convert::identity), Ok(()),
+                    ),
                     signal = tokio::signal::ctrl_c() => {
                         cancel.cancel();
                         let settled = operation.await.map_err(HostError::from).and_then(std::convert::identity);
-                        match (signal, settled) {
-                            (Ok(()), result) => result,
-                            (Err(signal), Ok(_)) => Err(HostError::from(signal)),
-                            (Err(signal), Err(cleanup)) => Err(HostError::Settlement {
-                                operation: Box::new(signal.into()), cleanup: Box::new(cleanup),
-                            }),
-                        }
+                        transfer_completion(settled, signal)
                     }
                 }
             })?;
-            output
-                .emit(Envelope::response(
-                    "inspect developer-evidence-member",
-                    "published one verified original member",
-                    payload,
-                ))
-                .map_err(Into::into)
+            let mut response = Envelope::response(
+                "inspect developer-evidence-member",
+                "published one verified original member",
+                payload,
+            );
+            if let Some(error) = control_failure {
+                response.failures.push(ErrorRecord::from_typed(
+                    &error,
+                    &RedactionPolicy::from_environment(),
+                ));
+                response.outcome = crate::envelope::CommandOutcome::Failure;
+                response.observation.completeness = Completeness::Partial;
+                response.observation.limitations.push("Original member publication completed; signal observation failed. The published receipt remains valid; do not replay the publication merely because control observation failed.".into());
+            }
+            output.emit(response).map_err(Into::into)
         }
         Action::DeveloperEvidenceBundle {
             input,
@@ -1218,6 +1238,47 @@ mod tests {
                 "1"
             ])
             .is_err()
+        );
+    }
+    #[test]
+    fn directory_sequential_member_control_failure_keeps_success_and_independent_failures() {
+        let scratch = tempfile::tempdir().unwrap();
+        let (bundle, _) =
+            crate::developer_evidence::tests::directory::exported(scratch.path(), false);
+        let output = scratch.path().join("published");
+        let receipt = crate::developer_evidence::export_directory_member(
+            &bundle,
+            1,
+            &output,
+            &tokio_util::sync::CancellationToken::new(),
+        )
+        .unwrap();
+        let (receipt, control) = transfer_completion(
+            Ok(receipt),
+            Err(std::io::Error::other("signal listener failed")),
+        )
+        .unwrap();
+        assert_eq!(receipt.copied.content.byte_length, 16);
+        assert_eq!(std::fs::read(&output).unwrap(), [0; 16]);
+        assert!(
+            matches!(control, Some(HostError::Io(ref error)) if error.to_string() == "signal listener failed")
+        );
+        let error = transfer_completion(
+            Err(HostError::Io(std::io::Error::new(
+                std::io::ErrorKind::BrokenPipe,
+                "original sink",
+            ))),
+            Err(std::io::Error::other("original listener")),
+        )
+        .unwrap_err();
+        let HostError::Settlement { operation, cleanup } = error else {
+            panic!("lost independent outcomes")
+        };
+        assert!(
+            matches!(*operation, HostError::Io(ref error) if error.kind() == std::io::ErrorKind::BrokenPipe)
+        );
+        assert!(
+            matches!(*cleanup, HostError::Io(ref error) if error.to_string() == "original listener")
         );
     }
     #[test]
