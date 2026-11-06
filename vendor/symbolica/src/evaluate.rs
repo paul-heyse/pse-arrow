@@ -32,6 +32,7 @@ mod evaluator;
 #[cfg(feature = "native_code_generation")]
 mod export;
 mod external;
+mod f64_transfer;
 mod function_map;
 mod instruction;
 mod optimize;
@@ -45,6 +46,7 @@ pub use evaluator::*;
 #[cfg(feature = "native_code_generation")]
 pub use export::*;
 pub use external::*;
+pub use f64_transfer::*;
 pub use function_map::*;
 pub use instruction::{
     ComplexPhase, ExportedConstantFunction, ExportedInstructions, ExportedSubEvaluator,

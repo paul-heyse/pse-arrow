@@ -87,6 +87,14 @@ algorithm. The build-freshness corrections retain the existing CMake/compiler op
 bundled SUNDIALS tree also contains the separately described changes below. No speed
 or scientific qualification claim follows from this provenance reconciliation.
 
+## Checked Symbolica binary64 evaluator transfer
+
+The separate [checked binary64 evaluator transfer](symbolica-f64-transfer.md) preserves
+the existing supplier instruction engine and reports actual requested extents before
+native admission/restoration. It omits symbolic preparation, external functions and
+warmed state. Its instruction and source-established integer-power profile are explicit;
+it is not general evaluator deserialization or live delegation authority.
+
 ## Passive Symbolica packing inspection
 
 The maintained Symbolica 3.0.1 `atom::packing::inspect_packing` API inspects a
