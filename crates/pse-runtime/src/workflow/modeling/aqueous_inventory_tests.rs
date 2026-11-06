@@ -53,6 +53,61 @@ async fn conform(name: &str) -> ModelingConformanceReport {
         .unwrap()
 }
 
+fn assert_complete(report: &ModelingConformanceReport) {
+    assert!(
+        report.complete && report.passed(),
+        "{:?}; {:?}",
+        report.checks,
+        report.failures
+    );
+    assert_eq!(report.results.len(), 1);
+    let result = report.results.values().next().unwrap();
+    let closure = result
+        .reports
+        .iter()
+        .filter(|row| row.label == "aqueous cascade global material closure")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        closure.len(),
+        2,
+        "both actual water and ethanol inventories require closure"
+    );
+    for row in closure {
+        assert!(row.value.abs() <= 0.001, "{row:?}");
+    }
+    let inventories = result
+        .reports
+        .iter()
+        .filter(|row| row.label == "aqueous cascade component inventory")
+        .collect::<Vec<_>>();
+    assert!(
+        inventories.len() > 2,
+        "retain physical inventory across the original timeline"
+    );
+    assert!(inventories.iter().all(|row| row.value >= -0.001));
+    assert!(
+        result
+            .reports
+            .iter()
+            .any(|row| row.label == "aqueous cascade imposed temperature" && row.value == 300.)
+    );
+}
+
+#[tokio::test]
+async fn aqueous_inventory_single_cell_matches_exact_mixed_cell_response() {
+    assert_complete(&conform("aqueous_single_cell_step").await);
+}
+
+#[tokio::test]
+async fn aqueous_inventory_four_cells_preserve_nonzero_clock_and_global_stock_balance() {
+    assert_complete(&conform("aqueous_four_cell_nonzero_clock").await);
+}
+
+#[tokio::test]
+async fn aqueous_inventory_zero_flow_retains_original_component_stock() {
+    assert_complete(&conform("aqueous_four_cell_zero_flow").await);
+}
+
 #[tokio::test]
 async fn aqueous_geometry_requires_readmission_instead_of_an_independent_numeric_override() {
     let (runtime, package, _spill, preparation) =

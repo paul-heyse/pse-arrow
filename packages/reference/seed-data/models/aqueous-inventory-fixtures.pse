@@ -15,6 +15,28 @@
 @id("66e0300000000000000000000000020c") fn inlet(j:chemistry.species)->MolarDensity=if j==chem.water then carrier else tracer;
 @id("66e0300000000000000000000000020d") fn retained(j:chemistry.species)->MolarDensity=if j==chem.water then carrier else 10{mol/m^3};
 
+@id("66e03000000000000000000000000210") test aqueous_single_cell_step oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000211") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=1,time_elements=20);
+@id("66e03000000000000000000000000212") expect root.outlet_concentration[0{s},chem.ethanol]==0{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000213") expect root.outlet_concentration[1{s},chem.ethanol]==63.212055882855765{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000214") expect root.total_component_amount[5{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
+@id("66e03000000000000000000000000220") test aqueous_four_cell_nonzero_clock oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000221") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=4,time_elements=20,first=5{s},last=10{s});
+@id("66e03000000000000000000000000222") expect root.outlet_concentration[5{s},chem.ethanol]==0{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000223") expect root.outlet_concentration[5.25{s},chem.ethanol]==1.898815687615385{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000224") expect root.outlet_concentration[6{s},chem.ethanol]==56.65298796332912{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000225") expect root.outlet_concentration[7{s},chem.ethanol]==95.7619888008316{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000226") expect root.outlet_concentration[10{s},chem.ethanol]==99.99967962802195{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000227") expect root.total_component_amount[10{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
+@id("66e03000000000000000000000000230") test aqueous_four_cell_zero_flow oracle cascade_reference fixture {dof 0;route simultaneous;procedure solve;policy {backend ipopt;limits body_occurrences(10000000);}} {
+@id("66e03000000000000000000000000231") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0{m^3/s},initial=retained,inlet=inlet,finite_elements=4,time_elements=20);
+@id("66e03000000000000000000000000232") expect root.outlet_concentration[5{s},chem.ethanol]==10{mol/m^3} tolerance numerical_policy.concentration;
+@id("66e03000000000000000000000000233") expect root.total_component_amount[5{s},chem.ethanol]==0.01{mol} tolerance numerical_policy.amount;
+@id("66e03000000000000000000000000234") expect root.total_component_amount[5{s},chem.water]==55{mol} tolerance numerical_policy.amount;
+}
+
 // The same physical cells and initial stocks, realized at the one native clock.
 // Tight numerical integration controls do not change the physical allowances.
 @id("66e03000000000000000000000000240") test aqueous_single_cell_integrated oracle cascade_reference fixture {dof 0;route integrated;procedure integrate;policy {backend ipopt;limits body_occurrences(10000000);} integrate samples(0{s},1{s},5{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.supplied[chem.water]=1e-8{mol},root.supplied[chem.ethanol]=1e-8{mol},root.discharged[chem.water]=1e-8{mol},root.discharged[chem.ethanol]=1e-8{mol});} {
