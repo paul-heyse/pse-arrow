@@ -631,7 +631,7 @@ settings. No compiler-cause fix or workaround is claimed. `just ready` passes sy
 and doctor. Normal cache/incremental defaults and configured host width remain; the opaque
 workspace allowance establishes neither an allocator/RSS bound nor measured speedup.
 
-**Current refinement, implementation awaiting functional receiving:** source review confirmed
+**Current refinement, generic supervision tested; surrogate receiving remains:** source review confirmed
 that normalizing an outer panic payload under the supervisor mutex permits destructor
 reentry to deadlock admission. The correction extracts bounded settling records, normalizes
 and drops completed lane owners outside that mutex, preserves failures when closure races
@@ -647,8 +647,23 @@ The two qualifications are corrected in source. Its full-feature functional buil
 terminated in pinned rustc with signal 11 before test discovery
 (`01a1b151-8807-7062-85f6-1ca944ef8b99`, complete settlement). This is a compiler failure,
 not a failing functional test or a successful test result. Normal cache/incremental settings
-remain active; default-feature targeted receiving is proceeding independently. Compilation
-and source review establish no functional outcome for this refinement.
+remain active. The default runtime local selection of `native_supervisor_`, `native_shutdown_`,
+`unpublished_result_`, `cancelled_native_job_`, `scoped_deadline_` and `scoped_cancellation_`
+now passes 22/22 functional tests, zero failures/build warnings and complete settlement
+(`01a1b16d-19cc-7793-b11d-8a328a632896`); it exercises all three new reentrant-payload controls.
+That generic supervision correction is committed at `4d6403878`. KINSOL/compiled-evaluator
+surrogate and actual-consumer receiving remain separate; a default-feature pass cannot
+qualify their native path.
+
+Parallel worktree execution exposed a separate native compiler-context defect: receipts
+retained the preparing checkout's default CMake cache bridge. Explicit preparation now owns
+immutable content-addressed bridge bytes outside disposable checkouts, selected-input
+normalization precedes compiler validation, and KLU's compiler context is selected before
+dependent providers. Cache-mode changes, foreign toolchains and changed bytes still refuse.
+`scripts/pse test pse-host --lib --profile local -E 'test(native::)'` passes 44/44, zero
+failures/build warnings against zero with complete settlement
+(`01a1b17c-027d-72b8-b992-14b2549ae8d5`). Real four-profile explicit preparation succeeds
+(`01a1b17f-abda-7115-b171-dbaf311d264b`); actual cross-worktree consuming checks remain receiving.
 
 **Next:** complete targeted and actual-consumer receiving of these retirement refinements
 alongside the [parallel whole-scope route](65-proto-integrated-target.md#whole-scope-continuation-and-parallel-dependencies).

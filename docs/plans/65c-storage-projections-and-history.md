@@ -346,6 +346,41 @@ Canonical function signature/bind/result metadata is included where it removes r
 mechanical interpretation (CBO-046), but Proto does not type-check SurrealQL or replace its
 transaction logic. CBO-066 and CBO-008 remain separate fidelity and retained-product obligations.
 
+### Selected export observation — November 6
+
+The next concrete A06/C02/F04 migration is connected Arrow export → portable artifact
+validation. [Proposed ADR-0250](../adr/0250-source-owned-result-selection.md) precedes that
+metadata cutover. The actual `PackResultSelection` source owns exact original run/attempt,
+relation/version, row window, optional field and predicate endpoint bits, recorded usability,
+and problem/revision/closed-manifest/native interpretation. Its generated output-only
+`RecordedResultSelection` cannot construct a protected reader or scientific permission.
+
+New exports replace the handwritten lineage-key writer with
+`pse.canonical.selection.proto.v1`, containing standard padded base64 of the generated binary
+observation. Maintained Buffa 0.9.2
+[`Message::try_encode_bounded`](../../vendor/buffa/src/message.rs) uses one checked size/cache
+pass and rejects a 65,536-byte budget before writing. The existing pinned base64 0.22.1
+[`Engine`/`STANDARD`](https://docs.rs/base64/0.22.1/base64/engine/trait.Engine.html) encodes only
+that bounded native output, at most 87,384 text bytes. The portable reader compares input
+text with the same version's bounded generated observation of its declared original selection.
+It performs no untrusted decode or normalization. Alternate encodings, duplicate singular
+fields, unknown/trailing bytes, changed predicates and original-context substitutions refuse;
+this is exact local serialization fidelity, not a universal Protobuf canonicalization claim.
+
+Present-invalid or mixed predecessor/v1 metadata never falls back. Retained absent-v1
+artifacts keep an explicit predecessor reader; the old representation has no new writer.
+The native protected source remains the authority, and offline artifact/manifest agreement
+establishes neither authenticity nor current scientific use.
+
+The IPC prerequisite is integrated on main: schema and nested-field duplicate keys refuse
+before Arrow map conversion in both stream and admitted-file readers. Sorting borrowed keys
+uses the existing prepaid schema inventory; no new parser or duplicate field interpretation
+is added. The isolated `scripts/pse test pse-columnar --lib --profile local -E
+'test(ipc_stream::tests) | test(ipc_file::tests)'` passes 14/14, zero failures/build warnings
+against zero, with normal incremental/sccache and configured unbounded placement
+(`01a1b17a-b0b0-7417-803b-4ccd5bbb21e1`). Actual generated metadata producer/portable-reader
+cutover and its integrated acceptance remain in progress; this prerequisite does not close C02.
+
 ## Additional capability dispositions
 
 Surrealism transaction-local decode/validation is a bounded placement investigation only when

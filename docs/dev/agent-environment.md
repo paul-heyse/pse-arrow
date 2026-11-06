@@ -147,6 +147,12 @@ missing provider. Compiler/KLU has a bounded live scientific qualification basis
 provider controls do not establish every scientific consumer's acceptance.
 
 Native generations live under the selected cache root, with compiler/KLU in `rust-v1/kinsol`.
+Explicit preparation snapshots the default CMake compiler-cache bridge into immutable
+content-addressed native-cache storage and records that selected path. Completed provider
+selection does not depend on a disposable preparing worktree's bridge file. KLU supplies
+the selected compiler context before dependent providers; repeat selection accepts its
+authenticated installed values while changed cache modes, toolchains or tool bytes still
+refuse. Older checkout-bound bridge receipts require explicit preparation before reuse.
 Failed construction preserves existing selections; automatic generation collection is excluded.
 Owned staging is removable only after its work drains. Keep checkout-specific build targets
 separate from the shared compiler cache. Supplier provenance and local corrections belong to
