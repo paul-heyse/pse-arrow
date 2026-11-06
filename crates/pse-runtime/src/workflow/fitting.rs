@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Shared-parameter experiment compilation. Trial values never enter Salsa queries.
 mod assessment;
+pub(in crate::workflow) use assessment::TrajectoryAssessment;
 pub use assessment::{FitAssessment, FitExperimentAssessment, FitExperimentAssessmentState};
 mod covariance;
 pub(in crate::workflow) mod documents;
@@ -470,18 +471,7 @@ impl FitReport {
     /// Known result buffers; the solver's finite report allowance owns diagnostics.
     pub(crate) fn numeric_bytes(&self) -> usize {
         size_of::<Self>()
-            + self.completion.as_ref().map_or(0, |completion| {
-                completion.decision.qualifiers.capacity() * size_of::<pse_model::generated::enums::CandidateQualifier>()
-                    + completion.decision.refusals.capacity() * size_of::<pse_model::generated::enums::CandidateRefusal>()
-                    + completion.accuracy.capacity() * size_of::<pse_math::engineering_accuracy::GoalResult>()
-                    + completion.accuracy.iter().map(|goal| {
-                        pse_model::HeapUsage::heap_bytes(&goal.goal)
-                            + goal.evidence.as_ref().map_or(0, |evidence| evidence.limitation.capacity())
-                            + goal.work_demand.as_ref().map_or(0, |demand| {
-                                demand.rows.capacity() * size_of::<pse_math::engineering_accuracy::ResidualRowDemand>()
-                            })
-                    }).sum::<usize>()
-            })
+            + self.completion.as_ref().map_or(0, super::numerics::Completed::heap_bytes)
             + self.assessment.bytes()
             + self.residual.as_ref().and_then(|r| r.failure.as_ref()).map_or(0, |f| f.cause().retained_bytes())
             + self.residual.as_ref().map_or(0, |_| 512)

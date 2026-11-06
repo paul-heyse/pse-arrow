@@ -359,6 +359,27 @@ pub(crate) struct Completed {
     pub(crate) accuracy: Vec<pse_math::engineering_accuracy::GoalResult>,
 }
 impl Completed {
+    pub(crate) fn heap_bytes(&self) -> usize {
+        use pse_model::HeapUsage;
+        self.decision.qualifiers.capacity() * size_of::<CandidateQualifier>()
+            + self.decision.refusals.capacity() * size_of::<CandidateRefusal>()
+            + self.accuracy.capacity() * size_of::<pse_math::engineering_accuracy::GoalResult>()
+            + self
+                .accuracy
+                .iter()
+                .map(|goal| {
+                    goal.goal.heap_bytes()
+                        + goal
+                            .evidence
+                            .as_ref()
+                            .map_or(0, |evidence| evidence.limitation.capacity())
+                        + goal.work_demand.as_ref().map_or(0, |demand| {
+                            demand.rows.capacity()
+                                * size_of::<pse_math::engineering_accuracy::ResidualRowDemand>()
+                        })
+                })
+                .sum::<usize>()
+    }
     /// Preserve the actual contextual fallback limitation alongside final permission.
     pub(crate) fn with_context(mut self, context: &ResolvedNumericalPolicy) -> Self {
         self = self.with_canonical_fallback(context.targets.iter().any(|target| {

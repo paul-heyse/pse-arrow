@@ -368,6 +368,7 @@ scope.tests = [
   "workflow::fitting::covariance::tests::review_qualification_durable_fit_preserves_original_response_and_rows",
   "workflow::fitting::oracle::lm_inquiry::fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile",
   "workflow::fitting::oracle::lm_inquiry::research_calibrated_fit_reopens_and_publishes_original_cells",
+  "workflow::fitting::oracle::p09_tests::fitting_member_permission_retains_exact_durable_attempt_and_passive_facts",
   "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
   "workflow::horizon::tests::compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership",
   "workflow::horizon::tests::compact_horizon_post_science_pressure_moves_original_completion_on_refusal",

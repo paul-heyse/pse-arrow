@@ -8,6 +8,8 @@ use pse_model::generated::{
     enums::*,
     runtime::{computation_runs, run_lineage, solve_runs},
 };
+mod member;
+pub use member::MemberScientificPermission;
 
 /// Immutable semantic projection shared by native readers, Arrow and publication.
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -19,6 +21,9 @@ pub struct Completion {
     pub permission: Option<ScientificPermission>,
     /// Independently requested original modeling steps, never whole-request promotion.
     pub step_permissions: Vec<ScientificPermission>,
+    /// Original independently assessed members. Historical absence is unavailable.
+    #[serde(default)]
+    pub member_permissions: Vec<MemberScientificPermission>,
     /// Producer-scoped mathematical validity composed with its governing original decision.
     pub products: Vec<ProductPermission>,
     /// Final physical closure and usability decisions, never recomputed by an exporter.
@@ -132,7 +137,7 @@ pse_contract::projection_enum! {
 #[serde(tag = "scope", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProductScope {
     projection: { name: "ScientificProductScope", rust_path: crate::workflow::ProductScope,
-        version: 1, direction: pse_contract::BoundaryDirection::Both,
+        version: 2, direction: pse_contract::BoundaryDirection::Both,
         reserved_tags: [], reserved_names: [] };
     /// A whole task product, such as a fit's selected covariance.
     Task => 1;
@@ -150,12 +155,22 @@ pub enum ProductScope {
         /// Actual producer-owned retained point identity.
         point: pse_ids::SemanticId => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     } => 3;
+    /// A complete original member, not an arbitrary point or transport subset.
+    Member {
+        /// Exact originally declared instance inside the enclosing run and attempt.
+        member: pse_model::generated::identities::InstanceId => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+    } => 4;
 }
 }
 impl ProductScope {
     fn governing<'a>(&self, completion: &'a Completion) -> Option<&'a ScientificPermission> {
         let step = match self {
             Self::Task => return completion.permission.as_ref(),
+            Self::Member { member } => {
+                return completion
+                    .member_permission(*member)
+                    .and_then(MemberScientificPermission::native_permission);
+            }
             Self::Step { step } => Some(*step),
             Self::Point {
                 step,
@@ -217,6 +232,18 @@ impl ProductPermission {
     }
 }
 impl Completion {
+    /// Select one exact original member; missing or ambiguous facts withhold use.
+    pub fn member_permission(
+        &self,
+        member: pse_model::generated::identities::InstanceId,
+    ) -> Option<&MemberScientificPermission> {
+        let mut matches = self
+            .member_permissions
+            .iter()
+            .filter(|permission| permission.member() == member);
+        let result = matches.next()?;
+        matches.next().is_none().then_some(result)
+    }
     /// Whole-request result permission, unavailable when no original fact was captured.
     pub fn governing_permission(&self) -> Option<bool> {
         self.permission
@@ -285,6 +312,9 @@ impl Completion {
                         )
                         .is_some_and(ProductPermission::permits_result))
             }
+            // Whole-member trajectory permission carries no retained mathematical
+            // point or member-derived product assessment.
+            ProductScope::Member { .. } => false,
             ProductScope::Point { .. } => true,
         };
         let governing = scope.governing(self);
@@ -617,7 +647,10 @@ impl RunResult {
     }
 
     #[tracing::instrument(name = "pse.result.completion", skip_all, fields(pse.owner.stage = true))]
-    pub(super) fn capture_completion(&self) -> Result<Completion, WorkflowError> {
+    pub(super) fn capture_completion(
+        &self,
+        attempt: Option<pse_model::generated::identities::AttemptId>,
+    ) -> Result<Completion, WorkflowError> {
         let mut product = Completion {
             assessments: self.assessments.clone(),
             diagnostics: self.capture_diagnostics(),
@@ -995,6 +1028,7 @@ impl RunResult {
                 });
             }
         }
+        self.capture_fit_member_permissions(&mut product, attempt)?;
         self.capture_product_permissions(&mut product);
         Ok(product)
     }
@@ -1246,6 +1280,7 @@ mod tests {
         for name in [
             "ScientificPermissionSnapshot",
             "ScientificProductPermissionSnapshot",
+            "ScientificMemberPermissionSnapshot",
         ] {
             assert_eq!(
                 graph.definitions()[name].construction,
@@ -1745,7 +1780,7 @@ mod tests {
                 None,
             );
             result.assessments = result.assess_candidates();
-            let completion = result.capture_completion().unwrap();
+            let completion = result.capture_completion(None).unwrap();
             let [solve] = completion.solves.as_slice() else {
                 panic!("one solve expected")
             };

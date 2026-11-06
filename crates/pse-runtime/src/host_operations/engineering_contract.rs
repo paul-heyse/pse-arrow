@@ -66,6 +66,7 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
     graph.register::<pse_model::generated::reference::bases::Row>()?;
     graph.register::<crate::workflow::ScientificPermission>()?;
     graph.register::<crate::workflow::ProductPermission>()?;
+    graph.register::<crate::workflow::MemberScientificPermission>()?;
     let service = pse_model::engineering::service(&mut graph)?
         .unary::<EngineeringDiscoverPreparation, crate::workflow::PreparationDiscoveryReport>(
             &mut graph,

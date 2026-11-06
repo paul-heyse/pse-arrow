@@ -1377,7 +1377,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         },
         None,
     )
-    .completed();
+    .completed(None);
     history.validate_original(&first_original).unwrap();
     history.export(&first_original).await.unwrap();
     history.take_original(&mut first_original);
@@ -1391,7 +1391,7 @@ async fn later_horizon_failure_retains_native_prefix_and_attributes_only_actual_
         None,
     );
     original_failure.modeling_origin = 1;
-    let mut original_failure = original_failure.completed();
+    let mut original_failure = original_failure.completed(None);
     let failed_assessments = serde_json::to_value(&original_failure.assessments).unwrap();
     history
         .admit_step(&runtime.preparation_services(), &bad)
@@ -2458,7 +2458,7 @@ async fn compact_original_history_releases_report_allowance_in_a_finite_pool() {
             None,
         );
         original.modeling_origin = step;
-        original = original.completed();
+        original = original.completed(None);
         let expected = serde_json::to_value(original.completion().unwrap()).unwrap();
         history.validate_original(&original).unwrap();
         let issued = history.retained_owner_bytes();

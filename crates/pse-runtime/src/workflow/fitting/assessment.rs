@@ -16,6 +16,14 @@ struct ExperimentAssessment {
     failure: Option<Arc<BoundaryDiagnostic>>,
     checks: Range<usize>,
     reports: Range<usize>,
+    trajectory: Option<Arc<TrajectoryAssessment>>,
+}
+
+/// Actual applied integration inputs and the member's independent original decision.
+#[derive(Clone, Debug, PartialEq)]
+pub(in crate::workflow) struct TrajectoryAssessment {
+    pub(in crate::workflow) parameters: Vec<f64>,
+    pub(in crate::workflow) completion: crate::workflow::numerics::Completed,
 }
 
 #[cfg(test)]
@@ -170,6 +178,7 @@ impl PartialEq for ExperimentAssessment {
             && self.state == other.state
             && self.checks == other.checks
             && self.reports == other.reports
+            && self.trajectory == other.trajectory
             && match (&self.failure, &other.failure) {
                 (None, None) => true,
                 (Some(a), Some(b)) => Arc::ptr_eq(a, b),
@@ -206,7 +215,10 @@ pub struct FitExperimentAssessment<'a> {
     assessment: &'a FitAssessment,
     member: &'a ExperimentAssessment,
 }
-impl FitExperimentAssessment<'_> {
+impl<'a> FitExperimentAssessment<'a> {
+    pub(in crate::workflow) fn trajectory(&self) -> Option<&'a Arc<TrajectoryAssessment>> {
+        self.member.trajectory.as_ref()
+    }
     /// Exact original declared instance, never a row position or generated alias.
     pub fn experiment_id(&self) -> InstanceId {
         self.member.experiment
@@ -278,6 +290,7 @@ impl FitAssessment {
                     failure: None,
                     checks: 0..0,
                     reports: 0..0,
+                    trajectory: None,
                 })
                 .collect(),
         }
@@ -387,6 +400,17 @@ impl FitAssessment {
     pub(super) fn interrupt(&mut self, error: BoundaryDiagnostic) {
         self.interruption = Some(Arc::new(error));
     }
+    pub(super) fn trajectory(
+        &mut self,
+        index: usize,
+        parameters: Vec<f64>,
+        completion: crate::workflow::numerics::Completed,
+    ) {
+        self.experiments[index].trajectory = Some(Arc::new(TrajectoryAssessment {
+            parameters,
+            completion,
+        }));
+    }
     pub(super) fn record(
         &mut self,
         index: usize,
@@ -447,6 +471,17 @@ impl FitAssessment {
                 .map(HeapUsage::heap_bytes)
                 .sum::<usize>()
             + self.experiments.capacity() * size_of::<ExperimentAssessment>()
+            + self
+                .experiments
+                .iter()
+                .filter_map(|member| member.trajectory.as_ref())
+                .map(|trajectory| {
+                    size_of::<TrajectoryAssessment>()
+                        + 2 * size_of::<usize>()
+                        + trajectory.parameters.capacity() * size_of::<f64>()
+                        + trajectory.completion.heap_bytes()
+                })
+                .sum::<usize>()
             + self
                 .experiments
                 .iter()

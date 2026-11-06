@@ -6011,7 +6011,7 @@ mod canonical_durable_codec {
             },
             None,
         )
-        .completed();
+        .completed(None);
         let captured = serde_json::to_value(result.completion().unwrap()).unwrap();
         let (operations, fence) = claimed().await;
         let mut attempt = DurableAttempt::claimed(

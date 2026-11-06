@@ -1132,6 +1132,65 @@
       ],
       "type": "object"
     },
+    "MemberScientificPermission": {
+      "additionalProperties": false,
+      "description": "Recorded original-member decision with optional process-local native custody.\nDecoded facts remain readable, but cannot grant native use.",
+      "properties": {
+        "attempt_id": {
+          "description": "Actual durable attempt; genuinely ephemeral runs retain absence.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": [
+            "string",
+            "null"
+          ],
+          "x-pse-identity": "AttemptId"
+        },
+        "member": {
+          "description": "Exact originally declared instance.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "permission": {
+          "$ref": "#/$defs/ScientificPermission",
+          "description": "Recorded original scientific decision. Reading it is distinct from current native proof."
+        },
+        "physical": {
+          "description": "Original physical definition, including quantity/unit/datum meaning.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string",
+          "x-pse-identity": "ContentHash"
+        },
+        "preparation": {
+          "description": "Original source/layout and integration preparation.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string",
+          "x-pse-identity": "ContentHash"
+        },
+        "run_id": {
+          "description": "Original producer run, not a mathematical content identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "RunId"
+        },
+        "source": {
+          "description": "Original authored source interpretation.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string",
+          "x-pse-identity": "ContentHash"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt_id",
+        "member",
+        "source",
+        "physical",
+        "preparation",
+        "permission"
+      ],
+      "type": "object"
+    },
     "ModelingApplicabilityBasis": {
       "enum": [
         "fitted",
@@ -1664,6 +1723,27 @@
             "step",
             "member",
             "point"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A complete original member, not an arbitrary point or transport subset.",
+          "properties": {
+            "member": {
+              "description": "Exact originally declared instance inside the enclosing run and attempt.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "InstanceId"
+            },
+            "scope": {
+              "const": "member",
+              "type": "string"
+            }
+          },
+          "required": [
+            "scope",
+            "member"
           ],
           "type": "object"
         }
@@ -2990,6 +3070,14 @@
       },
       "type": "array"
     },
+    "member_permissions": {
+      "default": [],
+      "description": "Original independently assessed members. Historical absence is unavailable.",
+      "items": {
+        "$ref": "#/$defs/MemberScientificPermission"
+      },
+      "type": "array"
+    },
     "permission": {
       "anyOf": [
         {
@@ -3033,6 +3121,7 @@
     "version",
     "permission",
     "step_permissions",
+    "member_permissions",
     "products",
     "assessments",
     "accuracy_goals",

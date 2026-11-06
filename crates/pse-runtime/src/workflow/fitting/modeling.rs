@@ -1772,6 +1772,25 @@ impl PreparedFit {
                                 .ok_or_else(|| contract("final original trajectory unavailable"))?;
                             let checks =
                                 simulation.check_samples(run_id, trajectory, &parameters, scope);
+                            let coverage = trajectory.assess_endpoint(simulation.profile());
+                            let accuracy = simulation.numerics().policy.goals.iter().cloned().map(|goal| pse_math::engineering_accuracy::GoalResult::unavailable(goal, pse_model::generated::enums::AccuracyUnavailableReason::MissingEvidence)).collect::<Vec<_>>();
+                            let completion = crate::workflow::numerics::complete(
+                                crate::workflow::numerics::trajectory_use(
+                                    trajectory,
+                                    coverage.satisfied,
+                                ),
+                                crate::workflow::numerics::CompletionEvidence {
+                                    checks: &checks.rows,
+                                    checks_complete: checks.complete && checks.error.is_none(),
+                                    required_closure: simulation.required_closure_checks(),
+                                    endpoint_satisfied: Some(coverage.satisfied),
+                                    coverage_complete: coverage.prefix_complete,
+                                    accuracy: &accuracy,
+                                },
+                                &simulation.numerics().policy,
+                            )
+                            .with_context(simulation.numerics());
+                            assessment.trajectory(ei, parameters, completion);
                             rows.extend(checks.rows);
                             reports.extend(checks.reports);
                             if let Some(error) = checks.error {

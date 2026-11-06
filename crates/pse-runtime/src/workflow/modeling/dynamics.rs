@@ -690,6 +690,22 @@ impl ModelingSimulation {
         &self,
         run_id: RunId,
     ) -> Result<super::super::review_context::ReviewScientificCoordinates, WorkflowError> {
+        self.review_coordinates_with_parameters(run_id, &self.parameters)
+    }
+    /// Project this original layout with the actual applied integration input vector.
+    /// This descriptive projection grants no numerical or scientific permission.
+    pub(in crate::workflow) fn review_coordinates_with_parameters(
+        &self,
+        run_id: RunId,
+        parameters: &[f64],
+    ) -> Result<super::super::review_context::ReviewScientificCoordinates, WorkflowError> {
+        if parameters.len() != self.parameters.len()
+            || parameters.iter().any(|value| !value.is_finite())
+        {
+            return Err(contract(
+                "original integration input extent or nonfinite value",
+            ));
+        }
         let product = self.model().compiled();
         let quantity = |id: SemanticId| {
             if let Some(port) = product
@@ -773,7 +789,7 @@ impl ModelingSimulation {
             self.coordinates.time_origin,
         )?);
         let configuration =
-            serde_json::to_vec(&(1u8, native::profile_json(&self.profile), &self.parameters))
+            serde_json::to_vec(&(1u8, native::profile_json(&self.profile), parameters))
                 .map_err(|error| contract(error.to_string()))?;
         Ok(super::super::review_context::ReviewScientificCoordinates {
             run_id,

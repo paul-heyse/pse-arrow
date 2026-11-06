@@ -2700,6 +2700,198 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "AttemptId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/generated/identities.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::generated::identities::AttemptId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "AuthoredAccuracyGoalsRow",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -100230,6 +100422,214 @@
       "source_path": "crates/pse-schema/src/catalog/native_math.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_model::generated::structures::ScientificCoordinateValue"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "native_projection_adapter",
+      "direction": "Output",
+      "generator_path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
+      "generator_symbol": "native_adapters_scoped",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-adapters.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "adapter_root",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ScientificMemberPermissionSnapshot",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/completion/member.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::completion::member::MemberScientificPermission"
     },
     {
       "basis": "declared",

@@ -447,7 +447,7 @@ impl RunResult {
             .then(|| self.error().map(AsRef::as_ref))
             .flatten()
     }
-    pub(super) fn completed(mut self) -> Self {
+    pub(super) fn completed(mut self, attempt: Option<AttemptId>) -> Self {
         if self.original_completion_captured || self.horizon_unmerged.is_some() {
             return self;
         }
@@ -461,7 +461,7 @@ impl RunResult {
         }
         let stage = crate::invocation::stage("original_qualification_and_completion");
         self.assessments = self.assess_candidates();
-        self.completion = self.capture_completion().map_err(Arc::new);
+        self.completion = self.capture_completion(attempt).map_err(Arc::new);
         let qualified = self.completion.is_ok() && self.usable();
         if let Some(recorder) = &self.invocation {
             recorder.qualified(qualified);
@@ -477,7 +477,7 @@ impl RunResult {
     /// Capture completion, then record the attempt's end durably when the run is durable.
     pub(super) async fn finished(self, durable: Option<DurableAttempt>, cancelled: bool) -> Self {
         let _phase = pse_diagnostics::observation::phase("run.completion.and.publication");
-        let mut result = self.completed();
+        let mut result = self.completed(durable.as_ref().map(DurableAttempt::attempt_id));
         if let Some(recorder) = &result.invocation {
             recorder.terminal();
         }
@@ -556,7 +556,7 @@ impl RunResult {
             pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref())
                 == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
         });
-        self = self.completed();
+        self = self.completed(durable.as_ref().map(DurableAttempt::attempt_id));
         if let Some(recorder) = &self.invocation {
             recorder.terminal();
         }
@@ -2336,7 +2336,7 @@ mod modeling_failure_tests {
             completed: vec![result.modeling_result(0).unwrap().clone()],
             step: None,
         });
-        let task_failure = task_failure.completed();
+        let task_failure = task_failure.completed(None);
         let summary = task_failure.attempt_summary().unwrap();
         assert_eq!(summary.requested_steps, 3);
         assert_eq!(summary.steps[0].accepted, Some(true));
@@ -2357,7 +2357,7 @@ mod modeling_failure_tests {
             },
             None,
         )
-        .completed();
+        .completed(None);
         let summary = unstarted.attempt_summary().unwrap();
         assert_eq!(summary.requested_steps, 1);
         assert!(summary.steps[0].observation.is_none());

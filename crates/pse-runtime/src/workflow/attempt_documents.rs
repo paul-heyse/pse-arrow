@@ -562,7 +562,7 @@ mod tests {
             },
             None,
         )
-        .completed();
+        .completed(None);
         let first = result.attempt_summary().unwrap();
         let second = result.attempt_summary().unwrap();
         assert!(Arc::ptr_eq(&first, &second));
@@ -588,7 +588,7 @@ mod tests {
             },
             None,
         )
-        .completed();
+        .completed(None);
         let summary = result.attempt_summary().unwrap();
         let weak = Arc::downgrade(summary._allocation.as_ref().unwrap());
         let document = summary.document();

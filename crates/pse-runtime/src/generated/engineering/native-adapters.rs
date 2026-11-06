@@ -1122,6 +1122,63 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId,
+> for pse_model::generated::identities::AttemptId {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::generated::identities::AttemptId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::identities::AttemptId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "id")],
+            path,
+        )?;
+        let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId {
+            id: Some(
+                pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                    field_0,
+                ),
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId,
+> for pse_model::generated::identities::AttemptId {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_model::generated::identities::AttemptId as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::generated::identities::AttemptId as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "id")],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                required(wire.id, &child_path(path, "id"))?,
+                &child_path(path, "id"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredAccuracyGoalsRow,
 > for pse_model::generated::authored::accuracy_goals::AuthoredAccuracyGoalsRow {
     fn into_wire(
@@ -61090,6 +61147,81 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificMemberPermissionSnapshot,
+> for &crate::workflow::MemberScientificPermission {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificMemberPermissionSnapshot,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::MemberScientificPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::VERSION,
+            <crate::workflow::MemberScientificPermission as pse_contract::boundary_projection::ProjectionObservationRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "run_id"),
+                (2, "attempt_id"),
+                (3, "member"),
+                (4, "source"),
+                (5, "physical"),
+                (6, "preparation"),
+                (7, "permission"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_contract::boundary_projection::ProjectionObservationRecord::observation_fields(
+                self,
+            )
+            .map_err(|error| error.at(path))?;
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificMemberPermissionSnapshot {
+            run_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::RunId,
+                >(field_0, &child_path(path, "run_id"))?,
+            ),
+            attempt_id: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::AttemptId,
+                    >(value, &child_path(path, "attempt_id"))
+                })
+                .transpose()?
+                .into(),
+            member: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
+                >(field_2, &child_path(path, "member"))?,
+            ),
+            source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_3,
+            ),
+            physical: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_4,
+            ),
+            preparation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
+            ),
+            permission: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot,
+                >(
+                    ::core::borrow::Borrow::<
+                        crate::workflow::ScientificPermission,
+                    >::borrow(&field_6),
+                    &child_path(path, "permission"),
+                )?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificPermissionSnapshot,
 > for &crate::workflow::ScientificPermission {
     fn into_wire(
@@ -61260,7 +61392,7 @@ impl NativeInto<
             <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
-            1,
+            2,
             &[],
             path,
         )?;
@@ -61288,7 +61420,7 @@ impl NativeInto<
             <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
-            1,
+            2,
             &[(1, "step")],
             path,
         )?;
@@ -61322,7 +61454,7 @@ impl NativeInto<
             <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
-            1,
+            2,
             &[(1, "step"), (2, "member"), (3, "point")],
             path,
         )?;
@@ -61352,6 +61484,42 @@ impl NativeInto<
                                     .transpose()?,
                                 point: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                                     field_2,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            2,
+            &[(1, "member")],
+            path,
+        )?;
+        let value = match <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "Member");
+                let path = alternative_path.as_str();
+                return Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificProductScope {
+                    kind: Some(
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Member(
+                            Box::new(crate::host_operations::engineering::generated::pb::pse::engineering::v1::scientific_product_scope::Alternative4 {
+                                member: buffa::MessageField::some(
+                                    native_into::<
+                                        _,
+                                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
+                                    >(field_0, &child_path(path, "member"))?,
                                 ),
                                 ..Default::default()
                             }),
@@ -61402,7 +61570,7 @@ impl NativeFrom<
                     <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
-                    1,
+                    2,
                     &[],
                     path,
                 )?;
@@ -61427,7 +61595,7 @@ impl NativeFrom<
                     <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
-                    1,
+                    2,
                     &[(1, "step")],
                     path,
                 )?;
@@ -61454,7 +61622,7 @@ impl NativeFrom<
                     <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
-                    1,
+                    2,
                     &[(1, "step"), (2, "member"), (3, "point")],
                     path,
                 )?;
@@ -61482,6 +61650,42 @@ impl NativeFrom<
                 Ok(
                     <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::oneof::scientific_product_scope::Kind::Member(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Member");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    2,
+                    &[(1, "member")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
+                    >(
+                        required(
+                            wire.member.into_option(),
+                            &child_path(path, "member"),
+                        )?,
+                        &child_path(path, "member"),
+                    )?,
+                );
+                Ok(
+                    <crate::workflow::ProductScope as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
                     >>::from_projection_alternative(fields),
                 )
             }
@@ -72153,6 +72357,24 @@ pub fn decode_provider_inspection_page(
     wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
 ) -> Result<crate::workflow::ProviderInspectionPage, BoundaryProjectionError> {
     decode_root(wire, "ProviderInspectionPage")
+}
+/// Observe `ScientificMemberPermissionSnapshot` without consuming native custody or constructing native authority.
+pub fn encode_scientific_member_permission_snapshot(
+    native: &crate::workflow::MemberScientificPermission,
+) -> Result<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificMemberPermissionSnapshot,
+    BoundaryProjectionError,
+> {
+    pse_contract::boundary_projection::ValidateProjection::validate_projection(native)
+        .map_err(BoundaryProjectionError::OutgoingNative)?;
+    let wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::ScientificMemberPermissionSnapshot = native_into(
+            native,
+            "ScientificMemberPermissionSnapshot",
+        )
+        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
+    protovalidate_buffa::Validate::validate(&wire)
+        .map_err(BoundaryProjectionError::OutgoingWire)?;
+    Ok(wire)
 }
 /// Observe `ScientificPermissionSnapshot` without consuming native custody or constructing native authority.
 pub fn encode_scientific_permission_snapshot(

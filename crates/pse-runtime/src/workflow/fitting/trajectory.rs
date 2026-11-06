@@ -2,9 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Borrowed original fit trajectories retain their actual joined producer.
 
-use super::{Experiment, InstanceId, native};
-use crate::workflow::{RunOutcome, RunResult, ScientificPermission};
+use super::{Experiment, InstanceId, PreparedFit, native};
+use crate::workflow::{
+    MemberScientificPermission, ModelingSimulation, RunOutcome, RunResult, ScientificPermission,
+    WorkflowError,
+};
 use pse_model::generated::identities::RunId;
+use std::sync::Arc;
 
 /// Raw trajectory selected from one original experiment of an exact joined fit.
 ///
@@ -14,7 +18,8 @@ use pse_model::generated::identities::RunId;
 pub struct FitTrajectory<'a> {
     producer: &'a RunResult,
     assessment: super::FitExperimentAssessment<'a>,
-    report: &'a native::dynamics::Report,
+    report: &'a Arc<native::dynamics::Report>,
+    source: &'a ModelingSimulation,
 }
 
 impl FitTrajectory<'_> {
@@ -48,6 +53,47 @@ impl FitTrajectory<'_> {
     /// Reading it never repeats integration or revises final selection.
     pub fn report(&self) -> &native::dynamics::Report {
         self.report
+    }
+    /// Exact local integration inputs used by original assessment, not fit-estimate permission.
+    pub fn parameters(&self) -> Option<&[f64]> {
+        self.assessment
+            .trajectory()
+            .map(|local| local.parameters.as_slice())
+    }
+    /// Original source/layout coordinates with the actually applied integration inputs.
+    pub fn scientific_coordinates(
+        &self,
+    ) -> Result<crate::workflow::ReviewScientificCoordinates, WorkflowError> {
+        self.source.review_coordinates_with_parameters(
+            self.run_id(),
+            self.parameters()
+                .ok_or_else(|| crate::workflow::contract("original member inputs unavailable"))?,
+        )
+    }
+    /// Independent original whole-member permission, bound to this actual producer/report.
+    pub fn governing_permission(&self) -> Option<&MemberScientificPermission> {
+        let assessment = self.assessment.trajectory()?;
+        self.producer
+            .completion()
+            .ok()?
+            .member_permission(self.experiment_id())
+            .filter(|permission| {
+                permission.matches(
+                    self.producer,
+                    self.experiment_id(),
+                    self.source,
+                    self.report,
+                    assessment,
+                )
+            })
+    }
+
+    /// Original trajectory available for scientific use under its own native decision.
+    /// Raw failed and partial observations remain available through [`Self::report`].
+    pub fn qualified_report(&self) -> Option<&native::dynamics::Report> {
+        self.governing_permission()
+            .filter(|permission| permission.permits_result())
+            .map(|_| self.report())
     }
 
     /// This producer's original whole-fit decision, if captured.
@@ -99,7 +145,40 @@ impl RunResult {
         Some(FitTrajectory {
             producer: self,
             assessment: report.assessment.experiment(experiment)?,
-            report: report.trajectories.get(&experiment)?.as_ref(),
+            report: report.trajectories.get(&experiment)?,
+            source: request.trajectory_source(experiment)?,
         })
+    }
+}
+
+impl PreparedFit {
+    pub(in crate::workflow) fn trajectory_source(
+        &self,
+        member: InstanceId,
+    ) -> Option<&ModelingSimulation> {
+        let mut declarations = self
+            .problem
+            .declaration
+            .experiments
+            .iter()
+            .enumerate()
+            .filter(|(_, declaration)| declaration.experiment_id == member);
+        let (index, _) = declarations.next()?;
+        if declarations.next().is_some()
+            || !matches!(
+                self.problem.experiments.get(index),
+                Some(Experiment::Transient(_))
+            )
+        {
+            return None;
+        }
+        match self.assessments.get(index)? {
+            super::modeling::Assessment::Transient(source)
+                if source.solved.instance() == member =>
+            {
+                Some(source)
+            }
+            _ => None,
+        }
     }
 }

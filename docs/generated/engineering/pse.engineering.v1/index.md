@@ -164,6 +164,16 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `next` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
 | `initial` | 3 | `Named("BindingQuantity")` | `Both` | `[]` | `{}` |
 
+## `AttemptId`
+
+Rust owner: `pse_model::generated::identities::AttemptId`. Source: `crates/pse-model/src/generated/identities.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
+
 ## `AuthoredAccuracyGoalsRow`
 
 Rust owner: `pse_model::generated::authored::accuracy_goals::AuthoredAccuracyGoalsRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 1. Direction: `Both`.
@@ -6846,6 +6856,22 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `coordinate_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
 | `value` | 2 | `Named("ExtensionQuantityValue")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.quantity_value"}` |
 
+## `ScientificMemberPermissionSnapshot`
+
+Rust owner: `pse_runtime::workflow::completion::member::MemberScientificPermission`. Source: `crates/pse-runtime/src/workflow/completion/member.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `run_id` | 1 | `Named("RunId")` | `Output` | `[]` | `{}` |
+| `attempt_id` | 2 | `Optional(Named("AttemptId"))` | `Output` | `[]` | `{}` |
+| `member` | 3 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `source` | 4 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
+| `physical` | 5 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
+| `preparation` | 6 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
+| `permission` | 7 | `Named("ScientificPermissionSnapshot")` | `Output` | `[]` | `{}` |
+
 ## `ScientificPermissionSnapshot`
 
 Rust owner: `pse_runtime::workflow::completion::ScientificPermission`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 1. Direction: `Output`.
@@ -6879,7 +6905,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `ScientificProductScope`
 
-Rust owner: `pse_runtime::workflow::completion::ProductScope`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_runtime::workflow::completion::ProductScope`. Source: `crates/pse-runtime/src/workflow/completion.rs`. Interpretation version: 2. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -6890,6 +6916,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Point (alternative tag 3).step` | 1 | `Optional(Scalar(I64))` | `Both` | `[]` | `{}` |
 | `Point (alternative tag 3).member` | 2 | `Optional(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
 | `Point (alternative tag 3).point` | 3 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
+| `Member (alternative tag 4).member` | 1 | `Named("InstanceId")` | `Both` | `[]` | `{}` |
 
 ## `ScipSettings`
 

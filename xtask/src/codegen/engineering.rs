@@ -112,6 +112,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         "CanonicalProtectedResultSnapshot",
         "ScientificPermissionSnapshot",
         "ScientificProductPermissionSnapshot",
+        "ScientificMemberPermissionSnapshot",
     ]);
     for service in graph.services().values() {
         for method in &service.methods {

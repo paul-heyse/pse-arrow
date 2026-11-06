@@ -276,14 +276,18 @@ async fn source_case_on_with_fixed_parameter(
     case: &str,
     fixed_parameter: bool,
 ) -> (crate::workflow::ModelingPackage, FitProfile) {
+    source_case_on_with_physical(runtime, mixed, expected, case, fixed_parameter, None).await
+}
+async fn source_case_on_with_physical(
+    runtime: &crate::workflow::Runtime,
+    mixed: bool,
+    expected: f64,
+    case: &str,
+    fixed_parameter: bool,
+    physical: Option<crate::workflow::PhysicalContext>,
+) -> (crate::workflow::ModelingPackage, FitProfile) {
     let services = runtime.execution_services();
-    let mut physical = crate::workflow::tests::physical();
-    physical.preconditions = Arc::new(
-        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
-            .unwrap(),
-    );
-    physical.key =
-        pse_compiler::workspace::physical_identity(&physical.quantities, &physical.preconditions);
+    let physical = physical.unwrap_or_else(crate::workflow::tests::physical);
     let body = "{ domain t: Time from 160{s} to 161{s}; discretize grid on t using integrated(elements=1,order=1); param p: Scalar = 2; var x[i in t]: Time; eq rate[i in t]: d(x[i])/di == p; eq initial: x[160{s}] == 10{s}; let y[i in t]: Time = x[i]+i-100{s}; let hit[i in t]: Time = x[i]-11{s}; let jump[i in t]: Time = 20{s}; annotation report y(\"measurement\"); annotation check x(x[i] >= 10{s}); }";
     let body = if fixed_parameter {
         body.replace(
@@ -847,7 +851,9 @@ async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_cont
         drop(other);
         assert!(result.fit_trajectory(InstanceId::from(id(75))).is_none());
         assert!(result.fit_trajectory(InstanceId::from(id(99))).is_none());
-        let trajectory = selected.report();
+        let trajectory = selected
+            .qualified_report()
+            .expect("original member trajectory qualified");
         assert_eq!(trajectory.completed_time, 161.);
         let candidate = report.candidate.as_ref().unwrap()[0];
         let slope = if mode == 1 { 0.5 } else { 1. };
@@ -2068,6 +2074,7 @@ async fn fitting_experiment_assessment_keeps_original_siblings_and_partial_failu
     let owner = original._owner.clone();
     // Transfer the native report with all of its owners; Report intentionally has
     // no Clone operation and no caller map can manufacture its joined selection.
+    drop(original.completion);
     let RunOutcome::Fit {
         request,
         result: Ok(mut report),
@@ -2122,7 +2129,7 @@ async fn fitting_experiment_assessment_keeps_original_siblings_and_partial_failu
         },
         owner,
     )
-    .completed();
+    .completed(None);
     assert!(!controlled.usable());
     let selected = controlled.fit_trajectory(ids[1]).unwrap();
     assert!(selected.belongs_to(&controlled));
@@ -2183,6 +2190,436 @@ async fn fitting_experiment_assessment_keeps_original_siblings_and_partial_failu
             .all(|member| member.state() == State::Unattempted)
     );
     assert!(wrong_extent.failure().is_some());
+}
+
+#[tokio::test]
+async fn fitting_member_permission_preserves_qualified_sibling_and_exact_original_context() {
+    use crate::workflow::{Completion, ProductScope, RunOutcome, RunReport, RunResult};
+    use pse_model::generated::enums::DerivedQuantity;
+    let runtime = crate::workflow::tests::runtime_with_workspace(64 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, false, 73.).await;
+    // Give each original member an included source-owned observation: the native
+    // oracle intentionally does not integrate unobserved transient declarations.
+    let mut rows = package
+        .declarations(services.preparation())
+        .await
+        .unwrap()
+        .to_vec();
+    let measurements = measured_rows(&[
+        (id(71), "Time", Some(73.), Some(1.)),
+        (id(72), "Scalar", Some(1.), Some(1.)),
+        (id(81), "Time", Some(73.), Some(1.)),
+        (id(82), "Time", Some(73.), Some(1.)),
+    ]);
+    let replaced = measurements
+        .iter()
+        .map(|row| row.declaration_id)
+        .collect::<BTreeSet<_>>();
+    rows.retain(|row| !replaced.contains(&row.declaration_id));
+    rows.extend(measurements);
+    let package = package
+        .with_declarations(&runtime.source_services(), rows)
+        .await
+        .unwrap();
+    let mut declarations = package
+        .fit_declarations(services.preparation())
+        .await
+        .unwrap();
+    for parameter in &mut declarations.fits[0].parameters {
+        parameter.fixed = true;
+    }
+    let ids = [74, 76, 77].map(|value| InstanceId::from(id(value)));
+    for (member, observation_id) in ids[1..].iter().zip([81, 82]) {
+        let mut declaration = declarations.fits[0].experiments[0].clone();
+        declaration.experiment_id = *member;
+        declarations.fits[0].experiments.push(declaration);
+        let mut observation = declarations.fits[0].observations[0].clone();
+        observation.observation_id = id(observation_id).into();
+        observation.experiment_id = *member;
+        declarations.fits[0].observations.push(observation);
+        profile
+            .simulations
+            .insert(*member, profile.simulations[&ids[0]].clone());
+    }
+    let package = package
+        .with_fit_declarations(&runtime.source_services(), declarations)
+        .await
+        .unwrap();
+    let prepared = package
+        .prepare_fit(
+            services.preparation(),
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let original = prepared.start(&services).unwrap().wait().await.unwrap();
+    let selected = original.fit_trajectory(ids[0]).unwrap();
+    assert!(selected.governing_permission().unwrap().permits_result());
+    assert_eq!(
+        selected
+            .governing_permission()
+            .unwrap()
+            .recorded_permission()
+            .requested,
+        2
+    );
+    assert_eq!(
+        selected
+            .governing_permission()
+            .unwrap()
+            .recorded_permission()
+            .observed,
+        selected.report().coverage.produced()
+    );
+    assert_eq!(selected.governing_permission().unwrap().attempt_id(), None);
+    let coordinates = selected.scientific_coordinates().unwrap();
+    assert_eq!(coordinates.instance_id, Some(ids[0]));
+    assert!(coordinates.time.is_some());
+    let source = prepared.trajectory_source(ids[0]).unwrap();
+    assert_eq!(
+        coordinates
+            .state
+            .iter()
+            .map(|coordinate| coordinate.id)
+            .collect::<Vec<_>>(),
+        source.contract().states
+    );
+    let (_, _, parameters): (u8, serde_json::Value, Vec<f64>) =
+        serde_json::from_slice(&coordinates.configuration).unwrap();
+    assert_eq!(parameters, selected.parameters().unwrap());
+    assert!(
+        source
+            .review_coordinates_with_parameters(original.run_id, &[])
+            .is_err()
+    );
+    let mut nonfinite = parameters.clone();
+    nonfinite[0] = f64::NAN;
+    assert!(
+        source
+            .review_coordinates_with_parameters(original.run_id, &nonfinite)
+            .is_err()
+    );
+    // Keep the native source and report owners while challenging a later member.
+    let original = Arc::try_unwrap(original).expect("sole joined member result owner");
+    let run_id = original.run_id;
+    let owner = original._owner.clone();
+    drop(original.completion);
+    let RunOutcome::Fit {
+        request,
+        result: Ok(mut report),
+    } = original.outcome
+    else {
+        panic!("fit absent")
+    };
+    let mut invalid = Arc::try_unwrap(report.trajectories.remove(&ids[1]).unwrap())
+        .expect("sole later report owner");
+    invalid.samples[1].mode = usize::MAX;
+    invalid.endpoint.as_mut().unwrap().point.mode = usize::MAX;
+    report.trajectories.insert(ids[1], Arc::new(invalid));
+    let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+    report.assessment = prepared.assess_candidate(
+        run_id,
+        report.candidate.as_deref().unwrap(),
+        &report.trajectories,
+        &scope,
+    );
+    report.completion = Some(prepared.assess_completion(&report));
+    let mut result = RunResult::joined(
+        run_id,
+        services.clone(),
+        RunOutcome::Fit {
+            request,
+            result: Ok(report),
+        },
+        owner,
+    )
+    .completed(None);
+    assert!(!result.usable());
+    assert!(
+        result
+            .fit_trajectory(ids[0])
+            .unwrap()
+            .qualified_report()
+            .is_some()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[1])
+            .unwrap()
+            .qualified_report()
+            .is_none()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[2])
+            .unwrap()
+            .qualified_report()
+            .is_none()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[0])
+            .unwrap()
+            .governing_permission()
+            .unwrap()
+            .permits_result()
+    );
+    assert!(
+        !result
+            .fit_trajectory(ids[1])
+            .unwrap()
+            .governing_permission()
+            .unwrap()
+            .permits_result()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[2])
+            .unwrap()
+            .governing_permission()
+            .is_none()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[2])
+            .unwrap()
+            .parameters()
+            .is_none()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[1])
+            .unwrap()
+            .report()
+            .endpoint
+            .is_some()
+    );
+    let completion = result.completion().unwrap();
+    let validity = crate::workflow::local_analysis::record(Ok(&()), None, false);
+    assert!(
+        !completion
+            .derive_permission(
+                ProductScope::Member { member: ids[0] },
+                DerivedQuantity::ParametricSensitivity,
+                validity.clone()
+            )
+            .permits_result()
+    );
+    assert!(
+        !completion
+            .derive_permission(
+                ProductScope::Point {
+                    step: None,
+                    member: Some(ids[0].as_id()),
+                    point: run_id.as_id()
+                },
+                DerivedQuantity::ParametricSensitivity,
+                validity.clone()
+            )
+            .permits_result()
+    );
+    let passive: Completion =
+        serde_json::from_slice(&serde_json::to_vec(completion).unwrap()).unwrap();
+    let observed = passive.member_permission(ids[0]).unwrap();
+    assert!(observed.recorded_permission().permits_result());
+    assert!(!observed.has_native_proof() && !observed.permits_result());
+    assert!(
+        !passive
+            .derive_permission(
+                ProductScope::Member { member: ids[0] },
+                DerivedQuantity::ParametricSensitivity,
+                validity
+            )
+            .permits_result()
+    );
+    // A different actual producer's facts cannot govern this result.
+    let foreign = prepared.start(&services).unwrap().wait().await.unwrap();
+    let original_completion = result.completion.clone();
+    result.completion = Ok(foreign.completion().unwrap().clone());
+    assert!(
+        result
+            .fit_trajectory(ids[0])
+            .unwrap()
+            .governing_permission()
+            .is_none()
+    );
+    result.completion = original_completion;
+    let duplicate = result
+        .completion()
+        .unwrap()
+        .member_permission(ids[0])
+        .unwrap()
+        .clone();
+    result
+        .completion
+        .as_mut()
+        .unwrap()
+        .member_permissions
+        .push(duplicate);
+    assert!(
+        result
+            .fit_trajectory(ids[0])
+            .unwrap()
+            .governing_permission()
+            .is_none()
+    );
+    assert!(
+        result
+            .fit_trajectory(ids[0])
+            .unwrap()
+            .report()
+            .endpoint
+            .is_some()
+    );
+    let RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("fit absent")
+    };
+    assert_eq!(
+        report.assessment.experiment(ids[2]).unwrap().state(),
+        FitExperimentAssessmentState::Unattempted
+    );
+}
+
+#[cfg(feature = "canonical-tests")]
+#[tokio::test]
+async fn fitting_member_permission_retains_exact_durable_attempt_and_passive_facts() {
+    use crate::workflow::{MemberScientificPermission, RunDurability};
+    let runtime = crate::workflow::tests::durable_runtime();
+    let services = runtime.execution_services();
+    let cancel = crate::CancelSource::new();
+    let (documents, _) = crate::workflow::tests::sources("package p {}");
+    let physical = Box::pin(runtime.physical_from_sources(&documents, &cancel))
+        .await
+        .unwrap();
+    let (package, profile) =
+        source_case_on_with_physical(&runtime, false, 73., "Dynamic", false, Some(physical)).await;
+    let mut declarations = package
+        .fit_declarations(services.preparation())
+        .await
+        .unwrap();
+    for parameter in &mut declarations.fits[0].parameters {
+        parameter.fixed = true;
+    }
+    let package = package
+        .with_fit_declarations(&runtime.source_services(), declarations)
+        .await
+        .unwrap();
+    let prepared = package
+        .prepare_fit(
+            services.preparation(),
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
+        .await
+        .unwrap();
+    let first_handle = prepared.start(&services).unwrap();
+    let first = first_handle.wait().await.unwrap();
+    let member = InstanceId::from(id(74));
+    let trajectory = first.fit_trajectory(member).unwrap();
+    let grant = trajectory.governing_permission().unwrap();
+    assert!(grant.permits_result());
+    assert_eq!(grant.attempt_id(), first_handle.attempt_id());
+    assert!(grant.attempt_id().is_some());
+    #[cfg(feature = "engineering-service")]
+    {
+        use buffa::Message as _;
+        use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+        let bytes =
+            crate::engineering_projection::encode_scientific_member_permission_snapshot(grant)
+                .unwrap()
+                .encode_to_vec();
+        let pool = Arc::new(
+            DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+                .unwrap(),
+        );
+        let message = pool
+            .message_index("pse.engineering.v1.ScientificMemberPermissionSnapshot")
+            .unwrap();
+        let independent = DynamicMessage::decode(pool, message, &bytes).unwrap();
+        let child = |tag| {
+            let Some(Value::Message(message)) = independent.field_by_number(tag) else {
+                panic!("member context field missing")
+            };
+            message
+        };
+        assert_eq!(
+            child(1).field_by_number(1),
+            Some(&Value::Bytes(first.run_id.as_id().as_bytes().to_vec()))
+        );
+        assert_eq!(
+            child(2).field_by_number(1),
+            Some(&Value::Bytes(
+                first_handle
+                    .attempt_id()
+                    .unwrap()
+                    .as_id()
+                    .as_bytes()
+                    .to_vec()
+            ))
+        );
+        assert_eq!(
+            child(3).field_by_number(1),
+            Some(&Value::Bytes(member.as_id().as_bytes().to_vec()))
+        );
+    }
+    let parsed: MemberScientificPermission =
+        serde_json::from_slice(&serde_json::to_vec(grant).unwrap()).unwrap();
+    assert_eq!(parsed.attempt_id(), first_handle.attempt_id());
+    assert!(!parsed.has_native_proof() && !parsed.permits_result());
+    let (run, attempt) = (
+        first_handle.canonical_run_key().unwrap().to_owned(),
+        first_handle.canonical_attempt_key().unwrap().to_owned(),
+    );
+    let reopened = runtime
+        .operations()
+        .unwrap()
+        .record(&run, &attempt)
+        .await
+        .unwrap();
+    let stored = reopened.completion.as_ref().unwrap();
+    let stored_member = stored
+        .completion
+        .as_ref()
+        .unwrap()
+        .member_permission(member)
+        .unwrap();
+    assert_eq!(stored_member.attempt_id(), Some(stored.attempt_id));
+    assert!(stored_member.recorded_permission().permits_result());
+    assert!(!stored_member.has_native_proof() && !stored_member.permits_result());
+    drop(first_handle);
+    let second_handle = prepared.start(&services).unwrap();
+    let second = second_handle.wait().await.unwrap();
+    assert_ne!(grant.attempt_id(), second_handle.attempt_id());
+    let mut first = Arc::try_unwrap(first).expect("sole first native result owner");
+    // Change only the enclosing attempt to a DIFFERENT actual native attempt.
+    // The run/source/member/report/permission remain the first producer's facts.
+    let RunDurability::Durable(actual_second) = second.durability() else {
+        panic!("durable second absent")
+    };
+    first.durability = RunDurability::Durable(actual_second.clone());
+    assert!(
+        first
+            .fit_trajectory(member)
+            .unwrap()
+            .governing_permission()
+            .is_none()
+    );
+    assert!(
+        first
+            .fit_trajectory(member)
+            .unwrap()
+            .report()
+            .endpoint
+            .is_some()
+    );
 }
 
 /// The actual production final assessment is fresh relative to the callback oracle,

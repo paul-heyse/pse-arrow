@@ -1844,7 +1844,7 @@ impl Loop {
                     None,
                 );
                 original.modeling_origin = attempt;
-                original = original.completed();
+                original = original.completed(None);
                 original.horizon_owners = copy_owners;
                 self.append_original(original).await?;
                 return Err(WorkflowError::Shared(error));
@@ -1863,7 +1863,7 @@ impl Loop {
             None,
         );
         original.modeling_origin = attempt;
-        original = original.completed();
+        original = original.completed(None);
         original.horizon_owners = copy_owners;
         if matches!(
             self.admitted.output,

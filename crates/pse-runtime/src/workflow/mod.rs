@@ -112,7 +112,9 @@ pub use diagnostic_documents::{
 pub(crate) mod diagnostic_rows;
 mod diagnostics;
 mod durable;
-pub use completion::{Completion, ProductPermission, ProductScope, ScientificPermission};
+pub use completion::{
+    Completion, MemberScientificPermission, ProductPermission, ProductScope, ScientificPermission,
+};
 pub use durable::{
     AdmittedSeed, Durability, DurableRecord, LeasePolicy, Operations, Recovery, RunDurability,
     SeedReadError, StoredCompletion, TerminationCause, TerminationDetail,

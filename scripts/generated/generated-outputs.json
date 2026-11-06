@@ -588,6 +588,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/completion/member.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
           "kind": "file"
         },
@@ -1357,6 +1361,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/completion.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/completion/member.rs",
           "kind": "file"
         },
         {
