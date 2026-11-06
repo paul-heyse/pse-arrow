@@ -14,8 +14,13 @@ pub(super) struct Supervisors {
     pub(super) closed: bool,
     pub(super) tasks: tokio::task::JoinSet<Result<(), MathRuntimeError>>,
     pub(super) lanes: futures_util::stream::FuturesUnordered<
-        futures_util::future::BoxFuture<'static, Result<(), MathRuntimeError>>,
+        futures_util::future::BoxFuture<
+            'static,
+            (super::staged::ParkedSession, Result<(), MathRuntimeError>),
+        >,
     >,
+    pub(super) settling: usize,
+    pub(super) settling_waker: Option<std::task::Waker>,
     pub(super) failure: Option<MathRuntimeError>,
     pub(super) outcome: Option<Result<(), Arc<MathRuntimeError>>>,
     pub(super) publication_closed: Cancellation,
@@ -40,35 +45,88 @@ impl Supervisors {
         self.failure =
             MathRuntimeError::settle(self.failure.take().map_or(Ok(()), Err), result).err();
     }
-    /// Harvest before admitting fresh work; a failure is returned once rather than
-    /// accumulated in an open-ended completed-operation ledger.
-    fn harvest(&mut self) -> Result<(), MathRuntimeError> {
+    fn check_open(&self) -> Result<(), MathRuntimeError> {
         if self.closed {
             return Err(MathRuntimeError::Limit("native population closed"));
         }
-        let mut result = Ok(());
-        while let Some(joined) = self.tasks.try_join_next() {
-            result = MathRuntimeError::settle(result, Self::joined(joined));
+        if self.settling != 0 {
+            return Err(MathRuntimeError::Limit("native supervisor settlement"));
         }
-        result
+        Ok(())
     }
-    fn register(
-        &mut self,
-        limit: usize,
-        task: impl Future<Output = Result<(), MathRuntimeError>> + Send + 'static,
-    ) -> Result<(), MathRuntimeError> {
-        self.harvest()?;
+    fn check_registration(&self, limit: usize) -> Result<(), MathRuntimeError> {
+        self.check_open()?;
         // One performing supervisor per operation. Entry owners and exclusive
         // resident loans are already bounded by jobs; completed task tails need
         // their own bound until the library exposes their final join result.
         let records = limit.checked_mul(2).ok_or(MathRuntimeError::Limit(
             "native supervisor population overflow",
         ))?;
-        if self.tasks.len() >= records {
+        if self
+            .tasks
+            .len()
+            .checked_add(self.settling)
+            .is_none_or(|count| count >= records)
+        {
             return Err(MathRuntimeError::Limit("native supervisor population"));
         }
-        self.tasks.spawn(task);
         Ok(())
+    }
+    pub(super) fn settled(&mut self, count: usize) -> Option<std::task::Waker> {
+        self.settling -= count;
+        self.settling_waker.take()
+    }
+}
+impl MathService {
+    /// Ready joins leave the lock before consuming arbitrary panic payloads.
+    /// Reentrant admission refuses while this bounded population is settling.
+    /// Extraction, normalization and reconciliation contain no suspension point.
+    fn with_supervisors<R>(
+        &self,
+        effect: impl FnOnce(&mut Supervisors) -> Result<R, MathRuntimeError>,
+    ) -> Result<R, MathRuntimeError> {
+        loop {
+            let ready = {
+                let mut owner = self
+                    .supervisors
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                owner.check_open()?;
+                let mut ready = Vec::new();
+                while let Some(joined) = owner.tasks.try_join_next() {
+                    ready.push(joined);
+                }
+                if ready.is_empty() {
+                    return effect(&mut owner);
+                }
+                owner.settling += ready.len();
+                ready
+            };
+            let count = ready.len();
+            let mut result = Ok(());
+            for joined in ready {
+                result = MathRuntimeError::settle(result, Supervisors::joined(joined));
+            }
+            let (result, wake) = {
+                let mut owner = self
+                    .supervisors
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                let result = if owner.closed {
+                    // Shutdown may have begun while a foreign payload destructor
+                    // was running. Its original outcome now belongs to that drain.
+                    owner.retain(result);
+                    Err(MathRuntimeError::Limit("native population closed"))
+                } else {
+                    result
+                };
+                (result, owner.settled(count))
+            };
+            if let Some(wake) = wake {
+                wake.wake();
+            }
+            result?;
+        }
     }
 }
 /// One final delivery boundary. Native values stay in the performing supervisor's
@@ -1467,10 +1525,7 @@ impl MathService {
         deadline: Option<std::time::Instant>,
         cutoff: Option<std::time::Instant>,
     ) -> Result<AdmissionEntry, MathRuntimeError> {
-        self.supervisors
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .harvest()?;
+        self.with_supervisors(|_| Ok(()))?;
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1713,12 +1768,13 @@ impl MathService {
         }
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        let mut owner = self
+        let closed = self
             .supervisors
             .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let closed = owner.publication_closed.clone();
-        owner.register(self.policy.jobs, crate::tooling::runtime_metrics::instrument(
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .publication_closed
+            .clone();
+        let mut task = Some(crate::tooling::runtime_metrics::instrument(
             crate::tooling::runtime_metrics::NativeTaskClass::MathJob,
             crate::ExecutionContext::capture().instrument(crate::observation::child(
                 "math.job",
@@ -1874,7 +1930,17 @@ impl MathService {
                     result
                 }),
             )),
-        ))?;
+        ));
+        self.with_supervisors(|owner| {
+            owner.check_registration(self.policy.jobs)?;
+            // On refusal the unspawned future remains outside the locked scope,
+            // so dropping its captures cannot reenter the same mutex.
+            let task = task.take().ok_or_else(|| {
+                MathRuntimeError::Internal("native supervisor registration consumed twice".into())
+            })?;
+            owner.tasks.spawn(task);
+            Ok(())
+        })?;
         Ok(Completion::Native(rx))
     }
 }
@@ -1922,6 +1988,204 @@ mod supervisor_tests {
     }
     fn failure_text(error: &MathRuntimeError) -> String {
         format!("{error:?}")
+    }
+
+    struct ReentrantPayload {
+        service: Arc<MathService>,
+        unlocked: Arc<std::sync::atomic::AtomicBool>,
+        refused: Arc<std::sync::atomic::AtomicBool>,
+        dispatched: Arc<AtomicUsize>,
+        barrier: Option<(
+            tokio::sync::oneshot::Sender<()>,
+            std::sync::mpsc::Receiver<()>,
+        )>,
+    }
+    impl Drop for ReentrantPayload {
+        fn drop(&mut self) {
+            // A locked implementation fails the witness without hanging this
+            // control forever by recursively taking its own std mutex.
+            let unlocked = match self.service.supervisors.try_lock() {
+                Ok(owner) => {
+                    drop(owner);
+                    true
+                }
+                Err(_) => false,
+            };
+            self.unlocked.store(unlocked, Ordering::Release);
+            if unlocked {
+                let dispatched = self.dispatched.clone();
+                let result = self.service.submit(1, 0, move |_, _| {
+                    dispatched.fetch_add(1, Ordering::AcqRel);
+                    Ok(((), 0))
+                });
+                self.refused.store(
+                    matches!(
+                        result,
+                        Err(MathRuntimeError::Limit(
+                            "native supervisor settlement" | "native population closed"
+                        ))
+                    ),
+                    Ordering::Release,
+                );
+            }
+            if let Some((entered, release)) = self.barrier.take() {
+                let _ = entered.send(());
+                if unlocked {
+                    let _ = release.recv_timeout(std::time::Duration::from_secs(5));
+                }
+            }
+            panic!("reentrant supervisor payload destructor failed");
+        }
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_open_harvest_destroys_reentrant_payload_outside_mutex() {
+        let service = service();
+        let unlocked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let refused = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let dispatched = Arc::new(AtomicUsize::new(0));
+        let payload = ReentrantPayload {
+            service: service.clone(),
+            unlocked: unlocked.clone(),
+            refused: refused.clone(),
+            dispatched: dispatched.clone(),
+            barrier: None,
+        };
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        service.supervisors.lock().unwrap().tasks.spawn(async move {
+            entered.send(()).unwrap();
+            std::panic::panic_any(payload)
+        });
+        entering.await.unwrap();
+        let observed = dispatched.clone();
+        let error = service
+            .submit(1, 0, move |_, _| {
+                observed.fetch_add(1, Ordering::AcqRel);
+                Ok(((), 0))
+            })
+            .unwrap_err();
+        assert!(unlocked.load(Ordering::Acquire));
+        assert!(refused.load(Ordering::Acquire));
+        assert!(failure_text(&error).contains("reentrant supervisor payload destructor failed"));
+        assert_eq!(dispatched.load(Ordering::Acquire), 0);
+        assert_eq!(service.supervisors.lock().unwrap().settling, 0);
+        service
+            .submit(1, 0, |_, _| Ok(((), 0)))
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        service.shutdown_native_lanes().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_shutdown_destroys_reentrant_payload_and_drains_sibling() {
+        let service = service();
+        let unlocked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let refused = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let dispatched = Arc::new(AtomicUsize::new(0));
+        let payload = ReentrantPayload {
+            service: service.clone(),
+            unlocked: unlocked.clone(),
+            refused: refused.clone(),
+            dispatched: dispatched.clone(),
+            barrier: None,
+        };
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        let (release, releasing) = tokio::sync::oneshot::channel();
+        let departed = Arc::new(AtomicUsize::new(0));
+        let sibling = departed.clone();
+        {
+            let mut owner = service.supervisors.lock().unwrap();
+            owner
+                .tasks
+                .spawn(async move { std::panic::panic_any(payload) });
+            owner.tasks.spawn(async move {
+                entered.send(()).unwrap();
+                releasing.await.unwrap();
+                sibling.fetch_add(1, Ordering::AcqRel);
+                Ok(())
+            });
+        }
+        entering.await.unwrap();
+        let mut shutdown = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(shutdown.as_mut()).is_pending());
+        while service.supervisors.lock().unwrap().failure.is_none() {
+            tokio::task::yield_now().await;
+            assert!(futures_util::poll!(shutdown.as_mut()).is_pending());
+        }
+        assert!(unlocked.load(Ordering::Acquire));
+        assert!(refused.load(Ordering::Acquire));
+        assert_eq!(dispatched.load(Ordering::Acquire), 0);
+        assert_eq!(departed.load(Ordering::Acquire), 0);
+        release.send(()).unwrap();
+        let error = shutdown.await.unwrap_err();
+        assert!(failure_text(&error).contains("reentrant supervisor payload destructor failed"));
+        assert_eq!(departed.load(Ordering::Acquire), 1);
+        assert_eq!(service.supervisors.lock().unwrap().settling, 0);
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_open_normalization_racing_close_retains_failure_and_wakes_resumed_drain()
+     {
+        let service = service();
+        let unlocked = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let refused = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let dispatched = Arc::new(AtomicUsize::new(0));
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        let (release, releasing) = std::sync::mpsc::channel();
+        let payload = ReentrantPayload {
+            service: service.clone(),
+            unlocked: unlocked.clone(),
+            refused: refused.clone(),
+            dispatched: dispatched.clone(),
+            barrier: Some((entered, releasing)),
+        };
+        let (ready, readying) = tokio::sync::oneshot::channel();
+        service.supervisors.lock().unwrap().tasks.spawn(async move {
+            ready.send(()).unwrap();
+            std::panic::panic_any(payload)
+        });
+        readying.await.unwrap();
+        let harvest_service = service.clone();
+        let (harvested, harvesting) = tokio::sync::oneshot::channel();
+        let harvester = std::thread::spawn(move || {
+            let result = harvest_service.admit_entry(1, 0, &Cancellation::default(), None, None);
+            let _ = harvested.send(result.map(|_| ()));
+        });
+        tokio::time::timeout(std::time::Duration::from_secs(5), entering)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(unlocked.load(Ordering::Acquire));
+        assert!(refused.load(Ordering::Acquire));
+        let mut first = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        {
+            let owner = service.supervisors.lock().unwrap();
+            assert!(owner.closed);
+            assert_eq!(owner.settling, 1);
+            assert!(owner.tasks.is_empty());
+            assert!(owner.outcome.is_none());
+        }
+        drop(first);
+        let mut resumed = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(resumed.as_mut()).is_pending());
+        release.send(()).unwrap();
+        let error = tokio::time::timeout(std::time::Duration::from_secs(5), resumed)
+            .await
+            .unwrap()
+            .unwrap_err();
+        assert!(failure_text(&error).contains("reentrant supervisor payload destructor failed"));
+        assert!(matches!(
+            harvesting.await.unwrap(),
+            Err(MathRuntimeError::Limit("native population closed"))
+        ));
+        harvester.join().unwrap();
+        assert_eq!(dispatched.load(Ordering::Acquire), 0);
+        let owner = service.supervisors.lock().unwrap();
+        assert_eq!(owner.settling, 0);
+        assert!(owner.outcome.is_some());
     }
 
     async fn cancellation_after_delivery(native: bool) {

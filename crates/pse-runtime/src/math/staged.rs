@@ -1181,27 +1181,70 @@ impl MathService {
                     let joined = lane.joined.take();
                     owner.lanes.push(Box::pin(async move {
                         let result = session_join_result(joined).await;
-                        drop(lane);
-                        result
+                        (lane, result)
                     }));
                 }
             }
         }
         std::future::poll_fn(|cx| {
-            let mut owner = self
-                .supervisors
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            while let Poll::Ready(Some(joined)) = owner.tasks.poll_join_next(cx) {
-                owner.retain(super::jobs::Supervisors::joined(joined));
-            }
-            while let Poll::Ready(Some(joined)) = Pin::new(&mut owner.lanes).poll_next(cx) {
-                owner.retain(joined);
-            }
-            if owner.tasks.is_empty() && owner.lanes.is_empty() {
-                Poll::Ready(())
-            } else {
-                Poll::Pending
+            loop {
+                let (tasks, lanes, count) = {
+                    let mut owner = self
+                        .supervisors
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    let mut tasks = Vec::new();
+                    while let Poll::Ready(Some(joined)) = owner.tasks.poll_join_next(cx) {
+                        tasks.push(joined);
+                    }
+                    let mut lanes = Vec::new();
+                    while let Poll::Ready(Some(joined)) = Pin::new(&mut owner.lanes).poll_next(cx) {
+                        lanes.push(joined);
+                    }
+                    let count = tasks.len() + lanes.len();
+                    if count == 0 {
+                        if owner.tasks.is_empty() && owner.lanes.is_empty() && owner.settling == 0 {
+                            return Poll::Ready(());
+                        }
+                        if owner.settling != 0 {
+                            owner.settling_waker = Some(cx.waker().clone());
+                        }
+                        return Poll::Pending;
+                    }
+                    owner.settling += count;
+                    (tasks, lanes, count)
+                };
+                // No arbitrary panic payload or completed lane owner is destroyed
+                // while the service mutex is held. Keep their extracted population
+                // counted until every outcome is back with the performing owner.
+                let mut result = Ok(());
+                for joined in tasks {
+                    result =
+                        MathRuntimeError::settle(result, super::jobs::Supervisors::joined(joined));
+                }
+                for (lane, joined) in lanes {
+                    let retired =
+                        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| drop(lane)))
+                            .map_err(|payload| {
+                                super::joined_pool::worker_panic(
+                                    "native lane owner retirement",
+                                    payload,
+                                )
+                            });
+                    result =
+                        MathRuntimeError::settle(result, MathRuntimeError::settle(joined, retired));
+                }
+                let wake = {
+                    let mut owner = self
+                        .supervisors
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    owner.retain(result);
+                    owner.settled(count)
+                };
+                if let Some(wake) = wake {
+                    wake.wake();
+                }
             }
         })
         .await;
