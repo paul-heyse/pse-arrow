@@ -54,7 +54,8 @@ Declare distinct derived `runtime.developer_invocation_facts` and
 `runtime.developer_diagnostic_causes` relations. Join on exact invocation identity plus original
 report SHA-256. Invocation rows retain original action/outcome, interpretation, nullable selected
 count, required capture coverage and recorded-at-read settlement/pending state. Cause rows
-retain original ordinal, typed diagnostic code/class and source pointer. Every answer retains
+retain a projection row ordinal, typed diagnostic code/class and the exact original field/ordinal
+pointer; their projection order is not a source clock or causal order. Every answer retains
 supplied-member attribution, including invocations with empty cause populations.
 
 The existing host report-adoption owner supplies passive facts after descriptor/interpretation,

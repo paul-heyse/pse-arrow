@@ -30,6 +30,11 @@ pub enum Request {
         /// Shared observer working allocation, not a host workload placement cap.
         memory_bytes: NonZeroUsize,
     },
+    /// Join/group explicitly supplied original developer report members without native actions.
+    DeveloperAnalyze {
+        /// Existing host-verified passive facts; scientific supplied membership stays separate.
+        request: review_query::developer::Request,
+    },
     /// Return maintained SQL and declared columns without executing any external tool.
     QuerySpecification {
         /// Original maintained query selection and finite allowances.
@@ -62,6 +67,12 @@ fn serialize_analysis<S: serde::Serializer>(
 ) -> Result<S::Ok, S::Error> {
     analysis.document().serialize(serializer)
 }
+fn serialize_developer_analysis<S: serde::Serializer>(
+    analysis: &review_query::developer::Analysis,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    analysis.document().serialize(serializer)
+}
 /// Existing typed owner results. Analysis retains its admitted allocation through encoding.
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -82,6 +93,13 @@ pub enum ResultView {
         #[serde(serialize_with = "serialize_analysis")]
         #[schemars(with = "review_analysis::AnalysisDocument")]
         analysis: review_analysis::Analysis,
+    },
+    /// Maintained original developer diagnostic/capture/recorded-settlement pattern query.
+    DeveloperAnalyze {
+        /// Typed ephemeral answer retains its observer allocation through response encoding.
+        #[serde(serialize_with = "serialize_developer_analysis")]
+        #[schemars(with = "review_query::developer::Document")]
+        analysis: review_query::developer::Analysis,
     },
     /// Specification only; callers cannot infer external-query execution.
     QuerySpecification {
@@ -115,6 +133,7 @@ pub(super) fn validate(request: &Request) -> Result<(), ReaderError> {
         Request::QuerySpecification { request } => {
             review_query::specification(request).map_err(ReaderError::Identity)?;
         }
+        Request::DeveloperAnalyze { request } => review_query::developer::validate(request)?,
         Request::Export {
             evidence,
             destination,
@@ -208,6 +227,17 @@ pub(super) fn handle(request: Request) -> Result<Payload, ReaderError> {
             let evidence = evidence(&path)?;
             ResultView::Analyze {
                 analysis: analyze(&evidence, &request, memory_bytes)?,
+            }
+        }
+        Request::DeveloperAnalyze { request } => {
+            let executor = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
+            ResultView::DeveloperAnalyze {
+                analysis: executor.block_on(review_query::developer::analyze(
+                    request,
+                    &pse_columnar::CancellationToken::new(),
+                ))?,
             }
         }
         Request::QuerySpecification { request } => ResultView::QuerySpecification {

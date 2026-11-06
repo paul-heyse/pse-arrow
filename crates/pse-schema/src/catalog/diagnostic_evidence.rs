@@ -13,6 +13,46 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     relation(
         b,
         N::Runtime,
+        "developer_invocation_facts",
+        S::Derived,
+        &["invocation", "report_sha256"],
+        vec![
+            column("member", count()),
+            column("invocation", text()),
+            column("report_sha256", text()),
+            column("report_version", T::native(D::UInt32)),
+            column("action", text()),
+            column("outcome", text()),
+            column("selected_tests", count()).optional(),
+            column("required_capture_complete", T::native(D::Boolean)),
+            column("recorded_manager_settlement", text()).optional(),
+            column("recorded_native_lifetime_pending", T::native(D::Boolean)).optional(),
+            column("producer_generation", text()).optional(),
+            column("clock_scope", text()).optional(),
+        ],
+        "Ephemeral passive developer facts verified against the exact original report/terminal commitment. Member indexes the explicit supplied population; selected count, original clock/producer generation and recorded-at-read settlement stay null when unavailable. This is neither scientific run membership nor a native verdict, producer authenticity, current settlement or action grant. ADR-0252.",
+    );
+    relation(
+        b,
+        N::Runtime,
+        "developer_diagnostic_causes",
+        S::Derived,
+        &["invocation", "report_sha256", "ordinal"],
+        vec![
+            column("member", count()),
+            column("invocation", text()),
+            column("report_sha256", text()),
+            column("ordinal", count()),
+            column("pointer", text()),
+            column("kind", text()),
+            column("code", text()).optional(),
+            column("class", text()).optional(),
+        ],
+        "Ephemeral original developer diagnostic tree, including independent ordinary sources and related/delegated children without deduplication. Pointer is rooted in the exact committed original report; absent code/class stays null. Empty cause populations remain empty and survive the maintained invocation left join. ADR-0252.",
+    );
+    relation(
+        b,
+        N::Runtime,
         "diagnostic_evidence_fields",
         S::Derived,
         &[

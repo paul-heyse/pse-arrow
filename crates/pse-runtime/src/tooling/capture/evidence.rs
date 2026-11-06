@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Finite immutable projections over existing raw evidence; no scientific work or store.
+pub mod developer;
 use super::CaptureDocument;
 use crate::invocation::InvocationEvidenceDocument;
 use crate::observation_detail::{CaptureError, DetailRecordPage};

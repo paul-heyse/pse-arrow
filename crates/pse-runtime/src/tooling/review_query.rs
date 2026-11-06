@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Context of a declared optional query. No tool is installed or run by decoding it.
+pub mod developer;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 

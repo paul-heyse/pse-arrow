@@ -212,6 +212,18 @@ pub struct Readback {
     pub limitations: Vec<String>,
 }
 
+/// Verified passive original facts for downstream observation consumers.
+///
+/// Construction checks the same original commitments as `inspect`. This is not a
+/// performing report, native verdict, producer-authenticity proof or current permission.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct InvocationFacts {
+    /// Original source-owned observation, including every independent diagnostic cause.
+    pub report: ReportObservation,
+    /// Acquisition/interpretation scope and recorded-at-read manager observations.
+    pub readback: Readback,
+}
+
 /// The existing captured-evidence family's maximum binary decode allowances.
 pub fn binary_options() -> buffa::DecodeOptions {
     buffa::DecodeOptions::new()
@@ -230,6 +242,17 @@ pub fn inspect(
     bytes: &[u8],
     requested: &buffa::DecodeOptions,
 ) -> Result<Readback, EvidenceError> {
+    inspect_facts(descriptors, message, bytes, requested).map(|facts| facts.readback)
+}
+
+/// Acquire source-owned passive facts through the original reader's checks.
+/// Decoding or comparing this observation never constructs native action authority.
+pub fn inspect_facts(
+    descriptors: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
+    message: &str,
+    bytes: &[u8],
+    requested: &buffa::DecodeOptions,
+) -> Result<InvocationFacts, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
     let options = admitted_options(descriptors, bytes.len(), requested)?;
     if message == <pb::CapturedWorkflowReport as buffa::MessageName>::FULL_NAME {
@@ -237,7 +260,10 @@ pub fn inspect(
         if verified.readback.scope == EvidenceScope::Full {
             adopt_inline_members(&mut verified)?;
         }
-        return Ok(verified.readback);
+        return Ok(InvocationFacts {
+            report: verified.observation,
+            readback: verified.readback,
+        });
     }
     inspect_selection(message, bytes, &options)
 }
@@ -291,7 +317,7 @@ fn inspect_selection(
     message: &str,
     bytes: &[u8],
     options: &buffa::DecodeOptions,
-) -> Result<Readback, EvidenceError> {
+) -> Result<InvocationFacts, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
     let (
         invocation,
@@ -385,7 +411,10 @@ fn inspect_selection(
         result.selected_tests = Some(expected.len());
         result.selected_population_complete = complete;
     }
-    Ok(result)
+    Ok(InvocationFacts {
+        report: parsed,
+        readback: result,
+    })
 }
 
 fn verify_original_report(
@@ -684,6 +713,40 @@ pub(crate) mod tests {
             &wire.encode_to_vec(),
             &binary_options(),
         )
+    }
+
+    #[test]
+    fn original_fact_consumer_reuses_verified_report_without_constructing_a_verdict() {
+        let wire = original();
+        let facts = inspect_facts(
+            &descriptors(),
+            "pse.developer.evidence.v1.CapturedWorkflowReport",
+            &wire.encode_to_vec(),
+            &binary_options(),
+        )
+        .unwrap();
+        assert_eq!(facts.report.action, Action::Test);
+        assert_eq!(facts.report.outcome, Outcome::Incomplete);
+        assert!(!facts.report.required_capture_complete);
+        assert_eq!(facts.report.failures.len(), 1);
+        assert_eq!(facts.report.invocation, facts.readback.invocation);
+        assert!(facts.report.selected_tests.is_none());
+        assert_eq!(
+            facts.readback.recorded_manager_settlement,
+            Some(crate::envelope::Settlement::NotRequired),
+            "the fixture's original Envelope::response records not_required"
+        );
+        let mut changed = wire;
+        changed.report_original.push(b' ');
+        assert!(
+            inspect_facts(
+                &descriptors(),
+                "pse.developer.evidence.v1.CapturedWorkflowReport",
+                &changed.encode_to_vec(),
+                &binary_options(),
+            )
+            .is_err()
+        );
     }
 
     #[test]

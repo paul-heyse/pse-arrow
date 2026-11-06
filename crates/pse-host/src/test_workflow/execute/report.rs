@@ -667,7 +667,11 @@ pub struct ContentIdentity {
 }
 }
 impl ContentIdentity {
-    pub(crate) fn of(bytes: &[u8]) -> Self {
+    /// Compute the existing SHA-256 identity and exact extent of supplied bytes.
+    ///
+    /// This passive value authenticates neither a producer nor native custody and
+    /// grants no execution, retention, read permission or physical-settlement authority.
+    pub fn of(bytes: &[u8]) -> Self {
         Self {
             sha256: Sha256::digest(bytes)
                 .iter()

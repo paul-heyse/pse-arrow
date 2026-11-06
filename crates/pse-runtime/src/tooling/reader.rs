@@ -237,6 +237,10 @@ pub struct Failure {
     pub message: String,
     /// Original ordinary error causes, in order.
     pub causes: Vec<String>,
+    /// Source-owned typed diagnostic for the selected developer-evidence family.
+    /// Absence retains the historical source family's existing coverage.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub native: Option<pse_host::envelope::ErrorRecord>,
 }
 impl Failure {
     fn capture(code: &str, error: &dyn std::error::Error) -> Self {
@@ -250,6 +254,7 @@ impl Failure {
             code: code.into(),
             message: error.to_string(),
             causes,
+            native: None,
         }
     }
 }
@@ -478,6 +483,9 @@ pub enum ReaderError {
     /// Original explicit capture owner failure.
     #[error(transparent)]
     Capture(#[from] crate::observation_detail::CaptureError),
+    /// Original supplied developer evidence, native projection or analytical query refusal.
+    #[error(transparent)]
+    Developer(#[from] super::review_query::developer::Error),
     /// Original selected evidence export owner failure.
     #[error(transparent)]
     Pack(#[from] super::review_pack::PackError),
@@ -496,8 +504,8 @@ pub enum ReaderError {
 }
 pse_diagnostics::impl_diagnostic! {
     ReaderError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
+    code(this) { if matches!(this, Self::Developer(_)) { None } else { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Developer(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
     help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup}=>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
 }
 fn hash(bytes: &[u8]) -> String {
@@ -1023,12 +1031,16 @@ fn decode(bytes: &[u8]) -> Result<ReaderRequest, ReaderError> {
 fn response(correlation: String, result: Result<Payload, ReaderError>) -> ReaderResponse {
     let (category, payload) = match result {
         Ok(payload) => (Category::Success, payload),
-        Err(error) => (
-            Category::Refused,
-            Payload::Refusal {
-                failure: Failure::capture("request.refused", &error),
-            },
-        ),
+        Err(error) => {
+            let mut failure = Failure::capture("request.refused", &error);
+            if matches!(&error, ReaderError::Developer(_)) {
+                failure.native = Some(pse_host::envelope::ErrorRecord::from_typed(
+                    &error,
+                    &pse_host::envelope::RedactionPolicy::from_environment(),
+                ));
+            }
+            (Category::Refused, Payload::Refusal { failure })
+        }
     };
     let next_request = match &payload {
         Payload::Follow { sample } => sample.next_request(),

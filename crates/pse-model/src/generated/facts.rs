@@ -425,6 +425,14 @@ pub enum FactBatch {
     r#RuntimeCanonicalVersions(Vec<super::r#runtime::r#canonical_versions::Row>),
     #[doc = stringify!(r#RuntimeComputationRuns)]
     r#RuntimeComputationRuns(Vec<super::r#runtime::r#computation_runs::Row>),
+    #[doc = stringify!(r#RuntimeDeveloperDiagnosticCauses)]
+    r#RuntimeDeveloperDiagnosticCauses(
+        Vec<super::r#runtime::r#developer_diagnostic_causes::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeDeveloperInvocationFacts)]
+    r#RuntimeDeveloperInvocationFacts(
+        Vec<super::r#runtime::r#developer_invocation_facts::Row>,
+    ),
     #[doc = stringify!(r#RuntimeDiagnosticCaptures)]
     r#RuntimeDiagnosticCaptures(Vec<super::r#runtime::r#diagnostic_captures::Row>),
     #[doc = stringify!(r#RuntimeDiagnosticEngineObservations)]
@@ -1412,6 +1420,18 @@ impl FactBatch {
                     1u8, 155u8, 100u8, 117u8, 138u8, 118u8,
                 ])
             }
+            Self::r#RuntimeDeveloperDiagnosticCauses(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    7u8, 40u8, 63u8, 19u8, 85u8, 200u8, 140u8, 24u8, 157u8, 183u8, 140u8,
+                    78u8, 253u8, 120u8, 142u8, 215u8,
+                ])
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    187u8, 220u8, 50u8, 144u8, 182u8, 1u8, 3u8, 103u8, 84u8, 57u8, 4u8,
+                    69u8, 168u8, 70u8, 232u8, 247u8,
+                ])
+            }
             Self::r#RuntimeDiagnosticCaptures(_) => {
                 pse_ids::SemanticId::from_bytes([
                     123u8, 164u8, 53u8, 112u8, 101u8, 168u8, 159u8, 56u8, 210u8, 126u8,
@@ -1927,6 +1947,8 @@ impl FactBatch {
             Self::r#RuntimeCanonicalVersionReceipts(rows) => rows.len(),
             Self::r#RuntimeCanonicalVersions(rows) => rows.len(),
             Self::r#RuntimeComputationRuns(rows) => rows.len(),
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => rows.len(),
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => rows.len(),
             Self::r#RuntimeDiagnosticCaptures(rows) => rows.len(),
             Self::r#RuntimeDiagnosticEngineObservations(rows) => rows.len(),
             Self::r#RuntimeDiagnosticEvidenceFields(rows) => rows.len(),
@@ -2687,6 +2709,16 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeComputationRuns(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3648,6 +3680,18 @@ impl FactBatch {
             Self::r#RuntimeComputationRuns(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeComputationRuns(vec![row.clone()]))
+            }
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeDeveloperDiagnosticCauses(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeDeveloperInvocationFacts(
+                        vec![row.clone()],
+                    ))
             }
             Self::r#RuntimeDiagnosticCaptures(rows) => {
                 rows.get(index)
@@ -5386,6 +5430,28 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeDeveloperDiagnosticCauses(left),
+                Self::r#RuntimeDeveloperDiagnosticCauses(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeDeveloperInvocationFacts(left),
+                Self::r#RuntimeDeveloperInvocationFacts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeDiagnosticCaptures(left),
                 Self::r#RuntimeDiagnosticCaptures(right),
             ) => {
@@ -7000,6 +7066,20 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeComputationRuns(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -9057,6 +9137,46 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeDeveloperDiagnosticCauses(left),
+                Self::r#RuntimeDeveloperDiagnosticCauses(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#invocation,
+                            &right.r#invocation,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#report_sha256,
+                                &right.r#report_sha256,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeDeveloperInvocationFacts(left),
+                Self::r#RuntimeDeveloperInvocationFacts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(
+                            &left.r#invocation,
+                            &right.r#invocation,
+                        )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#report_sha256,
+                                &right.r#report_sha256,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeDiagnosticCaptures(left),
                 Self::r#RuntimeDiagnosticCaptures(right),
             ) => {
@@ -10666,6 +10786,17 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
             }
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#invocation, &mut hash);
+                crate::SemanticFrame::frame(&row.r#report_sha256, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#invocation, &mut hash);
+                crate::SemanticFrame::frame(&row.r#report_sha256, &mut hash);
+            }
             Self::r#RuntimeDiagnosticCaptures(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#subject, &mut hash);
@@ -11958,6 +12089,20 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeDeveloperDiagnosticCauses(left),
+                Self::r#RuntimeDeveloperDiagnosticCauses(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeDeveloperInvocationFacts(left),
+                Self::r#RuntimeDeveloperInvocationFacts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeDiagnosticCaptures(left),
                 Self::r#RuntimeDiagnosticCaptures(mut right),
             ) => {
@@ -12705,6 +12850,12 @@ impl crate::HeapUsage for FactBatch {
             }
             Self::r#RuntimeCanonicalVersions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeComputationRuns(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeDeveloperDiagnosticCauses(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeDeveloperInvocationFacts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeDiagnosticCaptures(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeDiagnosticEngineObservations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)

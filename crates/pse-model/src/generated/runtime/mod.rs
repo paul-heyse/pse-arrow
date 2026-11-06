@@ -191,6 +191,10 @@ pub mod r#canonical_versions;
 ///Generated relation contract.
 pub mod r#computation_runs;
 ///Generated relation contract.
+pub mod r#developer_diagnostic_causes;
+///Generated relation contract.
+pub mod r#developer_invocation_facts;
+///Generated relation contract.
 pub mod r#diagnostic_captures;
 ///Generated relation contract.
 pub mod r#diagnostic_engine_observations;
