@@ -838,6 +838,33 @@ source death and admission retention. This preserves in-process modes; native/JI
 outside the first private f64 transfer profile. Root-core/backend extraction is the next distinct
 package, followed by complete restoration and child activation.
 
+The supplier prerequisite `517730bce` is now merged. Its
+[`ExpressionEvaluator<f64>::f64_transfer`](../../vendor/symbolica/src/evaluate/f64_transfer.rs)
+returns a borrowed `F64ProgramRef`; `extents`/`encoded_len` inspect actual populations without
+allocation and `write_into` uses an exactly provisioned destination. `F64ProgramView::inspect`
+checks supported framing, indices, protected slots and exhaustion without allocating. Its
+`restore_with` calls native admission once before validation/output allocation, preserves the
+original generic refusal/source chain, checks definition-before-read, then constructs the same
+supplier evaluator with exact constants and poisoned nonconstant scratch. Requested peak backing
+excludes borrowed input, outer native/template storage, allocator overhead and RSS; native
+consumers retain those responsibilities and the actual returned allocation owners.
+
+The first profile supports Add/Mul, bounded integer Pow, Powf and EXP/LOG/SIN/COS/SQRT/ABS/CONJ.
+Source investigation and a failing extreme-power control established that Numerica 3.0.1's
+native f64 integer-power implementation requires magnitude at most `i32::MAX`. Export and
+inspection refuse larger powers before admission, without rewriting arithmetic. This is an
+explicit supported-domain limit, not complete i64 power support. External state/control flow
+also refuse. [Detailed supplier functionality, exact-source rationale, controls and limits](../../vendor/symbolica-f64-transfer.md)
+characterize the maintained implementation beyond upstream serialization.
+
+**Tested, supplier scope:** twelve locked standalone controls pass with no failures, ignored
+tests or warnings; root-lock `pse-math` all-target compilation reports zero errors/warnings.
+Standalone Rug 1.29 and repository Rug 1.30 remain distinct unchanged locks. Independent read-only
+review found no material loader/correspondence issue and checked all 159 source receipt paths,
+hashes and modes; it did not repeat the executor's archive reapplication or tests. Complete native
+stage snapshots, derived native allowances/census, checked restoration and child activation are
+the next distinct package. No decoded program or successful supplier inspection grants them.
+
 Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
 [root construction/evaluation/verification](../../crates/pse-math/src/implicit.rs),

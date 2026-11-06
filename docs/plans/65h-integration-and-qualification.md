@@ -396,6 +396,17 @@ has separately integrated through [65k](65k-scientific-artifacts-and-native-reco
 its original five focused tests do not qualify the whole Recipe receiver. H01–H04 and both
 series remain open.
 
+The explicit runtime capsule/lane preparation succeeded with original capture and settlement,
+but the current scientific/runtime selection **111 cases, zero executed** refused fixture reuse
+before test bodies. The corrected proxy-module selector includes its actual population; this is
+not an 87-case rerun or 111 test failures. A focused diagnostic run retained the original source
+comparison and identified only changed `LD_LIBRARY_PATH`, with zero changed/added/removed source
+files. The native workflow selects four profiles while the preparation had selected six, changing
+provider library-path precedence. Seven targeted host fingerprint/runtime controls pass; no
+comparison or loader guard was relaxed. Preparation with the actual four-profile context has now
+succeeded, and the corresponding 111-case receiving selection is in progress. Runtime body,
+reference and native-child acceptance remain unclaimed until it completes.
+
 ## Completion and enduring meaning
 
 Series completion requires every selected actual consumer, all required failure controls,

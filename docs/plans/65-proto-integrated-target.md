@@ -710,8 +710,10 @@ Generated host dispatch and both physical/mathematical consuming receipt-replay 
 are now merged on main. Original complete-population and ownership controls pass in their
 implementation checkouts and the receiving selection above. Replay deletes the initial
 deep copies and their copy-only pricing rather than allocating another admitted copy.
-The required scientific configuration/input census continues under its existing packet
-owner. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
+The required scientific configuration/input crosswalk has resolved its seven bounded remaining
+source groups under the existing packet owner. Missing artifacts, ordinary scientific/native
+cases, exact executable/data identity, compatibility and coordinator dispositions remain explicit;
+H01 is open. See [65a](65a-contract-foundations-and-generation.md#a04-complete-supplier-decision--november-5-revision)
 for the generated facade and its receiving 30/30 schema pass; see
 [65k](65k-scientific-artifacts-and-native-reconstruction.md#reconstruction-population-and-native-mathematics-limit)
 for receipt ownership and remaining receiving admission.
@@ -730,15 +732,17 @@ Value/First execution closure rather than reconstructing and compiling source in
 The passive supplier packing inspector is integrated and its seventeen receiving controls
 pass. Execution-attribution extraction passes eleven receiving controls while preserving the
 original weak-source checks. Numerical frame extraction is merged and its receiving selection
-passes 102/102. Root-core/backend integration and supplier-owned checked f64 loading now proceed
-in isolated worktrees; complete restoration and actual child acceptance follow their concrete
-interfaces. No loader or private-child activation is yet claimed.
+passes 102/102. The checked supplier f64 loader is merged with its narrow source-backed profile
+and twelve-control acceptance. Root-core/backend integration and complete native template
+snapshot/restoration now proceed in isolated worktrees; actual child acceptance follows their
+concrete interfaces. Complete native restoration and private-child activation remain unclaimed.
 
 The next integration milestone is the scientific admission/execution/selected-read journey
 and developer failed-report/export/exact-rerun journey, followed by complete selected Proto
 consumer migration and Plan64 family expansion. Keep receiving reconstruction and native-body
 transfer inactive wherever their supplier or admission prerequisites remain unqualified.
-The finite reference census progresses concurrently; held required inputs stay in its denominator.
+The finite reference crosswalk retains all held required inputs in its denominator; source
+enumeration does not close ordinary-science authoring, loaded-data realization or qualification.
 
 ## Verification boundary
 

@@ -612,6 +612,16 @@ inventory commitments matched export. This real bounded journey preserves passiv
 settlement and `atomic_snapshot=false`; it does not establish current execution/rerun authority,
 native-fixture custody or the remaining J05 failure population.
 
+Runtime fixture reuse now retains the existing source owner's precise refusal: changed source
+membership/content and compiler-input names are reported without environment values or digests.
+The seven selected fingerprint/runtime controls pass. The attempted scientific/runtime
+population selected 111 current cases, including the corrected `scientific_worker::proxy::tests`
+selector, but ran none when construction context differed. A narrower diagnostic run identified
+only `LD_LIBRARY_PATH`, with zero source changes. Preparation under six native profiles followed
+by a four-profile workload changes authenticated provider search precedence. The guard remains
+strict; preparation and testing must use the same actual compiler/native loader context.
+Explicit four-profile preparation has completed; receiving execution remains in progress.
+
 - `crates/pse-host/src/test_workflow/{mod.rs,source.rs,execute/report.rs,execute/runner.rs}`;
   `selection.rs`, `test_inventory.rs`, `fixtures.rs`, `fixtures/execution.rs` and `invocation.rs`.
 - [Report reconciliation](../../crates/pse-host/src/managed/workflow.rs) and
