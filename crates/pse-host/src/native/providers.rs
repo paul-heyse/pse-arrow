@@ -41,7 +41,9 @@ const PETSC: &[&str] = &[
     "include/petscsnes.h",
     "include/petscts.h",
 ];
-const ORDER: &[&str] = &["compiler", "solver", "klu", "isolation", "uno", "petsc"];
+// KLU also selects the compiler context; dependent providers consume that
+// completed context rather than exporting a prior checkout's bridge first.
+const ORDER: &[&str] = &["compiler", "klu", "solver", "isolation", "uno", "petsc"];
 /// Parser-owned capability atoms, without inspecting sources or installed providers.
 pub fn capability_names() -> &'static [&'static str] {
     ORDER
@@ -228,24 +230,11 @@ fn apply_provider(root: &Path, env: &Environment, kind: &str) -> Result<Environm
             }
         }
     }
-    if kind == "compiler" {
-        let mut effective = inputs.clone();
-        cache_bridge(root, &mut effective);
-        if receipt
-            .identity
-            .tools
-            .get("effective-cmake-toolchain")
-            .map(|tool| tool.path.as_os_str())
-            != effective
-                .get(OsStr::new("CMAKE_TOOLCHAIN_FILE"))
-                .map(OsString::as_os_str)
-        {
-            return Err(invalid(
-                "effective CMake toolchain changed; run explicit preparation",
-            ));
-        }
-    }
     let mut result = apply_inputs(&inputs, &receipt.identity)?;
+    if kind == "compiler" {
+        cache_bridge(root, &mut result);
+        validate_cache_bridge(&result, &receipt.identity.inputs, &receipt.identity.tools)?;
+    }
     // Explicit preparation can admit an external provider by snapshotting it. Its original
     // selection is accepted as an input, but execution carries the immutable snapshot.
     if receipt.identity.construction.contains_key("external") {
@@ -456,7 +445,7 @@ fn identity(root: &Path, env: &Environment, kind: &str) -> Result<ProviderIdenti
     for (key, value) in &selections {
         effective.insert(key.into(), value.into());
     }
-    cache_bridge(root, &mut effective);
+    prepare_cache_bridge(root, &mut effective)?;
     if let Some(path) = effective.get(OsStr::new("CMAKE_TOOLCHAIN_FILE")) {
         let path = PathBuf::from(path);
         tools.insert(
@@ -1237,6 +1226,47 @@ fn prepare_external(root: &Path, env: &Environment, kind: &str) -> Result<PathBu
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn providers_compiler_snapshot_is_source_free_and_reentrant_across_checkouts() {
+        let cache = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir().unwrap();
+        fs::create_dir(root.path().join(".config")).unwrap();
+        fs::write(root.path().join(".config/native-cache.cmake"), b"original cache bridge").unwrap();
+        let env = Environment::from([
+            ("PSE_NATIVE_CACHE".into(), cache.path().into()),
+            ("RUSTC_WRAPPER".into(), "/fixture/sccache".into()),
+        ]);
+        let mut construction = env.clone();
+        prepare_cache_bridge(root.path(), &mut construction).unwrap();
+        let bridge = PathBuf::from(&construction[OsStr::new("CMAKE_TOOLCHAIN_FILE")]);
+        let identity = ProviderIdentity {
+            kind: "compiler".into(),
+            pin: None,
+            inputs: BTreeMap::from([("CMAKE_TOOLCHAIN_FILE".into(), None)]),
+            tools: BTreeMap::from([("effective-cmake-toolchain".into(), Tool {
+                path: bridge.clone(), sha256: digest(&bridge).unwrap(), version: String::new(),
+            })]),
+            selections: BTreeMap::from([("CMAKE_TOOLCHAIN_FILE".into(), bridge.to_str().unwrap().into())]),
+            construction: BTreeMap::new(),
+        };
+        commit_provider(&env, identity, |install, _, _| {
+            fs::write(install.join("compiler.json"), b"original compiler")?;
+            Ok(())
+        }).unwrap();
+        root.close().unwrap();
+        let other = tempfile::tempdir().unwrap();
+        let selected = apply_provider(other.path(), &env, "compiler").unwrap();
+        assert_eq!(Path::new(&selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")]), bridge);
+        assert_eq!(apply_provider(other.path(), &selected, "compiler").unwrap(), selected);
+        let mut foreign = selected.clone();
+        foreign.insert("CMAKE_TOOLCHAIN_FILE".into(), "/foreign/toolchain.cmake".into());
+        assert!(apply_provider(other.path(), &foreign, "compiler").is_err());
+        fs::set_permissions(&bridge, fs::Permissions::from_mode(0o600)).unwrap();
+        fs::write(&bridge, b"changed compiler bridge").unwrap();
+        fs::set_permissions(&bridge, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(apply_provider(other.path(), &selected, "compiler").is_err());
+    }
     fn fixture(kind: &str) -> (tempfile::TempDir, Environment, PathBuf) {
         let directory = tempfile::tempdir().unwrap();
         let mut env = Environment::new();
@@ -1541,10 +1571,10 @@ mod tests {
         cached.insert("RUSTC_WRAPPER".into(), "/fixture/sccache".into());
         let original = prepare_capabilities(directory.path(), &cached, "compiler").unwrap();
         let cached_selected = select_capabilities(directory.path(), &cached, "compiler").unwrap();
-        assert_eq!(
-            cached_selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")],
-            toolchain.as_os_str()
-        );
+        let retained = PathBuf::from(&cached_selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")]);
+        assert_ne!(retained, toolchain);
+        assert_eq!(fs::read(&retained).unwrap(), fs::read(&toolchain).unwrap());
+        immutable(&retained).unwrap();
         assert_eq!(
             select_capabilities(directory.path(), &cached_selected, "compiler").unwrap(),
             cached_selected
