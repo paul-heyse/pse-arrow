@@ -7,6 +7,13 @@ pub use fit_declarations::{FitDeclaration, FitDeclarations};
 mod canonical;
 pub(crate) use canonical::reload::RetainedIngress;
 pub(crate) use canonical::{AdmittedModelRevision, LocalSourcePremises};
+#[cfg(all(
+    test,
+    feature = "solver-ipopt",
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation"
+))]
+mod aqueous_inventory_tests;
 pub(in crate::workflow) mod cases;
 mod conformance;
 pub(super) mod declared;

@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("66e03000000000000000000000000200") package aqueous_inventory_fixtures {
+@id("66e03000000000000000000000000201") use aqueous_inventory @"1.0.0";
+@id("66e03000000000000000000000000202") use chemistry @"1.0.0";
+@id("66e03000000000000000000000000203") use chem @"1.0.0";
+@id("66e03000000000000000000000000204") use numerical_policy @"1.0.0";
+@id("66e03000000000000000000000000205") use provenance @"1.0.0";
+@id("66e03000000000000000000000000206") entity provenance.source imposed_design {title="Native constant-volume-flow, isothermal dilute aqueous transport design: 300K, water carrier55000mol/m3, ethanol step0to100mol/m3; authored operating inputs, not measured mixture properties or an EOS"}
+@id("66e03000000000000000000000000207") entity provenance.source cascade_reference {title="Exact finite-volume/cell-cascade response: equal cell volume V/N, residence V/(NQ), outlet step1-exp(-NQt/V)*sum(k=0..N-1,(NQt/V)^k/k!); independent global input-output-stock balance; not a continuum pipe or reactive-fluid reference"}
+@id("66e03000000000000000000000000208") constant carrier:MolarDensity=55000{mol/m^3} provenance(imposed_design,provenance.Role.synthetic);
+@id("66e03000000000000000000000000209") constant tracer:MolarDensity=100{mol/m^3} provenance(imposed_design,provenance.Role.synthetic);
+@id("66e0300000000000000000000000020a") set components:Set<chemistry.species>={chem.water,chem.ethanol};
+@id("66e0300000000000000000000000020b") fn initial(j:chemistry.species)->MolarDensity=if j==chem.water then carrier else 0{mol/m^3};
+@id("66e0300000000000000000000000020c") fn inlet(j:chemistry.species)->MolarDensity=if j==chem.water then carrier else tracer;
+@id("66e0300000000000000000000000020d") fn retained(j:chemistry.species)->MolarDensity=if j==chem.water then carrier else 10{mol/m^3};
+
+// The same physical cells and initial stocks, realized at the one native clock.
+// Tight numerical integration controls do not change the physical allowances.
+@id("66e03000000000000000000000000240") test aqueous_single_cell_integrated oracle cascade_reference fixture {dof 0;route integrated;procedure integrate;policy {backend ipopt;limits body_occurrences(10000000);} integrate samples(0{s},1{s},5{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.supplied[chem.water]=1e-8{mol},root.supplied[chem.ethanol]=1e-8{mol},root.discharged[chem.water]=1e-8{mol},root.discharged[chem.ethanol]=1e-8{mol});} {
+@id("66e03000000000000000000000000241") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=1);
+@id("66e03000000000000000000000000242") annotation check root.outlet_concentration(j!=chem.ethanol or ((k!=0{s} or abs(root.outlet_concentration[k,j])<=numerical_policy.concentration) and (k!=1{s} or abs(root.outlet_concentration[k,j]-63.212055882855765{mol/m^3})<=numerical_policy.concentration)));
+@id("66e03000000000000000000000000243") annotation check root.total_component_amount(j!=chem.water or abs(root.total_component_amount[k,j]-55{mol})<=numerical_policy.amount);
+}
+@id("66e03000000000000000000000000250") test aqueous_four_cell_integrated_nonzero_clock oracle cascade_reference fixture {dof 0;route integrated;procedure integrate;policy {backend ipopt;limits body_occurrences(10000000);} integrate samples(5{s},5.25{s},6{s},7{s},10{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.supplied[chem.water]=1e-8{mol},root.supplied[chem.ethanol]=1e-8{mol},root.discharged[chem.water]=1e-8{mol},root.discharged[chem.ethanol]=1e-8{mol});} {
+@id("66e03000000000000000000000000251") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0.001{m^3/s},initial=initial,inlet=inlet,finite_elements=4,first=5{s},last=10{s});
+@id("66e03000000000000000000000000252") annotation check root.outlet_concentration(j!=chem.ethanol or ((k!=5{s} or abs(root.outlet_concentration[k,j])<=numerical_policy.concentration) and (k!=5.25{s} or abs(root.outlet_concentration[k,j]-1.898815687615385{mol/m^3})<=numerical_policy.concentration) and (k!=6{s} or abs(root.outlet_concentration[k,j]-56.65298796332912{mol/m^3})<=numerical_policy.concentration) and (k!=7{s} or abs(root.outlet_concentration[k,j]-95.7619888008316{mol/m^3})<=numerical_policy.concentration) and (k!=10{s} or abs(root.outlet_concentration[k,j]-99.99967962802195{mol/m^3})<=numerical_policy.concentration)));
+@id("66e03000000000000000000000000253") annotation check root.total_component_amount(j!=chem.water or abs(root.total_component_amount[k,j]-55{mol})<=numerical_policy.amount);
+}
+@id("66e03000000000000000000000000260") test aqueous_four_cell_integrated_zero_flow oracle cascade_reference fixture {dof 0;route integrated;procedure integrate;policy {backend ipopt;limits body_occurrences(10000000);} integrate samples(0{s},1{s},5{s}) relative(1e-8) normalized_absolute(1e-10) step(1e-5{s}) quadrature_relative(1e-8) quadrature_absolute(root.supplied[chem.water]=1e-8{mol},root.supplied[chem.ethanol]=1e-8{mol},root.discharged[chem.water]=1e-8{mol},root.discharged[chem.ethanol]=1e-8{mol});} {
+@id("66e03000000000000000000000000261") child root:aqueous_inventory.Cascade=aqueous_inventory.Cascade(selected=components,volume=0.001{m^3},volume_flow=0{m^3/s},initial=retained,inlet=inlet,finite_elements=4);
+@id("66e03000000000000000000000000262") annotation check root.outlet_concentration(j!=chem.ethanol or abs(root.outlet_concentration[k,j]-10{mol/m^3})<=numerical_policy.concentration);
+@id("66e03000000000000000000000000263") annotation check root.total_component_amount((j!=chem.water or abs(root.total_component_amount[k,j]-55{mol})<=numerical_policy.amount) and (j!=chem.ethanol or abs(root.total_component_amount[k,j]-0.01{mol})<=numerical_policy.amount));
+}
+}
