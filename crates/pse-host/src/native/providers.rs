@@ -1232,7 +1232,11 @@ mod tests {
         let cache = tempfile::tempdir().unwrap();
         let root = tempfile::tempdir().unwrap();
         fs::create_dir(root.path().join(".config")).unwrap();
-        fs::write(root.path().join(".config/native-cache.cmake"), b"original cache bridge").unwrap();
+        fs::write(
+            root.path().join(".config/native-cache.cmake"),
+            b"original cache bridge",
+        )
+        .unwrap();
         let env = Environment::from([
             ("PSE_NATIVE_CACHE".into(), cache.path().into()),
             ("RUSTC_WRAPPER".into(), "/fixture/sccache".into()),
@@ -1244,23 +1248,41 @@ mod tests {
             kind: "compiler".into(),
             pin: None,
             inputs: BTreeMap::from([("CMAKE_TOOLCHAIN_FILE".into(), None)]),
-            tools: BTreeMap::from([("effective-cmake-toolchain".into(), Tool {
-                path: bridge.clone(), sha256: digest(&bridge).unwrap(), version: String::new(),
-            })]),
-            selections: BTreeMap::from([("CMAKE_TOOLCHAIN_FILE".into(), bridge.to_str().unwrap().into())]),
+            tools: BTreeMap::from([(
+                "effective-cmake-toolchain".into(),
+                Tool {
+                    path: bridge.clone(),
+                    sha256: digest(&bridge).unwrap(),
+                    version: String::new(),
+                },
+            )]),
+            selections: BTreeMap::from([(
+                "CMAKE_TOOLCHAIN_FILE".into(),
+                bridge.to_str().unwrap().into(),
+            )]),
             construction: BTreeMap::new(),
         };
         commit_provider(&env, identity, |install, _, _| {
             fs::write(install.join("compiler.json"), b"original compiler")?;
             Ok(())
-        }).unwrap();
+        })
+        .unwrap();
         root.close().unwrap();
         let other = tempfile::tempdir().unwrap();
         let selected = apply_provider(other.path(), &env, "compiler").unwrap();
-        assert_eq!(Path::new(&selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")]), bridge);
-        assert_eq!(apply_provider(other.path(), &selected, "compiler").unwrap(), selected);
+        assert_eq!(
+            Path::new(&selected[OsStr::new("CMAKE_TOOLCHAIN_FILE")]),
+            bridge
+        );
+        assert_eq!(
+            apply_provider(other.path(), &selected, "compiler").unwrap(),
+            selected
+        );
         let mut foreign = selected.clone();
-        foreign.insert("CMAKE_TOOLCHAIN_FILE".into(), "/foreign/toolchain.cmake".into());
+        foreign.insert(
+            "CMAKE_TOOLCHAIN_FILE".into(),
+            "/foreign/toolchain.cmake".into(),
+        );
         assert!(apply_provider(other.path(), &foreign, "compiler").is_err());
         fs::set_permissions(&bridge, fs::Permissions::from_mode(0o600)).unwrap();
         fs::write(&bridge, b"changed compiler bridge").unwrap();

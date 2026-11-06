@@ -507,7 +507,9 @@ fn prepare_cache_bridge(root: &Path, env: &mut Environment) -> Result<(), HostEr
     }
     immutable(&destination)?;
     if digest(&destination)? != hash {
-        return Err(invalid("prepared compiler cache bridge differs from its identity"));
+        return Err(invalid(
+            "prepared compiler cache bridge differs from its identity",
+        ));
     }
     env.insert("CMAKE_TOOLCHAIN_FILE".into(), destination.into_os_string());
     Ok(())
@@ -519,7 +521,9 @@ fn validate_cache_bridge(
 ) -> Result<(), HostError> {
     let bridge = tools.get("effective-cmake-toolchain");
     if let Some(bridge) = bridge
-        && inputs.get("CMAKE_TOOLCHAIN_FILE").is_some_and(Option::is_none)
+        && inputs
+            .get("CMAKE_TOOLCHAIN_FILE")
+            .is_some_and(Option::is_none)
     {
         // An automatically supplied bridge remains a cache-mode premise. Explicit
         // custom toolchains keep their original input/tool checks instead.
@@ -529,14 +533,20 @@ fn validate_cache_bridge(
             .join("compiler-cache-bridges")
             .join(format!("{}.cmake", bridge.sha256));
         if !env.contains_key(OsStr::new("PSE_NATIVE_COMPILER_CACHE")) || bridge.path != expected {
-            return Err(invalid("compiler cache bridge context changed; run explicit preparation"));
+            return Err(invalid(
+                "compiler cache bridge context changed; run explicit preparation",
+            ));
         }
         immutable(&bridge.path)?;
     }
     if bridge.map(|tool| tool.path.as_os_str())
-        != env.get(OsStr::new("CMAKE_TOOLCHAIN_FILE")).map(OsString::as_os_str)
+        != env
+            .get(OsStr::new("CMAKE_TOOLCHAIN_FILE"))
+            .map(OsString::as_os_str)
     {
-        return Err(invalid("effective CMake toolchain changed; run explicit preparation"));
+        return Err(invalid(
+            "effective CMake toolchain changed; run explicit preparation",
+        ));
     }
     Ok(())
 }
@@ -895,7 +905,11 @@ mod tests {
         let second = tempfile::tempdir().unwrap();
         for root in [first.path(), second.path()] {
             fs::create_dir(root.join(".config")).unwrap();
-            fs::write(root.join(".config/native-cache.cmake"), b"original cache bridge").unwrap();
+            fs::write(
+                root.join(".config/native-cache.cmake"),
+                b"original cache bridge",
+            )
+            .unwrap();
         }
         let environment = Environment::from([
             ("PSE_NATIVE_CACHE".into(), cache.path().into()),
@@ -912,7 +926,10 @@ mod tests {
         assert_eq!(prepared, other);
         first.close().unwrap();
         assert_eq!(fs::read(&bridge).unwrap(), b"original cache bridge");
-        assert_eq!(prepared[OsStr::new("PSE_NATIVE_COMPILER_CACHE")], "/fixture/sccache");
+        assert_eq!(
+            prepared[OsStr::new("PSE_NATIVE_COMPILER_CACHE")],
+            "/fixture/sccache"
+        );
     }
 
     #[test]
@@ -920,7 +937,11 @@ mod tests {
         let cache = tempfile::tempdir().unwrap();
         let root = tempfile::tempdir().unwrap();
         fs::create_dir(root.path().join(".config")).unwrap();
-        fs::write(root.path().join(".config/native-cache.cmake"), b"original cache bridge").unwrap();
+        fs::write(
+            root.path().join(".config/native-cache.cmake"),
+            b"original cache bridge",
+        )
+        .unwrap();
         let environment = Environment::from([
             ("PSE_NATIVE_CACHE".into(), cache.path().into()),
             ("RUSTC_WRAPPER".into(), "/fixture/sccache".into()),
