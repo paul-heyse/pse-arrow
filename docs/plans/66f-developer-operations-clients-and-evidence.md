@@ -1,6 +1,6 @@
 ---
 title: "Plan66f: Developer operations, clients and evidence"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -167,7 +167,7 @@ and E07 for selected composition and exact query contracts.
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | F01 | planned | Existing native actions and exact prerequisite aggregate; B's required report/selection projections | Remaining selected developer list/check/rustdoc/test callers use one typed action/prerequisite/result path with explicit zero-match, setup, expected-refusal and assertion outcomes; duplicate readiness/action maps retire. |
-| F02 | planned | Existing original evidence owners; B's one-way report/manifest projection; E05 sequential delivery contract and E custody where consumed | Compact/staged evidence and sequential verified OpenedFile delivery work through actual offline/report clients; final whole-member receipt follows EOF/commitment agreement, prefixes remain provisional, and independent readers preserve interpretation/omissions without verdict authority. |
+| F02 | in-progress | Existing original evidence owners; B's one-way report/manifest projection; E05 sequential delivery contract and E custody where consumed | Native sequential OpenedFile delivery and actual offline member publication are integrated with six targeted branch controls passing. Complete remaining report/consumer receiving population and combined main verification; compact/range contracts, original omissions, provisional prefixes and separate publication outcomes remain intact. |
 | F03 | planned | F01 exact current listing and F02 original result inventory | Failed rerun resolves original identities under current selection, preserves refusals and produces a new original report; old parallel rerun/translation routes are deleted. |
 | F04 | in-progress | Existing lightweight schema reader; B01/B02/B03 contracts for each actual family; E07 factual projection agreement | Complete finite independent-host/code-intelligence families and semantic comparison; supply original invocation facts to E07 and migrate the selected ephemeral analytical consumer without product-runtime coupling or changed verdict authority. |
 | F05 | planned | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | Generated Rust engineering clients and separately driven tool/reference clients complete their entire selected workflows, including errors, reconnect/cancel/lost ACK and protected read; superseded client translations/fixtures retire. |

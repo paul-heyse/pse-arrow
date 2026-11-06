@@ -1,6 +1,6 @@
 ---
 title: "Plan66e: Protected data and result delivery"
-status: planned
+status: in-progress
 date: 2026-11-06
 adrs: [ADR-0224, ADR-0230, ADR-0250]
 review_sources: [docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md, docs/plan_improvement_reviews/plan64-65-data-results-and-evidence-analysis-2026-11-06.md]
@@ -244,8 +244,43 @@ cost. A favorable library overview alone does not select either extension.
 
 ## Packages
 
-All rows begin **planned**; an implemented prerequisite is not a request to rebuild it.
+An implemented prerequisite is not a request to rebuild it.
 Packages can deliver working vertical slices once their actual prerequisites are available.
+
+### E09 bounded decisions — November6
+
+**Interface-checked:** retain the current publication witness for the selected study capture,
+project export and result retirement consumers. The authoritative writer dependency declaration is
+[`surreal_study_capture_witness::append`](../../crates/pse-codegen/src/codegen/surreal_study_capture_witness.rs):
+study/point identity and membership, run selection and terminal attempt, attempt/manifest generation,
+result/history retirement, project-branch selectors and research references/publications all affect
+capture. Lease/heartbeat fields deliberately do not. Narrowing only a selected study's existing rows
+would miss future matches through those other selectors. No observed contention workload or exact
+patched-engine predicate-tracking contract presently supports replacing that complete domain.
+Reopen for a measured complete capture workload dominated by independent-study witness contention,
+with every writer and absent/future match covered before selection. E08 retains its actual
+receiving/retirement controls; this decision supplies no new transaction qualification or speed claim.
+
+**Interface-checked:** retain local immutable contained files for the current independent project
+bundle and review-pack readers. Their selected output is a self-contained offline directory with
+explicit original membership; neither requires shared remote continuity. The existing
+[`ProjectBundleReader`](../../crates/pse-runtime/src/workflow/project_portability.rs) and
+[`PackReader`](../../crates/pse-runtime/src/tooling/review_pack.rs) retain those responsibilities.
+Object-store versioned conditional reads/streaming and explicit multipart completion/abort, detailed
+above, remain a credible alternative for a named shared or independently hosted large-result
+consumer. Reopen with that consumer's credentials/backend, exact version/read protection, publication,
+ambiguous acknowledgement, orphan recovery and retention contract. This is non-selection for these
+consumers, not a claim that remote storage cannot help the broader system.
+
+**Interface-checked:** retain native bounded immediate-neighborhood queries for current blocker,
+recorded-source and retained-consumer explanations. Their actual scope and revision-bound
+continuations are declared by
+[`CanonicalGraphRequest`](../../crates/pse-operations/src/canonical_explanations.rs); they do not
+claim transitive impact or SCC completeness. No remaining selected explanation requires those
+outputs. Reopen petgraph's immutable occurrence-preserving SCC/reachability route for a concrete
+transitive question, with edge-kind/direction and output-completeness contracts. Physical process
+topology remains a separate scientific owner. No graph cache or new durable graph authority is
+selected. These three decisions discharge E09's bounded choice; E01–E08/E10 and L acceptance remain.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
@@ -253,11 +288,11 @@ Packages can deliver working vertical slices once their actual prerequisites are
 | E02 | in-progress | Existing selection/context and IPC duplicate preflight; 66b ordinary root-scoped adapter generation | Migrate connected Arrow export and portable read together under ADR-0250, including default-feature availability and service feature composition. Require original context for v1, remove reserved predecessor new-write keys, reject mixed/present-invalid metadata, retain deliberate absent-v1 reading. Independent raw IPC/wire tests and real protected export/read prove exact bits/context without permission reconstruction. |
 | E03 | planned | Existing protected snapshot/cohort/inspection readers; E01 needed mappings; E02 metadata consumer | Carry output/range/predicate/key/permission root closure into appropriate physical reads for full/selected/empty cohorts, connected results, review packs and project bundles. Retain residual-filter/limit order, coordinates, pool identity and original custody. Remove redundant hydration/selection passes with all callers; full admission remains available where required. |
 | E04 | planned | 66b acquired interpretation/compatibility contract; actual family source references from science owners; E01 | Acquire promised historical dependencies once; implement selected mapping reconstruction and coherent activation with original-operation recovery. Migrate corresponding writers/readers and retire replaced production maps. Missing/corrupt/expired/foreign context and unavailable original policy refuse explicitly; mapping-only change and scientific invalidation remain distinct. |
-| E05 | planned | Existing original opened-file/directory owners; shared contract agreed with 66f; 66c settlement outcomes where consumed | Deliver sequential verified original members through native owner and real offline/client consumers, beside strict ranges. 66f implements developer acquisition/client integration; E integrates scientific/project consumers. Bound live chunks and keep prefixes provisional; final completion/publication/release reflects actual commitment and independent failure causes. Delete alternate full-copy/hash paths actually replaced. |
+| E05 | in-progress | Existing original opened-file/directory owners; shared contract agreed with 66f; 66c settlement outcomes where consumed | Developer sequential delivery and offline staged publication are integrated; targeted branch controls pass. Project-member actual-transfer verification and its archive/materialized consumers are receiving on main. Remaining scientific/project population and final combined evidence stay open; original commitments, provisional prefixes and independent publication/release outcomes remain distinct. |
 | E06 | planned | Source diagnostic/outcome owners; 66b directional adapters; working 66c/66f producer outcomes | Complete native diagnostic/result-description and CLI/local-service/sink population. Preserve coverage, qualifiers, original attempt, typed multi-cause and detail dispositions/redaction. Migrate OTLP/Perfetto correlations from common facts, removing string classification and duplicate semantic maps without replacing external protocols. |
 | E07 | planned | Acquired 66f original evidence and shared source-fact projections; E06 needed facts | Implement ephemeral typed Arrow/DataFusion analytical relations and selected cross-invocation queries. Retain native review-analysis policy and literal evidence attribution; migrate named analyst/client consumers with 66f. Demonstrate useful joins/grouping plus unknown/partial clock/coverage semantics, with no durable verdict store or action grant. |
 | E08 | planned | Implemented atomic capture/witness/receipt and original legacy recovery; actual study consumers from science owners | Complete remaining capture caller/migration/deletion population and required acceptance of existing protocol. Cover future membership/selector updates, lost ACK, stale owner, paged abandoned cleanup, both retirement orderings and unrelated lease/cancel liveness. Required historical cleanup remains. This row is verification/migration of baseline, not a second atomic capture implementation. |
-| E09 | planned | Concrete consumer/workload inventory; current plan inspection; DRE04/DRE06 alternatives | Record bounded source-backed decisions for scoped witness, remote archive and richer graph analysis. State selected/non-selected route, consumer, limits, observable revisit trigger and decision owner. Implement extensions only after a consumer justifies complete authorized scope and necessary ADR route; otherwise retain existing witness/local archive/direct graph queries. No unresolved optional extension blocks ordinary local completion. |
+| E09 | complete | Concrete consumer/workload inventory; current plan inspection; DRE04/DRE06 alternatives | Retain current witness, local immutable archive and native immediate-neighborhood queries for the identified current consumers, with source-backed dependency/scope limits and observable reopening triggers above. No narrower-guard equivalence, remote backend or transitive-graph qualification is inferred. |
 | E10 | planned | E01–E08 selected migrations; E09 dispositions; relevant 66b/66c/66f/science consumers | Reconcile exact producer→publication→query→protected read→original interpretation→delivery→release population, deletions and enduring recovery guidance. Supply required evidence to 66l, including late failures and assembled cross-domain journeys below. Targeted success closes only its named population; scope-end qualification and claimed-benefit measurements remain separately identified. |
 
 ## Migration, recovery and acceptance

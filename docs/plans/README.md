@@ -14,11 +14,12 @@ own the remaining implementation and acceptance packages; follow the coordinator
 map and narrow prerequisite order. Implemented foundations are dependencies, not new work.
 Unperformed acceptance is distinguished from missing implementation.
 
-Product execution remains paused pending its separate execution instruction. Authoring the
-series establishes no new product or scientific qualification. Plans64/65 and their old native
+Plan66 execution is active under the maintainer's November6 instruction. The coordinator
+records integrated changes and bounded evidence; package owners retain remaining scope.
+Plans64/65 and their old native
 bindings remain only for separately assigned final-state reconciliation and cleanup; they
 assign no go-forward work. Retired plans likewise supply no obligations.
 
 Use the [architecture](../authoritative_design/README.md) for enduring contracts and
-[Plan66](66-integrated-simulation-target.md) for remaining work. Prepare execution with
-the plan-execution skill; local targeted checks precede assembled scope-end qualification.
+[Plan66](66-integrated-simulation-target.md) for remaining work. Local targeted checks
+precede assembled scope-end qualification.

@@ -156,8 +156,8 @@ One package may require coordinated edits across owners without transferring sem
 
 On implementation resumption, use isolated worktrees only for genuinely concurrent changes,
 integrating coherent declarations, generators, callers, tests and deletions on main. Preserve
-candidate work until integrated or deliberately superseded. These instructions schedule later
-execution; authoring does not resume paused product workloads.
+candidate work until integrated or deliberately superseded. Execution is active under the
+maintainer's separate November6 implementation instruction.
 
 ## Decisions and authorization boundaries
 
@@ -190,8 +190,9 @@ still referencing the old contracts checkout's `.config/native-cache.cmake`. Exi
 correctly refused that old preparation. Explicit compiler preparation selected a fresh immutable
 native-cache bridge; root compiler/solver selection and nested selection then succeeded with
 normal incremental/compiler caching. Combined compiler/KLU selection already succeeded.
-Cross-worktree receiving remains in progress; no identity check was relaxed and no product
-source correction is inferred from refreshing a stale receipt.
+The separate results checkout subsequently passed the same selection and engineering generation;
+no identity check was relaxed and no product source correction is inferred from refreshing a
+stale receipt.
 
 **Tested, targeted:** `scripts/pse test pse-host --lib -E 'test(native_cache_bridge_) |
 test(native_selection_) | test(providers_compiler_)'`, launched under an authenticated user
@@ -199,7 +200,23 @@ scope with a waiting parent, selected **9 tests, zero failures/pending**, with c
 capture and settlement (invocation `01a1b207-2e53-7503-a750-42bca21d1b47`). This exercises the
 existing cache/identity/reentry controls, not the complete C or Plan66 population. Initial
 bare and lone-scope launches refused before tests; the environment guide records the supported
-surviving-parent route. Generation has entered compilation after explicit receipt refresh.
+surviving-parent route. `just ready` passed skill synchronization and doctor after that
+environment-shaped failure; this is environment readiness, not scientific qualification.
+
+**Implemented:** main includes the shared Protobuf implicit-map entry correction and complete
+regeneration (`1917b227c`), semantic comparison in the actual independent-host CLI (`34db9cf74`),
+and verified sequential developer-member delivery with offline staged publication (`6ebc94b8c`).
+Semantic coverage remains explicitly selected and original-world bounded. Transfer receipts
+establish original verification and bytes accepted by a sink; destination sync and publication
+retain their separate outcomes. These are partial B02/E05/F02/F04 deliveries, not completion of
+their full caller population. Combined main receiving remains in progress.
+
+**Tested, targeted:** four selected `pse-codegen` map/presence/collection controls passed with
+zero failures/pending and complete capture/settlement. Full `just codegen` passed 14 targets.
+This includes regeneration of already-declared original fixture observations; it does not
+establish scientific fixture correctness or general future-source bootstrap. The host branch's
+five semantic and six selected delivery controls passed against zero before integration;
+the map correction's stricter Buf receiving and combined main checks remain separate work.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input
@@ -207,10 +224,10 @@ records cannot silently qualify ordinary delivery. Existing exchanger costing re
 explicit unknown-area/extrapolated-pressure meaning. Required configurations and held inputs
 remain in the denominator; this is an initial handoff, not its final closure.
 
-C02 will also record the finite installed-service-profile decision against the actual
-independent client. C04 will record process isolation versus a versioned native ABI against a
-named distribution consumer. These are bounded decisions within the existing coordinator
-crosswalk; retaining current mechanisms with reasons is valid and adds no mandatory platform.
+C records the finite decision to retain explicit service launch and process-isolated providers
+for the selected clients. E09 records retention of the current publication witness, local
+immutable archive and native immediate-neighborhood queries, with concrete reopening triggers.
+These bounded decisions add no mandatory platform or claim of new measured benefit.
 
 The first result unit will leave general future recorded-root shape bootstrap explicitly open
 if it establishes only current source-forward generation. An additive feature that disables
@@ -223,9 +240,9 @@ static/manual checks at functional scope end under L. Every claimed benefit name
 complete operation and conditions. Prior bounded passes keep their actual scope and do not
 close missing physics, unintegrated consumers or unrun assembled acceptance.
 
-**Outcome:** the integrated successor plan has been authored; its implementation packages are
-planned, and no new product/scientific qualification is claimed. Plan authoring does not
-authorize resuming product execution. The separate cleanup agent may reconcile final64/65
+**Outcome:** Plan66 implementation is active, with partial integrated deliveries and targeted
+evidence above. Most scientific, consumer, lifecycle and assembled acceptance packages remain
+open; no whole-product/scientific qualification is claimed. The separate cleanup agent may reconcile final64/65
 records, retire or redirect obsolete references and remove obsolete native scope bindings.
 It must preserve this Plan66 series and its sole go-forward premise. Cleanup is not a further
 adoption gate, and must not assign past-plan obligations or copy their status into Plan66.
