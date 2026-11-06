@@ -1106,7 +1106,10 @@ mod tests {
                 report.admission.max_binary_element_bytes,
                 args.admission.max_binary_element_bytes
             );
-            assert!(bundle.declarations.get().is_none());
+            assert_eq!(
+                bundle.presented.load(std::sync::atomic::Ordering::Relaxed),
+                0
+            );
             digests.push(report.descriptor_sha256);
         }
         assert_ne!(digests[0], digests[1]);

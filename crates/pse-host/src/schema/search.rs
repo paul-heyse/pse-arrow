@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Schema discovery shares investigation demands and records, never source-tree acquisition.
-use super::{Bundle, SchemaError};
+use super::{Bundle, Declaration, SchemaError};
 use crate::investigation::*;
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::BTreeMap, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::Path,
+};
 use tokio_util::sync::CancellationToken;
 
 /// One explicitly selected offline schema world.
@@ -98,26 +101,12 @@ pub fn run(
     } else {
         0
     };
-    let needle = query.query.to_lowercase();
-    let nodes = bundle
-        .declarations()
-        .map_err(convert)?
-        .iter()
-        .filter(|node| {
-            (node.name.to_lowercase().contains(&needle)
-                || node.comments.to_lowercase().contains(&needle))
-                && (query.kinds.is_empty() || query.kinds.contains(&node.kind))
-                && query
-                    .owner
-                    .as_ref()
-                    .is_none_or(|owner| node.parent.as_ref() == Some(owner) || &node.file == owner)
-        })
-        .collect::<Vec<_>>();
-    if offset > nodes.len() {
-        return Err(Error::Stale(
-            "schema continuation exceeds selected declaration population".into(),
-        ));
-    }
+    let limit = match request.answer.kind {
+        AnswerKind::Count => 0,
+        AnswerKind::Exists => 1,
+        AnswerKind::Matches | AnswerKind::Files => request.answer.limit.unwrap_or(usize::MAX),
+    };
+    let (total, nodes) = selected_page(&bundle, query, offset, limit, token)?;
     let source = format!("schema:{}", bundle.digest);
     emit(Event::Source(Box::new(SourceContext {
         id: source.clone(),
@@ -128,12 +117,6 @@ pub fn run(
         searched_encoding: None,
         native: None,
     })))?;
-    let limit = match request.answer.kind {
-        AnswerKind::Count => usize::MAX,
-        AnswerKind::Exists => 1,
-        AnswerKind::Matches | AnswerKind::Files => request.answer.limit.unwrap_or(usize::MAX),
-    };
-    let total = nodes.len();
     let mut summary = Summary {
         examined_files: bundle.set.file.len() as u64,
         examined_bytes: bundle.original.len() as u64,
@@ -141,12 +124,9 @@ pub fn run(
         count: Count::Exact(total as u64),
         ..Summary::default()
     };
-    for node in nodes.iter().skip(offset).take(limit) {
+    for node in &nodes {
         if token.is_cancelled() {
             return Err(Error::Cancelled);
-        }
-        if request.answer.kind == AnswerKind::Count {
-            continue;
         }
         emit(Event::Result(Box::new(SearchResult {
             source_relationship: None,
@@ -184,8 +164,80 @@ pub fn run(
     }
     Ok(summary)
 }
+/// Scan the complete match universe without rendering its option/details JSON. Only a
+/// stable requested prefix of address strings is retained, then only the page is rendered.
+fn selected_page(
+    bundle: &Bundle,
+    query: &Query,
+    offset: usize,
+    limit: usize,
+    token: &CancellationToken,
+) -> Result<(usize, Vec<Declaration>), Error> {
+    let needle = query.query.to_lowercase();
+    let mut total = 0;
+    let mut addresses = BTreeSet::new();
+    let retained = if limit == 0 {
+        0
+    } else {
+        offset.saturating_add(limit)
+    };
+    bundle
+        .select(None, &mut |file, path, node| {
+            if token.is_cancelled() {
+                return Err(SchemaError::Cancelled);
+            }
+            if (!query.kinds.is_empty() && !query.kinds.iter().any(|kind| kind == node.kind))
+                || query.owner.as_ref().is_some_and(|owner| {
+                    node.parent.as_ref() != Some(owner) && file.name.as_ref() != Some(owner)
+                })
+            {
+                return Ok(false);
+            }
+            let matches = node.name.to_lowercase().contains(&needle)
+                || Bundle::location(file, path).is_some_and(|location| {
+                    [
+                        location.leading_comments.as_deref().unwrap_or(""),
+                        location.trailing_comments.as_deref().unwrap_or(""),
+                    ]
+                    .join("\n")
+                    .to_lowercase()
+                    .contains(&needle)
+                });
+            if matches {
+                total += 1;
+                if retained != 0 {
+                    addresses.insert(node.address.clone());
+                    if addresses.len() > retained {
+                        addresses.pop_last();
+                    }
+                }
+            }
+            // Optional presentation and linked-option conversion are never needed to count.
+            Ok(false)
+        })
+        .map_err(convert)?;
+    if offset > total {
+        return Err(Error::Stale(
+            "schema continuation exceeds selected declaration population".into(),
+        ));
+    }
+    if limit == 0 {
+        return Ok((total, Vec::new()));
+    }
+    let addresses = addresses.into_iter().skip(offset).collect::<BTreeSet<_>>();
+    let nodes = bundle
+        .select(None, &mut |_, _, node| {
+            if token.is_cancelled() {
+                return Err(SchemaError::Cancelled);
+            }
+            Ok(addresses.contains(&node.address))
+        })
+        .map_err(convert)?;
+    Ok((total, nodes))
+}
 fn convert(error: SchemaError) -> Error {
     match error {
+        SchemaError::Cancelled => Error::Cancelled,
         SchemaError::Io(error) => Error::Io(error),
         SchemaError::Json(error) => Error::Json(error),
         other => Error::Invalid(other.to_string()),
@@ -236,6 +288,110 @@ mod tests {
             ..Default::default()
         };
         (request, query)
+    }
+    #[test]
+    fn schema_search_counts_and_pages_without_unselected_presentation() {
+        use std::sync::atomic::Ordering;
+        let bundle = Bundle::from_bytes("fixture".into(), CORPUS.to_vec()).unwrap();
+        let (_, mut query) = selected(Path::new("fixture"));
+        query.query.clear();
+        let token = CancellationToken::new();
+        let (total, count) = selected_page(&bundle, &query, 0, 0, &token).unwrap();
+        assert!(total > 20);
+        assert!(count.is_empty());
+        assert_eq!(bundle.presented.load(Ordering::Relaxed), 0);
+        let (page_total, first) = selected_page(&bundle, &query, 0, 2, &token).unwrap();
+        assert_eq!(page_total, total);
+        assert_eq!(first.len(), 2);
+        assert_eq!(bundle.presented.load(Ordering::Relaxed), 2);
+        let (_, second) = selected_page(&bundle, &query, 2, 3, &token).unwrap();
+        assert_eq!(second.len(), 3);
+        assert_eq!(bundle.presented.load(Ordering::Relaxed), 5);
+        assert!(first[1].address < second[0].address);
+        let (_, exists) = selected_page(&bundle, &query, 0, 1, &token).unwrap();
+        assert_eq!(bundle.presented.load(Ordering::Relaxed), 6);
+        assert_eq!(exists[0].address, first[0].address);
+        assert!(matches!(
+            selected_page(&bundle, &query, total + 1, 1, &token),
+            Err(Error::Stale(_))
+        ));
+        token.cancel();
+        assert!(matches!(
+            selected_page(&bundle, &query, 0, 1, &token),
+            Err(Error::Cancelled)
+        ));
+        assert_eq!(bundle.presented.load(Ordering::Relaxed), 6);
+
+        // Compare complete row shape against the explicitly exhaustive walker.
+        let expected = bundle.index(None).unwrap();
+        assert_eq!(
+            serde_json::to_value(&first).unwrap(),
+            serde_json::to_value(&expected[..2]).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&second).unwrap(),
+            serde_json::to_value(&expected[2..5]).unwrap()
+        );
+    }
+    #[test]
+    fn schema_search_matches_all_declared_kinds_comments_and_exact_owners() {
+        let bundle = Bundle::from_bytes("fixture".into(), CORPUS.to_vec()).unwrap();
+        let (_, mut query) = selected(Path::new("fixture"));
+        let token = CancellationToken::new();
+        for (needle, kinds, owner) in [
+            ("", vec![], None),
+            ("PAYLOAD", vec![], None),
+            (
+                "",
+                vec!["field".into()],
+                Some("plan61.qualification.v1.Payload".into()),
+            ),
+            ("", vec!["enum_value".into(), "oneof".into()], None),
+            ("", vec!["extension".into()], None),
+            ("", vec!["method".into(), "service".into()], None),
+        ] {
+            query.query = needle.into();
+            query.kinds = kinds;
+            query.owner = owner;
+            let (_, actual) = selected_page(&bundle, &query, 0, usize::MAX, &token).unwrap();
+            let needle = query.query.to_lowercase();
+            let expected = bundle
+                .index(None)
+                .unwrap()
+                .into_iter()
+                .filter(|node| {
+                    (node.name.to_lowercase().contains(&needle)
+                        || node.comments.to_lowercase().contains(&needle))
+                        && (query.kinds.is_empty() || query.kinds.contains(&node.kind))
+                        && query.owner.as_ref().is_none_or(|owner| {
+                            node.parent.as_ref() == Some(owner) || &node.file == owner
+                        })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                serde_json::to_value(actual).unwrap(),
+                serde_json::to_value(expected).unwrap()
+            );
+        }
+        // Independently authored fixture expectations include comment-only matches and
+        // lexical field-tag addresses rather than numeric declaration order.
+        query.query = "π".into();
+        query.kinds.clear();
+        query.owner = None;
+        let (count, rows) = selected_page(&bundle, &query, 0, 2, &token).unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(rows[0].address, "plan61.qualification.v1.Payload#6");
+        query.query.clear();
+        query.kinds = vec!["field".into()];
+        query.owner = Some("plan61.qualification.v1.Payload".into());
+        let (count, rows) = selected_page(&bundle, &query, 0, usize::MAX, &token).unwrap();
+        assert_eq!(count, 10);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.field_number.unwrap())
+                .collect::<Vec<_>>(),
+            [1, 10, 2, 3, 4, 5, 6, 7, 8, 9]
+        );
     }
     #[test]
     fn schema_cursor_binds_query_and_original_descriptor_and_expansion() {
