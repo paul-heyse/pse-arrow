@@ -19,8 +19,7 @@ pub use pse_diagnostics::{ExecutorRole, NativeTaskClass, TaskMetricsScope};
 fn class_index(class: NativeTaskClass) -> usize {
     match class {
         NativeTaskClass::Workflow => 0,
-        NativeTaskClass::MathSubmission => 1,
-        NativeTaskClass::MathJob => 2,
+        NativeTaskClass::MathJob => 1,
     }
 }
 
@@ -29,8 +28,8 @@ fn monitors_started() -> u128 {
     *STARTED.get_or_init(unix_micros)
 }
 
-fn monitors() -> &'static [tokio_metrics::TaskMonitor; 3] {
-    static MONITORS: OnceLock<[tokio_metrics::TaskMonitor; 3]> = OnceLock::new();
+fn monitors() -> &'static [tokio_metrics::TaskMonitor; 2] {
+    static MONITORS: OnceLock<[tokio_metrics::TaskMonitor; 2]> = OnceLock::new();
     MONITORS.get_or_init(|| {
         let _ = monitors_started();
         std::array::from_fn(|_| tokio_metrics::TaskMonitor::new())

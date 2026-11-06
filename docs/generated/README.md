@@ -2,7 +2,7 @@
 
 # Generated registry reference
 
-Projected from the admitted registry `2cf651701efcafc2b2f1b724f3dd491f343dd517f315d585e1c631bc648d46e7`. This identity is not evidence of runtime validity.
+Projected from the admitted registry `f6ab1e599c006cab64cb538f45960e86083dd5e7ba754953c2aa49343a0096e4`. This identity is not evidence of runtime validity.
 
 - [authored relations](relations/authored.md)
 - [normalized relations](relations/normalized.md)

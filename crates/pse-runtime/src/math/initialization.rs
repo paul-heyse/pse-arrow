@@ -1384,7 +1384,7 @@ impl MathService {
         }));
         Ok(SolveHandle {
             cancel,
-            receiver: Some(receiver),
+            receiver: Some(receiver.into()),
             progress,
         })
     }

@@ -873,10 +873,9 @@ vocabulary! { #[doc = "Fixed executor composition roots; no request, model or op
 
 vocabulary! { #[doc = "Selected coarse futures, not scalar callbacks or all executor tasks."] NativeTaskClass as "diagnostic_native_task_class" {
     Workflow => ("workflow", "Completion-owning workflow supervisor."),
-    MathSubmission => ("math_submission", "Submitted mathematical work supervisor."),
     MathJob => ("math_job", "Admitted native mathematical job supervisor."),
 } }
 
 vocabulary! { #[doc = "Coverage of process-wide task monitor facts."] TaskMetricsScope as "diagnostic_task_metrics_scope" {
-    SelectedProcessFutures => ("selected_process_futures", "Process-wide cumulative samples for the selected three future classes; nested classes are not additive CPU time."),
+    SelectedProcessFutures => ("selected_process_futures", "Process-wide cumulative samples for the selected two future classes; nested classes are not additive CPU time."),
 } }

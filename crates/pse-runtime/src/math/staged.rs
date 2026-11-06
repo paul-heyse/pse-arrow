@@ -1143,32 +1143,68 @@ impl MathService {
     }
     /// Stop admission and drain all service-owned native lanes, including native TLS and
     /// thread joins. Active request supervisors keep their owners until they complete.
+    /// Unread published values retire under their original supervisor; their receiving
+    /// handles receive an explicit retirement outcome. Observer cancellation leaves
+    /// partial drains owned here, and resumed/concurrent calls replay settled failures.
     /// # Errors
     /// Every failed native join or missing supervisor reply is retained after all drains.
     pub async fn shutdown_native_lanes(&self) -> Result<(), MathRuntimeError> {
-        use futures_util::{StreamExt, stream::FuturesUnordered};
-        self.jobs.close();
-        let lanes = std::mem::take(
-            &mut *self
-                .native_lanes
+        use futures_util::Stream;
+        use std::{pin::Pin, task::Poll};
+        // Only one observer polls library wakers. Cancellation releases this gate,
+        // leaving the performing owner's futures, joins and failures available.
+        let _drain = self.native_drain.lock().await;
+        {
+            let mut owner = self
+                .supervisors
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-        );
-        let mut pending = FuturesUnordered::new();
-        for mut lane in lanes {
-            lane.population.close();
-            lane.sender.take();
-            let joined = lane.joined.take();
-            pending.push(async move {
-                let result = session_join_result(joined).await;
-                drop(lane);
-                result
-            });
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            if let Some(outcome) = &owner.outcome {
+                return outcome.clone().map_err(MathRuntimeError::Shared);
+            }
+            if !owner.closed {
+                // Final registration uses this same lock, including entries
+                // reserved before shutdown obtained it.
+                owner.closed = true;
+                owner.publication_closed.cancel();
+                self.jobs.close();
+                let lanes = std::mem::take(
+                    &mut *self
+                        .native_lanes
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner),
+                );
+                for mut lane in lanes {
+                    // Close every native input before polling any sibling join.
+                    lane.population.close();
+                    lane.sender.take();
+                    let joined = lane.joined.take();
+                    owner.lanes.push(Box::pin(async move {
+                        let result = session_join_result(joined).await;
+                        drop(lane);
+                        result
+                    }));
+                }
+            }
         }
-        let mut result = Ok(());
-        while let Some(joined) = pending.next().await {
-            result = MathRuntimeError::settle(result, joined);
-        }
+        std::future::poll_fn(|cx| {
+            let mut owner = self
+                .supervisors
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            while let Poll::Ready(Some(joined)) = owner.tasks.poll_join_next(cx) {
+                owner.retain(super::jobs::Supervisors::joined(joined));
+            }
+            while let Poll::Ready(Some(joined)) = Pin::new(&mut owner.lanes).poll_next(cx) {
+                owner.retain(joined);
+            }
+            if owner.tasks.is_empty() && owner.lanes.is_empty() {
+                Poll::Ready(())
+            } else {
+                Poll::Pending
+            }
+        })
+        .await;
         let releases = self.jobs.released();
         loop {
             let released = releases.notified();
@@ -1179,7 +1215,16 @@ impl MathService {
             }
             released.await;
         }
-        result
+        let mut owner = self
+            .supervisors
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let outcome = owner
+            .failure
+            .take()
+            .map_or(Ok(()), |error| Err(Arc::new(error)));
+        owner.outcome = Some(outcome.clone());
+        outcome.map_err(MathRuntimeError::Shared)
     }
 }
 impl super::solves::PreparedSolve {
@@ -2182,6 +2227,13 @@ mod admission_tests {
     }
 
     fn original_panic(error: &MathRuntimeError) -> Option<&str> {
+        match error {
+            MathRuntimeError::Shared(error) => return original_panic(error),
+            MathRuntimeError::Settlement { operation, cleanup } => {
+                return original_panic(operation).or_else(|| original_panic(cleanup));
+            }
+            _ => {}
+        }
         let mut cause: &(dyn std::error::Error + 'static) = error;
         loop {
             if let Some(MathRuntimeError::Panic(message)) = cause.downcast_ref::<MathRuntimeError>()
@@ -2291,7 +2343,7 @@ mod admission_tests {
         assert!(matches!(operation.as_ref(), MathRuntimeError::Cancelled));
         assert!(matches!(
             cleanup.as_ref(),
-            MathRuntimeError::Settlement { .. }
+            MathRuntimeError::Shared(error) if matches!(error.as_ref(), MathRuntimeError::Settlement { .. })
         ));
         assert_eq!(miette::Diagnostic::related(&result).unwrap().count(), 2);
         let rendered = format!(
@@ -2307,6 +2359,73 @@ mod admission_tests {
             "{rendered}"
         );
         assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+    }
+
+    #[tokio::test]
+    async fn native_shutdown_resumes_pending_lane_joins_and_retains_prior_failure() {
+        let service = super::super::tests::service();
+        let baseline = service.pool.reserved();
+        let cancel = crate::CancelSource::new();
+        let failed = service.open_session().unwrap();
+        let waiting = service.open_session().unwrap();
+        let sender = failed.sender.as_ref().unwrap().clone();
+        let (release, gate) = mpsc::channel();
+        let observed = Arc::new(AtomicBool::new(false));
+        let departing = observed.clone();
+        waiting
+            .run(1, None, &cancel, move |_, _, _| {
+                JOIN_EXIT.set(Some(JoinExit::Wait(gate, departing)));
+                Ok(())
+            })
+            .await
+            .unwrap();
+        failed
+            .park_independent(pse_ids::ContentHash::from_bytes([31; 32]), None, &cancel)
+            .await
+            .unwrap();
+        waiting
+            .park_independent(pse_ids::ContentHash::from_bytes([32; 32]), None, &cancel)
+            .await
+            .unwrap();
+        fail_native_thread(&sender, "lane failure before cancelled observer");
+        drop(sender);
+        let mut first = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            loop {
+                let recorded = service.supervisors.lock().unwrap().failure.is_some();
+                if recorded {
+                    break;
+                }
+                tokio::task::yield_now().await;
+                assert!(futures_util::poll!(first.as_mut()).is_pending());
+            }
+        })
+        .await
+        .unwrap();
+        drop(first);
+        {
+            let owner = service.supervisors.lock().unwrap();
+            assert_eq!(owner.lanes.len(), 1);
+            assert!(owner.failure.is_some());
+        }
+        assert!(!observed.load(Ordering::Acquire));
+        let mut resumed = Box::pin(service.shutdown_native_lanes());
+        let mut concurrent = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(resumed.as_mut()).is_pending());
+        assert!(futures_util::poll!(concurrent.as_mut()).is_pending());
+        release.send(()).unwrap();
+        let first = resumed.await.unwrap_err();
+        let second = concurrent.await.unwrap_err();
+        assert_eq!(format!("{first:?}"), format!("{second:?}"));
+        assert_eq!(
+            original_panic(&first),
+            Some("lane failure before cancelled observer")
+        );
+        assert!(observed.load(Ordering::Acquire));
+        assert_eq!(service.pool.reserved(), baseline);
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        assert!(service.supervisors.lock().unwrap().lanes.is_empty());
     }
 
     #[tokio::test]

@@ -15,10 +15,8 @@ pub(super) enum ArithmeticAssessment {
     Unavailable(pse_math::engineering_accuracy::GoalFailure),
 }
 
-enum PointAssessment {
-    Available(ArithmeticUncertainty),
-    Unavailable(ArithmeticUnavailable),
-}
+// Producer unavailability is distinct from the outer terminal runtime error.
+type PointAssessment = Result<ArithmeticUncertainty, ArithmeticUnavailable>;
 
 /// Original causes remain typed; a native refusal does not identify a particular
 /// source guard unless the native adapter actually supplies that attribution.
@@ -162,8 +160,8 @@ fn retain_assessment(
     // Required task stops outrank optional diagnostic retention.
     execution.check()?;
     match assessment {
-        PointAssessment::Available(arithmetic) => Ok(ArithmeticAssessment::Available(arithmetic)),
-        PointAssessment::Unavailable(error) => retain_unavailable(error, budget),
+        Ok(arithmetic) => Ok(ArithmeticAssessment::Available(arithmetic)),
+        Err(error) => retain_unavailable(error, budget),
     }
 }
 
@@ -221,9 +219,7 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
         input.budget,
         input.selected_values,
     );
-    Ok(PointAssessment::Unavailable(
-        ArithmeticUnavailable::Capability,
-    ))
+    Ok(Err(ArithmeticUnavailable::Capability))
 }
 
 #[cfg(feature = "solver-root-isolation")]
@@ -243,9 +239,9 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
     let available = budget.capacity().saturating_sub(budget.used());
     let limit = available / 256;
     if limit == 0 {
-        return Ok(PointAssessment::Unavailable(
-            ArithmeticUnavailable::ProjectionAllowance { available },
-        ));
+        return Ok(Err(ArithmeticUnavailable::ProjectionAllowance {
+            available,
+        }));
     }
     // The existing factorable projection limit bounds construction under the worker
     // allowance. Replace that temporary construction charge with its actual product.
@@ -260,11 +256,9 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
     ) {
         Ok(pse_math::factorable::PointArithmeticAssessment::Available(program)) => program,
         Ok(pse_math::factorable::PointArithmeticAssessment::Unavailable(reason)) => {
-            return Ok(PointAssessment::Unavailable(
-                ArithmeticUnavailable::Projection(reason),
-            ));
+            return Ok(Err(ArithmeticUnavailable::Projection(reason)));
         }
-        Err(error) => return Ok(PointAssessment::Unavailable(projection_failure(error)?)),
+        Err(error) => return Ok(Err(projection_failure(error)?)),
     };
     drop(projection_charge);
     let _program_charge = budget
@@ -285,9 +279,7 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
             Ok(inventory) => inventory,
             Err(refusal) => {
                 execution.check()?;
-                return Ok(PointAssessment::Unavailable(
-                    ArithmeticUnavailable::Profile { refusal },
-                ));
+                return Ok(Err(ArithmeticUnavailable::Profile { refusal }));
             }
         };
     // Source occurrences and executable predicates have different populations.
@@ -301,9 +293,7 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
             Ok(prepared) => prepared,
             Err(refusal) => {
                 execution.check()?;
-                return Ok(PointAssessment::Unavailable(
-                    ArithmeticUnavailable::Profile { refusal },
-                ));
+                return Ok(Err(ArithmeticUnavailable::Profile { refusal }));
             }
         };
     let workspace = prepared.native_workspace_bytes();
@@ -343,9 +333,7 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
         } => (values, jacobian),
         PointArithmeticEvidence::Interrupted { .. } => return Err(ProblemError::Cancelled),
         PointArithmeticEvidence::Incomplete { reason, work } => {
-            return Ok(PointAssessment::Unavailable(
-                ArithmeticUnavailable::Native { reason, work },
-            ));
+            return Ok(Err(ArithmeticUnavailable::Native { reason, work }));
         }
     };
     let mut dense = vec![0.; entries];
@@ -365,26 +353,22 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
                 .lower_residual
                 .filter(|_| projection.lower_residual == projection.upper_residual)
         }) else {
-            return Ok(PointAssessment::Unavailable(
-                ArithmeticUnavailable::ResidualMap {
-                    row,
-                    lower: projection.lower_residual,
-                    upper: projection.upper_residual,
-                },
-            ));
+            return Ok(Err(ArithmeticUnavailable::ResidualMap {
+                row,
+                lower: projection.lower_residual,
+                upper: projection.upper_residual,
+            }));
         };
         let error = match enclosure_radius(enclosed_values.get(output), residual[row]) {
             Ok(error) => error,
             Err(reason) => {
-                return Ok(PointAssessment::Unavailable(
-                    ArithmeticUnavailable::Enclosure {
-                        product: "residual",
-                        row,
-                        column: None,
-                        output,
-                        reason,
-                    },
-                ));
+                return Ok(Err(ArithmeticUnavailable::Enclosure {
+                    product: "residual",
+                    row,
+                    column: None,
+                    output,
+                    reason,
+                }));
             }
         };
         residual_uncertainty.push(error);
@@ -396,15 +380,13 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
             ) {
                 Ok(error) => error,
                 Err(reason) => {
-                    return Ok(PointAssessment::Unavailable(
-                        ArithmeticUnavailable::Enclosure {
-                            product: "jacobian",
-                            row,
-                            column: Some(column),
-                            output,
-                            reason,
-                        },
-                    ));
+                    return Ok(Err(ArithmeticUnavailable::Enclosure {
+                        product: "jacobian",
+                        row,
+                        column: Some(column),
+                        output,
+                        reason,
+                    }));
                 }
             };
             jacobian_uncertainty.push(error);
@@ -415,7 +397,7 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
         .str("point-arithmetic-projection-and-expression")
         .hash(&program.key)
         .hash(&program.graph.identity());
-    Ok(PointAssessment::Available(ArithmeticUncertainty {
+    Ok(Ok(ArithmeticUncertainty {
         residual: residual_uncertainty,
         jacobian: jacobian_uncertainty,
         witness: witness.finish_hash(),
@@ -488,7 +470,7 @@ mod refusal_tests {
         let execution = Execution::new(Cancellation::new(false), &Controls::default());
         let retained = failure(
             retain_assessment(
-                PointAssessment::Unavailable(ArithmeticUnavailable::Profile { refusal }),
+                Err(ArithmeticUnavailable::Profile { refusal }),
                 &execution,
                 &budget,
             )
@@ -557,7 +539,7 @@ mod refusal_tests {
         let execution = Execution::new(cancellation.clone(), &Controls::default());
         assert!(
             retain_assessment(
-                PointAssessment::Unavailable(ArithmeticUnavailable::Profile { refusal }),
+                Err(ArithmeticUnavailable::Profile { refusal }),
                 &execution,
                 &empty,
             )
@@ -568,7 +550,7 @@ mod refusal_tests {
         cancellation.cancel();
         assert!(matches!(
             retain_assessment(
-                PointAssessment::Unavailable(ArithmeticUnavailable::Profile { refusal }),
+                Err(ArithmeticUnavailable::Profile { refusal }),
                 &execution,
                 &empty,
             ),
@@ -679,9 +661,7 @@ mod refusal_tests {
         let empty = WorkerBudget::new(0);
         assert!(matches!(
             retain_assessment(
-                PointAssessment::Unavailable(ArithmeticUnavailable::ProjectionAllowance {
-                    available: 0
-                }),
+                Err(ArithmeticUnavailable::ProjectionAllowance { available: 0 }),
                 &execution,
                 &empty
             ),
@@ -773,8 +753,8 @@ pub(crate) fn selected_point(
             budget,
             selected_values: true,
         })? {
-            PointAssessment::Available(arithmetic) => Some(arithmetic),
-            PointAssessment::Unavailable(_) => None,
+            Ok(arithmetic) => Some(arithmetic),
+            Err(_) => None,
         },
     )
 }

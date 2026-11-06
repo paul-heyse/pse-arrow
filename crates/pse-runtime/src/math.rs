@@ -479,6 +479,8 @@ pub struct MathService {
     pub(crate) modeling_cache: retention::ModelingCache,
     compiler_lanes: Mutex<Vec<modeling::CompilerLane>>,
     native_lanes: Mutex<Vec<staged::ParkedSession>>,
+    supervisors: Mutex<jobs::Supervisors>,
+    native_drain: tokio::sync::Mutex<()>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     scalar_flights: Flights<Key, pse_math::library::ScalarProducts, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
@@ -980,6 +982,8 @@ impl MathService {
             modeling_cache: retention::ModelingCache::new(pressure.clone()),
             compiler_lanes: Mutex::default(),
             native_lanes: Mutex::default(),
+            supervisors: Mutex::default(),
+            native_drain: tokio::sync::Mutex::new(()),
             flights: Flights::new(policy.flights),
             scalar_flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),

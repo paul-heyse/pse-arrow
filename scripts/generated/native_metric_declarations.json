@@ -273,7 +273,6 @@
       ],
       "task.class": [
         "workflow",
-        "math_submission",
         "math_job"
       ]
     },
@@ -305,7 +304,6 @@
       ],
       "task.class": [
         "workflow",
-        "math_submission",
         "math_job"
       ]
     },
@@ -329,7 +327,6 @@
     "attribute_values": {
       "task.class": [
         "workflow",
-        "math_submission",
         "math_job"
       ],
       "threshold": [
@@ -356,7 +353,6 @@
     "attribute_values": {
       "task.class": [
         "workflow",
-        "math_submission",
         "math_job"
       ]
     },

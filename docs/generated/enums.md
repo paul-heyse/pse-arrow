@@ -2119,7 +2119,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | Member | IDAES name | Deprecated |
 |---|---|---|
 | `workflow` | `` | false |
-| `math_submission` | `` | false |
 | `math_job` | `` | false |
 
 ## `NativeTermination`

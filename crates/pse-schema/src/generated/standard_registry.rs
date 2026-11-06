@@ -20857,12 +20857,6 @@ fn resolved_product_369() -> Result<EnumSpec, crate::SchemaError> {
                 doc: "Completion-owning workflow supervisor.",
             },
             EnumMember {
-                name: "math_submission",
-                idaes_name: None,
-                deprecated: false,
-                doc: "Submitted mathematical work supervisor.",
-            },
-            EnumMember {
                 name: "math_job",
                 idaes_name: None,
                 deprecated: false,
@@ -24596,7 +24590,7 @@ fn resolved_product_457() -> Result<EnumSpec, crate::SchemaError> {
                 name: "selected_process_futures",
                 idaes_name: None,
                 deprecated: false,
-                doc: "Process-wide cumulative samples for the selected three future classes; nested classes are not additive CPU time.",
+                doc: "Process-wide cumulative samples for the selected two future classes; nested classes are not additive CPU time.",
             },
         ],
     })
@@ -96437,7 +96431,7 @@ pub(crate) fn hydrate() -> Result<crate::Registry, crate::SchemaError> {
             *b"\xA4\t\xAAk\xE2\x95\xE9\xF3t\xCFK\x82\x9F\x19?I",
         ),
         fingerprint: pse_ids::ContentHash::from_bytes(
-            *b",\xF6Qp\x1E\xFC\xAF\xC2\xB2\xF1\xB7$\xF3\xDDI\x1F4=\xD5\x17\xF3\x15\xD5\x85\xE1\xC61\xBCd\x8DF\xE7",
+            *b"\xF6\xAB\x1EY\x9C\0l\xABd\xCBS\x8FE\x96\x0E\x86\x08=\xD5\xE7\xBAuIS\xC2\xAAI4:\0\x96\xE4",
         ),
         relations: resolved_product_2398()?,
         obligations: resolved_product_2399()?,

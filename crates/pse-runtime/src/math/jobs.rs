@@ -7,6 +7,278 @@ use std::sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
 };
+/// The service retains task outcomes and partially polled lane drains independently
+/// of any observing shutdown future. Closed populations retain one shared outcome.
+#[derive(Default)]
+pub(super) struct Supervisors {
+    pub(super) closed: bool,
+    pub(super) tasks: tokio::task::JoinSet<Result<(), MathRuntimeError>>,
+    pub(super) lanes: futures_util::stream::FuturesUnordered<
+        futures_util::future::BoxFuture<'static, Result<(), MathRuntimeError>>,
+    >,
+    pub(super) failure: Option<MathRuntimeError>,
+    pub(super) outcome: Option<Result<(), Arc<MathRuntimeError>>>,
+    pub(super) publication_closed: Cancellation,
+}
+impl Supervisors {
+    pub(super) fn joined(
+        joined: Result<Result<(), MathRuntimeError>, tokio::task::JoinError>,
+    ) -> Result<(), MathRuntimeError> {
+        match joined {
+            Ok(result) => result,
+            Err(source) if source.is_panic() => Err(super::joined_pool::worker_panic(
+                "native math supervisor",
+                source.into_panic(),
+            )),
+            Err(source) => Err(MathRuntimeError::WorkerJoin {
+                operation: "native math supervisor",
+                source,
+            }),
+        }
+    }
+    pub(super) fn retain(&mut self, result: Result<(), MathRuntimeError>) {
+        self.failure =
+            MathRuntimeError::settle(self.failure.take().map_or(Ok(()), Err), result).err();
+    }
+    /// Harvest before admitting fresh work; a failure is returned once rather than
+    /// accumulated in an open-ended completed-operation ledger.
+    fn harvest(&mut self) -> Result<(), MathRuntimeError> {
+        if self.closed {
+            return Err(MathRuntimeError::Limit("native population closed"));
+        }
+        let mut result = Ok(());
+        while let Some(joined) = self.tasks.try_join_next() {
+            result = MathRuntimeError::settle(result, Self::joined(joined));
+        }
+        result
+    }
+    fn register(
+        &mut self,
+        limit: usize,
+        task: impl Future<Output = Result<(), MathRuntimeError>> + Send + 'static,
+    ) -> Result<(), MathRuntimeError> {
+        self.harvest()?;
+        // One performing supervisor per operation. Entry owners and exclusive
+        // resident loans are already bounded by jobs; completed task tails need
+        // their own bound until the library exposes their final join result.
+        let records = limit.checked_mul(2).ok_or(MathRuntimeError::Limit(
+            "native supervisor population overflow",
+        ))?;
+        if self.tasks.len() >= records {
+            return Err(MathRuntimeError::Limit("native supervisor population"));
+        }
+        self.tasks.spawn(task);
+        Ok(())
+    }
+}
+/// One final delivery boundary. Native values stay in the performing supervisor's
+/// slot until a receiver atomically claims them; an unread guard never destroys T.
+pub(super) enum Completion<T> {
+    Plain(tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>),
+    Native(tokio::sync::oneshot::Receiver<Published<T>>),
+}
+impl<T> From<tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>> for Completion<T> {
+    fn from(receiver: tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>) -> Self {
+        Self::Plain(receiver)
+    }
+}
+impl<T> Completion<T> {
+    /// The outer result witnesses delivery; a delivered scientific error belongs
+    /// to the inner result and does not leave caller cancellation armed.
+    pub(super) async fn receive(
+        &mut self,
+    ) -> Result<Result<T, MathRuntimeError>, MathRuntimeError> {
+        match self {
+            Self::Plain(receiver) => receiver
+                .await
+                .map_err(|_| MathRuntimeError::Infrastructure("lost solve supervisor".into())),
+            Self::Native(receiver) => Ok(receiver
+                .await
+                .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?
+                .receive()
+                .await),
+        }
+    }
+}
+struct PublicationState<T> {
+    result: Option<Result<T, MathRuntimeError>>,
+    ready: bool,
+    retired: bool,
+    observed: bool,
+    abandoned: bool,
+}
+struct Publication<T> {
+    state: std::sync::Mutex<PublicationState<T>>,
+    changed: tokio::sync::Notify,
+}
+pub(super) struct Published<T> {
+    publication: Arc<Publication<T>>,
+    closed: Cancellation,
+}
+impl<T> Published<T> {
+    async fn receive(self) -> Result<T, MathRuntimeError> {
+        loop {
+            let changed = self.publication.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            {
+                let mut state = self
+                    .publication
+                    .state
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if state.ready && (state.retired || !self.closed.is_cancelled()) {
+                    let result = state.result.take().ok_or_else(|| {
+                        MathRuntimeError::Internal("native publication consumed twice".into())
+                    })?;
+                    state.observed = true;
+                    self.publication.changed.notify_waiters();
+                    // No suspension after taking T: cancellation cannot leave it
+                    // in an observer's unfinished future instead of its owner.
+                    drop(state);
+                    return result;
+                }
+            }
+            changed.await;
+        }
+    }
+}
+impl<T> Drop for Published<T> {
+    fn drop(&mut self) {
+        self.publication
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .abandoned = true;
+        self.publication.changed.notify_waiters();
+    }
+}
+fn retire_unpublished<T>(
+    finish: &mut impl FnMut(T) -> Result<(), MathRuntimeError>,
+    value: T,
+) -> Result<(), MathRuntimeError> {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finish(value))).unwrap_or_else(
+        |payload| {
+            Err(super::joined_pool::worker_panic(
+                "unpublished native result retirement",
+                payload,
+            ))
+        },
+    )
+}
+impl<T> Publication<T> {
+    fn new(result: Result<T, MathRuntimeError>) -> Arc<Self> {
+        Arc::new(Self {
+            state: std::sync::Mutex::new(PublicationState {
+                result: Some(result),
+                ready: false,
+                retired: false,
+                observed: false,
+                abandoned: false,
+            }),
+            changed: tokio::sync::Notify::new(),
+        })
+    }
+    fn release(&self) {
+        self.state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .ready = true;
+        self.changed.notify_waiters();
+    }
+    fn failed_send(
+        &self,
+        finish: &mut impl FnMut(T) -> Result<(), MathRuntimeError>,
+    ) -> Result<(), MathRuntimeError> {
+        let result = self
+            .state
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .result
+            .take()
+            .ok_or_else(|| MathRuntimeError::Internal("native publication owner absent".into()))?;
+        match result {
+            Ok(value) => retire_unpublished(finish, value),
+            Err(error) => Err(error),
+        }
+    }
+    async fn settle(
+        &self,
+        closed: &Cancellation,
+        finish: &mut (impl FnMut(T) -> Result<(), MathRuntimeError> + Send),
+    ) -> Result<(), MathRuntimeError> {
+        loop {
+            let changed = self.changed.notified();
+            tokio::pin!(changed);
+            changed.as_mut().enable();
+            let retire = {
+                let mut state = self
+                    .state
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner);
+                if state.observed {
+                    return Ok(());
+                }
+                if state.abandoned || closed.is_cancelled() {
+                    state.ready = false;
+                    Some(state.result.take().ok_or_else(|| {
+                        MathRuntimeError::Internal("native publication owner absent".into())
+                    })?)
+                } else {
+                    None
+                }
+            };
+            if let Some(result) = retire {
+                // After successful enqueue, native/TLS computation has ended.
+                // Only the result's actual residency remains through retirement.
+                let (outcome, reply) = match result {
+                    Ok(value) => match retire_unpublished(finish, value) {
+                        Ok(()) => (Ok(()), Err(MathRuntimeError::Retiring)),
+                        Err(error) => {
+                            let error = Arc::new(error);
+                            (
+                                Err(MathRuntimeError::Shared(error.clone())),
+                                MathRuntimeError::settle(
+                                    Err(MathRuntimeError::Retiring),
+                                    Err(MathRuntimeError::Shared(error)),
+                                ),
+                            )
+                        }
+                    },
+                    Err(error) => {
+                        let error = Arc::new(error);
+                        (
+                            Err(MathRuntimeError::Shared(error.clone())),
+                            Err(MathRuntimeError::Shared(error)),
+                        )
+                    }
+                };
+                {
+                    let mut state = self
+                        .state
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner);
+                    state.result = Some(reply);
+                    state.retired = true;
+                    state.ready = true;
+                }
+                self.changed.notify_waiters();
+                return outcome;
+            }
+            tokio::select! {
+                () = &mut changed => {},
+                () = closed.cancelled() => {},
+            }
+        }
+    }
+}
+impl Drop for Supervisors {
+    fn drop(&mut self) {
+        // Abandonment cannot request abort of an owner that is joining native work.
+        // Explicit shutdown, rather than Drop, witnesses physical settlement.
+        self.tasks.detach_all();
+    }
+}
 // Independent spawned tasks do not inherit a resident lane.
 tokio::task_local! { static POPULATION: Arc<PopulationLane>; }
 /// One resident population owner, with an exclusive loan through actual child join.
@@ -688,7 +960,7 @@ impl Drop for WorkerAllocation {
         self.used.fetch_sub(self.bytes, Ordering::AcqRel);
     }
 }
-/// Cancels on future abandonment while the detached supervisor retains all resource owners.
+/// Cancels on future abandonment while the service supervisor retains all resource owners.
 struct Caller(Option<Cancellation>);
 impl Drop for Caller {
     fn drop(&mut self) {
@@ -893,7 +1165,6 @@ impl MathService {
         {
             return Err(MathRuntimeError::Limit("constructor worker capacity"));
         }
-        let service = self.clone();
         let Submission {
             cancel,
             progress,
@@ -903,39 +1174,26 @@ impl MathService {
         let entry = self
             .admit_entry(cores, bytes, &cancel, deadline, None)?
             .with_construction(construction);
-        let flag = cancel.clone();
         let events = progress.clone();
-        let (sender, receiver) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::tooling::runtime_metrics::instrument(
-            crate::tooling::runtime_metrics::NativeTaskClass::MathSubmission,
-            crate::ExecutionContext::capture().instrument(crate::observation::child(
-                "math.submission",
-                pse_operations::canonical::inherit_activity(async move {
-                    let result = service
-                        .admitted_storage(
-                            cores,
-                            bytes,
-                            AdmissionControl {
-                                cancel: flag,
-                                admitted,
-                                deadline,
-                                source_owns_deadline,
-                            },
-                            Some(entry),
-                            retain_foreign,
-                            (
-                                move |flag, storage| work(flag, events, storage),
-                                |value| {
-                                    drop(value);
-                                    Ok(())
-                                },
-                            ),
-                        )
-                        .await;
-                    let _ = sender.send(result);
-                }),
-            )),
-        ));
+        let receiver = self.start_admitted_storage(
+            cores,
+            bytes,
+            AdmissionControl {
+                cancel: cancel.clone(),
+                admitted,
+                deadline,
+                source_owns_deadline,
+            },
+            Some(entry),
+            retain_foreign,
+            (
+                move |flag, storage| work(flag, events, storage),
+                |value| {
+                    drop(value);
+                    Ok(())
+                },
+            ),
+        )?;
         Ok(super::solves::SolveHandle {
             cancel,
             receiver: Some(receiver),
@@ -1209,6 +1467,10 @@ impl MathService {
         deadline: Option<std::time::Instant>,
         cutoff: Option<std::time::Instant>,
     ) -> Result<AdmissionEntry, MathRuntimeError> {
+        self.supervisors
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .harvest()?;
         if cores == 0 || cores > self.cores || cores > u32::MAX as usize {
             return Err(MathRuntimeError::Limit("optimizer cores"));
         }
@@ -1343,8 +1605,10 @@ impl MathService {
             }
         }
     }
-    /// One ticket bounds pending, running and retained owners together. Temporary
-    /// pool pressure waits without holding CPU capacity, under the original clock.
+    /// One ticket bounds pending and running native work. Idle published values
+    /// retain their split allocation and a separately bounded supervisor record
+    /// after working admission ends. Pool pressure waits without holding CPU
+    /// capacity, under the original clock.
     async fn admitted<T: Send + 'static>(
         self: &Arc<Self>,
         cores: usize,
@@ -1386,7 +1650,7 @@ impl MathService {
         control: AdmissionControl,
         entry: Option<AdmissionEntry>,
         retain_foreign: bool,
-        (work, mut finish): (
+        work: (
             impl FnOnce(
                 Cancellation,
                 Option<Arc<pse_columnar::AllocationLease>>,
@@ -1396,6 +1660,33 @@ impl MathService {
             impl FnMut(T) -> Result<(), MathRuntimeError> + Send + 'static,
         ),
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
+        let cancel = control.cancel.clone();
+        let mut receiver =
+            self.start_admitted_storage(cores, bytes, control, entry, retain_foreign, work)?;
+        let mut caller = Caller(Some(cancel));
+        let result = receiver.receive().await?;
+        caller.0.take();
+        result
+    }
+    /// Register the same performing body for synchronous handles and async callers.
+    /// No outer submission task or second result publication is created.
+    fn start_admitted_storage<T: Send + 'static>(
+        self: &Arc<Self>,
+        cores: usize,
+        bytes: usize,
+        control: AdmissionControl,
+        entry: Option<AdmissionEntry>,
+        retain_foreign: bool,
+        (work, mut finish): (
+            impl FnOnce(
+                Cancellation,
+                Option<Arc<pse_columnar::AllocationLease>>,
+            ) -> Result<(T, usize), MathRuntimeError>
+            + Send
+            + 'static,
+            impl FnMut(T) -> Result<(), MathRuntimeError> + Send + 'static,
+        ),
+    ) -> Result<Completion<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError> {
         let metrics = Arc::new(crate::tooling::operational_metrics::NativeJobLifecycle::new());
         let AdmissionControl {
             cancel,
@@ -1420,10 +1711,14 @@ impl MathService {
         if std::time::Instant::now() >= at {
             return Err(Self::admission_timeout());
         }
-        let mut caller = Caller(Some(cancel.clone()));
         let service = self.clone();
         let (tx, rx) = tokio::sync::oneshot::channel();
-        tokio::spawn(crate::tooling::runtime_metrics::instrument(
+        let mut owner = self
+            .supervisors
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let closed = owner.publication_closed.clone();
+        owner.register(self.policy.jobs, crate::tooling::runtime_metrics::instrument(
             crate::tooling::runtime_metrics::NativeTaskClass::MathJob,
             crate::ExecutionContext::capture().instrument(crate::observation::child(
                 "math.job",
@@ -1512,8 +1807,6 @@ impl MathService {
                 let joined = joined.map_err(|source| MathRuntimeError::WorkerJoin { operation: "native math join", source })
                     .and_then(|joined| joined.map_err(|payload| super::joined_pool::worker_panic("native math worker", payload)))
                     .and_then(|result| result);
-                let mut dispose = |value: T| std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| finish(value)))
-                    .unwrap_or_else(|payload| Err(super::joined_pool::worker_panic("unpublished native result retirement", payload)));
                 let stopped = match reason {
                     Some(pse_diagnostics::stop::StopReason::Cancelled) => Some(MathRuntimeError::Cancelled),
                     Some(pse_diagnostics::stop::StopReason::Deadline) => Some(Self::admission_timeout()),
@@ -1523,7 +1816,7 @@ impl MathService {
                 };
                 let result = match (stopped, joined) {
                     (None, joined) => joined,
-                    (Some(stopped), Ok((value, _))) => MathRuntimeError::settle(Err(stopped), dispose(value)),
+                    (Some(stopped), Ok((value, _))) => MathRuntimeError::settle(Err(stopped), retire_unpublished(&mut finish, value)),
                     // The native callback's plain cancellation acknowledges this
                     // stop; independent action/cleanup failures remain separate.
                     (Some(stopped), Err(MathRuntimeError::Cancelled)) => Err(stopped),
@@ -1535,34 +1828,612 @@ impl MathService {
                         .map_or(Ok(()), |more| service.pressure.try_grow(&lease, more).map_err(MathRuntimeError::from));
                     match growth {
                         Ok(()) => Ok((value, pse_columnar::AllocationLease::new(lease.split(retained)))),
-                        Err(error) => MathRuntimeError::settle(Err(error), dispose(value)),
+                        Err(error) => MathRuntimeError::settle(Err(error), retire_unpublished(&mut finish, value)),
                     }
                 });
-                // Native/TLS join and any refused value destruction are settled.
-                // Escaped residency receives no compute loan.
-                metrics.returned(result.is_err());
-                drop(compute);
-                drop(lease);
-                result
+                Ok::<_, MathRuntimeError>((result, compute, lease))
             }
             .await;
-                    // Actual native/TLS join precedes release of compiler exclusion and storage.
-                    drop(compiler);
-                    drop(slot);
-                    let _ = tx.send(result);
+                    let (result, custody) = match result {
+                        Ok((result, compute, lease)) => (result, Some((compute, lease))),
+                        Err(error) => (Err(error), None),
+                    };
+                    let failed = result.is_err();
+                    let publication = Publication::new(result);
+                    let delivered = tx.send(Published {
+                        publication: publication.clone(), closed: closed.clone(),
+                    });
+                    // The result's split allocation remains live until the caught
+                    // finisher returns, including a failed initial send.
+                    let mut retire = |(value, retained)| {
+                        let result = retire_unpublished(&mut finish, value);
+                        drop(retained);
+                        result
+                    };
+                    let result = match delivered {
+                        Err(guard) => {
+                            drop(guard);
+                            let result = publication.failed_send(&mut retire);
+                            drop(custody);
+                            drop(compiler);
+                            drop(slot);
+                            metrics.returned(failed || result.is_err());
+                            result
+                        }
+                        Ok(()) => {
+                            // An idle queued result receives no compute loan or
+                            // compiler exclusion. The ready fence precedes T's claim.
+                            drop(custody);
+                            drop(compiler);
+                            drop(slot);
+                            publication.release();
+                            metrics.returned(failed);
+                            publication.settle(&closed, &mut retire).await
+                        }
+                    };
+                    result
                 }),
             )),
-        ));
-        let result = rx
-            .await
-            .map_err(|_| MathRuntimeError::Infrastructure("lost native supervisor".into()))?;
-        caller.0.take();
-        result
+        ))?;
+        Ok(Completion::Native(rx))
     }
 }
 
 #[cfg(all(test, feature = "solver-idas"))]
 mod idas_storage_tests;
+
+#[cfg(test)]
+mod supervisor_tests {
+    use super::*;
+
+    fn control() -> AdmissionControl {
+        AdmissionControl {
+            cancel: Cancellation::default(),
+            admitted: None,
+            deadline: None,
+            source_owns_deadline: false,
+        }
+    }
+    fn service() -> Arc<MathService> {
+        super::super::tests::service_with_policy(
+            128 << 20,
+            super::super::MathPolicy {
+                jobs: 1,
+                ..Default::default()
+            },
+        )
+        .0
+    }
+    async fn ready<T>(receiver: &mut Completion<T>) -> Published<T> {
+        let Completion::Native(receiver) = receiver else {
+            panic!("native completion")
+        };
+        let published = receiver.await.unwrap();
+        loop {
+            let notified = published.publication.changed.notified();
+            tokio::pin!(notified);
+            notified.as_mut().enable();
+            if published.publication.state.lock().unwrap().ready {
+                break;
+            }
+            notified.await;
+        }
+        published
+    }
+    fn failure_text(error: &MathRuntimeError) -> String {
+        format!("{error:?}")
+    }
+
+    async fn cancellation_after_delivery(native: bool) {
+        for delivered in [false, true] {
+            let cancel = Cancellation::default();
+            let receiver = if native {
+                let (sender, receiver) = tokio::sync::oneshot::channel();
+                if delivered {
+                    let publication = Publication::<()>::new(Err(MathRuntimeError::Internal(
+                        "delivered scientific failure".into(),
+                    )));
+                    publication.release();
+                    assert!(
+                        sender
+                            .send(Published {
+                                publication,
+                                closed: Cancellation::default(),
+                            })
+                            .is_ok()
+                    );
+                } else {
+                    drop(sender);
+                }
+                Completion::Native(receiver)
+            } else {
+                let (sender, receiver) = tokio::sync::oneshot::channel();
+                if delivered {
+                    sender
+                        .send(Err(MathRuntimeError::Internal(
+                            "delivered scientific failure".into(),
+                        )))
+                        .unwrap();
+                } else {
+                    drop(sender);
+                }
+                Completion::Plain(receiver)
+            };
+            let handle = super::super::solves::SolveHandle {
+                cancel: cancel.clone(),
+                receiver: Some(receiver),
+                progress: Arc::new(pse_backend_native::solve::Progress::new(1)),
+            };
+            let result = handle.finish().await;
+            if delivered {
+                assert!(matches!(result, Err(MathRuntimeError::Internal(message))
+                    if message == "delivered scientific failure"));
+            } else {
+                let expected = if native {
+                    "lost native supervisor"
+                } else {
+                    "lost solve supervisor"
+                };
+                assert!(
+                    matches!(result, Err(MathRuntimeError::Infrastructure(message))
+                    if message == expected)
+                );
+            }
+            assert_eq!(cancel.is_cancelled(), !delivered);
+        }
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_plain_delivery_loss_keeps_cancellation_armed() {
+        cancellation_after_delivery(false).await;
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_native_delivery_loss_keeps_cancellation_armed() {
+        cancellation_after_delivery(true).await;
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_registration_rechecks_close_after_reserved_entry() {
+        let service = service();
+        let control = control();
+        let entry = service
+            .admit_entry(1, 0, &control.cancel, None, None)
+            .unwrap();
+        let mut shutdown = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(shutdown.as_mut()).is_pending());
+        let dispatched = Arc::new(AtomicUsize::new(0));
+        let observed = dispatched.clone();
+        let result = service.start_admitted_storage(
+            1,
+            0,
+            control,
+            Some(entry),
+            false,
+            (
+                move |_, _| {
+                    observed.fetch_add(1, Ordering::AcqRel);
+                    Ok(((), 0))
+                },
+                |()| Ok(()),
+            ),
+        );
+        assert!(matches!(
+            result,
+            Err(MathRuntimeError::Limit("native population closed"))
+        ));
+        shutdown.await.unwrap();
+        assert_eq!(dispatched.load(Ordering::Acquire), 0);
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_single_job_back_to_back_calls_keep_immediate_capacity() {
+        let service = service();
+        let baseline = service.pool.reserved();
+        for value in 0..16 {
+            let result = service
+                .submit(1, 0, move |_, _| Ok((value, 0)))
+                .unwrap()
+                .finish()
+                .await
+                .unwrap();
+            assert_eq!(result.0, value);
+            assert_eq!(service.cpu.available_permits(), service.cores);
+            assert_eq!(service.active_jobs.available_permits(), 1);
+            assert_eq!(service.jobs.available_permits(), 1);
+            assert_eq!(service.pool.reserved(), baseline);
+            // Intentionally no yield before the next synchronous submission.
+        }
+        service.shutdown_native_lanes().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_unread_publications_are_bounded_and_close_retires_live_handles() {
+        let service = service();
+        let baseline = service.pool.reserved();
+        let retired = Arc::new(AtomicUsize::new(0));
+        let mut receivers = Vec::new();
+        let mut guards = Vec::new();
+        for _ in 0..2 {
+            let retired = retired.clone();
+            let mut receiver = service
+                .start_admitted_storage(
+                    1,
+                    1024,
+                    control(),
+                    None,
+                    false,
+                    (
+                        |_, _| Ok(((), 1024)),
+                        move |()| {
+                            retired.fetch_add(1, Ordering::AcqRel);
+                            Ok(())
+                        },
+                    ),
+                )
+                .unwrap();
+            guards.push(ready(&mut receiver).await);
+            receivers.push(receiver);
+        }
+        assert_eq!(service.jobs.available_permits(), 1);
+        assert_eq!(service.cpu.available_permits(), service.cores);
+        assert_eq!(service.pool.reserved(), baseline + 2048);
+        let called = Arc::new(AtomicUsize::new(0));
+        let observed = called.clone();
+        assert!(matches!(
+            service.submit(1, 0, move |_, _| {
+                observed.fetch_add(1, Ordering::AcqRel);
+                Ok(((), 0))
+            }),
+            Err(MathRuntimeError::Limit("native supervisor population"))
+        ));
+        service.shutdown_native_lanes().await.unwrap();
+        assert_eq!(retired.load(Ordering::Acquire), 2);
+        assert_eq!(called.load(Ordering::Acquire), 0);
+        assert_eq!(service.pool.reserved(), baseline);
+        for guard in guards {
+            assert!(matches!(
+                guard.receive().await,
+                Err(MathRuntimeError::Retiring)
+            ));
+        }
+        drop(receivers);
+        service.shutdown_native_lanes().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_close_retires_successfully_queued_live_solve_handle() {
+        let service = service();
+        let baseline = service.pool.reserved();
+        let handle = service.submit(1, 1024, |_, _| Ok((17, 1024))).unwrap();
+        let cancel = handle.cancellation();
+        while service.jobs.available_permits() == 0 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(service.pool.reserved(), baseline + 1024);
+        service.shutdown_native_lanes().await.unwrap();
+        assert!(
+            !cancel.is_cancelled(),
+            "service publication close is not task cancellation"
+        );
+        assert!(matches!(
+            handle.finish().await,
+            Err(MathRuntimeError::Retiring)
+        ));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn native_supervisor_failed_send_and_unread_drop_retire_with_correct_custody() {
+        struct Value {
+            entered: Option<tokio::sync::oneshot::Sender<()>>,
+            release: std::sync::mpsc::Receiver<()>,
+        }
+        impl Drop for Value {
+            fn drop(&mut self) {
+                if let Some(entered) = self.entered.take() {
+                    let _ = entered.send(());
+                }
+                let _ = self.release.recv_timeout(std::time::Duration::from_secs(5));
+                panic!("publication destructor failure");
+            }
+        }
+        for failed_send in [true, false] {
+            let service = service();
+            let baseline = service.pool.reserved();
+            let (entered, entering) = tokio::sync::oneshot::channel();
+            let (release, gate) = std::sync::mpsc::channel();
+            let (dispatch, dispatching) = std::sync::mpsc::channel();
+            let mut entry = service
+                .admit_entry(1, 1024, &Cancellation::default(), None, None)
+                .unwrap();
+            let compiler = Arc::new(std::sync::Mutex::new(None));
+            let compiler_live = Arc::downgrade(&compiler);
+            entry.compiler = Some(compiler);
+            let observed = service.clone();
+            let custody = Arc::new(std::sync::Mutex::new(None));
+            let seen_custody = custody.clone();
+            let mut receiver = service
+                .start_admitted_storage(
+                    1,
+                    1024,
+                    control(),
+                    Some(entry),
+                    false,
+                    (
+                        move |_, _| {
+                            dispatching
+                                .recv_timeout(std::time::Duration::from_secs(5))
+                                .unwrap();
+                            Ok((
+                                Value {
+                                    entered: Some(entered),
+                                    release: gate,
+                                },
+                                1024,
+                            ))
+                        },
+                        move |value| {
+                            *seen_custody.lock().unwrap() = Some((
+                                observed.jobs.available_permits(),
+                                observed.cpu.available_permits(),
+                                compiler_live.upgrade().is_some(),
+                                observed.pool.reserved(),
+                            ));
+                            drop(value);
+                            Ok(())
+                        },
+                    ),
+                )
+                .unwrap();
+            if failed_send {
+                // Deterministic initial send failure: close before the result exists.
+                let Completion::Native(receiver) = &mut receiver else {
+                    panic!("native")
+                };
+                receiver.close();
+                dispatch.send(()).unwrap();
+            } else {
+                dispatch.send(()).unwrap();
+                let guard = ready(&mut receiver).await;
+                assert_eq!(service.pool.reserved(), baseline + 1024);
+                drop(guard);
+            }
+            tokio::time::timeout(std::time::Duration::from_secs(5), entering)
+                .await
+                .unwrap()
+                .unwrap();
+            let (jobs, cpu, compiler, reserved) = custody.lock().unwrap().unwrap();
+            assert_eq!(jobs, usize::from(!failed_send));
+            assert_eq!(cpu, service.cores - usize::from(failed_send));
+            assert_eq!(compiler, failed_send);
+            assert!(reserved >= baseline + 1024);
+            let mut shutdown = Box::pin(service.shutdown_native_lanes());
+            assert!(futures_util::poll!(shutdown.as_mut()).is_pending());
+            assert!(service.pool.reserved() >= baseline + 1024);
+            release.send(()).unwrap();
+            let error = shutdown.await.unwrap_err();
+            assert!(failure_text(&error).contains("publication destructor failure"));
+            assert_eq!(service.pool.reserved(), baseline);
+            assert_eq!(service.jobs.available_permits(), 1);
+            assert_eq!(service.cpu.available_permits(), service.cores);
+        }
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_harvests_unobserved_failure_before_fresh_dispatch() {
+        let service = service();
+        let mut receiver = service
+            .start_admitted_storage::<()>(
+                1,
+                0,
+                control(),
+                None,
+                false,
+                (
+                    |_, _| {
+                        Err(MathRuntimeError::Internal(
+                            "unobserved original failure".into(),
+                        ))
+                    },
+                    |()| Ok(()),
+                ),
+            )
+            .unwrap();
+        let guard = ready(&mut receiver).await;
+        let publication = guard.publication.clone();
+        drop(guard);
+        // This current-thread fixture observes retirement after the uninterrupted
+        // canonical task tail, without consuming its result from JoinSet.
+        while !publication.state.lock().unwrap().retired {
+            tokio::task::yield_now().await;
+        }
+        let observed = Arc::new(AtomicUsize::new(0));
+        let called = observed.clone();
+        let result = service.submit(1, 0, move |_, _| {
+            called.fetch_add(1, Ordering::AcqRel);
+            Ok(((), 0))
+        });
+        let error = result.unwrap_err();
+        assert!(failure_text(&error).contains("unobserved original failure"));
+        assert_eq!(observed.load(Ordering::Acquire), 0);
+        service
+            .submit(1, 0, |_, _| Ok(((), 0)))
+            .unwrap()
+            .finish()
+            .await
+            .unwrap();
+        service.shutdown_native_lanes().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_observed_scientific_failure_is_only_the_caller_outcome() {
+        let service = super::super::tests::service();
+        let result = service
+            .submit::<()>(1, 0, |_, _| {
+                Err(MathRuntimeError::Internal(
+                    "observed scientific failure".into(),
+                ))
+            })
+            .unwrap()
+            .finish()
+            .await;
+        assert!(
+            matches!(result, Err(MathRuntimeError::Internal(message)) if message == "observed scientific failure")
+        );
+        service.shutdown_native_lanes().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_close_retains_fallible_unread_retirement_and_closed_reply() {
+        let service = service();
+        let baseline = service.pool.reserved();
+        let mut receiver = service
+            .start_admitted_storage(
+                1,
+                1024,
+                control(),
+                None,
+                false,
+                (
+                    |_, _| Ok(((), 1024)),
+                    |()| {
+                        Err(MathRuntimeError::Infrastructure(
+                            "original unread actor retirement".into(),
+                        ))
+                    },
+                ),
+            )
+            .unwrap();
+        let guard = ready(&mut receiver).await;
+        let error = service.shutdown_native_lanes().await.unwrap_err();
+        assert!(failure_text(&error).contains("original unread actor retirement"));
+        let reply = guard.receive().await.unwrap_err();
+        assert!(
+            matches!(reply, MathRuntimeError::Settlement { operation, cleanup }
+            if matches!(operation.as_ref(), MathRuntimeError::Retiring)
+            && failure_text(&cleanup).contains("original unread actor retirement"))
+        );
+        let repeated = service.shutdown_native_lanes().await.unwrap_err();
+        assert_eq!(failure_text(&error), failure_text(&repeated));
+        assert_eq!(service.pool.reserved(), baseline);
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_drain_collects_delayed_tails_and_all_independent_failures() {
+        let service = super::super::tests::service();
+        let entry = service
+            .admit_entry(1, 0, &Cancellation::default(), None, None)
+            .unwrap();
+        let (released, observed) = tokio::sync::oneshot::channel();
+        let (finish, finishing) = tokio::sync::oneshot::channel();
+        let survived = Arc::new(AtomicUsize::new(0));
+        let surviving = survived.clone();
+        {
+            let mut owner = service.supervisors.lock().unwrap();
+            owner.tasks.spawn(async move {
+                drop(entry);
+                released.send(()).unwrap();
+                finishing.await.unwrap();
+                surviving.fetch_add(1, Ordering::AcqRel);
+                Err(MathRuntimeError::Infrastructure(
+                    "delayed original tail".into(),
+                ))
+            });
+            owner.tasks.spawn(async {
+                Err(MathRuntimeError::Internal(
+                    "independent typed failure".into(),
+                ))
+            });
+            owner
+                .tasks
+                .spawn(async { panic!("independent supervisor panic") });
+        }
+        observed.await.unwrap();
+        assert_eq!(service.jobs.available_permits(), service.policy.jobs);
+        let mut first = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        while service.supervisors.lock().unwrap().failure.is_none() {
+            tokio::task::yield_now().await;
+            assert!(futures_util::poll!(first.as_mut()).is_pending());
+        }
+        drop(first);
+        let mut resumed = Box::pin(service.shutdown_native_lanes());
+        let mut concurrent = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(resumed.as_mut()).is_pending());
+        assert!(futures_util::poll!(concurrent.as_mut()).is_pending());
+        finish.send(()).unwrap();
+        let error = resumed.await.unwrap_err();
+        let repeated = concurrent.await.unwrap_err();
+        assert_eq!(failure_text(&error), failure_text(&repeated));
+        for message in [
+            "delayed original tail",
+            "independent typed failure",
+            "independent supervisor panic",
+        ] {
+            assert!(failure_text(&error).contains(message), "{error:?}");
+        }
+        assert_eq!(survived.load(Ordering::Acquire), 1);
+        assert!(service.supervisors.lock().unwrap().tasks.is_empty());
+    }
+
+    #[tokio::test]
+    async fn native_supervisor_outer_panic_payload_retirement_cannot_skip_delayed_sibling() {
+        struct Payload(Arc<AtomicUsize>);
+        impl Drop for Payload {
+            fn drop(&mut self) {
+                self.0.fetch_add(1, Ordering::AcqRel);
+                panic!("outer supervisor payload destructor failed");
+            }
+        }
+        let service = service();
+        let destroyed = Arc::new(AtomicUsize::new(0));
+        let payload = Payload(destroyed.clone());
+        let finished = Arc::new(AtomicUsize::new(0));
+        let surviving = finished.clone();
+        let (entered, entering) = tokio::sync::oneshot::channel();
+        let (release, releasing) = tokio::sync::oneshot::channel();
+        {
+            let mut owner = service.supervisors.lock().unwrap();
+            owner
+                .tasks
+                .spawn(async move { std::panic::panic_any(payload) });
+            owner.tasks.spawn(async move {
+                entered.send(()).unwrap();
+                releasing.await.unwrap();
+                surviving.fetch_add(1, Ordering::AcqRel);
+                Ok(())
+            });
+        }
+        entering.await.unwrap();
+        let mut first = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(first.as_mut()).is_pending());
+        tokio::time::timeout(std::time::Duration::from_secs(5), async {
+            while service.supervisors.lock().unwrap().failure.is_none() {
+                tokio::task::yield_now().await;
+                assert!(futures_util::poll!(first.as_mut()).is_pending());
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(destroyed.load(Ordering::Acquire), 1);
+        assert_eq!(finished.load(Ordering::Acquire), 0);
+        drop(first);
+        let mut resumed = Box::pin(service.shutdown_native_lanes());
+        assert!(futures_util::poll!(resumed.as_mut()).is_pending());
+        release.send(()).unwrap();
+        let error = resumed.await.unwrap_err();
+        assert!(failure_text(&error).contains("native math supervisor"));
+        assert!(failure_text(&error).contains("outer supervisor payload destructor failed"));
+        assert_eq!(finished.load(Ordering::Acquire), 1);
+        assert!(service.supervisors.lock().unwrap().tasks.is_empty());
+        drop(error);
+        // The replayed typed outcome owns settled diagnostic text, not a raw
+        // payload whose later destructor could unwind across service cleanup.
+        drop(service.shutdown_native_lanes().await.unwrap_err());
+        assert_eq!(destroyed.load(Ordering::Acquire), 1);
+    }
+}
 
 #[cfg(test)]
 mod construction_tests {

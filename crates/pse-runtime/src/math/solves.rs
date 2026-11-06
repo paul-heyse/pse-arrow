@@ -2872,7 +2872,7 @@ pub(crate) struct Predecessor {
 /// Dropping the handle requests cancellation; awaiting it witnesses native destruction and join.
 pub struct SolveHandle<T = StepReport> {
     pub(super) cancel: Cancellation,
-    pub(super) receiver: Option<tokio::sync::oneshot::Receiver<Result<T, MathRuntimeError>>>,
+    pub(super) receiver: Option<super::jobs::Completion<T>>,
     pub(super) progress: Arc<Progress>,
 }
 impl<T> std::fmt::Debug for SolveHandle<T> {
@@ -2916,7 +2916,7 @@ impl<T: Send + 'static> SolveHandle<T> {
         }));
         Self {
             cancel,
-            receiver: Some(receiver),
+            receiver: Some(receiver.into()),
             progress,
         }
     }
@@ -2945,9 +2945,7 @@ impl<T> SolveHandle<T> {
             .receiver
             .as_mut()
             .ok_or_else(|| MathRuntimeError::Infrastructure("consumed solve handle".into()))?;
-        let result = receiver
-            .await
-            .map_err(|_| MathRuntimeError::Infrastructure("lost solve supervisor".into()))?;
+        let result = receiver.receive().await?;
         self.receiver.take();
         result
     }

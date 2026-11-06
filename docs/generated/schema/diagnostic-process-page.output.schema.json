@@ -250,7 +250,6 @@
     "NativeTaskClass": {
       "enum": [
         "workflow",
-        "math_submission",
         "math_job"
       ],
       "type": "string"
