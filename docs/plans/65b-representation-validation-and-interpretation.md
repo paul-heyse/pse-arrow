@@ -283,12 +283,21 @@ named imported-schema operation requires rule execution with a defined logical c
 enforcement scope and supported feature/rule population; apply the conditional comparison
 above then, including the complete Edition chain.
 
+**Implemented and targeted-tested:** host inspection now declares the five execution outcomes once in
+`ValidationState`, replacing free-form producer strings and migrating native readback callers.
+Serde's snake-case encoding preserves the existing serialized values, while `JsonSchema`
+derives the finite output vocabulary from that same enum. This strengthens the local
+observation contract without adding a validator or granting native validity from decode.
+
 Existing controls `schema_payload_proto2_required_warning_is_not_validation`,
 `schema_payload_binary_preserves_presence_unknowns_and_original`,
 `schema_payload_generated_dispatch_covers_complete_selected_families` and
 `schema_payload_generated_dispatch_extends_required_rules_and_unknown_fidelity` discriminate
 passive inspection from selected generated validation. Their next receiving run belongs to
-65h; this source-based decision makes no new test or complete B-series qualification claim.
+65h. The combined default host/runtime local selection passes 47/47 with zero failures/build
+warnings, including `schema_payload_` and `raw_payload_` controls
+(`01a1b116-330d-74d1-9ced-6d74a121bbb6`). The selection does not establish complete B-series
+or scientific qualification.
 
 ## Allocation, encoding and lifetime
 

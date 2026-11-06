@@ -1140,7 +1140,8 @@ pub(crate) mod tests {
         let bytes = wire.encode_to_vec();
         let report = raw_preview(&bytes, &descriptors()).unwrap();
         assert_eq!(
-            report.validation.state, "passed",
+            report.validation.state,
+            crate::schema::payload::ValidationState::Passed,
             "local wire validity is separate from original content integrity"
         );
         assert!(report.developer_evidence.is_none());
@@ -1202,7 +1203,10 @@ pub(crate) mod tests {
         );
         let report = raw_preview(&bytes, &descriptors).unwrap();
         assert_eq!(report.representation, "acquired_dynamic");
-        assert_eq!(report.validation.state, "not_evaluated");
+        assert_eq!(
+            report.validation.state,
+            crate::schema::payload::ValidationState::NotEvaluated
+        );
         assert!(report.developer_evidence.is_none());
         assert!(
             report.developer_evidence_refusal.is_none(),

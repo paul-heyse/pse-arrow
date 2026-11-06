@@ -120,12 +120,27 @@ pub struct Args {
 /// Decode and validation are separate outcomes.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Validation {
-    /// passed, violations, compile_error, evaluation_error, or not_evaluated.
-    pub state: String,
+    /// Actual rule execution outcome; decoding alone leaves it unevaluated.
+    pub state: ValidationState,
     /// Native validator diagnostics, when evaluated.
     pub diagnostics: Vec<String>,
     /// Supported original field/rule paths and loss-aware disclosure.
     pub correction: Option<crate::envelope::ValidationCorrection>,
+}
+/// Rule execution outcome for one payload inspection, separate from native admission.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ValidationState {
+    /// The selected compiled validator accepted the payload.
+    Passed,
+    /// The selected compiled validator reported payload violations.
+    Violations,
+    /// Rule compilation failed before a validity conclusion.
+    CompileError,
+    /// Rule evaluation failed without an established validity conclusion.
+    EvaluationError,
+    /// Rules are metadata only; no validator executed them.
+    NotEvaluated,
 }
 /// A field read through its message's own reflection descriptors.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -367,7 +382,7 @@ fn inspect_bundle(args: &Args, bundle: &Bundle) -> Result<Report, SchemaError> {
         } else {
             DynamicMessage::decode_with_options(Arc::clone(&bundle.pool), index, &wire, &options)?
         };
-        (message_preview(&value, args.depth, args.limit), Validation { state: "not_evaluated".into(), diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()], correction: None }, "acquired_dynamic")
+        (message_preview(&value, args.depth, args.limit), Validation { state: ValidationState::NotEvaluated, diagnostics: vec!["Arbitrary acquired schemas have no compiled validator; constraints are metadata, not an established valid payload.".into()], correction: None }, "acquired_dynamic")
     };
     let (developer_evidence, developer_evidence_refusal) =
         if captured_evidence && !matches!(args.encoding, Encoding::Json) {
@@ -438,19 +453,18 @@ fn static_preview<T: buffa::Message + DeserializeOwned + ReflectMessage + Valida
     };
     let validation = match value.validate() {
         Ok(()) => Validation {
-            state: "passed".into(),
+            state: ValidationState::Passed,
             diagnostics: vec![],
             correction: None,
         },
         Err(error) => Validation {
             state: if error.compile_error.is_some() {
-                "compile_error"
+                ValidationState::CompileError
             } else if error.runtime_error.is_some() || error.violations.is_empty() {
-                "evaluation_error"
+                ValidationState::EvaluationError
             } else {
-                "violations"
-            }
-            .into(),
+                ValidationState::Violations
+            },
             diagnostics: error
                 .compile_error
                 .iter()
@@ -771,7 +785,7 @@ mod tests {
             report.original_base64,
             Some(STANDARD.encode([8, 0, 24, 99, 0x98, 6, 7]))
         );
-        assert_eq!(report.validation.state, "not_evaluated");
+        assert_eq!(report.validation.state, ValidationState::NotEvaluated);
         let Preview::Message {
             fields, unknown, ..
         } = report.preview
@@ -953,7 +967,7 @@ mod tests {
         args.message = "pse.code_intelligence.v1.NativeControl".into();
         let report = inspect(&args).unwrap();
         assert_eq!(report.representation, "generated_static");
-        assert_eq!(report.validation.state, "violations");
+        assert_eq!(report.validation.state, ValidationState::Violations);
         assert!(matches!(report.preview, Preview::Message { .. }));
     }
     #[test]
@@ -1042,7 +1056,7 @@ mod tests {
         .unwrap()
         .unwrap();
         // The authored graph result independently requires session and traversal.
-        assert_eq!(validation.state, "violations");
+        assert_eq!(validation.state, ValidationState::Violations);
         assert!(validation.correction.is_some());
         for wire in [&[8, 123, 0xa0, 0x06, 9][..], &[0xa0, 0x06, 9, 8, 123][..]] {
             let (preview, validation) = compiled(
@@ -1056,7 +1070,7 @@ mod tests {
             )
             .unwrap()
             .unwrap();
-            assert_eq!(validation.state, "passed");
+            assert_eq!(validation.state, ValidationState::Passed);
             let Preview::Message {
                 fields, unknown, ..
             } = preview
@@ -1085,7 +1099,7 @@ mod tests {
             let bundle = Bundle::from_bytes("compiled".into(), bytes.to_vec()).unwrap();
             let report = inspect_bundle(&args, &bundle).unwrap();
             assert_eq!(report.representation, "generated_static");
-            assert_eq!(report.validation.state, "violations");
+            assert_eq!(report.validation.state, ValidationState::Violations);
             assert!(matches!(report.preview, Preview::Deferred));
             assert!(report.binary_payload_limits_applied);
             assert_eq!(
@@ -1111,7 +1125,7 @@ mod tests {
         let report = inspect(&args).unwrap();
         assert!(!report.binary_payload_limits_applied);
         assert_eq!(report.representation, "generated_static");
-        assert_eq!(report.validation.state, "passed");
+        assert_eq!(report.validation.state, ValidationState::Passed);
         std::fs::write(&args.input, br#"{"start":{},"cancel":{}}"#).unwrap();
         assert!(
             inspect(&args).is_err(),
@@ -1214,7 +1228,7 @@ mod tests {
         std::fs::write(&args.descriptor, set.encode_to_vec()).unwrap();
         args.message = "required_test.Payload".into();
         let report = inspect(&args).unwrap();
-        assert_eq!(report.validation.state, "not_evaluated");
+        assert_eq!(report.validation.state, ValidationState::NotEvaluated);
         assert!(
             !report.parser_diagnostics.is_empty(),
             "native partial-message warning must remain visible"
