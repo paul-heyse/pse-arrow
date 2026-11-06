@@ -830,6 +830,10 @@ retains exact IBEX/Numerica functionality, lifecycle and resource-admission choi
 retain direct occurrence-preserving canonical queries and select no additional maintained
 graph view or durable external changefeed consumer. They add no adjacency/outbox/broker;
 selected-result migration, original interpretation and coherent publication remain separate.
+The [B04 bounded consumer decision](65b-representation-validation-and-interpretation.md#b04-bounded-consumer-decision--november-6)
+keeps arbitrary acquired schemas observational and selected-world rule execution generated;
+no current consumer selects an additional dynamic validator runtime. Reopen for a named
+imported-schema operation requiring rule execution and its complete clock/scope contract.
 Full P03 journeys, selected-population migration, remaining scientific families,
 bounded capability decisions and assembled qualification remain authorized work.
 

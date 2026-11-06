@@ -228,7 +228,7 @@ are infrastructure/implementation failures, not ordinary user violations. Keep `
 and produce typed field/rule paths for F's attributed diagnostics. Public truncation must not
 manufacture a complete trusted violation account.
 
-For an approved runtime-selected schema consumer, B04 has a bounded dynamic-validation branch:
+For a future approved runtime-selected schema consumer, B04 records this conditional option:
 `prost-protovalidate::ValidatorOption::MessageDescriptors`, `AdditionalDescriptorSetBytes` and
 `DisableLazy` preload one immutable closed world. Per-call `ValidationOption::NowFn` supplies
 the operation's declared logical clock for replayable relative-time rules. `Filter`/`FailFast`
@@ -250,6 +250,45 @@ with independently specified expectations. The
 [validation reference's Edition characterization](../libraries/proto/protobuf_validation_rust.md)
 and [0.6.0 runtime source](https://docs.rs/crate/prost-protovalidate/0.6.0/source/src/)
 characterize that bounded adaptation. No compiler upgrade or dynamic fallback is implied.
+
+### B04 bounded consumer decision — November 6
+
+**Decision complete: no dynamic rule-execution branch selected for the current consumers.**
+The actual arbitrary-descriptor consumer is the host's
+[`schema::payload`](../../crates/pse-host/src/schema/payload.rs) inspector. Buffa
+`DescriptorPool`/`DynamicMessage::{from_json,decode_with_options}` supply bounded passive
+decoding, presence and unknown-field inspection. That path explicitly returns
+`acquired_dynamic` and validation `not_evaluated`: exposing descriptor rules does not execute
+them. Developer-evidence raw inspection reuses this boundary. Semantic readback instead
+requires compatible typed metadata and the exact compiled world; it does not adopt arbitrary
+schema validity as native authority.
+
+The selected validation consumers are the finite Code Intelligence and Developer Evidence
+worlds. Their generated owned/view `Validate` implementations execute the maintained lowerer's
+supported rules; exact runtime-world matching ignores only genuine source information.
+Options, imports, effective features and unknown fields remain significant. The shared
+[`pse-contract-proto` checker](../../crates/pse-contract-proto/src/check.rs) interprets selected
+typed metadata extensions, a separate responsibility from arbitrary `buf.validate`/CEL rules.
+Mechanism sources: [Buffa dynamic reflection](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs),
+[maintained validator coverage/refusal](../../vendor/protoc-gen-protovalidate-buffa/README.md)
+and [generated dispatch producer](../../xtask/src/codegen/proto_dispatch.rs).
+
+Current source inspection covers host payload/developer readback, contract checking, codegen,
+schema/xtask owners and workspace dependency declarations. It identifies no selected operation
+that consumes runtime execution of arbitrary schema rules and no runtime-validator prototype
+to delete. Retain passive dynamic reflection and generated validation; adding descriptor
+preload, runtime CEL state and clock/filter/error policy would add an unconsumed execution
+path. This is a bounded selection decision, not a capability-absence claim. Reopen B04 when a
+named imported-schema operation requires rule execution with a defined logical clock,
+enforcement scope and supported feature/rule population; apply the conditional comparison
+above then, including the complete Edition chain.
+
+Existing controls `schema_payload_proto2_required_warning_is_not_validation`,
+`schema_payload_binary_preserves_presence_unknowns_and_original`,
+`schema_payload_generated_dispatch_covers_complete_selected_families` and
+`schema_payload_generated_dispatch_extends_required_rules_and_unknown_fidelity` discriminate
+passive inspection from selected generated validation. Their next receiving run belongs to
+65h; this source-based decision makes no new test or complete B-series qualification claim.
 
 ## Allocation, encoding and lifetime
 
@@ -310,7 +349,7 @@ their common discrimination controls without pretending a codec benchmark qualif
 | B01 | in-progress | Actual selected population, 65i I01/65j J01 design products and A01/A02 semantics → executable operation policies and historical interpretation | Passive inspection now consumes request-owned input/decode admission and matched-world family policy, with complete reads, typed resource refusals and disclosed enforcement scope. Classify remaining forwarding/archive/adoption/transformation boundaries and bind presence/unknown behavior, feature/rule coverage, native interpretation and contextual admission to their actual owners. Remove implicit assumptions and duplicate policy tables; historical policy and observations must not issue current grants. |
 | B02 | in-progress | B01 policies, A03 artifacts and G02 typed world binding → faithful binary/JSON/text decode and fallible native adoption | Host generated/dynamic binary inspection shares explicit options; evidence readback composes caller/family limits; textproto output is bounded and physically settled. Runtime/source-aware forms retain SourceCodeInfo-only compiled-validator matching and strict JSON/trailing-data checks. Complete remaining engineering, worker, reference and durable adoption, exact-number/alias/unknown populations and the release-gated JSON select/narrow/retain decision. |
 | B03 | in-progress | Actual selected local-rule needs plus A02 options → complete native/generated rule parity | Independent character/UTF-8 dimensions and optional text compose through native rules, descriptors and actual owned/eager-view validators; targeted controls pass. Complete the remaining useful rule population and removal of duplicate local checks, preserving unsupported/mixed arithmetic, error masking, outgoing violations and failure categories. |
-| B04 | planned | Approved dynamic schema inspection/import consumer, B01 policy and closed descriptors → choose whether dynamic execution is warranted | Compare eager closed-world runtime validation with generated support and explicit unsupported refusal. A selected runtime must pass logical-clock, filtered/FailFast scope, unknown-constraint, initialization and retained-world controls. Check the exact compiler/normalization/generator/runtime Edition chain rather than infer support from linking. If no consumer benefits, record non-selection and remove prototype-only code; no fallback is installed. |
+| B04 | complete | Selected dynamic inspection/import and compiled validation consumers → bounded selection decision | [Current consumer decision](#b04-bounded-consumer-decision--november-6) retains passive acquired-schema inspection and exact-world generated validation; no dynamic rule runtime or prototype is selected. Reopen for a named imported-schema execution operation with defined clock/scope and complete feature/rule requirements. B01/B02/B03 and assembled receiving remain separate obligations. |
 | B05 | planned | B02/B03 and selected external protocol population → exact WKT/Any/Proto2/alias conversion contracts | Configure only actual external mappings; migrate affected ProtoJSON readers/writers together. Delete redundant JSON conversion routes. Independently test Timestamp limits/offsets, signed Duration, FieldMask intent, nonfinite Value, required/default fields and unknown enum/extension behavior. |
 | B06 | planned | Actual D/F/G selected producer paths → demand-shaped representations and bounded lifetimes | Integrate eager views/owned values/direct reflection, bounded encoding and conditional segmented output; remove superseded temporary buffers and repeated conversions. Test async retention, oversized backing slices, compression/flattening, cumulative limits and cancellation release; compare matched complete boundaries for measured claims. |
 | B07 | planned | All selected population migrated → conformance/fidelity controls and documented extension route | Add a field/alternative/rule to one boundary and show generated/adopted/readback behavior; test stale-world reuse, mutable invalidation and public omission. Remove old adapters/fixtures only with migrated consumers. Hand assembled controls to65h; do not infer science or throughput from wire conformance. |
