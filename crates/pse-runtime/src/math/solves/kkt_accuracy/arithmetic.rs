@@ -79,8 +79,30 @@ pub(super) fn original_point(
     let _program_charge = budget
         .charge(program.retained_bytes())
         .map_err(MathRuntimeError::into_problem)?;
-    let workspace = Ibex::default()
-        .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)?;
+    let ibex = Ibex::default();
+    let inventory = match ibex.point_arithmetic_inventory(&program, DerivativeOrder::Second) {
+        Ok(inventory) => inventory,
+        Err(_) => {
+            execution.check()?;
+            return Ok(PointArithmetic::Unavailable(
+                pse_model::generated::enums::AccuracyUnavailableReason::EvaluatorUncertainty,
+            ));
+        }
+    };
+    let preparation_owner = budget
+        .charge(inventory.preparation_bytes())
+        .map_err(MathRuntimeError::into_problem)?;
+    let prepared =
+        match ibex.prepare_point_arithmetic(inventory, Arc::new(preparation_owner), execution)? {
+            Ok(prepared) => prepared,
+            Err(_) => {
+                execution.check()?;
+                return Ok(PointArithmetic::Unavailable(
+                    pse_model::generated::enums::AccuracyUnavailableReason::EvaluatorUncertainty,
+                ));
+            }
+        };
+    let workspace = prepared.native_workspace_bytes();
     let _workspace_charge = budget
         .charge(workspace)
         .map_err(MathRuntimeError::into_problem)?;
@@ -119,13 +141,9 @@ pub(super) fn original_point(
     let charge = budget
         .charge(retained_bytes)
         .map_err(MathRuntimeError::into_problem)?;
-    let evidence = Ibex::default().enclose_point_arithmetic_order_with_execution(
-        &program,
-        point,
-        DerivativeOrder::Second,
-        workspace,
-        execution,
-    )?;
+    let evidence = ibex
+        .enclose_prepared_point_arithmetic_with_execution(&prepared, point, workspace, execution)?;
+    drop(prepared);
     execution.check()?;
     let (intervals, jacobian, hessian) = match evidence {
         PointArithmeticEvidence::Enclosed {

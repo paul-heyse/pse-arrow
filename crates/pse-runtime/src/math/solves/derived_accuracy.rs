@@ -316,12 +316,30 @@ impl CertifiedReconstructionPoint {
             let _program = budget
                 .charge(program.retained_bytes())
                 .map_err(MathRuntimeError::into_problem)?;
-            let bytes = match Ibex::default()
-                .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::First)
+            let ibex = Ibex::default();
+            let inventory = match ibex.point_arithmetic_inventory(&program, DerivativeOrder::First)
             {
-                Ok(bytes) if bytes <= budget.capacity().saturating_sub(budget.used()) => bytes,
-                _ => return Ok(None),
+                Ok(inventory) => inventory,
+                Err(_) => {
+                    execution.check()?;
+                    return Ok(None);
+                }
             };
+            let preparation_owner = budget
+                .charge(inventory.preparation_bytes())
+                .map_err(MathRuntimeError::into_problem)?;
+            let prepared = match ibex.prepare_point_arithmetic(
+                inventory,
+                Arc::new(preparation_owner),
+                execution,
+            )? {
+                Ok(prepared) => prepared,
+                Err(_) => {
+                    execution.check()?;
+                    return Ok(None);
+                }
+            };
+            let bytes = prepared.native_workspace_bytes();
             let _workspace = budget
                 .charge(bytes)
                 .map_err(MathRuntimeError::into_problem)?;
@@ -330,17 +348,17 @@ impl CertifiedReconstructionPoint {
                 .iter()
                 .map(|(_, _, interval)| *interval)
                 .collect::<Vec<_>>();
-            match Ibex::default().enclose_arithmetic_box_with_execution(
-                &program,
-                &region,
-                DerivativeOrder::First,
-                bytes,
-                execution,
-            )? {
+            let evidence = ibex.enclose_prepared_arithmetic_box_with_execution(
+                &prepared, &region, bytes, execution,
+            )?;
+            drop(prepared);
+            execution.check()?;
+            match evidence {
                 PointArithmeticEvidence::Enclosed { jacobian, .. } => {
                     Some((program, jacobian, _program, _workspace))
                 }
-                _ => None,
+                PointArithmeticEvidence::Interrupted { .. } => return Err(ProblemError::Cancelled),
+                PointArithmeticEvidence::Incomplete { .. } => None,
             }
         } else {
             None

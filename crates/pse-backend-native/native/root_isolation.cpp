@@ -79,6 +79,7 @@ struct Graph {
     std::unique_ptr<Function> values;
     std::unique_ptr<System> residual;
     std::unique_ptr<System> equations;
+    std::unique_ptr<Function> arithmetic_values;
     std::vector<std::unique_ptr<Function>> guard_values;
     std::unique_ptr<Function> score_value, tolerance_value;
     Graph(const PseRootRequest& r,Budget& budget,bool competitive=false,double threshold=0.0,
@@ -166,9 +167,32 @@ struct Graph {
             }
             residual=std::make_unique<System>(factory);
         }
-        SystemFactory equations_factory; equations_factory.set_simplification_level(0); equations_factory.add_var(x);
-        for(uint32_t i=0;i<output_count;++i) equations_factory.add_ctr_eq(*expr[r.residuals[i]]);
-        equations=std::make_unique<System>(equations_factory);
+        if(arithmetic_outputs) {
+            // Point arithmetic needs the shared residual function, without the
+            // independent scalar constraint functions retained by a System.
+            Arena copy_arena;
+            const auto& input=ExprSymbol::new_("arithmetic_coordinates",input_dimension);
+            copy_arena.keep(input);
+            ExprCopy copy;
+            Array<const ExprNode> outputs(static_cast<int>(output_count));
+            for(uint32_t i=0;i<output_count;++i) {
+                budget.check();
+                const auto& output=copy_arena.keep(copy.copy(Array<const ExprSymbol>(x),
+                    Array<const ExprSymbol>(input),*expr[r.residuals[i]],true));
+                outputs.set_ref(static_cast<int>(i),output);
+                budget.check();
+            }
+            const ExprNode& body=output_count==1?outputs[0]:
+                copy_arena.keep(ExprVector::new_col(outputs));
+            budget.check();
+            arithmetic_values=std::make_unique<Function>(input,body);
+            copy_arena.nodes.clear();
+            budget.check();
+        } else {
+            SystemFactory equations_factory; equations_factory.set_simplification_level(0); equations_factory.add_var(x);
+            for(uint32_t i=0;i<output_count;++i) equations_factory.add_ctr_eq(*expr[r.residuals[i]]);
+            equations=std::make_unique<System>(equations_factory);
+        }
         if(!arithmetic_outputs) {
             Array<const ExprNode> outputs(static_cast<int>(expr.size()+closure.size()));
             for(size_t i=0;i<expr.size();++i) outputs.set_ref(static_cast<int>(i),*expr[i]);
@@ -464,7 +488,7 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
             output_count==0||output_count>512||r.score>=r.node_count||r.tolerance>=r.node_count||
             !std::isfinite(r.seconds)||r.seconds<=0||order>2) return 0;
         // Dim::size() is a signed int product. Retain the conservative source/guard
-        // and covering-system envelope even though arithmetic prepares equations
+        // and covering-system envelope even though arithmetic prepares residual
         // and guard functions only. Refuse it before constructing native storage.
         const uint64_t source_rows=static_cast<uint64_t>(r.node_count)+2ULL*r.guard_count;
         const uint64_t constraint_rows=2ULL*(output_count+r.guard_count);
@@ -492,7 +516,7 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
         if(guards(r,graph,point,order!=0,false,&budget,&out->guard_evaluations)!=GuardState::Admitted)
             throw Boundary();
         budget.check();++out->value_evaluations;
-        const auto values=graph.equations->f_ctrs.eval_vector(point);budget.check();
+        const auto values=graph.arithmetic_values->eval_vector(point);budget.check();
         if(values.is_empty()||values.size()!=static_cast<int>(output_count)) throw Boundary();
         for(uint32_t i=0;i<output_count;++i) {
             budget.check();
@@ -501,7 +525,7 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
         }
         if(order!=0) {
             budget.check();++out->jacobian_evaluations;
-            const auto jacobian=graph.equations->f_ctrs.jacobian(point);budget.check();
+            const auto jacobian=graph.arithmetic_values->jacobian(point);budget.check();
             if(jacobian.is_empty()||jacobian.nb_rows()!=static_cast<int>(output_count)||
                 jacobian.nb_cols()!=static_cast<int>(r.unknown_count)) throw Boundary();
             for(uint32_t i=0;i<output_count;++i) for(uint32_t j=0;j<r.unknown_count;++j) {
@@ -516,7 +540,7 @@ extern "C" int32_t pse_ibex_point_arithmetic(const PseRootRequest* request,
             // Scalar component differential is the library-owned gradient;
             // differentiating it at the same point supplies the dense Hessian.
             budget.check();
-            const Function& component=graph.equations->f_ctrs[static_cast<int>(i)];
+            const Function& component=(*graph.arithmetic_values)[static_cast<int>(i)];
             const Function& gradient=component.diff();budget.check();
             ++out->hessian_evaluations;
             const auto hessian=gradient.jacobian(point);budget.check();

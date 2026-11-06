@@ -279,17 +279,34 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
             "original point arithmetic inventory mismatch".into(),
         ));
     }
-    let workspace = match Ibex::default()
-        .point_arithmetic_preflight(&program, pse_kernels::DerivativeOrder::First)
-    {
-        Ok(workspace) => workspace,
-        Err(refusal) => {
-            execution.check()?;
-            return Ok(PointAssessment::Unavailable(
-                ArithmeticUnavailable::Profile { refusal },
-            ));
-        }
-    };
+    let ibex = Ibex::default();
+    let inventory =
+        match ibex.point_arithmetic_inventory(&program, pse_kernels::DerivativeOrder::First) {
+            Ok(inventory) => inventory,
+            Err(refusal) => {
+                execution.check()?;
+                return Ok(PointAssessment::Unavailable(
+                    ArithmeticUnavailable::Profile { refusal },
+                ));
+            }
+        };
+    // Source occurrences and executable predicates have different populations.
+    // Reserve the bounded layout before interning guards or measuring closures;
+    // the prepared owner keeps this charge through the original native operation.
+    let preparation_owner = budget
+        .charge(inventory.preparation_bytes())
+        .map_err(MathRuntimeError::into_problem)?;
+    let prepared =
+        match ibex.prepare_point_arithmetic(inventory, Arc::new(preparation_owner), execution)? {
+            Ok(prepared) => prepared,
+            Err(refusal) => {
+                execution.check()?;
+                return Ok(PointAssessment::Unavailable(
+                    ArithmeticUnavailable::Profile { refusal },
+                ));
+            }
+        };
+    let workspace = prepared.native_workspace_bytes();
     let entries = residual
         .len()
         .checked_mul(point.len())
@@ -317,8 +334,8 @@ fn enclose_point(input: PointEnclosure<'_>) -> Result<PointAssessment, ProblemEr
     let _workspace_charge = budget
         .charge(workspace)
         .map_err(MathRuntimeError::into_problem)?;
-    let enclosure = Ibex::default()
-        .enclose_point_arithmetic_with_execution(&program, point, workspace, execution)?;
+    let enclosure = ibex
+        .enclose_prepared_point_arithmetic_with_execution(&prepared, point, workspace, execution)?;
     execution.check()?;
     let (enclosed_values, enclosed_jacobian) = match enclosure {
         PointArithmeticEvidence::Enclosed {

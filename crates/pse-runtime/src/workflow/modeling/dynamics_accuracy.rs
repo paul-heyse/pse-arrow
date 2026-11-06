@@ -1456,8 +1456,8 @@ impl ModelingSimulation {
         let projection_charge = budget
             .charge(graph_available)
             .map_err(|_| ProblemError::memory("dynamic point arithmetic projection"))?;
-        // The lease above covers point construction, projection, IBEX workspace and
-        // retained enclosures before any temporary allocation is made.
+        // The lease above covers point construction and source projection until
+        // separately charged retained owners replace it.
         let mut values = base_values.clone();
         let mut coordinate_regions = BTreeMap::new();
         let normalized_time =
@@ -1525,8 +1525,39 @@ impl ModelingSimulation {
         let owner = budget
             .charge(projection.retained_bytes())
             .map_err(|_| ProblemError::memory("dynamic point arithmetic source"))?;
-        let workspace = Ibex::default()
-            .point_arithmetic_workspace_bytes_for_order(&projection, DerivativeOrder::Value)?;
+        let mut execution = pse_backend_native::solve::Execution::within(
+            scope.cancellation_control().clone(),
+            &pse_backend_native::solve::Controls::default(),
+            scope.clone(),
+        )?;
+        if let Some(admission) = budget.admission() {
+            execution.work_admission = Some(admission.clone());
+        }
+        execution.check()?;
+        let ibex = Ibex::default();
+        let inventory = match ibex.point_arithmetic_inventory(&projection, DerivativeOrder::Value) {
+            Ok(inventory) => inventory,
+            Err(_) => {
+                execution.check()?;
+                return Ok(None);
+            }
+        };
+        let preparation_bytes = inventory.preparation_bytes();
+        let preparation_owner = budget
+            .charge(preparation_bytes)
+            .map_err(|_| ProblemError::memory("dynamic point arithmetic preparation"))?;
+        let prepared = match ibex.prepare_point_arithmetic(
+            inventory,
+            Arc::new(preparation_owner),
+            &execution,
+        )? {
+            Ok(prepared) => prepared,
+            Err(_) => {
+                execution.check()?;
+                return Ok(None);
+            }
+        };
+        let workspace = prepared.native_workspace_bytes();
         let _workspace = budget
             .charge(workspace)
             .map_err(|_| ProblemError::memory("dynamic point arithmetic workspace"))?;
@@ -1549,19 +1580,12 @@ impl ModelingSimulation {
             .map_err(|_| ProblemError::memory("dynamic point arithmetic result"))?;
         if projection
             .retained_bytes()
+            .saturating_add(preparation_bytes)
             .saturating_add(workspace)
             .saturating_add(retained)
             > graph_available
         {
             return Err(ProblemError::memory("dynamic point arithmetic reservation"));
-        }
-        let mut execution = pse_backend_native::solve::Execution::within(
-            scope.cancellation_control().clone(),
-            &pse_backend_native::solve::Controls::default(),
-            scope.clone(),
-        )?;
-        if let Some(admission) = budget.admission() {
-            execution.work_admission = Some(admission.clone());
         }
         let mut assessment_owner = FramedHasher::new(pse_ids::Frame::EngineeringGoalV1);
         assessment_owner
@@ -1573,12 +1597,13 @@ impl ModelingSimulation {
             .hash(&controls_identity(profile))
             .u64(occurrence);
         let assessment_owner = assessment_owner.finish_hash();
-        let arithmetic = Ibex::default().enclose_arithmetic_box_values_with_execution(
-            &projection,
+        let arithmetic = ibex.enclose_prepared_arithmetic_box_with_execution(
+            &prepared,
             &point_regions,
             workspace,
             &execution,
         );
+        drop(prepared);
         let actual_work = arithmetic.as_ref().ok().map(|evidence| match evidence {
             PointArithmeticEvidence::Enclosed { work, .. }
             | PointArithmeticEvidence::Incomplete { work, .. }

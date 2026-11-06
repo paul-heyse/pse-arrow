@@ -242,7 +242,23 @@ impl<D: Dispatch> StepDriver<'_, D> {
                 result.2 = self.accuracy_stopped_trace(&result.2, U::MissingObservation)?;
                 break;
             };
-            let refined = match step.refine_coordinate_accuracy(&goals, point) {
+            let seed_bytes = point
+                .len()
+                .checked_mul(size_of::<f64>())
+                .and_then(|n| n.checked_add(size_of::<pse_backend_native::solve::WarmStart>()))
+                .and_then(|n| {
+                    n.checked_add(size_of::<
+                        pse_columnar::Leased<pse_backend_native::solve::WarmStart>,
+                    >())
+                })
+                .and_then(|n| n.checked_add(4 * size_of::<usize>()))
+                .ok_or_else(|| ProblemError::memory("accuracy correction seed extent"))?;
+            let seed_owner = self.dispatcher.reserve(
+                &self.service,
+                "math:accuracy-correction-seed",
+                seed_bytes,
+            )?;
+            let refined = match step.refine_coordinate_accuracy(&goals, point, seed_owner) {
                 Ok(Some(refined)) => {
                     refined.within_admitted_task(scope.clone(), admission.clone())?
                 }

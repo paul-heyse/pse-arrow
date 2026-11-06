@@ -580,8 +580,30 @@ fn arithmetic_guard_ceiling(
     program.nodes.iter().try_fold(guards, |n, node| {
         n.checked_add(match node {
             Node::Log(_) => 1,
-            Node::Pow { exponent, .. } if exponent.value() == 0.5 => 2,
-            Node::Pow { exponent, .. } if exponent.value() < 0.0 => 1,
+            Node::Pow {
+                exponent: Constant::Rational(value),
+                ..
+            } => {
+                // Borrowed sign/integrality tests avoid the multiprecision
+                // conversion allocations of Rational::to_f64 before admission.
+                // Positive fractions conservatively include the square-root pair;
+                // encoding later admits only supported exact exponents.
+                if value.is_negative() {
+                    1
+                } else if value.is_integer() {
+                    0
+                } else {
+                    2
+                }
+            }
+            Node::Pow {
+                exponent: Constant::Float(value),
+                ..
+            } if *value == 0.5 => 2,
+            Node::Pow {
+                exponent: Constant::Float(value),
+                ..
+            } if *value < 0.0 => 1,
             _ => 0,
         })
     })
@@ -624,12 +646,7 @@ fn obligation(
     chart_only: bool,
     guards: &mut Vec<NativeGuard>,
 ) -> Result<(), SelectionProofRefusal> {
-    if !value.represented
-        || value.fidelity != Fidelity::Exact
-        || value.scope != ObligationScope::Unconditional
-    {
-        return Err(SelectionProofRefusal::Unsupported);
-    }
+    validate_obligation(value)?;
     for value in &value.constraints {
         guards.push(constraint(value, chart_only, true)?);
     }
@@ -650,6 +667,18 @@ fn obligation(
     }
     Ok(())
 }
+fn validate_obligation(value: &ProjectedObligation) -> Result<(), SelectionProofRefusal> {
+    if !value.represented
+        || value.fidelity != Fidelity::Exact
+        || value.scope != ObligationScope::Unconditional
+    {
+        return Err(SelectionProofRefusal::Unsupported);
+    }
+    if matches!(value.kind, ObligationKind::Require(_)) && value.argument.is_none() {
+        return Err(SelectionProofRefusal::Unsupported);
+    }
+    Ok(())
+}
 #[derive(Debug)]
 struct Transport {
     nodes: Vec<NativeNode>,
@@ -659,17 +688,54 @@ struct Transport {
 }
 /// Frozen source projection and coordinate region consumed by one arithmetic operation.
 struct ArithmeticRequest<'a> {
-    program: &'a PointArithmeticProgram,
+    prepared: &'a PreparedArithmetic<'a>,
     lower: &'a [f64],
     upper: &'a [f64],
-    order: DerivativeOrder,
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct SourceInventory {
     extent: usize,
     identity_scratch: usize,
     edges: usize,
     guards: usize,
+}
+/// Allocation-free, borrowed inventory. Charge `preparation_bytes` before preparing it.
+#[derive(Debug)]
+pub struct ArithmeticInventory<'a> {
+    program: &'a PointArithmeticProgram,
+    order: DerivativeOrder,
+    source: SourceInventory,
+}
+impl ArithmeticInventory<'_> {
+    /// Conservative extent for the transport and all preparation scratch, including
+    /// the bounded guard set and root-closure marks. This is separate from native work.
+    pub fn preparation_bytes(&self) -> usize {
+        self.source.extent
+    }
+}
+/// One validated transport and its native workspace extent, borrowing its source.
+/// Source occurrences and source identity are never rewritten by preparation.
+#[derive(Debug)]
+pub struct PreparedArithmetic<'a> {
+    program: &'a PointArithmeticProgram,
+    order: DerivativeOrder,
+    transport: Result<Transport, SelectionProofRefusal>,
+    native_workspace: usize,
+    _preparation_owner: Option<Arc<dyn pse_math::AllocationOwner>>,
+}
+impl PreparedArithmetic<'_> {
+    /// Charge this extent separately after preparing the source and before execution.
+    pub fn native_workspace_bytes(&self) -> usize {
+        self.native_workspace
+    }
+}
+#[derive(Clone, Copy, Default, Debug)]
+struct ArithmeticClosures {
+    residual_union: usize,
+    residual_sum: usize,
+    guard_sum: usize,
+    max_residual: usize,
+    max_guard: usize,
 }
 #[derive(Clone, Copy)]
 enum DimensionProfile {
@@ -753,7 +819,11 @@ fn source_inventory_for_profile(
             program.residuals.len(),
             MAX_ARITHMETIC_OUTPUTS,
         ),
-        ("eligibility_guards", program.eligibility.len(), MAX_GUARDS),
+        (
+            "eligibility_guards",
+            program.eligibility.len(),
+            obligation_limit,
+        ),
         ("obligations", program.obligations.len(), obligation_limit),
         (
             "derivative_obligations",
@@ -808,20 +878,17 @@ fn source_inventory_for_profile(
                 .and_then(|n| n.checked_add(usize::from(value.argument.is_some()))),
         )?;
     }
-    maximum("source_guards", source_guards, MAX_GUARDS)?;
+    let source_guard_limit = match profile {
+        DimensionProfile::Search => MAX_GUARDS,
+        DimensionProfile::Arithmetic => MAX_EDGES,
+    };
+    maximum("source_guards", source_guards, source_guard_limit)?;
     let guards = extent(
         "arithmetic_guards",
         arithmetic_guard_ceiling(program, order),
     )?;
-    maximum("arithmetic_guards", guards, MAX_GUARDS)?;
-    if matches!(profile, DimensionProfile::Arithmetic) {
-        arithmetic_native_dimensions(
-            program.inputs,
-            program.nodes.len(),
-            guards,
-            program.residuals.len(),
-            order,
-        )?;
+    if matches!(profile, DimensionProfile::Search) {
+        maximum("arithmetic_guards", guards, MAX_GUARDS)?;
     }
     let transport_extent = extent(
         "transport_bytes",
@@ -832,6 +899,7 @@ fn source_inventory_for_profile(
             .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
             .and_then(|n| n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?))
             .and_then(|n| n.checked_add(program.residuals.len().checked_mul(size_of::<u32>())?))
+            .and_then(|n| n.checked_add(program.nodes.len().checked_mul(4 * size_of::<usize>())?))
             .and_then(|n| n.checked_add(size_of::<Transport>() + 4096)),
     )?;
     // Decimal digits never exceed binary significant bits plus a sign and a zero
@@ -869,21 +937,33 @@ fn encode_for_profile(
     order: DerivativeOrder,
     profile: DimensionProfile,
 ) -> Result<Transport, SelectionProofRefusal> {
-    source_inventory_for_profile(program, order, profile)
+    let inventory = source_inventory_for_profile(program, order, profile)
         .map_err(|_| SelectionProofRefusal::Resource)?;
+    encode_inventory(program, order, profile, inventory, None)
+}
+fn encode_inventory(
+    program: &RootIsolationProgram,
+    order: DerivativeOrder,
+    profile: DimensionProfile,
+    inventory: SourceInventory,
+    execution: Option<&crate::solve::Execution>,
+) -> Result<Transport, SelectionProofRefusal> {
     let mut transport = Transport {
         nodes: Vec::with_capacity(program.nodes.len()),
-        edges: Vec::new(),
+        edges: Vec::with_capacity(inventory.edges),
         residuals: program
             .residuals
             .iter()
             .copied()
             .map(index)
             .collect::<Result<_, _>>()?,
-        guards: Vec::new(),
+        guards: Vec::with_capacity(inventory.guards),
     };
     let mut depths: Vec<usize> = Vec::with_capacity(program.nodes.len());
     for (ordinal, node) in program.nodes.iter().enumerate() {
+        if ordinal % 256 == 0 && execution.is_some_and(|e| e.stopped().is_some()) {
+            return Err(SelectionProofRefusal::Resource);
+        }
         let child = |value: usize| {
             if value >= ordinal {
                 Err(SelectionProofRefusal::Unsupported)
@@ -1000,15 +1080,23 @@ fn encode_for_profile(
     for value in &program.eligibility {
         transport.guards.push(constraint(value, false, false)?);
     }
-    for value in &program.obligations {
+    for (ordinal, value) in program.obligations.iter().enumerate() {
+        if ordinal % 256 == 0 && execution.is_some_and(|e| e.stopped().is_some()) {
+            return Err(SelectionProofRefusal::Resource);
+        }
         obligation(value, false, &mut transport.guards)?;
     }
-    for (minimum, value) in &program.derivative_obligations {
+    for (ordinal, (minimum, value)) in program.derivative_obligations.iter().enumerate() {
+        if ordinal % 256 == 0 && execution.is_some_and(|e| e.stopped().is_some()) {
+            return Err(SelectionProofRefusal::Resource);
+        }
         if *minimum <= order {
             obligation(value, true, &mut transport.guards)?;
         }
     }
-    if transport.edges.len() > MAX_EDGES || transport.guards.len() > MAX_GUARDS {
+    if transport.edges.len() > MAX_EDGES
+        || (matches!(profile, DimensionProfile::Search) && transport.guards.len() > MAX_GUARDS)
+    {
         return Err(SelectionProofRefusal::Resource);
     }
     if program
@@ -1030,6 +1118,11 @@ fn encode_for_profile(
     // Native guard functions need only one copy of an identical predicate and scope.
     let mut guards = std::collections::BTreeSet::new();
     transport.guards.retain(|guard| {
+        // A sentinel proves that the unique population exceeds the execution cap.
+        // Every source occurrence has already been checked before reaching this set.
+        if guards.len() > MAX_GUARDS {
+            return false;
+        }
         guards.insert((
             guard.node,
             guard.kind,
@@ -1040,6 +1133,370 @@ fn encode_for_profile(
         ))
     });
     Ok(transport)
+}
+fn validate_arithmetic_source(
+    program: &RootIsolationProgram,
+    execution: Option<&crate::solve::Execution>,
+) -> Result<(), crate::ProblemError> {
+    let invalid = || MathError::Contract("IBEX arithmetic source node or predicate".into());
+    let node_count = program.nodes.len();
+    for (ordinal, node) in program.nodes.iter().enumerate() {
+        if ordinal % 256 == 0 {
+            if let Some(execution) = execution {
+                execution.check()?;
+            }
+        }
+        let valid = match node {
+            Node::Var(input) => *input < program.inputs,
+            Node::Const(_) | Node::Aux(_) => true,
+            Node::Sum(children) | Node::Product(children) => {
+                children.iter().all(|id| *id < ordinal)
+            }
+            Node::Pow { base, .. } => *base < ordinal,
+            Node::Exp(id) | Node::Log(id) | Node::Sin(id) | Node::Cos(id) | Node::Abs(id) => {
+                *id < ordinal
+            }
+        };
+        if !valid {
+            return Err(invalid().into());
+        }
+    }
+    if program
+        .residuals
+        .iter()
+        .chain(&program.criterion)
+        .any(|id| *id >= node_count)
+    {
+        return Err(invalid().into());
+    }
+    let valid_constraint = |value: &Constraint| {
+        value.expression < node_count
+            && !value.lower.is_nan()
+            && !value.upper.is_nan()
+            && value.lower <= value.upper
+    };
+    if program
+        .eligibility
+        .iter()
+        .any(|value| !valid_constraint(value))
+    {
+        return Err(invalid().into());
+    }
+    for (ordinal, value) in program
+        .obligations
+        .iter()
+        .chain(
+            program
+                .derivative_obligations
+                .iter()
+                .map(|(_, value)| value),
+        )
+        .enumerate()
+    {
+        if ordinal % 256 == 0 {
+            if let Some(execution) = execution {
+                execution.check()?;
+            }
+        }
+        if value.argument.is_some_and(|id| id >= node_count)
+            || value
+                .constraints
+                .iter()
+                .any(|constraint| !valid_constraint(constraint))
+        {
+            return Err(invalid().into());
+        }
+    }
+    Ok(())
+}
+enum ArithmeticClosureError {
+    Profile(ArithmeticProfileRefusal),
+    Execution(crate::ProblemError),
+}
+impl From<ArithmeticProfileRefusal> for ArithmeticClosureError {
+    fn from(value: ArithmeticProfileRefusal) -> Self {
+        Self::Profile(value)
+    }
+}
+impl From<crate::ProblemError> for ArithmeticClosureError {
+    fn from(value: crate::ProblemError) -> Self {
+        Self::Execution(value)
+    }
+}
+fn arithmetic_closures(
+    transport: &Transport,
+    order: DerivativeOrder,
+    execution: Option<&crate::solve::Execution>,
+) -> Result<ArithmeticClosures, ArithmeticClosureError> {
+    // Reverse topological reachability needs one mark per source node, without a
+    // recursive stack or a width-by-node table. N-ary nodes account for their
+    // expanded binary operators conservatively using their complete edge count.
+    let mut marks = vec![false; transport.nodes.len()];
+    let mut union = vec![false; transport.nodes.len()];
+    let extent = |metric, value| profile_extent(order, "arithmetic_preparation", metric, value);
+    let closure = |root: u32, marks: &mut [bool]| {
+        marks.fill(false);
+        marks[root as usize] = true;
+        for id in (0..=root as usize).rev() {
+            if !marks[id] {
+                continue;
+            }
+            let node = &transport.nodes[id];
+            match node.op {
+                2 | 3 => {
+                    for child in
+                        &transport.edges[node.begin as usize..(node.begin + node.count) as usize]
+                    {
+                        marks[*child as usize] = true;
+                    }
+                }
+                4..=10 => marks[node.a as usize] = true,
+                _ => {}
+            }
+        }
+        extent(
+            "root_closure",
+            marks
+                .iter()
+                .zip(&transport.nodes)
+                .filter(|(marked, _)| **marked)
+                .try_fold(0usize, |total, (_, node)| {
+                    total
+                        .checked_add(1)?
+                        .checked_add(if matches!(node.op, 2 | 3) {
+                            node.count as usize
+                        } else {
+                            0
+                        })
+                }),
+        )
+    };
+    let mut metrics = ArithmeticClosures::default();
+    for root in &transport.residuals {
+        if let Some(execution) = execution {
+            execution.check()?;
+        }
+        let count = closure(*root, &mut marks)?;
+        metrics.residual_sum =
+            extent("residual_closures", metrics.residual_sum.checked_add(count))?;
+        metrics.max_residual = metrics.max_residual.max(count);
+        for (all, marked) in union.iter_mut().zip(&marks) {
+            *all |= marked;
+        }
+    }
+    metrics.residual_union = extent(
+        "residual_union",
+        union
+            .iter()
+            .zip(&transport.nodes)
+            .filter(|(marked, _)| **marked)
+            .try_fold(0usize, |total, (_, node)| {
+                total
+                    .checked_add(1)?
+                    .checked_add(if matches!(node.op, 2 | 3) {
+                        node.count as usize
+                    } else {
+                        0
+                    })
+            }),
+    )?;
+    for guard in &transport.guards {
+        if let Some(execution) = execution {
+            execution.check()?;
+        }
+        let count = closure(guard.node, &mut marks)?;
+        metrics.guard_sum = extent("guard_closures", metrics.guard_sum.checked_add(count))?;
+        metrics.max_guard = metrics.max_guard.max(count);
+    }
+    Ok(metrics)
+}
+fn arithmetic_workspace(
+    program: &PointArithmeticProgram,
+    order: DerivativeOrder,
+    inventory: SourceInventory,
+    guards: usize,
+    closures: ArithmeticClosures,
+) -> Result<usize, ArithmeticProfileRefusal> {
+    let graph = &program.graph;
+    let edges = inventory.edges;
+    let outputs = graph.residuals.len();
+    let width = graph.inputs;
+    profile_nonzero(order, "arithmetic_profile", "residual_outputs", outputs)?;
+    let extent = |metric, value| profile_extent(order, "arithmetic_workspace", metric, value);
+    let hessian_entries = if order == DerivativeOrder::Second {
+        for (metric, observed, limit) in [
+            ("inputs", width, MAX_SECOND_INPUTS),
+            ("residual_outputs", outputs, MAX_SECOND_OUTPUTS),
+        ] {
+            profile_maximum(
+                order,
+                "second_profile",
+                metric,
+                observed as u128,
+                limit as u128,
+            )?;
+        }
+        let entries = extent(
+            "hessian_entries",
+            outputs
+                .checked_mul(width)
+                .and_then(|n| n.checked_mul(width)),
+        )?;
+        profile_maximum(
+            order,
+            "second_profile",
+            "hessian_entries",
+            entries as u128,
+            MAX_HESSIAN_ENTRIES as u128,
+        )?;
+        entries
+    } else {
+        0
+    };
+    let derivative_width = extent(
+        "derivative_width",
+        if order == DerivativeOrder::Second {
+            width
+                .checked_mul(width)
+                .and_then(|n| n.checked_add(width))
+                .and_then(|n| n.checked_add(1))
+        } else if order == DerivativeOrder::First {
+            width.checked_add(1)
+        } else {
+            Some(1)
+        },
+    )?;
+    let native_nodes = extent(
+        "native_nodes",
+        graph
+            .nodes
+            .len()
+            .checked_add(edges)
+            .and_then(|n| n.checked_add(guards.checked_mul(4)?)),
+    )?;
+    // IBEX 2.9.1 ExprLinearity::build_zero/visit(ExprSymbol) constructs
+    // (width + 1) width-wide coefficient Domains for the vector input,
+    // independently of the number of used Var nodes. Every Function
+    // eagerly constructs Gradient, including Value-only consumers
+    // (ibex_FunctionBuild.cpp, ibex_Gradient.cpp). Include that transient
+    // quadratic scalar coefficient population using the same opaque per-domain
+    // allowance as the existing DAG estimate;
+    // this is an admission estimate, not an established whole-process RSS bound.
+    let opaque_domain_bytes = 1024;
+    let input_coefficient_entries = extent(
+        "input_coefficient_entries",
+        width.checked_add(1).and_then(|n| n.checked_mul(width)),
+    )?;
+    let input_coefficient_bytes = extent(
+        "input_coefficient_bytes",
+        input_coefficient_entries.checked_mul(opaque_domain_bytes),
+    )?;
+    let native = if order == DerivativeOrder::Second {
+        // Second lazily retains differentiated components and derivative
+        // Functions; retain its existing conservative Cartesian allowance.
+        extent(
+            "native_bytes",
+            native_nodes
+                .checked_mul(derivative_width)
+                .and_then(|n| n.checked_mul(outputs.checked_add(guards)?.checked_add(4)?))
+                .and_then(|n| n.checked_mul(opaque_domain_bytes)),
+        )?
+    } else {
+        // IBEX 2.9.1 SystemFactory.add_ctr owns scalar residual Functions in
+        // addition to the shared f_ctrs aggregate. Each Function constructs
+        // Eval.d, Gradient.g and InHC4Revise.p_eval.d Domain banks. Domains
+        // follow expression shape: scalar nodes have scalar banks; the input
+        // vector has width entries. Function coefficients persist, whereas
+        // ExprLinearity's node coefficients and vector-input W^2 scratch are
+        // freed at each sequential Function constructor's return.
+        let persistent = extent(
+            "persistent_domains",
+            graph
+                .nodes
+                .len()
+                .checked_add(edges)
+                .and_then(|n| n.checked_add(closures.residual_union))
+                .and_then(|n| n.checked_add(closures.residual_sum))
+                .and_then(|n| n.checked_add(closures.guard_sum))
+                .and_then(|n| {
+                    n.checked_add(
+                        outputs
+                            .checked_add(guards)?
+                            .checked_add(2)?
+                            .checked_mul(width)?,
+                    )
+                })
+                .and_then(|n| n.checked_add(outputs))
+                .and_then(|n| n.checked_mul(3)),
+        )?;
+        let coefficients = extent(
+            "coefficient_domains",
+            outputs
+                .checked_mul(2)
+                .and_then(|n| n.checked_add(guards))
+                .and_then(|n| n.checked_mul(width.checked_add(1)?)),
+        )?;
+        let temporary = extent(
+            "temporary_domains",
+            closures
+                .residual_union
+                .checked_add(width)
+                .and_then(|n| n.checked_add(outputs))
+                .and_then(|n| {
+                    Some(
+                        n.max(closures.max_residual.checked_add(width)?.checked_add(1)?)
+                            .max(closures.max_guard.checked_add(width)?.checked_add(1)?),
+                    )
+                })
+                .and_then(|n| n.checked_mul(width.checked_add(1)?)),
+        )?;
+        let agenda = extent(
+            "aggregate_agenda_bytes",
+            outputs
+                .checked_mul(4)
+                .and_then(|n| n.checked_mul(closures.residual_union.checked_add(1)?))
+                .and_then(|n| n.checked_mul(size_of::<i32>())),
+        )?;
+        extent(
+            "native_bytes",
+            persistent
+                .checked_add(coefficients)
+                .and_then(|n| n.checked_add(temporary))
+                .and_then(|n| n.checked_mul(opaque_domain_bytes))
+                .and_then(|n| n.checked_add(agenda)),
+        )?
+    };
+    let transport = extent(
+        "transport_bytes",
+        width
+            .checked_mul(2 * size_of::<f64>())
+            .and_then(|n| {
+                n.checked_add(
+                    graph
+                        .nodes
+                        .len()
+                        .checked_mul(size_of::<NativeNode>() + size_of::<usize>())?,
+                )
+            })
+            .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
+            .and_then(|n| n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?))
+            .and_then(|n| n.checked_add(outputs.checked_mul(size_of::<u32>())?))
+            .and_then(|n| {
+                n.checked_add(
+                    outputs
+                        .checked_mul(width.checked_add(1)?)?
+                        .checked_add(hessian_entries)?
+                        .checked_mul(64)?,
+                )
+            }),
+    )?;
+    extent(
+        "workspace_bytes",
+        native
+            .checked_add(input_coefficient_bytes)
+            .and_then(|n| n.checked_add(transport))
+            .and_then(|n| n.checked_add(1024 * 1024)),
+    )
 }
 impl Ibex {
     /// A provider-owned, separately charged current-selection Rust transport bundle. Native
@@ -1306,122 +1763,159 @@ impl Ibex {
         program: &PointArithmeticProgram,
         order: DerivativeOrder,
     ) -> Result<usize, ArithmeticProfileRefusal> {
+        let inventory = self.point_arithmetic_inventory(program, order)?;
         let graph = &program.graph;
-        let inventory = source_inventory_for_profile(graph, order, DimensionProfile::Arithmetic)?;
-        let edges = inventory.edges;
-        let guards = inventory.guards;
-        let outputs = graph.residuals.len();
-        let width = graph.inputs;
-        profile_nonzero(order, "arithmetic_profile", "residual_outputs", outputs)?;
-        let extent = |metric, value| profile_extent(order, "arithmetic_workspace", metric, value);
-        let hessian_entries = if order == DerivativeOrder::Second {
-            for (metric, observed, limit) in [
-                ("inputs", width, MAX_SECOND_INPUTS),
-                ("residual_outputs", outputs, MAX_SECOND_OUTPUTS),
-            ] {
-                profile_maximum(
-                    order,
-                    "second_profile",
-                    metric,
-                    observed as u128,
-                    limit as u128,
-                )?;
-            }
-            let entries = extent(
-                "hessian_entries",
-                outputs
-                    .checked_mul(width)
-                    .and_then(|n| n.checked_mul(width)),
-            )?;
-            profile_maximum(
+        let expanded = profile_extent(
+            order,
+            "arithmetic_workspace",
+            "native_nodes",
+            graph.nodes.len().checked_add(inventory.source.edges),
+        )?;
+        let guards = inventory.source.guards.min(MAX_GUARDS);
+        let closures = ArithmeticClosures {
+            residual_union: expanded,
+            residual_sum: profile_extent(
                 order,
-                "second_profile",
-                "hessian_entries",
-                entries as u128,
-                MAX_HESSIAN_ENTRIES as u128,
-            )?;
-            entries
+                "arithmetic_workspace",
+                "residual_closures",
+                expanded.checked_mul(graph.residuals.len()),
+            )?,
+            guard_sum: profile_extent(
+                order,
+                "arithmetic_workspace",
+                "guard_closures",
+                expanded.checked_mul(guards),
+            )?,
+            max_residual: expanded,
+            max_guard: expanded,
+        };
+        let native = arithmetic_workspace(program, order, inventory.source, guards, closures)?;
+        profile_extent(
+            order,
+            "arithmetic_workspace",
+            "workspace_bytes",
+            native.checked_add(inventory.preparation_bytes()),
+        )
+    }
+
+    /// Inventory the complete source without allocation, hashing or native work.
+    /// # Errors
+    /// Exact finite source, Second-order or native integer profile refusal.
+    pub fn point_arithmetic_inventory<'a>(
+        &self,
+        program: &'a PointArithmeticProgram,
+        order: DerivativeOrder,
+    ) -> Result<ArithmeticInventory<'a>, ArithmeticProfileRefusal> {
+        let mut source =
+            source_inventory_for_profile(&program.graph, order, DimensionProfile::Arithmetic)?;
+        // Exact rational conversion during encoding also needs bounded limb and
+        // conversion scratch; source transport capacity alone does not cover it.
+        source.extent = profile_extent(
+            order,
+            "arithmetic_preparation",
+            "preparation_bytes",
+            source.extent.checked_add(source.identity_scratch),
+        )?;
+        profile_nonzero(
+            order,
+            "arithmetic_profile",
+            "residual_outputs",
+            program.graph.residuals.len(),
+        )?;
+        // The native ABI's conservative row envelope remains in force. Actual
+        // unique guards are checked again after preparation.
+        arithmetic_native_dimensions(
+            program.graph.inputs,
+            program.graph.nodes.len(),
+            source.guards.min(MAX_GUARDS),
+            program.graph.residuals.len(),
+            order,
+        )?;
+        // Check input coefficient and Second extents before any preparation allocation.
+        arithmetic_workspace(program, order, source, 0, ArithmeticClosures::default())?;
+        Ok(ArithmeticInventory {
+            program,
+            order,
+            source,
+        })
+    }
+
+    /// Prepare exactly one immutable executable layout under its caller-owned charge.
+    /// Profile refusals remain optional producer observations; execution and source
+    /// contract failures retain their original hard error boundary.
+    /// # Errors
+    /// Cancellation, deadline, or malformed source contract.
+    pub fn prepare_point_arithmetic<'a>(
+        &self,
+        inventory: ArithmeticInventory<'a>,
+        preparation_owner: Arc<dyn pse_math::AllocationOwner>,
+        execution: &crate::solve::Execution,
+    ) -> Result<Result<PreparedArithmetic<'a>, ArithmeticProfileRefusal>, crate::ProblemError> {
+        execution.check()?;
+        self.prepare_arithmetic(inventory, Some(preparation_owner), Some(execution))
+    }
+
+    fn prepare_arithmetic<'a>(
+        &self,
+        inventory: ArithmeticInventory<'a>,
+        preparation_owner: Option<Arc<dyn pse_math::AllocationOwner>>,
+        execution: Option<&crate::solve::Execution>,
+    ) -> Result<Result<PreparedArithmetic<'a>, ArithmeticProfileRefusal>, crate::ProblemError> {
+        let ArithmeticInventory {
+            program,
+            order,
+            source,
+        } = inventory;
+        validate_arithmetic_source(&program.graph, execution)?;
+        let transport = encode_inventory(
+            &program.graph,
+            order,
+            DimensionProfile::Arithmetic,
+            source,
+            execution,
+        );
+        if let Some(execution) = execution {
+            execution.check()?;
+        }
+        let native_workspace = if let Ok(transport) = &transport {
+            let guards = transport.guards.len();
+            if let Err(refusal) = profile_maximum(
+                order,
+                "arithmetic_preparation",
+                "unique_guards",
+                guards as u128,
+                MAX_GUARDS as u128,
+            ) {
+                return Ok(Err(refusal));
+            }
+            if let Err(refusal) = arithmetic_native_dimensions(
+                program.graph.inputs,
+                program.graph.nodes.len(),
+                guards,
+                program.graph.residuals.len(),
+                order,
+            ) {
+                return Ok(Err(refusal));
+            }
+            let closures = match arithmetic_closures(transport, order, execution) {
+                Ok(closures) => closures,
+                Err(ArithmeticClosureError::Profile(refusal)) => return Ok(Err(refusal)),
+                Err(ArithmeticClosureError::Execution(error)) => return Err(error),
+            };
+            match arithmetic_workspace(program, order, source, guards, closures) {
+                Ok(bytes) => bytes,
+                Err(refusal) => return Ok(Err(refusal)),
+            }
         } else {
             0
         };
-        let derivative_width = extent(
-            "derivative_width",
-            if order == DerivativeOrder::Second {
-                width
-                    .checked_mul(width)
-                    .and_then(|n| n.checked_add(width))
-                    .and_then(|n| n.checked_add(1))
-            } else if order == DerivativeOrder::First {
-                width.checked_add(1)
-            } else {
-                Some(1)
-            },
-        )?;
-        let native_nodes = extent(
-            "native_nodes",
-            graph
-                .nodes
-                .len()
-                .checked_add(edges)
-                .and_then(|n| n.checked_add(guards.checked_mul(4)?)),
-        )?;
-        // IBEX 2.9.1 ExprLinearity::build_zero/visit(ExprSymbol) constructs
-        // (width + 1) width-wide coefficient Domains for the vector input,
-        // independently of the number of used Var nodes. Every Function
-        // eagerly constructs Gradient, including Value-only consumers
-        // (ibex_FunctionBuild.cpp, ibex_Gradient.cpp). Include that transient
-        // quadratic scalar coefficient population using the same opaque per-domain
-        // allowance as the existing DAG estimate;
-        // this is an admission estimate, not an established whole-process RSS bound.
-        let opaque_domain_bytes = 1024;
-        let input_coefficient_entries = extent(
-            "input_coefficient_entries",
-            width.checked_add(1).and_then(|n| n.checked_mul(width)),
-        )?;
-        let input_coefficient_bytes = extent(
-            "input_coefficient_bytes",
-            input_coefficient_entries.checked_mul(opaque_domain_bytes),
-        )?;
-        let native = extent(
-            "native_bytes",
-            native_nodes
-                .checked_mul(derivative_width)
-                .and_then(|n| n.checked_mul(outputs.checked_add(guards)?.checked_add(4)?))
-                .and_then(|n| n.checked_mul(opaque_domain_bytes)),
-        )?;
-        let transport = extent(
-            "transport_bytes",
-            width
-                .checked_mul(2 * size_of::<f64>())
-                .and_then(|n| {
-                    n.checked_add(
-                        graph
-                            .nodes
-                            .len()
-                            .checked_mul(size_of::<NativeNode>() + size_of::<usize>())?,
-                    )
-                })
-                .and_then(|n| n.checked_add(edges.checked_mul(2 * size_of::<u32>())?))
-                .and_then(|n| {
-                    n.checked_add(guards.checked_mul(4 * size_of::<NativeGuard>() + 128)?)
-                })
-                .and_then(|n| n.checked_add(outputs.checked_mul(size_of::<u32>())?))
-                .and_then(|n| {
-                    n.checked_add(
-                        outputs
-                            .checked_mul(width.checked_add(1)?)?
-                            .checked_add(hessian_entries)?
-                            .checked_mul(64)?,
-                    )
-                }),
-        )?;
-        extent(
-            "workspace_bytes",
-            native
-                .checked_add(input_coefficient_bytes)
-                .and_then(|n| n.checked_add(transport))
-                .and_then(|n| n.checked_add(1024 * 1024)),
-        )
+        Ok(Ok(PreparedArithmetic {
+            program,
+            order,
+            transport,
+            native_workspace,
+            _preparation_owner: preparation_owner,
+        }))
     }
 
     /// Enclose all projected original row residuals and First entries at a finite
@@ -1438,22 +1932,56 @@ impl Ibex {
         cancel: &pse_diagnostics::Cancellation,
         max_workspace_bytes: usize,
     ) -> Result<PointArithmeticEvidence, MathError> {
+        let started = Instant::now();
+        let empty = || PointArithmeticEvidence::Incomplete {
+            reason: SelectionProofRefusal::Resource,
+            work: PointArithmeticWork::default(),
+        };
+        if cancel.load(Ordering::Acquire) {
+            return Ok(PointArithmeticEvidence::Interrupted {
+                work: PointArithmeticWork::default(),
+            });
+        }
+        let order = DerivativeOrder::First;
+        if time_limit.is_zero()
+            || self
+                .point_arithmetic_preflight(program, order)
+                .map_or(true, |bytes| bytes > max_workspace_bytes)
+        {
+            return Ok(empty());
+        }
+        let inventory = match self.point_arithmetic_inventory(program, order) {
+            Ok(inventory) => inventory,
+            Err(_) => return Ok(empty()),
+        };
+        let hard = |error| match error {
+            crate::ProblemError::Math(error) => error,
+            other => MathError::Library(other.to_string()),
+        };
+        let prepared = match self
+            .prepare_arithmetic(inventory, None, None)
+            .map_err(hard)?
+        {
+            Ok(prepared) => prepared,
+            Err(_) => return Ok(empty()),
+        };
         self.point_arithmetic_core(
             ArithmeticRequest {
-                program,
+                prepared: &prepared,
                 lower: point,
                 upper: point,
-                order: DerivativeOrder::First,
             },
-            time_limit,
+            time_limit.saturating_sub(started.elapsed()),
             cancel,
             max_workspace_bytes,
             None,
+            &std::cell::Cell::new(false),
         )
+        .map_err(hard)
     }
 
-    /// Reserve the bounded native call ceiling before encoding, then reconcile the
-    /// actual calls on every returned enclosure/refusal/interruption. Unreceipted
+    /// Prepare one bounded layout, reserve its actual unique native call ceiling,
+    /// then reconcile attempted calls on every enclosure/refusal/interruption. Unreceipted
     /// failure leaves the evaluation counter unknown; no estimate becomes an observation.
     /// The original Execution owns cancellation, abandonment and absolute deadline.
     /// # Errors
@@ -1495,6 +2023,75 @@ impl Ibex {
         }
         self.arithmetic_with_execution(program, point, point, order, max_workspace_bytes, execution)
     }
+    /// Enclose a finite original point with the already admitted immutable layout.
+    /// # Errors
+    /// Invalid coordinates, execution stop, work admission or native transport failure.
+    pub fn enclose_prepared_point_arithmetic_with_execution(
+        &self,
+        prepared: &PreparedArithmetic<'_>,
+        point: &[f64],
+        max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        execution.check()?;
+        if prepared.order == DerivativeOrder::Value {
+            return Ok(PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Unsupported,
+                work: PointArithmeticWork::default(),
+            });
+        }
+        self.prepared_arithmetic_with_execution(
+            prepared,
+            point,
+            point,
+            max_workspace_bytes,
+            execution,
+        )
+    }
+    /// Enclose a coordinate box using the same prepared layout and native byte charge.
+    /// # Errors
+    /// Invalid coordinates, execution stop, work admission or native transport failure.
+    pub fn enclose_prepared_arithmetic_box_with_execution(
+        &self,
+        prepared: &PreparedArithmetic<'_>,
+        region: &[ProofInterval],
+        max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        execution.check()?;
+        if prepared.order == DerivativeOrder::Second {
+            return Ok(PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Unsupported,
+                work: PointArithmeticWork::default(),
+            });
+        }
+        if region.len() != prepared.program.graph.inputs
+            || region.iter().any(|interval| !interval.valid())
+        {
+            return Err(MathError::Contract("IBEX arithmetic box coordinates".into()).into());
+        }
+        if prepared.native_workspace > max_workspace_bytes {
+            return Ok(PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                work: PointArithmeticWork::default(),
+            });
+        }
+        let lower = region
+            .iter()
+            .map(|interval| interval.lower)
+            .collect::<Vec<_>>();
+        let upper = region
+            .iter()
+            .map(|interval| interval.upper)
+            .collect::<Vec<_>>();
+        self.prepared_arithmetic_with_execution(
+            prepared,
+            &lower,
+            &upper,
+            max_workspace_bytes,
+            execution,
+        )
+    }
     /// Enclose source values on an actual certified coordinate box. First additionally
     /// encloses the library-owned Jacobian uniformly across that same box. Every requested
     /// guard must hold on the whole region; no point gradient is promoted to a region bound.
@@ -1522,24 +2119,35 @@ impl Ibex {
             .point_arithmetic_preflight(program, order)
             .map_or(true, |bytes| bytes > max_workspace_bytes)
         {
+            execution.check()?;
             return Ok(PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
                 work: PointArithmeticWork::default(),
             });
         }
-        let lower = region
-            .iter()
-            .map(|interval| interval.lower)
-            .collect::<Vec<_>>();
-        let upper = region
-            .iter()
-            .map(|interval| interval.upper)
-            .collect::<Vec<_>>();
-        self.arithmetic_with_execution(
-            program,
-            &lower,
-            &upper,
-            order,
+        let inventory = match self.point_arithmetic_inventory(program, order) {
+            Ok(inventory) => inventory,
+            Err(_) => {
+                execution.check()?;
+                return Ok(PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                });
+            }
+        };
+        let prepared = match self.prepare_arithmetic(inventory, None, Some(execution))? {
+            Ok(prepared) => prepared,
+            Err(_) => {
+                execution.check()?;
+                return Ok(PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                });
+            }
+        };
+        self.enclose_prepared_arithmetic_box_with_execution(
+            &prepared,
+            region,
             max_workspace_bytes,
             execution,
         )
@@ -1571,59 +2179,71 @@ impl Ibex {
         max_workspace_bytes: usize,
         execution: &crate::solve::Execution,
     ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
-        use crate::solve::WorkEvidence;
         execution.check()?;
         // A preflight resource refusal allocates no transport and performs no arithmetic.
         if self
             .point_arithmetic_preflight(program, order)
             .map_or(true, |bytes| bytes > max_workspace_bytes)
         {
+            execution.check()?;
             return Ok(PointArithmeticEvidence::Incomplete {
                 reason: SelectionProofRefusal::Resource,
                 work: PointArithmeticWork::default(),
             });
         }
-        let ceiling = arithmetic_guard_ceiling(&program.graph, order)
-            .and_then(|guards| {
-                guards.checked_add(if order == DerivativeOrder::Value {
-                    1
-                } else {
-                    2
-                })
-            })
-            .and_then(|n| {
-                n.checked_add(if order == DerivativeOrder::Second {
-                    program.graph.residuals.len()
-                } else {
-                    0
-                })
-            })
-            .and_then(|n| u64::try_from(n).ok())
-            .ok_or(MathError::Limit("IBEX point arithmetic work extent"))?;
-        let unit = |evaluations| WorkEvidence {
-            evaluations,
-            iterations: Some(0),
-            factorizations: Some(0),
-            proof_steps: Some(0),
+        let inventory = match self.point_arithmetic_inventory(program, order) {
+            Ok(inventory) => inventory,
+            Err(_) => {
+                execution.check()?;
+                return Ok(PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                });
+            }
         };
-        if let Some(owner) = &execution.work_admission {
-            crate::quality::contained(|| owner.admit(unit(Some(ceiling))))?;
-        }
+        let prepared = match self.prepare_arithmetic(inventory, None, Some(execution))? {
+            Ok(prepared) => prepared,
+            Err(_) => {
+                execution.check()?;
+                return Ok(PointArithmeticEvidence::Incomplete {
+                    reason: SelectionProofRefusal::Resource,
+                    work: PointArithmeticWork::default(),
+                });
+            }
+        };
+        self.prepared_arithmetic_with_execution(
+            &prepared,
+            lower,
+            upper,
+            max_workspace_bytes,
+            execution,
+        )
+    }
+    fn prepared_arithmetic_with_execution(
+        &self,
+        prepared: &PreparedArithmetic<'_>,
+        lower: &[f64],
+        upper: &[f64],
+        max_workspace_bytes: usize,
+        execution: &crate::solve::Execution,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
+        use crate::solve::WorkEvidence;
+        execution.check()?;
+        let native_attempted = std::cell::Cell::new(false);
         let result = crate::quality::contained(|| {
             let remaining = execution.scope()?.remaining(execution.time_limit)?;
             self.point_arithmetic_core(
                 ArithmeticRequest {
-                    program,
+                    prepared,
                     lower,
                     upper,
-                    order,
                 },
                 remaining,
                 execution.cancellation_control(),
                 max_workspace_bytes,
                 Some(execution),
+                &native_attempted,
             )
-            .map_err(crate::ProblemError::from)
         });
         let evaluations = result.as_ref().ok().map(|evidence| {
             let work = match evidence {
@@ -1636,9 +2256,20 @@ impl Ibex {
                 + work.jacobian_evaluations
                 + work.hessian_evaluations
         });
-        let reconciled = execution.work_admission.as_ref().map_or(Ok(()), |owner| {
-            crate::quality::contained(|| owner.observe(unit(evaluations)))
-        });
+        let reconciled = if native_attempted.get() {
+            execution.work_admission.as_ref().map_or(Ok(()), |owner| {
+                crate::quality::contained(|| {
+                    owner.observe(WorkEvidence {
+                        evaluations,
+                        iterations: Some(0),
+                        factorizations: Some(0),
+                        proof_steps: Some(0),
+                    })
+                })
+            })
+        } else {
+            Ok(())
+        };
         let evidence = result?;
         reconciled?;
         execution.check()?;
@@ -1651,23 +2282,22 @@ impl Ibex {
         cancel: &pse_diagnostics::Cancellation,
         max_workspace_bytes: usize,
         execution: Option<&crate::solve::Execution>,
-    ) -> Result<PointArithmeticEvidence, MathError> {
+        native_attempted: &std::cell::Cell<bool>,
+    ) -> Result<PointArithmeticEvidence, crate::ProblemError> {
         let started = Instant::now();
         let ArithmeticRequest {
-            program,
+            prepared,
             lower,
             upper,
-            order,
         } = request;
+        let program = prepared.program;
+        let order = prepared.order;
         let empty_work = PointArithmeticWork::default();
         let incomplete = |reason, work| PointArithmeticEvidence::Incomplete { reason, work };
         if cancel.load(Ordering::Acquire) {
             return Ok(PointArithmeticEvidence::Interrupted { work: empty_work });
         }
-        let workspace = match self.point_arithmetic_preflight(program, order) {
-            Ok(workspace) => workspace,
-            Err(_) => return Ok(incomplete(SelectionProofRefusal::Resource, empty_work)),
-        };
+        let workspace = prepared.native_workspace;
         if lower.len() != program.graph.inputs
             || upper.len() != lower.len()
             || lower
@@ -1675,18 +2305,17 @@ impl Ibex {
                 .zip(upper)
                 .any(|(l, u)| !l.is_finite() || !u.is_finite() || l > u)
         {
-            return Err(MathError::Contract(
-                "IBEX original point arithmetic coordinates".into(),
-            ));
+            return Err(
+                MathError::Contract("IBEX original point arithmetic coordinates".into()).into(),
+            );
         }
         if time_limit.is_zero() || workspace > max_workspace_bytes {
             return Ok(incomplete(SelectionProofRefusal::Resource, empty_work));
         }
-        let transport =
-            match encode_for_profile(&program.graph, order, DimensionProfile::Arithmetic) {
-                Ok(t) => t,
-                Err(reason) => return Ok(incomplete(reason, empty_work)),
-            };
+        let transport = match &prepared.transport {
+            Ok(transport) => transport,
+            Err(reason) => return Ok(incomplete(*reason, empty_work)),
+        };
         let library_guard = match acquire_library(
             &IBEX,
             || {
@@ -1746,6 +2375,24 @@ impl Ibex {
             }),
         };
         let mut result = NativePointArithmeticResult::default();
+        if let Some(owner) = execution.and_then(|execution| execution.work_admission.as_ref()) {
+            let ceiling = transport.guards.len() as u64
+                + if order == DerivativeOrder::Value {
+                    1
+                } else {
+                    2
+                }
+                + if second { outputs as u64 } else { 0 };
+            crate::quality::contained(|| {
+                owner.admit(crate::solve::WorkEvidence {
+                    evaluations: Some(ceiling),
+                    iterations: Some(0),
+                    factorizations: Some(0),
+                    proof_steps: Some(0),
+                })
+            })?;
+        }
+        native_attempted.set(true);
         #[expect(
             unsafe_code,
             reason = "bounded borrowed point/DAG/output buffers enter serialized synchronous caught IBEX arithmetic"
@@ -1779,9 +2426,7 @@ impl Ibex {
             return Ok(incomplete(SelectionProofRefusal::Resource, work));
         }
         if code != 0 {
-            return Err(MathError::Contract(
-                "IBEX point arithmetic transport".into(),
-            ));
+            return Err(MathError::Contract("IBEX point arithmetic transport".into()).into());
         }
         if result.status != 0 {
             return Ok(incomplete(
@@ -1813,9 +2458,7 @@ impl Ibex {
                 .chain(hessian.iter().flatten())
                 .any(|i| !i.valid())
         {
-            return Err(MathError::Contract(
-                "IBEX point arithmetic result extent".into(),
-            ));
+            return Err(MathError::Contract("IBEX point arithmetic result extent".into()).into());
         }
         Ok(PointArithmeticEvidence::Enclosed {
             values,
@@ -3606,6 +4249,370 @@ mod tests {
             }
         ));
     }
+    #[derive(Debug, Default)]
+    struct ArithmeticLedger {
+        admitted: Mutex<Vec<crate::solve::WorkEvidence>>,
+        observed: Mutex<Vec<crate::solve::WorkEvidence>>,
+    }
+    impl crate::solve::WorkAdmission for ArithmeticLedger {
+        fn admit(&self, work: crate::solve::WorkEvidence) -> Result<(), crate::ProblemError> {
+            self.admitted.lock().unwrap().push(work);
+            Ok(())
+        }
+        fn observe(&self, work: crate::solve::WorkEvidence) -> Result<(), crate::ProblemError> {
+            self.observed.lock().unwrap().push(work);
+            Ok(())
+        }
+    }
+    fn arithmetic_execution() -> (crate::solve::Execution, Arc<ArithmeticLedger>) {
+        let ledger = Arc::new(ArithmeticLedger::default());
+        let mut execution = crate::solve::Execution::new(
+            pse_diagnostics::Cancellation::default(),
+            &crate::solve::Controls::default(),
+        );
+        execution.work_admission = Some(ledger.clone());
+        (execution, ledger)
+    }
+    fn arithmetic_obligation(constraints: Vec<Constraint>) -> ProjectedObligation {
+        ProjectedObligation {
+            instance: source(),
+            source: source(),
+            kind: ObligationKind::Domain,
+            scope: ObligationScope::Unconditional,
+            argument: None,
+            constraints,
+            represented: true,
+            fidelity: Fidelity::Exact,
+        }
+    }
+    #[test]
+    fn arithmetic_preparation_deduplicates_executable_guards_after_complete_source_validation() {
+        let ibex = Ibex::default();
+        let (execution, ledger) = arithmetic_execution();
+        let guard = Constraint {
+            expression: 0,
+            lower: -0.0,
+            upper: 2.0,
+            strict: false,
+        };
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        program.graph.eligibility = vec![guard.clone(); 19_512];
+        // Numerically equal bounds with different bits remain separate native keys.
+        program.graph.eligibility.push(Constraint {
+            lower: 0.0,
+            ..guard.clone()
+        });
+        program.graph.eligibility.push(Constraint {
+            strict: true,
+            ..guard.clone()
+        });
+        // A domain predicate and a derivative-only predicate keep their scopes.
+        program.graph.obligations = vec![arithmetic_obligation(vec![guard.clone()]); 9_000];
+        program.graph.derivative_obligations =
+            vec![(DerivativeOrder::First, arithmetic_obligation(vec![guard]))];
+        let identity = program.graph.identity();
+        let mut inventoried = None;
+        let allocations = allocation_counter::measure(|| {
+            inventoried = Some(
+                ibex.point_arithmetic_inventory(&program, DerivativeOrder::First)
+                    .unwrap(),
+            );
+        });
+        assert_eq!(allocations.count_total, 0);
+        let inventory = inventoried.unwrap();
+        assert!(inventory.preparation_bytes() > 19_512 * size_of::<NativeGuard>());
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+        let owner = Arc::new(());
+        let prepared = ibex
+            .prepare_point_arithmetic(inventory, owner.clone(), &execution)
+            .unwrap()
+            .unwrap();
+        assert_eq!(Arc::strong_count(&owner), 2);
+        let transport = prepared.transport.as_ref().unwrap();
+        assert_eq!(transport.guards.len(), 5);
+        assert_eq!(
+            transport
+                .guards
+                .iter()
+                .map(|guard| (guard.chart_only, guard.domain))
+                .collect::<Vec<_>>(),
+            vec![(0, 0), (0, 0), (0, 0), (0, 1), (1, 1)]
+        );
+        let nodes = transport.nodes.as_ptr();
+        assert_eq!(program.graph.identity(), identity);
+        assert_eq!(program.graph.eligibility.len(), 19_514);
+        assert_eq!(program.graph.obligations.len(), 9_000);
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+        let workspace = prepared.native_workspace_bytes();
+        assert!(matches!(
+            ibex.enclose_prepared_point_arithmetic_with_execution(
+                &prepared,
+                &[1.0],
+                workspace - 1,
+                &execution
+            )
+            .unwrap(),
+            PointArithmeticEvidence::Incomplete {
+                reason: SelectionProofRefusal::Resource,
+                ..
+            }
+        ));
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+        let PointArithmeticEvidence::Enclosed { work, .. } = ibex
+            .enclose_prepared_point_arithmetic_with_execution(
+                &prepared,
+                &[1.0],
+                workspace,
+                &execution,
+            )
+            .unwrap()
+        else {
+            panic!("prepared arithmetic unavailable")
+        };
+        assert_eq!(work.guard_evaluations, 5);
+        assert_eq!(ledger.admitted.lock().unwrap()[0].evaluations, Some(7));
+        assert_eq!(ledger.observed.lock().unwrap()[0].evaluations, Some(7));
+        assert_eq!(prepared.transport.as_ref().unwrap().nodes.as_ptr(), nodes);
+        assert_eq!(program.graph.identity(), identity);
+        drop(prepared);
+        assert_eq!(Arc::strong_count(&owner), 1);
+    }
+    #[test]
+    fn arithmetic_preparation_never_hides_later_invalid_occurrences() {
+        let ibex = Ibex::default();
+        let (execution, ledger) = arithmetic_execution();
+        let guard = Constraint {
+            expression: 0,
+            lower: 0.0,
+            upper: 2.0,
+            strict: false,
+        };
+        for invalid in 0..5 {
+            let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+            program.graph.obligations =
+                vec![arithmetic_obligation(vec![guard.clone()]); MAX_GUARDS + 1];
+            let last = program.graph.obligations.last_mut().unwrap();
+            match invalid {
+                0 => last.represented = false,
+                1 => last.fidelity = Fidelity::Relaxed,
+                2 => last.scope = ObligationScope::Conditional,
+                3 => last.constraints[0].lower = f64::NAN,
+                _ => last.constraints[0].expression = program.graph.nodes.len(),
+            }
+            let inventory = ibex
+                .point_arithmetic_inventory(&program, DerivativeOrder::First)
+                .unwrap();
+            let result = ibex.prepare_point_arithmetic(inventory, Arc::new(()), &execution);
+            if invalid < 3 {
+                let prepared = result.unwrap().unwrap();
+                assert!(matches!(
+                    prepared.transport,
+                    Err(SelectionProofRefusal::Unsupported)
+                ));
+                assert!(matches!(
+                    ibex.enclose_prepared_point_arithmetic_with_execution(
+                        &prepared,
+                        &[1.0],
+                        prepared.native_workspace_bytes(),
+                        &execution
+                    )
+                    .unwrap(),
+                    PointArithmeticEvidence::Incomplete {
+                        reason: SelectionProofRefusal::Unsupported,
+                        ..
+                    }
+                ));
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(crate::ProblemError::Math(MathError::Contract(_)))
+                ));
+            }
+        }
+        // Unconsumed Second occurrences still retain validated source identity.
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        program.graph.derivative_obligations.push((
+            DerivativeOrder::Second,
+            arithmetic_obligation(vec![Constraint {
+                expression: 99,
+                ..guard
+            }]),
+        ));
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::Value)
+            .unwrap();
+        assert!(matches!(
+            ibex.prepare_point_arithmetic(inventory, Arc::new(()), &execution),
+            Err(crate::ProblemError::Math(MathError::Contract(_)))
+        ));
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn arithmetic_preparation_inventory_avoids_large_rational_conversion_allocations() {
+        let large = Rational::from(2).pow(256);
+        let fraction = Rational::one() / (&large + &Rational::one());
+        for (exponent, ceiling) in [
+            (large.clone(), 0),
+            (-large, 1),
+            (fraction, 2),
+            (Rational::new(1, 2), 2),
+        ] {
+            let program = arithmetic_program(
+                vec![
+                    Node::Var(0),
+                    Node::Pow {
+                        base: 0,
+                        exponent: Constant::Rational(exponent),
+                    },
+                ],
+                vec![1],
+            );
+            let ibex = Ibex::default();
+            let mut inventoried = None;
+            let allocations = allocation_counter::measure(|| {
+                inventoried = Some(
+                    ibex.point_arithmetic_inventory(&program, DerivativeOrder::First)
+                        .unwrap(),
+                );
+            });
+            assert_eq!(allocations.count_total, 0);
+            assert!(inventoried.unwrap().preparation_bytes() > 0);
+            assert_eq!(
+                arithmetic_guard_ceiling(&program.graph, DerivativeOrder::First),
+                Some(ceiling)
+            );
+        }
+    }
+    #[test]
+    fn arithmetic_preparation_retains_unconsumed_derivative_identity_without_requiring_its_execution()
+     {
+        let ibex = Ibex::default();
+        let (execution, ledger) = arithmetic_execution();
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        let mut guard = arithmetic_obligation(vec![Constraint {
+            expression: 0,
+            lower: 0.0,
+            upper: 1.0,
+            strict: false,
+        }]);
+        guard.represented = false;
+        guard.scope = ObligationScope::Conditional;
+        program
+            .graph
+            .derivative_obligations
+            .push((DerivativeOrder::Second, guard));
+        let identity = program.graph.identity();
+        for order in [DerivativeOrder::Value, DerivativeOrder::First] {
+            let inventory = ibex.point_arithmetic_inventory(&program, order).unwrap();
+            let prepared = ibex
+                .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+                .unwrap()
+                .unwrap();
+            assert!(prepared.transport.as_ref().unwrap().guards.is_empty());
+        }
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::Second)
+            .unwrap();
+        let prepared = ibex
+            .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            prepared.transport,
+            Err(SelectionProofRefusal::Unsupported)
+        ));
+        drop(prepared);
+        program.graph.derivative_obligations[0].1.source = SemanticId::NIL;
+        assert_ne!(identity, program.graph.identity());
+        assert_eq!(program.graph.derivative_obligations.len(), 1);
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn arithmetic_preparation_refuses_unique_guard_sentinel_without_widening_execution_cap() {
+        let ibex = Ibex::default();
+        let (execution, ledger) = arithmetic_execution();
+        let mut program = arithmetic_program(vec![Node::Var(0)], vec![0]);
+        program.graph.eligibility = (0..=MAX_GUARDS)
+            .map(|i| Constraint {
+                expression: 0,
+                lower: 0.0,
+                upper: 2.0 + i as f64,
+                strict: false,
+            })
+            .collect();
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::First)
+            .unwrap();
+        let refusal = ibex
+            .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(
+            refusal,
+            ArithmeticProfileRefusal {
+                stage: "arithmetic_preparation",
+                metric: "unique_guards",
+                requested_order: DerivativeOrder::First,
+                violation: ArithmeticProfileViolation::Limit {
+                    observed: (MAX_GUARDS + 1) as u128,
+                    limit: MAX_GUARDS as u128
+                }
+            }
+        );
+        assert!(source_inventory(&program.graph, DerivativeOrder::First).is_err());
+        assert!(ledger.admitted.lock().unwrap().is_empty());
+        assert!(ledger.observed.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn arithmetic_preparation_counts_root_closures_without_replicating_unused_source_branches() {
+        let ibex = Ibex::default();
+        let (execution, _) = arithmetic_execution();
+        let mut nodes = vec![Node::Var(0), Node::Const(Constant::Float(1.0))];
+        nodes.extend((0..400).map(|_| Node::Sum(vec![0, 1])));
+        let mut program = arithmetic_program(nodes, vec![0, 0]);
+        program.graph.inputs = 230;
+        program.graph.eligibility.push(Constraint {
+            expression: 1,
+            lower: 0.0,
+            upper: 2.0,
+            strict: false,
+        });
+        let inventory = ibex
+            .point_arithmetic_inventory(&program, DerivativeOrder::First)
+            .unwrap();
+        let prepared = ibex
+            .prepare_point_arithmetic(inventory, Arc::new(()), &execution)
+            .unwrap()
+            .unwrap();
+        let transport = prepared.transport.as_ref().unwrap();
+        let metrics = arithmetic_closures(transport, DerivativeOrder::First, None)
+            .ok()
+            .unwrap();
+        assert_eq!(
+            (
+                metrics.residual_union,
+                metrics.residual_sum,
+                metrics.guard_sum,
+                metrics.max_residual,
+                metrics.max_guard
+            ),
+            (1, 2, 1, 1, 1)
+        );
+        assert_eq!(transport.nodes.len(), 402);
+        assert_eq!(transport.edges.len(), 800);
+        assert!(
+            prepared.native_workspace_bytes()
+                < ibex
+                    .point_arithmetic_preflight(&program, DerivativeOrder::First)
+                    .unwrap()
+        );
+        assert!(prepared.native_workspace_bytes() >= 231 * 230 * 1024);
+    }
     #[test]
     fn arithmetic_profile_source_refusals_identify_metric_and_perform_zero_work() {
         use crate::solve::{Controls, Execution, WorkAdmission, WorkEvidence};
@@ -3651,7 +4658,11 @@ mod tests {
                 MAX_ARITHMETIC_OUTPUTS + 1,
                 MAX_ARITHMETIC_OUTPUTS,
             ),
-            ("eligibility_guards", MAX_GUARDS + 1, MAX_GUARDS),
+            (
+                "eligibility_guards",
+                MAX_ARITHMETIC_OBLIGATIONS + 1,
+                MAX_ARITHMETIC_OBLIGATIONS,
+            ),
             (
                 "obligations",
                 MAX_ARITHMETIC_OBLIGATIONS + 1,
@@ -3662,8 +4673,7 @@ mod tests {
                 MAX_ARITHMETIC_OBLIGATIONS + 1,
                 MAX_ARITHMETIC_OBLIGATIONS,
             ),
-            ("source_guards", MAX_GUARDS + 1, MAX_GUARDS),
-            ("arithmetic_guards", MAX_GUARDS + 1, MAX_GUARDS),
+            ("source_guards", MAX_EDGES + 1, MAX_EDGES),
             ("edges", MAX_EDGES + 1, MAX_EDGES),
             (
                 "rational_identity_bits",
@@ -3685,10 +4695,9 @@ mod tests {
                     program.graph.eligibility.push(guard.clone());
                     let mut value = obligation.clone();
                     value.argument = None;
-                    value.constraints = vec![guard.clone(); MAX_GUARDS];
+                    value.constraints = vec![guard.clone(); MAX_EDGES];
                     program.graph.obligations.push(value);
                 }
-                "arithmetic_guards" => program.graph.nodes.extend(vec![Node::Log(0); observed]),
                 "edges" => program.graph.nodes.push(Node::Sum(vec![0; observed])),
                 "rational_identity_bits" => program.graph.nodes.push(Node::Const(
                     Constant::Rational(Rational::from(2).pow(MAX_IDENTITY_BITS + 1)),
@@ -4278,7 +5287,7 @@ mod tests {
         )
         .unwrap();
         let bytes = Ibex::default()
-            .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Second)
+            .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)
             .unwrap();
         for (region, minimum, maximum) in [
             (
@@ -4362,6 +5371,9 @@ mod tests {
             );
         }
         for order in [DerivativeOrder::First, DerivativeOrder::Second] {
+            let bytes = Ibex::default()
+                .point_arithmetic_workspace_bytes_for_order(&program, order)
+                .unwrap();
             assert!(matches!(
                 Ibex::default()
                     .enclose_point_arithmetic_order_with_execution(
@@ -4676,11 +5688,11 @@ mod tests {
         let observed = owner.observed.lock().unwrap();
         assert_eq!(
             admitted.iter().map(|w| w.evaluations).collect::<Vec<_>>(),
-            vec![Some(2), Some(2), Some(2), Some(3)]
+            vec![Some(2), Some(3)]
         );
         assert_eq!(
             observed.iter().map(|w| w.evaluations).collect::<Vec<_>>(),
-            vec![Some(0), Some(2), None, Some(3)]
+            vec![Some(2), Some(3)]
         );
         assert!(
             admitted

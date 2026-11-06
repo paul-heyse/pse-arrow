@@ -90,17 +90,40 @@ impl PreparedSolve {
             let _program = budget
                 .charge(program.retained_bytes())
                 .map_err(MathRuntimeError::into_problem)?;
-            let bytes = Ibex::default()
-                .point_arithmetic_workspace_bytes_for_order(&program, DerivativeOrder::Value)?;
+            let ibex = Ibex::default();
+            let inventory = match ibex.point_arithmetic_inventory(&program, DerivativeOrder::Value)
+            {
+                Ok(inventory) => inventory,
+                Err(_) => {
+                    execution.check()?;
+                    return Ok(());
+                }
+            };
+            let preparation_owner = budget
+                .charge(inventory.preparation_bytes())
+                .map_err(MathRuntimeError::into_problem)?;
+            let prepared = match ibex.prepare_point_arithmetic(
+                inventory,
+                Arc::new(preparation_owner),
+                &execution,
+            )? {
+                Ok(prepared) => prepared,
+                Err(_) => {
+                    execution.check()?;
+                    return Ok(());
+                }
+            };
+            let bytes = prepared.native_workspace_bytes();
             let _workspace = budget
                 .charge(bytes)
                 .map_err(MathRuntimeError::into_problem)?;
             let _scalars = budget
                 .charge(program.graph.residuals.len().saturating_mul(24))
                 .map_err(MathRuntimeError::into_problem)?;
-            let enclosed = Ibex::default().enclose_arithmetic_box_values_with_execution(
-                &program, &region, bytes, &execution,
+            let enclosed = ibex.enclose_prepared_arithmetic_box_with_execution(
+                &prepared, &region, bytes, &execution,
             )?;
+            drop(prepared);
             execution.check()?;
             let intervals = match enclosed {
                 PointArithmeticEvidence::Enclosed { values, .. } => values,

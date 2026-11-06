@@ -515,6 +515,7 @@ impl PreparedSolve {
         &self,
         goals: &[GoalResult],
         point: &[f64],
+        start_owner: Arc<dyn pse_columnar::PayloadOwner>,
     ) -> Result<Option<Self>, ProblemError> {
         let Representation::Algebraic(case) = &self.representation else {
             return Ok(None);
@@ -626,6 +627,21 @@ impl PreparedSolve {
             )
             .map_err(|error| ProblemError::Internal(error.to_string()))?;
         }
+        // The tighter work demand belongs to this actual original point. A
+        // correction must not silently restart from the authored specification
+        // or claim that unresolved output accuracy is an accepted predecessor.
+        let compatibility = refined.compatibility.clone().ok_or_else(|| {
+            ProblemError::Contract("accuracy correction has no original seed layout".into())
+        })?;
+        let payload = execution::adapter(compatibility.backend).primal_start(point.to_vec())?;
+        refined = refined.with_start_owned(
+            WarmStart {
+                origin: None,
+                compatibility,
+                payload,
+            },
+            start_owner,
+        )?;
         Ok(Some(refined))
     }
 }
@@ -1153,7 +1169,7 @@ mod refinement_tests {
         let original_work = original.accuracy().feasibility;
         assert!(
             original
-                .refine_coordinate_accuracy(&[], &[1.0])
+                .refine_coordinate_accuracy(&[], &[1.0], Arc::new(()))
                 .unwrap()
                 .is_none()
         );
@@ -1269,7 +1285,7 @@ mod refinement_tests {
         assert!(reconstructed_goals[0].work_demand.is_some());
         assert!(
             original
-                .refine_coordinate_accuracy(&reconstructed_goals, &point)
+                .refine_coordinate_accuracy(&reconstructed_goals, &point, Arc::new(()))
                 .unwrap()
                 .is_some(),
             "real reconstructed original observations drive the same work request"
@@ -1297,8 +1313,9 @@ mod refinement_tests {
             );
         }
 
+        let start_owner = Arc::new(());
         let refined = original
-            .refine_coordinate_accuracy(&observed, &point)
+            .refine_coordinate_accuracy(&observed, &point, start_owner.clone())
             .unwrap()
             .expect("actual unresolved output adjoint demands tighter native feasibility");
         assert!(refined.accuracy().feasibility < original_work);
@@ -1316,6 +1333,17 @@ mod refinement_tests {
             original.strategy_profile().unwrap()
         );
         assert!(refined.work_precision().is_some());
+        assert_eq!(refined.source_start(None).unwrap(), point);
+        assert_eq!(
+            refined.entry_origin(false),
+            pse_model::strategy::StartOrigin::Explicit
+        );
+        assert!(refined.requested_start().unwrap().origin.is_none());
+        assert_eq!(
+            Arc::strong_count(&start_owner),
+            2,
+            "the actual correction seed retains its admitted owner"
+        );
         assert_eq!(
             refined.task_scope.as_ref().and_then(|task| task.deadline()),
             original
