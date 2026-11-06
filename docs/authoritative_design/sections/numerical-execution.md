@@ -186,6 +186,18 @@ dependence. The generic profile/knowledge contract is proposed
 
 #### 15.5.1 KKT-point analysis and parametric sensitivity
 
+> Supplement: [ADR-0248](../../adr/0248-affine-constant-output-accuracy.md) (proposed; authorized implementation).
+
+Selected original-output accuracy may use a private source-anchored affine-constant profile
+at fixed consumed parameters. A source unary affine equality anchors its coordinate and
+source binary affine equalities propagate constancy; only coordinates also recovered as
+library constants qualify. Equal bounds and unanchored numerical elimination do not prove
+constancy. The complete original Jacobian, residual, arithmetic/gradient uncertainty and
+original-row work demands remain in the existing Estimated correction assessment at the
+actual original point. Physical acceptance and every original First guard remain required;
+this profile proves neither exact feasible-root existence nor Certified reconstruction.
+Public parameter-response and predictor admission retain their ordinary interior contract.
+
 > Supplement: [ADR-0144](../../adr/0144-selected-mathematical-realizations-and-square-response.md) (proposed; authorized implementation).
 
 Regular-square Root response uses complete original equality matching and `F_x X_p = -F_p`, independently of optimizing KKT analysis. Existing sensitivity requests admit Root parameter derivatives, while Root reduced-Hessian and covariance-propagation requests refuse. Publication supplies physical primal state derivatives and explicit rank/cutoff/backward-error/neighborhood evidence; no objective, multiplier or KKT-only fields are fabricated. An unqualified local response is withheld independently of the base root.

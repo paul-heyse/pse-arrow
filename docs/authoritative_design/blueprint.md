@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 355
-date: 2026-11-05
+revision: 356
+date: 2026-11-06
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 356 | 2026-11-06 | Propose source-anchored affine-constant output accuracy in complete original coordinates (§15.5.1). | ADR-0248; authorized joint Plan64/65 execution and focused independent source assessment; Estimated evidence only, public parameter-response admission unchanged. |
 | 355 | 2026-11-05 | Propose consuming provider/bank/worker retirement through concrete retained native owners before releasing admission or publishing reusable scratch (§9.11). | Proposed ADR-0247 before generic kernel/native finish activation under Plan65 E04/D05/F02. Existing transactional worker controls are component evidence; full consuming retirement and real-process qualification remain open. |
 | 354 | 2026-11-04 | Propose one-attempt execution delegation of a live admitted native body to its original private root child, retaining parent admission evidence and verification (§14.3/§18.8). | Proposed ADR-0246 before supplier/native changes. Checked packing/remapping, full restoration and receiving activation remain Plan65e obligations; JSON v3 and canonical replay remain active. |
 | 353 | 2026-11-04 | Include existing scientific-permission inputs in selected inspection hydration before its first read; preserve metadata-view behavior and permission decisions (§19.2). | Refine proposed ADR-0224/Plan65 F04 after discovering the permission reader; implementation and receiving acceptance remain open. Formal status unchanged. |
