@@ -335,7 +335,28 @@ mod tests {
     }
     #[test]
     fn schema_search_matches_all_declared_kinds_comments_and_exact_owners() {
-        let bundle = Bundle::from_bytes("fixture".into(), CORPUS.to_vec()).unwrap();
+        use buffa::Message as _;
+        use buffa_descriptor::generated::descriptor::{
+            FileDescriptorSet, SourceCodeInfo, source_code_info::Location,
+        };
+        let mut descriptors = FileDescriptorSet::decode_from_slice(CORPUS).unwrap();
+        let file = descriptors
+            .file
+            .iter_mut()
+            .find(|file| file.name.as_deref() == Some("plan61/qualification/v1/contract.proto"))
+            .unwrap();
+        // Inline source comments need not attach to a declaration's primary location.
+        // Specify the searchable producer fact independently of compiler attachment choices.
+        file.source_code_info = Some(SourceCodeInfo {
+            location: vec![Location {
+                path: vec![4, 0, 2, 5],
+                leading_comments: Some("π selected comment".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        })
+        .into();
+        let bundle = Bundle::from_bytes("fixture".into(), descriptors.encode_to_vec()).unwrap();
         let (_, mut query) = selected(Path::new("fixture"));
         let token = CancellationToken::new();
         for (needle, kinds, owner) in [
