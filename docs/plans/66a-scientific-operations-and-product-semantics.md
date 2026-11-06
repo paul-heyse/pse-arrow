@@ -89,22 +89,45 @@ stocks and cumulative boundary flow. The scientific owner will first exercise ex
 stock/temporal composition and report any exposed shared seam before extending the compiler.
 Generic unsupported dynamic/Radau/reactive/energy cases retain their current refusals.
 
-A02's actual fitting seam is `PreparedFit::assess_candidate`: it currently flattens original
-experiment checks/reports and returns an error when a later assessment fails, discarding prior
-completed evidence. Retain producer-owned experiment outcomes and their original `InstanceId`
-before extending permission. The joined producer owns final selection; optimizer callback caches
-and a caller's trajectory map cannot supply it. Original physical time, authored target/source
-and mesh-site correspondence describe trajectory points; neither row ordinals nor a newly hashed
-time label supplies that authority. Preserve global fit qualification separately from local
-experiment/trajectory evidence, including partial or failed outcomes. Extend the actual retained
-and independent consumers with that same producer context; a native accessor alone cannot close A02.
+A02's first fitting delivery is integrated. `PreparedFit::assess_candidate` now records each
+declared original `InstanceId` into one
+[`FitAssessment`](../../crates/pse-runtime/src/workflow/fitting/assessment.rs), whose private disjoint
+ranges borrow the sole owned checks/reports. Completed, failed and unattempted members remain
+distinct; a later refusal preserves earlier evidence and actually returned partial rows. The shared
+typed strategy policy traverses original cause trees so numerical work with terminal cleanup cannot
+start another member, recovery rung or profile subdivision. It retains the original envelope and
+all causes. The steady observation producer can still lose its own unreturned partial buffer;
+that narrower producer gap remains A02 work.
+
+Joined `FitTrajectory` borrows the original run/report/member/assessment. FlatV3 profile documents
+borrow retained chains through Serde serialization, avoiding deep copies of physical evidence.
+The source-owned registry emits `fit_experiment_assessments` and profile-points interpretation4's
+optional original assessment, including explicit historical unavailability. See
+[native-math declarations](../../crates/pse-schema/src/catalog/native_math.rs),
+[borrowed document](../../crates/pse-runtime/src/workflow/fitting/documents.rs) and proposed
+[ADR-0253](../adr/0253-retain-original-fit-experiment-assessments.md).
+Missing-column refusal and absent historical metadata have controls; authentic persisted-v3
+adoption remains unqualified. These observations confer no new scientific-use permission.
+
+The next native permission delivery must bind the actual original member, report/source and
+enclosing run/attempt. A whole-member scope can qualify an original trajectory separately from fit
+optimality; a sampled point needs its own retained native coordinate authority. Original physical
+time, authored target/source and mesh-site correspondence describe points; row ordinals, callback
+caches, caller maps and newly hashed time labels cannot supply authority. Missing demanded accuracy
+evidence withholds use. Preserve qualified siblings independently of aggregate fit failure.
+
+The first L02 simulation consumer also exposes an A01 gap: declared-case dispatch through generic
+SolveSettings does not select Simulation. Existing typed `SimulationOperation` executes the original
+fixture correctly; its readable `simulation_samples` retain Unknown usability until the actual
+trajectory-product owner supplies its governing grant. Unifying purpose/input selection and issuing
+that grant are separate remaining changes, not reasons to infer permission from native acceptance.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Producer/assessment investigation identified the fitting evidence-loss seam and original coordinate contract above. Implement missing experiment/member governing scope through producers, native permission, generated observations, storage and independent readers. Remove quantity-only or client-reconstructed permission paths; no new member permission is yet implemented. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment ownership, retained/exported observations and joined trajectories are integrated, including terminal-cause continuation and borrowed-profile repairs. Implement missing member/trajectory governing scope through producers, native permission, storage and independent readers; close the remaining steady partial-buffer producer and authentic historical adoption gaps. No new member permission is yet implemented. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
@@ -121,4 +144,14 @@ from invalidation. Compare a shared model used for steady simulation and transie
 with independently specified observation mapping. Add one scientific family without changing
 unrelated scalar providers. Family physics and full population acceptance belong to G–L.
 
-**Outcome:** planned remaining change only; no new execution or qualification is claimed.
+**Tested, targeted in the owning checkout:** all-target `pse-runtime` compile with
+`solver-diffsol,solver-ipopt,solver-highs,native-study-tests,engineering-service` passed with zero
+errors/warnings. The same-feature assessment/profile/strategy selection passed18/18 with complete
+capture/settlement, including nested terminal causes, positive numerical continuation, actual LM
+chain/point/assessment pointer identity and FlatV3 serialization. Full generation passed15 targets.
+Independent follow-up found no residual material defects in those two repairs. Main integration
+includes the combined generated world; matching main receiving is separate.
+
+**Outcome:** implementation is active with the bounded assessment delivery above. Shared operation
+selection, native member/trajectory use, remaining physical contracts and full consumer population
+remain open. No full A or Plan66 qualification is claimed.

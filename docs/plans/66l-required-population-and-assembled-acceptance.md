@@ -84,7 +84,7 @@ or cold-build interruption cannot establish or refute whole-operation benefit.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | L01 | in-progress | Immutable source census; current native cases and exact evidence; G–K inputs | Initial case/input roles supplied to G–K; two ordinary-BT FeedFlash consumers now operate with published source, explicit qualifiers and actual exposure checks. Reference fixtures use complete seed data rather than declaration-only synthetic rows. Existing CSTR feed/initial state remains oracle input; costing retains unknown/extrapolated support. Final configured executable denominator, broader family cases and holds stay open. |
-| L02 | planned | A/B/C/E narrow working contracts; F developer evidence | Demonstrate scientific admission→execution→scoped products→protected independent read and developer refusal/failure→preparation→original full evidence→inspection→valid rerun. Exercise cancellation/lost ACK with actual drain. |
+| L02 | in-progress | A/B/C/E narrow working contracts; F developer evidence | First aqueous Study Simulation→accepted original trajectory→protected canonical read→bounded independent IPC/Proto interpretation passes with its seven scientific controls. The readable trajectory retains Unknown scientific usability; native member/trajectory grant and full scientific-use acceptance remain open. F's original failure/changed-current refusal/restored rerun and actual analytical reader are bounded developer deliveries. Complete both whole journeys and cancellation/lost ACK with actual drain. |
 | L03 | planned | Functional scope integrated across A–K; L01 denominator | Run selected integration/component/native/service/database/reference journeys and required static/manual checks, resolve failures against zero, and reconcile exact supported conditions and unavailable work. |
 | L04 | planned | Selected mechanism and matching baseline/workload | Measure material complete-operation benefit claims; record conditions and limitations. Unselected enhancements need no invented performance campaign. |
 | L05 | planned | L02/L03 accepted evidence and L04 claimed benefits | Complete enduring architecture/operator publication through decision routes, verify replacement deletions and extension locality, and close the sole Plan66 status owner without inferring completion from document retirement. |
@@ -105,5 +105,7 @@ and the applicable governance/docs/native/powerset checks under repository polic
 command, selected features/mode, zero baseline and actual scope/result; do not keep command diaries.
 
 **Outcome:** population closure is in progress. Targeted scientific and developer deliveries
-have the bounds recorded at their owning companions and coordinator. The two complete L02
-journeys, assembled L03 qualification and claimed-benefit measurements remain outstanding.
+have their bounds at H/E/F and the coordinator. L02 has actual readable original scientific
+delivery and developer failure/rerun/inspection slices; neither closes the whole journey or
+issues missing scientific-use permission. Assembled L03 qualification and claimed-benefit
+measurements remain outstanding.

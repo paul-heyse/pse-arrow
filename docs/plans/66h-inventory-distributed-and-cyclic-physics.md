@@ -96,7 +96,7 @@ native lifetime. Exact maintained source links and limits are in
 |---|---|---|---|
 | H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
 | H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
-| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | First finite aqueous cascade is integrated with one/four-cell integrated trajectories and independent boundary/stock controls. Simultaneous refinement, broader physical families, original protected export and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
+| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly. Temporal refinement, broader physical families, trajectory-use permission and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
 | H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
@@ -131,7 +131,8 @@ coordinate bindings and boundary quadrature IDs at every requested time; wrong-c
 and a missing intermediate time fail the comparator. Authored whole-domain integral checks and
 reports are terminal-only under the existing contract; the test does not claim earlier authored
 closure observations. Constructor/derived geometry overrides refuse through native admission.
-Main receiving and protected independent trajectory delivery remain separate work.
+Main receiving remains separate work; the protected independent trajectory delivery below
+adds a bounded original-result consumer.
 
 The simultaneous one/four-cell 61-point cases are now integrated too. Their actual seven-control
 scientific child reported seven passes, zero scientific failures/build warnings and complete
@@ -139,8 +140,22 @@ original capture, including nonzero physical clock and zero-flow inventory. Its 
 remains **incomplete**: the manager connection closed during cleanup after child exit zero.
 Kernel evidence independently identified global OOM killing the user D-Bus service; this is
 separate from the earlier finite-placement launcher defect. The original scope is now absent,
-but that observation does not rewrite the failed historical settlement receipt. Clean native
-receiving, coarser/fine temporal refinement and the protected original-result consumer remain open.
+but that observation does not rewrite the failed historical settlement receipt. A subsequent
+clean native selection passed the same seven scientific controls plus the protected-delivery
+consumer below:8/8, zero failures/pending/build warnings and complete capture/settlement.
+Coarser/fine temporal refinement remains in progress; algebraic solver accuracy must be separated
+from temporal discretization error rather than widening the physical comparison to hide either.
+
+The integrated protected-delivery consumer submits the original typed Study `SimulationOperation`,
+retains its actual integrated fixture and checks the accepted native result at the nonzero clock.
+Expected values come from original native samples plus admitted output/member/quantity/unit
+contracts, independently of the canonical row mapper. It drops producing handles, clears the
+preparation cache, reads protected canonical rows, exports bounded IPC and checks framing,
+lineage, raw Arrow values/exact bits and dynamic Protobuf context. Foreign revision refuses;
+Proto3 default zero and field presence are checked separately. Current `simulation_samples`
+scientific usability is explicitly **Unknown**: readable original evidence and accepted numerical
+execution do not create the missing trajectory-use grant. A owns that producer/permission gap;
+L02's full scientific-use journey remains open.
 
 D corrected the unrelated full-curvature estimate used for selected affine proof and repeated
 retention charging of actual shared source/snapshot owners. All distinct support-copy and

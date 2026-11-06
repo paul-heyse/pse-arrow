@@ -184,7 +184,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
 | C03 | planned | Existing queue/retirement owners; C02 selected operations; D's provider support | Every selected prepared-worker/session path has transactional handoff, per-handle cancellation/close and result-bearing physical finish; true native batch behavior is integrated where selected. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
-| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation is corrected and actual main receiving uses requested ordinary placement; selected service and host controls pass with complete capture/settlement, preserving initial interrupted/timed-out evidence. Complete broader transport/native/process failures, independent sessions and retained response lifetime; simplify accounting only where settlement responsibilities survive. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token/nonblocking I/O/native-error retention are integrated. Actual prepared main reader succeeds and refuses nonregular input; selected host/product controls pass with corrected expectations and complete settlement. Preserve original interrupted/OOM evidence. Complete canonical cancellation/drain, broader transport/process failures, independent sessions and retained response lifetime. |
 
 ### C01 — Make preparation representations compose
 
@@ -271,14 +271,36 @@ command acceptance. H owns its scientific child and outstanding native receiving
 receiving must use current source and a live original manager; an absent old scope does not
 rewrite a failed historical receipt.
 
-Use E07's explicit caller token with the existing `CancellationToken::until_cancelled`
-and DataFusion's cancellation-safe stream/drop contract.
-The one-shot `pse-project observe` entry still creates no externally driven query token;
-ordinary process termination does not establish graceful typed query cancellation. Finish that
-process-root handoff under C05/F05, reusing the existing owned signal/finish behavior in
-`bin/support/signals.rs` rather than installing signals in the public query library or adding
-another manager. Keep the collector's stop-and-drain responsibility distinct from pure stream
-drop, and retain every listener/operation failure through actual finish.
+The one-shot observer now owns one process-root cancellation source and the existing
+[`ProcessInterrupt`](../../crates/pse-runtime/src/bin/support/signals.rs), carries its token
+through query, analysis, capture and canonical read, and explicitly finishes the listener after
+the performing work settles. The public reader library installs no process signal handler.
+[`observe.rs`](../../crates/pse-runtime/src/bin/project/observe.rs) joins its synchronous encoder
+and uses the shared native
+[`observer_io`](../../crates/pse-host/src/observer_io.rs) descriptor owner for input/output;
+the old blocking serve path and duplicate output-writer module are deleted. Regular-file
+duplication preserves shared offsets/append semantics. Pipe/terminal reopening avoids changing
+the caller's descriptor flags; sockets use Rustix1.1.5 per-call `DONTWAIT` and output `NOSIGNAL`.
+Tokio `AsyncFd` owns readiness and cancellation without a detached blocking pipe operation.
+
+Use Tokio-util0.7.19 `CancellationToken::until_cancelled` for cancellable queries and DataFusion's
+stream/drop contract, retaining explicit collector drain separately. Canonical acquisition/poll
+and Attempt reads observe the caller token after store acquisition; services and original
+connections still drain outside the cancellation race. Bare connection/open retains its existing
+bounded native clock and partial-acquisition owner: prompt cancellation during those phases is
+not established. Original native failures survive serialization/output/late-stop and independent
+cleanup failures; passive diagnostic projections are never decoded back into native authority.
+
+**Tested, targeted:** `scripts/pse test pse-host --lib` selected host descriptor controls passed 4/4.
+The `scripts/pse test` selection over `pse-runtime:pse_runtime`, `pse-runtime:pse-project` and
+`pse-runtime:product_reader` with `product-reader` passed 85
+controls and exposed two obsolete test expectations; after correcting those expectations, their
+focused rerun passed 2/2, with zero build warnings and complete capture/settlement against zero.
+This is not a single 87-control receiving run. The all-target `product-reader` compile passed. After integration,
+explicit `pse observe prepare` and actual `pse observe query` on main successfully analyzed two
+original developer reports with exact member attribution and recorded settlement; a FIFO member
+was refused with exit2 and native structured diagnostics without blocking. Actual canonical
+cancellation/drain, independent-client departure and the wider C05 population remain open.
 
 Complete slow/abandoned upload and download, partial progress with terminal stream error,
 deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,

@@ -179,11 +179,12 @@ Native build width, incremental compilation and compiler caches remain in force.
 ### Execution resumed — November6
 
 The maintainer authorized implementation of the full execution approach. Work is active on
-main and three current-main-based branches in the existing warm checkout directories:
-`p66-results` owns B01/B03/E02 generation and actual export/read consumers; `p66-science`
-owns the FeedFlash/ordinary-input delivery and subsequent ready physics; `p66-host` owns
-semantic comparison and original evidence delivery. Original candidate branches retain
-their frozen changes. No older plan branch is merged wholesale. Main now contains the
+main and isolated branches in the existing warm checkout directories. Result generation,
+original developer evidence and the observer lifecycle unit are integrated. The contracts lane
+now advances native member permission from its integrated fitting-assessment foundation;
+the science lane advances physical cases/refinement and the host lane actual worker lifecycle
+receiving. Original candidate branches retain their frozen changes; no older plan branch is
+merged wholesale. Main now contains the
 FeedFlash delivery, source-driven adapter helper imports, original failed-rerun intent and
 checkout-aware StudyModule preparation hint. The recorded-result consumer cutover and combined
 regeneration and finite pure-source recorded-result bootstrap are integrated. The latter passed
@@ -192,6 +193,15 @@ bootstrap remains open. Full combined generation subsequently passed fifteen tar
 Main then passed six generator controls and nineteen ordinary-result/developer-query controls
 with `engineering-service` excluded, zero failures/pending/build warnings and complete original
 capture/settlement; service receiving is a separate selected check of that integrated world.
+
+The original fitting assessment and its two independent-review repairs are now integrated:
+one retained experiment population survives later failure, terminal descendants prevent numerical
+continuation, and profile serialization borrows original evidence. A owns remaining native
+member permission and historical/partial-producer limits. H owns the clean eight-control aqueous
+scientific/protected-delivery slice; readable original samples still withhold scientific-use grant.
+C/E/F own process-root observer cancellation, native descriptor I/O and original-error preservation;
+the actual explicitly prepared main reader passed a selected original-evidence query and nonregular
+input refusal. These deliveries do not close the whole scientific/developer L02 journeys or L03.
 
 C01's reproduced compiler/solver refusal came from the selected standalone compiler receipt
 still referencing the old contracts checkout's `.config/native-cache.cmake`. Existing source
