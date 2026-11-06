@@ -73,6 +73,9 @@ pub enum SchemaError {
     /// Original structured input failure.
     #[error("schema JSON: {0}")]
     Json(#[from] serde_json::Error),
+    /// Original shared native metadata checker failure.
+    #[error(transparent)]
+    Metadata(#[from] pse_contract_proto::MetadataError),
     /// Original developer evidence checker failure, without rendered cause erasure.
     #[error(transparent)]
     DeveloperEvidence(Box<crate::developer_evidence::EvidenceError>),

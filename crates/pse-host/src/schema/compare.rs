@@ -11,6 +11,9 @@ use serde_json::Value;
 use sha2::{Digest as _, Sha256};
 use std::{collections::BTreeMap, path::Path};
 
+/// Shared native semantic assessment, separate from structural and Buf findings.
+pub mod semantics;
+
 /// Observed descriptor change, not a proof of semantic compatibility.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Difference {
@@ -55,6 +58,8 @@ pub struct Comparison {
     pub current_digest: String,
     /// Structural and constraint observations.
     pub differences: Vec<Difference>,
+    /// Explicit original-world semantic policy and its actual coverage.
+    pub semantic: semantics::Assessment,
     /// Independently executed native rule classifications.
     pub native: Vec<NativeClassification>,
     /// Qualified generated-origin nominations.
@@ -292,7 +297,7 @@ pub fn compare(current: &Bundle, baseline: &Bundle) -> Result<Comparison, Schema
             });
         }
     }
-    Ok(Comparison { baseline_digest:baseline.digest.clone(), current_digest:current.digest.clone(), differences, native:Vec::new(), associations:Vec::new(), limitations:vec!["Dimensions nominate assessment; Buf classifications are separate native rule evidence, never an intentional-break veto.".into(), "Custom-option bytes reveal changes but do not establish CEL or other semantic equivalence; source comments and descriptor ordering are not semantic differences.".into(), "Generated associations nominate source only. Rust consumers, cfg worlds and API identities require independently qualified original source/HIR/rustdoc investigations.".into()] })
+    Ok(Comparison { baseline_digest:baseline.digest.clone(), current_digest:current.digest.clone(), differences, semantic:semantics::assess(current, baseline, &[], semantics::Policy::Core)?, native:Vec::new(), associations:Vec::new(), limitations:vec!["Dimensions nominate assessment; Buf classifications are separate native rule evidence, never an intentional-break veto.".into(), "Custom-option bytes reveal changes but do not establish CEL or other semantic equivalence; source comments and descriptor ordering are not semantic differences.".into(), "Generated associations nominate source only. Rust consumers, cfg worlds and API identities require independently qualified original source/HIR/rustdoc investigations.".into()] })
 }
 
 /// Execute independent native compatibility categories against frozen copies of both inputs.
