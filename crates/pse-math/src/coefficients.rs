@@ -304,8 +304,37 @@ pub(crate) fn number(atom: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathE
     if cancel.load(Ordering::Relaxed) {
         return Err(MathError::Cancelled);
     }
-    if !output.is_finite() {
+    // Numeric projection may round coefficients, but may not erase an exact
+    // source dependency or offset. In particular an underflowed nonzero must
+    // never become an absent affine entry or a proved zero constant.
+    if !output.is_finite() || (output == 0.0 && !atom.is_zero()) {
         return Err(MathError::CoefficientRange);
     }
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coefficient_projection_refuses_nonzero_underflow_without_erasing_source_dependence() {
+        crate::initialize().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let small = Atom::num(f64::MIN_POSITIVE);
+        for expression in [&small * &small, -(&small * &small)] {
+            assert!(!expression.is_zero());
+            assert!(matches!(
+                number(&expression, &cancel),
+                Err(MathError::CoefficientRange)
+            ));
+        }
+        assert_eq!(number(&Atom::num(0), &cancel).unwrap(), 0.0);
+        for value in [f64::MIN_POSITIVE, -f64::MIN_POSITIVE, 0.5, -0.5] {
+            assert_eq!(
+                number(&Atom::num(value), &cancel).unwrap().to_bits(),
+                value.to_bits()
+            );
+        }
+    }
 }
