@@ -347,4 +347,29 @@ mod tests {
             assert!(Parsed::try_parse_from(args).is_err());
         }
     }
+
+    #[test]
+    fn original_failed_rerun_refuses_every_caller_target_or_feature_replacement() {
+        for replacement in [
+            vec!["--features", "new-context"],
+            vec!["--all-features"],
+            vec!["--no-default-features"],
+            vec!["--without-feature", "captured"],
+            vec!["--test", "renamed_target"],
+            vec!["--bin", "same_display_name"],
+            vec!["--target-kind", "test"],
+            vec!["--target", "aarch64-unknown-linux-gnu"],
+            vec!["another-package"],
+        ] {
+            let mut arguments = vec!["selection", "--rerun-failed", "original-invocation"];
+            arguments.extend(replacement);
+            assert!(
+                match Parsed::try_parse_from(arguments) {
+                    Err(_) => true,
+                    Ok(parsed) => parsed.tests.request().is_err(),
+                },
+                "replacing original context requires an explicit new selection"
+            );
+        }
+    }
 }
