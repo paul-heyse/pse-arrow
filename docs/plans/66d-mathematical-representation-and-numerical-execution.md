@@ -114,6 +114,19 @@ Sources: [compiler class/affine owners](../../crates/pse-compiler/src/workspace.
 H independently assesses the physical temporal layout and the retained compiler frontier;
 its simultaneous refinement cases remain required even if the separate integrated route passes.
 
+The resulting four-cell/61-point frontier census identified repeated charges for identical live
+allocation owners in planning and projection. Main now counts shared model, resolved arena,
+symbol-table and physical-premise snapshot allocations once by their actual live owners.
+Every distinct support copy's maps, captured reads, view roots and occurrence/slot/contribution
+attribution stays charged; equal independently allocated snapshots stay separate. This is an
+accounting correction, with no semantic interning, changed identity, producer sharing or retention
+limit increase. Six targeted compiler controls passed in the owning checkout, zero failures/build
+warnings with complete capture/settlement, including independent-equal versus shared-owner and
+unchanged-limit refusal controls. See [frontier accounting](../../crates/pse-compiler/src/workspace/modeling/executable.rs)
+and [resolved allocation components](../../crates/pse-modeling/src/resolved.rs). The recorded
+2,415,722,790-byte raw census and its repeated snapshot charges describe known-owned accounting,
+not measured resident memory or physical acceptance.
+
 **Tested, targeted:** `scripts/pse test pse-compiler --lib -E
 'test(affine_row_construction_uses_selected) | test(affine_row_rebind_keeps)'` passed two controls,
 zero failures/pending/build warnings (invocation `01a1b283-3b51-7035-95d1-01c5b4529596`).

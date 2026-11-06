@@ -133,12 +133,20 @@ reports are terminal-only under the existing contract; the test does not claim e
 closure observations. Constructor/derived geometry overrides refuse through native admission.
 Main receiving and protected independent trajectory delivery remain separate work.
 
-The simultaneous 61-point candidates remain required, unqualified source in the scientific
-checkout. D corrected the unrelated full-curvature estimate used for selected affine proof.
-The four-cell compiler frontier also exposed repeated retention charging of shared syntax/symbol
-owners. Its actual allocation census and correction belong to the existing compiler owners;
-semantic identities, configured retention guards and physical allowances are not changed merely
-to clear that refusal. This is separate from actual native allocation/RSS measurement.
+The simultaneous one/four-cell 61-point cases are now integrated too. Their actual seven-control
+scientific child reported seven passes, zero scientific failures/build warnings and complete
+original capture, including nonzero physical clock and zero-flow inventory. Its native wrapper
+remains **incomplete**: the manager connection closed during cleanup after child exit zero.
+Kernel evidence independently identified global OOM killing the user D-Bus service; this is
+separate from the earlier finite-placement launcher defect. The original scope is now absent,
+but that observation does not rewrite the failed historical settlement receipt. Clean native
+receiving, coarser/fine temporal refinement and the protected original-result consumer remain open.
+
+D corrected the unrelated full-curvature estimate used for selected affine proof and repeated
+retention charging of actual shared source/snapshot owners. All distinct support-copy and
+consumer-attribution costs remain. Semantic identities, configured retention guards and physical
+allowances were not changed to clear that refusal. These are owned-allocation accounting
+corrections, separate from native allocation/RSS measurement.
 
 For each increment retain immutable original initial/profile/schedule specifications
 separately from mutable preparation overlays and actual applied inputs. The existing

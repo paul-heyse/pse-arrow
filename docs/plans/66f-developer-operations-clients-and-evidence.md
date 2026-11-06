@@ -204,6 +204,18 @@ replaced full-copy/hash loops and repeated-range bulk callers only after their r
 
 ### F03 — Finish exact original failed reruns
 
+Main includes the parser control refusing caller replacement of an original rerun's target,
+package, platform or feature policy. In the owning prepared checkout, one actual original
+assertion failure, eight changed-current refusals and an exact-context successful rerun were
+retained with complete capture and actual manager settlement. The changed cases cover renamed,
+missing/decoy and empty current tests, renamed/different-kind targets, removed features, changed
+feature closure and changed workspace-unified defaults. Restoring the exact original context
+produced a new successful invocation linked to the original failure. Temporary source was removed
+and manifest bytes restored exactly; no production guard or runner changed. An unsuitable
+unprepared foreign-root fixture failed setup and was removed, without weakening preparation.
+This is one prepared-checkout integration-target journey, not foreign-workspace admission or
+the complete multi-group/platform/retry/scientific-fixture population. Broader F03 remains open.
+
 Use the retained original inventory rather than reparsing display strings or treating row ordinals
 as identities. Resolve current targets/tests with the native listing, assess exact prerequisites,
 and run only the supported selected identities under explicit mode. Preserve stable original→new
