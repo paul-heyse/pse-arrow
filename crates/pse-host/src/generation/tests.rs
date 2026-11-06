@@ -91,6 +91,45 @@ fn changed_fingerprint_names_source_membership_and_private_environment_keys() {
     assert!(!message.contains("private-value-digest"));
     before.require_unchanged(&before).unwrap();
 }
+
+#[test]
+fn current_source_refusal_names_original_context_and_membership_without_private_values() {
+    let fixture = Fixture::new();
+    let original = fixture.fingerprint();
+    original
+        .require_current_sources(&fixture.root, &fixture.context)
+        .unwrap();
+    let mut changed = fixture.context.clone();
+    changed
+        .environment
+        .insert("NATIVE_PRIVATE_INPUT".into(), Some("private-digest".into()));
+    let error = original
+        .require_current_sources(&fixture.root, &changed)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("environment.NATIVE_PRIVATE_INPUT"),
+        "{error}"
+    );
+    assert!(!error.contains("private-digest"));
+    assert!(
+        error.contains("changed=0") && error.contains("added=0") && error.contains("removed=0")
+    );
+    fs::write(
+        fixture.root.join("host/src/added.rs"),
+        "pub fn added() {}\n",
+    )
+    .unwrap();
+    let error = original
+        .require_current_sources(&fixture.root, &fixture.context)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.contains("added=1") && error.contains("host/src/added.rs"),
+        "{error}"
+    );
+    assert!(error.contains("context=[]"), "{error}");
+}
 impl Fixture {
     fn new() -> Self {
         let directory = tempfile::tempdir().unwrap();

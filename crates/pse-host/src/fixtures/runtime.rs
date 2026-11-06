@@ -582,19 +582,15 @@ impl SelectedRuntime {
             (0, Input::ScientificInputs, "physical-admission"),
             (1, Input::NativeLane, "solver-kinsol"),
         ] {
-            if demand.contains(&input)
-                && !self.record.sources[index].matches_sources(
+            if demand.contains(&input) {
+                self.record.sources[index].require_current_sources(
                     root,
                     &current_context(
                         root,
                         &environment,
                         &[feature.into(), "force-validate".into()],
                     )?,
-                )?
-            {
-                return Err(invalid(
-                    "prepared runtime construction context or sources changed; explicitly prepare again",
-                ));
+                )?;
             }
         }
         if demand.contains(&Input::ScientificInputs) {

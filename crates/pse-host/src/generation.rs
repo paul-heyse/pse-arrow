@@ -531,6 +531,22 @@ impl SourceFingerprint {
         }
         self.recorded_sources_match(root)
     }
+    /// Require the original source universe and compiler inputs at a reuse boundary.
+    /// Refusals name changed fields and paths without exposing environment values/digests.
+    pub fn require_current_sources(
+        &self,
+        root: &Path,
+        context: &BuildContext,
+    ) -> Result<(), HostError> {
+        let current = Self {
+            version: self.version,
+            package_roots: self.package_roots.clone(),
+            additional_files: self.additional_files.clone(),
+            files: self.observe_files(root)?,
+            context: context.clone(),
+        };
+        self.require_unchanged(&current)
+    }
     /// Recheck the original complete source universe without running Cargo. Callers comparing
     /// another kind of native context must establish its configuration equivalence separately.
     pub(crate) fn recorded_sources_match(&self, root: &Path) -> Result<bool, HostError> {
@@ -615,7 +631,7 @@ impl SourceFingerprint {
                     .map(|key| format!("environment.{key}")),
             );
             return Err(invalid(format!(
-                "source/build context changed during construction; generation must not publish; {}; {}; {}; context={context:?}",
+                "source/build context differs; {}; {}; {}; context={context:?}",
                 paths("changed", &changed),
                 paths("added", &added),
                 paths("removed", &removed),
