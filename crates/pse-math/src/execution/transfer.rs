@@ -347,15 +347,8 @@ impl<'a> Program<'a> {
                     source,
                     checks,
                     checked_ends,
-                } => {
-                    let evaluator = match evaluator {
-                        BlockEvaluator::Interpreted(evaluator) => evaluator,
-                        #[cfg(feature = "compiled-evaluator")]
-                        BlockEvaluator::Native(_) => {
-                            return Err(TransferError::Unsupported("native/JIT evaluator"));
-                        }
-                    };
-                    StageView::Block(BlockView {
+                } => match evaluator {
+                    BlockEvaluator::Interpreted(evaluator) => StageView::Block(BlockView {
                         program: Arithmetic::Native(evaluator),
                         resettable: *resettable,
                         components,
@@ -368,8 +361,12 @@ impl<'a> Program<'a> {
                         source: *source,
                         checks: Checks::Native(checks),
                         checked_ends,
-                    })
-                }
+                    }),
+                    #[cfg(feature = "compiled-evaluator")]
+                    BlockEvaluator::Native(_) => {
+                        return Err(TransferError::Unsupported("native/JIT evaluator"));
+                    }
+                },
                 CompiledStage::Require {
                     argument,
                     condition,
@@ -649,6 +646,13 @@ struct OrderCounts {
     instructions: usize,
     instruction_bytes: usize,
 }
+/// One enclosing execution frame's slot bound, fixed limits and product order.
+#[derive(Clone, Copy)]
+struct ProgramContext {
+    slots: usize,
+    limits: EvaluationLimits,
+    order: usize,
+}
 fn check_index(index: usize, bound: usize) -> Result<()> {
     if index >= bound {
         Err(TransferError::Invalid("index outside checked extent"))
@@ -707,12 +711,15 @@ impl Counts {
         &mut self,
         program: Program<'_>,
         layout: &JetLayoutView<'_>,
-        slots: usize,
-        limits: EvaluationLimits,
-        order: usize,
+        context: ProgramContext,
         left: &mut usize,
         depth: usize,
     ) -> Result<()> {
+        let ProgramContext {
+            slots,
+            limits,
+            order,
+        } = context;
         if depth > MAX_STAGE_DEPTH {
             return Err(TransferError::Unsupported("stage recursion"));
         }
@@ -844,7 +851,7 @@ impl Counts {
                     token,
                     lineage,
                 } => {
-                    self.nested(&nested, local, reads, slots, token, limits, order)?;
+                    self.nested(&nested, local, reads, token, context)?;
                     check_index(argument, local)?;
                     let n = lineage_bytes(lineage)?;
                     self.facts.capture_bytes = plus(self.facts.capture_bytes, n)?;
@@ -852,7 +859,16 @@ impl Counts {
                         self.facts.template_bytes,
                         plus(n, arc_bytes::<pse_model::diagnostic::ValidityLineage>()?)?,
                     )?;
-                    self.program(stages, &nested, local, limits, order, left, depth + 1)?;
+                    self.program(
+                        stages,
+                        &nested,
+                        ProgramContext {
+                            slots: local,
+                            ..context
+                        },
+                        left,
+                        depth + 1,
+                    )?;
                 }
                 StageView::Applicability {
                     stages,
@@ -864,7 +880,7 @@ impl Counts {
                     token,
                     plan,
                 } => {
-                    self.nested(&nested, local, reads, slots, token, limits, order)?;
+                    self.nested(&nested, local, reads, token, context)?;
                     indices(predicates, local)?;
                     indices(inputs, local)?;
                     let extent = plan_extents(plan, predicates.len(), inputs.len())?;
@@ -901,7 +917,16 @@ impl Counts {
                                 witnesses,
                             )?,
                         )?;
-                    self.program(stages, &nested, local, limits, order, left, depth + 1)?;
+                    self.program(
+                        stages,
+                        &nested,
+                        ProgramContext {
+                            slots: local,
+                            ..context
+                        },
+                        left,
+                        depth + 1,
+                    )?;
                 }
                 StageView::Branch {
                     left: lhs,
@@ -913,8 +938,8 @@ impl Counts {
                     check_index(lhs, slots)?;
                     check_index(right, slots)?;
                     self.order_counts[order].controls = plus(self.order_counts[order].controls, 1)?;
-                    self.program(then, layout, slots, limits, order, left, depth + 1)?;
-                    self.program(otherwise, layout, slots, limits, order, left, depth + 1)?;
+                    self.program(then, layout, context, left, depth + 1)?;
+                    self.program(otherwise, layout, context, left, depth + 1)?;
                 }
             }
         }
@@ -925,11 +950,14 @@ impl Counts {
         layout: &JetLayoutView<'_>,
         frame: usize,
         reads: &[usize],
-        parent_slots: usize,
         token: usize,
-        limits: EvaluationLimits,
-        order: usize,
+        parent: ProgramContext,
     ) -> Result<()> {
+        let ProgramContext {
+            slots: parent_slots,
+            limits,
+            order,
+        } = parent;
         if layout.order != DerivativeOrder::Value
             || !layout.coordinates.is_empty()
             || frame != reads.len()
@@ -1227,7 +1255,6 @@ fn fresh(entries: usize, fill: f64) -> Result<Vec<f64>> {
 }
 fn restore_program(
     stages: Vec<StageSnapshot>,
-    slots: usize,
     limits: EvaluationLimits,
     index_scratch: &mut [usize],
     identity_scratch: &mut [SemanticId],
@@ -1283,13 +1310,7 @@ fn restore_program(
                 lineage: lineage.map(Arc::new),
             },
             StageSnapshot::Domain(d) => CompiledStage::Domain {
-                stages: restore_program(
-                    d.stages,
-                    d.frame,
-                    limits,
-                    index_scratch,
-                    identity_scratch,
-                )?,
+                stages: restore_program(d.stages, limits, index_scratch, identity_scratch)?,
                 frame: fresh(d.frame, f64::NAN)?,
                 reads: d.reads,
                 layout: d.layout.restore(d.frame, d.frame, limits, index_scratch)?,
@@ -1307,13 +1328,7 @@ fn restore_program(
                     return Err(TransferError::Invalid("applicability lineage validation"));
                 }
                 CompiledStage::Applicability {
-                    stages: restore_program(
-                        a.stages,
-                        a.frame,
-                        limits,
-                        index_scratch,
-                        identity_scratch,
-                    )?,
+                    stages: restore_program(a.stages, limits, index_scratch, identity_scratch)?,
                     frame: fresh(a.frame, f64::NAN)?,
                     reads: a.reads,
                     layout: a.layout.restore(a.frame, a.frame, limits, index_scratch)?,
@@ -1335,14 +1350,8 @@ fn restore_program(
                 comparison,
                 left,
                 right,
-                then: restore_program(then, slots, limits, index_scratch, identity_scratch)?,
-                otherwise: restore_program(
-                    otherwise,
-                    slots,
-                    limits,
-                    index_scratch,
-                    identity_scratch,
-                )?,
+                then: restore_program(then, limits, index_scratch, identity_scratch)?,
+                otherwise: restore_program(otherwise, limits, index_scratch, identity_scratch)?,
             },
         });
     }
@@ -1510,9 +1519,14 @@ impl<'a> RootView<'a> {
             )?)?,
             bytes::<(usize, usize)>(self.rows.len())?,
         )?;
-        let mut counts = Counts::default();
-        counts.index_scratch = self.inputs.max(self.coordinates.len());
-        counts.facts.capture_bytes = plus(size_of::<ExecutionSnapshot>(), signature)?;
+        let mut counts = Counts {
+            index_scratch: self.inputs.max(self.coordinates.len()),
+            facts: TransferExtents {
+                capture_bytes: plus(size_of::<ExecutionSnapshot>(), signature)?,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
         let mut shells = arc_bytes::<ExecutionTemplate>()?;
         for _ in 0..3 {
             shells = plus(shells, arc_bytes::<Vec<usize>>()?)?;
@@ -1555,9 +1569,11 @@ impl<'a> RootView<'a> {
             counts.program(
                 self.programs[i],
                 layout,
-                self.slots,
-                self.limits,
-                i,
+                ProgramContext {
+                    slots: self.slots,
+                    limits: self.limits,
+                    order: i,
+                },
                 &mut left,
                 0,
             )?;
@@ -1987,14 +2003,12 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
         let mut programs = EnumMap::default();
         programs[DerivativeOrder::Value] = Some(restore_program(
             value,
-            slots,
             limits,
             &mut index_scratch,
             &mut identity_scratch,
         )?);
         programs[DerivativeOrder::First] = Some(restore_program(
             first,
-            slots,
             limits,
             &mut index_scratch,
             &mut identity_scratch,

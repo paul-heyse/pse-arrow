@@ -375,7 +375,7 @@ fn verify_original_report(
     }
     terminal
         .report
-        .validate_content(original.len() as u64, &digest(&original))?;
+        .validate_content(original.len() as u64, &digest(original))?;
     let parsed: ReportObservation = serde_json::from_slice(original)?;
     parsed.validate_against(terminal)?;
     // Compare complete passive source data, including all failure tree fields. JSON is
