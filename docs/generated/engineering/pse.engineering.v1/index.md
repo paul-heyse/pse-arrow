@@ -3817,6 +3817,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `procedure` | 2 | `Named("ModelingProcedure")` | `Output` | `[]` | `{}` |
 | `requested_start` | 3 | `Named("NativeStartPolicy")` | `Output` | `[]` | `{}` |
 
+## `InspectionFixture`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `declaration` | 1 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `specifications` | 2 | `Repeated(Named("InspectionSpecification"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `integration` | 3 | `Optional(Named("InspectionIntegration"))` | `Output` | `[]` | `{}` |
+| `initial_equations` | 4 | `Repeated(Scalar(SemanticId))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+
 ## `InspectionInstance`
 
 Rust owner: `pse_runtime::workflow::modeling::documents::InspectionInstance`. Source: `crates/pse-runtime/src/workflow/modeling/documents.rs`. Interpretation version: 1. Direction: `Output`.
@@ -3830,6 +3843,27 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `parent` | 3 | `Optional(Named("InstanceId"))` | `Output` | `[]` | `{}` |
 | `path` | 4 | `Scalar(String)` | `Output` | `[]` | `{}` |
 | `members` | 5 | `Map(Scalar(String), Named("DeclarationId"))` | `Output` | `[]` | `{}` |
+
+## `InspectionIntegration`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `axis` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `quantity_id` | 2 | `Named("QuantityTypeId")` | `Output` | `[]` | `{}` |
+| `unit_id` | 3 | `Named("UnitId")` | `Output` | `[]` | `{}` |
+| `lower` | 4 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `upper` | 5 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `initial_step` | 6 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `relative_tolerance` | 7 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `normalized_absolute_tolerance` | 8 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `quadrature_relative_tolerance` | 9 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `samples` | 10 | `Repeated(Scalar(F64Bits))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `quadratures` | 11 | `Repeated(Named("InspectionQuadrature"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `schedule_intervals` | 12 | `Repeated(Named("InspectionScheduleInterval"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
 
 ## `InspectionLineage`
 
@@ -3873,6 +3907,11 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `ports` | 3 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `connections` | 4 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 | `domains` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `specifications` | 6 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `integration_samples` | 7 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `integration_quadratures` | 8 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `schedule_intervals` | 9 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `initial_equations` | 10 | `Scalar(U64)` | `Output` | `[]` | `{}` |
 
 ## `InspectionPort`
 
@@ -3885,6 +3924,65 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `id` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
 | `symbol` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
 | `lineage` | 3 | `Named("InspectionLineage")` | `Output` | `[]` | `{}` |
+
+## `InspectionQuadrature`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `target` | 1 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `quantity_id` | 2 | `Named("QuantityTypeId")` | `Output` | `[]` | `{}` |
+| `unit_id` | 3 | `Named("UnitId")` | `Output` | `[]` | `{}` |
+| `absolute_tolerance` | 4 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+
+## `InspectionScheduleControl`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `lower` | 1 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `upper` | 2 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+
+## `InspectionScheduleInterval`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `schedule` | 1 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `target` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `quantity_id` | 3 | `Named("QuantityTypeId")` | `Output` | `[]` | `{}` |
+| `unit_id` | 4 | `Named("UnitId")` | `Output` | `[]` | `{}` |
+| `interval` | 5 | `Scalar(U64)` | `Output` | `[]` | `{}` |
+| `change_time` | 6 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `value` | 7 | `Scalar(F64Bits)` | `Output` | `[]` | `{}` |
+| `control` | 8 | `Optional(Named("InspectionScheduleControl"))` | `Output` | `[]` | `{}` |
+
+## `InspectionSpecification`
+
+Rust owner: `pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification`. Source: `crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs`. Interpretation version: 1. Direction: `Output`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `path` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
+| `target` | 2 | `Scalar(SemanticId)` | `Output` | `[]` | `{}` |
+| `ty` | 3 | `Named("ModelingType")` | `Output` | `[]` | `{}` |
+| `quantity_id` | 4 | `Named("QuantityTypeId")` | `Output` | `[]` | `{}` |
+| `unit_id` | 5 | `Named("UnitId")` | `Output` | `[]` | `{}` |
+| `value` | 6 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `fixed` | 7 | `Optional(Scalar(Bool))` | `Output` | `[]` | `{}` |
+| `lower` | 8 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
+| `upper` | 9 | `Optional(Scalar(F64Bits))` | `Output` | `[]` | `{}` |
 
 ## `InstanceId`
 
@@ -4692,6 +4790,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `ports` | 9 | `Repeated(Named("InspectionPort"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
 | `connections` | 10 | `Repeated(Named("InspectionConnection"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
 | `domains` | 11 | `Repeated(Named("InspectionDomain"))` | `Output` | `[Length { min: 0, max: 128 }]` | `{}` |
+| `selected_root` | 12 | `Named("DeclarationId")` | `Output` | `[]` | `{}` |
+| `selected_instance` | 13 | `Named("InstanceId")` | `Output` | `[]` | `{}` |
+| `fixture` | 14 | `Optional(Named("InspectionFixture"))` | `Output` | `[]` | `{}` |
 
 ## `ModelingInspectionRequest`
 

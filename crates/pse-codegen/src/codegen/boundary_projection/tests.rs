@@ -911,7 +911,7 @@ fn nested_presence_maps_and_recursive_names_are_fully_resolved() {
     let entry = request
         .nested_type
         .iter()
-        .find(|message| message.name.as_deref() == Some("Field11Entry"))
+        .find(|message| message.name.as_deref() == Some("FilesEntry"))
         .unwrap();
     assert!(entry.options.as_option().unwrap().map_entry.unwrap());
     assert_eq!(entry.field[1].r#type, Some(Type::TYPE_BYTES));

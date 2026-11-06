@@ -152515,6 +152515,422 @@ pub const __INSPECTION_EXECUTION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry 
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
+pub struct InspectionFixture {
+    /// Field 1: `declaration`
+    #[serde(
+        rename = "declaration",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub declaration: ::buffa::MessageField<
+        DeclarationId,
+        ::buffa::Inline<DeclarationId>,
+    >,
+    /// Field 2: `specifications`
+    #[serde(
+        rename = "specifications",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub specifications: ::buffa::alloc::vec::Vec<InspectionSpecification>,
+    /// Field 3: `integration`
+    #[serde(
+        rename = "integration",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub integration: ::buffa::MessageField<
+        InspectionIntegration,
+        ::buffa::Inline<InspectionIntegration>,
+    >,
+    /// Field 4: `initial_equations`
+    #[serde(
+        rename = "initial_equations",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub initial_equations: ::buffa::alloc::vec::Vec<::buffa::alloc::vec::Vec<u8>>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionFixture {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionFixture")
+            .field("declaration", &self.declaration)
+            .field("specifications", &self.specifications)
+            .field("integration", &self.integration)
+            .field("initial_equations", &self.initial_equations)
+            .finish()
+    }
+}
+impl InspectionFixture {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionFixture";
+}
+::buffa::impl_default_instance!(InspectionFixture);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionFixture {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.declaration),
+                )
+            }
+            2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.specifications),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.integration),
+                )
+            }
+            4u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.initial_equations),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.declaration.is_set(),
+            2u32 => !self.specifications.is_empty(),
+            3u32 => self.integration.is_set(),
+            4u32 => !self.initial_equations.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionFixture {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionFixture {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionFixture {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionFixture {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionFixture";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionFixture";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionFixture";
+}
+impl ::buffa::Message for InspectionFixture {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.declaration.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.declaration.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.specifications {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.integration.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.integration.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.initial_equations {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.declaration.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                1u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.declaration.write_to(__cache, buf);
+        }
+        for v in &self.specifications {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        if self.integration.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.integration.write_to(__cache, buf);
+        }
+        for v in &self.initial_equations {
+            ::buffa::types::put_shared_bytes_field(4u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.declaration.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.specifications.push(elem);
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.integration.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_bytes(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.initial_equations.push(__elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.declaration = ::buffa::MessageField::none();
+        self.specifications.clear();
+        self.integration = ::buffa::MessageField::none();
+        self.initial_equations.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionFixture {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionFixture";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionFixture {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.declaration.is_set() {
+            enc.write_field_name("declaration")?;
+            enc.write_message(&*self.declaration)?;
+        }
+        if self.integration.is_set() {
+            enc.write_field_name("integration")?;
+            enc.write_message(&*self.integration)?;
+        }
+        for __v in &self.specifications {
+            enc.write_field_name("specifications")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.initial_equations {
+            enc.write_field_name("initial_equations")?;
+            enc.write_bytes(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "declaration" => {
+                    dec.merge_message(self.declaration.get_or_insert_default())?
+                }
+                "integration" => {
+                    dec.merge_message(self.integration.get_or_insert_default())?
+                }
+                "specifications" => {
+                    dec.read_repeated_into(
+                        &mut self.specifications,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "initial_equations" => {
+                    dec.read_repeated_into(
+                        &mut self.initial_equations,
+                        |__d| __d.read_bytes(),
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionFixture {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_FIXTURE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionFixture",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionFixture>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionFixture>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_FIXTURE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionFixture",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionFixture>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionFixture>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
 pub struct InspectionInstance {
     /// Field 1: `id`
     #[serde(
@@ -152988,6 +153404,739 @@ pub const __INSPECTION_INSTANCE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry =
     type_url: "type.googleapis.com/pse.engineering.v1.InspectionInstance",
     text_encode: ::buffa::type_registry::any_encode_text::<InspectionInstance>,
     text_merge: ::buffa::type_registry::any_merge_text::<InspectionInstance>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct InspectionIntegration {
+    /// Field 1: `axis`
+    #[serde(
+        rename = "axis",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub axis: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 2: `quantity_id`
+    #[serde(
+        rename = "quantity_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub quantity_id: ::buffa::MessageField<
+        QuantityTypeId,
+        ::buffa::Inline<QuantityTypeId>,
+    >,
+    /// Field 3: `unit_id`
+    #[serde(
+        rename = "unit_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub unit_id: ::buffa::MessageField<UnitId, ::buffa::Inline<UnitId>>,
+    /// Field 4: `lower`
+    #[serde(
+        rename = "lower",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub lower: u64,
+    /// Field 5: `upper`
+    #[serde(
+        rename = "upper",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub upper: u64,
+    /// Field 6: `initial_step`
+    #[serde(
+        rename = "initial_step",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub initial_step: u64,
+    /// Field 7: `relative_tolerance`
+    #[serde(
+        rename = "relative_tolerance",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub relative_tolerance: u64,
+    /// Field 8: `normalized_absolute_tolerance`
+    #[serde(
+        rename = "normalized_absolute_tolerance",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub normalized_absolute_tolerance: u64,
+    /// Field 9: `quadrature_relative_tolerance`
+    #[serde(
+        rename = "quadrature_relative_tolerance",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub quadrature_relative_tolerance: ::core::option::Option<u64>,
+    /// Field 10: `samples`
+    #[serde(
+        rename = "samples",
+        with = "::buffa::json_helpers::proto_seq",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec"
+    )]
+    pub samples: ::buffa::alloc::vec::Vec<u64>,
+    /// Field 11: `quadratures`
+    #[serde(
+        rename = "quadratures",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub quadratures: ::buffa::alloc::vec::Vec<InspectionQuadrature>,
+    /// Field 12: `schedule_intervals`
+    #[serde(
+        rename = "schedule_intervals",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub schedule_intervals: ::buffa::alloc::vec::Vec<InspectionScheduleInterval>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionIntegration {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionIntegration")
+            .field("axis", &self.axis)
+            .field("quantity_id", &self.quantity_id)
+            .field("unit_id", &self.unit_id)
+            .field("lower", &self.lower)
+            .field("upper", &self.upper)
+            .field("initial_step", &self.initial_step)
+            .field("relative_tolerance", &self.relative_tolerance)
+            .field("normalized_absolute_tolerance", &self.normalized_absolute_tolerance)
+            .field("quadrature_relative_tolerance", &self.quadrature_relative_tolerance)
+            .field("samples", &self.samples)
+            .field("quadratures", &self.quadratures)
+            .field("schedule_intervals", &self.schedule_intervals)
+            .finish()
+    }
+}
+impl InspectionIntegration {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionIntegration";
+}
+impl InspectionIntegration {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::quadrature_relative_tolerance`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_quadrature_relative_tolerance(mut self, value: u64) -> Self {
+        self.quadrature_relative_tolerance = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(InspectionIntegration);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionIntegration {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.axis[..]),
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.quantity_id),
+                )
+            }
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.unit_id),
+                )
+            }
+            4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.lower),
+            5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.upper),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.initial_step),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.relative_tolerance),
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(
+                    self.normalized_absolute_tolerance,
+                )
+            }
+            9u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(
+                    self.quadrature_relative_tolerance.unwrap_or(0),
+                )
+            }
+            10u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.samples),
+            11u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.quadratures),
+            12u32 => {
+                ::buffa_descriptor::reflect::ValueRef::List(&self.schedule_intervals)
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.axis.is_empty(),
+            2u32 => self.quantity_id.is_set(),
+            3u32 => self.unit_id.is_set(),
+            4u32 => self.lower != 0,
+            5u32 => self.upper != 0,
+            6u32 => self.initial_step != 0,
+            7u32 => self.relative_tolerance != 0,
+            8u32 => self.normalized_absolute_tolerance != 0,
+            9u32 => self.quadrature_relative_tolerance.is_some(),
+            10u32 => !self.samples.is_empty(),
+            11u32 => !self.quadratures.is_empty(),
+            12u32 => !self.schedule_intervals.is_empty(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionIntegration {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionIntegration {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionIntegration {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionIntegration {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionIntegration";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionIntegration";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionIntegration";
+}
+impl ::buffa::Message for InspectionIntegration {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.axis.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.axis) as u64;
+        }
+        if self.quantity_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.quantity_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.unit_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.unit_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.lower != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.upper != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.initial_step != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.relative_tolerance != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.normalized_absolute_tolerance != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.quadrature_relative_tolerance.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if !self.samples.is_empty() {
+            let payload: u64 = self.samples.len() as u64
+                * ::buffa::types::FIXED64_ENCODED_LEN as u64;
+            size += 1u64 + ::buffa::encoding::varint_len(payload) as u64 + payload;
+        }
+        for v in &self.quadratures {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        for v in &self.schedule_intervals {
+            let __slot = __cache.reserve();
+            let inner_size = v.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.axis.is_empty() {
+            ::buffa::types::put_shared_bytes_field(1u32, &self.axis, buf);
+        }
+        if self.quantity_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.quantity_id.write_to(__cache, buf);
+        }
+        if self.unit_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.unit_id.write_to(__cache, buf);
+        }
+        if self.lower != 0u64 {
+            ::buffa::types::put_fixed64_field(4u32, self.lower, buf);
+        }
+        if self.upper != 0u64 {
+            ::buffa::types::put_fixed64_field(5u32, self.upper, buf);
+        }
+        if self.initial_step != 0u64 {
+            ::buffa::types::put_fixed64_field(6u32, self.initial_step, buf);
+        }
+        if self.relative_tolerance != 0u64 {
+            ::buffa::types::put_fixed64_field(7u32, self.relative_tolerance, buf);
+        }
+        if self.normalized_absolute_tolerance != 0u64 {
+            ::buffa::types::put_fixed64_field(
+                8u32,
+                self.normalized_absolute_tolerance,
+                buf,
+            );
+        }
+        if let Some(v) = self.quadrature_relative_tolerance {
+            ::buffa::types::put_fixed64_field(9u32, v, buf);
+        }
+        if !self.samples.is_empty() {
+            let payload: u64 = self.samples.len() as u64
+                * ::buffa::types::FIXED64_ENCODED_LEN as u64;
+            ::buffa::types::put_len_delimited_header(10u32, payload, buf);
+            for &v in &self.samples {
+                ::buffa::types::encode_fixed64(v, buf);
+            }
+        }
+        for v in &self.quadratures {
+            ::buffa::types::put_len_delimited_header(
+                11u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        for v in &self.schedule_intervals {
+            ::buffa::types::put_len_delimited_header(
+                12u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            v.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.axis, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.quantity_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.unit_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.lower = ::buffa::types::decode_fixed64(buf)?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.upper = ::buffa::types::decode_fixed64(buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.initial_step = ::buffa::types::decode_fixed64(buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.relative_tolerance = ::buffa::types::decode_fixed64(buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.normalized_absolute_tolerance = ::buffa::types::decode_fixed64(
+                    buf,
+                )?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.quadrature_relative_tolerance = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            10u32 => {
+                if tag.wire_type() == ::buffa::encoding::WireType::LengthDelimited {
+                    let len = ::buffa::encoding::decode_varint(buf)?;
+                    let len = usize::try_from(len)
+                        .map_err(|_| ::buffa::DecodeError::MessageTooLarge)?;
+                    if buf.remaining() < len {
+                        return ::core::result::Result::Err(
+                            ::buffa::DecodeError::UnexpectedEof,
+                        );
+                    }
+                    if buf.chunk().len() >= len {
+                        ::buffa::types::extend_packed_fixed64(
+                            &buf.chunk()[..len],
+                            &mut self.samples,
+                        )?;
+                        buf.advance(len);
+                    } else {
+                        self.samples.reserve(len / 8usize);
+                        let mut limited = buf.take(len);
+                        while limited.has_remaining() {
+                            self.samples
+                                .push(::buffa::types::decode_fixed64(&mut limited)?);
+                        }
+                        let leftover = limited.remaining();
+                        if leftover > 0 {
+                            limited.advance(leftover);
+                        }
+                    }
+                } else if tag.wire_type() == ::buffa::encoding::WireType::Fixed64 {
+                    self.samples.push(::buffa::types::decode_fixed64(buf)?);
+                } else {
+                    return ::core::result::Result::Err(
+                        ::buffa::encoding::wire_type_mismatch(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        ),
+                    );
+                }
+            }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.quadratures.push(elem);
+            }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let mut elem = ::core::default::Default::default();
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&elem),
+                )?;
+                ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                self.schedule_intervals.push(elem);
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.axis.clear();
+        self.quantity_id = ::buffa::MessageField::none();
+        self.unit_id = ::buffa::MessageField::none();
+        self.lower = 0u64;
+        self.upper = 0u64;
+        self.initial_step = 0u64;
+        self.relative_tolerance = 0u64;
+        self.normalized_absolute_tolerance = 0u64;
+        self.quadrature_relative_tolerance = ::core::option::Option::None;
+        self.samples.clear();
+        self.quadratures.clear();
+        self.schedule_intervals.clear();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionIntegration {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionIntegration";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionIntegration {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.axis.is_empty() {
+            enc.write_field_name("axis")?;
+            enc.write_bytes(&self.axis)?;
+        }
+        if self.quantity_id.is_set() {
+            enc.write_field_name("quantity_id")?;
+            enc.write_message(&*self.quantity_id)?;
+        }
+        if self.unit_id.is_set() {
+            enc.write_field_name("unit_id")?;
+            enc.write_message(&*self.unit_id)?;
+        }
+        if self.lower != 0u64 {
+            enc.write_field_name("lower")?;
+            enc.write_u64(self.lower)?;
+        }
+        if self.upper != 0u64 {
+            enc.write_field_name("upper")?;
+            enc.write_u64(self.upper)?;
+        }
+        if self.initial_step != 0u64 {
+            enc.write_field_name("initial_step")?;
+            enc.write_u64(self.initial_step)?;
+        }
+        if self.relative_tolerance != 0u64 {
+            enc.write_field_name("relative_tolerance")?;
+            enc.write_u64(self.relative_tolerance)?;
+        }
+        if self.normalized_absolute_tolerance != 0u64 {
+            enc.write_field_name("normalized_absolute_tolerance")?;
+            enc.write_u64(self.normalized_absolute_tolerance)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.quadrature_relative_tolerance
+        {
+            enc.write_field_name("quadrature_relative_tolerance")?;
+            enc.write_u64(*__v)?;
+        }
+        for __v in &self.samples {
+            enc.write_field_name("samples")?;
+            enc.write_u64(*__v)?;
+        }
+        for __v in &self.quadratures {
+            enc.write_field_name("quadratures")?;
+            enc.write_message(__v)?;
+        }
+        for __v in &self.schedule_intervals {
+            enc.write_field_name("schedule_intervals")?;
+            enc.write_message(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "axis" => self.axis = dec.read_bytes()?,
+                "quantity_id" => {
+                    dec.merge_message(self.quantity_id.get_or_insert_default())?
+                }
+                "unit_id" => dec.merge_message(self.unit_id.get_or_insert_default())?,
+                "lower" => self.lower = dec.read_u64()?,
+                "upper" => self.upper = dec.read_u64()?,
+                "initial_step" => self.initial_step = dec.read_u64()?,
+                "relative_tolerance" => self.relative_tolerance = dec.read_u64()?,
+                "normalized_absolute_tolerance" => {
+                    self.normalized_absolute_tolerance = dec.read_u64()?;
+                }
+                "quadrature_relative_tolerance" => {
+                    self.quadrature_relative_tolerance = ::core::option::Option::Some(
+                        dec.read_u64()?,
+                    );
+                }
+                "samples" => {
+                    dec.read_repeated_into(&mut self.samples, |__d| __d.read_u64())?
+                }
+                "quadratures" => {
+                    dec.read_repeated_into(
+                        &mut self.quadratures,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                "schedule_intervals" => {
+                    dec.read_repeated_into(
+                        &mut self.schedule_intervals,
+                        |__d| {
+                            let mut __m = ::core::default::Default::default();
+                            __d.merge_message(&mut __m)?;
+                            ::core::result::Result::Ok(__m)
+                        },
+                    )?
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionIntegration {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_INTEGRATION_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionIntegration",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionIntegration>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionIntegration>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_INTEGRATION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionIntegration",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionIntegration>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionIntegration>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
@@ -153961,6 +155110,41 @@ pub struct InspectionPopulation {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
     )]
     pub domains: u64,
+    /// Field 6: `specifications`
+    #[serde(
+        rename = "specifications",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub specifications: u64,
+    /// Field 7: `integration_samples`
+    #[serde(
+        rename = "integration_samples",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub integration_samples: u64,
+    /// Field 8: `integration_quadratures`
+    #[serde(
+        rename = "integration_quadratures",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub integration_quadratures: u64,
+    /// Field 9: `schedule_intervals`
+    #[serde(
+        rename = "schedule_intervals",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub schedule_intervals: u64,
+    /// Field 10: `initial_equations`
+    #[serde(
+        rename = "initial_equations",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub initial_equations: u64,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -153973,6 +155157,11 @@ impl ::core::fmt::Debug for InspectionPopulation {
             .field("ports", &self.ports)
             .field("connections", &self.connections)
             .field("domains", &self.domains)
+            .field("specifications", &self.specifications)
+            .field("integration_samples", &self.integration_samples)
+            .field("integration_quadratures", &self.integration_quadratures)
+            .field("schedule_intervals", &self.schedule_intervals)
+            .field("initial_equations", &self.initial_equations)
             .finish()
     }
 }
@@ -154007,6 +155196,13 @@ impl ::buffa_descriptor::reflect::ReflectMessage for InspectionPopulation {
             3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.ports),
             4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.connections),
             5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.domains),
+            6u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.specifications),
+            7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.integration_samples),
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(self.integration_quadratures)
+            }
+            9u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.schedule_intervals),
+            10u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.initial_equations),
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -154024,6 +155220,11 @@ impl ::buffa_descriptor::reflect::ReflectMessage for InspectionPopulation {
             3u32 => self.ports != 0,
             4u32 => self.connections != 0,
             5u32 => self.domains != 0,
+            6u32 => self.specifications != 0,
+            7u32 => self.integration_samples != 0,
+            8u32 => self.integration_quadratures != 0,
+            9u32 => self.schedule_intervals != 0,
+            10u32 => self.initial_equations != 0,
             _ => false,
         }
     }
@@ -154117,6 +155318,32 @@ impl ::buffa::Message for InspectionPopulation {
         if self.domains != 0u64 {
             size += 1u64 + ::buffa::types::uint64_encoded_len(self.domains) as u64;
         }
+        if self.specifications != 0u64 {
+            size
+                += 1u64 + ::buffa::types::uint64_encoded_len(self.specifications) as u64;
+        }
+        if self.integration_samples != 0u64 {
+            size
+                += 1u64
+                    + ::buffa::types::uint64_encoded_len(self.integration_samples)
+                        as u64;
+        }
+        if self.integration_quadratures != 0u64 {
+            size
+                += 1u64
+                    + ::buffa::types::uint64_encoded_len(self.integration_quadratures)
+                        as u64;
+        }
+        if self.schedule_intervals != 0u64 {
+            size
+                += 1u64
+                    + ::buffa::types::uint64_encoded_len(self.schedule_intervals) as u64;
+        }
+        if self.initial_equations != 0u64 {
+            size
+                += 1u64
+                    + ::buffa::types::uint64_encoded_len(self.initial_equations) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -154141,6 +155368,21 @@ impl ::buffa::Message for InspectionPopulation {
         }
         if self.domains != 0u64 {
             ::buffa::types::put_uint64_field(5u32, self.domains, buf);
+        }
+        if self.specifications != 0u64 {
+            ::buffa::types::put_uint64_field(6u32, self.specifications, buf);
+        }
+        if self.integration_samples != 0u64 {
+            ::buffa::types::put_uint64_field(7u32, self.integration_samples, buf);
+        }
+        if self.integration_quadratures != 0u64 {
+            ::buffa::types::put_uint64_field(8u32, self.integration_quadratures, buf);
+        }
+        if self.schedule_intervals != 0u64 {
+            ::buffa::types::put_uint64_field(9u32, self.schedule_intervals, buf);
+        }
+        if self.initial_equations != 0u64 {
+            ::buffa::types::put_uint64_field(10u32, self.initial_equations, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -154190,6 +155432,41 @@ impl ::buffa::Message for InspectionPopulation {
                 )?;
                 self.domains = ::buffa::types::decode_uint64(buf)?;
             }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.specifications = ::buffa::types::decode_uint64(buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.integration_samples = ::buffa::types::decode_uint64(buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.integration_quadratures = ::buffa::types::decode_uint64(buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.schedule_intervals = ::buffa::types::decode_uint64(buf)?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.initial_equations = ::buffa::types::decode_uint64(buf)?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -154203,6 +155480,11 @@ impl ::buffa::Message for InspectionPopulation {
         self.ports = 0u64;
         self.connections = 0u64;
         self.domains = 0u64;
+        self.specifications = 0u64;
+        self.integration_samples = 0u64;
+        self.integration_quadratures = 0u64;
+        self.schedule_intervals = 0u64;
+        self.initial_equations = 0u64;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -154242,6 +155524,26 @@ impl ::buffa::text::TextFormat for InspectionPopulation {
             enc.write_field_name("domains")?;
             enc.write_u64(self.domains)?;
         }
+        if self.specifications != 0u64 {
+            enc.write_field_name("specifications")?;
+            enc.write_u64(self.specifications)?;
+        }
+        if self.integration_samples != 0u64 {
+            enc.write_field_name("integration_samples")?;
+            enc.write_u64(self.integration_samples)?;
+        }
+        if self.integration_quadratures != 0u64 {
+            enc.write_field_name("integration_quadratures")?;
+            enc.write_u64(self.integration_quadratures)?;
+        }
+        if self.schedule_intervals != 0u64 {
+            enc.write_field_name("schedule_intervals")?;
+            enc.write_u64(self.schedule_intervals)?;
+        }
+        if self.initial_equations != 0u64 {
+            enc.write_field_name("initial_equations")?;
+            enc.write_u64(self.initial_equations)?;
+        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -154258,6 +155560,13 @@ impl ::buffa::text::TextFormat for InspectionPopulation {
                 "ports" => self.ports = dec.read_u64()?,
                 "connections" => self.connections = dec.read_u64()?,
                 "domains" => self.domains = dec.read_u64()?,
+                "specifications" => self.specifications = dec.read_u64()?,
+                "integration_samples" => self.integration_samples = dec.read_u64()?,
+                "integration_quadratures" => {
+                    self.integration_quadratures = dec.read_u64()?;
+                }
+                "schedule_intervals" => self.schedule_intervals = dec.read_u64()?,
+                "initial_equations" => self.initial_equations = dec.read_u64()?,
                 _ => dec.skip_value()?,
             }
         }
@@ -154619,6 +155928,1790 @@ pub const __INSPECTION_PORT_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::b
     type_url: "type.googleapis.com/pse.engineering.v1.InspectionPort",
     text_encode: ::buffa::type_registry::any_encode_text::<InspectionPort>,
     text_merge: ::buffa::type_registry::any_merge_text::<InspectionPort>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct InspectionQuadrature {
+    /// Field 1: `target`
+    #[serde(
+        rename = "target",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub target: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 2: `quantity_id`
+    #[serde(
+        rename = "quantity_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub quantity_id: ::buffa::MessageField<
+        QuantityTypeId,
+        ::buffa::Inline<QuantityTypeId>,
+    >,
+    /// Field 3: `unit_id`
+    #[serde(
+        rename = "unit_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub unit_id: ::buffa::MessageField<UnitId, ::buffa::Inline<UnitId>>,
+    /// Field 4: `absolute_tolerance`
+    #[serde(
+        rename = "absolute_tolerance",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub absolute_tolerance: u64,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionQuadrature {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionQuadrature")
+            .field("target", &self.target)
+            .field("quantity_id", &self.quantity_id)
+            .field("unit_id", &self.unit_id)
+            .field("absolute_tolerance", &self.absolute_tolerance)
+            .finish()
+    }
+}
+impl InspectionQuadrature {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionQuadrature";
+}
+::buffa::impl_default_instance!(InspectionQuadrature);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionQuadrature {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.target[..]),
+            2u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.quantity_id),
+                )
+            }
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.unit_id),
+                )
+            }
+            4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.absolute_tolerance),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.target.is_empty(),
+            2u32 => self.quantity_id.is_set(),
+            3u32 => self.unit_id.is_set(),
+            4u32 => self.absolute_tolerance != 0,
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionQuadrature {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionQuadrature {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionQuadrature {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionQuadrature {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionQuadrature";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionQuadrature";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionQuadrature";
+}
+impl ::buffa::Message for InspectionQuadrature {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.target.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+        }
+        if self.quantity_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.quantity_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.unit_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.unit_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.absolute_tolerance != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.target.is_empty() {
+            ::buffa::types::put_shared_bytes_field(1u32, &self.target, buf);
+        }
+        if self.quantity_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                2u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.quantity_id.write_to(__cache, buf);
+        }
+        if self.unit_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.unit_id.write_to(__cache, buf);
+        }
+        if self.absolute_tolerance != 0u64 {
+            ::buffa::types::put_fixed64_field(4u32, self.absolute_tolerance, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.target, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.quantity_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.unit_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.absolute_tolerance = ::buffa::types::decode_fixed64(buf)?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.target.clear();
+        self.quantity_id = ::buffa::MessageField::none();
+        self.unit_id = ::buffa::MessageField::none();
+        self.absolute_tolerance = 0u64;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionQuadrature {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionQuadrature";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionQuadrature {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.target.is_empty() {
+            enc.write_field_name("target")?;
+            enc.write_bytes(&self.target)?;
+        }
+        if self.quantity_id.is_set() {
+            enc.write_field_name("quantity_id")?;
+            enc.write_message(&*self.quantity_id)?;
+        }
+        if self.unit_id.is_set() {
+            enc.write_field_name("unit_id")?;
+            enc.write_message(&*self.unit_id)?;
+        }
+        if self.absolute_tolerance != 0u64 {
+            enc.write_field_name("absolute_tolerance")?;
+            enc.write_u64(self.absolute_tolerance)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "target" => self.target = dec.read_bytes()?,
+                "quantity_id" => {
+                    dec.merge_message(self.quantity_id.get_or_insert_default())?
+                }
+                "unit_id" => dec.merge_message(self.unit_id.get_or_insert_default())?,
+                "absolute_tolerance" => self.absolute_tolerance = dec.read_u64()?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionQuadrature {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_QUADRATURE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionQuadrature",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionQuadrature>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionQuadrature>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_QUADRATURE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionQuadrature",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionQuadrature>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionQuadrature>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct InspectionScheduleControl {
+    /// Field 1: `lower`
+    #[serde(
+        rename = "lower",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub lower: ::core::option::Option<u64>,
+    /// Field 2: `upper`
+    #[serde(
+        rename = "upper",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub upper: ::core::option::Option<u64>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionScheduleControl {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionScheduleControl")
+            .field("lower", &self.lower)
+            .field("upper", &self.upper)
+            .finish()
+    }
+}
+impl InspectionScheduleControl {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleControl";
+}
+impl InspectionScheduleControl {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::lower`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_lower(mut self, value: u64) -> Self {
+        self.lower = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::upper`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_upper(mut self, value: u64) -> Self {
+        self.upper = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(InspectionScheduleControl);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionScheduleControl {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.lower.unwrap_or(0)),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.upper.unwrap_or(0)),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.lower.is_some(),
+            2u32 => self.upper.is_some(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionScheduleControl {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionScheduleControl {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionScheduleControl {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionScheduleControl {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionScheduleControl";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionScheduleControl";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleControl";
+}
+impl ::buffa::Message for InspectionScheduleControl {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.lower.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.upper.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let Some(v) = self.lower {
+            ::buffa::types::put_fixed64_field(1u32, v, buf);
+        }
+        if let Some(v) = self.upper {
+            ::buffa::types::put_fixed64_field(2u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.lower = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.upper = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.lower = ::core::option::Option::None;
+        self.upper = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionScheduleControl {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionScheduleControl";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionScheduleControl {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref __v) = self.lower {
+            enc.write_field_name("lower")?;
+            enc.write_u64(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.upper {
+            enc.write_field_name("upper")?;
+            enc.write_u64(*__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "lower" => self.lower = ::core::option::Option::Some(dec.read_u64()?),
+                "upper" => self.upper = ::core::option::Option::Some(dec.read_u64()?),
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionScheduleControl {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_SCHEDULE_CONTROL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionScheduleControl",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionScheduleControl>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionScheduleControl>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_SCHEDULE_CONTROL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionScheduleControl",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionScheduleControl>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionScheduleControl>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct InspectionScheduleInterval {
+    /// Field 1: `schedule`
+    #[serde(
+        rename = "schedule",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub schedule: u64,
+    /// Field 2: `target`
+    #[serde(
+        rename = "target",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub target: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 3: `quantity_id`
+    #[serde(
+        rename = "quantity_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub quantity_id: ::buffa::MessageField<
+        QuantityTypeId,
+        ::buffa::Inline<QuantityTypeId>,
+    >,
+    /// Field 4: `unit_id`
+    #[serde(
+        rename = "unit_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub unit_id: ::buffa::MessageField<UnitId, ::buffa::Inline<UnitId>>,
+    /// Field 5: `interval`
+    #[serde(
+        rename = "interval",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub interval: u64,
+    /// Field 6: `change_time`
+    #[serde(
+        rename = "change_time",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub change_time: ::core::option::Option<u64>,
+    /// Field 7: `value`
+    #[serde(
+        rename = "value",
+        with = "::buffa::json_helpers::uint64",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+    )]
+    pub value: u64,
+    /// Field 8: `control`
+    #[serde(
+        rename = "control",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub control: ::buffa::MessageField<
+        InspectionScheduleControl,
+        ::buffa::Inline<InspectionScheduleControl>,
+    >,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionScheduleInterval {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionScheduleInterval")
+            .field("schedule", &self.schedule)
+            .field("target", &self.target)
+            .field("quantity_id", &self.quantity_id)
+            .field("unit_id", &self.unit_id)
+            .field("interval", &self.interval)
+            .field("change_time", &self.change_time)
+            .field("value", &self.value)
+            .field("control", &self.control)
+            .finish()
+    }
+}
+impl InspectionScheduleInterval {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleInterval";
+}
+impl InspectionScheduleInterval {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::change_time`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_change_time(mut self, value: u64) -> Self {
+        self.change_time = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(InspectionScheduleInterval);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionScheduleInterval {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.schedule),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.target[..]),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.quantity_id),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.unit_id),
+                )
+            }
+            5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.interval),
+            6u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(self.change_time.unwrap_or(0))
+            }
+            7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.value),
+            8u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.control),
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.schedule != 0,
+            2u32 => !self.target.is_empty(),
+            3u32 => self.quantity_id.is_set(),
+            4u32 => self.unit_id.is_set(),
+            5u32 => self.interval != 0,
+            6u32 => self.change_time.is_some(),
+            7u32 => self.value != 0,
+            8u32 => self.control.is_set(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionScheduleInterval {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionScheduleInterval {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionScheduleInterval {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionScheduleInterval {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionScheduleInterval";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionScheduleInterval";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleInterval";
+}
+impl ::buffa::Message for InspectionScheduleInterval {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if self.schedule != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.schedule) as u64;
+        }
+        if !self.target.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+        }
+        if self.quantity_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.quantity_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.unit_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.unit_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.interval != 0u64 {
+            size += 1u64 + ::buffa::types::uint64_encoded_len(self.interval) as u64;
+        }
+        if self.change_time.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.value != 0u64 {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.control.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.control.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.schedule != 0u64 {
+            ::buffa::types::put_uint64_field(1u32, self.schedule, buf);
+        }
+        if !self.target.is_empty() {
+            ::buffa::types::put_shared_bytes_field(2u32, &self.target, buf);
+        }
+        if self.quantity_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.quantity_id.write_to(__cache, buf);
+        }
+        if self.unit_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                4u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.unit_id.write_to(__cache, buf);
+        }
+        if self.interval != 0u64 {
+            ::buffa::types::put_uint64_field(5u32, self.interval, buf);
+        }
+        if let Some(v) = self.change_time {
+            ::buffa::types::put_fixed64_field(6u32, v, buf);
+        }
+        if self.value != 0u64 {
+            ::buffa::types::put_fixed64_field(7u32, self.value, buf);
+        }
+        if self.control.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                8u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.control.write_to(__cache, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.schedule = ::buffa::types::decode_uint64(buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.target, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.quantity_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.unit_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.interval = ::buffa::types::decode_uint64(buf)?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.change_time = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.value = ::buffa::types::decode_fixed64(buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.control.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.schedule = 0u64;
+        self.target.clear();
+        self.quantity_id = ::buffa::MessageField::none();
+        self.unit_id = ::buffa::MessageField::none();
+        self.interval = 0u64;
+        self.change_time = ::core::option::Option::None;
+        self.value = 0u64;
+        self.control = ::buffa::MessageField::none();
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionScheduleInterval {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionScheduleInterval";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionScheduleInterval {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if self.schedule != 0u64 {
+            enc.write_field_name("schedule")?;
+            enc.write_u64(self.schedule)?;
+        }
+        if !self.target.is_empty() {
+            enc.write_field_name("target")?;
+            enc.write_bytes(&self.target)?;
+        }
+        if self.quantity_id.is_set() {
+            enc.write_field_name("quantity_id")?;
+            enc.write_message(&*self.quantity_id)?;
+        }
+        if self.unit_id.is_set() {
+            enc.write_field_name("unit_id")?;
+            enc.write_message(&*self.unit_id)?;
+        }
+        if self.interval != 0u64 {
+            enc.write_field_name("interval")?;
+            enc.write_u64(self.interval)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.change_time {
+            enc.write_field_name("change_time")?;
+            enc.write_u64(*__v)?;
+        }
+        if self.value != 0u64 {
+            enc.write_field_name("value")?;
+            enc.write_u64(self.value)?;
+        }
+        if self.control.is_set() {
+            enc.write_field_name("control")?;
+            enc.write_message(&*self.control)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "schedule" => self.schedule = dec.read_u64()?,
+                "target" => self.target = dec.read_bytes()?,
+                "quantity_id" => {
+                    dec.merge_message(self.quantity_id.get_or_insert_default())?
+                }
+                "unit_id" => dec.merge_message(self.unit_id.get_or_insert_default())?,
+                "interval" => self.interval = dec.read_u64()?,
+                "change_time" => {
+                    self.change_time = ::core::option::Option::Some(dec.read_u64()?);
+                }
+                "value" => self.value = dec.read_u64()?,
+                "control" => dec.merge_message(self.control.get_or_insert_default())?,
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionScheduleInterval {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_SCHEDULE_INTERVAL_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionScheduleInterval",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionScheduleInterval>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionScheduleInterval>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_SCHEDULE_INTERVAL_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionScheduleInterval",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionScheduleInterval>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionScheduleInterval>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
+pub struct InspectionSpecification {
+    /// Field 1: `path`
+    #[serde(
+        rename = "path",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub path: ::buffa::alloc::string::String,
+    /// Field 2: `target`
+    #[serde(
+        rename = "target",
+        with = "::buffa::json_helpers::bytes",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+    )]
+    pub target: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 3: `ty`
+    #[serde(
+        rename = "ty",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub ty: ::buffa::MessageField<ModelingType, ::buffa::Inline<ModelingType>>,
+    /// Field 4: `quantity_id`
+    #[serde(
+        rename = "quantity_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub quantity_id: ::buffa::MessageField<
+        QuantityTypeId,
+        ::buffa::Inline<QuantityTypeId>,
+    >,
+    /// Field 5: `unit_id`
+    #[serde(
+        rename = "unit_id",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub unit_id: ::buffa::MessageField<UnitId, ::buffa::Inline<UnitId>>,
+    /// Field 6: `value`
+    #[serde(
+        rename = "value",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub value: ::core::option::Option<u64>,
+    /// Field 7: `fixed`
+    #[serde(rename = "fixed", skip_serializing_if = "::core::option::Option::is_none")]
+    pub fixed: ::core::option::Option<bool>,
+    /// Field 8: `lower`
+    #[serde(
+        rename = "lower",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub lower: ::core::option::Option<u64>,
+    /// Field 9: `upper`
+    #[serde(
+        rename = "upper",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub upper: ::core::option::Option<u64>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for InspectionSpecification {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("InspectionSpecification")
+            .field("path", &self.path)
+            .field("target", &self.target)
+            .field("ty", &self.ty)
+            .field("quantity_id", &self.quantity_id)
+            .field("unit_id", &self.unit_id)
+            .field("value", &self.value)
+            .field("fixed", &self.fixed)
+            .field("lower", &self.lower)
+            .field("upper", &self.upper)
+            .finish()
+    }
+}
+impl InspectionSpecification {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionSpecification";
+}
+impl InspectionSpecification {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::value`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_value(mut self, value: u64) -> Self {
+        self.value = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::fixed`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_fixed(mut self, value: bool) -> Self {
+        self.fixed = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::lower`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_lower(mut self, value: u64) -> Self {
+        self.lower = Some(value);
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::upper`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_upper(mut self, value: u64) -> Self {
+        self.upper = Some(value);
+        self
+    }
+}
+::buffa::impl_default_instance!(InspectionSpecification);
+impl ::buffa_descriptor::reflect::ReflectMessage for InspectionSpecification {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.path),
+            2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.target[..]),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.ty),
+                )
+            }
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.quantity_id),
+                )
+            }
+            5u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.unit_id),
+                )
+            }
+            6u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.value.unwrap_or(0)),
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bool(self.fixed.unwrap_or(false))
+            }
+            8u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.lower.unwrap_or(0)),
+            9u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.upper.unwrap_or(0)),
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => !self.path.is_empty(),
+            2u32 => !self.target.is_empty(),
+            3u32 => self.ty.is_set(),
+            4u32 => self.quantity_id.is_set(),
+            5u32 => self.unit_id.is_set(),
+            6u32 => self.value.is_some(),
+            7u32 => self.fixed.is_some(),
+            8u32 => self.lower.is_some(),
+            9u32 => self.upper.is_some(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for InspectionSpecification {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl InspectionSpecification {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for InspectionSpecification {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for InspectionSpecification {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "InspectionSpecification";
+    const FULL_NAME: &'static str = "pse.engineering.v1.InspectionSpecification";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionSpecification";
+}
+impl ::buffa::Message for InspectionSpecification {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if !self.path.is_empty() {
+            size += 1u64 + ::buffa::types::string_encoded_len(&self.path) as u64;
+        }
+        if !self.target.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+        }
+        if self.ty.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.ty.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.quantity_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.quantity_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.unit_id.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.unit_id.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.value.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.fixed.is_some() {
+            size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+        }
+        if self.lower.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        if self.upper.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.path.is_empty() {
+            ::buffa::types::put_string_field(1u32, &self.path, buf);
+        }
+        if !self.target.is_empty() {
+            ::buffa::types::put_shared_bytes_field(2u32, &self.target, buf);
+        }
+        if self.ty.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                3u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.ty.write_to(__cache, buf);
+        }
+        if self.quantity_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                4u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.quantity_id.write_to(__cache, buf);
+        }
+        if self.unit_id.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                5u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.unit_id.write_to(__cache, buf);
+        }
+        if let Some(v) = self.value {
+            ::buffa::types::put_fixed64_field(6u32, v, buf);
+        }
+        if let Some(v) = self.fixed {
+            ::buffa::types::put_bool_field(7u32, v, buf);
+        }
+        if let Some(v) = self.lower {
+            ::buffa::types::put_fixed64_field(8u32, v, buf);
+        }
+        if let Some(v) = self.upper {
+            ::buffa::types::put_fixed64_field(9u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.path, buf)?;
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.target, buf)?;
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.ty.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.quantity_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.unit_id.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.value = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Varint,
+                )?;
+                self.fixed = ::core::option::Option::Some(
+                    ::buffa::types::decode_bool(buf)?,
+                );
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.lower = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.upper = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.path.clear();
+        self.target.clear();
+        self.ty = ::buffa::MessageField::none();
+        self.quantity_id = ::buffa::MessageField::none();
+        self.unit_id = ::buffa::MessageField::none();
+        self.value = ::core::option::Option::None;
+        self.fixed = ::core::option::Option::None;
+        self.lower = ::core::option::Option::None;
+        self.upper = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for InspectionSpecification {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.InspectionSpecification";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for InspectionSpecification {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if !self.path.is_empty() {
+            enc.write_field_name("path")?;
+            enc.write_string(&self.path)?;
+        }
+        if !self.target.is_empty() {
+            enc.write_field_name("target")?;
+            enc.write_bytes(&self.target)?;
+        }
+        if self.ty.is_set() {
+            enc.write_field_name("ty")?;
+            enc.write_message(&*self.ty)?;
+        }
+        if self.quantity_id.is_set() {
+            enc.write_field_name("quantity_id")?;
+            enc.write_message(&*self.quantity_id)?;
+        }
+        if self.unit_id.is_set() {
+            enc.write_field_name("unit_id")?;
+            enc.write_message(&*self.unit_id)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.value {
+            enc.write_field_name("value")?;
+            enc.write_u64(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.fixed {
+            enc.write_field_name("fixed")?;
+            enc.write_bool(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.lower {
+            enc.write_field_name("lower")?;
+            enc.write_u64(*__v)?;
+        }
+        if let ::core::option::Option::Some(ref __v) = self.upper {
+            enc.write_field_name("upper")?;
+            enc.write_u64(*__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "path" => self.path = dec.read_string()?.into_owned(),
+                "target" => self.target = dec.read_bytes()?,
+                "ty" => dec.merge_message(self.ty.get_or_insert_default())?,
+                "quantity_id" => {
+                    dec.merge_message(self.quantity_id.get_or_insert_default())?
+                }
+                "unit_id" => dec.merge_message(self.unit_id.get_or_insert_default())?,
+                "value" => self.value = ::core::option::Option::Some(dec.read_u64()?),
+                "fixed" => self.fixed = ::core::option::Option::Some(dec.read_bool()?),
+                "lower" => self.lower = ::core::option::Option::Some(dec.read_u64()?),
+                "upper" => self.upper = ::core::option::Option::Some(dec.read_u64()?),
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for InspectionSpecification {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __INSPECTION_SPECIFICATION_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionSpecification",
+    to_json: ::buffa::type_registry::any_to_json::<InspectionSpecification>,
+    from_json: ::buffa::type_registry::any_from_json::<InspectionSpecification>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __INSPECTION_SPECIFICATION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.InspectionSpecification",
+    text_encode: ::buffa::type_registry::any_encode_text::<InspectionSpecification>,
+    text_merge: ::buffa::type_registry::any_merge_text::<InspectionSpecification>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
@@ -190908,6 +194001,33 @@ pub struct ModelingInspection {
         deserialize_with = "::buffa::json_helpers::null_as_default"
     )]
     pub domains: ::buffa::alloc::vec::Vec<InspectionDomain>,
+    /// Field 12: `selected_root`
+    #[serde(
+        rename = "selected_root",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub selected_root: ::buffa::MessageField<
+        DeclarationId,
+        ::buffa::Inline<DeclarationId>,
+    >,
+    /// Field 13: `selected_instance`
+    #[serde(
+        rename = "selected_instance",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub selected_instance: ::buffa::MessageField<
+        InstanceId,
+        ::buffa::Inline<InstanceId>,
+    >,
+    /// Field 14: `fixture`
+    #[serde(
+        rename = "fixture",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub fixture: ::buffa::MessageField<
+        InspectionFixture,
+        ::buffa::Inline<InspectionFixture>,
+    >,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -190926,6 +194046,9 @@ impl ::core::fmt::Debug for ModelingInspection {
             .field("ports", &self.ports)
             .field("connections", &self.connections)
             .field("domains", &self.domains)
+            .field("selected_root", &self.selected_root)
+            .field("selected_instance", &self.selected_instance)
+            .field("fixture", &self.fixture)
             .finish()
     }
 }
@@ -190993,6 +194116,25 @@ impl ::buffa_descriptor::reflect::ReflectMessage for ModelingInspection {
             9u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.ports),
             10u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.connections),
             11u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.domains),
+            12u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.selected_root,
+                    ),
+                )
+            }
+            13u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(
+                        &*self.selected_instance,
+                    ),
+                )
+            }
+            14u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.fixture),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -191016,6 +194158,9 @@ impl ::buffa_descriptor::reflect::ReflectMessage for ModelingInspection {
             9u32 => !self.ports.is_empty(),
             10u32 => !self.connections.is_empty(),
             11u32 => !self.domains.is_empty(),
+            12u32 => self.selected_root.is_set(),
+            13u32 => self.selected_instance.is_set(),
+            14u32 => self.fixture.is_set(),
             _ => false,
         }
     }
@@ -191172,6 +194317,30 @@ impl ::buffa::Message for ModelingInspection {
                 += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                     + inner_size as u64;
         }
+        if self.selected_root.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.selected_root.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.selected_instance.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.selected_instance.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.fixture.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.fixture.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -191259,6 +194428,30 @@ impl ::buffa::Message for ModelingInspection {
                 buf,
             );
             v.write_to(__cache, buf);
+        }
+        if self.selected_root.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                12u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.selected_root.write_to(__cache, buf);
+        }
+        if self.selected_instance.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                13u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.selected_instance.write_to(__cache, buf);
+        }
+        if self.fixture.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                14u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.fixture.write_to(__cache, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -191393,6 +194586,39 @@ impl ::buffa::Message for ModelingInspection {
                 ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
                 self.domains.push(elem);
             }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.selected_root.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            13u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.selected_instance.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            14u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.fixture.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -191412,6 +194638,9 @@ impl ::buffa::Message for ModelingInspection {
         self.ports.clear();
         self.connections.clear();
         self.domains.clear();
+        self.selected_root = ::buffa::MessageField::none();
+        self.selected_instance = ::buffa::MessageField::none();
+        self.fixture = ::buffa::MessageField::none();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -191454,6 +194683,18 @@ impl ::buffa::text::TextFormat for ModelingInspection {
         if self.execution.is_set() {
             enc.write_field_name("execution")?;
             enc.write_message(&*self.execution)?;
+        }
+        if self.selected_root.is_set() {
+            enc.write_field_name("selected_root")?;
+            enc.write_message(&*self.selected_root)?;
+        }
+        if self.selected_instance.is_set() {
+            enc.write_field_name("selected_instance")?;
+            enc.write_message(&*self.selected_instance)?;
+        }
+        if self.fixture.is_set() {
+            enc.write_field_name("fixture")?;
+            enc.write_message(&*self.fixture)?;
         }
         for __v in &self.instances {
             enc.write_field_name("instances")?;
@@ -191498,6 +194739,13 @@ impl ::buffa::text::TextFormat for ModelingInspection {
                     self.next_offset = ::core::option::Option::Some(dec.read_u64()?);
                 }
                 "execution" => dec.merge_message(self.execution.get_or_insert_default())?,
+                "selected_root" => {
+                    dec.merge_message(self.selected_root.get_or_insert_default())?
+                }
+                "selected_instance" => {
+                    dec.merge_message(self.selected_instance.get_or_insert_default())?
+                }
+                "fixture" => dec.merge_message(self.fixture.get_or_insert_default())?,
                 "instances" => {
                     dec.read_repeated_into(
                         &mut self.instances,
@@ -545266,6 +548514,615 @@ pub mod __buffa {
             }
         }
         #[derive(Clone, Debug, Default)]
+        pub struct InspectionFixtureView<'a> {
+            /// Field 1: `declaration`
+            pub declaration: ::buffa::MessageFieldView<
+                super::super::__buffa::view::DeclarationIdView<'a>,
+            >,
+            /// Field 2: `specifications`
+            pub specifications: ::buffa::RepeatedView<
+                'a,
+                super::super::__buffa::view::InspectionSpecificationView<'a>,
+            >,
+            /// Field 3: `integration`
+            pub integration: ::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionIntegrationView<'a>,
+            >,
+            /// Field 4: `initial_equations`
+            pub initial_equations: ::buffa::RepeatedView<'a, &'a [u8]>,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionFixtureView<'a> {
+            type Owned = super::super::InspectionFixture;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.declaration.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.declaration = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.integration.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.integration = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::InspectionIntegrationView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        ctx.register_element_memory(
+                            ::core::mem::size_of::<
+                                super::super::__buffa::view::InspectionSpecificationView,
+                            >(),
+                        )?;
+                        view.specifications
+                            .push(
+                                <super::super::__buffa::view::InspectionSpecificationView as ::buffa::MessageView>::decode_view_ctx(
+                                    sub,
+                                    __sub_ctx,
+                                )?,
+                            );
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __elem = ::buffa::types::borrow_bytes(&mut cur)?;
+                        ctx.register_element_memory(
+                            ::buffa::__private::element_footprint(&__elem),
+                        )?;
+                        view.initial_equations.push(__elem);
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionFixture,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionFixture,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionFixture {
+                    declaration: match self.declaration.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::DeclarationId,
+                                ::buffa::Inline<super::super::DeclarationId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    specifications: self
+                        .specifications
+                        .iter()
+                        .map(|v| v.to_owned_from_source(__buffa_src))
+                        .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+                    integration: match self.integration.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::InspectionIntegration,
+                                ::buffa::Inline<super::super::InspectionIntegration>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    initial_equations: self
+                        .initial_equations
+                        .iter()
+                        .map(|b| (b).to_vec())
+                        .collect(),
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionFixtureView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if self.declaration.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.declaration.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                for v in &self.specifications {
+                    let __slot = __cache.reserve();
+                    let inner_size = v.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.integration.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.integration.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                for v in &self.initial_equations {
+                    size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if self.declaration.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        1u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.declaration.write_to(__cache, buf);
+                }
+                for v in &self.specifications {
+                    ::buffa::types::put_len_delimited_header(
+                        2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    v.write_to(__cache, buf);
+                }
+                if self.integration.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.integration.write_to(__cache, buf);
+                }
+                for v in &self.initial_equations {
+                    ::buffa::types::put_shared_bytes_field(4u32, v, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionFixtureView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .declaration
+                        .as_option()
+                    {
+                        __map.serialize_entry("declaration", __v)?;
+                    }
+                }
+                if !self.specifications.is_empty() {
+                    __map.serialize_entry("specifications", &*self.specifications)?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .integration
+                        .as_option()
+                    {
+                        __map.serialize_entry("integration", __v)?;
+                    }
+                }
+                if !self.initial_equations.is_empty() {
+                    __map
+                        .serialize_entry(
+                            "initial_equations",
+                            &::buffa::json_helpers::BytesSeqJson(&self.initial_equations),
+                        )?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionFixtureView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionFixture";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionFixture";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionFixture";
+        }
+        ::buffa::impl_default_view_instance!(InspectionFixtureView);
+        ::buffa::impl_view_reborrow!(InspectionFixtureView);
+        /** Self-contained, `'static` owned view of a `InspectionFixture` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionFixtureView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionFixtureView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionFixtureOwnedView(
+            ::buffa::OwnedView<InspectionFixtureView<'static>>,
+        );
+        impl InspectionFixtureOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionFixtureOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionFixtureOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionFixture,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionFixtureOwnedView(::buffa::OwnedView::from_owned(msg)?),
+                )
+            }
+            /// Borrow the full [`InspectionFixtureView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionFixtureView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionFixture {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `declaration`
+            #[must_use]
+            pub fn declaration(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::DeclarationIdView<'_>,
+            > {
+                &self.0.reborrow().declaration
+            }
+            /// Field 2: `specifications`
+            #[must_use]
+            pub fn specifications(
+                &self,
+            ) -> &::buffa::RepeatedView<
+                '_,
+                super::super::__buffa::view::InspectionSpecificationView<'_>,
+            > {
+                &self.0.reborrow().specifications
+            }
+            /// Field 3: `integration`
+            #[must_use]
+            pub fn integration(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionIntegrationView<'_>,
+            > {
+                &self.0.reborrow().integration
+            }
+            /// Field 4: `initial_equations`
+            #[must_use]
+            pub fn initial_equations(&self) -> &::buffa::RepeatedView<'_, &'_ [u8]> {
+                &self.0.reborrow().initial_equations
+            }
+        }
+        impl ::core::convert::From<::buffa::OwnedView<InspectionFixtureView<'static>>>
+        for InspectionFixtureOwnedView {
+            fn from(inner: ::buffa::OwnedView<InspectionFixtureView<'static>>) -> Self {
+                InspectionFixtureOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionFixtureOwnedView>
+        for ::buffa::OwnedView<InspectionFixtureView<'static>> {
+            fn from(wrapper: InspectionFixtureOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<::buffa::OwnedView<InspectionFixtureView<'static>>>
+        for InspectionFixtureOwnedView {
+            fn as_ref(&self) -> &::buffa::OwnedView<InspectionFixtureView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionFixture {
+            type View<'a> = InspectionFixtureView<'a>;
+            type ViewHandle = InspectionFixtureOwnedView;
+        }
+        impl ::serde::Serialize for InspectionFixtureOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionFixtureView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.declaration,
+                            ),
+                        )
+                    }
+                    2u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::List(&self.specifications)
+                    }
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.integration,
+                            ),
+                        )
+                    }
+                    4u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::List(
+                            &self.initial_equations,
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => self.declaration.is_set(),
+                    2u32 => !::buffa::RepeatedView::is_empty(&self.specifications),
+                    3u32 => self.integration.is_set(),
+                    4u32 => !::buffa::RepeatedView::is_empty(&self.initial_equations),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionFixtureView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionFixtureView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
         pub struct InspectionInstanceView<'a> {
             /// Field 1: `id`
             pub id: ::buffa::MessageFieldView<
@@ -545991,6 +549848,940 @@ pub mod __buffa {
             }
         }
         impl<'a> InspectionInstanceView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct InspectionIntegrationView<'a> {
+            /// Field 1: `axis`
+            pub axis: &'a [u8],
+            /// Field 2: `quantity_id`
+            pub quantity_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'a>,
+            >,
+            /// Field 3: `unit_id`
+            pub unit_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'a>,
+            >,
+            /// Field 4: `lower`
+            pub lower: u64,
+            /// Field 5: `upper`
+            pub upper: u64,
+            /// Field 6: `initial_step`
+            pub initial_step: u64,
+            /// Field 7: `relative_tolerance`
+            pub relative_tolerance: u64,
+            /// Field 8: `normalized_absolute_tolerance`
+            pub normalized_absolute_tolerance: u64,
+            /// Field 9: `quadrature_relative_tolerance`
+            pub quadrature_relative_tolerance: ::core::option::Option<u64>,
+            /// Field 10: `samples`
+            pub samples: ::buffa::RepeatedView<'a, u64>,
+            /// Field 11: `quadratures`
+            pub quadratures: ::buffa::RepeatedView<
+                'a,
+                super::super::__buffa::view::InspectionQuadratureView<'a>,
+            >,
+            /// Field 12: `schedule_intervals`
+            pub schedule_intervals: ::buffa::RepeatedView<
+                'a,
+                super::super::__buffa::view::InspectionScheduleIntervalView<'a>,
+            >,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionIntegrationView<'a> {
+            type Owned = super::super::InspectionIntegration;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.axis = ::buffa::types::borrow_bytes(&mut cur)?;
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.quantity_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.quantity_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.unit_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.unit_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::UnitIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.lower = ::buffa::types::decode_fixed64(&mut cur)?;
+                    }
+                    5u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.upper = ::buffa::types::decode_fixed64(&mut cur)?;
+                    }
+                    6u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.initial_step = ::buffa::types::decode_fixed64(&mut cur)?;
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.relative_tolerance = ::buffa::types::decode_fixed64(
+                            &mut cur,
+                        )?;
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.normalized_absolute_tolerance = ::buffa::types::decode_fixed64(
+                            &mut cur,
+                        )?;
+                    }
+                    9u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.quadrature_relative_tolerance = Some(
+                            ::buffa::types::decode_fixed64(&mut cur)?,
+                        );
+                    }
+                    10u32 => {
+                        if tag.wire_type()
+                            == ::buffa::encoding::WireType::LengthDelimited
+                        {
+                            let payload = ::buffa::types::borrow_bytes(&mut cur)?;
+                            ::buffa::types::extend_packed_fixed64(
+                                payload,
+                                view.samples.as_mut_vec(),
+                            )?;
+                        } else if tag.wire_type() == ::buffa::encoding::WireType::Fixed64
+                        {
+                            view.samples.push(::buffa::types::decode_fixed64(&mut cur)?);
+                        } else {
+                            return Err(
+                                ::buffa::encoding::wire_type_mismatch(
+                                    tag,
+                                    ::buffa::encoding::WireType::LengthDelimited,
+                                ),
+                            );
+                        }
+                    }
+                    11u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        ctx.register_element_memory(
+                            ::core::mem::size_of::<
+                                super::super::__buffa::view::InspectionQuadratureView,
+                            >(),
+                        )?;
+                        view.quadratures
+                            .push(
+                                <super::super::__buffa::view::InspectionQuadratureView as ::buffa::MessageView>::decode_view_ctx(
+                                    sub,
+                                    __sub_ctx,
+                                )?,
+                            );
+                    }
+                    12u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        ctx.register_element_memory(
+                            ::core::mem::size_of::<
+                                super::super::__buffa::view::InspectionScheduleIntervalView,
+                            >(),
+                        )?;
+                        view.schedule_intervals
+                            .push(
+                                <super::super::__buffa::view::InspectionScheduleIntervalView as ::buffa::MessageView>::decode_view_ctx(
+                                    sub,
+                                    __sub_ctx,
+                                )?,
+                            );
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionIntegration,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionIntegration,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionIntegration {
+                    axis: (self.axis).to_vec(),
+                    quantity_id: match self.quantity_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::QuantityTypeId,
+                                ::buffa::Inline<super::super::QuantityTypeId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    unit_id: match self.unit_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::UnitId,
+                                ::buffa::Inline<super::super::UnitId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    lower: self.lower,
+                    upper: self.upper,
+                    initial_step: self.initial_step,
+                    relative_tolerance: self.relative_tolerance,
+                    normalized_absolute_tolerance: self.normalized_absolute_tolerance,
+                    quadrature_relative_tolerance: self.quadrature_relative_tolerance,
+                    samples: self.samples.to_vec(),
+                    quadratures: self
+                        .quadratures
+                        .iter()
+                        .map(|v| v.to_owned_from_source(__buffa_src))
+                        .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+                    schedule_intervals: self
+                        .schedule_intervals
+                        .iter()
+                        .map(|v| v.to_owned_from_source(__buffa_src))
+                        .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionIntegrationView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if !self.axis.is_empty() {
+                    size += 1u64 + ::buffa::types::bytes_encoded_len(&self.axis) as u64;
+                }
+                if self.quantity_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.quantity_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.unit_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.unit_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.lower != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.upper != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.initial_step != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.relative_tolerance != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.normalized_absolute_tolerance != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.quadrature_relative_tolerance.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if !self.samples.is_empty() {
+                    let payload: u64 = self.samples.len() as u64
+                        * ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(payload) as u64
+                            + payload;
+                }
+                for v in &self.quadratures {
+                    let __slot = __cache.reserve();
+                    let inner_size = v.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                for v in &self.schedule_intervals {
+                    let __slot = __cache.reserve();
+                    let inner_size = v.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if !self.axis.is_empty() {
+                    ::buffa::types::put_shared_bytes_field(1u32, &self.axis, buf);
+                }
+                if self.quantity_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.quantity_id.write_to(__cache, buf);
+                }
+                if self.unit_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.unit_id.write_to(__cache, buf);
+                }
+                if self.lower != 0u64 {
+                    ::buffa::types::put_fixed64_field(4u32, self.lower, buf);
+                }
+                if self.upper != 0u64 {
+                    ::buffa::types::put_fixed64_field(5u32, self.upper, buf);
+                }
+                if self.initial_step != 0u64 {
+                    ::buffa::types::put_fixed64_field(6u32, self.initial_step, buf);
+                }
+                if self.relative_tolerance != 0u64 {
+                    ::buffa::types::put_fixed64_field(
+                        7u32,
+                        self.relative_tolerance,
+                        buf,
+                    );
+                }
+                if self.normalized_absolute_tolerance != 0u64 {
+                    ::buffa::types::put_fixed64_field(
+                        8u32,
+                        self.normalized_absolute_tolerance,
+                        buf,
+                    );
+                }
+                if let Some(v) = self.quadrature_relative_tolerance {
+                    ::buffa::types::put_fixed64_field(9u32, v, buf);
+                }
+                if !self.samples.is_empty() {
+                    let payload: u64 = self.samples.len() as u64
+                        * ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                    ::buffa::types::put_len_delimited_header(10u32, payload, buf);
+                    for &v in &self.samples {
+                        ::buffa::types::encode_fixed64(v, buf);
+                    }
+                }
+                for v in &self.quadratures {
+                    ::buffa::types::put_len_delimited_header(
+                        11u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    v.write_to(__cache, buf);
+                }
+                for v in &self.schedule_intervals {
+                    ::buffa::types::put_len_delimited_header(
+                        12u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    v.write_to(__cache, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionIntegrationView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.axis) {
+                    __map
+                        .serialize_entry(
+                            "axis",
+                            &::buffa::json_helpers::BytesJson(self.axis),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .quantity_id
+                        .as_option()
+                    {
+                        __map.serialize_entry("quantity_id", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.unit_id.as_option() {
+                        __map.serialize_entry("unit_id", __v)?;
+                    }
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.lower) {
+                    __map
+                        .serialize_entry(
+                            "lower",
+                            &::buffa::json_helpers::ProtoJson(&self.lower),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.upper) {
+                    __map
+                        .serialize_entry(
+                            "upper",
+                            &::buffa::json_helpers::ProtoJson(&self.upper),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.initial_step) {
+                    __map
+                        .serialize_entry(
+                            "initial_step",
+                            &::buffa::json_helpers::ProtoJson(&self.initial_step),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.relative_tolerance,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "relative_tolerance",
+                            &::buffa::json_helpers::ProtoJson(&self.relative_tolerance),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.normalized_absolute_tolerance,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "normalized_absolute_tolerance",
+                            &::buffa::json_helpers::ProtoJson(
+                                &self.normalized_absolute_tolerance,
+                            ),
+                        )?;
+                }
+                if let ::core::option::Option::Some(__v) = self
+                    .quadrature_relative_tolerance
+                {
+                    __map
+                        .serialize_entry(
+                            "quadrature_relative_tolerance",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                if !self.samples.is_empty() {
+                    __map
+                        .serialize_entry(
+                            "samples",
+                            &::buffa::json_helpers::RepeatedJson(&self.samples),
+                        )?;
+                }
+                if !self.quadratures.is_empty() {
+                    __map.serialize_entry("quadratures", &*self.quadratures)?;
+                }
+                if !self.schedule_intervals.is_empty() {
+                    __map
+                        .serialize_entry(
+                            "schedule_intervals",
+                            &*self.schedule_intervals,
+                        )?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionIntegrationView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionIntegration";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionIntegration";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionIntegration";
+        }
+        ::buffa::impl_default_view_instance!(InspectionIntegrationView);
+        ::buffa::impl_view_reborrow!(InspectionIntegrationView);
+        /** Self-contained, `'static` owned view of a `InspectionIntegration` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionIntegrationView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionIntegrationView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionIntegrationOwnedView(
+            ::buffa::OwnedView<InspectionIntegrationView<'static>>,
+        );
+        impl InspectionIntegrationOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionIntegrationOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionIntegrationOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionIntegration,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionIntegrationOwnedView(::buffa::OwnedView::from_owned(msg)?),
+                )
+            }
+            /// Borrow the full [`InspectionIntegrationView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionIntegrationView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionIntegration {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `axis`
+            #[must_use]
+            pub fn axis(&self) -> &'_ [u8] {
+                self.0.reborrow().axis
+            }
+            /// Field 2: `quantity_id`
+            #[must_use]
+            pub fn quantity_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'_>,
+            > {
+                &self.0.reborrow().quantity_id
+            }
+            /// Field 3: `unit_id`
+            #[must_use]
+            pub fn unit_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'_>,
+            > {
+                &self.0.reborrow().unit_id
+            }
+            /// Field 4: `lower`
+            #[must_use]
+            pub fn lower(&self) -> u64 {
+                self.0.reborrow().lower
+            }
+            /// Field 5: `upper`
+            #[must_use]
+            pub fn upper(&self) -> u64 {
+                self.0.reborrow().upper
+            }
+            /// Field 6: `initial_step`
+            #[must_use]
+            pub fn initial_step(&self) -> u64 {
+                self.0.reborrow().initial_step
+            }
+            /// Field 7: `relative_tolerance`
+            #[must_use]
+            pub fn relative_tolerance(&self) -> u64 {
+                self.0.reborrow().relative_tolerance
+            }
+            /// Field 8: `normalized_absolute_tolerance`
+            #[must_use]
+            pub fn normalized_absolute_tolerance(&self) -> u64 {
+                self.0.reborrow().normalized_absolute_tolerance
+            }
+            /// Field 9: `quadrature_relative_tolerance`
+            #[must_use]
+            pub fn quadrature_relative_tolerance(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().quadrature_relative_tolerance
+            }
+            /// Field 10: `samples`
+            #[must_use]
+            pub fn samples(&self) -> &::buffa::RepeatedView<'_, u64> {
+                &self.0.reborrow().samples
+            }
+            /// Field 11: `quadratures`
+            #[must_use]
+            pub fn quadratures(
+                &self,
+            ) -> &::buffa::RepeatedView<
+                '_,
+                super::super::__buffa::view::InspectionQuadratureView<'_>,
+            > {
+                &self.0.reborrow().quadratures
+            }
+            /// Field 12: `schedule_intervals`
+            #[must_use]
+            pub fn schedule_intervals(
+                &self,
+            ) -> &::buffa::RepeatedView<
+                '_,
+                super::super::__buffa::view::InspectionScheduleIntervalView<'_>,
+            > {
+                &self.0.reborrow().schedule_intervals
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<InspectionIntegrationView<'static>>,
+        > for InspectionIntegrationOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<InspectionIntegrationView<'static>>,
+            ) -> Self {
+                InspectionIntegrationOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionIntegrationOwnedView>
+        for ::buffa::OwnedView<InspectionIntegrationView<'static>> {
+            fn from(wrapper: InspectionIntegrationOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<InspectionIntegrationView<'static>>,
+        > for InspectionIntegrationOwnedView {
+            fn as_ref(&self) -> &::buffa::OwnedView<InspectionIntegrationView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionIntegration {
+            type View<'a> = InspectionIntegrationView<'a>;
+            type ViewHandle = InspectionIntegrationOwnedView;
+        }
+        impl ::serde::Serialize for InspectionIntegrationOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionIntegrationView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.axis),
+                    2u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.quantity_id,
+                            ),
+                        )
+                    }
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.unit_id,
+                            ),
+                        )
+                    }
+                    4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.lower),
+                    5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.upper),
+                    6u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.initial_step),
+                    7u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.relative_tolerance,
+                        )
+                    }
+                    8u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.normalized_absolute_tolerance,
+                        )
+                    }
+                    9u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.quadrature_relative_tolerance.unwrap_or(0),
+                        )
+                    }
+                    10u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.samples),
+                    11u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::List(&self.quadratures)
+                    }
+                    12u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::List(
+                            &self.schedule_intervals,
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => !self.axis.is_empty(),
+                    2u32 => self.quantity_id.is_set(),
+                    3u32 => self.unit_id.is_set(),
+                    4u32 => self.lower != 0,
+                    5u32 => self.upper != 0,
+                    6u32 => self.initial_step != 0,
+                    7u32 => self.relative_tolerance != 0,
+                    8u32 => self.normalized_absolute_tolerance != 0,
+                    9u32 => self.quadrature_relative_tolerance.is_some(),
+                    10u32 => !::buffa::RepeatedView::is_empty(&self.samples),
+                    11u32 => !::buffa::RepeatedView::is_empty(&self.quadratures),
+                    12u32 => !::buffa::RepeatedView::is_empty(&self.schedule_intervals),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionIntegrationView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionIntegrationView<'a> {
             #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
             /// Memoized `MessageIndex` for this view's message type, resolved
             /// once against the package's embedded descriptor pool. An inherent
@@ -547378,6 +552169,16 @@ pub mod __buffa {
             pub connections: u64,
             /// Field 5: `domains`
             pub domains: u64,
+            /// Field 6: `specifications`
+            pub specifications: u64,
+            /// Field 7: `integration_samples`
+            pub integration_samples: u64,
+            /// Field 8: `integration_quadratures`
+            pub integration_quadratures: u64,
+            /// Field 9: `schedule_intervals`
+            pub schedule_intervals: u64,
+            /// Field 10: `initial_equations`
+            pub initial_equations: u64,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for InspectionPopulationView<'a> {
@@ -547451,6 +552252,49 @@ pub mod __buffa {
                         )?;
                         view.domains = ::buffa::types::decode_uint64(&mut cur)?;
                     }
+                    6u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.specifications = ::buffa::types::decode_uint64(&mut cur)?;
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.integration_samples = ::buffa::types::decode_uint64(
+                            &mut cur,
+                        )?;
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.integration_quadratures = ::buffa::types::decode_uint64(
+                            &mut cur,
+                        )?;
+                    }
+                    9u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.schedule_intervals = ::buffa::types::decode_uint64(
+                            &mut cur,
+                        )?;
+                    }
+                    10u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.initial_equations = ::buffa::types::decode_uint64(
+                            &mut cur,
+                        )?;
+                    }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                         let span_len = before_tag.len() - cur.len();
@@ -547485,6 +552329,11 @@ pub mod __buffa {
                     ports: self.ports,
                     connections: self.connections,
                     domains: self.domains,
+                    specifications: self.specifications,
+                    integration_samples: self.integration_samples,
+                    integration_quadratures: self.integration_quadratures,
+                    schedule_intervals: self.schedule_intervals,
+                    initial_equations: self.initial_equations,
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -547523,6 +552372,38 @@ pub mod __buffa {
                         += 1u64
                             + ::buffa::types::uint64_encoded_len(self.domains) as u64;
                 }
+                if self.specifications != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.specifications)
+                                as u64;
+                }
+                if self.integration_samples != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(
+                                self.integration_samples,
+                            ) as u64;
+                }
+                if self.integration_quadratures != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(
+                                self.integration_quadratures,
+                            ) as u64;
+                }
+                if self.schedule_intervals != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.schedule_intervals)
+                                as u64;
+                }
+                if self.initial_equations != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.initial_equations)
+                                as u64;
+                }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
             }
@@ -547548,6 +552429,29 @@ pub mod __buffa {
                 }
                 if self.domains != 0u64 {
                     ::buffa::types::put_uint64_field(5u32, self.domains, buf);
+                }
+                if self.specifications != 0u64 {
+                    ::buffa::types::put_uint64_field(6u32, self.specifications, buf);
+                }
+                if self.integration_samples != 0u64 {
+                    ::buffa::types::put_uint64_field(
+                        7u32,
+                        self.integration_samples,
+                        buf,
+                    );
+                }
+                if self.integration_quadratures != 0u64 {
+                    ::buffa::types::put_uint64_field(
+                        8u32,
+                        self.integration_quadratures,
+                        buf,
+                    );
+                }
+                if self.schedule_intervals != 0u64 {
+                    ::buffa::types::put_uint64_field(9u32, self.schedule_intervals, buf);
+                }
+                if self.initial_equations != 0u64 {
+                    ::buffa::types::put_uint64_field(10u32, self.initial_equations, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -547603,6 +552507,51 @@ pub mod __buffa {
                         .serialize_entry(
                             "domains",
                             &::buffa::json_helpers::ProtoJson(&self.domains),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.specifications) {
+                    __map
+                        .serialize_entry(
+                            "specifications",
+                            &::buffa::json_helpers::ProtoJson(&self.specifications),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.integration_samples,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "integration_samples",
+                            &::buffa::json_helpers::ProtoJson(&self.integration_samples),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.integration_quadratures,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "integration_quadratures",
+                            &::buffa::json_helpers::ProtoJson(
+                                &self.integration_quadratures,
+                            ),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.schedule_intervals,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "schedule_intervals",
+                            &::buffa::json_helpers::ProtoJson(&self.schedule_intervals),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.initial_equations,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "initial_equations",
+                            &::buffa::json_helpers::ProtoJson(&self.initial_equations),
                         )?;
                 }
                 __map.end()
@@ -547725,6 +552674,31 @@ pub mod __buffa {
             pub fn domains(&self) -> u64 {
                 self.0.reborrow().domains
             }
+            /// Field 6: `specifications`
+            #[must_use]
+            pub fn specifications(&self) -> u64 {
+                self.0.reborrow().specifications
+            }
+            /// Field 7: `integration_samples`
+            #[must_use]
+            pub fn integration_samples(&self) -> u64 {
+                self.0.reborrow().integration_samples
+            }
+            /// Field 8: `integration_quadratures`
+            #[must_use]
+            pub fn integration_quadratures(&self) -> u64 {
+                self.0.reborrow().integration_quadratures
+            }
+            /// Field 9: `schedule_intervals`
+            #[must_use]
+            pub fn schedule_intervals(&self) -> u64 {
+                self.0.reborrow().schedule_intervals
+            }
+            /// Field 10: `initial_equations`
+            #[must_use]
+            pub fn initial_equations(&self) -> u64 {
+                self.0.reborrow().initial_equations
+            }
         }
         impl ::core::convert::From<::buffa::OwnedView<InspectionPopulationView<'static>>>
         for InspectionPopulationOwnedView {
@@ -547782,6 +552756,29 @@ pub mod __buffa {
                     3u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.ports),
                     4u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.connections),
                     5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.domains),
+                    6u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(self.specifications)
+                    }
+                    7u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.integration_samples,
+                        )
+                    }
+                    8u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.integration_quadratures,
+                        )
+                    }
+                    9u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.schedule_intervals,
+                        )
+                    }
+                    10u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.initial_equations,
+                        )
+                    }
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -547799,6 +552796,11 @@ pub mod __buffa {
                     3u32 => self.ports != 0,
                     4u32 => self.connections != 0,
                     5u32 => self.domains != 0,
+                    6u32 => self.specifications != 0,
+                    7u32 => self.integration_samples != 0,
+                    8u32 => self.integration_quadratures != 0,
+                    9u32 => self.schedule_intervals != 0,
+                    10u32 => self.initial_equations != 0,
                     _ => false,
                 }
             }
@@ -548337,6 +553339,2527 @@ pub mod __buffa {
             }
         }
         impl<'a> InspectionPortView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct InspectionQuadratureView<'a> {
+            /// Field 1: `target`
+            pub target: &'a [u8],
+            /// Field 2: `quantity_id`
+            pub quantity_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'a>,
+            >,
+            /// Field 3: `unit_id`
+            pub unit_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'a>,
+            >,
+            /// Field 4: `absolute_tolerance`
+            pub absolute_tolerance: u64,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionQuadratureView<'a> {
+            type Owned = super::super::InspectionQuadrature;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.target = ::buffa::types::borrow_bytes(&mut cur)?;
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.quantity_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.quantity_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.unit_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.unit_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::UnitIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.absolute_tolerance = ::buffa::types::decode_fixed64(
+                            &mut cur,
+                        )?;
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionQuadrature,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionQuadrature,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionQuadrature {
+                    target: (self.target).to_vec(),
+                    quantity_id: match self.quantity_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::QuantityTypeId,
+                                ::buffa::Inline<super::super::QuantityTypeId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    unit_id: match self.unit_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::UnitId,
+                                ::buffa::Inline<super::super::UnitId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    absolute_tolerance: self.absolute_tolerance,
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionQuadratureView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if !self.target.is_empty() {
+                    size
+                        += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+                }
+                if self.quantity_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.quantity_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.unit_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.unit_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.absolute_tolerance != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if !self.target.is_empty() {
+                    ::buffa::types::put_shared_bytes_field(1u32, &self.target, buf);
+                }
+                if self.quantity_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.quantity_id.write_to(__cache, buf);
+                }
+                if self.unit_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.unit_id.write_to(__cache, buf);
+                }
+                if self.absolute_tolerance != 0u64 {
+                    ::buffa::types::put_fixed64_field(
+                        4u32,
+                        self.absolute_tolerance,
+                        buf,
+                    );
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionQuadratureView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.target) {
+                    __map
+                        .serialize_entry(
+                            "target",
+                            &::buffa::json_helpers::BytesJson(self.target),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .quantity_id
+                        .as_option()
+                    {
+                        __map.serialize_entry("quantity_id", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.unit_id.as_option() {
+                        __map.serialize_entry("unit_id", __v)?;
+                    }
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(
+                    &self.absolute_tolerance,
+                ) {
+                    __map
+                        .serialize_entry(
+                            "absolute_tolerance",
+                            &::buffa::json_helpers::ProtoJson(&self.absolute_tolerance),
+                        )?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionQuadratureView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionQuadrature";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionQuadrature";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionQuadrature";
+        }
+        ::buffa::impl_default_view_instance!(InspectionQuadratureView);
+        ::buffa::impl_view_reborrow!(InspectionQuadratureView);
+        /** Self-contained, `'static` owned view of a `InspectionQuadrature` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionQuadratureView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionQuadratureView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionQuadratureOwnedView(
+            ::buffa::OwnedView<InspectionQuadratureView<'static>>,
+        );
+        impl InspectionQuadratureOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionQuadratureOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionQuadratureOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionQuadrature,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionQuadratureOwnedView(::buffa::OwnedView::from_owned(msg)?),
+                )
+            }
+            /// Borrow the full [`InspectionQuadratureView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionQuadratureView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionQuadrature {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `target`
+            #[must_use]
+            pub fn target(&self) -> &'_ [u8] {
+                self.0.reborrow().target
+            }
+            /// Field 2: `quantity_id`
+            #[must_use]
+            pub fn quantity_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'_>,
+            > {
+                &self.0.reborrow().quantity_id
+            }
+            /// Field 3: `unit_id`
+            #[must_use]
+            pub fn unit_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'_>,
+            > {
+                &self.0.reborrow().unit_id
+            }
+            /// Field 4: `absolute_tolerance`
+            #[must_use]
+            pub fn absolute_tolerance(&self) -> u64 {
+                self.0.reborrow().absolute_tolerance
+            }
+        }
+        impl ::core::convert::From<::buffa::OwnedView<InspectionQuadratureView<'static>>>
+        for InspectionQuadratureOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<InspectionQuadratureView<'static>>,
+            ) -> Self {
+                InspectionQuadratureOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionQuadratureOwnedView>
+        for ::buffa::OwnedView<InspectionQuadratureView<'static>> {
+            fn from(wrapper: InspectionQuadratureOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<InspectionQuadratureView<'static>>,
+        > for InspectionQuadratureOwnedView {
+            fn as_ref(&self) -> &::buffa::OwnedView<InspectionQuadratureView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionQuadrature {
+            type View<'a> = InspectionQuadratureView<'a>;
+            type ViewHandle = InspectionQuadratureOwnedView;
+        }
+        impl ::serde::Serialize for InspectionQuadratureOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionQuadratureView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.target),
+                    2u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.quantity_id,
+                            ),
+                        )
+                    }
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.unit_id,
+                            ),
+                        )
+                    }
+                    4u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.absolute_tolerance,
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => !self.target.is_empty(),
+                    2u32 => self.quantity_id.is_set(),
+                    3u32 => self.unit_id.is_set(),
+                    4u32 => self.absolute_tolerance != 0,
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionQuadratureView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionQuadratureView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct InspectionScheduleControlView<'a> {
+            /// Field 1: `lower`
+            pub lower: ::core::option::Option<u64>,
+            /// Field 2: `upper`
+            pub upper: ::core::option::Option<u64>,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionScheduleControlView<'a> {
+            type Owned = super::super::InspectionScheduleControl;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.lower = Some(::buffa::types::decode_fixed64(&mut cur)?);
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.upper = Some(::buffa::types::decode_fixed64(&mut cur)?);
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionScheduleControl,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionScheduleControl,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionScheduleControl {
+                    lower: self.lower,
+                    upper: self.upper,
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionScheduleControlView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if self.lower.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.upper.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                _cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if let Some(v) = self.lower {
+                    ::buffa::types::put_fixed64_field(1u32, v, buf);
+                }
+                if let Some(v) = self.upper {
+                    ::buffa::types::put_fixed64_field(2u32, v, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionScheduleControlView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if let ::core::option::Option::Some(__v) = self.lower {
+                    __map
+                        .serialize_entry(
+                            "lower",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                if let ::core::option::Option::Some(__v) = self.upper {
+                    __map
+                        .serialize_entry(
+                            "upper",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionScheduleControlView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionScheduleControl";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionScheduleControl";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleControl";
+        }
+        ::buffa::impl_default_view_instance!(InspectionScheduleControlView);
+        ::buffa::impl_view_reborrow!(InspectionScheduleControlView);
+        /** Self-contained, `'static` owned view of a `InspectionScheduleControl` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionScheduleControlView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionScheduleControlView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionScheduleControlOwnedView(
+            ::buffa::OwnedView<InspectionScheduleControlView<'static>>,
+        );
+        impl InspectionScheduleControlOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleControlOwnedView(
+                        ::buffa::OwnedView::decode(bytes)?,
+                    ),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleControlOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionScheduleControl,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleControlOwnedView(
+                        ::buffa::OwnedView::from_owned(msg)?,
+                    ),
+                )
+            }
+            /// Borrow the full [`InspectionScheduleControlView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionScheduleControlView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionScheduleControl {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `lower`
+            #[must_use]
+            pub fn lower(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().lower
+            }
+            /// Field 2: `upper`
+            #[must_use]
+            pub fn upper(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().upper
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<InspectionScheduleControlView<'static>>,
+        > for InspectionScheduleControlOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<InspectionScheduleControlView<'static>>,
+            ) -> Self {
+                InspectionScheduleControlOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionScheduleControlOwnedView>
+        for ::buffa::OwnedView<InspectionScheduleControlView<'static>> {
+            fn from(wrapper: InspectionScheduleControlOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<InspectionScheduleControlView<'static>>,
+        > for InspectionScheduleControlOwnedView {
+            fn as_ref(
+                &self,
+            ) -> &::buffa::OwnedView<InspectionScheduleControlView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionScheduleControl {
+            type View<'a> = InspectionScheduleControlView<'a>;
+            type ViewHandle = InspectionScheduleControlOwnedView;
+        }
+        impl ::serde::Serialize for InspectionScheduleControlOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionScheduleControlView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.lower.unwrap_or(0),
+                        )
+                    }
+                    2u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.upper.unwrap_or(0),
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => self.lower.is_some(),
+                    2u32 => self.upper.is_some(),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionScheduleControlView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionScheduleControlView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct InspectionScheduleIntervalView<'a> {
+            /// Field 1: `schedule`
+            pub schedule: u64,
+            /// Field 2: `target`
+            pub target: &'a [u8],
+            /// Field 3: `quantity_id`
+            pub quantity_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'a>,
+            >,
+            /// Field 4: `unit_id`
+            pub unit_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'a>,
+            >,
+            /// Field 5: `interval`
+            pub interval: u64,
+            /// Field 6: `change_time`
+            pub change_time: ::core::option::Option<u64>,
+            /// Field 7: `value`
+            pub value: u64,
+            /// Field 8: `control`
+            pub control: ::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionScheduleControlView<'a>,
+            >,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionScheduleIntervalView<'a> {
+            type Owned = super::super::InspectionScheduleInterval;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.schedule = ::buffa::types::decode_uint64(&mut cur)?;
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.target = ::buffa::types::borrow_bytes(&mut cur)?;
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.quantity_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.quantity_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.unit_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.unit_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::UnitIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    5u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.interval = ::buffa::types::decode_uint64(&mut cur)?;
+                    }
+                    6u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.change_time = Some(
+                            ::buffa::types::decode_fixed64(&mut cur)?,
+                        );
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.value = ::buffa::types::decode_fixed64(&mut cur)?;
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.control.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.control = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::InspectionScheduleControlView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionScheduleInterval,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionScheduleInterval,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionScheduleInterval {
+                    schedule: self.schedule,
+                    target: (self.target).to_vec(),
+                    quantity_id: match self.quantity_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::QuantityTypeId,
+                                ::buffa::Inline<super::super::QuantityTypeId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    unit_id: match self.unit_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::UnitId,
+                                ::buffa::Inline<super::super::UnitId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    interval: self.interval,
+                    change_time: self.change_time,
+                    value: self.value,
+                    control: match self.control.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::InspectionScheduleControl,
+                                ::buffa::Inline<super::super::InspectionScheduleControl>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionScheduleIntervalView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if self.schedule != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.schedule) as u64;
+                }
+                if !self.target.is_empty() {
+                    size
+                        += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+                }
+                if self.quantity_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.quantity_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.unit_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.unit_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.interval != 0u64 {
+                    size
+                        += 1u64
+                            + ::buffa::types::uint64_encoded_len(self.interval) as u64;
+                }
+                if self.change_time.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.value != 0u64 {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.control.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.control.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if self.schedule != 0u64 {
+                    ::buffa::types::put_uint64_field(1u32, self.schedule, buf);
+                }
+                if !self.target.is_empty() {
+                    ::buffa::types::put_shared_bytes_field(2u32, &self.target, buf);
+                }
+                if self.quantity_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.quantity_id.write_to(__cache, buf);
+                }
+                if self.unit_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        4u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.unit_id.write_to(__cache, buf);
+                }
+                if self.interval != 0u64 {
+                    ::buffa::types::put_uint64_field(5u32, self.interval, buf);
+                }
+                if let Some(v) = self.change_time {
+                    ::buffa::types::put_fixed64_field(6u32, v, buf);
+                }
+                if self.value != 0u64 {
+                    ::buffa::types::put_fixed64_field(7u32, self.value, buf);
+                }
+                if self.control.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        8u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.control.write_to(__cache, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionScheduleIntervalView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.schedule) {
+                    __map
+                        .serialize_entry(
+                            "schedule",
+                            &::buffa::json_helpers::ProtoJson(&self.schedule),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.target) {
+                    __map
+                        .serialize_entry(
+                            "target",
+                            &::buffa::json_helpers::BytesJson(self.target),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .quantity_id
+                        .as_option()
+                    {
+                        __map.serialize_entry("quantity_id", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.unit_id.as_option() {
+                        __map.serialize_entry("unit_id", __v)?;
+                    }
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.interval) {
+                    __map
+                        .serialize_entry(
+                            "interval",
+                            &::buffa::json_helpers::ProtoJson(&self.interval),
+                        )?;
+                }
+                if let ::core::option::Option::Some(__v) = self.change_time {
+                    __map
+                        .serialize_entry(
+                            "change_time",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_zero_u64(&self.value) {
+                    __map
+                        .serialize_entry(
+                            "value",
+                            &::buffa::json_helpers::ProtoJson(&self.value),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.control.as_option() {
+                        __map.serialize_entry("control", __v)?;
+                    }
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionScheduleIntervalView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionScheduleInterval";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionScheduleInterval";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionScheduleInterval";
+        }
+        ::buffa::impl_default_view_instance!(InspectionScheduleIntervalView);
+        ::buffa::impl_view_reborrow!(InspectionScheduleIntervalView);
+        /** Self-contained, `'static` owned view of a `InspectionScheduleInterval` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionScheduleIntervalView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionScheduleIntervalView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionScheduleIntervalOwnedView(
+            ::buffa::OwnedView<InspectionScheduleIntervalView<'static>>,
+        );
+        impl InspectionScheduleIntervalOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleIntervalOwnedView(
+                        ::buffa::OwnedView::decode(bytes)?,
+                    ),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleIntervalOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionScheduleInterval,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionScheduleIntervalOwnedView(
+                        ::buffa::OwnedView::from_owned(msg)?,
+                    ),
+                )
+            }
+            /// Borrow the full [`InspectionScheduleIntervalView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionScheduleIntervalView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionScheduleInterval {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `schedule`
+            #[must_use]
+            pub fn schedule(&self) -> u64 {
+                self.0.reborrow().schedule
+            }
+            /// Field 2: `target`
+            #[must_use]
+            pub fn target(&self) -> &'_ [u8] {
+                self.0.reborrow().target
+            }
+            /// Field 3: `quantity_id`
+            #[must_use]
+            pub fn quantity_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'_>,
+            > {
+                &self.0.reborrow().quantity_id
+            }
+            /// Field 4: `unit_id`
+            #[must_use]
+            pub fn unit_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'_>,
+            > {
+                &self.0.reborrow().unit_id
+            }
+            /// Field 5: `interval`
+            #[must_use]
+            pub fn interval(&self) -> u64 {
+                self.0.reborrow().interval
+            }
+            /// Field 6: `change_time`
+            #[must_use]
+            pub fn change_time(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().change_time
+            }
+            /// Field 7: `value`
+            #[must_use]
+            pub fn value(&self) -> u64 {
+                self.0.reborrow().value
+            }
+            /// Field 8: `control`
+            #[must_use]
+            pub fn control(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionScheduleControlView<'_>,
+            > {
+                &self.0.reborrow().control
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<InspectionScheduleIntervalView<'static>>,
+        > for InspectionScheduleIntervalOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<InspectionScheduleIntervalView<'static>>,
+            ) -> Self {
+                InspectionScheduleIntervalOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionScheduleIntervalOwnedView>
+        for ::buffa::OwnedView<InspectionScheduleIntervalView<'static>> {
+            fn from(wrapper: InspectionScheduleIntervalOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<InspectionScheduleIntervalView<'static>>,
+        > for InspectionScheduleIntervalOwnedView {
+            fn as_ref(
+                &self,
+            ) -> &::buffa::OwnedView<InspectionScheduleIntervalView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionScheduleInterval {
+            type View<'a> = InspectionScheduleIntervalView<'a>;
+            type ViewHandle = InspectionScheduleIntervalOwnedView;
+        }
+        impl ::serde::Serialize for InspectionScheduleIntervalOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionScheduleIntervalView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.schedule),
+                    2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.target),
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.quantity_id,
+                            ),
+                        )
+                    }
+                    4u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.unit_id,
+                            ),
+                        )
+                    }
+                    5u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.interval),
+                    6u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.change_time.unwrap_or(0),
+                        )
+                    }
+                    7u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.value),
+                    8u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.control,
+                            ),
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => self.schedule != 0,
+                    2u32 => !self.target.is_empty(),
+                    3u32 => self.quantity_id.is_set(),
+                    4u32 => self.unit_id.is_set(),
+                    5u32 => self.interval != 0,
+                    6u32 => self.change_time.is_some(),
+                    7u32 => self.value != 0,
+                    8u32 => self.control.is_set(),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionScheduleIntervalView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionScheduleIntervalView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
+        pub struct InspectionSpecificationView<'a> {
+            /// Field 1: `path`
+            pub path: &'a str,
+            /// Field 2: `target`
+            pub target: &'a [u8],
+            /// Field 3: `ty`
+            pub ty: ::buffa::MessageFieldView<
+                super::super::__buffa::view::ModelingTypeView<'a>,
+            >,
+            /// Field 4: `quantity_id`
+            pub quantity_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'a>,
+            >,
+            /// Field 5: `unit_id`
+            pub unit_id: ::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'a>,
+            >,
+            /// Field 6: `value`
+            pub value: ::core::option::Option<u64>,
+            /// Field 7: `fixed`
+            pub fixed: ::core::option::Option<bool>,
+            /// Field 8: `lower`
+            pub lower: ::core::option::Option<u64>,
+            /// Field 9: `upper`
+            pub upper: ::core::option::Option<u64>,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for InspectionSpecificationView<'a> {
+            type Owned = super::super::InspectionSpecification;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.path = ::buffa::types::borrow_str(&mut cur)?;
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.target = ::buffa::types::borrow_bytes(&mut cur)?;
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.ty.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.ty = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::ModelingTypeView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.quantity_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.quantity_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    5u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.unit_id.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.unit_id = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::UnitIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    6u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.value = Some(::buffa::types::decode_fixed64(&mut cur)?);
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Varint,
+                        )?;
+                        view.fixed = Some(::buffa::types::decode_bool(&mut cur)?);
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.lower = Some(::buffa::types::decode_fixed64(&mut cur)?);
+                    }
+                    9u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.upper = Some(::buffa::types::decode_fixed64(&mut cur)?);
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::InspectionSpecification,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::InspectionSpecification,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::InspectionSpecification {
+                    path: self.path.to_string(),
+                    target: (self.target).to_vec(),
+                    ty: match self.ty.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::ModelingType,
+                                ::buffa::Inline<super::super::ModelingType>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    quantity_id: match self.quantity_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::QuantityTypeId,
+                                ::buffa::Inline<super::super::QuantityTypeId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    unit_id: match self.unit_id.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::UnitId,
+                                ::buffa::Inline<super::super::UnitId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    value: self.value,
+                    fixed: self.fixed,
+                    lower: self.lower,
+                    upper: self.upper,
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for InspectionSpecificationView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if !self.path.is_empty() {
+                    size += 1u64 + ::buffa::types::string_encoded_len(&self.path) as u64;
+                }
+                if !self.target.is_empty() {
+                    size
+                        += 1u64 + ::buffa::types::bytes_encoded_len(&self.target) as u64;
+                }
+                if self.ty.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.ty.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.quantity_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.quantity_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.unit_id.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.unit_id.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.value.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.fixed.is_some() {
+                    size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+                }
+                if self.lower.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                if self.upper.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if !self.path.is_empty() {
+                    ::buffa::types::put_string_field(1u32, &self.path, buf);
+                }
+                if !self.target.is_empty() {
+                    ::buffa::types::put_shared_bytes_field(2u32, &self.target, buf);
+                }
+                if self.ty.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.ty.write_to(__cache, buf);
+                }
+                if self.quantity_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        4u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.quantity_id.write_to(__cache, buf);
+                }
+                if self.unit_id.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        5u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.unit_id.write_to(__cache, buf);
+                }
+                if let Some(v) = self.value {
+                    ::buffa::types::put_fixed64_field(6u32, v, buf);
+                }
+                if let Some(v) = self.fixed {
+                    ::buffa::types::put_bool_field(7u32, v, buf);
+                }
+                if let Some(v) = self.lower {
+                    ::buffa::types::put_fixed64_field(8u32, v, buf);
+                }
+                if let Some(v) = self.upper {
+                    ::buffa::types::put_fixed64_field(9u32, v, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for InspectionSpecificationView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if !::buffa::json_helpers::skip_if::is_empty_str(self.path) {
+                    __map.serialize_entry("path", self.path)?;
+                }
+                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.target) {
+                    __map
+                        .serialize_entry(
+                            "target",
+                            &::buffa::json_helpers::BytesJson(self.target),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.ty.as_option() {
+                        __map.serialize_entry("ty", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .quantity_id
+                        .as_option()
+                    {
+                        __map.serialize_entry("quantity_id", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.unit_id.as_option() {
+                        __map.serialize_entry("unit_id", __v)?;
+                    }
+                }
+                if let ::core::option::Option::Some(__v) = self.value {
+                    __map
+                        .serialize_entry(
+                            "value",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                if let ::core::option::Option::Some(__v) = self.fixed {
+                    __map.serialize_entry("fixed", &__v)?;
+                }
+                if let ::core::option::Option::Some(__v) = self.lower {
+                    __map
+                        .serialize_entry(
+                            "lower",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                if let ::core::option::Option::Some(__v) = self.upper {
+                    __map
+                        .serialize_entry(
+                            "upper",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for InspectionSpecificationView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "InspectionSpecification";
+            const FULL_NAME: &'static str = "pse.engineering.v1.InspectionSpecification";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.InspectionSpecification";
+        }
+        ::buffa::impl_default_view_instance!(InspectionSpecificationView);
+        ::buffa::impl_view_reborrow!(InspectionSpecificationView);
+        /** Self-contained, `'static` owned view of a `InspectionSpecification` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`InspectionSpecificationView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`InspectionSpecificationView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct InspectionSpecificationOwnedView(
+            ::buffa::OwnedView<InspectionSpecificationView<'static>>,
+        );
+        impl InspectionSpecificationOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionSpecificationOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionSpecificationOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::InspectionSpecification,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    InspectionSpecificationOwnedView(
+                        ::buffa::OwnedView::from_owned(msg)?,
+                    ),
+                )
+            }
+            /// Borrow the full [`InspectionSpecificationView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &InspectionSpecificationView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::InspectionSpecification {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `path`
+            #[must_use]
+            pub fn path(&self) -> &'_ str {
+                self.0.reborrow().path
+            }
+            /// Field 2: `target`
+            #[must_use]
+            pub fn target(&self) -> &'_ [u8] {
+                self.0.reborrow().target
+            }
+            /// Field 3: `ty`
+            #[must_use]
+            pub fn ty(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::ModelingTypeView<'_>,
+            > {
+                &self.0.reborrow().ty
+            }
+            /// Field 4: `quantity_id`
+            #[must_use]
+            pub fn quantity_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::QuantityTypeIdView<'_>,
+            > {
+                &self.0.reborrow().quantity_id
+            }
+            /// Field 5: `unit_id`
+            #[must_use]
+            pub fn unit_id(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::UnitIdView<'_>,
+            > {
+                &self.0.reborrow().unit_id
+            }
+            /// Field 6: `value`
+            #[must_use]
+            pub fn value(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().value
+            }
+            /// Field 7: `fixed`
+            #[must_use]
+            pub fn fixed(&self) -> ::core::option::Option<bool> {
+                self.0.reborrow().fixed
+            }
+            /// Field 8: `lower`
+            #[must_use]
+            pub fn lower(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().lower
+            }
+            /// Field 9: `upper`
+            #[must_use]
+            pub fn upper(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().upper
+            }
+        }
+        impl ::core::convert::From<
+            ::buffa::OwnedView<InspectionSpecificationView<'static>>,
+        > for InspectionSpecificationOwnedView {
+            fn from(
+                inner: ::buffa::OwnedView<InspectionSpecificationView<'static>>,
+            ) -> Self {
+                InspectionSpecificationOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<InspectionSpecificationOwnedView>
+        for ::buffa::OwnedView<InspectionSpecificationView<'static>> {
+            fn from(wrapper: InspectionSpecificationOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<
+            ::buffa::OwnedView<InspectionSpecificationView<'static>>,
+        > for InspectionSpecificationOwnedView {
+            fn as_ref(
+                &self,
+            ) -> &::buffa::OwnedView<InspectionSpecificationView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::InspectionSpecification {
+            type View<'a> = InspectionSpecificationView<'a>;
+            type ViewHandle = InspectionSpecificationOwnedView;
+        }
+        impl ::serde::Serialize for InspectionSpecificationOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for InspectionSpecificationView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.path),
+                    2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.target),
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(&*self.ty),
+                        )
+                    }
+                    4u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.quantity_id,
+                            ),
+                        )
+                    }
+                    5u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.unit_id,
+                            ),
+                        )
+                    }
+                    6u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.value.unwrap_or(0),
+                        )
+                    }
+                    7u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Bool(
+                            self.fixed.unwrap_or(false),
+                        )
+                    }
+                    8u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.lower.unwrap_or(0),
+                        )
+                    }
+                    9u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.upper.unwrap_or(0),
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => !self.path.is_empty(),
+                    2u32 => !self.target.is_empty(),
+                    3u32 => self.ty.is_set(),
+                    4u32 => self.quantity_id.is_set(),
+                    5u32 => self.unit_id.is_set(),
+                    6u32 => self.value.is_some(),
+                    7u32 => self.fixed.is_some(),
+                    8u32 => self.lower.is_some(),
+                    9u32 => self.upper.is_some(),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for InspectionSpecificationView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> InspectionSpecificationView<'a> {
             #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
             /// Memoized `MessageIndex` for this view's message type, resolved
             /// once against the package's embedded descriptor pool. An inherent
@@ -599432,6 +606955,18 @@ pub mod __buffa {
                 'a,
                 super::super::__buffa::view::InspectionDomainView<'a>,
             >,
+            /// Field 12: `selected_root`
+            pub selected_root: ::buffa::MessageFieldView<
+                super::super::__buffa::view::DeclarationIdView<'a>,
+            >,
+            /// Field 13: `selected_instance`
+            pub selected_instance: ::buffa::MessageFieldView<
+                super::super::__buffa::view::InstanceIdView<'a>,
+            >,
+            /// Field 14: `fixture`
+            pub fixture: ::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionFixtureView<'a>,
+            >,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for ModelingInspectionView<'a> {
@@ -599579,6 +607114,81 @@ pub mod __buffa {
                             None => {
                                 view.execution = ::buffa::MessageFieldView::set(
                                     <super::super::__buffa::view::InspectionExecutionView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    12u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.selected_root.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.selected_root = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    13u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.selected_instance.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.selected_instance = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::InstanceIdView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    14u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.fixture.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.fixture = ::buffa::MessageFieldView::set(
+                                    <super::super::__buffa::view::InspectionFixtureView as ::buffa::MessageView>::decode_view_ctx(
                                         sub,
                                         __sub_ctx,
                                     )?,
@@ -599778,6 +607388,33 @@ pub mod __buffa {
                         .iter()
                         .map(|v| v.to_owned_from_source(__buffa_src))
                         .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+                    selected_root: match self.selected_root.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::DeclarationId,
+                                ::buffa::Inline<super::super::DeclarationId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    selected_instance: match self.selected_instance.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::InstanceId,
+                                ::buffa::Inline<super::super::InstanceId>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    fixture: match self.fixture.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                super::super::InspectionFixture,
+                                ::buffa::Inline<super::super::InspectionFixture>,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -599866,6 +607503,30 @@ pub mod __buffa {
                 for v in &self.domains {
                     let __slot = __cache.reserve();
                     let inner_size = v.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.selected_root.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.selected_root.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.selected_instance.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.selected_instance.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.fixture.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.fixture.compute_size(__cache);
                     __cache.set(__slot, inner_size);
                     size
                         += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
@@ -599960,6 +607621,30 @@ pub mod __buffa {
                     );
                     v.write_to(__cache, buf);
                 }
+                if self.selected_root.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        12u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.selected_root.write_to(__cache, buf);
+                }
+                if self.selected_instance.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        13u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.selected_instance.write_to(__cache, buf);
+                }
+                if self.fixture.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        14u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.fixture.write_to(__cache, buf);
+                }
                 self.__buffa_unknown_fields.write_to(buf);
             }
         }
@@ -600036,6 +607721,27 @@ pub mod __buffa {
                 }
                 if !self.domains.is_empty() {
                     __map.serialize_entry("domains", &*self.domains)?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .selected_root
+                        .as_option()
+                    {
+                        __map.serialize_entry("selected_root", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self
+                        .selected_instance
+                        .as_option()
+                    {
+                        __map.serialize_entry("selected_instance", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.fixture.as_option() {
+                        __map.serialize_entry("fixture", __v)?;
+                    }
                 }
                 __map.end()
             }
@@ -600228,6 +607934,33 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().domains
             }
+            /// Field 12: `selected_root`
+            #[must_use]
+            pub fn selected_root(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::DeclarationIdView<'_>,
+            > {
+                &self.0.reborrow().selected_root
+            }
+            /// Field 13: `selected_instance`
+            #[must_use]
+            pub fn selected_instance(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::InstanceIdView<'_>,
+            > {
+                &self.0.reborrow().selected_instance
+            }
+            /// Field 14: `fixture`
+            #[must_use]
+            pub fn fixture(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                super::super::__buffa::view::InspectionFixtureView<'_>,
+            > {
+                &self.0.reborrow().fixture
+            }
         }
         impl ::core::convert::From<::buffa::OwnedView<ModelingInspectionView<'static>>>
         for ModelingInspectionOwnedView {
@@ -600318,6 +608051,27 @@ pub mod __buffa {
                         ::buffa_descriptor::reflect::ValueRef::List(&self.connections)
                     }
                     11u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.domains),
+                    12u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.selected_root,
+                            ),
+                        )
+                    }
+                    13u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.selected_instance,
+                            ),
+                        )
+                    }
+                    14u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.fixture,
+                            ),
+                        )
+                    }
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -600341,6 +608095,9 @@ pub mod __buffa {
                     9u32 => !::buffa::RepeatedView::is_empty(&self.ports),
                     10u32 => !::buffa::RepeatedView::is_empty(&self.connections),
                     11u32 => !::buffa::RepeatedView::is_empty(&self.domains),
+                    12u32 => self.selected_root.is_set(),
+                    13u32 => self.selected_instance.is_set(),
+                    14u32 => self.fixture.is_set(),
                     _ => false,
                 }
             }
@@ -807451,11 +815208,17 @@ pub mod __buffa {
         reg.register_json_any(super::__INSPECTION_CONNECTION_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_DOMAIN_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_EXECUTION_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_FIXTURE_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_INSTANCE_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_INTEGRATION_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_LINEAGE_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_MEMBER_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_POPULATION_JSON_ANY);
         reg.register_json_any(super::__INSPECTION_PORT_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_QUADRATURE_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_SCHEDULE_CONTROL_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_SCHEDULE_INTERVAL_JSON_ANY);
+        reg.register_json_any(super::__INSPECTION_SPECIFICATION_JSON_ANY);
         reg.register_json_any(super::__INSTANCE_ID_JSON_ANY);
         reg.register_json_any(
             super::__INTEGRATION_CONTROLS_FOR_LIST_SCIENTIFIC_COORDINATE_VALUE_JSON_ANY,
@@ -808790,11 +816553,17 @@ pub mod __buffa {
         reg.register_text_any(super::__INSPECTION_CONNECTION_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_DOMAIN_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_EXECUTION_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_FIXTURE_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_INSTANCE_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_INTEGRATION_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_LINEAGE_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_MEMBER_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_POPULATION_TEXT_ANY);
         reg.register_text_any(super::__INSPECTION_PORT_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_QUADRATURE_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_SCHEDULE_CONTROL_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_SCHEDULE_INTERVAL_TEXT_ANY);
+        reg.register_text_any(super::__INSPECTION_SPECIFICATION_TEXT_ANY);
         reg.register_text_any(super::__INSTANCE_ID_TEXT_ANY);
         reg.register_text_any(
             super::__INTEGRATION_CONTROLS_FOR_LIST_SCIENTIFIC_COORDINATE_VALUE_TEXT_ANY,
@@ -810507,9 +818276,17 @@ pub use self::__buffa::view::InspectionExecutionView;
 #[doc(inline)]
 pub use self::__buffa::view::InspectionExecutionOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::InspectionFixtureView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionFixtureOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::InspectionInstanceView;
 #[doc(inline)]
 pub use self::__buffa::view::InspectionInstanceOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionIntegrationView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionIntegrationOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::InspectionLineageView;
 #[doc(inline)]
@@ -810526,6 +818303,22 @@ pub use self::__buffa::view::InspectionPopulationOwnedView;
 pub use self::__buffa::view::InspectionPortView;
 #[doc(inline)]
 pub use self::__buffa::view::InspectionPortOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionQuadratureView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionQuadratureOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionScheduleControlView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionScheduleControlOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionScheduleIntervalView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionScheduleIntervalOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionSpecificationView;
+#[doc(inline)]
+pub use self::__buffa::view::InspectionSpecificationOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::InstanceIdView;
 #[doc(inline)]

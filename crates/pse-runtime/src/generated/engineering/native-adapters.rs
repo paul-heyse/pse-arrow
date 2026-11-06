@@ -33614,6 +33614,146 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+> for crate::workflow::InspectionFixture {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionFixture as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionFixture as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "declaration"),
+                (2, "specifications"),
+                (3, "integration"),
+                (4, "initial_equations"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture {
+            declaration: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
+                >(field_0, &child_path(path, "declaration"))?,
+            ),
+            specifications: {
+                let current_path = &child_path(path, "specifications");
+                items(field_1)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            integration: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+                    >(value, &child_path(path, "integration"))
+                })
+                .transpose()?
+                .into(),
+            initial_equations: items(field_3)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+> for crate::workflow::InspectionFixture {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionFixture as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionFixture as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "declaration"),
+                (2, "specifications"),
+                (3, "integration"),
+                (4, "initial_equations"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
+            >(
+                required(
+                    wire.declaration.into_option(),
+                    &child_path(path, "declaration"),
+                )?,
+                &child_path(path, "declaration"),
+            )?,
+            {
+                let current_path = &child_path(path, "specifications");
+                let values = wire
+                    .specifications
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            wire
+                .integration
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+                    >(value, &child_path(path, "integration"))
+                })
+                .transpose()?,
+            {
+                let current_path = &child_path(path, "initial_equations");
+                let values = wire
+                    .initial_equations
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionInstance,
 > for crate::workflow::InspectionInstance {
     fn into_wire(
@@ -33735,6 +33875,255 @@ impl NativeFrom<
                     .collect::<Result<Vec<_>, _>>()?,
                 &child_path(path, "members"),
             )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+> for crate::workflow::InspectionIntegration {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionIntegration as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionIntegration as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "axis"),
+                (2, "quantity_id"),
+                (3, "unit_id"),
+                (4, "lower"),
+                (5, "upper"),
+                (6, "initial_step"),
+                (7, "relative_tolerance"),
+                (8, "normalized_absolute_tolerance"),
+                (9, "quadrature_relative_tolerance"),
+                (10, "samples"),
+                (11, "quadratures"),
+                (12, "schedule_intervals"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+            field_10,
+            field_11,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration {
+            axis: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            quantity_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+                >(field_1, &child_path(path, "quantity_id"))?,
+            ),
+            unit_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+                >(field_2, &child_path(path, "unit_id"))?,
+            ),
+            lower: native_into::<_, u64>(field_3, &child_path(path, "lower"))?,
+            upper: native_into::<_, u64>(field_4, &child_path(path, "upper"))?,
+            initial_step: native_into::<
+                _,
+                u64,
+            >(field_5, &child_path(path, "initial_step"))?,
+            relative_tolerance: native_into::<
+                _,
+                u64,
+            >(field_6, &child_path(path, "relative_tolerance"))?,
+            normalized_absolute_tolerance: native_into::<
+                _,
+                u64,
+            >(field_7, &child_path(path, "normalized_absolute_tolerance"))?,
+            quadrature_relative_tolerance: field_8
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "quadrature_relative_tolerance"))
+                })
+                .transpose()?,
+            samples: {
+                let current_path = &child_path(path, "samples");
+                items(field_9)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            quadratures: {
+                let current_path = &child_path(path, "quadratures");
+                items(field_10)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            schedule_intervals: {
+                let current_path = &child_path(path, "schedule_intervals");
+                items(field_11)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+> for crate::workflow::InspectionIntegration {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionIntegration,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionIntegration as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionIntegration as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "axis"),
+                (2, "quantity_id"),
+                (3, "unit_id"),
+                (4, "lower"),
+                (5, "upper"),
+                (6, "initial_step"),
+                (7, "relative_tolerance"),
+                (8, "normalized_absolute_tolerance"),
+                (9, "quadrature_relative_tolerance"),
+                (10, "samples"),
+                (11, "quadratures"),
+                (12, "schedule_intervals"),
+            ],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.axis,
+                &child_path(path, "axis"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+            >(
+                required(
+                    wire.quantity_id.into_option(),
+                    &child_path(path, "quantity_id"),
+                )?,
+                &child_path(path, "quantity_id"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+            >(
+                required(wire.unit_id.into_option(), &child_path(path, "unit_id"))?,
+                &child_path(path, "unit_id"),
+            )?,
+            native_from::<_, u64>(wire.lower, &child_path(path, "lower"))?,
+            native_from::<_, u64>(wire.upper, &child_path(path, "upper"))?,
+            native_from::<_, u64>(wire.initial_step, &child_path(path, "initial_step"))?,
+            native_from::<
+                _,
+                u64,
+            >(wire.relative_tolerance, &child_path(path, "relative_tolerance"))?,
+            native_from::<
+                _,
+                u64,
+            >(
+                wire.normalized_absolute_tolerance,
+                &child_path(path, "normalized_absolute_tolerance"),
+            )?,
+            wire
+                .quadrature_relative_tolerance
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        u64,
+                    >(value, &child_path(path, "quadrature_relative_tolerance"))
+                })
+                .transpose()?,
+            {
+                let current_path = &child_path(path, "samples");
+                let values = wire
+                    .samples
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "quadratures");
+                let values = wire
+                    .quadratures
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "schedule_intervals");
+                let values = wire
+                    .schedule_intervals
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -34029,10 +34418,26 @@ impl NativeInto<
                 (3, "ports"),
                 (4, "connections"),
                 (5, "domains"),
+                (6, "specifications"),
+                (7, "integration_samples"),
+                (8, "integration_quadratures"),
+                (9, "schedule_intervals"),
+                (10, "initial_equations"),
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+            field_9,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionPopulation {
@@ -34044,6 +34449,26 @@ impl NativeInto<
                 u64,
             >(field_3, &child_path(path, "connections"))?,
             domains: native_into::<_, u64>(field_4, &child_path(path, "domains"))?,
+            specifications: native_into::<
+                _,
+                u64,
+            >(field_5, &child_path(path, "specifications"))?,
+            integration_samples: native_into::<
+                _,
+                u64,
+            >(field_6, &child_path(path, "integration_samples"))?,
+            integration_quadratures: native_into::<
+                _,
+                u64,
+            >(field_7, &child_path(path, "integration_quadratures"))?,
+            schedule_intervals: native_into::<
+                _,
+                u64,
+            >(field_8, &child_path(path, "schedule_intervals"))?,
+            initial_equations: native_into::<
+                _,
+                u64,
+            >(field_9, &child_path(path, "initial_equations"))?,
             ..Default::default()
         })
     }
@@ -34066,6 +34491,11 @@ impl NativeFrom<
                 (3, "ports"),
                 (4, "connections"),
                 (5, "domains"),
+                (6, "specifications"),
+                (7, "integration_samples"),
+                (8, "integration_quadratures"),
+                (9, "schedule_intervals"),
+                (10, "initial_equations"),
             ],
             path,
         )?;
@@ -34075,6 +34505,29 @@ impl NativeFrom<
             native_from::<_, u64>(wire.ports, &child_path(path, "ports"))?,
             native_from::<_, u64>(wire.connections, &child_path(path, "connections"))?,
             native_from::<_, u64>(wire.domains, &child_path(path, "domains"))?,
+            native_from::<
+                _,
+                u64,
+            >(wire.specifications, &child_path(path, "specifications"))?,
+            native_from::<
+                _,
+                u64,
+            >(wire.integration_samples, &child_path(path, "integration_samples"))?,
+            native_from::<
+                _,
+                u64,
+            >(
+                wire.integration_quadratures,
+                &child_path(path, "integration_quadratures"),
+            )?,
+            native_from::<
+                _,
+                u64,
+            >(wire.schedule_intervals, &child_path(path, "schedule_intervals"))?,
+            native_from::<
+                _,
+                u64,
+            >(wire.initial_equations, &child_path(path, "initial_equations"))?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -34150,6 +34603,489 @@ impl NativeFrom<
                 required(wire.lineage.into_option(), &child_path(path, "lineage"))?,
                 &child_path(path, "lineage"),
             )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+> for crate::workflow::InspectionQuadrature {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionQuadrature as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionQuadrature as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "target"),
+                (2, "quantity_id"),
+                (3, "unit_id"),
+                (4, "absolute_tolerance"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature {
+            target: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            quantity_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+                >(field_1, &child_path(path, "quantity_id"))?,
+            ),
+            unit_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+                >(field_2, &child_path(path, "unit_id"))?,
+            ),
+            absolute_tolerance: native_into::<
+                _,
+                u64,
+            >(field_3, &child_path(path, "absolute_tolerance"))?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+> for crate::workflow::InspectionQuadrature {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionQuadrature,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionQuadrature as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionQuadrature as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "target"),
+                (2, "quantity_id"),
+                (3, "unit_id"),
+                (4, "absolute_tolerance"),
+            ],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target,
+                &child_path(path, "target"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+            >(
+                required(
+                    wire.quantity_id.into_option(),
+                    &child_path(path, "quantity_id"),
+                )?,
+                &child_path(path, "quantity_id"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+            >(
+                required(wire.unit_id.into_option(), &child_path(path, "unit_id"))?,
+                &child_path(path, "unit_id"),
+            )?,
+            native_from::<
+                _,
+                u64,
+            >(wire.absolute_tolerance, &child_path(path, "absolute_tolerance"))?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+> for crate::workflow::InspectionScheduleControl {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionScheduleControl as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionScheduleControl as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "lower"), (2, "upper")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl {
+            lower: field_0
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "lower"))
+                })
+                .transpose()?,
+            upper: field_1
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "upper"))
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+> for crate::workflow::InspectionScheduleControl {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionScheduleControl as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionScheduleControl as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "lower"), (2, "upper")],
+            path,
+        )?;
+        let fields = (
+            wire
+                .lower
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "lower"))
+                })
+                .transpose()?,
+            wire
+                .upper
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "upper"))
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+> for crate::workflow::InspectionScheduleInterval {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionScheduleInterval as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionScheduleInterval as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "schedule"),
+                (2, "target"),
+                (3, "quantity_id"),
+                (4, "unit_id"),
+                (5, "interval"),
+                (6, "change_time"),
+                (7, "value"),
+                (8, "control"),
+            ],
+            path,
+        )?;
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval {
+            schedule: native_into::<_, u64>(field_0, &child_path(path, "schedule"))?,
+            target: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            quantity_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+                >(field_2, &child_path(path, "quantity_id"))?,
+            ),
+            unit_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+                >(field_3, &child_path(path, "unit_id"))?,
+            ),
+            interval: native_into::<_, u64>(field_4, &child_path(path, "interval"))?,
+            change_time: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "change_time"))
+                })
+                .transpose()?,
+            value: native_into::<_, u64>(field_6, &child_path(path, "value"))?,
+            control: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+                    >(value, &child_path(path, "control"))
+                })
+                .transpose()?
+                .into(),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+> for crate::workflow::InspectionScheduleInterval {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleInterval,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionScheduleInterval as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionScheduleInterval as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "schedule"),
+                (2, "target"),
+                (3, "quantity_id"),
+                (4, "unit_id"),
+                (5, "interval"),
+                (6, "change_time"),
+                (7, "value"),
+                (8, "control"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u64>(wire.schedule, &child_path(path, "schedule"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target,
+                &child_path(path, "target"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+            >(
+                required(
+                    wire.quantity_id.into_option(),
+                    &child_path(path, "quantity_id"),
+                )?,
+                &child_path(path, "quantity_id"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+            >(
+                required(wire.unit_id.into_option(), &child_path(path, "unit_id"))?,
+                &child_path(path, "unit_id"),
+            )?,
+            native_from::<_, u64>(wire.interval, &child_path(path, "interval"))?,
+            wire
+                .change_time
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "change_time"))
+                })
+                .transpose()?,
+            native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
+            wire
+                .control
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionScheduleControl,
+                    >(value, &child_path(path, "control"))
+                })
+                .transpose()?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+> for crate::workflow::InspectionSpecification {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+        AdapterError,
+    > {
+        layout(
+            <crate::workflow::InspectionSpecification as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionSpecification as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "path"),
+                (2, "target"),
+                (3, "ty"),
+                (4, "quantity_id"),
+                (5, "unit_id"),
+                (6, "value"),
+                (7, "fixed"),
+                (8, "lower"),
+                (9, "upper"),
+            ],
+            path,
+        )?;
+        let (
+            field_0,
+            field_1,
+            field_2,
+            field_3,
+            field_4,
+            field_5,
+            field_6,
+            field_7,
+            field_8,
+        ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification {
+            path: native_into::<_, String>(field_0, &child_path(path, "path"))?,
+            target: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            ty: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingType,
+                >(field_2, &child_path(path, "ty"))?,
+            ),
+            quantity_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+                >(field_3, &child_path(path, "quantity_id"))?,
+            ),
+            unit_id: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+                >(field_4, &child_path(path, "unit_id"))?,
+            ),
+            value: field_5
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "value"))
+                })
+                .transpose()?,
+            fixed: field_6
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, bool>(value, &child_path(path, "fixed"))
+                })
+                .transpose()?,
+            lower: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "lower"))
+                })
+                .transpose()?,
+            upper: field_8
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "upper"))
+                })
+                .transpose()?,
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+> for crate::workflow::InspectionSpecification {
+    fn from_wire(
+        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionSpecification,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <crate::workflow::InspectionSpecification as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <crate::workflow::InspectionSpecification as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[
+                (1, "path"),
+                (2, "target"),
+                (3, "ty"),
+                (4, "quantity_id"),
+                (5, "unit_id"),
+                (6, "value"),
+                (7, "fixed"),
+                (8, "lower"),
+                (9, "upper"),
+            ],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, String>(wire.path, &child_path(path, "path"))?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.target,
+                &child_path(path, "target"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingType,
+            >(
+                required(wire.ty.into_option(), &child_path(path, "ty"))?,
+                &child_path(path, "ty"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::QuantityTypeId,
+            >(
+                required(
+                    wire.quantity_id.into_option(),
+                    &child_path(path, "quantity_id"),
+                )?,
+                &child_path(path, "quantity_id"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::UnitId,
+            >(
+                required(wire.unit_id.into_option(), &child_path(path, "unit_id"))?,
+                &child_path(path, "unit_id"),
+            )?,
+            wire
+                .value
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "value"))
+                })
+                .transpose()?,
+            wire
+                .fixed
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, bool>(value, &child_path(path, "fixed"))
+                })
+                .transpose()?,
+            wire
+                .lower
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "lower"))
+                })
+                .transpose()?,
+            wire
+                .upper
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "upper"))
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -41579,6 +42515,9 @@ impl NativeInto<
                 (9, "ports"),
                 (10, "connections"),
                 (11, "domains"),
+                (12, "selected_root"),
+                (13, "selected_instance"),
+                (14, "fixture"),
             ],
             path,
         )?;
@@ -41594,6 +42533,9 @@ impl NativeInto<
             field_8,
             field_9,
             field_10,
+            field_11,
+            field_12,
+            field_13,
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
@@ -41688,6 +42630,27 @@ impl NativeInto<
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
+            selected_root: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
+                >(field_11, &child_path(path, "selected_root"))?,
+            ),
+            selected_instance: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
+                >(field_12, &child_path(path, "selected_instance"))?,
+            ),
+            fixture: field_13
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+                    >(value, &child_path(path, "fixture"))
+                })
+                .transpose()?
+                .into(),
             ..Default::default()
         })
     }
@@ -41716,6 +42679,9 @@ impl NativeFrom<
                 (9, "ports"),
                 (10, "connections"),
                 (11, "domains"),
+                (12, "selected_root"),
+                (13, "selected_instance"),
+                (14, "fixture"),
             ],
             path,
         )?;
@@ -41836,6 +42802,36 @@ impl NativeFrom<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::DeclarationId,
+            >(
+                required(
+                    wire.selected_root.into_option(),
+                    &child_path(path, "selected_root"),
+                )?,
+                &child_path(path, "selected_root"),
+            )?,
+            native_from::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::InstanceId,
+            >(
+                required(
+                    wire.selected_instance.into_option(),
+                    &child_path(path, "selected_instance"),
+                )?,
+                &child_path(path, "selected_instance"),
+            )?,
+            wire
+                .fixture
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::InspectionFixture,
+                    >(value, &child_path(path, "fixture"))
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,

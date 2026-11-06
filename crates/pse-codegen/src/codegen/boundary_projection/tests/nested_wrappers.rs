@@ -3,6 +3,39 @@
 use super::*;
 use std::collections::BTreeMap;
 
+#[test]
+fn implicit_map_entry_names_preserve_protobuf_case_and_digits() {
+    for (field, expected) in [
+        ("observations", "ObservationsEntry"),
+        ("http2_responses", "Http2ResponsesEntry"),
+        ("HTTP_responses", "HTTPResponsesEntry"),
+        ("foo__bar", "FooBarEntry"),
+    ] {
+        assert_eq!(protobuf_map_entry_name(field), expected);
+    }
+}
+
+projection_struct! {
+    struct ConflictingMapNames {
+        projection: { name: "ConflictingMapNames", version: 1, direction: Direction::Both,
+            reserved_tags: [], reserved_names: [] };
+        values: BTreeMap<String, String> => { tag: 1, direction: Direction::Both, rules: [] };
+        _values: BTreeMap<String, String> => { tag: 2, direction: Direction::Both, rules: [] };
+    }
+}
+
+#[test]
+fn conflicting_implicit_map_entry_names_refuse_before_emission() {
+    let graph = ProjectionGraph::of::<ConflictingMapNames>().unwrap();
+    let error =
+        descriptors_with_imports(&graph, "pse.maps.v1", "maps.proto", &imports()).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("conflicting implicit entry ValuesEntry")
+    );
+}
+
 projection_struct! {
     struct NestedCollections {
         projection: { name: "HTTP2Case", version: 1, direction: Direction::Both,
@@ -38,7 +71,7 @@ fn collection_map_values_live_outside_synthetic_entries_and_use_actual_buffa_mod
     let entry = owner
         .nested_type
         .iter()
-        .find(|nested| nested.name.as_deref() == Some("Field1Entry"))
+        .find(|nested| nested.name.as_deref() == Some("TrajectoriesEntry"))
         .unwrap();
     assert_eq!(entry.options.as_option().unwrap().map_entry, Some(true));
     assert!(

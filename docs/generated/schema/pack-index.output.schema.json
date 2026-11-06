@@ -349,6 +349,35 @@
         }
       ]
     },
+    "PackResultContext": {
+      "additionalProperties": false,
+      "description": "Original immutable native context needed to interpret a recorded selection.",
+      "properties": {
+        "interpretation": {
+          "description": "Original native interpretation, never today's default mapping.",
+          "type": "string"
+        },
+        "manifest": {
+          "description": "Original closed manifest digest, independent of returned extent.",
+          "type": "string"
+        },
+        "problem": {
+          "description": "Original canonical problem identity.",
+          "type": "string"
+        },
+        "revision": {
+          "description": "Original immutable problem revision.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "problem",
+        "revision",
+        "manifest",
+        "interpretation"
+      ],
+      "type": "object"
+    },
     "PackResultPredicate": {
       "additionalProperties": false,
       "description": "Exact protected output predicate. Floating endpoints retain IEEE bits, not JSON rounding.",
@@ -398,11 +427,23 @@
     },
     "PackResultSelection": {
       "additionalProperties": false,
-      "description": "Exact original result lineage and range, including independent usability.",
+      "description": "Exact original result lineage and range, including recorded independent usability.\nThe passive projection cannot create a protected reader or renew scientific permission.",
       "properties": {
         "attempt": {
           "description": "Exact original attempt identity; retries never substitute another attempt.",
           "type": "string"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackResultContext"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Original native interpretation; absent for historical observations that did not retain it."
         },
         "field": {
           "description": "Optional original field/output selection; schema remains the original typed relation.",
@@ -468,7 +509,8 @@
         "field",
         "terminal_class",
         "predicate",
-        "usability"
+        "usability",
+        "context"
       ],
       "type": "object"
     },

@@ -612,6 +612,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/modeling/project_preparation.rs",
           "kind": "file"
         },
@@ -1373,6 +1377,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
           "kind": "file"
         },
         {

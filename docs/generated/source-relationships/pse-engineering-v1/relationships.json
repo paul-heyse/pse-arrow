@@ -55948,6 +55948,198 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionFixture",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "InspectionInstance",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -56140,6 +56332,198 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionIntegration",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "InspectionLineage",
       "declaration_kind": "rust_projection",
       "direction": "Output",
@@ -56902,6 +57286,774 @@
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionPort"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionQuadrature",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleControl",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionScheduleInterval",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "InspectionSpecification",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/proto_projection.rs",
+      "generator_symbol": "projection",
+      "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
     },
     {
       "basis": "declared",

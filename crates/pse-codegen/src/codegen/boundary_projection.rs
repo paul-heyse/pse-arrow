@@ -1023,7 +1023,20 @@ impl Lower<'_> {
                 }
             }
             TypeRef::Map(key, value) => {
-                let entry_name = format!("Field{tag}Entry");
+                let entry_name = if protobuf_map_key(key) {
+                    protobuf_map_entry_name(name)
+                } else {
+                    format!("Field{tag}Entry")
+                };
+                if parent
+                    .nested_type
+                    .iter()
+                    .any(|nested| nested.name.as_deref() == Some(entry_name.as_str()))
+                {
+                    return Err(error(format!(
+                        "map field {name} has conflicting implicit entry {entry_name}"
+                    )));
+                }
                 let mut entry = DescriptorProto {
                     name: Some(entry_name.clone()),
                     options: descriptor::MessageOptions {
@@ -1480,6 +1493,28 @@ fn identifier(value: &str) -> bool {
         .next()
         .is_some_and(|byte| byte.is_ascii_alphabetic() || byte == b'_')
         && bytes.all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+}
+
+// Protobuf's implicit entry name preserves existing capitalization and removes underscores.
+// Enum/Rust case formatters are lossy and do not implement this descriptor requirement.
+// https://github.com/protocolbuffers/protobuf/blob/v33.0/src/google/protobuf/descriptor.cc
+fn protobuf_map_entry_name(field: &str) -> String {
+    let mut entry = String::with_capacity(field.len() + "Entry".len());
+    let mut capitalize = true;
+    for ch in field.chars() {
+        if ch == '_' {
+            capitalize = true;
+        } else {
+            entry.push(if capitalize {
+                ch.to_ascii_uppercase()
+            } else {
+                ch
+            });
+            capitalize = false;
+        }
+    }
+    entry.push_str("Entry");
+    entry
 }
 
 fn protobuf_map_key(ty: &TypeRef) -> bool {

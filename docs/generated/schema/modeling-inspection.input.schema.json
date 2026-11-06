@@ -580,6 +580,55 @@
       ],
       "type": "object"
     },
+    "InspectionFixture": {
+      "additionalProperties": false,
+      "description": "Immutable authored/admitted-original fixture, independent of public execution overlays.",
+      "properties": {
+        "declaration": {
+          "description": "Original declaration supplying the fixture and its specifications.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        },
+        "initial_equations": {
+          "description": "Selected page of original physical initial-equation identities; these are not starts.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "integration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InspectionIntegration"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original integration request; absence is distinct from a page with no samples."
+        },
+        "specifications": {
+          "description": "Selected page of original scalar specifications, in native path-map order.",
+          "items": {
+            "$ref": "#/$defs/InspectionSpecification"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        }
+      },
+      "required": [
+        "declaration",
+        "specifications",
+        "initial_equations"
+      ],
+      "type": "object"
+    },
     "InspectionInstance": {
       "additionalProperties": false,
       "description": "One selected instantiated definition.",
@@ -624,6 +673,105 @@
         "definition",
         "path",
         "members"
+      ],
+      "type": "object"
+    },
+    "InspectionIntegration": {
+      "additionalProperties": false,
+      "description": "Original integration request; these observations are not applied solver settings.",
+      "properties": {
+        "axis": {
+          "description": "Native original integrated axis.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "initial_step": {
+          "description": "Original requested initial step.",
+          "format": "double",
+          "type": "number"
+        },
+        "lower": {
+          "description": "Original integrated domain lower endpoint; not inferred from sample zero.",
+          "format": "double",
+          "type": "number"
+        },
+        "normalized_absolute_tolerance": {
+          "description": "Original absolute tolerance in normalized state coordinates.",
+          "format": "double",
+          "type": "number"
+        },
+        "quadrature_relative_tolerance": {
+          "description": "Original quadrature relative tolerance; absence preserves native default selection.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "quadratures": {
+          "description": "Selected page of original explicit quadrature tolerances.",
+          "items": {
+            "$ref": "#/$defs/InspectionQuadrature"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "quantity_id": {
+          "description": "Physical time quantity of that axis.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "relative_tolerance": {
+          "description": "Original relative tolerance.",
+          "format": "double",
+          "type": "number"
+        },
+        "samples": {
+          "description": "Selected page of original requested samples, in their original order.",
+          "items": {
+            "format": "double",
+            "type": "number"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "schedule_intervals": {
+          "description": "Selected page of original schedules, flattened by schedule then interval.",
+          "items": {
+            "$ref": "#/$defs/InspectionScheduleInterval"
+          },
+          "maxItems": 128,
+          "minItems": 0,
+          "type": "array"
+        },
+        "unit_id": {
+          "description": "Axis canonical unit for lower, upper, samples, step and schedule change times.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "upper": {
+          "description": "Original integrated domain upper endpoint.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "axis",
+        "quantity_id",
+        "unit_id",
+        "lower",
+        "upper",
+        "initial_step",
+        "relative_tolerance",
+        "normalized_absolute_tolerance",
+        "samples",
+        "quadratures",
+        "schedule_intervals"
       ],
       "type": "object"
     },
@@ -736,8 +884,26 @@
           "minimum": 0,
           "type": "integer"
         },
+        "initial_equations": {
+          "description": "Original equations applied at the integrated lower endpoint.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
         "instances": {
           "description": "Total instantiated definitions.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "integration_quadratures": {
+          "description": "Original explicitly controlled integration quadratures.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "integration_samples": {
+          "description": "Original ordered requested integration samples.",
           "format": "uint",
           "minimum": 0,
           "type": "integer"
@@ -753,6 +919,18 @@
           "format": "uint",
           "minimum": 0,
           "type": "integer"
+        },
+        "schedule_intervals": {
+          "description": "Original schedule intervals, ordered by schedule then interval.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "specifications": {
+          "description": "Original authored scalar specification population.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
@@ -760,7 +938,12 @@
         "members",
         "ports",
         "connections",
-        "domains"
+        "domains",
+        "specifications",
+        "integration_samples",
+        "integration_quadratures",
+        "schedule_intervals",
+        "initial_equations"
       ],
       "type": "object"
     },
@@ -789,6 +972,205 @@
         "id",
         "symbol",
         "lineage"
+      ],
+      "type": "object"
+    },
+    "InspectionQuadrature": {
+      "additionalProperties": false,
+      "description": "Original authored quadrature tolerance, in the integral's canonical unit.",
+      "properties": {
+        "absolute_tolerance": {
+          "description": "Original canonical absolute tolerance.",
+          "format": "double",
+          "type": "number"
+        },
+        "quantity_id": {
+          "description": "Integral's physical quantity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "target": {
+          "description": "Original integral identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "unit_id": {
+          "description": "Canonical integral unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "target",
+        "quantity_id",
+        "unit_id",
+        "absolute_tolerance"
+      ],
+      "type": "object"
+    },
+    "InspectionScheduleControl": {
+      "additionalProperties": false,
+      "description": "Original bounds of a schedule declared free by the authored shooting fixture.",
+      "properties": {
+        "lower": {
+          "description": "Original lower bound; absent means unbounded.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "upper": {
+          "description": "Original upper bound; absent means unbounded.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    },
+    "InspectionScheduleInterval": {
+      "additionalProperties": false,
+      "description": "One original interval, preserving schedule declaration and interval order.",
+      "properties": {
+        "change_time": {
+          "description": "Original change time in the axis unit; absent for the first interval at axis lower.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "control": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/InspectionScheduleControl"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original free-control selection; absence is a prescribed input."
+        },
+        "interval": {
+          "description": "Original zero-based interval position.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "quantity_id": {
+          "description": "Target's physical quantity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "schedule": {
+          "description": "Original zero-based schedule position.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "target": {
+          "description": "Original scheduled scalar.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "unit_id": {
+          "description": "Canonical value and control-bound unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "value": {
+          "description": "Original authored canonical value, or shooting starting guess for a free control.",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "schedule",
+        "target",
+        "quantity_id",
+        "unit_id",
+        "interval",
+        "value"
+      ],
+      "type": "object"
+    },
+    "InspectionSpecification": {
+      "additionalProperties": false,
+      "description": "Original authored scalar specification, resolved by the native owner.",
+      "properties": {
+        "fixed": {
+          "description": "Original fix/free selection; absence keeps the authored model role.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "lower": {
+          "description": "Original lower override; absence keeps the authored bound.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "path": {
+          "description": "Original authored model path.",
+          "type": "string"
+        },
+        "quantity_id": {
+          "description": "Native resolved physical quantity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "target": {
+          "description": "Original resolved scalar identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "ty": {
+          "$ref": "#/$defs/Type",
+          "description": "Complete original physical type, including transfer and reference roles."
+        },
+        "unit_id": {
+          "description": "Canonical unit of every numeric specification endpoint.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        },
+        "upper": {
+          "description": "Original upper override; absence keeps the authored bound.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "value": {
+          "description": "Original value; absence keeps the authored model value.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "target",
+        "ty",
+        "quantity_id",
+        "unit_id"
       ],
       "type": "object"
     },
@@ -2364,6 +2746,17 @@
       "$ref": "#/$defs/InspectionExecution",
       "description": "Selected route and procedure before execution."
     },
+    "fixture": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/InspectionFixture"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Immutable authored/admitted-original inputs; no fixture differs from an empty fixture."
+    },
     "instances": {
       "description": "Instantiated authored definitions.",
       "items": {
@@ -2414,6 +2807,18 @@
       "$ref": "#/$defs/PreparationSettingsBody",
       "description": "Complete native preparation policy that admitted the observed case."
     },
+    "selected_instance": {
+      "description": "Original selected instance, issued by the retained admission owner.",
+      "pattern": "^[0-9a-fA-F]{32}$",
+      "type": "string",
+      "x-pse-identity": "InstanceId"
+    },
+    "selected_root": {
+      "description": "Original selected declaration, issued by the retained admission owner.",
+      "pattern": "^[0-9a-fA-F]{32}$",
+      "type": "string",
+      "x-pse-identity": "DeclarationId"
+    },
     "source": {
       "$ref": "#/$defs/OperationSourceBody",
       "description": "Exact source and physical context of this observation."
@@ -2430,6 +2835,8 @@
     "ports",
     "connections",
     "domains",
+    "selected_root",
+    "selected_instance",
     "document_version"
   ],
   "title": "ModelingInspection",
