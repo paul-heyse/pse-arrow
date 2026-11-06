@@ -199,18 +199,38 @@ impl PreparedSolve {
                 })
                 .collect());
         }
-        let Outcome::Native(report) = outcome else {
-            return Ok(absent(goals, U::Unsupported));
-        };
-        if report.quality.as_ref().is_none_or(|q| !q.feasible())
-            || report.validation_failure().is_some()
-            || report.callback_failure().is_some()
-            || report.candidate.as_ref().is_none_or(|c| c.primal != point)
-        {
-            return Ok(absent(goals, U::InvalidValidity));
-        }
-        let Some(observed) = &report.observation else {
-            return Ok(absent(goals, U::MissingEvidence));
+        let observed = match outcome {
+            Outcome::Native(report) => {
+                if report.quality.as_ref().is_none_or(|q| !q.feasible())
+                    || report.validation_failure().is_some()
+                    || report.callback_failure().is_some()
+                    || report.candidate.as_ref().is_none_or(|c| c.primal != point)
+                {
+                    return Ok(absent(goals, U::InvalidValidity));
+                }
+                let Some(observed) = &report.observation else {
+                    return Ok(absent(goals, U::MissingEvidence));
+                };
+                observed
+            }
+            Outcome::Constant(report) => {
+                if !report.quality.feasible()
+                    || report.coordinates.len() != point.len()
+                    || report
+                        .coordinates
+                        .iter()
+                        .zip(plan.columns())
+                        .zip(&point)
+                        .any(|((observed, expected), value)| {
+                            observed.0 != *expected || observed.1.to_bits() != value.to_bits()
+                        })
+                    || report.observation.values.len() != plan.structure().rows().len()
+                {
+                    return Ok(absent(goals, U::InvalidValidity));
+                }
+                &report.observation
+            }
+            Outcome::Rejected(_) => return Ok(absent(goals, U::Unsupported)),
         };
         let Some(residual) = observed
             .equality_residuals
@@ -1025,6 +1045,78 @@ mod refinement_tests {
             pse_model::generated::enums::AccuracyGoalStatus::Unresolved
         );
         assert!(observed[0].work_demand.is_some());
+
+        // Evaluate the same actual source at the retained native point, using the
+        // production original-observation owner rather than a fabricated native report.
+        let constant_owner = runtime
+            .native()
+            .reserve(
+                "accuracy-control:original-reconstruction",
+                original.result_bytes().unwrap(),
+            )
+            .unwrap();
+        let mut reconstructed_case = case.clone();
+        reconstructed_case.values = pse_math::SharedAllocation::from(Arc::new(values.clone()))
+            .with_owner(constant_owner.clone());
+        let mut reconstructed = runtime
+            .native()
+            .constant(
+                Representation::Algebraic(reconstructed_case),
+                &original.tolerances,
+                &scope,
+                &budget,
+            )
+            .unwrap();
+        let Outcome::Constant(reconstructed_report) = &mut reconstructed else {
+            panic!("original direct evaluation must retain its own report kind");
+        };
+        reconstructed_report.owner = Some(constant_owner);
+        reconstructed_report.coordinates = case
+            .prepared
+            .compiled()
+            .plan
+            .columns()
+            .iter()
+            .copied()
+            .zip(point.iter().copied())
+            .collect();
+        let reconstructed_goals = original
+            .coordinate_accuracy(runtime.native(), &reconstructed, &values, &scope, &budget)
+            .unwrap();
+        assert_eq!(
+            reconstructed_goals[0].classification,
+            observed[0].classification
+        );
+        assert!(reconstructed_goals[0].work_demand.is_some());
+        assert!(
+            original
+                .refine_coordinate_accuracy(&reconstructed_goals, &point)
+                .unwrap()
+                .is_some(),
+            "real reconstructed original observations drive the same work request"
+        );
+        for invalid in 0..3 {
+            let mut changed = reconstructed.clone();
+            let Outcome::Constant(report) = &mut changed else {
+                unreachable!()
+            };
+            match invalid {
+                0 => report.coordinates[0].0 = SemanticId::NIL,
+                1 => report.coordinates[0].1 += 1.,
+                _ => report.observation.values.clear(),
+            }
+            let refused = original
+                .coordinate_accuracy(runtime.native(), &changed, &values, &scope, &budget)
+                .unwrap();
+            assert!(
+                refused.iter().all(|goal| goal.evidence.is_none()
+                    && goal.classification.unavailable
+                        == Some(
+                            pse_model::generated::enums::AccuracyUnavailableReason::InvalidValidity
+                        )),
+                "mismatched reconstructed coordinates/observation cannot issue accuracy evidence"
+            );
+        }
 
         let refined = original
             .refine_coordinate_accuracy(&observed, &point)
