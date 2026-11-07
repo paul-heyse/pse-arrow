@@ -242,6 +242,89 @@ pub(crate) fn executable(
     Ok(captured)
 }
 
+/// Release one fixed executable of a physically settled workflow. The association
+/// and both members must still belong to the original private capture.
+pub(crate) fn release_executable(
+    directory: &File,
+    path: &Path,
+) -> Result<(), CorrectnessError> {
+    use rustix::fs::{Mode, OFlags, openat, unlinkat};
+
+    let name = path
+        .file_name()
+        .ok_or_else(|| invalid("captured executable has no basename"))?;
+    let record_path = executable_record(path)?;
+    let record_name = record_path
+        .file_name()
+        .ok_or_else(|| invalid("executable association has no basename"))?;
+    let open = |name: &std::ffi::OsStr| {
+        openat(
+            directory,
+            name,
+            OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+            Mode::empty(),
+        )
+        .map(File::from)
+        .map_err(io::Error::from)
+    };
+    let record = match open(record_name) {
+        Ok(record) => record,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return match open(name) {
+                Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+                _ => Err(invalid("captured executable lacks its original association")),
+            };
+        }
+        Err(error) => return Err(error.into()),
+    };
+    let protected = |file: &File, mode: u32| -> Result<(), CorrectnessError> {
+        let metadata = file.metadata()?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o777 != mode
+            || metadata.nlink() != 1
+        {
+            return Err(invalid("executable capture member lacks private custody"));
+        }
+        Ok(())
+    };
+    protected(&record, 0o400)?;
+    let before = FileIdentity::read(&record)?;
+    let mut bytes = Vec::new();
+    (&record).take(65_537).read_to_end(&mut bytes)?;
+    if bytes.len() > 65_536 || bytes.len() as u64 != before.bytes {
+        return Err(invalid("executable association exceeds its expected extent"));
+    }
+    let executable: Executable = serde_json::from_slice(&bytes)?;
+    if executable.captured != path || !executable.original.is_absolute() {
+        return Err(invalid("executable association differs from the release member"));
+    }
+    let mut image = match open(name) {
+        Ok(image) => image,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            if FileIdentity::read(&open(record_name)?)? != before {
+                return Err(invalid("executable association changed before release"));
+            }
+            unlinkat(directory, record_name, rustix::fs::AtFlags::empty())
+                .map_err(io::Error::from)?;
+            directory.sync_all()?;
+            return Ok(());
+        }
+        Err(error) => return Err(error.into()),
+    };
+    protected(&image, 0o500)?;
+    let image_identity = executable.verify_file(&mut image)?;
+    if FileIdentity::read(&open(name)?)? != image_identity
+        || FileIdentity::read(&open(record_name)?)? != before
+    {
+        return Err(invalid("executable capture changed before release"));
+    }
+    unlinkat(directory, name, rustix::fs::AtFlags::empty()).map_err(io::Error::from)?;
+    unlinkat(directory, record_name, rustix::fs::AtFlags::empty()).map_err(io::Error::from)?;
+    directory.sync_all()?;
+    Ok(())
+}
+
 /// Canonical private compiler-artifact association, preserving Cargo's original basename.
 pub(crate) fn artifact_path(
     directory: &Path,

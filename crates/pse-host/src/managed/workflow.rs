@@ -18,7 +18,7 @@ use serde_json::value::RawValue;
 use sha2::{Digest as _, Sha256};
 use std::{
     ffi::OsString,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::{self, Read},
     num::NonZeroUsize,
     os::unix::fs::{MetadataExt as _, OpenOptionsExt as _},
@@ -62,6 +62,65 @@ fn digest(bytes: &[u8]) -> String {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+/// Retire only private workflow controls after the original foreground owner has
+/// published the reconciled result and proved the entire workload drained.
+pub(crate) fn release_foreground_controls(
+    directory: &InvocationDirectory,
+    terminal: &super::result::TerminalResult<super::result::ManagedSummary>,
+) -> Result<(), HostError> {
+    use crate::envelope::Settlement;
+
+    let result = terminal.response();
+    let Some(workflow) = &result.payload.workflow else {
+        return Ok(());
+    };
+    if result.settlement != Settlement::Complete
+        || result.payload.native_lifetime_pending != Some(false)
+        || result.payload.borrowed_reservation
+        || !workflow.terminal.required_capture_complete
+    {
+        return Ok(());
+    }
+    release_controls(directory.path(), workflow.terminal.action)
+}
+
+pub(crate) fn release_controls(invocation: &Path, action: Action) -> Result<(), HostError> {
+    use rustix::fs::{Mode, OFlags, openat};
+
+    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+    let open = |parent: &File, name| -> Result<Option<File>, HostError> {
+        let file: File = match openat(parent, name, flags, Mode::empty()) {
+            Ok(fd) => fd.into(),
+            Err(rustix::io::Errno::NOENT) => return Ok(None),
+            Err(error) => return Err(io::Error::from(error).into()),
+        };
+        let metadata = file.metadata()?;
+        if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
+            return Err(host(invalid("workflow control directory lacks private custody")));
+        }
+        Ok(Some(file))
+    };
+    let (location, controls): (_, &[_]) = if action.is_compiler() {
+        ("check-control", &["cargo-pse-correctness"])
+    } else {
+        ("inventory", &["cargo-nextest", "cargo-pse-correctness"])
+    };
+    let invocation_root: File = rustix::fs::open(invocation, flags, Mode::empty())
+        .map_err(io::Error::from)?
+        .into();
+    let Some(workflow) = open(&invocation_root, "workflow")? else {
+        return Ok(());
+    };
+    let Some(directory) = open(&workflow, location)? else {
+        return Ok(());
+    };
+    for control in controls {
+        let path = invocation.join("workflow").join(location).join(control);
+        crate::discovery::capture::release_executable(&directory, &path)?;
+    }
+    Ok(())
 }
 
 /// Metadata points at one authoritative encoded private input; it does not repeat selection.
@@ -535,6 +594,40 @@ impl<R: Read> Read for HashingReader<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn workflow_controls_release_refuses_changed_capture_and_can_resume() {
+        use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
+
+        let scratch = tempfile::tempdir().unwrap();
+        let original = scratch.path().join("original");
+        fs::write(&original, b"original").unwrap();
+        fs::set_permissions(&original, fs::Permissions::from_mode(0o700)).unwrap();
+        let inventory = scratch.path().join("workflow/inventory");
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&inventory)
+            .unwrap();
+        let nextest = inventory.join("cargo-nextest");
+        let association = inventory.join("cargo-nextest.capture.json");
+        let correctness = inventory.join("cargo-pse-correctness");
+        let report = inventory.join("inventory.json");
+        fs::write(&report, b"retained inventory").unwrap();
+        crate::discovery::capture::executable(&original, &nextest).unwrap();
+        crate::discovery::capture::executable(&original, &correctness).unwrap();
+        fs::set_permissions(&nextest, fs::Permissions::from_mode(0o700)).unwrap();
+        fs::write(&nextest, b"mutation").unwrap();
+        fs::set_permissions(&nextest, fs::Permissions::from_mode(0o500)).unwrap();
+
+        assert!(release_controls(scratch.path(), Action::Test).is_err());
+        assert!(nextest.is_file() && association.is_file() && correctness.is_file());
+        fs::remove_file(&nextest).unwrap(); // Interruption between image and sidecar unlink.
+        release_controls(scratch.path(), Action::Test).unwrap();
+        release_controls(scratch.path(), Action::Test).unwrap();
+        assert!(!association.exists() && !correctness.exists());
+        assert_eq!(fs::read(report).unwrap(), b"retained inventory");
+    }
     use crate::{
         managed::streams::ChunkObserver as _,
         test_workflow::execute::{Outcome, ReportReference},

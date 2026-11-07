@@ -380,6 +380,21 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
         .captured
         .clone();
     fs::remove_file(&old_executable).unwrap();
+    crate::managed::workflow::release_controls(destination.parent().unwrap(), Action::Test)
+        .unwrap();
+    for name in ["cargo-nextest", "cargo-pse-correctness"] {
+        assert!(!destination.join("inventory").join(name).exists());
+        assert!(
+            !destination
+                .join("inventory")
+                .join(format!("{name}.capture.json"))
+                .exists()
+        );
+    }
+    assert!(
+        crate::test_inventory::captured(&store, original.invocation.as_str(), None).is_ok(),
+        "historical readback needs the committed inventory rather than the old control bytes"
+    );
     assert!(
         captured.inventory.test(&failed[0]).is_err(),
         "old executable reuse remains unavailable"

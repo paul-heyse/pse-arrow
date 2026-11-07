@@ -140,5 +140,9 @@ The private tool controls have one stable image per active operation. The origin
 inventory commitments are sufficient for historical selection and a new inventory lookup.
 The first release slice uses the foreground owner's published result and complete physical
 settlement, including the absence of an enclosing borrower. It limits release to the two fixed
-inventory controls or the fixed compiler adapter. Test executables, detached work and independent
-holds require their own owner integration. ADR-0255 records the proposed history boundary.
+inventory controls or the fixed compiler adapter. A native SurrealKit test invocation left
+the original inventory after both control copies and sidecars were gone. Its selected evidence
+passed independent descriptor readback. The targeted host controls verified refusal of changed
+capture bytes, interrupted-release reconciliation, and failed rerun from a fresh inventory
+after old executable disposal. Test executables, detached work and independent holds require
+their own owner integration. ADR-0255 records the proposed history boundary.
