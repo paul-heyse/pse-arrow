@@ -481,16 +481,6 @@ impl Client {
             context: None,
         }
     }
-    /// Select one existing record through the same bounded query owner.
-    pub fn select<R: SurrealValue>(&self, resource: (&str, &str)) -> Select<R> {
-        let record = surrealdb_types::RecordId::new(resource.0.to_owned(), resource.1.to_owned());
-        Select {
-            query: self
-                .query("SELECT * FROM ONLY $pse_record")
-                .bind(("pse_record", record)),
-            marker: std::marker::PhantomData,
-        }
-    }
     async fn execute<T, F, Q>(&self, context: RequestContext, operation: F) -> EngineResult<T>
     where
         T: Send + 'static,
@@ -1058,11 +1048,6 @@ impl<R> Select<R> {
             query,
             marker: std::marker::PhantomData,
         }
-    }
-    /// Supply original deadline and request custody.
-    pub fn request_context(mut self, context: RequestContext) -> Self {
-        self.query = self.query.request_context(context);
-        self
     }
 }
 impl<R: SurrealValue + 'static> IntoFuture for Select<R>

@@ -7,6 +7,8 @@ use pse_model::generated::canonical::{OperationKey, ProblemKey, RevisionKey};
 use std::{marker::PhantomData, time::Duration};
 use surrealdb_types::{Object, SurrealValue, Value};
 
+const INSTALLATION_BEGIN: &str = "BEGIN ISOLATION LEVEL SNAPSHOT;";
+
 /// Read postlude must retain its original pin-versus-ticket meaning.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Recheck {
@@ -119,8 +121,10 @@ impl<T> PreparedScript<T> {
                 "only installation fixtures may delay their original transaction".into(),
             ));
         }
-        self.sql
-            .insert_str("BEGIN;".len(), &format!(" SLEEP {}ms;", delay.as_millis()));
+        self.sql.insert_str(
+            INSTALLATION_BEGIN.len(),
+            &format!(" SLEEP {}ms;", delay.as_millis()),
+        );
         Ok(self)
     }
 }
@@ -309,7 +313,12 @@ impl<'a> GuardedScript<'a> {
             }
             Envelope::Installation => {
                 const DEADLINE: &str = "IF time::micros() >= $pse_rpc_expires_at { THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; };\n";
-                sql.push_str("BEGIN;\n");
+                // Blocking v4 index builds commit their own bookkeeping while
+                // this fresh catalog transaction is open. A serializable read
+                // set conflicts with those writes. The catalog and fixed
+                // interpretation record still commit together.
+                sql.push_str(INSTALLATION_BEGIN);
+                sql.push('\n');
                 sql.push_str(DEADLINE);
                 postlude.push_str(DEADLINE);
             }
@@ -592,7 +601,7 @@ mod tests {
             Some(&Value::String("original".into()))
         );
         assert!(selection.is_none());
-        assert!(sql.starts_with("BEGIN; SLEEP 1000ms;"));
+        assert!(sql.starts_with("BEGIN ISOLATION LEVEL SNAPSHOT; SLEEP 1000ms;"));
         assert!(!sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
         assert!(
             GuardedScript::new(Envelope::DeadlineOnly)

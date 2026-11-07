@@ -360,9 +360,6 @@ async fn start_scripted(
                                 let request = rpc::QueryRequest::decode(payload).unwrap();
                                 let _ = requests_sent
                                     .send((std::time::Instant::now(), request.clone()));
-                                let canonical_probe=request.variables.as_ref().is_some_and(|variables|variables.variables.iter().any(|entry|
-                                    entry.key=="pse_record" && matches!(entry.value.as_ref().and_then(|value|value.value.as_ref()),Some(proto::value::Value::RecordId(record)) if record.table=="canonical_interpretations")
-                                ));
                                 let query = request.query;
                                 let _ = sent.send(query.clone());
                                 if query.contains("FIRST_READ") || query.contains("SECOND_READ") {
@@ -459,11 +456,16 @@ async fn start_scripted(
                                                 "x".repeat(8192),
                                             )),
                                         }
+                                    } else if query == "INFO FOR DB;" {
+                                        proto::Value {
+                                            value: Some(proto::value::Value::Object(
+                                                proto::Object::default(),
+                                            )),
+                                        }
                                     } else if source_receipt
                                         || (source_stage_fault.is_some()
                                             && query.contains("canonical_project_operations"))
                                         || query.contains("canonical_interpretations")
-                                        || canonical_probe
                                     {
                                         proto::Value {
                                             value: Some(proto::value::Value::None(
