@@ -3,7 +3,7 @@
 use super::*;
 
 #[cfg(feature = "host-contracts")]
-fn original_report_snapshot(path: &std::path::Path) -> Result<EvidenceSnapshot, EvidenceError> {
+fn original_report_snapshot(path: &Path) -> Result<EvidenceSnapshot, EvidenceError> {
     use buffa::Message as _;
     use buffa_descriptor::generated::descriptor::FileDescriptorSet;
     use pse_host::{developer_evidence, developer_evidence_contracts};
@@ -63,7 +63,7 @@ fn original_report_snapshot(path: &std::path::Path) -> Result<EvidenceSnapshot, 
 async fn qualify_original_report(
     importer: &EvidenceStore,
     reader: &EvidenceStore,
-    path: &std::path::Path,
+    path: &Path,
 ) -> Result<(), EvidenceError> {
     use crate::development::evidence_query::{EvidenceAnalysis, EvidenceQuestion};
 
@@ -96,7 +96,7 @@ async fn qualify_original_report(
 #[ignore = "requires an explicitly exported original controlled-failure report"]
 fn evidence_project_original_failed_report() {
     let path = std::env::var_os("PSE_PLAN68_ORIGINAL_REPORT").expect("select original report");
-    let snapshot = original_report_snapshot(std::path::Path::new(&path)).unwrap();
+    let snapshot = original_report_snapshot(Path::new(&path)).unwrap();
     assert_eq!(snapshot.coverage, "partial");
     assert_eq!(snapshot.facts[0].status, "failed");
 }
@@ -293,7 +293,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         let mut invalid=options.clone();invalid.service_instance_id="foreign-service".into();assert!(matches!(EvidenceStore::open(&invalid,EvidenceAccess::Reader).await,Err(EvidenceError::Unavailable(_))));
         #[cfg(feature = "host-contracts")]
         if let Some(path) = std::env::var_os("PSE_PLAN68_ORIGINAL_REPORT") {
-            qualify_original_report(&importer, &reader, std::path::Path::new(&path)).await?;
+            qualify_original_report(&importer, &reader, Path::new(&path)).await?;
         }
         // Complete-response checking rejects preceding rows when a later statement fails.
         assert!(transport::bounded_query(importer.query("SELECT * FROM evidence_facts LIMIT 1; THROW 'later statement failure';")?).await.is_err());
