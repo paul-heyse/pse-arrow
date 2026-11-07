@@ -253,7 +253,15 @@ Scope-end qualification still covers the full consumer population.
 and `fixture show native-lane` twice under the same compiler, KLU, solver and isolation
 selections. Both preparations settled and returned the same selection, receipt, executable
 digest and build evidence. The private preparation occupied 1,135,927,296 allocated bytes
-on both reads. The standalone consumer remains a separate acceptance item.
+on both reads.
+
+**Tested.** The same checkout ran the exact ignored standalone consumer
+`math::native_child::tests::actual_portable_native_root_standalone_bootstraps_and_parent_screens`
+through `pse test pse-runtime --lib -F pse-runtime/solver-kinsol --ignored only`. It selected
+the prepared image, completed the three native solves and parent screening, and verified
+original child reap and reservation return. The first discovery attempt settled after a
+pinned rustc LLVM failure. The same selection passed on retry with zero failures and complete
+settlement. Its invocation retained 8,859,648 allocated bytes and zero executable captures.
 
 **Tested.** The dedicated PID checkout ran
 `pse test pse-runtime:reference_pid_exchange --target-kind test -F solver-diffsol` selecting

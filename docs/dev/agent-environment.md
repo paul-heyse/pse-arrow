@@ -362,6 +362,14 @@ directory. If an acknowledgement, drain or transfer is unresolved, record that f
 the original owner and leave the material available for recovery. Treat old `/tmp` output
 and unclassified developer roots as a separate inventory until their ownership is established.
 
+For `pse qualify-study`, use a fresh child of a short private directory, such as one
+created by `mktemp -d /tmp/pse-study.XXXXXXXX`. The coordinator appends
+`frontend-one.sock` and `frontend-two.sock` to its work directory. On Linux each full
+pathname must fit within the Unix socket address. Record the temporary directory's
+identity and link it to the original coordinator. Launch from the original application
+scope so the coordinator can admit its own native work, and wait for its keeper,
+frontends and selected phases to settle before releasing scratch.
+
 An authored scratch probe has a narrower output-only release. Use
 `scripts/pse probe clean NAME` to preview the allocated Cargo target bytes and exact
 directory identity. Pass that identity to `scripts/pse probe clean NAME --release IDENTITY`

@@ -412,3 +412,14 @@ The compact result of the independent test is recorded in [67c](67c-surrealkit-a
 Cargo target, 471,621,632 bytes in the rest of the checkout, and 15,945,728 bytes in
 external state. Filesystem availability rose by
 32,623,181,824 bytes during the closeout while other builds were active.
+
+**Tested.** The standalone native-lane checkout also settled its two preparations and
+two consumer attempts. It had no checkout-only commits or dirty paths. After ordinary
+Git removal, exact fixture release checked the selected receipt and executable digest
+under the preparation lock. The external invocation owner removed the four original
+records. The fixture and checkout state were absent at readback.
+
+**Measured.** Its checkout-local Cargo target occupied 52,915,228,672 allocated bytes.
+The external fixture state occupied 1,135,935,488 bytes and the other external state
+occupied 16,756,736 bytes. A separate filesystem sample showed availability rose by
+54,541,463,552 bytes during this closeout.
