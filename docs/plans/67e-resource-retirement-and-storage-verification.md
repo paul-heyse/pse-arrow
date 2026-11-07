@@ -150,10 +150,10 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | in-progress | Read access to selected state and owners | Read-only census with allocated bytes, coverage, and held, releasable, or unknown classes. Supply the repeat baseline. |
-| E02 | planned | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
+| E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
 | E03 | planned | Existing resource ownership and named hold contract from history companion | Purpose-bound scratch, stores and campaigns release through their original owners. Verify selected evidence before release. |
 | E04 | planned | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
-| E05 | planned | E03 release semantics and exact current unit identity | Native fixture teardown remains truthful and owner-proven legacy fragments can retire. Persistent telemetry follows its own owner. |
+| E05 | in-progress | E03 release semantics and exact current unit identity | Native fixture teardown remains truthful and owner-proven legacy fragments can retire. Persistent telemetry follows its own owner. |
 | E06 | planned | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
 
 ## Acceptance
@@ -186,3 +186,15 @@ native view disclosed unresolved historical identities. Those rows do not establ
 active use or release eligibility. The exact per-root observations and separately measured
 filesystem capacity are in the incident evidence directory named by [67a](67a-plan66-consolidation-and-incident-cleanup.md).
 The census still needs unavailable-root and shared-inode controls before E01 closes.
+
+Ordinary Git removal retired the integrated assessment checkout. The recorded external
+association remains usable for its two drained invocations with missing terminal records.
+Keep the native removal command deferred under R-56 until an actual case needs coordination
+that ordinary Git and the resource owner cannot perform.
+
+The service preview found 516 legacy Surreal and five compiler-cache definition candidates
+and separated them from selected, rollback, referenced, and unresolved definitions. One
+disabled, unloaded Surreal definition passed the exact pre-release checks and was removed.
+The independent post-release observation found the fragment absent and telemetry definitions
+and manager identities consistent with the preview. The remaining candidates are pending their
+individual owner rechecks.

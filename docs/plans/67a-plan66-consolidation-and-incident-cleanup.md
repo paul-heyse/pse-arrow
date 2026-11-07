@@ -178,5 +178,12 @@ Of 27 named incident invocations, 26 were exported and independently decoded. Tw
 selection evidence and six carry report evidence. The exports total 24,607,930 bytes.
 One invocation is on an unmatched checkout and was preserved. Three named consumers still
 need original members, including the Plan64 JUnit comparison and two Plan65 compiler diagnostic
-readers. The incident receipt records those exact files and readback. Named consumer transfer,
-Git and external checkout retirement, and integrated rerun evidence stay open.
+readers. The seven required raw members have separately verified portable files. The incident
+receipt records the original consumers, and the selected raw directory records transfer.
+
+The assessment source is on main in `4f264eab0` and `3a9f93c9a`. The targeted compiler,
+modeling and default runtime checks passed. The fitting retirement control still needs its
+native feature selection. Ordinary Git worktree removal released the assessment checkout
+and target, with 44,861,931,520 allocated bytes in the pre-release checkout. Both external
+invocations had drained native scopes and absent terminal records. Their 629,936,128 allocated
+bytes stay with the original state owner. The other two checkouts still need receiving work.
