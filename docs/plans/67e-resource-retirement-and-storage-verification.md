@@ -348,8 +348,21 @@ and the database and payload directory identities verified after release. The re
 published worker generations occupy 10,043,052,032 allocated bytes and need their own
 selection and rollback disposition.
 
-The remaining worker-generation census found one small generation referenced by the
-current config or launch, seven generations with older receiver or profile references,
-and nine with unresolved references. The native provider census also found separately
-published generations outside the current pointer. Their distinct recipe identities and
-compiled consumer references need owner reconciliation before retirement.
+The historical worker-generation census found one small generation selected by the
+legacy store, seven referenced by older receiver or profile records, and nine with unresolved
+references. The maintainer subsequently confirmed the store was retired. Its worker and database
+bytes have the single historical disposition below. The native provider census also found
+separately published generations outside the current pointer. Their distinct recipe identities
+and compiled consumer references need owner reconciliation before retirement.
+
+### Historical store disposal
+
+**Measured.** With the maintainer's historical-data disposition, the exact
+`surreal-plan49-surrealism-20261022` directory and its inactive service registration
+were released. The preview and release rechecked the original supervisor lock, store and
+fragment identities, backing mount, service and job state, and observable process file use.
+Three restricted process observations belonged to independently identified user-manager and
+keyring scopes. The release removed the original autostart link and fragment, reloaded the
+user manager, and verified the unit and directory were absent. `du -B1 -x -s` measured
+10,200,793,088 allocated bytes. Filesystem availability rose by 9,914,994,688 bytes while
+other work was active. Current lifecycle qualification uses Plans 66–68 and current owners.
