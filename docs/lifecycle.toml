@@ -7357,3 +7357,69 @@ id_column = 0
 id_pattern = '^(E[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68-surrealdb-v4-cutover.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = ["Review reference", "Disposition", "Owning intervention"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68a-surrealdb-v4-supplier-runtime-and-extension.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68b-surrealdb-v4-schema-transport-and-authority.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68c-surrealdb-v4-query-improvements.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68d-surrealdb-v4-developer-and-test-receiving.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/68e-surrealdb-v4-fresh-generation-and-acceptance.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1

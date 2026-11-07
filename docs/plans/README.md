@@ -26,5 +26,17 @@ developer history, SurrealKit and Rust test consolidation, improved Cargo and sc
 reuse, and recurring owner-issued retirement. Its coordinator owns the storage work
 and links to Plan66 for the scientific and evidence contracts it consumes.
 
+[Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) proposes one exact v4 release
+across the active database routes after Plan67 completes. Its companions own supplier and
+runtime preparation, schema and transport, current query opportunities, developer and test
+receiving, and fresh generation and cutover. Plan66 remains the owner of scientific work
+and its outstanding acceptance.
+
+- [68a · Supplier, runtime and extension](68a-surrealdb-v4-supplier-runtime-and-extension.md)
+- [68b · Schema, transport and authority](68b-surrealdb-v4-schema-transport-and-authority.md)
+- [68c · Query improvements](68c-surrealdb-v4-query-improvements.md)
+- [68d · Developer and test receiving](68d-surrealdb-v4-developer-and-test-receiving.md)
+- [68e · Fresh generation and acceptance](68e-surrealdb-v4-fresh-generation-and-acceptance.md)
+
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.
