@@ -255,6 +255,16 @@ by a current read-only transaction and returned the expected value.
 'test(/server::(tests|release_import)/)'` passed 22 preparation and import
 controls with zero failures and complete settlement. The patch is selected
 by the native source recipe and its digest is part of the release identity.
-Native publication, actual paired import and application receiving are
-separate from the scratch build.
+
+**Tested, native publication.** `scripts/pse-env -- scripts/pse-host server
+prepare` in the private tool root completed the paired release and published
+its verified receipt. `server select` reopened the same generation, and both
+executables reported the matching `pse.mx.1.1.0.482afb739a0ca349` identity.
+Actual paired import and application receiving remain open.
+
+**Tested, alternate compiler diagnostic.** The same release pair built in
+scratch on the supplier's tagged Rust 1.95.0 without the VM workaround.
+It carried diagnostic metadata. The selected native recipe uses the pinned
+nightly and the small source patch.
 [Tagged async driver](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/core/src/exec/trampoline.rs)
+[Tagged Linux builder](https://github.com/surrealdb/surrealdb/blob/v4.0.0/docker/Dockerfile)
