@@ -6896,7 +6896,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/65c-storage-projections-and-history.md"
 name = "package-state"
-heading = "Packages and dependencies"
+heading = "First retained-result mapping — 2026-11-04"
 headers = ["ID", "Status", "Prerequisite", "Result and completion obligation"]
 kind = "packet"
 id_column = 0
@@ -7185,7 +7185,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/66c-preparation-execution-and-service-lifecycles.md"
 name = "packages"
-heading = "Packages"
+heading = "Bounded placement decisions — November6"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7207,7 +7207,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/66e-protected-data-and-result-delivery.md"
 name = "packages"
-heading = "Packages"
+heading = "E09 bounded decisions — November6"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0

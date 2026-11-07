@@ -10,7 +10,7 @@ scope: ADR-0244 shared descriptor adapter and generator/host dependency directio
 verdict: accept
 doc_role: review
 doc_owner: docs/plans/65a-contract-foundations-and-generation.md
-doc_topics: [design, proto, code-intelligence]
+doc_topics: [design, diagnostics, libraries]
 ---
 
 # Shared Proto contract adapter

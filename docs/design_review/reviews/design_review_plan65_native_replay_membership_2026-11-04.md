@@ -11,7 +11,7 @@ scope: Plan65 E02 recipe qualification and concrete record-membership consumers
 verdict: accept-scoped
 doc_role: review
 doc_owner: docs/plans/65e-scientific-portability-and-execution.md
-doc_topics: [design, scientific-portability, proto, validation]
+doc_topics: [design, storage, numerical-execution, validation]
 ---
 
 # Native scientific replay membership
