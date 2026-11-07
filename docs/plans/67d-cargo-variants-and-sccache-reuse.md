@@ -319,6 +319,11 @@ allocated bytes of separate intermediates and taking 7.52 seconds in Cargo.
 The checkout-local default retains its existing freshness. The trial uses the
 checkout retirement boundary for the separate intermediates.
 
+The live managed daemon's later readback reported 49,389,964,299 indexed bytes under
+its 107,374,182,400-byte limit, `ReadWrite`, and zero reported write errors. This sample
+does not establish capacity-driven eviction. The separate stock listener remains active
+outside the managed socket. Its local cache has independent ownership.
+
 **Interface-checked.** The current admitted test graphs separate these compilation
 contexts. The pinned cargo-shear scan supplied review candidates, including
 generated source links and a direct dependency that needs macro/source confirmation.

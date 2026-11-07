@@ -83,7 +83,7 @@ pilot. Existing scoped SurrealDB fixtures keep their native lifecycle and curren
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | B01 | complete | Current capture, report and Plan66 C/E/F owners | Select active custody per consumer and retain the original working report and rerun boundary. |
-| B02 | complete | B01 active custody and working settlement interface | Verified foreground and detached helper custody, exact release after drain, and original readback and fresh rerun after target clean. |
+| B02 | in-progress | B01 active custody and working settlement interface | Foreground and detached custody, drain and exact rerun are exercised. Recheck helper retirement after a failed selected run. |
 | B03 | deferred | A concrete future consumer and separate decision | Structured history pilot withdrawn under the November 7 regeneration decision. |
 | B04 | deferred | A concrete future consumer and separate decision | Persistent history triage and expiry withdrawn. Current-inventory rerun remains in B02. |
 
@@ -142,6 +142,13 @@ admission to release those images after drain. An explicit `pse wait` reconciled
 foreground failure without rerunning it. Nine images and their nine sidecars, occupying
 2,042,765,312 allocated bytes, were gone at readback. The original result, settlement,
 report and compiler capture retained the same bytes and the original failure verdict.
+
+The mixed runtime qualification exposed another failed-run hold. The actual borrowed
+fixture settled and the prepared worker was reaped, but the release counted prelisting
+target-owned candidates that were absent from the selected population. The original
+failed report retained three fixture images occupying 1,840,377,856 allocated bytes.
+Use the retained exact test identities for that hold decision and recheck release
+against this original result.
 
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its

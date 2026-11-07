@@ -223,7 +223,7 @@ the same behavior. The observed runtime captures came from an `xtask` builder an
 so schema migration alone will leave that cost. Move their scientific checks into normal
 test-owned entry points or borrow the existing prepared product only where the test genuinely
 exercises that executable or provider boundary. [Current fixture declarations](../../crates/pse-operations/Cargo.toml) ·
-[Runtime fixture owner](../../crates/pse-host/src/fixtures/runtime.rs)
+[Runtime fixture owner at the review baseline](https://github.com/paul-heyse/pse-arrow/blob/c2126df452ea22f8d51ed32b2429565baaf51017/crates/pse-host/src/fixtures/runtime.rs)
 
 Run restart, durability, migration from an on-disk predecessor, backup/restore, protocol,
 and process lifecycle controls in the native owner where they need real service behavior.

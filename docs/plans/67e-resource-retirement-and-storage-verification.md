@@ -265,8 +265,20 @@ complete settlement. Both original report and inventory pairs remained readable,
 each private database directory was absent, and each workflow retained zero executable
 captures or sidecars. The warm repeat's Cargo build stage took 0.56 s after a 16.24 s
 post-edit build. Database execution ran under different concurrent workloads, so these
-observations establish Cargo freshness and fixture retirement separately. Campaign
-release and the assembled checkout retirement journey still remain in E06.
+observations establish Cargo freshness and fixture retirement separately.
+
+The two settled ordinary runtime runs recorded by [67c](67c-surrealkit-and-rust-test-consolidation.md)
+each retained 8,929,280 allocated bytes in their invocation trees. Neither retained
+an executable or created a fixture directory. This is the retained allocation of the
+original report, inventory and captures after settlement. The longer campaign and
+the remaining retirement owners still gate the assembled E06 outcome.
+
+A later allocation sample with only the main checkout registered observed 210.17 GiB
+in its target, 127.13 GiB in invocation trees, 16.26 GiB in fixture state, 12.39 GiB in
+API state, 46.19 GiB in the managed compiler cache and 9.04 GiB in native provider
+state. The filesystem separately reported 736.49 GiB available. The sample includes
+retained legacy and live qualification state. The selected repeat measurements isolate
+the new ordinary behavior from these existing holdings.
 
 The service preview found 516 legacy Surreal and five compiler-cache definition candidates
 and separated them from selected, rollback, referenced, and unresolved definitions. One
