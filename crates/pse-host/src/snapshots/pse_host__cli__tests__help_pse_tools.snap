@@ -8,6 +8,7 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
+  retire-host   Preview or release one completed checkout-local host tool generation
   prepare       Build/capture the declared native tool; passive queries never invoke this operation
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema
@@ -26,6 +27,7 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
+  retire-host   Preview or release one completed checkout-local host tool generation
   prepare       Build/capture the declared native tool; passive queries never invoke this operation
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema

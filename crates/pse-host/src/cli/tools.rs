@@ -21,6 +21,13 @@ use std::{
 
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Preview or release one completed checkout-local host tool generation.
+    RetireHost {
+        generation: String,
+        /// Exact release token returned by the current generation preview.
+        #[arg(long)]
+        release: Option<String>,
+    },
     /// Build/capture the declared native tool; passive queries never invoke this operation.
     Prepare {
         #[arg(value_enum)]
@@ -65,6 +72,7 @@ impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
             Self::Prepare { .. } | Self::Run { .. } => GenerationIntent::NewWork,
+            Self::RetireHost { release: Some(_), .. } => GenerationIntent::ExistingControl,
             _ => GenerationIntent::Passive,
         }
     }
@@ -145,6 +153,24 @@ pub(super) fn dispatch(
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     match action {
+        Action::RetireHost { generation, release } => {
+            let report = crate::generation::retirement::retire(
+                &root,
+                &environment,
+                &generation,
+                release.as_deref(),
+            )?;
+            let refused = report.refused();
+            let mut envelope = Envelope::response(
+                "tools retire-host",
+                "checkout-local host generation retirement",
+                report,
+            );
+            if refused {
+                envelope.outcome = crate::envelope::CommandOutcome::Failure;
+            }
+            Ok(output.emit(envelope)?)
+        }
         Action::Prepare { tool: target } => {
             let tool =
                 prepared_xtask::prepare_for(&root, &environment, target).map_err(tool_error)?;

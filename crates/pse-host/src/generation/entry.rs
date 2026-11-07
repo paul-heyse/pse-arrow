@@ -4,11 +4,12 @@
 use super::*;
 use std::time::{Duration, Instant};
 
-/// Immutable executing-image identity. It creates no GC claims or resource-settlement duties.
+/// Immutable executing-image identity and a process-lifetime use of its directory.
 #[derive(Debug)]
 pub struct EntryGuard {
     pub(super) reference: Option<PreparedGeneration>,
     pub(super) checkout: Option<PathBuf>,
+    pub(super) _use: Option<File>,
 }
 impl EntryGuard {
     /// Verify a fixed prepared executable before dispatch. Mutable bootstrap seeds have no
@@ -20,6 +21,7 @@ impl EntryGuard {
         let empty = || Self {
             reference: None,
             checkout: None,
+            _use: None,
         };
         let Some(directory) = executable.parent() else {
             return Ok(empty());
@@ -41,6 +43,7 @@ impl EntryGuard {
             .and_then(OsStr::to_str)
             .filter(|name| component(name) && name.starts_with("generation."))
             .ok_or_else(|| invalid("entry executable is outside a fixed generation"))?;
+        let lease = retirement::borrow(directory)?;
         let manifest = GenerationManifest::load(directory)?;
         let name = executable
             .file_name()
@@ -64,6 +67,7 @@ impl EntryGuard {
         Ok(Self {
             reference: Some(reference),
             checkout,
+            _use: Some(lease),
         })
     }
     /// Original image identity, independent of a subsequently advanced current selector.

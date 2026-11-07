@@ -501,6 +501,7 @@ fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
     let entry = EntryGuard {
         reference: Some(reference),
         checkout: Some(root.to_owned()),
+        _use: None,
     };
     assert_eq!(
         source_mode(&entry, Some(root), Some(root.as_os_str())).unwrap(),
@@ -515,6 +516,7 @@ fn source_helper_assertion_requires_actual_prepared_checkout_identity() {
     let seed = EntryGuard {
         reference: None,
         checkout: None,
+        _use: None,
     };
     assert!(source_mode(&seed, Some(root), Some(root.as_os_str())).is_err());
     assert_eq!(

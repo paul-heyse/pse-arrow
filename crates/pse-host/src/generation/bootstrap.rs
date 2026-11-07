@@ -4,7 +4,7 @@
 use super::*;
 use std::{os::unix::fs::PermissionsExt, process::Command};
 
-const TOOLS: &[&str] = &["pse", "pse-host", "cargo-pse-correctness"];
+pub(super) const TOOLS: &[&str] = &["pse", "pse-host", "cargo-pse-correctness"];
 pub(crate) const EXTERNAL_INPUTS: &[&str] = &[
     "crates/pse-study-module/surrealism.toml",
     "crates/pse-study-module/surrealism-qualification-long-hold.toml",
@@ -338,7 +338,7 @@ fn prepare_root(path: &Path) -> Result<(), HostError> {
     Ok(())
 }
 
-fn selected(root: &Path) -> Result<Option<PathBuf>, HostError> {
+pub(super) fn selected(root: &Path) -> Result<Option<PathBuf>, HostError> {
     let tools = root.join("target/host-tools");
     match fs::symlink_metadata(&tools) {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -505,14 +505,16 @@ pub fn bootstrap_from(
 struct CopySource {
     directory: PathBuf,
     manifest: GenerationManifest,
+    _use: File,
 }
 impl CopySource {
     fn acquire(root: &Path) -> Result<Self, HostError> {
         let root = root.canonicalize()?;
         let reference = prepared(&root)?
             .ok_or_else(|| invalid("source checkout has no prepared generation"))?;
-        let manifest =
-            GenerationManifest::load(&root.join("target/host-tools").join(&reference.generation))?;
+        let directory = root.join("target/host-tools").join(&reference.generation);
+        let lease = retirement::borrow(&directory)?;
+        let manifest = GenerationManifest::load(&directory)?;
         let verified = manifest.digest().and_then(|digest| {
             if digest == reference.manifest_digest
                 && manifest.control_protocol() == reference.protocol
@@ -526,8 +528,9 @@ impl CopySource {
         });
         verified?;
         Ok(Self {
-            directory: root.join("target/host-tools").join(reference.generation),
+            directory,
             manifest,
+            _use: lease,
         })
     }
 }

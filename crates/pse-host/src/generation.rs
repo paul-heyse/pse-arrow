@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Immutable tool provenance, manifest integrity and source freshness.
 //!
-//! This module does not publish selectors, rebuild tools or prune data. Construction and
-//! original workload owners integrate its primitives at those actual effect boundaries.
+//! Provenance reads are passive. Explicit construction, entry and retirement integrate
+//! them at their own effect boundaries.
 
 use crate::{HostError, environment::Environment};
 use cargo_metadata::{DependencyKind, Metadata, MetadataCommand, PackageId};
@@ -57,6 +57,7 @@ mod entry;
 pub use entry::{EntryGuard, NewWorkDecision, new_work_decision};
 mod reexec;
 pub use reexec::rebuild_and_reexec;
+pub(crate) mod retirement;
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("host generation: {}", message.into()))

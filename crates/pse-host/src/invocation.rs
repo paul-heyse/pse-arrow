@@ -568,7 +568,61 @@ impl InvocationStore {
 
     /// Full source records, sorted by creation time and exact ID; callers own presentation pages.
     pub fn history<O: DeserializeOwned>(&self) -> Result<InvocationHistory<O>, HostError> {
-        match fs::symlink_metadata(self.state.invocations()) {
+        Self::history_at(&self.state.root, |id, metadata| self.validate(id, metadata))
+    }
+
+    /// Controls retained by any private checkout ledger in this state namespace.
+    /// Git worktree removal can leave original invocation records behind.
+    pub(crate) fn retained_host_controls(
+        state: &CheckoutState,
+        generation: &str,
+    ) -> Result<Vec<CliInvocationId>, HostError> {
+        fn digest(value: &str) -> bool {
+            value.len() == 64
+                && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+        }
+        let namespace = state.root.parent().ok_or_else(|| invalid("state root has no parent"))?;
+        directory(namespace, false)?;
+        let mut holders = Vec::new();
+        let mut failures = Vec::new();
+        for entry in fs::read_dir(namespace)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            let Some(checkout) = name.to_str().filter(|name| digest(name)) else { continue };
+            let path = entry.path();
+            directory(&path, false)?;
+            let history = Self::history_at::<serde::de::IgnoredAny>(&path, |id, metadata| {
+                if metadata.version != VERSION
+                    || metadata.checkout_id != checkout
+                    || !digest(&metadata.repository_id)
+                    || metadata.selection.control.protocol != 1
+                    || !digest(&metadata.selection.control.manifest_digest)
+                    || &metadata.selection.invocation_id != id
+                {
+                    return Err(invalid("unresolved retained checkout/control binding"));
+                }
+                Ok(())
+            })?;
+            holders.extend(history.records.into_iter().filter_map(|record| {
+                (record.selection.control.generation == generation)
+                    .then_some(record.selection.invocation_id)
+            }));
+            failures.extend(history.failures);
+        }
+        if !failures.is_empty() {
+            failures.sort_by(|left, right| left.path.cmp(&right.path));
+            return Err(HostError::IncompleteInvocationHistory { failures });
+        }
+        holders.sort_by(|left, right| left.as_str().cmp(right.as_str()));
+        Ok(holders)
+    }
+
+    fn history_at<O: DeserializeOwned>(
+        state: &Path,
+        validate: impl Fn(&CliInvocationId, &InvocationMetadata<O>) -> Result<(), HostError>,
+    ) -> Result<InvocationHistory<O>, HostError> {
+        let invocations = state.join("invocations");
+        match fs::symlink_metadata(&invocations) {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
                 return Ok(InvocationHistory {
                     records: Vec::new(),
@@ -578,16 +632,16 @@ impl InvocationStore {
             Err(error) => return Err(error.into()),
             Ok(_) => {}
         }
-        directory(&self.state.root, false)?;
-        directory(&self.state.invocations(), false)?;
+        directory(state, false)?;
+        directory(&invocations, false)?;
         let mut records = Vec::new();
         let mut failures = Vec::new();
-        for entry in fs::read_dir(self.state.invocations())? {
+        for entry in fs::read_dir(&invocations)? {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(error) => {
                     failures.push(HistoryFailure {
-                        path: self.state.invocations(),
+                        path: invocations.clone(),
                         invocation_id: None,
                         error: error.into(),
                     });
@@ -609,7 +663,7 @@ impl InvocationStore {
                     .ok_or_else(|| invalid("invalid invocation directory identity"))?;
                 directory(&path, false)?;
                 let metadata = read_metadata(&path)?;
-                self.validate(id, &metadata)?;
+                validate(id, &metadata)?;
                 Ok(metadata)
             })();
             match record {
