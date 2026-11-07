@@ -351,7 +351,9 @@ impl<O: ChunkObserver> OutputCapture<O> {
             child,
         };
         directory.publish_evidence(crate::invocation::InvocationEvidence::Custody, &custody)?;
-        if self.borrowed && let Some(route) = &self.release_route {
+        if self.borrowed
+            && let Some(route) = &self.release_route
+        {
             borrowed::register(runtime, directory, route, &custody)?;
         }
         Ok(())

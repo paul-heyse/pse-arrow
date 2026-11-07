@@ -12,7 +12,10 @@ use crate::{
 };
 use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
 use serde::Serialize;
-use std::{path::{Path, PathBuf}, time::Instant};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 #[derive(Serialize)]
 struct Finalization {
@@ -88,7 +91,9 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
     };
     let mut workflow_images_released = None;
     let mut workflow_release_failure = None;
-    let original_workflow = prior.as_ref().filter(|result| result.payload.workflow.is_some());
+    let original_workflow = prior
+        .as_ref()
+        .filter(|result| result.payload.workflow.is_some());
     let pending = pending_borrowed_release(controller.as_ref());
     let mut borrowed_release_failure = None;
     let borrowed_runtime = match pending {
@@ -102,7 +107,11 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
         let checked = require_worker_drain(&context, controller.as_ref(), &process).await;
         if let Some(result) = original_workflow {
             match &checked {
-                Ok(_) => match workflow::release_detached_images(&context.store, &context.directory, result) {
+                Ok(_) => match workflow::release_detached_images(
+                    &context.store,
+                    &context.directory,
+                    result,
+                ) {
                     Ok(released) => workflow_images_released = Some(released),
                     Err(error) => {
                         workflow_images_released = Some(false);
@@ -116,7 +125,8 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
             }
         }
         if let Some(runtime) = borrowed_runtime {
-            let release = checked.and_then(|controller| release_borrowed(&context, controller, &runtime));
+            let release =
+                checked.and_then(|controller| release_borrowed(&context, controller, &runtime));
             if let Err(error) = release {
                 borrowed_release_failure = Some(ErrorRecord::from_typed(&error, &policy));
             }
@@ -174,17 +184,37 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
     Ok(())
 }
 
-fn pending_borrowed_release(controller: Option<&supervisor::ControllerRecord>) -> Result<Option<PathBuf>, HostError> {
-    let Some(controller) = controller else { return Ok(None) };
-    let Ok(value) = std::env::var(supervisor::RUNTIME_BASE) else { return Ok(None) };
+fn pending_borrowed_release(
+    controller: Option<&supervisor::ControllerRecord>,
+) -> Result<Option<PathBuf>, HostError> {
+    let Some(controller) = controller else {
+        return Ok(None);
+    };
+    let Ok(value) = std::env::var(supervisor::RUNTIME_BASE) else {
+        return Ok(None);
+    };
     let runtime = super::request::decode_path(&value)?;
-    Ok(workflow::borrowed::enclosing_pending(&runtime, &controller.manager, &controller.binding)?.then_some(runtime))
+    Ok(
+        workflow::borrowed::enclosing_pending(&runtime, &controller.manager, &controller.binding)?
+            .then_some(runtime),
+    )
 }
 
-fn release_borrowed(context: &supervisor::Context, controller: &supervisor::ControllerRecord, runtime: &Path) -> Result<(), HostError> {
-    let deadline = Instant::now().checked_add(context.record.policy.drain)
+fn release_borrowed(
+    context: &supervisor::Context,
+    controller: &supervisor::ControllerRecord,
+    runtime: &Path,
+) -> Result<(), HostError> {
+    let deadline = Instant::now()
+        .checked_add(context.record.policy.drain)
         .ok_or_else(|| HostError::Ownership("borrowed release horizon overflow".into()))?;
-    workflow::borrowed::reconcile_enclosing(runtime, &controller.manager, context.record.controller.unit(), &controller.binding, deadline)
+    workflow::borrowed::reconcile_enclosing(
+        runtime,
+        &controller.manager,
+        context.record.controller.unit(),
+        &controller.binding,
+        deadline,
+    )
 }
 
 async fn require_worker_drain<'a>(
@@ -195,7 +225,8 @@ async fn require_worker_drain<'a>(
     let controller = controller.ok_or_else(|| {
         HostError::Ownership("original controller record unavailable for image release".into())
     })?;
-    let child = context.directory
+    let child = context
+        .directory
         .evidence::<super::service_payload::ServiceCustody>(InvocationEvidence::Custody)?
         .ok_or_else(|| HostError::Ownership("original worker custody is absent".into()))?;
     let reader = ProcessReader::default();
@@ -218,9 +249,14 @@ async fn require_worker_drain<'a>(
         || child.service != controller.binding
         || !departed(&child.child)
         || !departed(&controller.process)
-        || !context.manager.finalizer_alone(&context.record.controller, &controller.binding, finalizer).await?
+        || !context
+            .manager
+            .finalizer_alone(&context.record.controller, &controller.binding, finalizer)
+            .await?
     {
-        return Err(HostError::Ownership("original finalizer cannot establish worker drain for image release".into()));
+        return Err(HostError::Ownership(
+            "original finalizer cannot establish worker drain for image release".into(),
+        ));
     }
     Ok(controller)
 }

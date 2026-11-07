@@ -3625,7 +3625,10 @@ impl Group {
         }
         // Each immediate child's cgroup.events covers its entire subtree. Open
         // from the original group descriptor and refuse uncertainty or excess.
-        for (index, entry) in Dir::read_from(directory).map_err(io::Error::from)?.enumerate() {
+        for (index, entry) in Dir::read_from(directory)
+            .map_err(io::Error::from)?
+            .enumerate()
+        {
             if index >= 4096 {
                 return Err(HostError::Ownership(
                     "finalizer cgroup population exceeds the observation bound".into(),

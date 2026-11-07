@@ -115,7 +115,9 @@ pub(crate) fn release_reconciled_images(
     id: &CliInvocationId,
 ) -> Result<(), HostError> {
     let directory = store.directory(id)?;
-    if let Some(result) = store.result::<serde::de::IgnoredAny, super::result::ManagedSummary>(id)? {
+    if let Some(result) =
+        store.result::<serde::de::IgnoredAny, super::result::ManagedSummary>(id)?
+    {
         release_detached_images(store, &directory, &result)?;
     }
     Ok(())
@@ -126,7 +128,11 @@ fn complete_capture(result: &Envelope<super::result::ManagedSummary>) -> bool {
         && result.observation.completeness == Completeness::Complete
         && [&result.payload.stdout, &result.payload.stderr]
             .into_iter()
-            .all(|stream| stream.as_ref().is_some_and(|stream| stream.complete && !stream.io_unresolved))
+            .all(|stream| {
+                stream
+                    .as_ref()
+                    .is_some_and(|stream| stream.complete && !stream.io_unresolved)
+            })
 }
 
 fn release_original_images(
@@ -159,9 +165,14 @@ fn release_original_images(
         struct FixtureRequirements {
             fixture_requirements: Vec<crate::fixtures::Requirement>,
         }
-        let requirements: FixtureRequirements = serde_json::from_slice(&original.report).map_err(host)?;
-        Some(original.observation.outcome == crate::test_workflow::execute::Outcome::TestsSucceeded
-            || requirements.fixture_requirements.iter().all(|requirement| requirement.ownership() != crate::fixtures::Ownership::TargetOwned))
+        let requirements: FixtureRequirements =
+            serde_json::from_slice(&original.report).map_err(host)?;
+        Some(
+            original.observation.outcome == crate::test_workflow::execute::Outcome::TestsSucceeded
+                || requirements.fixture_requirements.iter().all(|requirement| {
+                    requirement.ownership() != crate::fixtures::Ownership::TargetOwned
+                }),
+        )
     } else {
         None
     };
@@ -170,7 +181,13 @@ fn release_original_images(
     } else {
         Vec::new()
     };
-    release_images(directory.path(), action, inventory.as_ref(), fixture_settled, &unlisted)
+    release_images(
+        directory.path(),
+        action,
+        inventory.as_ref(),
+        fixture_settled,
+        &unlisted,
+    )
 }
 
 fn unlisted_builds(
@@ -181,16 +198,28 @@ fn unlisted_builds(
     if original.observation.outcome != Outcome::Failed {
         return Ok(Vec::new());
     }
-    let files = original.observation.evidence.as_deref().ok_or_else(|| host(invalid(
-        "failed discovery lacks an original compiler capture account",
-    )))?;
-    let builds: Vec<_> = files.iter().filter(|file| file.role == EvidenceRole::CompilerContext).cloned().collect();
+    let files = original.observation.evidence.as_deref().ok_or_else(|| {
+        host(invalid(
+            "failed discovery lacks an original compiler capture account",
+        ))
+    })?;
+    let builds: Vec<_> = files
+        .iter()
+        .filter(|file| file.role == EvidenceRole::CompilerContext)
+        .cloned()
+        .collect();
     if builds.is_empty() {
         return Ok(Vec::new());
     }
-    let captured = evidence::capture(&original.parent, &builds, crate::developer_evidence::MAX_INPUT_BYTES)?;
+    let captured = evidence::capture(
+        &original.parent,
+        &builds,
+        crate::developer_evidence::MAX_INPUT_BYTES,
+    )?;
     if captured.len() != builds.len() {
-        return Err(host(invalid("original failed discovery has an unsettled compiler capture")));
+        return Err(host(invalid(
+            "original failed discovery has an unsettled compiler capture",
+        )));
     }
     #[derive(Deserialize)]
     struct OriginalSelection {
@@ -198,44 +227,73 @@ fn unlisted_builds(
         admission: Vec<crate::correctness::Resolution>,
     }
     let selected: OriginalSelection = serde_json::from_slice(&original.report).map_err(host)?;
-    captured.into_iter().map(|capture| {
-        let commitment = &builds[capture.dependency];
-        let group = commitment.group.ok_or_else(|| host(invalid("original compiler capture group absent")))?;
-        let admitted = selected.admission.get(group).ok_or_else(|| host(invalid("original compiler capture group was not admitted")))?;
-        let plan = selected.selection.groups().get(group).ok_or_else(|| host(invalid("original compiler capture group was not selected")))?;
-        let build: crate::discovery::BuildCapture = serde_json::from_slice(&capture.original).map_err(host)?;
-        if commitment.root != EvidenceRoot::Workflow
-            || commitment.path != format!("inventory/group-{group}/build/build.json")
-            || build.version != 1
-            || !build.incomplete.is_empty()
-            || build.resolution.packages != admitted.packages
-            || build.resolution.native_capabilities != admitted.native_capabilities
-            || build.resolution.units.len() != admitted.units.len()
-            || !build.resolution.units.iter().all(|unit| admitted.units.contains(unit))
-        {
-            return Err(host(invalid("failed discovery compiler capture differs from its original admitted group")));
-        }
-        plan.validate_resolution(&build.resolution)?;
-        Ok((group, build))
-    }).collect()
+    captured
+        .into_iter()
+        .map(|capture| {
+            let commitment = &builds[capture.dependency];
+            let group = commitment
+                .group
+                .ok_or_else(|| host(invalid("original compiler capture group absent")))?;
+            let admitted = selected
+                .admission
+                .get(group)
+                .ok_or_else(|| host(invalid("original compiler capture group was not admitted")))?;
+            let plan =
+                selected.selection.groups().get(group).ok_or_else(|| {
+                    host(invalid("original compiler capture group was not selected"))
+                })?;
+            let build: crate::discovery::BuildCapture =
+                serde_json::from_slice(&capture.original).map_err(host)?;
+            if commitment.root != EvidenceRoot::Workflow
+                || commitment.path != format!("inventory/group-{group}/build/build.json")
+                || build.version != 1
+                || !build.incomplete.is_empty()
+                || build.resolution.packages != admitted.packages
+                || build.resolution.native_capabilities != admitted.native_capabilities
+                || build.resolution.units.len() != admitted.units.len()
+                || !build
+                    .resolution
+                    .units
+                    .iter()
+                    .all(|unit| admitted.units.contains(unit))
+            {
+                return Err(host(invalid(
+                    "failed discovery compiler capture differs from its original admitted group",
+                )));
+            }
+            plan.validate_resolution(&build.resolution)?;
+            Ok((group, build))
+        })
+        .collect()
 }
 
-fn require_fixture_settlement(original: &crate::test_inventory::CapturedReport) -> Result<(), HostError> {
+fn require_fixture_settlement(
+    original: &crate::test_inventory::CapturedReport,
+) -> Result<(), HostError> {
     use crate::test_workflow::execute::{EvidenceRole, evidence};
 
     if original.observation.action != Action::Test {
         return Ok(());
     }
-    let files = original.observation.evidence.as_deref().ok_or_else(|| host(invalid(
-        "original test has no fixture settlement evidence account",
-    )))?;
-    let fixtures: Vec<_> = files.iter().filter(|file| file.role == EvidenceRole::FixtureOutcome).cloned().collect();
+    let files = original.observation.evidence.as_deref().ok_or_else(|| {
+        host(invalid(
+            "original test has no fixture settlement evidence account",
+        ))
+    })?;
+    let fixtures: Vec<_> = files
+        .iter()
+        .filter(|file| file.role == EvidenceRole::FixtureOutcome)
+        .cloned()
+        .collect();
     let captured = evidence::capture(&original.parent, &fixtures, 1024 * 1024)?;
     if captured.len() != fixtures.len() {
-        return Err(host(invalid("original borrowed fixture settlement is unobserved")));
+        return Err(host(invalid(
+            "original borrowed fixture settlement is unobserved",
+        )));
     }
     for captured in captured {
-        let outcome: crate::fixtures::CanonicalRunReport = serde_json::from_slice(&captured.original).map_err(host)?;
+        let outcome: crate::fixtures::CanonicalRunReport =
+            serde_json::from_slice(&captured.original).map_err(host)?;
         if outcome.version != 1 || outcome.runner_exit.is_none() || !outcome.fixture_settled {
             return Err(host(invalid("original borrowed fixture did not settle")));
         }
@@ -280,7 +338,9 @@ pub(crate) fn release_images(
     // additional lock file survives an otherwise complete invocation release.
     let metadata = invocation_root.metadata()?;
     if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
-        return Err(host(invalid("original invocation directory lacks private custody")));
+        return Err(host(invalid(
+            "original invocation directory lacks private custody",
+        )));
     }
     flock(&invocation_root, FlockOperation::NonBlockingLockExclusive).map_err(io::Error::from)?;
     let Some(workflow) = open(&invocation_root, "workflow")? else {
@@ -297,15 +357,16 @@ pub(crate) fn release_images(
         });
         crate::discovery::capture::release_executable(&directory, &path.join(control), expected)?;
     }
-    let release_group = |group: usize, captured: &crate::discovery::BuildCapture| -> Result<(), HostError> {
-        let group_name = format!("group-{group}");
-        let group_root = open(&directory, &group_name)?
-            .ok_or_else(|| host(invalid("original compiler group directory is absent")))?;
-        let build = open(&group_root, "build")?
-            .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
-        let build_path = path.join(&group_name).join("build");
-        release_artifacts(&build, &build_path, &captured.artifacts, &open)
-    };
+    let release_group =
+        |group: usize, captured: &crate::discovery::BuildCapture| -> Result<(), HostError> {
+            let group_name = format!("group-{group}");
+            let group_root = open(&directory, &group_name)?
+                .ok_or_else(|| host(invalid("original compiler group directory is absent")))?;
+            let build = open(&group_root, "build")?
+                .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
+            let build_path = path.join(&group_name).join("build");
+            release_artifacts(&build, &build_path, &captured.artifacts, &open)
+        };
     for (group, capture) in unlisted {
         release_group(*group, capture)?;
     }
@@ -317,11 +378,15 @@ pub(crate) fn release_images(
             && let Some(fixtures) = open(&workflow, "fixtures")?
         {
             if !fixture_settled {
-                return Err(host(invalid("target-owned fixture helper release awaits verified settlement")));
+                return Err(host(invalid(
+                    "target-owned fixture helper release awaits verified settlement",
+                )));
             }
             let fixtures_path = invocation.join("workflow/fixtures");
             let release = |name: &str, targets: &[&str]| -> Result<(), HostError> {
-                let Some(build) = open(&fixtures, name)? else { return Ok(()) };
+                let Some(build) = open(&fixtures, name)? else {
+                    return Ok(());
+                };
                 let path = fixtures_path.join(name);
                 let receipt = crate::discovery::BuildCapture::read(&path.join("build.json"))?;
                 let opened = build.metadata()?;
@@ -332,18 +397,27 @@ pub(crate) fn release_images(
                     || !receipt.incomplete.is_empty()
                     || receipt.artifacts.is_empty()
                     || receipt.artifacts.iter().any(|artifact| {
-                        artifact.cargo.profile.test || !targets.contains(&artifact.cargo.target.name.as_str())
+                        artifact.cargo.profile.test
+                            || !targets.contains(&artifact.cargo.target.name.as_str())
                     })
                 {
-                    return Err(host(invalid("fixture helper capture does not match its original build position")));
+                    return Err(host(invalid(
+                        "fixture helper capture does not match its original build position",
+                    )));
                 }
                 release_artifacts(&build, &path, &receipt.artifacts, &open)
             };
-            release("canonical-tools", &["pse-canonical-service", "pse-canonical-test"])?;
+            release(
+                "canonical-tools",
+                &["pse-canonical-service", "pse-canonical-test"],
+            )?;
             release("observation-helper", &["pse-observation-fixture"])?;
             for group in 0..inventory.groups.len() {
                 release(&format!("worker-{group}"), &["pse-worker"])?;
-                release(&format!("scientific-worker-{group}"), &["pse-scientific-worker"])?;
+                release(
+                    &format!("scientific-worker-{group}"),
+                    &["pse-scientific-worker"],
+                )?;
             }
         }
     }
@@ -357,24 +431,17 @@ fn release_artifacts(
     open: &impl Fn(&File, &str) -> Result<Option<File>, HostError>,
 ) -> Result<(), HostError> {
     for (ordinal, artifact) in artifacts.iter().enumerate() {
-                let executable = &artifact.executable;
-                let expected = crate::discovery::capture::artifact_path(
-                    path,
-                    ordinal,
-                    &executable.original,
-                )?;
-                if executable.captured != expected {
-                    return Err(host(invalid(
-                        "captured test image differs from its compiler position",
-                    )));
-                }
-                let member_root = open(directory, &format!("artifact-{ordinal}"))?
-                    .ok_or_else(|| host(invalid("original executable directory is absent")))?;
-                crate::discovery::capture::release_executable(
-                    &member_root,
-                    &expected,
-                    Some(executable),
-                )?;
+        let executable = &artifact.executable;
+        let expected =
+            crate::discovery::capture::artifact_path(path, ordinal, &executable.original)?;
+        if executable.captured != expected {
+            return Err(host(invalid(
+                "captured test image differs from its compiler position",
+            )));
+        }
+        let member_root = open(directory, &format!("artifact-{ordinal}"))?
+            .ok_or_else(|| host(invalid("original executable directory is absent")))?;
+        crate::discovery::capture::release_executable(&member_root, &expected, Some(executable))?;
     }
     Ok(())
 }
@@ -879,8 +946,10 @@ mod tests {
 
         let competing = File::open(scratch.path()).unwrap();
         rustix::fs::flock(&competing, rustix::fs::FlockOperation::LockExclusive).unwrap();
-        assert!(matches!(release_images(scratch.path(), Action::Test, None, None, &[]),
-            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::WouldBlock));
+        assert!(
+            matches!(release_images(scratch.path(), Action::Test, None, None, &[]),
+            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::WouldBlock)
+        );
         drop(competing);
         assert!(release_images(scratch.path(), Action::Test, None, None, &[]).is_err());
         assert!(nextest.is_file() && association.is_file() && correctness.is_file());

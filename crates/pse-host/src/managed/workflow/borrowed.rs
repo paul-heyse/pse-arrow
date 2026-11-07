@@ -13,7 +13,8 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    fs, io::{self, Read as _},
+    fs,
+    io::{self, Read as _},
     os::unix::fs::{DirBuilderExt as _, MetadataExt as _},
     path::{Path, PathBuf},
     time::Instant,
@@ -40,7 +41,10 @@ impl Route {
         let checkout = super::super::request::decode_path(&self.checkout)?;
         let base = super::super::request::decode_path(&self.state_base)?;
         let environment = Environment::from([("XDG_STATE_HOME".into(), base.into_os_string())]);
-        Ok(InvocationStore::new(CheckoutState::resolve(&checkout, &environment)?))
+        Ok(InvocationStore::new(CheckoutState::resolve(
+            &checkout,
+            &environment,
+        )?))
     }
 }
 
@@ -58,17 +62,25 @@ fn private_directory(path: &Path, create: bool) -> Result<bool, HostError> {
         }
     }
     match fs::symlink_metadata(path) {
-        Ok(metadata) if metadata.is_dir()
-            && metadata.uid() == rustix::process::geteuid().as_raw()
-            && metadata.mode() & 0o777 == 0o700 => Ok(true),
-        Ok(_) => Err(host(invalid("workflow release queue lacks private custody"))),
+        Ok(metadata)
+            if metadata.is_dir()
+                && metadata.uid() == rustix::process::geteuid().as_raw()
+                && metadata.mode() & 0o777 == 0o700 =>
+        {
+            Ok(true)
+        }
+        Ok(_) => Err(host(invalid(
+            "workflow release queue lacks private custody",
+        ))),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
         Err(error) => Err(error.into()),
     }
 }
 
 fn queue_directory(path: &Path, create: bool) -> Result<bool, HostError> {
-    let parent = path.parent().ok_or_else(|| host(invalid("workflow queue parent absent")))?;
+    let parent = path
+        .parent()
+        .ok_or_else(|| host(invalid("workflow queue parent absent")))?;
     Ok(private_directory(parent, create)? && private_directory(path, create)?)
 }
 
@@ -82,27 +94,43 @@ pub(crate) fn register(
     let queue = queue(runtime, &custody.manager, &custody.root)?;
     queue_directory(&queue, true)?;
     let bytes = serde_json::to_vec(route).map_err(host)?;
-    crate::invocation::publish_bytes(&queue.join(directory.id().as_str()), &bytes, Some(RECORD_LIMIT), 0o400)
+    crate::invocation::publish_bytes(
+        &queue.join(directory.id().as_str()),
+        &bytes,
+        Some(RECORD_LIMIT),
+        0o400,
+    )
 }
 
-fn release_recorded(store: &InvocationStore, directory: &InvocationDirectory, borrowed: bool) -> Result<(), HostError> {
-    let result = store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
+fn release_recorded(
+    store: &InvocationStore,
+    directory: &InvocationDirectory,
+    borrowed: bool,
+) -> Result<(), HostError> {
+    let result = store
+        .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
         .ok_or_else(|| host(invalid("original foreground workflow result is absent")))?;
-    let workflow = result.payload.workflow.as_ref()
-        .ok_or_else(|| host(invalid("original foreground workflow transport is incomplete")))?;
+    let workflow = result.payload.workflow.as_ref().ok_or_else(|| {
+        host(invalid(
+            "original foreground workflow transport is incomplete",
+        ))
+    })?;
     if result.payload.borrowed_reservation != borrowed
         || result.payload.native_lifetime_pending != Some(false)
         || result.settlement != Settlement::Complete
         || !complete_capture(&result)
         || !workflow.terminal.required_capture_complete
     {
-        return Err(host(invalid("original foreground workflow capture is incomplete")));
+        return Err(host(invalid(
+            "original foreground workflow capture is incomplete",
+        )));
     }
     release_original_images(store, directory, workflow.terminal.action)
 }
 
 fn custody(directory: &InvocationDirectory) -> Result<ForegroundCustody, HostError> {
-    let custody: ForegroundCustody = directory.evidence(InvocationEvidence::Custody)?
+    let custody: ForegroundCustody = directory
+        .evidence(InvocationEvidence::Custody)?
         .ok_or_else(|| host(invalid("original foreground workflow custody is absent")))?;
     if custody.version != 4 {
         return Err(host(invalid("unsupported foreground workflow custody")));
@@ -113,12 +141,23 @@ fn custody(directory: &InvocationDirectory) -> Result<ForegroundCustody, HostErr
 fn remove_queue(path: &Path) -> Result<(), HostError> {
     match fs::remove_dir(path) {
         Ok(()) => Ok(()),
-        Err(error) if matches!(error.kind(), io::ErrorKind::NotFound | io::ErrorKind::DirectoryNotEmpty) => Ok(()),
+        Err(error)
+            if matches!(
+                error.kind(),
+                io::ErrorKind::NotFound | io::ErrorKind::DirectoryNotEmpty
+            ) =>
+        {
+            Ok(())
+        }
         Err(error) => Err(error.into()),
     }
 }
 
-pub(crate) fn enclosing_pending(runtime: &Path, manager: &str, binding: &UnitBinding) -> Result<bool, HostError> {
+pub(crate) fn enclosing_pending(
+    runtime: &Path,
+    manager: &str,
+    binding: &UnitBinding,
+) -> Result<bool, HostError> {
     queue_directory(&queue(runtime, manager, binding)?, false)
 }
 
@@ -138,37 +177,59 @@ pub(crate) fn reconcile_enclosing(
     let mut first_error = None;
     for (index, entry) in fs::read_dir(&path)?.enumerate() {
         if index >= 4096 || Instant::now() >= deadline {
-            first_error.get_or_insert_with(|| HostError::Deadline("borrowed workflow release handoff".into()));
+            first_error.get_or_insert_with(|| {
+                HostError::Deadline("borrowed workflow release handoff".into())
+            });
             break;
         }
         let reconcile = || -> Result<(), HostError> {
             let entry = entry?;
-            let name = entry.file_name().into_string().map_err(|_| host(invalid("invalid borrowed workflow queue identity")))?;
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| host(invalid("invalid borrowed workflow queue identity")))?;
             let id = CliInvocationId::try_from(name.clone())
                 .map_err(|_| host(invalid("invalid borrowed workflow queue identity")))?;
             if id.as_str() != name {
-                return Err(host(invalid("noncanonical borrowed workflow queue identity")));
+                return Err(host(invalid(
+                    "noncanonical borrowed workflow queue identity",
+                )));
             }
             let record = crate::test_inventory::open_private(&entry.path())?;
             let original = record.metadata()?;
             if original.mode() & 0o777 != 0o400 || original.nlink() != 1 {
-                return Err(host(invalid("borrowed workflow queue entry lacks private custody")));
+                return Err(host(invalid(
+                    "borrowed workflow queue entry lacks private custody",
+                )));
             }
             let mut bytes = Vec::new();
-            (&record).take(RECORD_LIMIT as u64 + 1).read_to_end(&mut bytes)?;
+            (&record)
+                .take(RECORD_LIMIT as u64 + 1)
+                .read_to_end(&mut bytes)?;
             if bytes.len() > RECORD_LIMIT {
-                return Err(host(invalid("borrowed workflow queue entry exceeds its bound")));
+                return Err(host(invalid(
+                    "borrowed workflow queue entry exceeds its bound",
+                )));
             }
             let route: Route = serde_json::from_slice(&bytes).map_err(host)?;
             let store = route.store()?;
             let directory = store.directory(&id)?;
             let original_custody = custody(&directory)?;
-            if original_custody.manager != manager || original_custody.unit != unit || original_custody.root != *binding {
-                return Err(host(invalid("borrowed workflow belongs to a different enclosing workload")));
+            if original_custody.manager != manager
+                || original_custody.unit != unit
+                || original_custody.root != *binding
+            {
+                return Err(host(invalid(
+                    "borrowed workflow belongs to a different enclosing workload",
+                )));
             }
             release_recorded(&store, &directory, true)?;
             match fs::symlink_metadata(entry.path()) {
-                Ok(current) if (original.dev(), original.ino()) == (current.dev(), current.ino()) => fs::remove_file(entry.path())?,
+                Ok(current)
+                    if (original.dev(), original.ino()) == (current.dev(), current.ino()) =>
+                {
+                    fs::remove_file(entry.path())?
+                }
                 Ok(_) => return Err(host(invalid("borrowed workflow queue entry changed"))),
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error.into()),
@@ -192,26 +253,42 @@ pub(crate) async fn reconcile_foreground(
 ) -> Result<bool, HostError> {
     let custody = custody(directory)?;
     let manager = HostManager::connect_user(None).await?;
-    if !manager.foreground_binding_drained(&custody.manager, &custody.unit, &custody.root, &custody.child).await? {
+    if !manager
+        .foreground_binding_drained(
+            &custody.manager,
+            &custody.unit,
+            &custody.root,
+            &custody.child,
+        )
+        .await?
+    {
         return Ok(false);
     }
     release_recorded(store, directory, borrowed_runtime.is_some())?;
-    let Some(runtime) = borrowed_runtime else { return Ok(true) };
+    let Some(runtime) = borrowed_runtime else {
+        return Ok(true);
+    };
     let path = queue(runtime, &custody.manager, &custody.root)?;
     if queue_directory(&path, false)? {
         let record = path.join(directory.id().as_str());
         match fs::symlink_metadata(&record) {
-            Ok(metadata) if metadata.is_file()
-                && metadata.uid() == rustix::process::geteuid().as_raw()
-                && metadata.mode() & 0o777 == 0o400
-                && metadata.nlink() == 1 => {
+            Ok(metadata)
+                if metadata.is_file()
+                    && metadata.uid() == rustix::process::geteuid().as_raw()
+                    && metadata.mode() & 0o777 == 0o400
+                    && metadata.nlink() == 1 =>
+            {
                 match fs::remove_file(record) {
                     Ok(()) => {}
                     Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error.into()),
                 }
             }
-            Ok(_) => return Err(host(invalid("borrowed workflow queue entry lacks private custody"))),
+            Ok(_) => {
+                return Err(host(invalid(
+                    "borrowed workflow queue entry lacks private custody",
+                )));
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }

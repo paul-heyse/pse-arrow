@@ -60,7 +60,11 @@ fn settled_failed_compiler_group_releases_images_without_inventory() {
     let build = scratch.path().join("workflow/inventory/group-0/build");
     let original = source(scratch.path());
     let image = artifact_path(&build, 0, &original).unwrap();
-    fs::DirBuilder::new().recursive(true).mode(0o700).create(image.parent().unwrap()).unwrap();
+    fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(image.parent().unwrap())
+        .unwrap();
     let build_capture = BuildCapture {
         version: 1,
         resolution: resolution(),
@@ -76,8 +80,13 @@ fn settled_failed_compiler_group_releases_images_without_inventory() {
     let groups = [(0, build_capture)];
     for _ in 0..2 {
         crate::managed::workflow::release_images(
-            scratch.path(), crate::test_workflow::execute::Action::Test, None, None, &groups,
-        ).unwrap();
+            scratch.path(),
+            crate::test_workflow::execute::Action::Test,
+            None,
+            None,
+            &groups,
+        )
+        .unwrap();
         assert!(!image.exists());
         assert!(!executable_record(&image).unwrap().exists());
         assert!(receipt.is_file());
