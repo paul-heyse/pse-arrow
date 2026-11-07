@@ -18,6 +18,7 @@ use serde::Deserialize;
 use std::{
     collections::BTreeSet,
     fs,
+    io::Read as _,
     net::SocketAddr,
     os::unix::{fs::OpenOptionsExt as _, process::ExitStatusExt as _},
     path::{Path, PathBuf},
@@ -40,6 +41,8 @@ const INSPECTOR: &str = "suite_viewer";
 const SUITE_NAME: &str = "production_generated_contract";
 const ROLLOUT_SUITE_NAME: &str = "authored_rollout_contract";
 const DATABASE_PREFIX: &str = "contract";
+const SETUP_REFUSAL: &str = "pse_surrealkit_fixture_setup_failed";
+const SEED_REFUSAL: &str = "pse_surrealkit_fixture_seed_failed";
 
 fn prepared_tool() -> Result<PathBuf, NativeServiceError> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -133,12 +136,7 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
     if let Some(seed) = seed {
         fs::write(&seed_path, seed)?;
     } else {
-        rustix::fs::mkfifoat(
-            rustix::fs::CWD,
-            &seed_path,
-            rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
-        )
-        .map_err(std::io::Error::from)?;
+        stage_fifo(&seed_path)?;
     }
     // SurrealKit begins with empty local snapshots for this fresh project.
     fs::write(
@@ -150,6 +148,16 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
         r#"{"version":2,"entities":[]}"#,
     )?;
     Ok(seed_path)
+}
+
+fn stage_fifo(path: &Path) -> Result<(), NativeServiceError> {
+    rustix::fs::mkfifoat(
+        rustix::fs::CWD,
+        path,
+        rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+    )
+    .map_err(std::io::Error::from)?;
+    Ok(())
 }
 
 struct SuiteTool<'a> {
@@ -188,13 +196,18 @@ impl SuiteTool<'_> {
         };
         let mut command = Command::new(self.binary);
         let http_endpoint = self.endpoint.replacen("grpc://", "http://", 1);
+        let diagnostics = fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(folder.join("stderr"))?;
         command
             .env_clear()
             .env("HOME", folder)
             .current_dir(folder)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::from(diagnostics))
             .args(["test", "--schema-from", schema_source, "--suite", suite])
             .args([
                 "--host",
@@ -225,8 +238,8 @@ impl SuiteTool<'_> {
             let mut child = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None)
                 .map_err(|_| NativeServiceError::Refused("SurrealKit child admission failed"))?;
             let deadline = Instant::now() + allowance;
-            let observed = if let Some(seed) = interrupt_at {
-                wait_for_seed_reader(&mut child, &seed, deadline).map(Some)
+            let observed = if let Some(input) = interrupt_at {
+                wait_for_project_reader(&mut child, &input, deadline).map(Some)
             } else {
                 child
                     .wait_ready(None, Some(deadline))
@@ -250,13 +263,13 @@ impl SuiteTool<'_> {
     }
 }
 
-fn wait_for_seed_reader(
+fn wait_for_project_reader(
     child: &mut SupervisedChild,
     path: &Path,
     deadline: Instant,
 ) -> Result<fs::File, NativeServiceError> {
     while Instant::now() < deadline {
-        // A nonblocking writer opens only when the real SurrealKit seed reader is waiting.
+        // A nonblocking writer opens only once the real project input reader is waiting.
         match fs::OpenOptions::new()
             .write(true)
             .custom_flags(libc::O_NONBLOCK)
@@ -276,7 +289,7 @@ fn wait_for_seed_reader(
         std::thread::sleep(Duration::from_millis(15));
     }
     Err(NativeServiceError::Refused(
-        "SurrealKit did not reach the interrupted seed",
+        "SurrealKit did not reach the selected interrupted input",
     ))
 }
 
@@ -380,6 +393,26 @@ fn read_report(path: &Path) -> Result<Report, NativeServiceError> {
         NativeServiceError::Refused("SurrealKit stopped before writing its original suite report")
     })?)
     .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))
+}
+
+fn verify_pre_report_refusal(
+    project: &Path,
+    status: ExitStatus,
+    refusal: &str,
+) -> Result<(), NativeServiceError> {
+    let mut diagnostics = String::new();
+    fs::File::open(project.join("stderr"))?
+        .take(64 * 1024)
+        .read_to_string(&mut diagnostics)?;
+    if status.code() != Some(1)
+        || project.join("result.json").try_exists()?
+        || !diagnostics.contains(refusal)
+    {
+        return Err(NativeServiceError::Refused(
+            "SurrealKit did not observe the expected authored refusal before report publication",
+        ));
+    }
+    Ok(())
 }
 
 fn stage_rollout_project(folder: &Path, drift: bool) -> Result<(), NativeServiceError> {
@@ -508,28 +541,38 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     )?;
 
     let setup_failure = root.join("setup-failure");
-    stage_project(
-        &setup_failure,
-        Some("THROW 'fixture seed deliberately failed';"),
+    stage_project(&setup_failure, Some(SEED))?;
+    fs::write(
+        setup_failure.join("setup.surql"),
+        format!("THROW '{SETUP_REFUSAL}';"),
     )?;
     let status = tool
         .run(&setup_failure, SuiteSelection::CurrentSchema, None)
         .await?;
-    if status.code() != Some(1) || setup_failure.join("result.json").try_exists()? {
-        return Err(NativeServiceError::Refused(
-            "SurrealKit setup control had unexpected finality",
-        ));
-    }
+    verify_pre_report_refusal(&setup_failure, status, SETUP_REFUSAL)?;
 
-    let interrupted = root.join("interrupted");
-    let seed = stage_project(&interrupted, None)?;
+    let seed_failure = root.join("seed-failure");
+    stage_project(&seed_failure, Some(&format!("THROW '{SEED_REFUSAL}';")))?;
     let status = tool
-        .run(&interrupted, SuiteSelection::CurrentSchema, Some(seed))
+        .run(&seed_failure, SuiteSelection::CurrentSchema, None)
         .await?;
-    if status.signal().is_none() || interrupted.join("result.json").try_exists()? {
-        return Err(NativeServiceError::Refused(
-            "SurrealKit interruption control had unexpected finality",
-        ));
+    verify_pre_report_refusal(&seed_failure, status, SEED_REFUSAL)?;
+
+    let setup_interrupted = root.join("setup-interrupted");
+    stage_project(&setup_interrupted, Some(SEED))?;
+    let setup = setup_interrupted.join("setup.surql");
+    stage_fifo(&setup)?;
+    let seed_interrupted = root.join("seed-interrupted");
+    let seed = stage_project(&seed_interrupted, None)?;
+    for (project, input) in [(setup_interrupted, setup), (seed_interrupted, seed)] {
+        let status = tool
+            .run(&project, SuiteSelection::CurrentSchema, Some(input))
+            .await?;
+        if status.signal().is_none() || project.join("result.json").try_exists()? {
+            return Err(NativeServiceError::Refused(
+                "SurrealKit interruption control had unexpected finality",
+            ));
+        }
     }
     for (name, drift) in [("rollout", false), ("rollout-drift", true)] {
         let project = root.join(name);
