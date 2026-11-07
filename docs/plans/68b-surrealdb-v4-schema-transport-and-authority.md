@@ -162,20 +162,46 @@ control unless the actual v4 receiving test proves the whole existing effect bou
 
 ## B05 — Test one shared named type
 
-Compare a registry-generated `DEFINE TYPE pse_exact_u64 AS decimal` with an exact range
-and integer `ASSERT` against today's repeated decimal field assertion and a callable
-generation or ordinal parameter. Start with one existing generation field and a guarded
-function that receives the same declaration. Require equal preexisting bounds, optional
-presence and refusal behavior, plus a consumer benefit from the shared definition. Test
-integer-to-decimal coercion, declaration order, effective permissions and installed
-normalization, the exact maximum, negative, fractional and overflow refusal, and any
-nullable wrapper on the selected path. Preserve codec checks and field/operation-specific
-rules. [O01] demonstrates the syntax on a disposable 4.0.0 fixture. It does not establish
-equivalence for a current guarded consumer. If the field and argument differ or the named
-type widens an admitted shape, keep the qualified literal and callable checks and close
-the investigation with the disqualifying case. B05 is independent of the cutover gate.
+Compare a registry-generated native `u64` field and callable type against today's
+`decimal` field and integral-range assertion. Start with a regenerated non-identity
+counter and its guarded function. A named type is useful when the same domain
+constraint is shared by fields and function arguments. Compare a decimal-backed
+named type only if that shared validation is valuable with the existing representation.
+
+**Tested, supplier interface.** A disposable v4.0.0 embedded CLI stored `0u64`,
+`9223372036854775808u64` and `18446744073709551615u64` through a named `u64`
+field with a unique index. A range query returned the two large values in order.
+Negative and fractional writes and maximum-plus-one produced three expected
+refusals. Same-kind addition stayed `u64`; mixing `u64` with ordinary `int` or
+`decimal` produced `decimal`. Use typed operands for operations that require the
+native overflow boundary.
+
+**Interface-checked.** The 0.14.1 Protobuf input accepts `U64`, while v4.0.0's
+ordinary output conversion uses `Number::wide()` and emits `Int64` through
+`i64::MAX`, then exact `Decimal`. Verify the existing bounded gRPC path in both
+directions. A native storage change requires one explicit wire interpretation,
+such as a generated decimal projection, with exact range, integral and
+optional-presence checks. A checked transport projection does not require a
+second stored format. Preserve guard rollback, index ordering and original
+scientific representations. Select native storage only if it reduces the total
+schema and codec burden for the named consumer. [O01] provides the original
+decimal-backed probe. B05 remains independent of the cutover gate.
+[Sized numbers](https://surrealdb.com/docs/reference/query-language/language-primitives/data-types/numbers) ·
 [Named types](https://surrealdb.com/docs/reference/query-language/statements/define/type) ·
+[Tagged Protobuf conversion](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/types/src/proto/value.rs) ·
 [Generated field assertions](../../crates/pse-codegen/src/codegen/surreal.rs)
+
+The same evaluation gives reusable named enums and closed objects a narrower
+role. Generate them from the existing registry when they remove repeated domain
+checks across real consumers. Treat enum rank, `NONE` versus `NULL`, and ordered
+array versus set semantics as explicit contracts. Apply `FLEXIBLE` only to a
+declared open metadata subtree. Native civil-time types and `bigdecimal` are
+options for an identified consumer with matching semantics and transport.
+Keep authoritative scientific IEEE bytes and queryable projections, especially
+for signed zero. Named record-ID components are a locality option for a new
+regenerated projection. Existing issued IDs keep their interpretation.
+[Named types and ordering](https://surrealdb.com/docs/reference/query-language/language-primitives/data-types/named-types) ·
+[Field and migration rules](https://surrealdb.com/docs/reference/query-language/statements/define/field)
 
 ## Deferred boundary changes
 
