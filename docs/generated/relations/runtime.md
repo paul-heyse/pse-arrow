@@ -1666,6 +1666,31 @@ Version: 1. Snapshot class: `derived`. Primary key: `invocation, report_sha256`.
 | `producer_generation` | `Utf8` | true | `payload` | — | — |
 | `clock_scope` | `Utf8` | true | `payload` | — | — |
 
+## `developer_prerequisite_facts`
+
+Ephemeral original pending prerequisites parsed from the exact authenticated report bytes through their passive source types. Missing pending is unknown (null count/pointer); an explicit empty population has count zero and /pending. Native capability and fixture input rows retain exact original pointers. Empty capability/input collections retain their pending entry. Projection ordinal is not a source clock or a native identity; no path, preparation argv or recorded state grants current readiness or action. ADR-0252.
+
+Version: 1. Snapshot class: `derived`. Primary key: `invocation, report_sha256, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `member` | `UInt64` | false | `payload` | — | — |
+| `invocation` | `Utf8` | false | `key` | — | — |
+| `report_sha256` | `Utf8` | false | `key` | — | — |
+| `ordinal` | `UInt64` | false | `key` | — | — |
+| `pointer` | `Utf8` | true | `payload` | — | — |
+| `pending_known` | `Boolean` | false | `payload` | — | — |
+| `pending_entries` | `UInt64` | true | `payload` | — | — |
+| `pending_ordinal` | `UInt64` | true | `payload` | — | — |
+| `kind` | `Utf8` | true | `payload` | — | — |
+| `capability` | `Utf8` | true | `payload` | — | — |
+| `group` | `UInt64` | true | `payload` | — | — |
+| `fixture` | `Utf8` | true | `payload` | — | — |
+| `ownership` | `Utf8` | true | `payload` | — | — |
+| `input` | `Utf8` | true | `payload` | — | — |
+| `state` | `Utf8` | true | `payload` | — | — |
+| `code` | `Utf8` | true | `payload` | — | — |
+
 ## `diagnostic_captures`
 
 Immutable optional capture link and its original typed document. Capture failure, output prefixes, loss, symbols and process/thread scope remain independent from scientific result permission.

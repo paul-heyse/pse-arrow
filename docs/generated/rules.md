@@ -206,6 +206,7 @@
 | `runtime.computation_runs` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."computation_runs" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
 | `runtime.developer_diagnostic_causes` | `unique:pk` | `SELECT s."invocation", s."report_sha256", s."ordinal" FROM "runtime"."developer_diagnostic_causes" s GROUP BY s."invocation", s."report_sha256", s."ordinal" HAVING COUNT(*) > 1` |
 | `runtime.developer_invocation_facts` | `unique:pk` | `SELECT s."invocation", s."report_sha256" FROM "runtime"."developer_invocation_facts" s GROUP BY s."invocation", s."report_sha256" HAVING COUNT(*) > 1` |
+| `runtime.developer_prerequisite_facts` | `unique:pk` | `SELECT s."invocation", s."report_sha256", s."ordinal" FROM "runtime"."developer_prerequisite_facts" s GROUP BY s."invocation", s."report_sha256", s."ordinal" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_captures` | `unique:pk` | `SELECT s."subject" FROM "runtime"."diagnostic_captures" s GROUP BY s."subject" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_engine_observations` | `unique:pk` | `SELECT s."member", s."observation" FROM "runtime"."diagnostic_engine_observations" s GROUP BY s."member", s."observation" HAVING COUNT(*) > 1` |
 | `runtime.diagnostic_evidence_fields` | `unique:pk` | `SELECT s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" FROM "runtime"."diagnostic_evidence_fields" s GROUP BY s."operation", s."producer", s."generation", s."event_sequence", s."field_ordinal" HAVING COUNT(*) > 1` |
