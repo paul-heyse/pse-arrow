@@ -1,6 +1,6 @@
 ---
 title: "Plan67a: Plan66 consolidation and incident cleanup"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -141,6 +141,33 @@ The receipt carries the result of this operation and does not grant future clean
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A01 | planned | Refreshed frozen checkout and Plan66 ownership evidence | Relevant changes received and targeted checks recorded. Other authored work has a recoverable owner. Checkout identities and necessary pre-release observations retained. |
-| A02 | planned | Fixed incident interval and identified native producers and consumers | Exact preview with held, releasable and unresolved scope. Named exports independently read back. |
-| A03 | planned | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield and precise exceptions. Named evidence and rerun checked. |
+| A01 | in-progress | Refreshed frozen checkout and Plan66 ownership evidence | Relevant changes received and targeted checks recorded. Other authored work has a recoverable owner. Checkout identities and necessary pre-release observations retained. |
+| A02 | in-progress | Fixed incident interval and identified native producers and consumers | Exact preview with held, releasable and unresolved scope. Named exports independently read back. |
+| A03 | in-progress | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield and precise exceptions. Named evidence and rerun checked. |
+
+## Execution checkpoint — November 6
+
+**Interface-checked.** The native creation field yielded 283 incident invocations across six
+roots. Of these, 267 reported complete settlement, ten incomplete settlement, and six lacked
+terminal and settlement records. The broader cross-check found 27 distinct incident IDs in the
+current and reconciliation plan documents across four checkouts. The earlier 12 counted direct
+Plan66 mentions in the main checkout only. Two state roots have no current checkout match.
+
+The three dirty source sets have verified recovery refs. The science candidate is
+`recovery/plan67-p66-wet-water` at `fe669d8d0`, the contracts edit is at
+`refs/plan67/recovery/p65-contracts` at `9529508cb`, and the assessment set is at
+`refs/plan67/recovery/p66-assessment-partials` at `8706166ea`.
+The 62 changed file blobs of fitting commit `d0bd02aca` match main's `583fc73cb`.
+The outstanding worker diagnostic bound and the partial-assessment receiver require targeted
+verification. The science candidate has a pinned, verified source set and still needs native
+provider preparation and qualification before retirement.
+
+**Measured.** Two release batches removed 127 unreferenced, independently rechecked invocation
+trees. The first removed 24 main-checkout trees with 35.91 GiB of allocated members. The second
+removed 103 linked-checkout trees with 166.65 GiB of allocated members. Available bytes on the
+backing filesystem measured 362,030,686,208 before the first batch and 572,617,322,496 after the
+second. Concurrent operations also used that filesystem. The incident evidence directory under
+the project state root contains the exact previews and release results. Both batches retained
+named, live and unresolved objects. One 1.39 MiB named selection export passed the independent
+descriptor reader. Named consumer transfer, Git and external checkout retirement, and integrated
+rerun evidence stay open.

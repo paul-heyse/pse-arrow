@@ -1,6 +1,6 @@
 ---
 title: "Plan67b: Invocation custody and developer history"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -38,9 +38,10 @@ scientific data, result delivery, and selected raw custody. [Plan66f](66f-develo
 owns native developer verdicts, report interpretation, and rerun selection. Reuse its verified
 passive observations and compact delivery. [ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md)
 defines finite queries over explicitly acquired developer evidence and names persistent analytical
-state as a revisit trigger. The history pilot needs an explicit scoped decision on persistence
-and its relationship to that proposed decision before implementation. Preserve its existing finite
-query and keep scientific `diagnostic_invocations` separate from developer invocation identity.
+state as a revisit trigger. The scoped persistence proposal is
+[ADR-0255](../adr/0255-bounded-developer-workflow-history.md). The history pilot depends on that
+decision route. Preserve the existing finite query and keep scientific `diagnostic_invocations`
+separate from developer invocation identity.
 The historical interface supplies only the facts its source verified. Keep authorizations,
 current physical state, and scientific membership with their original owners.
 
@@ -122,8 +123,8 @@ Keep selected portable cohorts separately from live expiry, and test their actua
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| B01 | planned | Current capture, report and Plan66 C/E/F owners | Choose the active custody path per real tool, inventory and test consumer. Specify the minimum native export and rerun facts, the release evidence, and the narrow persistence decision route. Check that A's independently verified native export remains readable by the selected backfill path. |
-| B02 | planned | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
+| B01 | in-progress | Current capture, report and Plan66 C/E/F owners | Choose the active custody path per real tool, inventory and test consumer. Specify the minimum native export and rerun facts, the release evidence, and the narrow persistence decision route. Check that A's independently verified native export remains readable by the selected backfill path. |
+| B02 | in-progress | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
 | B03 | planned | B01 projection contract and applicable persistence decision | Publish one bounded native test workflow to the selected SurrealDB pilot. Verify an independent reader, scope/credential isolation, duplicate or conflicting publication, unknown acknowledgement and unavailable history. Report actual ingestion and query bounds. |
 | B04 | planned | B03 independent readback and B02 release for selected consumer | Deliver failure triage and named comparison, wire exact eligible rerun facts into Plan66f's current-inventory resolver, then release superseded full payloads. Verify no-match, absent/changed target, incomplete native reconciliation, held or expired raw facts, guarded expiry, repeated physical reclamation and cohort restore. |
 
@@ -132,3 +133,12 @@ native owner. Backfill from that export only for explicitly named uses. For late
 publication, retire the replaced full-retention routes alongside their consumers. Repeated
 equivalent successful or failed test runs may leave bounded facts and useful build state.
 They must add zero ordinary retained executable copies after settlement.
+
+## Execution checkpoint — November 7
+
+The private tool controls have one stable image per active operation. The original report and
+inventory commitments are sufficient for historical selection and a new inventory lookup.
+The first release slice uses the foreground owner's published result and complete physical
+settlement, including the absence of an enclosing borrower. It limits release to the two fixed
+inventory controls or the fixed compiler adapter. Test executables, detached work and independent
+holds require their own owner integration. ADR-0255 records the proposed history boundary.

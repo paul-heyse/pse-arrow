@@ -1,6 +1,6 @@
 ---
 title: "Plan67: Storage lifecycle and build reuse"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -76,10 +76,12 @@ ordinary Git retirement and existing owners. E evaluates the deferred R-56 bound
 repeatable operator workflow. An owner-aware command or automatic collection of published
 generations requires the applicable decision route before its implementation. Record the
 operator's decision and any superseding ADR in the owning package. B resolves the persistence
-boundary before the history pilot because proposed ADR-0252 selects a finite ephemeral query
-and names persistent analytical state as a revisit trigger. Current approval is for the plan
-documents. Package execution, selected policy changes and actual reclamation have separate
-evidence and authorization. [ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md)
+boundary before the history pilot. Proposed ADR-0252 selects a finite ephemeral query and
+names persistent analytical state as a revisit trigger. Proposed ADR-0255 covers the scoped
+history pilot. Execution started on the maintainer's November 6 instruction. Package
+completion, policy decisions and actual reclamation have separate evidence.
+[ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md) ·
+[ADR-0255](../adr/0255-bounded-developer-workflow-history.md)
 
 ## Opportunity dispositions
 
