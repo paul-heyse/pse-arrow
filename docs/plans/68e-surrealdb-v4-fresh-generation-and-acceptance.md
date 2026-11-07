@@ -51,6 +51,44 @@ operations.
 [Supplier backup boundaries](https://surrealdb.com/docs/manage/self-hosted/backups-and-recovery) ·
 [Native offline custody](../../crates/pse-operations/src/canonical_files/offline.rs)
 
+#### E01 checkpoint — read-only owner census, 2026-11-07
+
+The candidate checkout's user-manager inventory showed 20
+loaded `pse-surreal-*.service` units, all `inactive/dead`; 37 matching unit
+files were present (20 enabled, 17 disabled). A targeted native
+`pse-host activity` observation confirmed one named unit as inactive with no
+main process. The unqualified activity read could not associate this agent
+process with a loaded unit. These observations do not identify a catalog's
+level, exact bytes, consumer, version, payload closure, or whether other
+service managers or manually launched processes own data.
+
+The candidate's `pse-host server select` refused the shared v3 completion
+receipt because it lacks the v4 `protocol` field. The same selection
+succeeded from main with its v3 reader. The private v4 release remains
+unavailable under the 68a build checkpoint. The existing
+`pse-canonical-recovery` inventory/backup/restore route owns canonical
+payload-file custody only; it is not an engine/catalog inventory or a
+consistent SurrealDB backup. No discovered native read-only route lists all
+canonical catalogs with their owner-issued consumer and recovery holds.
+
+E01 remains open. Classify actual catalog generations and named evidence
+consumers through their original owners before selecting any import or
+release. Do not infer that all data is disposable from inactive service
+units. Candidate E02 live-service tests also remain unavailable through the
+current selection: `native_service` requires a valid selected server,
+helper and module receipt; tests using `PSE_SURREAL_STATE` require an
+explicitly owned running fixture. Filesystem-only `canonical_files::offline`
+tests use temporary data and can exercise copy/inventory integrity without
+starting a supplier, but cannot qualify catalog migration, SQL semantics or
+service recovery.
+
+**Tested, v3 baseline only.** Main's native `scripts/pse test pse-operations
+--lib -E 'test(/offline_(complete_inventory_backup_and_lockless_archive_restore|unnamed_copy_interruption_and_exact_published_restore_resume|checkpoint_resumes_exact_request_and_rechecks_every_byte)/)'`
+ran three filesystem custody controls with zero failures against a zero target
+and complete settlement. The initial filter matched zero tests. This supplies
+baseline payload copy and inventory integrity evidence for the named restore
+case when the v4 fixture is available.
+
 ### E02 — Rehearse the complete receiving boundary
 
 Use an explicitly prepared private source-built v4 service. Exercise
