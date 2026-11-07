@@ -21,9 +21,9 @@ bindings remain only for separately assigned final-state reconciliation and clea
 assign no go-forward work. Retired plans likewise supply no obligations.
 
 [Plan67: Storage lifecycle and build reuse](67-storage-lifecycle-and-build-reuse.md)
-proposes the Plan66 worktree consolidation and incident cleanup, targeted SurrealDB
-developer history, SurrealKit and Rust test consolidation, improved Cargo and sccache
-reuse, and recurring owner-issued retirement. Its coordinator owns the storage work
+records the completed Plan66 worktree consolidation and incident cleanup. The remaining
+work covers invocation custody and fresh reruns, SurrealKit and Rust test consolidation,
+Cargo and sccache reuse, and recurring owner-issued retirement. Its coordinator owns the storage work
 and links to Plan66 for the scientific and evidence contracts it consumes.
 
 [Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) proposes one exact v4 release

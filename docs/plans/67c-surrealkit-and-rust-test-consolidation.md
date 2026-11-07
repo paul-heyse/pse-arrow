@@ -122,7 +122,7 @@ and protocol settlement, preserving explicit holds or unresolved evidence for th
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| C01 | in-progress | Existing SurrealKit pin, generated schema and native fixture selection | Deliver the bounded test-owned endpoint and real TOML lane. Exercise seed and actor isolation, expected refusal, schema or rollout parity where selected, explicit wrong-endpoint refusal, and verified cleanup through success, failure and interruption. |
+| C01 | complete | Existing SurrealKit pin, generated schema and native fixture selection | Explicit locked tool preparation and the owned sync, rollout parity and deliberate drift controls passed with original endpoint disposal. |
 | C02 | in-progress | C01 database assertions and complete owned case map | Migrate database-only cases, consolidate the Rust cases and remove each replaced test-selection variant and duplicate target. Independently compare named assertions and run representative isolated Rust, native and force-validated controls. Supply the actual variant delta to 67d. |
 | C03 | in-progress | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
 
@@ -134,8 +134,21 @@ controls. The native fixture settles and disposes the endpoint after the passing
 assertion failure, setup refusal and interrupted seed reader. The test verifies the original JSON
 case population and refuses a foreign endpoint. The first native run passed all 11 suite cases.
 Selection is explicit while the prepared SurrealKit release is a separate prerequisite.
-The historical rollout's target differs from the current generated schema. Current sync is
-qualified by this lane. Rollout parity remains separate work.
+The historical rollout's target differs from the current generated schema. Sync uses the
+current schema. Parity compares sync and replay against the retained rollout's frozen target.
+The pinned native installer publishes the tool, locked inputs and receipt in one verified
+generation. The owned native-service test passed the 15 generated cases and the authored
+rollout parity and drift controls, including agreement across 1,538 definitions in the
+matching rollout. The service and private database directory were gone after settlement,
+with zero retained executable captures. The rollout comparisons have a separate bounded
+observation allowance because the real fixture exceeded the ordinary sync deadline.
+
+The exact decimal cell and denied-mutation database assertions now use SurrealKit.
+Ten pure gRPC peer and source-acquisition controls passed in the ordinary Rust library
+test context without the `canonical-tests` selection. The library graph still had 498
+units in each mode. The consolidation removes a separately selected feature context for
+these cases. The broader borrowed, physical and runtime instrumentation cases still need
+their named replacements.
 
 The tooling evidence tests now select the live fixture by their exact test identity under the
 existing `evidence-tools` capability. The `xtask/canonical-tests` feature is removed. The

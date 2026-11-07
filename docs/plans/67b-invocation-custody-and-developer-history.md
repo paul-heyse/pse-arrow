@@ -82,7 +82,7 @@ pilot. Existing scoped SurrealDB fixtures keep their native lifecycle and curren
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| B01 | in-progress | Current capture, report and Plan66 C/E/F owners | Choose the active custody path per tool and consumer. Specify the working report, rerun and release boundary. |
+| B01 | complete | Current capture, report and Plan66 C/E/F owners | Select active custody per consumer and retain the original working report and rerun boundary. |
 | B02 | in-progress | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
 | B03 | deferred | A concrete future consumer and separate decision | Structured history pilot withdrawn under the November 7 regeneration decision. |
 | B04 | deferred | A concrete future consumer and separate decision | Persistent history triage and expiry withdrawn. Current-inventory rerun remains in B02. |
@@ -106,7 +106,24 @@ after old executable disposal. A separate native rerun resolved one real origina
 against the current build and passed with complete settlement. An explicitly waited detached
 test passed with complete owner settlement and released every private control and compiler
 image. Its original report, inventory and pending-state result remained readable. Unobserved
-detached work and borrowed scopes still need owner integration.
+detached work and borrowed scopes previously needed owner integration.
+
+The original detached finalizer now verifies that it is the sole surviving member of its
+recursive cgroup before releasing private executable images. A borrowed workflow registers
+its exact original invocation with its enclosing owner and retains images until that owner
+drains. An explicitly selected `pse wait` can reconcile a borrowed release without taking
+control of the enclosing scope. Private fixture helper images follow the same boundary
+after their original fixture settlement is verified. The original report and inventory
+stay independently readable. Native controls exercised an unobserved detached run and
+both foreground and detached enclosing owners, including refusal to release while borrowed
+work was live. The assembled SurrealKit fixture run exercises the fixture-helper path.
+
+A failed Cargo discovery may publish a valid compiler capture before it can publish a
+complete test inventory. The owner uses the original report commitment and exact compiler
+admission to release those images after drain. An explicit `pse wait` reconciled a settled
+foreground failure without rerunning it. Nine images and their nine sidecars, occupying
+2,042,765,312 allocated bytes, were gone at readback. The original result, settlement,
+report and compiler capture retained the same bytes and the original failure verdict.
 
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its

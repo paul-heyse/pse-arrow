@@ -194,12 +194,37 @@ association remains usable for its two drained invocations with missing terminal
 Keep the native removal command deferred under R-56 until an actual case needs coordination
 that ordinary Git and the resource owner cannot perform.
 
+Worktree creation and listing now project the original checkout, Git administration and
+available target and state directory identities. An ordinary Git remove and recreate control
+verified that the path-derived checkout ID can repeat while the checkout and Git
+administration directory identities differ. The existing state stays associated with its
+original resource owners. The worktree journey with external owner closeout remains in E06.
+
+The authored probe owner can preview or release only its exact regenerable Cargo target
+under its existing lease. The release rechecks the original drain and directory identity,
+preserves authored source and run records, and handles an already absent target. Prepared
+native host tools reuse a verified selected generation under unchanged inputs. Reimporting
+an already selected SurrealDB release verifies supplied bytes without creating a second
+staging copy. Other generation and campaign retirement owners remain in scope.
+
+The exact owned SurrealKit test ran twice under the same selection. Both passed with
+complete settlement. Both original report and inventory pairs remained readable,
+each private database directory was absent, and each workflow retained zero executable
+captures or sidecars. The warm repeat's Cargo build stage took 0.56 s after a 16.24 s
+post-edit build. Database execution ran under different concurrent workloads, so these
+observations establish Cargo freshness and fixture retirement separately. Campaign
+release and the assembled checkout retirement journey still remain in E06.
+
 The service preview found 516 legacy Surreal and five compiler-cache definition candidates
 and separated them from selected, rollback, referenced, and unresolved definitions. One
 disabled, unloaded Surreal definition passed the exact pre-release checks and was removed.
 The independent post-release observation found the fragment absent and telemetry definitions
 and manager identities consistent with the preview. The remaining candidates are pending their
 individual owner rechecks.
+
+The refreshed preview found 515 Surreal and five compiler-cache candidates after the
+exercise removal. It recorded one orphan enablement link and three unavailable process
+observations. The preview still supplies candidates for exact owner rechecks.
 
 The incident runtime fixture release verified 19 original completed preparations, each with
 two exact captured executables and a capsule matching the current selection's digest.

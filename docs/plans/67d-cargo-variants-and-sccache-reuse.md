@@ -113,7 +113,11 @@ or DataFusion and the applicable native closure. Confirm actual complete writes 
 bytes under the configured 256 MiB frame, independently of the reported request counter.
 Reuse an established build identity and compare with an absent output under an equivalent
 key. Compare compression or frame settings only if measured restore costs or publication
-failures warrant it. Keep the 100 GiB managed baseline and ordinary eviction. Old Rust key
+failures warrant it. Start comparisons at the 100 GiB managed baseline and keep ordinary
+eviction. The maintainer permits a larger allocation when it improves reuse. Compare
+representative compatible repeat consumers at the same keys and record occupancy, surviving
+entries, and rebuild cost. Increase the allocation if useful entries disappear at capacity
+and a larger isolated comparison recovers that work. Old Rust key
 version 6 entries may remain on disk after the version 7 upgrade. Attribute an observed
 unreachable generation before considering owner-scoped release and avoid general age purges.
 Keep shared scientific/provider artifacts outside compiler-cache eviction.
@@ -191,7 +195,9 @@ selection had one matching `arrow-array` dependency unit and native correctness 
 explicit force validation. This establishes the two source contexts for the comparison.
 The migrated xtask `evidence-tools` and `host-contracts` selection examined 804 units
 and reached zero `pse-runtime` compiler units after removing its test-only feature.
-The wider consumer mapping and post-migration matrix remain open.
+The pre-migration recapture reproduced those three contexts and examined 1,082 units with
+one force-validated Arrow leaf for the `pse-runtime` library selection. The wider consumer
+mapping and post-migration matrix remain open.
 
 Two force-validated pinned Cargo check selections exercised `pse-runtime` and `pse-admission`
 as separate roots. Each selected one `arrow-array` and one DataFusion library unit, with
@@ -206,8 +212,28 @@ explicitly selects direct Rust compilation even when a user Cargo config supplie
 The isolated pinned-nightly metadata probe restored both outputs byte-for-byte and missed after
 an included source changed. The client-side handshake refusal was identical with
 `SCCACHE_IGNORE_SERVER_IO_ERROR` set and unset. A separate six-client control exposed six
-listeners on one stock 0.19 filesystem socket. The writer lifetime fix, representative
-DataFusion or Symbolica restore, and critical-path measurements remain open.
+listeners on one stock 0.19 filesystem socket. The later single-unit Symbolica restore
+below completes the stock large-output control.
+
+The explicit diagnostic-tool installer built the managed Linux 0.19.0 patch from upstream
+revision `965c01943a40c9df96264474bbe28ba98f2e1487` with its locked dependencies and
+published the verified executable and source-build receipt. The lifetime directory and
+endpoint locks precede storage initialization. Native environment resolution reserves the
+physical default pair for the declared executable and permits explicit isolated pairs.
+`bash scripts/sccache-source/probe.sh <managed-executable>` observed one listener while six
+GCC processes reached code generation together. The probe checked exact C object and Rust
+metadata restores, local dep-info, included-source misses, alias handling, conflicts, and
+verified drain and restart. The default cutover preserved the existing repository cache
+directory identity and completed a GCC compile. Scoped `scripts/pse-host doctor --format json`
+observed the patched binary and a single read-write disk daemon at 100 GiB, with a 256 MiB
+frame and direct preprocessing disabled. The system cache continued to serve its separate
+directory. The large real-unit restore on the patched daemon and end-to-end timings remain
+open. [Managed cache guide](../dev/build-performance.md)
+
+After cutover the cache held 45.77 GiB indexed and 45.95 GiB allocated. The earlier
+43 and 46 GiB snapshots and aggregate hit and miss counters give no evidence of
+capacity-driven rebuilds. The allocation remains 100 GiB pending a matched retention
+and restore comparison at capacity.
 
 An isolated pinned-nightly Cargo package with the managed binary showed a warm incremental
 freshness path without cache work and a non-incremental check miss and write followed by a
@@ -216,8 +242,15 @@ non-incremental Cargo build restored a 41,947,450-byte library and a 41,945,356-
 file byte-for-byte with one write, one hit and zero write errors. The controls establish
 eligibility and output recovery. Repository workload timing still governs lane adoption.
 The raw correctness adapter can carry Cargo's explicit `--config build.incremental=false`.
-The native check and test selection interfaces still need a route that carries the same
-configuration through both unit admission and execution before a recurring lane can adopt it.
+The native selection now carries `--non-incremental` through admission, source build
+and the original policy for fresh rerun. Older records keep Cargo's original defaults.
+Cargo's explicit environment override can otherwise make a nominally non-incremental
+selection compile incrementally, so the lane refuses a conflicting `CARGO_INCREMENTAL`.
+Native admission verified the actual Cargo configuration argument. The pinned Cargo
+timings stream starts with a distinct JSON marker, which the compiler observer now
+accepts while still requiring a valid terminal message. The timed non-incremental
+`pse-diagnostics` library check passed with complete compiler capture and settlement.
+A recurring lane and campaign layout remain subject to the representative measurements in D02.
 
 A pinned Symbolica 3.0.1 library unit used the managed 0.19.0 binary, client-side disk
 cache and 256 MiB frame. The timed unit used the ordinary MPFR and GMP features and an
@@ -234,6 +267,32 @@ PETSc translation-unit probe restored both object and dependency output byte-for
 as did the CoolProp CMake bridge controls. Direct mode restored stale output after a new
 optional include and a newly introduced shadow header in the private GCC probe. Ordinary
 preprocessing correctly missed in both cases. Keep direct mode disabled.
+
+The installed patched daemon passed an isolated build of the actual pinned SuiteSparse
+`KLU_static` CMake target and its prerequisites using the native owner options, repository
+toolchain bridge, CMake 3.28.3, and GCC 13.3. The cold build wrote 130 entries. After deleting
+one selected object's outputs, the repeated CMake target reported one hit, no additional
+miss, and byte-identical `klu_version.c.o`, `klu_version.c.o.d`, and `libklu.a`. Replaying
+the CMake compile with a private forced header produced a hit for identical inputs and a
+miss with changed object bytes after a header edit. Direct preprocessing stayed disabled
+and write errors stayed at zero. The private build, cache, and daemon were released. This
+exercises the CMake compiler route and leaves the enclosing native owner's publication
+and readmission to an explicit `native prepare --capabilities compiler,klu` run.
+
+An isolated PETSc 3.24.0 configuration used the authenticated archive and repository patch,
+the selected GCC and MKL file digests, and the native owner's configure flags. The actual
+GNU Make rule for `src/sys/utils/str.c` invoked the installed managed launcher through
+the same `CC` and `CXX` overrides as `make all`. Removing the selected outputs and
+repeating that target yielded one cold write and one restore hit overall, with identical
+`str.o` and `str.d` and zero write errors. The trial drained its private cache daemon and
+released the scratch source. Full PETSc installation and provider readmission remain separate.
+
+The route inventory found the same CMake launcher bridge in HiGHS, SUNDIALS, KLU, CoolProp,
+UNO, and root isolation. The pinned IBEX source attaches bundled FILIB and SoPlex with
+`add_subdirectory`, so they inherit the parent CMake launcher. The pinned `cc` crate
+recognizes the selected wrapper for the Ipopt, UNO, PETSc, and native backend shims.
+GMP/MPFR construction keeps the existing upstream compiled-library cache. Native owner
+qualification can verify actual reuse without adding a second launcher to these routes.
 
 The private WebDAV control recorded an initial absent key, read-only L1 restore and L0
 backfill, credential refusal, remote write refusal, and mid-run and startup unavailability.
