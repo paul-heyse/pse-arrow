@@ -147,16 +147,19 @@ with the cutover and delete replaced writers/maps; retain only specifically prom
 readers and the legacy migration/recovery they still require. Do not create a global descriptor
 catalog or attach every dependency to every row.
 
-The exact store is patched SurrealDB 3.3.4/SurrealMX 1.0, selected by
-[`pse-host::server`](../../crates/pse-host/src/server.rs), with the
-[maintained 3.3 guide](../libraries/proto/Protobuf_SurrealDB_v3.3.md).
+The storage baseline for this companion is patched SurrealDB 3.3.4 and
+SurrealMX 1.0. [Plan68](68-surrealdb-v4-cutover.md) owns replacement with
+the exact source-built v4 family selected by
+[`pse-host::server`](../../crates/pse-host/src/server.rs). This companion
+continues to own protected scientific interpretation and original-result
+delivery on the qualified selection.
 Use generated `SurrealValue::{kind_of,into_value,from_value}` and native `Kind` where their exact
 contracts fit. They do not implement permission predicates, membership transactions or retry
 policy. Preserve explicit Decimal integrality/range and IEEE-bit policies, relationship
 occurrence identity, borrowed cumulative admission, statement accounting and terminal metadata.
-`surrealdb_types::{encode_proto,decode_proto}` is native Value interchange, not an arbitrary
-domain-message codec or bounded admission substitute. SurrealDB v4 and standalone SurrealKV
-capabilities establish no contract for this server.
+`surrealdb_types::{encode_proto,decode_proto}` serves native `Value` interchange.
+The generated domain-message codecs and bounded admission owner apply separately.
+See the [v4 value and protocol reference](../libraries/proto/Protobuf_SurrealDB_v4.md).
 
 ### Diagnostic meaning and selected evidence delivery — DRE02/DRE05
 
@@ -227,9 +230,9 @@ Absent counters are not inferred cache misses or inner-function costs.
 
 Keep the conservative witness. A narrower conflict domain is a bounded decision only: name a
 whole-operation contention consumer, enumerate every writer and future/absent membership
-dependency, and compare equivalence before selection. Existing-row `FOR UPDATE` alone does not
-prove phantom coverage. [SurrealMX 1.0](https://github.com/surrealdb/surrealmx/tree/v1.0.0)
-snapshot/range capabilities do not establish that patched SurrealQL exposes the required tracking.
+dependency, and compare equivalence before selection. Existing-row `FOR UPDATE` only covers
+the selected rows. Qualify absent membership through the actual SurrealQL transaction on the
+selected engine. [Plan68a engine controls](68a-surrealdb-v4-supplier-runtime-and-extension.md#patch-decisions-and-revealing-controls)
 If equivalence or useful benefit is unsupported, retain the current witness with an observable
 revisit trigger; no throughput improvement is claimed.
 
