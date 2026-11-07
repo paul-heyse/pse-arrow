@@ -214,6 +214,114 @@ fn assert_phase_stream_readback(report: &ModelingConformanceReport, isenthalpic:
     }
 }
 
+fn assert_original_feed_exposure(result: &ModelingResult, expected_flow: f64, permitted: bool) {
+    use pse_model::generated::enums::ModelingCheckKind;
+    use pse_modeling::annotation::AnnotationValue;
+    let model = &result.prepared.model.model.compiled().model;
+    let registry = &result.prepared.model.case.compiled().quantities;
+    let mut selected = BTreeSet::new();
+    let mut declarations = BTreeSet::new();
+    let mut flows = BTreeSet::new();
+    for requirement in &result.prepared.solve.numerics().policy.caloric_requirements {
+        for consumer in &requirement.consumers {
+            let key = (consumer.declaration_id, consumer.actual_flow_id);
+            selected.insert(key);
+            declarations.insert(consumer.declaration_id);
+            flows.insert(consumer.actual_flow_id);
+            let source = model
+                .annotations
+                .iter()
+                .find(|annotation| {
+                    annotation.lineage.declaration.as_id() == consumer.declaration_id
+                })
+                .unwrap();
+            assert!(matches!(&source.value, AnnotationValue::CaloricContext(_)));
+            assert_eq!(Some(source.lineage.instance), requirement.instance_id);
+            let flow = model.symbols.get(&consumer.actual_flow_id).unwrap();
+            let quantity = flow
+                .ty
+                .quantity_scheme()
+                .unwrap()
+                .resolve(registry, &BTreeMap::new())
+                .unwrap();
+            assert_eq!(quantity.as_id(), consumer.exposure_quantity_id);
+            assert_eq!(
+                registry
+                    .quantity_type(quantity)
+                    .unwrap()
+                    .canonical_unit
+                    .as_id(),
+                consumer.exposure_unit_id
+            );
+            // Original declaration: capacity1mol/s plus the shared0.001mol/s
+            // physical margin. The candidate cannot redefine this frozen premise.
+            assert!((consumer.aggregate_exposure - 1.001).abs() <= 1e-12);
+            let checks = result
+                .checks
+                .iter()
+                .filter(|check| {
+                    check.kind == ModelingCheckKind::Check
+                        && check.source_id.as_id() == key.0
+                        && check.target_id == key.1
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(
+                checks.len(),
+                1,
+                "one original exposure observation per source/actual-flow member"
+            );
+            let check = checks[0];
+            assert_eq!(check.run_id, result.run_id);
+            assert_eq!(
+                check.observation_instance,
+                requirement.instance_id.map(|id| id.as_id())
+            );
+            assert!(check.dependencies.contains(&consumer.target_id));
+            assert!(check.dependencies.contains(&consumer.power_rule_id));
+            assert_eq!(check.tolerance, Some(consumer.aggregate_exposure));
+            assert_eq!(check.satisfied, permitted);
+            assert!((check.value - expected_flow).abs() <= 0.001);
+            assert_eq!(check.value, result.values.scalars[&consumer.actual_flow_id]);
+            let bound = check
+                .input_values
+                .iter()
+                .filter(|value| value.name == "frozen_exposure_bound")
+                .collect::<Vec<_>>();
+            assert_eq!(bound.len(), 1);
+            assert_eq!(bound[0].quantity_type, consumer.exposure_quantity_id);
+            assert_eq!(bound[0].value, consumer.aggregate_exposure);
+        }
+    }
+    let authored = model
+        .annotations
+        .iter()
+        .filter(|annotation| matches!(&annotation.value, AnnotationValue::CaloricContext(_)))
+        .map(|annotation| annotation.lineage.declaration.as_id())
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        declarations, authored,
+        "complete selected caloric/energy context population"
+    );
+    assert_eq!(declarations.len(), 4);
+    assert_eq!(
+        flows.len(),
+        2,
+        "actual inlet and outlet flow members stay distinct"
+    );
+    let observed = result
+        .checks
+        .iter()
+        .filter(|check| {
+            check
+                .input_values
+                .iter()
+                .any(|value| value.name == "frozen_exposure_bound")
+        })
+        .map(|check| (check.source_id.as_id(), check.target_id))
+        .collect::<BTreeSet<_>>();
+    assert_eq!(observed, selected);
+}
+
 #[tokio::test]
 async fn feed_flash_refuses_temporal_use_before_numerical_execution() {
     let report = conform(true, true).await;
@@ -251,7 +359,11 @@ async fn feed_flash_refuses_holdup_before_numerical_execution() {
 #[tokio::test]
 async fn ordinary_feed_flash_keeps_published_inputs_and_original_phase_stream_readback()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    use pse_relations::{columnar::RelationRow as _, generated::runtime::modeling_reports};
+    use pse_model::generated::enums::{ModelingApplicabilityOutcome, ModelingPermissionTarget};
+    use pse_relations::{
+        columnar::RelationRow as _,
+        generated::runtime::{modeling_checks, modeling_reports},
+    };
 
     let (runtime, package, _spill, preparation) =
         pr_jacobian_tests::ordinary_delivery_package(false).await?;
@@ -312,6 +424,68 @@ async fn ordinary_feed_flash_keeps_published_inputs_and_original_phase_stream_re
             result.checks.iter().all(|check| check.satisfied),
             "{:?}",
             result.checks
+        );
+        let claim = |name: &str| {
+            declarations
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+                .as_id()
+        };
+        let permission = |name: &str| {
+            declarations
+                .iter()
+                .find(|row| row.name == name && row.parent_id == Some(selected.declaration_id))
+                .unwrap()
+        };
+        let unknown = permission("unknown_cp");
+        let perry = permission("benzene_liquid_cp_extrapolation");
+        ordinary_delivery_tests::assert_unknown_caloric_interval(
+            &result,
+            claim("feos_interval_unknown"),
+        )?;
+        ordinary_delivery_tests::assert_perry_extrapolation(
+            &result,
+            claim("correlation_range"),
+            selected.declaration_id.as_id(),
+            perry.declaration_id.as_id(),
+        )?;
+        let original_unknown = unknown.value.permission.as_ref().unwrap();
+        assert_eq!(
+            original_unknown.target_kind,
+            ModelingPermissionTarget::Families
+        );
+        assert!(original_unknown.allow_unknown && !original_unknown.allow_extrapolation);
+        assert_eq!(original_unknown.targets.len(), 1);
+        for check in result
+            .checks
+            .iter()
+            .filter(|check| check.claim_id == Some(claim("feos_interval_unknown")))
+        {
+            assert_eq!(
+                check.applicability_outcome,
+                Some(ModelingApplicabilityOutcome::UnknownEvidence)
+            );
+            let authorization = check
+                .applicability_permissions
+                .iter()
+                .find(|authorization| authorization.permission_id == unknown.declaration_id.as_id())
+                .unwrap();
+            assert_eq!(authorization.scope, selected.declaration_id.as_id());
+            assert_eq!(authorization.target_kind, original_unknown.target_kind);
+            assert_eq!(authorization.targets, vec![claim("feos_poling_cp")]);
+            assert!(authorization.allow_unknown && !authorization.allow_extrapolation);
+            assert!(
+                !check.permission_ids.contains(&perry.declaration_id.as_id()),
+                "a Perry record allowance cannot authorize unknown vapor-Cp evidence"
+            );
+        }
+        assert_original_feed_exposure(&result, 1., true);
+        let checked = modeling_checks::Row::rows(&result.table("runtime.modeling_checks")?)?;
+        assert_eq!(
+            checked, result.checks,
+            "complete original qualifier, authorization and exposure facts survive typed readback"
         );
         let scalar = |label: &str| -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
             Ok(result
@@ -409,6 +583,121 @@ async fn ordinary_feed_flash_keeps_published_inputs_and_original_phase_stream_re
                 .ok_or("original case disappeared")?
                 .value,
             original
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn ordinary_feed_flash_excess_actual_throughput_is_rejected_by_frozen_exposure()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    use pse_relations::{columnar::RelationRow as _, generated::runtime::modeling_checks};
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::ordinary_delivery_package(false).await?;
+    let services = runtime.execution_services();
+    let declarations = package.declarations(services.preparation()).await?;
+    for name in [
+        "ordinary_feed_flash_isothermal",
+        "ordinary_feed_flash_isenthalpic",
+    ] {
+        // Strictly beyond capacity+0.001mol/s, while the independent equimolar
+        // component expectations remain within0.001mol/s:0.0015/2=0.00075.
+        // This isolates the exposure premise without discarding authored checks.
+        let excess_flow = 1.0015;
+        let selected = declarations.iter().find(|row| row.name == name).unwrap();
+        let cancel = crate::CancelSource::new();
+        let mut changed = package
+            .declared_execution(
+                services.preparation(),
+                selected.declaration_id,
+                preparation.compiler,
+                pr_jacobian_tests::numerical_solver(crate::math::solves::SolverProfile {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    numerics: pse_model::numerics::NumericalPolicy {
+                        strict_engineering_context: true,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })?,
+                Default::default(),
+                preparation.limits,
+                &cancel,
+            )
+            .await?;
+        // An explicitly re-admitted caller numeric overlay, not a mutation of the
+        // immutable authored fixture or a candidate-dependent capacity estimate.
+        assert_eq!(
+            changed
+                .analysis
+                .case
+                .values
+                .insert("root.unit.flash.inlet.flow".into(), excess_flow),
+            Some(1.)
+        );
+        let DeclaredAlgebraicOutcome::Solve(result) = package
+            .execute_declared(&services, &changed, &cancel)
+            .await?
+        else {
+            return Err(
+                "ordinary excess-flow control must retain its original native solve".into(),
+            );
+        };
+        assert!(
+            !result.accepted,
+            "over-capacity flow cannot retain the original caloric premise"
+        );
+        let crate::math::solves::Outcome::Native(native) = &result.outcome else {
+            return Err("exposure refusal requires an actual native candidate".into());
+        };
+        assert!(native.candidate.is_some());
+        assert_original_feed_exposure(&result, excess_flow, false);
+        let failures = result
+            .checks
+            .iter()
+            .filter(|check| !check.satisfied)
+            .collect::<Vec<_>>();
+        assert!(!failures.is_empty());
+        assert!(
+            failures.iter().all(|check| check
+                .input_values
+                .iter()
+                .any(|value| value.name == "frozen_exposure_bound")),
+            "{failures:?}"
+        );
+        let report = |label: &str| {
+            result
+                .reports
+                .iter()
+                .find(|row| row.label == label)
+                .unwrap()
+                .value
+        };
+        assert!(
+            (report("feed flash liquid flow") + report("feed flash vapor flow") - excess_flow)
+                .abs()
+                <= 0.001
+        );
+        assert!(
+            (report("ordinary feed flash outlet energy")
+                - report("ordinary feed flash inlet energy")
+                - report("feed flash heat duty"))
+            .abs()
+                <= 1.
+        );
+        let readback = modeling_checks::Row::rows(&result.table("runtime.modeling_checks")?)?;
+        assert_eq!(
+            readback, result.checks,
+            "the failed original exposure remains readable with exact attribution"
+        );
+        assert_eq!(
+            package
+                .declarations(services.preparation())
+                .await?
+                .iter()
+                .find(|row| row.declaration_id == selected.declaration_id)
+                .unwrap()
+                .value,
+            selected.value
         );
     }
     Ok(())

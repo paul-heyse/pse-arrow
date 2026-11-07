@@ -847,7 +847,10 @@ fn assert_original_checks(result: &ModelingResult) -> TestResult {
     }
     Ok(())
 }
-fn assert_unknown_caloric_interval(result: &ModelingResult, claim: SemanticId) -> TestResult {
+pub(super) fn assert_unknown_caloric_interval(
+    result: &ModelingResult,
+    claim: SemanticId,
+) -> TestResult {
     let checks = result
         .checks
         .iter()
@@ -975,7 +978,7 @@ fn assert_overheated_contradiction(result: &ModelingResult) -> TestResult {
     );
     Ok(())
 }
-fn assert_perry_extrapolation(
+pub(super) fn assert_perry_extrapolation(
     result: &ModelingResult,
     claim: SemanticId,
     scope: SemanticId,
