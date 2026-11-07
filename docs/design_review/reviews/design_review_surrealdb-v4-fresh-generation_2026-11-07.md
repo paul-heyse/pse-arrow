@@ -1,10 +1,11 @@
 # SurrealDB v4 fresh-generation decision
 
-**Accept-scoped, Interface-checked.** Independent change assessment against
+**Accept-scoped.** Independent change assessment against
 main `9e301a03d` and core 3.4, efficient architecture 1.0, test assessment
-1.2 and process simulator 1.5. The accepted scope is the design of the
-private 68a/68b candidate. Candidate behavior and authoritative deployment
-are open. [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+1.2 and process simulator 1.5. The initial design assessment covered the
+private candidate. The receiving assessment extends the decision to the
+default source and fresh catalogs, with historical v3 state and receipts
+held by their original owners. [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
 
 Plan67's existing regeneration and named-original custody separate durable
 scientific meaning from replaceable catalog layout (AP-03, AP-04, PS-13).
@@ -32,7 +33,12 @@ Use existing tests where their assertions distinguish the required outcome.
 Add a case where a changed consumed contract has a specific coverage gap.
 Actual installed semantics, peer behavior and protected scientific readback
 need the native receiving path. Plan68a/b own candidate results and patch
-dispositions. Plan68e owns assembled recovery and selection. This review
-establishes architectural fitness at the stated scope. Actual runtime
-behavior and performance remain unqualified.
+dispositions. Plan68e owns assembled recovery and selection. Its native
+receiving results exercised the exact private runtime, restart and activation,
+bounded query and Study behavior, and developer fixture disposal. The aqueous
+case completed the scientific and portable readback assertions and then timed
+out in its fixture drain. Plan66 retains that lifecycle obligation. Keep the
+scope to fresh v4 catalogs, with one selected writer and a frozen pre-write
+return route. The existing observations establish no comparative performance
+claim.
 [Plan68](../../plans/68-surrealdb-v4-cutover.md)

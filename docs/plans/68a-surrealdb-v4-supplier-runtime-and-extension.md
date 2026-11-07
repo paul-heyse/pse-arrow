@@ -184,14 +184,16 @@ busy guest and cold-path timeout.
 
 ## Patch decisions and revealing controls
 
-The preparation owner records the final ordered patch set. Use the
-existing tests on the private v4 candidate first. The table identifies
-the behavior each disposition must preserve. Existing assertions that
+The preparation owner records the final ordered patch set. The following
+names identify the superseded v3 inputs in the frozen rollback source.
+Use the existing tests on the private v4 candidate first. The table
+identifies the behavior each disposition must preserve. Existing assertions that
 distinguish that behavior satisfy the row. Add a focused case for a
 changed, consumed contract only when current tests miss the regression.
 A failed test keeps the narrow adapted behavior in the v4 source build
 or blocks private qualification when a conforming port is unavailable.
-[Current patch inventory](../../scripts/surrealdb-source/source-build.md)
+[Current patch inventory](../../scripts/surrealdb-source/source-build.md) ·
+[Frozen v3 source inputs](https://github.com/paul-heyse/pse-arrow/tree/9e301a03dd57d46c0d1e8a4c8135ae9369b9acf1/scripts/surrealdb-source)
 
 | Current input | Proposed v4 disposition and acceptance |
 | --- | --- |
@@ -217,7 +219,7 @@ or blocks private qualification when a conforming port is unavailable.
 | A01 | complete privately | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
 | A02 | in progress | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
 | A03 | in progress | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
-| A04 | planned | A02 and A03 tested replacements, actual consumers identified | Final source patch ledger removes superseded integrations with their consumers and tests. Deliver exact receipts and selected native test evidence to 68e. |
+| A04 | Implemented privately | A02 and A03 tested replacements, actual consumers identified | The candidate source retains the active v4 patches. The frozen v3 source and release remain selectable through the rollback owner. |
 
 ## Verification boundary
 

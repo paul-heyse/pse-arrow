@@ -138,10 +138,19 @@ lost-acknowledgement cases passed. Query controls passed after the graph
 fixture separated its installation from the permission and read assertions.
 The live SurrealKit and scoped evidence controls passed in [68d](68d-surrealdb-v4-developer-and-test-receiving.md#private-candidate-checkpoint--november-7).
 The selected native fit journey passed. The aqueous protected-export run
-reached fixture teardown and exceeded its drain deadline. The exact rerun
-uses the existing async fixture settlement owner after portable assertions.
+completed the scientific, permission and independent Arrow/Protobuf checks.
+Its fixture owner then timed out while draining one canonical connection.
+Explicit test-local joins and final-owner changes reproduced the teardown
+failure. The original test remains intact. Plan66l owns the assembled
+scientific fixture and its remaining lifecycle work. The selected v4
+process, recovery and developer disposal tests completed their own drains.
 
 ### E03 — Select, open writes and release
+
+The isolated pre-write rehearsal selected the exact v4 server, returned to
+the frozen v3 source and receipt, then reselected the same v4 generation.
+The workstation has no default catalog and no active SurrealDB service.
+The historical catalogs and v3 rollback release remain in isolated custody.
 
 Freeze the admitted v3 selection, close old write admission and verify
 physical settlement, including outstanding readers, native operations and
@@ -169,8 +178,8 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
-| E02 | In progress | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Assembled v4 scientific, developer, transport, recovery and physical settlement evidence with matched v3 observations. |
-| E03 | Planned | E02 and governing decision route complete | Verified pre-write rollback and authoritative v4 selection, post-write forward recovery, owner-issued v3 release and removal of replaced paths. |
+| E02 | Platform receiving verified | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Current v4 storage, recovery, developer and query behavior qualified for fresh source selection. The aqueous fixture drain remains with Plan66. |
+| E03 | In progress | Scoped platform receiving and governing decision route | Verify the authoritative v4 source and local default selection. Keep historical v3 custody until its own release conditions hold. |
 
 ## Verification and outcome boundary
 

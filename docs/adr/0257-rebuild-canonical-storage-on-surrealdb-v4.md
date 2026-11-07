@@ -1,14 +1,14 @@
 ---
 id: ADR-0257
 title: Rebuild canonical storage on SurrealDB v4
-status: proposed
+status: accepted
 date: 2026-11-07
 deciders: [paul-heyse]
 level: decision
 principles: [AP-03, AP-04, AP-07, DP-09, DP-15, PS-09, PS-13]
 blueprint: [§3.3, §20.6]
 review: docs/design_review/reviews/design_review_surrealdb-v4-fresh-generation_2026-11-07.md
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: The exact v4 candidate cannot preserve a supported canonical write, receipt or protected-read contract.
@@ -50,8 +50,8 @@ Keeping two production routes would duplicate authority and lifecycle controls.
 
 Use source-built SurrealDB 4.0.0, persistent MX 1.1.0, the matching client
 family and the rebuilt ABI 4 Study extension. Prepare the exact server and
-extension builder together. Regenerate the level-4 catalog in private owned
-state. Adopt native v4 behavior where it preserves the consumed contract.
+extension builder together. Regenerate each default catalog in fresh owned
+level-4 state. Adopt native v4 behavior where it preserves the consumed contract.
 
 ### Consequences
 
@@ -69,7 +69,11 @@ the isolated candidate's tool selection and state private through qualification.
 Use the exact candidate and current fixture owners. Existing tests satisfy the
 behavior they distinguish. Add a focused case only for a changed, consumed
 contract with an uncovered regression, including newly introduced receipt
-fields. Plan68e owns authoritative selection and recovery rehearsal.
+fields. The managed native-service and recovery selections exercised current
+initialization, ingress, actor grants, connection-bound sessions, original
+checkpoint restart and exact activation receipt on the paired private release.
+Plan68e owns authoritative selection. Plan66l owns the remaining aqueous
+fixture teardown and scientific acceptance.
 
 ## Pros and cons
 
@@ -86,3 +90,4 @@ build integration, applicable patch ports and native receiving tests.
 ## Status history
 
 - 2026-11-07 — proposed for the maintainer-authorized private implementation.
+- 2026-11-07 — accepted for fresh default selection and isolated historical custody.

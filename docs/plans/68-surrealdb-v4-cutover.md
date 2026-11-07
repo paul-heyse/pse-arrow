@@ -75,9 +75,9 @@ independent assurance attached to scientific fixtures under PS-13.
   release and contract delta. Address Plan66's explicit v4 exclusion
   through the same decision and a cross-plan amendment. That amendment
   gives Plan68 the platform cutover while leaving the scientific scope
-  and its status with Plan66. ADR-0257 records the proposed decision.
-  The private candidate proceeds under the maintainer's implementation
-  instruction. Formal acceptance and authoritative selection remain separate.
+  and its status with Plan66. ADR-0257 records the scoped fresh-default
+  decision. Plan68e records authoritative selection separately from the
+  private receiving evidence.
   [Decision rules](../../.claude/rules/decisions.md#when-an-adr-is-required) ·
   [Existing MX rationale](../adr/0214-surrealmx-canonical-store.md)
 

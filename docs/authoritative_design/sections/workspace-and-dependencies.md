@@ -248,8 +248,9 @@ unwinds; an unwinding failure cannot cross a foreign ABI.
 ### 3.3 Supporting libraries and their boundaries
 
 > Decision: [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
-> (proposed). The private Plan68 candidate aligns the source-built server,
-> MX, client, parser and Study extension on the v4 release family.
+> The default source-built release is SurrealDB 4.0.0 with MX 1.1.0,
+> protocol 0.14.1 and the ABI 4 Study extension. The client and parser
+> consume the exact matching release family.
 
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
