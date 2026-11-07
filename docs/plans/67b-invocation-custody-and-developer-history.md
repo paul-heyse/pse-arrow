@@ -83,7 +83,7 @@ pilot. Existing scoped SurrealDB fixtures keep their native lifecycle and curren
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | B01 | complete | Current capture, report and Plan66 C/E/F owners | Select active custody per consumer and retain the original working report and rerun boundary. |
-| B02 | in-progress | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
+| B02 | complete | B01 active custody and working settlement interface | Verified foreground and detached helper custody, exact release after drain, and original readback and fresh rerun after target clean. |
 | B03 | deferred | A concrete future consumer and separate decision | Structured history pilot withdrawn under the November 7 regeneration decision. |
 | B04 | deferred | A concrete future consumer and separate decision | Persistent history triage and expiry withdrawn. Current-inventory rerun remains in B02. |
 
@@ -117,8 +117,24 @@ after their original fixture settlement is verified. The original report and inv
 stay independently readable. Native controls exercised an unobserved detached run and
 both foreground and detached enclosing owners, including refusal to release while borrowed
 work was live. The SurrealKit suite exercised its private database and ordinary inventory
-images. It produced no `workflow/fixtures` helper capture. The separate runner-borrowed
-canonical helper journey remains necessary.
+images. It produced no `workflow/fixtures` helper capture.
+
+**Tested.** The separate exact runner-borrowed canonical staging case passed in
+foreground mode and with `pse test pse-operations --lib --detach` after the scenario
+feature cutover. The first detached qualification exposed a placement refusal
+before the fixture ran. The native manager now binds children to the actual slice
+of an authenticated foreground scope or original detached notify service and
+rechecks original identity, capacity, and the cgroup before dispatch. In the
+corrected detached run, the two live canonical helpers contained 676,929,696 bytes.
+The original fixture recorded exit zero and complete settlement. Both images
+and sidecars and the private database directory were absent after native drain.
+The original inventory, helper build receipt and report remained readable.
+
+The real notify service control exercised the bound child and its original teardown.
+The detached lifetime control verified original drain after retiring the collected
+controller's executable. A disposable checkout separately verified identical
+original failure readback and a passing exact current rerun after target clean.
+[Worktree verification](67e-resource-retirement-and-storage-verification.md)
 
 A failed Cargo discovery may publish a valid compiler capture before it can publish a
 complete test inventory. The owner uses the original report commitment and exact compiler

@@ -214,3 +214,16 @@ an end-to-end edit, compilation and executed-test measurement.
 Build measurements remain separate from product qualification. Cache reuse cannot substitute
 for current source, native-byte and executed-test evidence. Native fixture and retained
 invocation artifacts keep their original ownership; this guide grants no disposal authority.
+
+## Disposable compatibility campaigns
+
+Record the exact source revision, Cargo feature and target selection, and provider profile.
+Use a dedicated checkout when the campaign compiles substantially different configurations
+from ordinary work. Its own target retains useful Cargo freshness between compatible campaign
+runs, and the shared sccache restores eligible compiler outputs. Keep compact conclusions
+with the campaign's authored selection so the original workload can be run again.
+
+After the campaign settles, use the [worktree closeout](agent-environment.md#worktrees) for
+its checkout and exact externally placed state. Keep any current published results under
+their own owner. The split `build.build-dir` control produced extra intermediates without
+an observed ordinary-loop advantage. The checkout-local target remains the usual layout.

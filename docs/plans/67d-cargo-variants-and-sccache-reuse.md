@@ -183,7 +183,7 @@ until the relevant toolchain has a real consumer.
 |---|---|---|---|
 | D01 | in-progress | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
 | D02 | in-progress | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
-| D03 | in-progress | Managed 0.19.0 and stable representative selections. Timing can begin before D02 rollout. | Truthful managed-route configuration and stats, representative metadata and large-entry restoration, changed-input and fallback controls, and recorded timings. |
+| D03 | complete | Managed 0.19.0 and stable representative selections. | Metadata recovery, changed-input and fallback controls, and actual large-entry restoration on the selected managed daemon. D02 owns verification-lane adoption. |
 | D04 | complete | Native owner and representative command context | Verified existing provider preparation and native object restoration. Keep direct preprocessing disabled after the negative-header controls. |
 | D05 | complete | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Verified private disk/WebDAV promotion and failure behavior. Defer deployment until a named compatible consumer shows representative transfer and recovery savings. |
 
@@ -300,6 +300,36 @@ Rust hit and zero cache write errors. They restored the 56,889,532-byte rlib and
 27,866,942-byte metadata byte-for-byte and wrote local dep-info matching after
 normalizing the output directory. These timings isolate the selected compiler
 command. The representative verification campaign still governs D02.
+
+**Measured.** The disposable checkout ran three pairs per mode of
+`pse check pse-diagnostics --lib --no-default-features --timings` and the matching
+`pse test` selecting `process_facts_live_identity_and_missing_are_explicit`.
+All twelve invocations passed and settled. After the first build in each mode,
+the default Cargo check phases took 0.98–2.79 seconds and the non-incremental phases
+took 0.91–0.94 seconds. The corresponding test build phases took 1.36–1.64 and
+1.34–1.37 seconds. On the same authored source edit, the check phases took 1.25
+and 2.23 seconds and the test build phases took 1.91 and 4.96 seconds. Concurrent
+work varied during this control. The representative operations selection and the
+full compatibility matrix remain separate. These observations do not justify
+changing the ordinary default.
+
+The no-default split-directory control used the same checkout and scoped correctness
+adapter with explicit `build.build-dir`. Its check passed, writing 188,219,392
+allocated bytes of separate intermediates and taking 7.52 seconds in Cargo.
+The checkout-local default retains its existing freshness. The trial uses the
+checkout retirement boundary for the separate intermediates.
+
+**Interface-checked.** The current admitted test graphs separate these compilation
+contexts. The pinned cargo-shear scan supplied review candidates, including
+generated source links and a direct dependency that needs macro/source confirmation.
+
+| Compiler selection | Units before → current | Actual difference |
+|---|---:|---|
+| Operations ordinary library | 498 → 498 | One default, force-validated context serves the former scenario gate. |
+| Operations native and maintenance targets | 819 → 819 | Native service and maintenance linkage remains explicit. |
+| Runtime native study | 1,129 → 1,120 | The real solver/native-service library test selection replaces the integration target and test-only feature context. |
+| Runtime ordinary scientific and PID cases | 1,099 → 1,099 and 1,084 → 1,084 | The in-process authored input avoids the separate builder stage. The independent PID reference remains. |
+| Standalone native lane | 1,142 → 1,142 | The lane keeps its genuine executable boundary while dropping builder-specific xtask features. |
 
 An isolated PETSc 3.24.0 configuration used the authenticated archive and repository patch,
 the selected GCC and MKL file digests, and the native owner's configure flags. The actual

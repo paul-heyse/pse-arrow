@@ -150,11 +150,11 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
-| E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
+| E02 | complete | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal, exact external release and retry, and R-56 deferred. |
 | E03 | in-progress | Existing resource ownership and current use | Purpose-bound scratch, stores and campaigns release through their original owners. Preserve authored selections for regeneration. |
 | E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
 | E05 | complete | E03 release semantics and exact current unit identity | Verified legacy fragments and enablement links retired. Native fixture teardown and persistent telemetry keep their separate owners. |
-| E06 | planned | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
+| E06 | in-progress | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
 
 ## Acceptance
 
@@ -198,7 +198,21 @@ Worktree creation and listing now project the original checkout, Git administrat
 available target and state directory identities. An ordinary Git remove and recreate control
 verified that the path-derived checkout ID can repeat while the checkout and Git
 administration directory identities differ. The existing state stays associated with its
-original resource owners. The worktree journey with external owner closeout remains in E06.
+original resource owners.
+
+**Tested.** A disposable linked checkout ran the compatibility controls, an explicitly
+cancelled live checkout borrower, and a controlled exact test failure. The pre-clean
+native inventory verified the selected original checkout users drained. Cargo clean
+removed the checkout target, whose measured allocation was 25,762,922,496 bytes.
+The surviving checkout read the same original failed-test payload, and fresh
+`pse test --rerun-failed` rebuilt and passed that exact test with complete settlement.
+Ordinary Git removal refused the dirty control. The external release refused a
+recreated path with the same checkout ID and a different administration incarnation.
+After removing that checkout, the exact release resumed after a partial batch and
+retired 21 original invocation trees totaling 70,529,024 allocated bytes. It retained
+one failed fixture record with incomplete service settlement and 1,559,404,544 bytes
+in its external state. The worktree and its temporary branch were removed.
+The observed release did not require a composite removal command under R-56.
 
 The authored probe owner can preview or release only its exact regenerable Cargo target
 under its existing lease. The release rechecks the original drain and directory identity,
@@ -206,6 +220,16 @@ preserves authored source and run records, and handles an already absent target.
 native host tools reuse a verified selected generation under unchanged inputs. Reimporting
 an already selected SurrealDB release verifies supplied bytes without creating a second
 staging copy. Other generation and campaign retirement owners remain in scope.
+
+**Tested.** `pse api pse-diagnostics --prepare` committed the rustdoc artifact
+and retired its private Cargo target after original foreground settlement.
+`pse search api Diagnostic --artifact` read that exact publication and its
+digest matched the original result. A separate acquisition borrowed a live
+enclosing scope. `pse api pse-diagnostics --retire-build` refused until the
+enclosing scope drained. Exact release removed 160,129,024 allocated bytes
+at recheck, left the artifact readable, and a repeated preview found the
+target absent. The same release keeps authored probe inputs under their
+existing owner.
 
 The exact owned SurrealKit test ran twice under the same selection. Both passed with
 complete settlement. Both original report and inventory pairs remained readable,
@@ -239,3 +263,19 @@ The release removed 29,886,689,280 allocated bytes. The native reader independen
 the current capsule and native lane afterward. Five older preparations and four generations
 without a complete original preparation were held. The remaining retirement classes still
 need their own owner paths.
+
+**Measured.** Rechecked two exact legacy tool releases against their original
+source-build records and the independently selected native installations. Retired
+2,235,748,352 allocated bytes of Surreal build intermediates and 566,894,592
+allocated bytes of SurrealKit build intermediates. The selected native server
+and SurrealKit verified afterward. The original executables and source lockfiles
+remain available for recovery. The held-generation inventory records current
+providers, referenced module receipts, and protected or unresolved deployed
+worker material separately.
+
+The native host retirement owner authenticated original generation references across
+registered and unregistered checkout ledgers. Its exact release retired five
+superseded generations with 4,391,522,304 allocated bytes. The current generation
+verified afterward, and all five release tokens returned already absent on retry.
+The current provider and deployment inventories preserve their independently
+protected or unresolved material.
