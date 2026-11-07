@@ -151,7 +151,7 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 |---|---|---|---|
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | complete | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal, exact external release and retry, and R-56 deferred. |
-| E03 | in-progress | Existing resource ownership and current use | Purpose-bound scratch, stores and campaigns release through their original owners. Preserve authored selections for regeneration. |
+| E03 | complete | Existing resource ownership and current use | Scratch and named-store dispositions use their original owners. Current controls cover live borrowers, locks, interrupted publication and disposal retry. E06 records final campaign allocation. |
 | E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
 | E05 | complete | E03 release semantics and exact current unit identity | Verified legacy fragments and enablement links retired. Native fixture teardown and persistent telemetry keep their separate owners. |
 | E06 | in-progress | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
@@ -344,9 +344,8 @@ concurrent publication collision. Under its original supervisor lock, each stagi
 manifest and all declared file digests matched one of two published generations.
 The release checked the original server process, local process file use, store
 records, service fragments, mount and directory identities. Both published manifests
-and the database and payload directory identities verified after release. The remaining
-published worker generations occupy 10,043,052,032 allocated bytes and need their own
-selection and rollback disposition.
+and the database and payload directory identities verified after release. At that point,
+the published worker generations occupied 10,043,052,032 allocated bytes.
 
 The historical worker-generation census found one small generation selected by the
 legacy store, seven referenced by older receiver or profile records, and nine with unresolved
@@ -366,3 +365,50 @@ keyring scopes. The release removed the original autostart link and fragment, re
 user manager, and verified the unit and directory were absent. `du -B1 -x -s` measured
 10,200,793,088 allocated bytes. Filesystem availability rose by 9,914,994,688 bytes while
 other work was active. Current lifecycle qualification uses Plans 66–68 and current owners.
+
+### Current checkout and generation controls
+
+**Tested.** Linked-checkout inventory exposed two spellings of the same Git administration
+directory. The registration check now resolves both before comparing the paths.
+`pse test pse-host --lib -E 'test(worktree::tests::)'` passed seven cases with zero failures
+and complete settlement on the pinned toolchain. `pse worktree list --format json` from
+main and from the linked engineering checkout reported the same four registrations with
+complete coverage. The linked-checkout test also checks non-UTF-8 path bytes.
+
+**Measured.** The current host generation owner previewed and released one exact
+superseded generation with 880,726,016 allocated bytes using `pse tools retire-host`.
+The original release selection reported already absent on retry. Preview of the selected
+generation reported its selection and original borrower protections. `pse-host server select`
+and `pse fixture show study-module` returned identical payloads before and after the release.
+The current native server has one published generation. Each of the seven observed native
+provider staging directories and the server staging directory contained only its directory
+allocation. Differently keyed published provider generations require positive evidence
+about compiled consumers before release.
+
+### Current scratch and store controls
+
+**Tested.** `pse test pse-operations --lib --features native-service,canonical-maintenance`
+selected four original-owner controls on the pinned toolchain. All four passed with zero
+failures and complete settlement. The file owner refused an offline operation with a live
+borrower, refused collection under an unknown or held lock, and resumed the same protected
+transfer after interruption before and after publication. The native service owner returned
+the same private state on failed disposal and completed the exact retry. The retained-reader
+and actual fixture disposal controls from [67c](67c-surrealkit-and-rust-test-consolidation.md)
+already exercise the live database boundary. The ad hoc scratch, API acquisition, and compiler
+crash-output controls above establish their separate ownership and closeout paths.
+
+### Current compatibility checkout round trip
+
+**Tested.** The dedicated PID compatibility checkout finished with both
+original test invocations settled and natively drained. Its branch was clean and its
+HEAD was an ancestor of main. The original registration and backing mount matched
+the retirement preview. Ordinary `git worktree remove` removed the
+checkout and registration. Exact external release stopped after the first invocation,
+then resumed from the same original selection and removed the second. A repeated
+release reported the state already absent.
+The compact result of the independent test is recorded in [67c](67c-surrealkit-and-rust-test-consolidation.md).
+
+**Measured.** A single physical allocation scan measured 32,335,917,056 bytes in the
+Cargo target, 471,621,632 bytes in the rest of the checkout, and 15,945,728 bytes in
+external state. Filesystem availability rose by
+32,623,181,824 bytes during the closeout while other builds were active.

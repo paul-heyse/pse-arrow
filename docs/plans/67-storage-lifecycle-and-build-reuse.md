@@ -87,7 +87,7 @@ reclamation have separate evidence.
 |---|---|---|
 | O01 | Planned | E verifies allocated footprint and release after repeat workflows. A records the incident's actual result. |
 | O02 | Planned | B replaces per-run retained executable copies with active custody and selected evidence. |
-| O03 | Planned | E defines checkout and store identity, preview and release. A consolidates the existing worktrees. |
+| O03 | Resolved | E verified checkout and store identity, exact release, and retry. A consolidated the existing worktrees. E06 owns the assembled allocation comparison. |
 | O04 | Planned | E applies owner-issued release and reports active, eligible and unresolved holdings. |
 | O05 | Planned | C migrates database contract suites and application test constructs. |
 | O06 | Planned | E retires selected generations, redundant intermediates and proven unused service fragments. |
@@ -125,8 +125,8 @@ choice. [67e](67e-resource-retirement-and-storage-verification.md)
 records the ordinary Git retirement journey, owner-issued release and footprint observations.
 
 The remaining work includes the standalone native-lane, independent PID oracle and engineering
-verification in C, recurring scratch and named-store retirement, published-generation retirement,
-and assembled scope-end qualification. Keep each open obligation in its companion.
+verification in C, current published-generation disposition and assembled scope-end
+qualification. Keep each open obligation in its companion.
 
 ## Completion
 

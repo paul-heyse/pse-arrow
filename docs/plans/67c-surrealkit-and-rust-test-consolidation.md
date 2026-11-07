@@ -246,10 +246,25 @@ retained executable copies after settlement.
 
 The exact `pse test xtask --target-kind bin -F physical-admission` scientific-input
 selection passed all seven cases with complete settlement and no retained executables.
-Standalone native-lane readiness and the absent preparation refusal were checked. The
-standalone real prepare, repeated prepare, and executing consumer remain open on the
-current source. The PID exchange compiled and its independent Python oracle execution
-remains open. Scope-end qualification still covers the full consumer population.
+Standalone native-lane readiness and the absent preparation refusal were checked.
+Scope-end qualification still covers the full consumer population.
+
+**Measured.** The dedicated standalone checkout ran the native `fixture prepare native-lane`
+and `fixture show native-lane` twice under the same compiler, KLU, solver and isolation
+selections. Both preparations settled and returned the same selection, receipt, executable
+digest and build evidence. The private preparation occupied 1,135,927,296 allocated bytes
+on both reads. The standalone consumer remains a separate acceptance item.
+
+**Tested.** The dedicated PID checkout ran
+`pse test pse-runtime:reference_pid_exchange --target-kind test -F solver-diffsol` selecting
+`native_pi_loop_matches_petsc_and_exact_response_and_rejects_bad_populations`.
+The first discovery build settled after one pinned rustc LLVM failure. The same
+selection passed on retry with zero failures and complete settlement, using the
+independent CPython 3.13.15, IDAES 2.13.0 and PETSc environment and the current authored
+in-process Rust input. Arrow validation was active. The original selected test exercised
+the PETSc and exact-response comparisons and the invalid-population assertions. Its
+settled working report and inventory occupied 8,204,288 allocated bytes and retained
+zero executable captures or physical database copies.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and
