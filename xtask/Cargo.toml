@@ -188,7 +188,6 @@ miette.workspace = true
 [dev-dependencies]
 protovalidate-buffa-protos.workspace = true
 futures-util.workspace = true
-pse-operations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
 
 [[package.metadata.pse.test-fixtures]]

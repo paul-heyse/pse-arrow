@@ -8,6 +8,7 @@ mod physical;
 
 mod code_intelligence;
 #[cfg(any(
+    test,
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts"
