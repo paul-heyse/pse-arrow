@@ -14,11 +14,11 @@ tokio::task_local! {
     static CONTINUATION: ConnectionActivity;
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 thread_local! {
     static MINT_PAUSE:std::cell::RefCell<Option<Arc<std::sync::Barrier>>>=const{std::cell::RefCell::new(None)};
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn pause_next_caller_mint(barrier: Arc<std::sync::Barrier>) {
     MINT_PAUSE.with(|pause| *pause.borrow_mut() = Some(barrier));
 }
@@ -228,7 +228,7 @@ impl ConnectionAccess {
         if state.phase != Phase::Open {
             return Err(CanonicalError::ConnectionUnavailable);
         }
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         MINT_PAUSE.with(|pause| {
             let barrier = pause.borrow_mut().take();
             if let Some(barrier) = barrier {
@@ -301,7 +301,7 @@ impl PhysicalLifetime {
         state.phase = Phase::Closing;
         true
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn caller_mint_holds_admission(&self) -> bool {
         matches!(
             self.state.try_lock(),

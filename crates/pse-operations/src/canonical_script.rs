@@ -363,12 +363,12 @@ fn bind_selection(
 
 /// Render source-owned bodies through the actual envelope owner for deliberate
 /// peer/race fixtures that operate on an already held native transaction.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn test_script_sql(body: &str, expression: &str) -> Result<String, CanonicalError> {
     Ok(test_script::<Value>(body, expression)?.into_parts().0)
 }
 /// Fixture bodies retain the same typed framing, bindings and result slot as production.
-#[cfg(any(feature = "test-support", all(test, feature = "canonical-tests")))]
+#[cfg(any(test, feature = "test-support"))]
 pub(crate) fn test_script<T>(
     body: &str,
     expression: &str,

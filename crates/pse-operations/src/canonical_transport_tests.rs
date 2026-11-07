@@ -7,7 +7,6 @@ use std::{
     time::{Duration, Instant},
 };
 use surrealdb_types::Value;
-#[cfg(feature = "canonical-tests")]
 use tokio::sync::mpsc;
 #[path = "canonical_grpc_peer.rs"]
 mod peer;
@@ -763,7 +762,6 @@ async fn grpc_restoration_uses_original_clock_and_retains_complete_ack_snapshot_
         .unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 pub(crate) async fn canonical_read_barrier_peer() -> (
     crate::canonical::CanonicalStore,
     mpsc::UnboundedReceiver<String>,
@@ -939,7 +937,6 @@ async fn canonical_complete_read_never_retries_nonconflict_or_incomplete_protoco
     }
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn source_stage_failed_acquisition_retains_both_causes_under_direct_and_project_clocks() {
     use crate::canonical::{CanonicalError, Revision};

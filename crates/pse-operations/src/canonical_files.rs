@@ -457,7 +457,7 @@ impl FileSession {
             owner: tokio::sync::Mutex::new(None),
         })
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn wire_control() -> Result<Self, CanonicalError> {
         Ok(Self {
             incarnation: uuid::Uuid::new_v4().to_string(),

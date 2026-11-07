@@ -16,7 +16,6 @@ pub(super) struct Peer {
     pub address: std::net::SocketAddr,
     pub received: mpsc::UnboundedReceiver<String>,
     pub methods: mpsc::UnboundedReceiver<String>,
-    #[cfg(feature = "canonical-tests")]
     pub requests: mpsc::UnboundedReceiver<(std::time::Instant, rpc::QueryRequest)>,
     pub release: Arc<Semaphore>,
     pub server: tokio::task::JoinHandle<()>,
@@ -276,7 +275,6 @@ pub(super) async fn start_generations(generations: usize) -> Peer {
 pub(super) async fn start_with_restore_delay(generations: usize, delay: bool) -> Peer {
     start_scripted(generations, delay, None, false).await
 }
-#[cfg(feature = "canonical-tests")]
 pub(super) async fn start_source_stage_fault(pending_readback: bool) -> Peer {
     start_scripted(1, false, Some(pending_readback), false).await
 }
@@ -293,7 +291,6 @@ async fn start_scripted(
     let address = listener.local_addr().unwrap();
     let (sent, received) = mpsc::unbounded_channel();
     let (methods_sent, methods) = mpsc::unbounded_channel();
-    #[cfg(feature = "canonical-tests")]
     let (requests_sent, requests) = mpsc::unbounded_channel();
     let release = Arc::new(Semaphore::new(0));
     let peer_release = release.clone();
@@ -305,7 +302,6 @@ async fn start_scripted(
             let (socket, _) = listener.accept().await.unwrap();
             let sent = sent.clone();
             let methods_sent = methods_sent.clone();
-            #[cfg(feature = "canonical-tests")]
             let requests_sent = requests_sent.clone();
             let peer_release = peer_release.clone();
             let barrier = barrier.clone();
@@ -314,7 +310,6 @@ async fn start_scripted(
             let service = hyper::service::service_fn(
                 move |request: http::Request<hyper::body::Incoming>| {
                     let methods_sent = methods_sent.clone();
-                    #[cfg(feature = "canonical-tests")]
                     let requests_sent = requests_sent.clone();
                     let sent = sent.clone();
                     let release = peer_release.clone();
@@ -363,7 +358,6 @@ async fn start_scripted(
                             }),
                             "Query" => {
                                 let request = rpc::QueryRequest::decode(payload).unwrap();
-                                #[cfg(feature = "canonical-tests")]
                                 let _ = requests_sent
                                     .send((std::time::Instant::now(), request.clone()));
                                 let canonical_probe=request.variables.as_ref().is_some_and(|variables|variables.variables.iter().any(|entry|
@@ -691,7 +685,6 @@ async fn start_scripted(
         address,
         received,
         methods,
-        #[cfg(feature = "canonical-tests")]
         requests,
         release,
         server,

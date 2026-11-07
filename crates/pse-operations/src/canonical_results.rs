@@ -59,7 +59,7 @@ struct FailedCapture {
     _metadata_owner: Option<crate::transport::client::ResponseAllocation>,
 }
 impl ResultReadDrain {
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn live(&self) -> usize {
         self.live.load(std::sync::atomic::Ordering::SeqCst)
     }

@@ -17,7 +17,7 @@ use std::{
 };
 use surrealdb_types::{Object, SurrealValue};
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "canonical_lifetime_peer_tests.rs"]
 mod lifetime_tests;
 #[cfg(test)]
