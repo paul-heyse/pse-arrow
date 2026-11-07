@@ -1028,7 +1028,7 @@ impl RunResult {
                 });
             }
         }
-        self.capture_fit_member_permissions(&mut product, attempt)?;
+        self.capture_member_permissions(&mut product, attempt)?;
         self.capture_product_permissions(&mut product);
         Ok(product)
     }

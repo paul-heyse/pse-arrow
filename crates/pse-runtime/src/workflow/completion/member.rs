@@ -3,8 +3,8 @@
 //! Original whole-member permission; descriptive observations cannot mint native custody.
 use super::{Completion, ScientificPermission};
 use crate::workflow::{
-    FitExperimentAssessmentState, ModelingSimulation, RunDurability, RunOutcome, RunResult,
-    WorkflowError,
+    FitExperimentAssessmentState, ModelingSimulation, ModelingTrajectory, RunDurability,
+    RunOutcome, RunResult, WorkflowError,
 };
 use pse_model::generated::{
     enums::{CandidateRefusal, CandidateUse},
@@ -14,10 +14,49 @@ use std::sync::Arc;
 
 #[derive(Debug)]
 struct MemberCustody {
-    report: Arc<pse_backend_native::dynamics::Report>,
-    assessment: Arc<crate::workflow::fitting::TrajectoryAssessment>,
-    _result: Option<Arc<pse_columnar::AllocationLease>>,
+    native: NativeMember,
     _metadata: Arc<pse_columnar::AllocationLease>,
+}
+
+#[derive(Debug)]
+enum NativeMember {
+    Fit {
+        report: Arc<pse_backend_native::dynamics::Report>,
+        assessment: Arc<crate::workflow::fitting::TrajectoryAssessment>,
+        _result: Option<Arc<pse_columnar::AllocationLease>>,
+    },
+    Simulation(ModelingTrajectory),
+}
+impl NativeMember {
+    fn report(&self) -> &pse_backend_native::dynamics::Report {
+        match self {
+            Self::Fit { report, .. } => report,
+            Self::Simulation(trajectory) => trajectory.report(),
+        }
+    }
+    fn completion(&self) -> &crate::workflow::numerics::Completed {
+        match self {
+            Self::Fit { assessment, .. } => &assessment.completion,
+            Self::Simulation(trajectory) => trajectory.completion(),
+        }
+    }
+}
+
+fn permission_bytes(local: &crate::workflow::numerics::Completed) -> Option<usize> {
+    (local.decision.refusals.len().checked_add(1)?)
+        .checked_mul(size_of::<CandidateRefusal>())?
+        .checked_add(
+            local
+                .decision
+                .qualifiers
+                .len()
+                .checked_mul(size_of::<pse_model::generated::enums::CandidateQualifier>())?,
+        )?
+        .checked_add(
+            size_of::<MemberScientificPermission>()
+                + size_of::<MemberCustody>()
+                + 2 * size_of::<usize>(),
+        )
 }
 
 pse_contract::projection_struct! {
@@ -75,6 +114,23 @@ impl MemberScientificPermission {
     pub fn permits_result(&self) -> bool {
         self.has_native_proof() && self.permission.permits_result()
     }
+    /// Compare recorded original identity only. This neither requires nor issues live proof.
+    pub(in crate::workflow) fn records_original(
+        &self,
+        run_id: RunId,
+        attempt_id: Option<AttemptId>,
+        member: InstanceId,
+        source: pse_ids::ContentHash,
+        physical: pse_ids::ContentHash,
+        preparation: pse_ids::ContentHash,
+    ) -> bool {
+        self.run_id == run_id
+            && self.attempt_id == attempt_id
+            && self.member == member
+            && self.source == source
+            && self.physical == physical
+            && self.preparation == preparation
+    }
     pub(super) fn native_permission(&self) -> Option<&ScientificPermission> {
         self.custody.as_ref().map(|_| &self.permission)
     }
@@ -86,29 +142,138 @@ impl MemberScientificPermission {
         report: &Arc<pse_backend_native::dynamics::Report>,
         assessment: &Arc<crate::workflow::fitting::TrajectoryAssessment>,
     ) -> bool {
+        self.matches_context(producer, member, source)
+            && self
+                .custody
+                .as_ref()
+                .is_some_and(|custody| match &custody.native {
+                    NativeMember::Fit {
+                        report: original,
+                        assessment: local,
+                        ..
+                    } => Arc::ptr_eq(original, report) && Arc::ptr_eq(local, assessment),
+                    NativeMember::Simulation(_) => false,
+                })
+    }
+    fn matches_context(
+        &self,
+        producer: &RunResult,
+        member: InstanceId,
+        source: &ModelingSimulation,
+    ) -> bool {
         let attempt = match producer.durability() {
             RunDurability::Ephemeral => None,
             RunDurability::Durable(record) => Some(record.attempt_id),
         };
-        self.run_id == producer.run_id
-            && self.attempt_id == attempt
-            && self.member == member
-            && self.source == source.source.revision.identity().as_id()
-            && self.physical == source.source.physical.identity()
-            && self.preparation == source.identity()
-            && source.solved.instance() == member
-            && self.custody.as_ref().is_some_and(|custody| {
-                Arc::ptr_eq(&custody.report, report) && Arc::ptr_eq(&custody.assessment, assessment)
-            })
+        self.records_original(
+            producer.run_id,
+            attempt,
+            member,
+            source.source.revision.identity().as_id(),
+            source.source.physical.identity(),
+            source.identity(),
+        ) && source.solved.instance() == member
+    }
+    pub(in crate::workflow) fn matches_simulation(
+        &self,
+        producer: &RunResult,
+        trajectory: &ModelingTrajectory,
+    ) -> bool {
+        let RunOutcome::Simulation {
+            request,
+            result: Ok(original),
+        } = &producer.outcome
+        else {
+            return false;
+        };
+        trajectory.run_id() == producer.run_id
+            && original.same_original(trajectory)
+            && trajectory.matches_preparation(request)
+            && self.matches_context(producer, request.solved.instance(), request)
+            && self
+                .custody
+                .as_ref()
+                .is_some_and(|custody| match &custody.native {
+                    NativeMember::Simulation(retained) => retained.same_original(trajectory),
+                    NativeMember::Fit { .. } => false,
+                })
+    }
+    fn capture(
+        run_id: RunId,
+        attempt_id: Option<AttemptId>,
+        source: &ModelingSimulation,
+        succeeded: bool,
+        native: NativeMember,
+        owner: Arc<pse_columnar::AllocationLease>,
+    ) -> Self {
+        let local = native.completion();
+        let mut refusals = Vec::with_capacity(local.decision.refusals.len() + 1);
+        refusals.extend_from_slice(&local.decision.refusals);
+        if !succeeded && !refusals.contains(&CandidateRefusal::NativeOutcome) {
+            refusals.push(CandidateRefusal::NativeOutcome);
+        }
+        Self {
+            run_id,
+            attempt_id,
+            member: source.solved.instance(),
+            source: source.source.revision.identity().as_id(),
+            physical: source.source.physical.identity(),
+            preparation: source.identity(),
+            permission: ScientificPermission {
+                reference_point: None,
+                step: None,
+                requested: source.profile().samples.len(),
+                observed: native.report().coverage.produced(),
+                report_succeeded: succeeded,
+                decision: if succeeded {
+                    local.decision.usability
+                } else {
+                    CandidateUse::Unusable
+                },
+                refusals,
+                qualifiers: local.decision.qualifiers.clone(),
+            },
+            custody: Some(Arc::new(MemberCustody {
+                native,
+                _metadata: owner,
+            })),
+        }
     }
 }
 
 impl RunResult {
-    pub(super) fn capture_fit_member_permissions(
+    pub(super) fn capture_member_permissions(
         &self,
         completion: &mut Completion,
         attempt_id: Option<AttemptId>,
     ) -> Result<(), WorkflowError> {
+        if let RunOutcome::Simulation {
+            request,
+            result: Ok(trajectory),
+        } = &self.outcome
+        {
+            if trajectory.run_id() != self.run_id || !trajectory.matches_preparation(request) {
+                return Ok(());
+            }
+            let bytes = permission_bytes(trajectory.completion())
+                .ok_or_else(|| crate::workflow::contract("original member permission extent"))?;
+            let owner = self
+                .services
+                .preparation()
+                .math()
+                .reserve("completion:original-member-permission", bytes)?;
+            completion.member_permissions = vec![MemberScientificPermission::capture(
+                self.run_id,
+                attempt_id,
+                request,
+                trajectory.report().error.is_none()
+                    && trajectory.validation_error().is_none()
+                    && trajectory.checks_complete(),
+                NativeMember::Simulation(trajectory.as_ref().clone()),
+                owner,
+            )];
+            return Ok(());
+        }
         let RunOutcome::Fit {
             request,
             result: Ok(report),
@@ -132,20 +297,9 @@ impl RunResult {
         };
         let (count, bytes) = selected()
             .try_fold((0usize, 0usize), |(count, bytes), (_, _, _, local, _)| {
-                let dynamic = (local.completion.decision.refusals.len() + 1)
-                    .checked_mul(size_of::<CandidateRefusal>())?
-                    .checked_add(local.completion.decision.qualifiers.len().checked_mul(
-                        size_of::<pse_model::generated::enums::CandidateQualifier>(),
-                    )?)?;
                 Some((
                     count.checked_add(1)?,
-                    bytes
-                        .checked_add(
-                            size_of::<MemberScientificPermission>()
-                                + size_of::<MemberCustody>()
-                                + 2 * size_of::<usize>(),
-                        )?
-                        .checked_add(dynamic)?,
+                    bytes.checked_add(permission_bytes(&local.completion)?)?,
                 ))
             })
             .ok_or_else(|| crate::workflow::contract("original member permission extent"))?;
@@ -158,42 +312,21 @@ impl RunResult {
             .math()
             .reserve("completion:original-member-permission", bytes)?;
         let mut permissions = Vec::with_capacity(count);
-        for (member, source, state, local, trajectory) in selected() {
+        for (_, source, state, local, trajectory) in selected() {
             let succeeded =
                 state == FitExperimentAssessmentState::Completed && trajectory.error.is_none();
-            let mut refusals = Vec::with_capacity(local.completion.decision.refusals.len() + 1);
-            refusals.extend_from_slice(&local.completion.decision.refusals);
-            if !succeeded && !refusals.contains(&CandidateRefusal::NativeOutcome) {
-                refusals.push(CandidateRefusal::NativeOutcome);
-            }
-            permissions.push(MemberScientificPermission {
-                run_id: self.run_id,
+            permissions.push(MemberScientificPermission::capture(
+                self.run_id,
                 attempt_id,
-                member,
-                source: source.source.revision.identity().as_id(),
-                physical: source.source.physical.identity(),
-                preparation: source.identity(),
-                permission: ScientificPermission {
-                    reference_point: None,
-                    step: None,
-                    requested: source.profile().samples.len(),
-                    observed: trajectory.coverage.produced(),
-                    report_succeeded: succeeded,
-                    decision: if succeeded {
-                        local.completion.decision.usability
-                    } else {
-                        CandidateUse::Unusable
-                    },
-                    refusals,
-                    qualifiers: local.completion.decision.qualifiers.clone(),
-                },
-                custody: Some(Arc::new(MemberCustody {
+                source,
+                succeeded,
+                NativeMember::Fit {
                     report: trajectory.clone(),
                     assessment: local.clone(),
                     _result: self._owner.clone(),
-                    _metadata: owner.clone(),
-                })),
-            });
+                },
+                owner.clone(),
+            ));
         }
         completion.member_permissions = permissions;
         Ok(())

@@ -362,6 +362,41 @@ impl ModelingTrajectory {
     pub fn report(&self) -> &native::Report {
         &self.inner.report
     }
+    /// Original whole-member permission under this exact joined run and attempt.
+    /// A cloned alias of this immutable snapshot is the same native observation.
+    pub fn governing_permission<'a>(
+        &self,
+        producer: &'a crate::workflow::RunResult,
+    ) -> Option<&'a crate::workflow::MemberScientificPermission> {
+        producer
+            .completion()
+            .ok()?
+            .member_permission(self.prepared().solved.instance())
+            .filter(|permission| permission.matches_simulation(producer, self))
+    }
+    /// Borrow the original report for scientific use under its native member custody.
+    /// Raw failed or partial facts remain available from [`Self::report`].
+    pub fn qualified_report(
+        &self,
+        producer: &crate::workflow::RunResult,
+    ) -> Option<&native::Report> {
+        self.governing_permission(producer)
+            .filter(|permission| permission.permits_result())
+            .map(|_| self.report())
+    }
+    pub(in crate::workflow) fn same_original(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+    pub(in crate::workflow) fn matches_preparation(&self, source: &ModelingSimulation) -> bool {
+        let original = self.prepared();
+        original.identity() == source.identity()
+            && original.solved.instance() == source.solved.instance()
+            && original.source.revision.identity() == source.source.revision.identity()
+            && original.source.physical.identity() == source.source.physical.identity()
+            && original.parameters == source.parameters
+            && Arc::ptr_eq(&original.programs, &source.programs)
+            && Arc::ptr_eq(&original.layout, &source.layout)
+    }
     /// Borrow the preparation that produced this outcome.
     pub fn prepared(&self) -> &ModelingSimulation {
         &self.inner.prepared
@@ -3792,6 +3827,146 @@ fn contract_error(message: &str) -> WorkflowError {
 mod tests {
     use super::*;
     use pse_backend_native::dynamics::Oracle;
+    #[tokio::test]
+    async fn standalone_member_permission_retains_original_scope_and_refuses_partial_or_foreign_proof()
+     {
+        use super::super::super::tests as fixture;
+        use crate::workflow::{Completion, RunOutcome, RunReport, RunResult};
+        let runtime = fixture::runtime();
+        let services = runtime.execution_services();
+        let cancel = crate::CancelSource::new();
+        for (check, max_steps, permitted) in [
+            ("x[i] >= 10{s}", 100000, true),
+            ("x[i] < 10.1{s}", 100000, false),
+            ("x[i] >= 10{s}", 1, false),
+        ] {
+            let rows = pse_authoring::language::parse(
+                &format!("package p {{ def Root {{domain t:Time from 160{{s}} to 161{{s}}; discretize grid on t using integrated(elements=1,order=1); param p:Scalar=0.5; var x[i in t]:Time; eq rate[i in t]:d(x[i])/di==p; eq initial:x[160{{s}}]==10{{s}}; annotation check x({check}); }} }}"),
+                SemanticId::from_bytes([175;16]), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+            let root = rows
+                .iter()
+                .find(|row| row.name == "Root")
+                .unwrap()
+                .declaration_id;
+            let package = runtime.modeling_package(rows, physical()).await.unwrap();
+            let prepared = package
+                .prepare_simulation(
+                    services.preparation(),
+                    root,
+                    pse_modeling::specialize::root_instance(root),
+                    Bindings::default(),
+                    Limits::default(),
+                    ModelingCaseBindings::default(),
+                    fixture::compiler_profile(),
+                    native::Profile {
+                        method: native::Method::Diffsol,
+                        start: 160.,
+                        end: 161.,
+                        samples: vec![160., 160.5, 161.],
+                        max_steps,
+                        parameter_scales: vec![1.],
+                        ..Default::default()
+                    },
+                    DerivativeOrder::First,
+                    &cancel,
+                )
+                .await
+                .unwrap();
+            let result = prepared.start(&services).unwrap().wait().await.unwrap();
+            let RunReport::Simulation(trajectory) = result.report().unwrap() else {
+                panic!("original simulation absent")
+            };
+            let trajectory = trajectory.clone();
+            let member = prepared.solved.instance();
+            let grant = trajectory.governing_permission(&result).unwrap();
+            assert_eq!(grant.member(), member);
+            assert_eq!(grant.attempt_id(), None);
+            assert_eq!(
+                grant.recorded_permission().requested,
+                prepared.profile.samples.len()
+            );
+            assert_eq!(
+                grant.recorded_permission().observed,
+                trajectory.report().coverage.produced()
+            );
+            assert_eq!(grant.permits_result(), permitted);
+            assert_eq!(trajectory.qualified_report(&result).is_some(), permitted);
+            assert!(trajectory.clone().governing_permission(&result).is_some());
+            assert!(!trajectory.report().samples.is_empty());
+            if max_steps == 1 {
+                assert!(trajectory.report().coverage.produced() < prepared.profile.samples.len());
+                assert_eq!(
+                    trajectory.report().termination,
+                    native::Termination::StepLimit
+                );
+            }
+            let passive: Completion =
+                serde_json::from_slice(&serde_json::to_vec(result.completion().unwrap()).unwrap())
+                    .unwrap();
+            let recorded = passive.member_permission(member).unwrap();
+            assert_eq!(recorded.recorded_permission().permits_result(), permitted);
+            assert!(!recorded.has_native_proof() && !recorded.permits_result());
+            assert!(recorded.records_original(
+                result.run_id,
+                None,
+                member,
+                prepared.source.revision.identity().as_id(),
+                prepared.source.physical.identity(),
+                prepared.identity()
+            ));
+            let other = prepared.start(&services).unwrap().wait().await.unwrap();
+            assert!(trajectory.governing_permission(&other).is_none());
+            let RunReport::Simulation(other_trajectory) = other.report().unwrap() else {
+                panic!("second simulation absent")
+            };
+            // Even a caller assembling an equal run key cannot substitute a different
+            // actual snapshot: its retained producer run disagrees before grant capture.
+            let substituted = RunResult::joined(
+                result.run_id,
+                services.clone(),
+                RunOutcome::Simulation {
+                    request: Box::new(prepared.clone()),
+                    result: Ok(Box::new(other_trajectory.clone())),
+                },
+                None,
+            )
+            .completed(None);
+            assert!(
+                substituted
+                    .completion()
+                    .unwrap()
+                    .member_permission(member)
+                    .is_none()
+            );
+            assert!(trajectory.governing_permission(&substituted).is_none());
+            let mut result = Arc::try_unwrap(result).expect("sole joined original result");
+            let original = result.completion.clone();
+            result.completion = Ok(passive);
+            assert!(trajectory.governing_permission(&result).is_none());
+            result.completion = original;
+            let duplicate = result
+                .completion()
+                .unwrap()
+                .member_permission(member)
+                .unwrap()
+                .clone();
+            result
+                .completion
+                .as_mut()
+                .unwrap()
+                .member_permissions
+                .push(duplicate);
+            assert!(trajectory.governing_permission(&result).is_none());
+            result
+                .completion
+                .as_mut()
+                .unwrap()
+                .member_permissions
+                .clear();
+            assert!(trajectory.governing_permission(&result).is_none());
+            assert!(!trajectory.report().samples.is_empty());
+        }
+    }
     #[test]
     fn start_source_drives_initial_conditions() {
         let state = SemanticId::from_bytes([1; 16]);
