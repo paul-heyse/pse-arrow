@@ -4509,7 +4509,7 @@ mod tests {
     #[tokio::test]
     async fn trajectory_transport_shares_completion_retries_budget_and_retains_escaped_batches() {
         use pse_columnar::MemoryConsumer;
-        let (batch, pool) = {
+        let (batch, pool, service, snapshot) = {
             let runtime = super::super::super::tests::runtime();
             let services = runtime.execution_services();
             let cancel = crate::CancelSource::new();
@@ -4662,9 +4662,28 @@ mod tests {
                 trajectory.header().trajectory_termination,
                 Some(trajectory.report().termination)
             );
-            (batch, pool)
+            // Claiming a native result joins its worker, while its performing
+            // publisher still owns the service until observation is settled.
+            // Drain that actual owner before asserting final service release.
+            runtime.shared.math().shutdown_native_lanes().await.unwrap();
+            (
+                batch,
+                pool,
+                Arc::downgrade(runtime.shared.math()),
+                Arc::downgrade(&trajectory.inner),
+            )
         };
         assert!(batch.batch().num_rows() > 0);
+        assert_eq!(
+            snapshot.strong_count(),
+            0,
+            "original trajectory owner ended"
+        );
+        assert_eq!(
+            service.strong_count(),
+            0,
+            "native publisher and service ended"
+        );
         assert!(pool.reserved() > 0);
         drop(batch);
         assert_eq!(pool.reserved(), 0);
