@@ -13,10 +13,10 @@ review_sources: [docs/functional_reviews/storage-lifecycle-and-build-reuse-2026-
 ## Target and evidence
 
 Prevent the same developer workflow from retaining another copy of its executable or
-database state each time it runs. A developer should be able to rerun a selected historical
-failure against a current build, query useful structured history, and retire an entire
-consolidated worktree without leaving its external state behind. Keep useful Cargo state
-and improve the proportion of expensive compiler work that sccache can serve.
+database state each time it runs. Run a fresh selected test or campaign when a current
+decision needs evidence, and retire a consolidated worktree with its settled external
+state. Keep useful Cargo state and improve the proportion of expensive compiler work
+that sccache can serve.
 
 The [functional review](../functional_reviews/storage-lifecycle-and-build-reuse-2026-11-06.md)
 is the scope source. Main `c2126df45` and the November 6 working trees are the inspected
@@ -38,14 +38,14 @@ where a test carries scientific assurance.
 
 | Companion | Responsibility and working prerequisite |
 |---|---|
-| [67a](67a-plan66-consolidation-and-incident-cleanup.md) | Reconcile and integrate the three frozen Plan66 worktrees, preserve named evidence, then retire their checkouts and incident data. The compact evidence selection contract below is sufficient to start. |
-| [67b](67b-invocation-custody-and-developer-history.md) | Own invocation executable custody, selected history, readback and rerun. The first usable slice is one native test workflow through report publication and release. |
-| [67c](67c-surrealkit-and-rust-test-consolidation.md) | Own database-contract suites and Rust test consolidation. Adopt SurrealKit suite results into B when the selected publication interface is working. |
+| [67a](67a-plan66-consolidation-and-incident-cleanup.md) | Integrate the three frozen Plan66 worktrees, then retire their checkouts and settled incident results. |
+| [67b](67b-invocation-custody-and-developer-history.md) | Own invocation executable custody, working reports and fresh rerun. |
+| [67c](67c-surrealkit-and-rust-test-consolidation.md) | Own database-contract suites and Rust test consolidation. Interpret the suite's original output during the run. |
 | [67d](67d-cargo-variants-and-sccache-reuse.md) | Own the baseline and effective build graph, cache coverage and performance. Capture the baseline before C removes variants. Adopt a smaller verification matrix as C lands and qualifies its replacements. |
-| [67e](67e-resource-retirement-and-storage-verification.md) | Own recurring retirement, legacy reconciliation, and storage verification. Use A's observed cleanup boundaries and B's evidence holds. |
+| [67e](67e-resource-retirement-and-storage-verification.md) | Own recurring retirement, legacy reconciliation, and storage verification. Use A's observed cleanup boundaries. |
 
-Start A independently of new history infrastructure. Preserve any missing baseline needed for
-D before a representative target is retired. In parallel, establish B's active-versus-retained
+Start A with existing native ownership. Preserve any missing baseline needed for D before a
+representative target is retired. In parallel, establish B's active-versus-settled
 boundary and C's selected suite path. Finish the first ordinary test journey through C and B
 before removing its former retention path. E closes the durable ownership loop and assembles
 repeat-workflow storage evidence. This sequence permits cache-route experiments as soon as the
@@ -62,26 +62,23 @@ the corresponding integration lands.
 
 ## Decisions and boundaries
 
-The maintainer selected structural prevention, named incident evidence only, SurrealKit for
-database contracts, and consolidation of the three frozen worktrees on November 6. Use
-read-only footprint evidence to verify growth reduction. Keep normal checkout-local Cargo
-targets and the managed 100 GiB compiler cache. Historical developer history carries bounded
-observations with a declared use. A selected original report or raw member stays with its
-current custodian until the actual consumer moves to a verified replacement or releases its
-claim. Rerun resolves an original failed identity against the current admitted inventory and
-produces a new result.
+The maintainer selected structural prevention, SurrealKit for database contracts, and
+consolidation of the three frozen worktrees. On November 7 the maintainer chose to delete
+historical incident results, including cited results, and regenerate evidence for future use.
+Use read-only footprint evidence to verify growth reduction. Keep normal checkout-local
+Cargo targets and the managed 100 GiB compiler cache. Prior citations identify what to exercise
+again. While a working report is still available, failed rerun resolves its exact failed
+identity against the current admitted inventory and produces a new result.
 
 Keep published-data release owner-issued under ADR-0168 and ADR-0234. The incident uses
 ordinary Git retirement and existing owners. E evaluates the deferred R-56 boundary for a
 repeatable operator workflow. An owner-aware command or automatic collection of published
 generations requires the applicable decision route before its implementation. Record the
-operator's decision and any superseding ADR in the owning package. B resolves the persistence
-boundary before the history pilot. Proposed ADR-0252 selects a finite ephemeral query and
-names persistent analytical state as a revisit trigger. Proposed ADR-0255 covers the scoped
-history pilot. Execution started on the maintainer's November 6 instruction. Package
-completion, policy decisions and actual reclamation have separate evidence.
-[ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md) ·
-[ADR-0255](../adr/0255-bounded-developer-workflow-history.md)
+operator's decision and any superseding ADR in the owning package. ADR-0252 governs finite
+queries over explicitly supplied current evidence. The maintainer's regeneration decision
+withdraws the persistent history pilot. Package completion, policy decisions and actual
+reclamation have separate evidence.
+[ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md)
 
 ## Opportunity dispositions
 
@@ -90,22 +87,22 @@ completion, policy decisions and actual reclamation have separate evidence.
 | O01 | Planned | E verifies allocated footprint and release after repeat workflows. A records the incident's actual result. |
 | O02 | Planned | B replaces per-run retained executable copies with active custody and selected evidence. |
 | O03 | Planned | E defines checkout and store identity, preview and release. A consolidates the existing worktrees. |
-| O04 | Planned | E applies owner-issued release and reports retained, eligible and unresolved holdings. B supplies evidence holds. |
+| O04 | Planned | E applies owner-issued release and reports active, eligible and unresolved holdings. |
 | O05 | Planned | C migrates database contract suites and application test constructs. |
 | O06 | Planned | E retires selected generations, redundant intermediates and proven unused service fragments. |
 | O07 | Planned | D reduces build variants and owns campaign layout and Cargo evidence. C owns test-scenario migration. |
 | O08 | Planned | D qualifies eligible Rust and C/C++ reuse and optional tiering. Release-specific limits constrain adoption. |
-| O09 | Planned | B delivers structured SurrealDB history, current-build rerun and verified expiry and recovery. |
+| O09 | Deferred | Regenerate selected evidence when needed. B uses existing working-report and current-inventory rerun routes. |
 
 ## November 5 recommendation crosswalk
 
 | Source item | Plan67 treatment |
 |---|---|
 | 1. Checkout removal and orphan GC | A performs the bounded consolidation. E plans explicit state identity and retirement and assesses R-56. |
-| 2. Stop copying binaries | B releases active captures at settlement and retains named historical evidence. |
+| 2. Stop copying binaries | B releases working captures at settlement. |
 | 3. Retention eligibility and collection | E uses explicit release and class budgets. Automatic published collection stays behind a separate decision. |
-| 4. Pin cited evidence | A preserves only named incident uses. B provides structured holds and exceptional raw retention. |
-| 5. Release plan stores | E ties release to closeout and native ownership. B supplies compact historical evidence. |
+| 4. Pin cited evidence | The maintainer releases incident citations as holds. Regenerate evidence from the named case or campaign. |
+| 5. Release plan stores | E ties release to closeout and native ownership. |
 | 6. Route and clean scratch | E releases owned session scratch after promotion and actual settlement. |
 | 7. Bound tool and native generations | E separates useful warm state, selected generations, rollback, legacy import and retired intermediates. |
 | 8. Remove service fragments | E reconciles legacy files and the transient or persistent native owner. |
@@ -117,8 +114,8 @@ completion, policy decisions and actual reclamation have separate evidence.
 
 Record the incident cleanup, functional cutovers, and performance evidence independently.
 Complete A when the three checkouts and their retired external state are gone, or identify
-the exact unresolved owner for any preserved exception. Independently read the named evidence
-and exercise the current-listing rerun. Complete the recurring scope when repeated ordinary
+the exact unresolved owner for any preserved exception. Confirm incident result deletion and
+exercise a current-listing rerun while its working report is available. Complete the recurring scope when repeated ordinary
 test and preparation workflows add zero retained executable or physical database copies,
 released checkout and campaign roots return to their declared state, and deliberate holds
 remain readable. C must show equivalent named assertions and failure distinctions. D must

@@ -13,10 +13,11 @@ review_sources: [docs/functional_reviews/storage-lifecycle-and-build-reuse-2026-
 ## Scope and baseline
 
 Integrate the relevant work in the three frozen Plan66 worktrees and retire each checkout
-with its owned storage. Trim the incident population to named evidence. This is a bounded
-operator action under current ownership rules. [67e](67e-resource-retirement-and-storage-verification.md)
-owns repeatable retirement, and [67b](67b-invocation-custody-and-developer-history.md) owns
-the durable history design. Neither is a prerequisite for the incident cutover.
+with its owned storage. Release settled incident results, including the results cited in active
+plans, under the November 7 maintainer decision. This bounded operator action uses current
+ownership rules. [67e](67e-resource-retirement-and-storage-verification.md) owns recurring
+retirement, and [67b](67b-invocation-custody-and-developer-history.md) owns working reports and
+fresh reruns.
 
 **Interface-checked:** on main `c2126df45`, all three worktrees had authored edits. The two
 science and assessment branches were four commits behind main and had no branch-only commits.
@@ -70,7 +71,7 @@ it. Use the repository's normal admission, toolchain and provider selection.
 [Plan66 coordinator](66-integrated-simulation-target.md) ·
 [Worktree and tool preparation](../dev/agent-environment.md#worktrees)
 
-## A02 — Preview release and preserve named evidence
+## A02 — Preview exact incident release
 
 Produce one bounded preview with the fixed time window, checkout and native invocation
 identities, allocated bytes, source ownership, observed status, known references or holds,
@@ -80,26 +81,11 @@ Check both linked worktree targets and their separately stored state. Recognize 
 the inspected root and native identity. An unmatched checkout ID remains a separate
 reconciliation case until its former ownership and current absence are established.
 
-Match exact invocation IDs and evidence references in current Plan66 and other active
-consumers, including specific retained Plan64/65 reconciliation obligations and explicit
-operator holds. Ask the relevant owner to identify any additional live dependency from
-running work or current acceptance. Keep only the selected result slice needed for each
-named use. Preserve original outcome and coverage, relevant provenance and selection, and
-the original failed identities and inventory commitments where rerun requires them. Where
-the current consumer requires the original native report or a selected raw member, use the
-existing verified export and preserve that actual input. Record its exact use, custodian,
-bound and release condition. An absent or changed member stays absent or changed in the
-export. A projection cannot stand in for an original-format consumer.
-
-If B is available, publish selected structured facts through it. Otherwise use a compact
-verified native export to an explicitly selected destination outside the roots being
-removed. Use the existing original-file acquisition for a selected raw member. Read back
-with the actual intended consumer and verify original identity, outcome, selected bytes
-and omissions. For a rerun candidate, confirm the original inventory and result identities
-remain usable after the payload is removed. Publish the selected evidence before release.
-Unselected, settled invocations produce no historical row or archive. Record their aggregate
-disposition in the incident receipt.
-[Native report and rerun contract](66f-developer-operations-clients-and-evidence.md#original-evidence-and-exact-rerun)
+Match exact invocation IDs and evidence references in Plan66 and other active consumers.
+Use those references to identify the authored selection or campaign for future regeneration.
+A citation alone places no hold on the historical result. Identify current process, reader,
+fixture, and independent published-data ownership. Include any intermediate exports or raw
+copies created during incident triage in the exact release selection.
 
 ## A03 — Release exact objects and verify the result
 
@@ -112,7 +98,7 @@ its state is released. Preserve any active, held, unclassified, changed or unres
 candidate and record the missing premise. Keep selection roots canonical, reject path
 substitution and symlinks, and apply exact scoped effects without globs or age-only deletion.
 
-For each integrated worktree, finish evidence transfer and settle all checkout users.
+For each integrated worktree, settle all checkout users and verify the recovered source.
 Use ordinary `git worktree remove <path>` once its source is clean and ownership checks
 are satisfied. Verify Git deregistration and target removal. Release the matching external
 checkout state through its actual owners, using the identity recorded in A01. Handle
@@ -122,28 +108,23 @@ selected generations have separate owners and release checks. Leave the configur
 canonical data, managed and global compiler caches, and useful main Cargo state out of
 the incident release.
 
-For ordinary settled unselected invocations, remove the complete invocation tree after
-the owner checks. For selected invocations, release the original tree only after verified
-readback and any live original consumer migration. Otherwise retain the minimal original
-members required by the unresolved consumer. An interrupted cleanup records the actual
-removed and remaining objects and can resume from that evidence.
+Remove each positively attributed, settled invocation tree. Where a separate resource owner is
+still unresolved, release the verified result members only if they can be separated from that
+resource and no live reader or active owner needs them. Remove the exact intermediate exports
+and raw copies. An interrupted cleanup records actual effects and resumes from fresh checks.
 
-Confirm the three registered worktrees and their retired roots are absent. Confirm the
-remaining named evidence is readable outside those roots, and exercise one selected
-failure rerun against the current admitted inventory where a runnable example exists.
-Check one changed or missing selection preserves the truthful unavailable outcome.
-Re-measure allocated bytes per class and available filesystem bytes using the same
-scope and report separately. Write one small receipt with integration references, confirmed
-released bytes, unresolved exceptions, and the outstanding owner action for each exception.
-The receipt carries the result of this operation and does not grant future cleanup authority.
+Confirm that Git lists only the surviving checkout and that released result paths are absent.
+Run a fresh authored selection if a current decision needs evidence. Re-measure allocated
+bytes by class and available filesystem bytes separately. Keep one small receipt of the operation,
+including bytes released and any exact unresolved ownership or settlement exception.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | A01 | complete | Refreshed frozen checkout and Plan66 ownership evidence | Recovered source integrated and targeted receiving checked. Checkout identities and source recovery refs retained. |
-| A02 | complete | Fixed incident interval and identified native producers and consumers | Exact preview with held, releasable and unresolved scope. Named exports independently read back. The unmatched checkout stays protected. |
-| A03 | in-progress | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield and precise exceptions. Named evidence and rerun checked. |
+| A02 | complete | Fixed incident interval and identified native producers and consumers | Exact preview with releasable and unresolved scope, including named original results and interim copies. |
+| A03 | in-progress | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield, verified absence and precise exceptions. |
 
 ## Execution checkpoint — November 6
 
@@ -178,8 +159,8 @@ Of 27 named incident invocations, 26 were exported and independently decoded. Tw
 selection evidence and six carry report evidence. The exports total 24,607,930 bytes.
 One invocation is on an unmatched checkout and was preserved. Three named consumers still
 need original members, including the Plan64 JUnit comparison and two Plan65 compiler diagnostic
-readers. The seven required raw members have separately verified portable files. The incident
-receipt records the original consumers, and the selected raw directory records transfer.
+readers. Seven raw members were copied during triage. The November 7 decision supersedes this interim
+transfer and includes these copies in the release selection.
 
 The assessment source is on main in `4f264eab0` and `3a9f93c9a`. The targeted compiler,
 modeling, runtime and native fitting checks passed. Main received the prepared science artifact
@@ -194,8 +175,8 @@ readback. The combined release recorded 522.95 GiB of allocated data.
 An additional bounded release removed 49 executable images and their 49 associations from 14
 named test invocations. It bound each image to the original inventory, rehashed it, and rechecked
 the original scope, fixture settlement and live file references before release. Six otherwise
-eligible invocations lack independent fixture-settlement confirmation and retain their images.
-All 26 previously decoded exports still match their verified bytes. Original reports and
-inventories for the 14 trimmed invocations still match their commitments. The incident total is
+eligible invocations lacked independent fixture-settlement confirmation at that stage. The
+26 interim exports and original reports for the 14 trimmed invocations were verified before
+the subsequent decision to retire historical results. The incident total is
 586,092,539,904 allocated bytes (545.84 GiB). Filesystem availability measured separately was
 836,589,912,064 bytes at readback. Exact receipts are in the private incident state directory.

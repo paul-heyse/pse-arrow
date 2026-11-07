@@ -176,6 +176,11 @@ Native build width, incremental compilation and compiler caches remain in force.
 
 ## Verification, current outcome and cleanup handoff
 
+The November 7 [storage cleanup decision](67-storage-lifecycle-and-build-reuse.md#decisions-and-boundaries)
+releases historical incident test and diagnostic results, including results cited in this series.
+Treat those references as previous observations and regenerate the named case or campaign under
+current admission when a decision needs evidence. Protected scientific data follows its own owner.
+
 ### Execution resumed — November6
 
 The maintainer authorized implementation of the full execution approach. Work is active on

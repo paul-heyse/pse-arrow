@@ -38,7 +38,7 @@ struct HistoricalSummary {
 
 /// Map the original completed failing test observations to their admitted compiler roots.
 /// Historical images are only references and are never opened here.
-pub(super) fn failed_cases(
+fn failed_cases(
     evidence: &crate::test_inventory::CapturedEvidence,
 ) -> Result<Vec<RerunCase>, WorkflowError> {
     if evidence.observation.action != Action::Test {

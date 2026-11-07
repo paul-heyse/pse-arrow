@@ -58,11 +58,10 @@ Use `sql_expect` for query values and refusals, `permissions_matrix` for actor c
 `schema_metadata` and `schema_behavior` for declarations and constraints, and `api_request`
 for actual HTTP behavior. Carry the native expected-refusal versus assertion-failure distinction
 into the receiving report. Assert exact values and actual non-effects on denied operations.
-Take `--json-out` as the suite's original evidence and send selected facts to
-[67b](67b-invocation-custody-and-developer-history.md) once its schema is available. A
-wrong or missing generated artifact, setup failure, and partial/invalid result must stay
-distinguishable from a test failure. Keep the original authored schema, suite and seed
-identities and physical settlement separately from the selected JSON evidence.
+Use `--json-out` to interpret the suite during its native run. A wrong or missing generated
+artifact, setup failure, and partial or invalid result stay distinguishable from a test failure.
+Use the authored schema, suite and seed inputs to regenerate the result when needed. Observe
+physical settlement separately. [Working evidence](67b-invocation-custody-and-developer-history.md)
 
 Provision only on a test-owned endpoint. Prefer a dedicated test namespace and namespace-scoped
 setup credentials. Root credentials are reserved for a disposable test-owned server when a case
@@ -136,7 +135,7 @@ assertion failure, setup refusal and interrupted seed reader. The test verifies 
 case population and refuses a foreign endpoint. The first native run passed all 11 suite cases.
 Selection is explicit while the prepared SurrealKit release is a separate prerequisite.
 The historical rollout's target differs from the current generated schema. Current sync is
-qualified by this lane. Rollout parity and structured suite-history publication are separate work.
+qualified by this lane. Rollout parity remains separate work.
 
 The tooling evidence tests now select the live fixture by their exact test identity under the
 existing `evidence-tools` capability. The `xtask/canonical-tests` feature is removed. The

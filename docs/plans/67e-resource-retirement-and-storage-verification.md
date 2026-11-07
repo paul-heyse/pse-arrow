@@ -21,8 +21,8 @@ repeated settled workflows stop accumulating bytes. This companion receives
 recurring path. The coordinator's incident companion can consolidate Plan66 and perform the
 one-time trim using existing owner operations while these changes are pending. Plan66c owns
 actual process and service settlement. Plan66e/f govern protected result and original evidence
-contracts. The history companion supplies compact evidence and holds, and the test and build
-companions remove producers of redundant state. [Plan67](67-storage-lifecycle-and-build-reuse.md)
+contracts. The test and build companions remove producers of redundant state.
+[Plan67](67-storage-lifecycle-and-build-reuse.md)
 
 **Interface-checked at `c2126df45`.** `CheckoutState` binds the canonical checkout and Git common
 directory, then maps their identity to a project state root beneath the selected user state
@@ -85,9 +85,9 @@ At creation, the producer declares purpose, owner, identity, and closeout for re
 session scratch, named developer stores, and campaign state. Use the existing checkout session
 scratch owner where it fits. Classify probe inputs, diagnostic environments, compiler crash
 output, and ad hoc work directories by their actual producer and use. Authored inputs remain
-protected. For a closed campaign or plan, publish selected structured evidence through the
-history companion before releasing its source. Keep exceptional raw evidence only when its
-independent owner can identify the requirement, exact member, bound and release condition.
+protected. Release regenerable outputs when the producer settles and their current use ends.
+Record the authored selection needed to run the campaign again. Separately published scientific
+data follows its established owner and release boundary.
 Release a test database through its native service or fixture owner with authenticated stop,
 reader drain, and actual disposal. The canonical owner handles protected stores and their
 recovery contracts. [Canonical service](../../crates/pse-operations/src/native_service.rs) ·
@@ -151,7 +151,7 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 |---|---|---|---|
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
-| E03 | planned | Existing resource ownership and named hold contract from history companion | Purpose-bound scratch, stores and campaigns release through their original owners. Verify selected evidence before release. |
+| E03 | planned | Existing resource ownership and current use | Purpose-bound scratch, stores and campaigns release through their original owners. Preserve authored selections for regeneration. |
 | E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
 | E05 | in-progress | E03 release semantics and exact current unit identity | Native fixture teardown remains truthful and owner-proven legacy fragments can retire. Persistent telemetry follows its own owner. |
 | E06 | planned | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |

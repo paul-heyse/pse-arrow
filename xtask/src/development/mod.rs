@@ -8,8 +8,6 @@ pub mod configuration;
 #[cfg(feature = "package-fixtures")]
 pub mod conformance;
 #[cfg(feature = "evidence-tools")]
-pub mod developer_history;
-#[cfg(feature = "evidence-tools")]
 pub mod evidence;
 #[cfg(feature = "evidence-tools")]
 pub mod evidence_query;

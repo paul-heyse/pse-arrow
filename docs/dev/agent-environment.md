@@ -335,6 +335,11 @@ builds and captures the actual selected population. Test/check/list can use `--d
 test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
 fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
 
+Use an original working report while it is available. After cleanup, select the named test
+or campaign from source and run it again under current admission. Record the resulting
+revision, selection and outcome for the decision that requested it. Routine test results
+are regenerated when needed. Published scientific results follow their own custody.
+
 `scripts/pse inspect tests ID --limit 20` reads captured whole-test records without rebuilding.
 Pass the returned `payload.next` object as JSON to `--cursor`; changed inventory bytes or a
 different original invocation refuse continuation. `--page-bytes` bounds serialized whole rows;

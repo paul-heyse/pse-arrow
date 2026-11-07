@@ -200,7 +200,6 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
   "development::evidence::tests::evidence_native_scoped_roles_complete_generation_and_cursor_fences",
-  "development::developer_history::tests::history_native_roles_replay_conflict_and_unknown_ack",
 ]
 
 [[bin]]
