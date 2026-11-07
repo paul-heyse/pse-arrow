@@ -1050,7 +1050,7 @@ fn check_recycle_reports(reports: &[ModelingReport]) -> TestResult {
         5.,
     )
 }
-fn check_exchanger_reports(reports: &[ModelingReport], arithmetic: bool) -> TestResult {
+pub(super) fn check_exchanger_reports(reports: &[ModelingReport], arithmetic: bool) -> TestResult {
     for (side, flow) in [("hot", 5.), ("cold", 1.)] {
         near(
             report_path(reports, &format!("exchanger.{side}.inlet.flow"))?,

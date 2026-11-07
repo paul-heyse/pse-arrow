@@ -35,6 +35,14 @@ pub use declared::{
 pub mod scientific_intake;
 mod structural;
 pub use structural::ModelingStructuralAnalysis;
+#[cfg(all(
+    test,
+    feature = "canonical-tests",
+    feature = "solver-kinsol",
+    feature = "solver-root-isolation",
+    feature = "solver-ipopt"
+))]
+mod costed_exchanger_delivery_tests;
 mod knowledge;
 #[cfg(all(
     test,

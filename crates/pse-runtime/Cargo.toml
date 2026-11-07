@@ -328,6 +328,7 @@ scope.tests = [
   "workflow::modeling::steam_tests::authored_liquid_pump_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_vapor_turbine_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_hot_vapor_turbine_original_native_outcome_survives_protected_export",
+  "workflow::modeling::costed_exchanger_delivery_tests::ordinary_costed_exchanger_preserves_support_period_and_protected_view",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_operation_reopens_complete_success_and_failure_history",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_root_response_reopens_scoped_permission",
   "math::portable::canonical_portable_body_tests::canonical_portable_body_cold_miss_skips_local_runtime_observation",
