@@ -31,6 +31,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::Command,
     sync::{Arc, atomic::AtomicBool},
+    time::UNIX_EPOCH,
 };
 
 /// One explicitly selected sibling checkout. Names never become shell source.
@@ -109,6 +110,88 @@ pub struct Registration {
     pub repository_id: String,
     /// Existing private state namespace, outside the worktree.
     pub state: OsString,
+    /// Original canonical checkout directory, including its filesystem identity.
+    pub checkout: ObservedDirectory,
+    /// Original Git administration directory for this checkout incarnation.
+    pub administration: ObservedDirectory,
+    /// Ordinary checkout-local Cargo target, with identity when present.
+    pub target: Option<ObservedDirectory>,
+    /// External checkout state directory identity when present.
+    pub state_directory: Option<ObservedDirectory>,
+}
+/// Filesystem evidence for association. It confers no release authority.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ObservedDirectory {
+    /// Exact path bytes selected by the original owner.
+    pub path: OsString,
+    /// Filesystem device.
+    pub device: u64,
+    /// Directory inode on that filesystem.
+    pub inode: u64,
+    /// Creation time when the filesystem supplies it, as seconds and nanoseconds since the epoch.
+    pub created: Option<(u64, u32)>,
+}
+impl ObservedDirectory {
+    fn observe(path: &Path) -> Result<Option<Self>, HostError> {
+        let metadata = match fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(error.into()),
+        };
+        if !metadata.is_dir() {
+            return Err(HostError::Ownership(format!(
+                "worktree association expected a directory at {}",
+                path.display(),
+            )));
+        }
+        Ok(Some(Self {
+            path: path.as_os_str().to_owned(),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            created: metadata
+                .created()
+                .ok()
+                .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
+                .map(|elapsed| (elapsed.as_secs(), elapsed.subsec_nanos())),
+        }))
+    }
+
+    fn required(path: &Path) -> Result<Self, HostError> {
+        Self::observe(path)?.ok_or_else(|| {
+            HostError::Ownership(format!(
+                "worktree association directory is absent at {}",
+                path.display(),
+            ))
+        })
+    }
+}
+
+fn registration(
+    path: &Path,
+    state: &CheckoutState,
+    observed_git_dir: Option<&Path>,
+) -> Result<Registration, HostError> {
+    let path = path.canonicalize()?;
+    let mut repository = gix::open_opts(&path, gix::open::Options::isolated())
+        .map_err(repository::RepositoryError::from)?;
+    repository
+        .make_paths_absolute()
+        .map_err(repository::RepositoryError::from)?;
+    let git_dir = repository.git_dir();
+    if observed_git_dir.is_some_and(|expected| expected != git_dir) {
+        return Err(HostError::Ownership(
+            "Git worktree administration changed during observation".into(),
+        ));
+    }
+    Ok(Registration {
+        checkout_id: state.checkout_id.as_str().into(),
+        repository_id: state.repository_id.as_str().into(),
+        state: state.root.as_os_str().to_owned(),
+        checkout: ObservedDirectory::required(&path)?,
+        administration: ObservedDirectory::required(git_dir)?,
+        target: ObservedDirectory::observe(&path.join("target"))?,
+        state_directory: ObservedDirectory::observe(&state.root)?,
+    })
 }
 /// Truthful multi-stage result; a failed preparation leaves the actual checkout intact.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -477,11 +560,7 @@ pub fn create(
         .map_err(HostError::from)
         .and_then(|state| {
             InvocationStore::new(state.clone()).register()?;
-            Ok(Registration {
-                checkout_id: state.checkout_id.as_str().into(),
-                repository_id: state.repository_id.as_str().into(),
-                state: state.root.into_os_string(),
-            })
+            registration(&destination, &state, None)
         }) {
         Ok(registration) => {
             report.registration = Some(registration);
@@ -611,6 +690,8 @@ pub struct InvocationUse {
 pub struct ListedWorktree {
     /// Native Git administration/path/branch identity.
     pub git: WorktreeObservation,
+    /// Existing checkout/state association, absent when the original path cannot be verified.
+    pub registration: Option<Registration>,
     /// Staged/worktree/untracked changes counted as distinct dirty paths.
     pub dirty_paths: Option<usize>,
     /// Direct ancestry comparison; absence has an original failure or unborn/bare context.
@@ -648,10 +729,10 @@ fn reachable(
 }
 async fn activity(
     root: &Path,
+    state: CheckoutState,
     environment: &Environment,
     policy: &RedactionPolicy,
 ) -> Result<(Vec<InvocationUse>, Vec<ErrorRecord>), HostError> {
-    let state = CheckoutState::resolve(root, environment)?;
     let store = InvocationStore::new(state);
     let history = store.history::<serde::de::IgnoredAny>()?;
     let mut failures = history
@@ -774,6 +855,7 @@ pub async fn list(
         futures_util::future::join_all(inventory.entries.into_iter().map(|git| async move {
             let mut row = ListedWorktree {
                 git,
+                registration: None,
                 dirty_paths: None,
                 divergence: None,
                 invocations: vec![],
@@ -806,7 +888,14 @@ pub async fn list(
                         Err(error) => row.failures.push(ErrorRecord::from_typed(&error, policy)),
                     }
                 }
-                match activity(&path, environment, policy).await {
+                let use_observation = async {
+                    let state = CheckoutState::resolve(&path, environment)?;
+                    let admin = OsStr::from_bytes(row.git.git_dir.as_bytes());
+                    row.registration = Some(registration(&path, &state, Some(Path::new(admin)))?);
+                    activity(&path, state, environment, policy).await
+                }
+                .await;
+                match use_observation {
                     Ok((records, errors)) => {
                         row.last_recorded_creation_ms =
                             records.iter().map(|record| record.created_unix_ms).max();

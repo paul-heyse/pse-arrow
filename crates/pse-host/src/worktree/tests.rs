@@ -233,8 +233,56 @@ async fn list_retains_native_paths_direct_ancestry_dirty_state_and_no_preparatio
     assert_eq!(row.divergence.as_ref().unwrap().ahead, 1);
     assert_eq!(row.divergence.as_ref().unwrap().behind, 0);
     assert!(row.invocations.is_empty());
+    let association = row.registration.as_ref().unwrap();
+    assert_eq!(association.checkout.path, peer.as_os_str());
+    assert!(association.target.is_none());
+    assert!(association.state_directory.is_none());
     assert!(!peer.join("target").exists());
     assert!(!scratch.path().join("state").exists());
     let wire = serde_json::to_value(response).unwrap();
     assert!(wire.to_string().contains("255"));
+}
+
+#[test]
+fn ordinary_git_removal_and_recreation_distinguish_checkout_incarnations() {
+    let (scratch, root, environment) = fixture();
+    let peer = scratch.path().join("peer");
+    let peer_path = peer.to_str().unwrap();
+    let add = ["worktree", "add", "--detach", peer_path, "HEAD"];
+    let remove = ["worktree", "remove", peer_path];
+    words(&root, &add);
+    let state = CheckoutState::resolve(&peer, &environment).unwrap();
+    InvocationStore::new(state.clone()).register().unwrap();
+    fs::create_dir(peer.join("target")).unwrap();
+    let before = registration(&peer, &state, None).unwrap();
+    let old_checkout = File::open(&peer).unwrap();
+    let old_admin = File::open(&before.administration.path).unwrap();
+    assert!(before.target.is_some());
+    assert!(before.state_directory.is_some());
+    fs::write(peer.join("file.rs"), "fn dirty() {}\n").unwrap();
+    let dirty = Command::new("git")
+        .current_dir(&root)
+        .args(remove)
+        .output()
+        .unwrap();
+    assert!(!dirty.status.success());
+    words(&peer, &["restore", "file.rs"]);
+    fs::remove_dir(peer.join("target")).unwrap();
+    words(&root, &remove);
+    assert!(!peer.exists());
+    assert!(state.root.exists());
+    words(&root, &add);
+    let state = CheckoutState::resolve(&peer, &environment).unwrap();
+    let after = registration(&peer, &state, None).unwrap();
+    assert_eq!(after.checkout_id, before.checkout_id);
+    assert_ne!(after.checkout.inode, old_checkout.metadata().unwrap().ino());
+    assert_ne!(
+        after.administration.inode,
+        old_admin.metadata().unwrap().ino()
+    );
+    assert_eq!(
+        after.state_directory.unwrap().inode,
+        before.state_directory.unwrap().inode
+    );
+    words(&root, &remove);
 }
