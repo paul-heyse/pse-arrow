@@ -245,6 +245,15 @@ payload settlement, the owner rechecked the mount and directory incarnation and 
 without the output directory. Automatic adoption of prior diagnostic or compiler scratch
 and the retirement path for named legacy stores remain open.
 
+**Measured.** Retired the exact `.venv-diagnostic-taskdump` checkout environment from the
+removed `just py-sync-taskdump` recipe. Current tooling has no reference to that environment.
+The release rechecked its original directory and mount, acquired the local environment lock,
+and observed no process using its path or its unshared files. Shared dependency inodes had
+surviving links outside the environment. The retired tree accounted for 4,879,347,712
+allocated bytes, including 4,364,267,520 bytes in single-link files. Filesystem availability
+increased by 4,363,042,816 bytes during removal. The selected native diagnostic tools and
+the current checkout environments have separate owners.
+
 The bound fixture launch now distinguishes a definite refusal before native
 dispatch from an uncertain acknowledgement. The fixture reports successful
 disposal independently of the test result and preserves custody when dispatch
