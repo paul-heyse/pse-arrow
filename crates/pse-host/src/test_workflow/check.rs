@@ -47,6 +47,7 @@ impl CheckIntent {
         Explanation {
             stage: Stage::Intent,
             selection: &self.plan,
+            runner: None,
             admission: pending("correctness admission not requested"),
             selected_tests: pending("compiler checks do not select a runnable test population"),
             fixture_requirements: Information::Available(&[]),
@@ -86,6 +87,7 @@ impl AdmittedCheck {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
+            runner: None,
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: pending("compiler checks do not select a runnable test population"),
             fixture_requirements: Information::Available(&[]),

@@ -17,6 +17,12 @@ fn intent() -> (tempfile::TempDir, Intent) {
         "#[test] fn same_name() {}\n",
     )
     .unwrap();
+    fs::create_dir(root.path().join(".config")).unwrap();
+    fs::write(
+        root.path().join(".config/nextest.toml"),
+        "[profile.default]\ndefault-filter = 'none()'\n[profile.selected-profile]\ndefault-filter = 'all()'\n",
+    )
+    .unwrap();
     let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
@@ -206,6 +212,40 @@ fn rerun_verification_preserves_exact_source_feature_identity_and_capture_guards
     };
     listed.inventory.selection = selection.clone().source(basis.clone(), vec![case.clone()]);
     source::verify_rerun(&listed.inventory).unwrap();
+    let mut ambiguous = serde_json::to_value(&listed.inventory).unwrap();
+    let group = ambiguous["groups"][0].clone();
+    ambiguous["groups"].as_array_mut().unwrap().push(group);
+    let group = ambiguous["selection"]["groups"][0].clone();
+    ambiguous["selection"]["groups"]
+        .as_array_mut()
+        .unwrap()
+        .push(group);
+    let ambiguous = serde_json::from_value(ambiguous).unwrap();
+    let Err(WorkflowError::Invalid(message)) = source::verify_rerun(&ambiguous) else {
+        panic!("two current matches must refuse the original identity");
+    };
+    assert!(message.contains("ambiguous"));
+    let suite = listed.inventory.groups[0]
+        .listing
+        .rust_suites
+        .values_mut()
+        .next()
+        .unwrap();
+    let current = suite.test_cases.values().next().unwrap().clone();
+    let extra = nextest_metadata::TestCaseName::new("another_current_test");
+    suite.test_cases.insert(extra, current);
+    let Err(WorkflowError::Invalid(message)) = source::verify_rerun(&listed.inventory) else {
+        panic!("a rerun must refuse extra current matches");
+    };
+    assert!(message.contains("outside the original failed identities"));
+    listed.inventory.groups[0]
+        .listing
+        .rust_suites
+        .values_mut()
+        .next()
+        .unwrap()
+        .test_cases
+        .retain(|name, _| name.as_str() == "same_name");
     let mut wrong_features = case.clone();
     wrong_features
         .features
@@ -382,6 +422,9 @@ fn explain_is_stage_specific_and_changed_declarations_refuse_before_effects() {
         intent.explain().admission,
         Information::Unavailable { .. }
     ));
+    let runner = intent.explain().brief().runner.unwrap();
+    assert_eq!(runner.profile, "selected-profile");
+    assert_eq!(runner.declared_default_filter, Some("all()"));
     assert!(!root.path().join("target").exists());
     fs::write(root.path().join("Cargo.toml"), "changed declaration").unwrap();
     assert!(matches!(intent.admit(), Err(WorkflowError::Changed(_))));

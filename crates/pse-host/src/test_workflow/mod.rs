@@ -108,17 +108,21 @@ struct Input {
     path: PathBuf,
     digest: Option<[u8; 32]>,
 }
-fn digest(path: &Path) -> Result<Option<[u8; 32]>, std::io::Error> {
+fn read_input(path: &Path) -> Result<Option<Vec<u8>>, std::io::Error> {
     match fs::read(path) {
-        Ok(bytes) => Ok(Some(Sha256::digest(bytes).into())),
+        Ok(bytes) => Ok(Some(bytes)),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
+}
+fn digest(path: &Path) -> Result<Option<[u8; 32]>, std::io::Error> {
+    Ok(read_input(path)?.map(|bytes| Sha256::digest(bytes).into()))
 }
 struct Context {
     checkout: PathBuf,
     metadata: cargo_metadata::Metadata,
     profile: String,
+    declared_default_filter: Option<String>,
     environment: Environment,
     inputs: Vec<Input>,
     selected_native: BTreeSet<String>,
@@ -160,11 +164,30 @@ impl Context {
         .iter()
         .map(|path| checkout.join(path))
         .collect();
+        let mut declared_default_filter = None;
+        let mut inputs = Vec::new();
         if plan.operation() == selection::Operation::Test {
-            paths.extend([
-                checkout.join(".config/nextest.toml"),
-                checkout.join(".config/diagnostic-tools.toml"),
-            ]);
+            let path = checkout.join(".config/nextest.toml");
+            let bytes = read_input(&path)?;
+            // This projects the authored field for the named profile. Nextest owns
+            // interpretation, inheritance, defaults and the actual selected population.
+            declared_default_filter = bytes
+                .as_deref()
+                .and_then(|bytes| std::str::from_utf8(bytes).ok())
+                .and_then(|text| toml::from_str::<toml::Value>(text).ok())
+                .and_then(|configuration| {
+                    configuration
+                        .get("profile")?
+                        .get(&profile)?
+                        .get("default-filter")?
+                        .as_str()
+                        .map(str::to_owned)
+                });
+            inputs.push(Input {
+                path,
+                digest: bytes.map(|bytes| Sha256::digest(bytes).into()),
+            });
+            paths.insert(checkout.join(".config/diagnostic-tools.toml"));
         }
         for root in plan.groups().iter().flat_map(|group| group.roots()) {
             let package = metadata
@@ -176,18 +199,27 @@ impl Context {
                 })?;
             paths.insert(package.manifest_path.as_std_path().to_owned());
         }
-        let inputs = paths
-            .into_iter()
-            .map(|path| digest(&path).map(|digest| Input { path, digest }))
-            .collect::<Result<_, _>>()?;
+        for path in paths {
+            inputs.push(Input {
+                digest: digest(&path)?,
+                path,
+            });
+        }
         Ok(Self {
             checkout,
             metadata,
             profile,
+            declared_default_filter,
             environment,
             inputs,
             selected_native: BTreeSet::new(),
         })
+    }
+    fn runner_policy(&self) -> RunnerPolicy<'_> {
+        RunnerPolicy {
+            profile: &self.profile,
+            declared_default_filter: self.declared_default_filter.as_deref(),
+        }
     }
     fn admit(&self, plan: Plan) -> Result<Resolved, WorkflowError> {
         self.verify()?;
@@ -259,6 +291,15 @@ pub enum Stage {
     /// Actual captured binaries and native test population.
     Listed,
 }
+/// Authored runner-policy inputs. Native listing owns effective filter membership.
+#[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
+pub struct RunnerPolicy<'a> {
+    /// Exact selected nextest profile, including the original profile on failed reruns.
+    pub profile: &'a str,
+    /// The checkout's directly declared default filter for this profile, if readable.
+    /// This does not infer inherited or native defaults.
+    pub declared_default_filter: Option<&'a str>,
+}
 /// Projection of the same operation-owned selection at its currently available stage.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Explanation<'a> {
@@ -266,6 +307,9 @@ pub struct Explanation<'a> {
     pub stage: Stage,
     /// Original normalized selection, including roots/platform/features/filter/ignored policy.
     pub selection: &'a Plan,
+    /// Original runner selection for tests; compiler checks have no runner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner: Option<RunnerPolicy<'a>>,
     /// Actual correctness admission only when it has been performed.
     pub admission: Information<&'a [correctness::Resolution]>,
     /// Actual selected population only after explicit build/list.
@@ -295,6 +339,9 @@ pub struct BriefExplanation<'a> {
     pub stage: Stage,
     /// The same normalized intent used by execution.
     pub selection: &'a Plan,
+    /// Original runner selection for tests; compiler checks have no runner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runner: Option<RunnerPolicy<'a>>,
     /// Actual root contexts only, or the original unavailable reason.
     pub admission: Information<Vec<AdmittedGroup<'a>>>,
     /// Actual population only after native listing.
@@ -325,6 +372,7 @@ impl<'a> Explanation<'a> {
         BriefExplanation {
             stage: self.stage,
             selection: self.selection,
+            runner: self.runner,
             admission,
             selected_tests: self.selected_tests,
             fixture_requirements: self.fixture_requirements,
@@ -416,6 +464,7 @@ impl Intent {
         Explanation {
             stage: Stage::Intent,
             selection: &self.plan,
+            runner: Some(self.context.runner_policy()),
             admission: pending("correctness admission not requested"),
             selected_tests: pending("explicit build/list not requested"),
             fixture_requirements: pending("admitted feature context is pending"),
@@ -455,6 +504,7 @@ impl Admitted {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
+            runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: pending("explicit build/list not requested"),
             fixture_requirements: Information::Available(&self.requirements),
@@ -633,6 +683,7 @@ impl Listed {
         Explanation {
             stage: Stage::Listed,
             selection: self.resolved.plan(),
+            runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: Information::Available(self.inventory.selected_tests_iter().count()),
             fixture_requirements: Information::Available(&self.requirements),

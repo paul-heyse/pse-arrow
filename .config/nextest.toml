@@ -27,8 +27,8 @@ scientific = { max-threads = 2 }
 store = { max-threads = 16 }
 
 [profile.default]
-# These public journeys require one externally placed four-GiB observer. The
-# managed-native assessment partition selects them with --ignore-default-filter.
+# These public journeys require one externally placed four-GiB observer. Select
+# them deliberately with the managed-primary profile and their native features.
 default-filter = "not test(managed_primary_)"
 fail-fast = false
 # Report slow tests at 60 s; terminate at 360 s. Overrides below carry longer budgets.
@@ -48,6 +48,10 @@ success-output = "never"
 [profile.default.junit]
 path = "junit.xml"
 store-failure-output = true
+
+[profile.managed-primary]
+inherits = "default"
+default-filter = "test(managed_primary_)"
 
 # Nextest owns the declared scheduling and timeout behavior directly. Private native
 # fixtures supply capabilities; scheduling groups never grant execution authority.

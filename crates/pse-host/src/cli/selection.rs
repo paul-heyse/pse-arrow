@@ -100,7 +100,13 @@ impl SelectionArgs {
                 features,
             }
         } else if self.targets.is_empty() && self.workspace.package.is_empty() {
-            Scope::DefaultMembers { features }
+            match operation {
+                Operation::Test => Scope::Workspace {
+                    exclude: Vec::new(),
+                    features,
+                },
+                Operation::Check | Operation::Rustdoc => Scope::DefaultMembers { features },
+            }
         } else {
             let mut packages = Vec::new();
             for input in &self.targets {
@@ -174,6 +180,9 @@ pub(super) struct TestArgs {
     #[arg(long, value_enum, default_value = "default")]
     ignored: selection::IgnoredPolicy,
     /// Selected nextest policy profile, without running its setup during explain.
+    ///
+    /// Use default for ordinary tests. The managed-primary profile selects the
+    /// explicitly placed managed study tests with their required native features.
     #[arg(long, default_value = "default")]
     pub(super) profile: String,
 }
@@ -226,6 +235,20 @@ mod tests {
     struct Parsed {
         #[command(flatten)]
         tests: TestArgs,
+    }
+    #[test]
+    fn ordinary_tests_default_to_workspace_without_changing_check_defaults() {
+        let parsed = Parsed::try_parse_from(["selection"]).unwrap();
+        let workspace = Parsed::try_parse_from(["selection", "--workspace"]).unwrap();
+        assert_eq!(parsed.tests.request().unwrap(), workspace.tests.request().unwrap());
+        assert!(matches!(
+            parsed.tests.request().unwrap().scope,
+            Scope::Workspace { exclude, .. } if exclude.is_empty()
+        ));
+        assert!(matches!(
+            parsed.tests.selection.request(Operation::Check).unwrap().scope,
+            Scope::DefaultMembers { .. }
+        ));
     }
     #[test]
     fn fresh_build_accepts_non_incremental_and_rerun_refuses_override() {

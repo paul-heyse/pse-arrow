@@ -203,25 +203,29 @@ pub(super) fn resolve(
 }
 
 pub(super) fn verify_rerun(inventory: &crate::discovery::Inventory) -> Result<(), WorkflowError> {
-    if inventory.selection.rerun_cases().is_empty() {
+    let cases = inventory.selection.rerun_cases();
+    if cases.is_empty() {
         return Ok(());
     }
     let mut mapped = BTreeSet::new();
     let mut verified = inventory.verified_tests();
     for identity in inventory.selected_tests_iter() {
         let captured = verified.test(&identity)?;
-        for (index, case) in inventory.selection.rerun_cases().iter().enumerate() {
-            let original_package = inventory
-                .selection
-                .groups()
-                .get(identity.group)
-                .is_some_and(|group| {
-                    group.roots().iter().any(|root| {
-                        root.package_id() == identity.package_id
-                            && root.package_name() == case.package
-                    })
-                });
-            if original_package
+        let root = inventory
+            .selection
+            .groups()
+            .get(identity.group)
+            .and_then(|group| {
+                group
+                    .roots()
+                    .iter()
+                    .find(|root| root.package_id() == identity.package_id)
+            })
+            .ok_or_else(|| WorkflowError::Invalid("current rerun identity has no compiler root".into()))?;
+        let features: BTreeSet<_> = captured.artifact.cargo.features.iter().cloned().collect();
+        let mut matching = cases.iter().enumerate().filter(|(_, case)| {
+            root.package_name() == case.package
+                && root.features().absent == case.features.absent
                 && identity.binary_id == case.binary_id
                 && identity.test_name == case.test_name
                 && captured.artifact.cargo.target.name.as_str() == case.target.name
@@ -234,20 +238,16 @@ pub(super) fn verify_rerun(inventory: &crate::discovery::Inventory) -> Result<()
                         .iter()
                         .any(|actual| actual.to_string() == *kind)
                 })
-                && captured
-                    .artifact
-                    .cargo
-                    .features
-                    .iter()
-                    .cloned()
-                    .collect::<BTreeSet<_>>()
-                    == case.features.enabled
-            {
-                mapped.insert(index);
-            }
+                && features == case.features.enabled
+        });
+        let Some((index, _)) = matching.next() else {
+            return Err(WorkflowError::Invalid("current native listing selects a test outside the original failed identities; select current tests explicitly".into()));
+        };
+        if matching.next().is_some() || !mapped.insert(index) {
+            return Err(WorkflowError::Invalid("original failed test identity has an ambiguous current native match; select current tests explicitly".into()));
         }
     }
-    if mapped.len() != inventory.selection.rerun_cases().len() {
+    if mapped.len() != cases.len() {
         return Err(WorkflowError::Invalid("original failed test identity or compiler feature context is absent from current native listing; select current tests explicitly".into()));
     }
     Ok(())

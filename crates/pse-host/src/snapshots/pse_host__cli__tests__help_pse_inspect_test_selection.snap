@@ -143,7 +143,9 @@ Options:
           [default: default]
 
       --profile <PROFILE>
-          Selected nextest policy profile, without running its setup during explain
+          Selected nextest policy profile, without running its setup during explain.
+
+          Use default for ordinary tests. The managed-primary profile selects the explicitly placed managed study tests with their required native features.
 
           [default: default]
 
