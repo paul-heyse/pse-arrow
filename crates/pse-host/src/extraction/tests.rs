@@ -94,6 +94,26 @@ fn zero_exit_and_a_valid_tail_cannot_erase_missing_or_malformed_required_evidenc
 }
 
 #[test]
+fn cargo_timing_build_start_preserves_strict_compiler_evidence() {
+    let policy = RedactionPolicy::default();
+    let marker = br#"{"reason":"build-started","run_id":"20261107T080340317Z-f5737b85314b83ba"}"#;
+    let mut timed = extractor(8);
+    assert!(matches!(
+        timed.consume(marker, origin(0), &policy),
+        Ok(CargoRecord::Other { .. })
+    ));
+    timed.consume(&terminal(true), origin(1), &policy).unwrap();
+    assert_eq!(timed.finish(0).outcome(), CompilerOutcome::Succeeded);
+
+    let mut late = extractor(8);
+    assert!(late.consume(marker, origin(1), &policy).is_err());
+    assert!(
+        late.consume(br#"{"reason":"build-started"}"#, origin(0), &policy)
+            .is_err()
+    );
+}
+
+#[test]
 fn optional_grouping_capacity_cannot_drop_records_or_change_compiler_outcome() {
     let mut extractor = extractor(1);
     let policy = RedactionPolicy::default();

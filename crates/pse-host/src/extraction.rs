@@ -133,6 +133,14 @@ pub enum CargoRecord {
     },
 }
 
+// Pinned Cargo emits this before its ordinary messages when timings are requested.
+// cargo_metadata's Message enum does not represent it.
+#[derive(Deserialize)]
+#[serde(tag = "reason", rename_all = "kebab-case")]
+enum CargoTimingMarker {
+    BuildStarted { run_id: String },
+}
+
 /// This is compiler evidence only, not selected-test reconciliation or scientific acceptance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -256,6 +264,15 @@ impl CargoExtractor {
         let message = match serde_json::from_slice::<Message>(bytes) {
             Ok(message) => message,
             Err(error) => {
+                if origin.stream == OutputStream::Stdout
+                    && origin.ordinal == 0
+                    && self.terminal.is_none()
+                    && let Ok(CargoTimingMarker::BuildStarted { run_id }) =
+                        serde_json::from_slice(bytes)
+                    && !run_id.is_empty()
+                {
+                    return Ok(CargoRecord::Other { origin });
+                }
                 self.mark_incomplete();
                 return Err(error.into());
             }
