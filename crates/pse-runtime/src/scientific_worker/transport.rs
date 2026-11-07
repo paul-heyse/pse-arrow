@@ -1042,9 +1042,12 @@ pub(super) fn serve_with_preparation(
                     }
                     let result = super::retirement_result(failures);
                     #[cfg(test)]
-                    if result.is_ok() {
-                        observe_orphan_retirement_for_test(&handle, &sessions, &native_controls)?;
-                    }
+                    observe_orphan_retirement_for_test(
+                        &handle,
+                        &sessions,
+                        &native_controls,
+                        result.is_ok(),
+                    )?;
                     result
                 }) {
                     failures.push(error);
@@ -1054,6 +1057,8 @@ pub(super) fn serve_with_preparation(
             if let Err(error) = retire_sessions(&mut sessions) {
                 failures.push(error);
             }
+            #[cfg(test)]
+            observe_native_retirement_failures_for_test(&failures)?;
             super::retirement_result(failures)
         })
         .map_err(infrastructure)?;
@@ -1139,7 +1144,9 @@ pub(super) fn serve_with_preparation(
 
 #[cfg(test)]
 fn departing_preparation_marker_for_test(handle: &p::Handle) -> Option<PathBuf> {
-    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("prepare-departure") {
+    if !std::env::var("PSE_SCIENCE_TEST_MODE")
+        .is_ok_and(|mode| mode.starts_with("prepare-departure"))
+    {
         return None;
     }
     let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER")?);
@@ -1199,6 +1206,7 @@ fn observe_orphan_retirement_for_test(
     handle: &p::Handle,
     sessions: &BTreeMap<SemanticId, PreparedSession>,
     controls: &SharedControls,
+    successful: bool,
 ) -> Result<(), WorkerError> {
     let Some(marker) = departing_preparation_marker_for_test(handle) else {
         return Ok(());
@@ -1213,8 +1221,83 @@ fn observe_orphan_retirement_for_test(
         ));
     }
     std::fs::write(
-        marker.with_extension("prepare-retired"),
+        marker.with_extension(if successful {
+            "prepare-retired"
+        } else {
+            "prepare-retirement-error"
+        }),
         handle.generation.to_string(),
+    )
+    .map_err(infrastructure)
+}
+
+#[cfg(test)]
+fn observe_native_retirement_failures_for_test(
+    failures: &[WorkerError],
+) -> Result<(), WorkerError> {
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("prepare-departure-retire-faults") {
+        return Ok(());
+    }
+    let marker = PathBuf::from(
+        std::env::var_os("PSE_SCIENCE_TEST_MARKER")
+            .ok_or_else(|| infrastructure("missing retirement-failure test marker"))?,
+    );
+    let orphan =
+        std::fs::read_to_string(marker.with_extension("prepare-built")).map_err(infrastructure)?;
+    let [original, WorkerError::Retirement { causes: remaining }] = failures else {
+        return Err(infrastructure(
+            "native failure did not retain original orphan and remaining-owner failures",
+        ));
+    };
+    fn original_finish(error: &WorkerError, generation: &str) -> Result<(), WorkerError> {
+        let WorkerError::Provider(ProviderError::Retirement { failures }) = error else {
+            return Err(infrastructure(
+                "native finish lost original keyed provider retirement failure",
+            ));
+        };
+        let [failure] = failures.as_slice() else {
+            return Err(infrastructure(
+                "native finish changed original failure population",
+            ));
+        };
+        if !matches!(failure.cause.as_ref(), ProviderError::Contract(detail)
+            if detail == &format!("controlled native retirement failure {generation}"))
+        {
+            return Err(infrastructure(
+                "native finish lost original typed Contract cause",
+            ));
+        }
+        Ok(())
+    }
+    original_finish(original, &orphan)?;
+    if remaining.len() != 2 {
+        return Err(infrastructure(
+            "native failure skipped a remaining prepared owner",
+        ));
+    }
+    let mut generations = vec![orphan];
+    for error in remaining {
+        let WorkerError::Lifecycle {
+            action: "Stop",
+            handle: Some(handle),
+            cause,
+        } = error
+        else {
+            return Err(infrastructure(
+                "remaining native finish lost exact Stop handle attribution",
+            ));
+        };
+        let generation = handle.generation.to_string();
+        original_finish(cause, &generation)?;
+        generations.push(generation);
+    }
+    // This is a child-local test witness, not a wire report or restored parent
+    // cause. The current non-Shutdown connection-loss path can exit(125) before
+    // joining this completed native result; parent qualification stays separate.
+    generations.sort();
+    std::fs::write(
+        marker.with_extension("native-errors"),
+        generations.join("\n"),
     )
     .map_err(infrastructure)
 }
