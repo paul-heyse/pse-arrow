@@ -21,6 +21,7 @@ use std::{
     process::Command,
 };
 pub mod bridge;
+pub(crate) mod build_output;
 pub mod comparison;
 pub mod doctests;
 pub mod export;

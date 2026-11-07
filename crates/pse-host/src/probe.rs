@@ -14,7 +14,7 @@ use std::{
     process::Command,
 };
 
-mod outputs;
+pub(crate) mod outputs;
 pub use outputs::{OutputRelease, clean_outputs};
 
 /// Scratch ownership/resolution failure, independent of the probe's own exit status.

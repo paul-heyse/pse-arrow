@@ -11,7 +11,6 @@ use schemars::JsonSchema;
 use serde::Serialize;
 use std::{
     collections::BTreeSet,
-    ffi::CStr,
     fs::File,
     io,
     os::unix::fs::{MetadataExt as _, OpenOptionsExt as _},
@@ -32,7 +31,7 @@ pub struct OutputRelease {
     pub released: bool,
 }
 
-fn directory(parent: impl AsFd, name: &CStr) -> io::Result<File> {
+pub(crate) fn directory(parent: impl AsFd, name: impl rustix::path::Arg) -> io::Result<File> {
     unix::openat2(
         parent,
         name,
@@ -73,7 +72,7 @@ fn walk(parent: &File, seen: &mut BTreeSet<(u64, u64)>, release: bool) -> io::Re
     Ok(bytes)
 }
 
-fn identity(directory: &File) -> io::Result<String> {
+pub(crate) fn identity(directory: &File) -> io::Result<String> {
     let metadata = directory.metadata()?;
     let created = metadata
         .created()?
@@ -88,25 +87,27 @@ fn identity(directory: &File) -> io::Result<String> {
     ))
 }
 
-fn outputs(probe: &super::Probe, expected: Option<&str>) -> Result<OutputRelease, ProbeError> {
-    let parent = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags((OFlags::DIRECTORY | OFlags::NOFOLLOW).bits() as i32)
-        .open(&probe.directory)?;
+/// Inspect or unlink the owner's fixed target under its held parent and lease.
+pub(crate) fn target_output(
+    parent: &File,
+    target_path: PathBuf,
+    owned_identity: Option<&str>,
+    release: bool,
+) -> io::Result<OutputRelease> {
     let mut result = OutputRelease {
-        target: probe.target_directory.clone(),
+        target: target_path,
         identity: None,
         allocated_bytes: 0,
         released: false,
     };
-    let target = match directory(&parent, c"target") {
+    let target = match directory(parent, c"target") {
         Ok(target) => target,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(result),
-        Err(error) => return Err(error.into()),
+        Err(error) => return Err(error),
     };
     let selected = identity(&target)?;
-    if expected.is_some_and(|expected| expected != selected) {
-        return Err(invalid("probe output identity changed after preview"));
+    if owned_identity.is_some_and(|expected| expected != selected) {
+        return Err(io::Error::other("Cargo output identity changed after selection"));
     }
     let metadata = target.metadata()?;
     let mut seen = BTreeSet::from([(metadata.dev(), metadata.ino())]);
@@ -115,15 +116,15 @@ fn outputs(probe: &super::Probe, expected: Option<&str>) -> Result<OutputRelease
         .saturating_mul(512)
         .saturating_add(walk(&target, &mut seen, false)?);
     result.identity = Some(selected.clone());
-    if expected.is_some() {
-        if identity(&directory(&parent, c"target")?)? != selected {
-            return Err(invalid("probe output identity changed during release"));
+    if release {
+        if owned_identity.is_none() || identity(&directory(parent, c"target")?)? != selected {
+            return Err(io::Error::other("Cargo output identity is unverified during release"));
         }
         walk(&target, &mut BTreeSet::new(), true)?;
-        if identity(&directory(&parent, c"target")?)? != selected {
-            return Err(invalid("probe output identity changed during release"));
+        if identity(&directory(parent, c"target")?)? != selected {
+            return Err(io::Error::other("Cargo output identity changed during release"));
         }
-        unix::unlinkat(&parent, c"target", AtFlags::REMOVEDIR).map_err(io::Error::from)?;
+        unix::unlinkat(parent, c"target", AtFlags::REMOVEDIR).map_err(io::Error::from)?;
         result.released = true;
     }
     Ok(result)
@@ -155,5 +156,14 @@ pub async fn clean_outputs(
         .map_err(host)
     })
     .await?;
-    outputs(&probe, expected)
+    let parent = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags((OFlags::DIRECTORY | OFlags::NOFOLLOW).bits() as i32)
+        .open(&probe.directory)?;
+    Ok(target_output(
+        &parent,
+        probe.target_directory,
+        expected,
+        expected.is_some(),
+    )?)
 }

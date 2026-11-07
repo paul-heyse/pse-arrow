@@ -15,7 +15,7 @@ use clap::Args;
 use std::path::Path;
 
 #[derive(Debug, Args)]
-#[command(group(clap::ArgGroup::new("api_effect").args(["prepare","compatibility","check_docs", "extract_examples"]).required(true).multiple(false)))]
+#[command(group(clap::ArgGroup::new("api_effect").args(["prepare","compatibility","check_docs", "extract_examples", "retire_build"]).required(true).multiple(false)))]
 pub(super) struct Arguments {
     #[command(flatten)]
     lookup: InspectArgs,
@@ -31,6 +31,12 @@ pub(super) struct Arguments {
     /// Explicitly preprocess native doctests to format2; no examples compile or run.
     #[arg(long, conflicts_with_all=["path", "search", "cursor", "compare_with", "native_examples"])]
     extract_examples: bool,
+    /// Preview the exact original acquisition's regenerable Cargo build output after drain.
+    #[arg(long, value_name = "INVOCATION", conflicts_with_all=["path", "search", "cursor", "compare_with", "native_examples", "export_jsonl"])]
+    retire_build: Option<String>,
+    /// Release the Cargo output identity from the preview.
+    #[arg(long, requires = "retire_build", value_name = "IDENTITY")]
+    release: Option<String>,
 }
 #[derive(Debug, Args)]
 pub(in crate::cli) struct InspectArgs {
@@ -89,7 +95,7 @@ pub(in crate::cli) struct InspectArgs {
 }
 impl Arguments {
     pub(super) fn intent(&self) -> GenerationIntent {
-        if self.prepare || self.compatibility || self.check_docs || self.extract_examples {
+        if self.prepare || self.compatibility || self.check_docs || self.extract_examples || self.release.is_some() {
             GenerationIntent::NewWork
         } else {
             GenerationIntent::Passive
@@ -193,7 +199,27 @@ pub(super) fn dispatch(
         compatibility,
         check_docs,
         extract_examples,
+        retire_build,
+        release,
     } = arguments;
+    if let Some(invocation) = retire_build {
+        let invocation = invocation.try_into().map_err(|_| {
+            HostError::Ownership("API build retirement requires an exact invocation UUID".into())
+        })?;
+        let environment = std::env::vars_os().collect();
+        let result = super::runtime()?.block_on(api::build_output::inspect_or_release(
+            root,
+            &environment,
+            &lookup.crate_query,
+            &invocation,
+            release.as_deref(),
+        ))?;
+        return Ok(output.emit(Envelope::response(
+            "api retire-build",
+            "observed regenerable Cargo output under the original API acquisition lease",
+            result,
+        ))?);
+    }
     if lookup.export_jsonl.is_some() {
         return Err(error(api::ApiError::Invalid(
             "--export-jsonl reads an acquired artifact: use inspect api separately from acquisition/check effects".into(),
@@ -318,6 +344,7 @@ fn perform(
             native_examples,
         )
         .map_err(error)?;
+        let build_target = api::build_output::Target::prepare(&acquisition, &output.invocation_id)?;
         let context_path = acquisition.directory.join("context.json");
         let context_bytes = std::fs::read(&context_path)?;
         let artifacts = vec![envelope::ArtifactReference {
@@ -391,13 +418,20 @@ fn perform(
                         .read_to_end(&mut bytes)?;
                     let path =
                         api::doctests::finish(&acquisition, &snapshot, &bytes).map_err(error)?;
-                    return Ok(vec![envelope::ArtifactReference {
+                    let artifact = envelope::ArtifactReference {
                         kind: "native_doctest_format2".into(),
                         location: path.display().to_string(),
                         digest: Some(crate::probe::digest(&bytes)),
-                    }]);
+                    };
+                    super::runtime()?.block_on(
+                        build_target.release_if_drained(root, &acquisition.environment),
+                    )?;
+                    return Ok(vec![artifact]);
                 }
                 let artifact = api::finish(&acquisition, &snapshot).map_err(error)?;
+                super::runtime()?.block_on(
+                    build_target.release_if_drained(root, &acquisition.environment),
+                )?;
                 Ok(vec![envelope::ArtifactReference {
                     kind: "rustdoc_json".into(),
                     location: artifact.path.display().to_string(),
