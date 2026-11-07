@@ -62,32 +62,35 @@ process with a loaded unit. These observations do not identify a catalog's
 level, exact bytes, consumer, version, payload closure, or whether other
 service managers or manually launched processes own data.
 
-The candidate's `pse-host server select` refused the shared v3 completion
-receipt because it lacks the v4 `protocol` field. The same selection
-succeeded from main with its v3 reader. The private v4 release remains
-unavailable under the 68a build checkpoint. The existing
-`pse-canonical-recovery` inventory/backup/restore route owns canonical
-payload-file custody only; it is not an engine/catalog inventory or a
-consistent SurrealDB backup. No discovered native read-only route lists all
-canonical catalogs with their owner-issued consumer and recovery holds.
+Main's v3 reader still selects the frozen 3.3.4 release. The rollback ref
+`pse/plan68-v3-rollback` preserves the corresponding main source, and the
+native owner selects the byte-identical release from the separate
+`surreal-v3-rollback` tool root. The local default catalog directory is
+absent. Keep configured historical catalogs under their existing owners.
 
-E01 remains open. Classify actual catalog generations and named evidence
-consumers through their original owners before selecting any import or
-release. Do not infer that all data is disposable from inactive service
-units. Candidate E02 live-service tests also remain unavailable through the
-current selection: `native_service` requires a valid selected server,
-helper and module receipt; tests using `PSE_SURREAL_STATE` require an
-explicitly owned running fixture. Filesystem-only `canonical_files::offline`
-tests use temporary data and can exercise copy/inventory integrity without
-starting a supplier, but cannot qualify catalog migration, SQL semantics or
-service recovery.
+The [68a source build](68a-surrealdb-v4-supplier-runtime-and-extension.md)
+now supplies the private 4.0.0/MX 1.1.0 release. The normal `server prepare
+--from-release` owner imported it into the rehearsal root and preserved
+both executable digests, the lock and the original build receipt. The
+same selection built the ABI 4 Study extension for the live fixtures.
+
+The existing
+`pse-canonical-recovery` inventory/backup/restore route owns canonical
+payload-file custody. Identifying a historical catalog's current consumer
+and recovery holds requires its original owner.
+
+Classify named evidence consumers through their original owners before
+selecting a historical import or release. E02 now runs against the private
+server, helper and module receipt. Filesystem-only
+`canonical_files::offline` controls exercise copy and inventory integrity.
+Live native controls cover catalog initialization, SQL and service recovery.
 
 **Tested, v3 baseline only.** Main's native `scripts/pse test pse-operations
 --lib -E 'test(/offline_(complete_inventory_backup_and_lockless_archive_restore|unnamed_copy_interruption_and_exact_published_restore_resume|checkpoint_resumes_exact_request_and_rechecks_every_byte)/)'`
 ran three filesystem custody controls with zero failures against a zero target
 and complete settlement. The initial filter matched zero tests. This supplies
 baseline payload copy and inventory integrity evidence for the named restore
-case when the v4 fixture is available.
+case on the v4 fixture.
 
 ### E02 — Rehearse the complete receiving boundary
 
@@ -125,6 +128,12 @@ complete unrelated Plan66 scientific packages.
 [Canonical native-service tests](../../crates/pse-operations/tests/native_service.rs) ·
 [Developer receiving](68d-surrealdb-v4-developer-and-test-receiving.md)
 
+The first live current-schema runs pass fresh startup, maintenance and
+ingress reconstruction, connection-bound session ownership, and HTTP actor
+grants. The [68b checkpoint](68b-surrealdb-v4-schema-transport-and-authority.md#private-candidate-checkpoint)
+records the catalog and index changes that cleared startup. The selected
+scientific, recovery, query and developer suites still determine acceptance.
+
 ### E03 — Select, open writes and release
 
 Freeze the admitted v3 selection, close old write admission and verify
@@ -153,7 +162,7 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
-| E02 | Planned | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Assembled v4 scientific, developer, transport, recovery and physical settlement evidence with matched v3 observations. |
+| E02 | In progress | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Assembled v4 scientific, developer, transport, recovery and physical settlement evidence with matched v3 observations. |
 | E03 | Planned | E02 and governing decision route complete | Verified pre-write rollback and authoritative v4 selection, post-write forward recovery, owner-issued v3 release and removal of replaced paths. |
 
 ## Verification and outcome boundary

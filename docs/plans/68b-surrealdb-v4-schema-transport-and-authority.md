@@ -258,8 +258,27 @@ The v4 parsers and bounded transport use the updated lock and generated
 catalog. Stock v4.0.0 on a fresh disposable memory datastore accepted all
 1,132 active definitions after moving the explicit API security clause
 and renaming protected SurrealQL bindings. That run exercised catalog
-installation. Native transport, installed-definition attestation,
-activation and protected readback still need A's prepared supplier pair.
+installation. The prepared MX 1.1.0 server's gRPC record probe returned
+`DatabaseEmpty` for a missing catalog after `USE` acknowledged the names.
+The bootstrap now uses `INFO FOR DB` under the existing viewer principal.
+The same endpoint returned a typed missing namespace for that request.
+
+The full generated schema and ABI 4 extension reached a read conflict on
+commit under the patched server's serializable default. Blocking index
+builds write their bookkeeping in separate transactions. The same
+definitions committed in an explicit snapshot transaction and the index
+status was available. The fresh installation envelope uses that isolation
+and still commits the fixed interpretation record with the definitions.
+Application writes continue to use the canonical serializable policy.
+The managed `scripts/pse test pse-operations:native_service` run passed
+current migration and ingress reconstruction, cross-connection session
+refusal, and HTTP actor grants and original envelopes against this prepared
+pair. Three tests ran with zero failures against the zero target and
+complete settlement. Protected scientific readback remains with 68e.
+[Catalog information](https://surrealdb.com/docs/reference/query-language/statements/info) ·
+[Transaction isolation](https://surrealdb.com/docs/reference/query-language/statements/begin#isolation-level) ·
+[Transactional index definitions](https://surrealdb.com/docs/reference/query-language/statements/define/indexes#defining-an-index-inside-a-transaction)
+
 The targeted wire, value, API comparator and generator tests passed.
 The native operations compile check included the service and maintenance
 features.

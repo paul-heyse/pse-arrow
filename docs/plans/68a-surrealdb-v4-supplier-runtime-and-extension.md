@@ -214,9 +214,9 @@ or blocks private qualification when a conforming port is unavailable.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| A01 | planned | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
-| A02 | planned | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
-| A03 | planned | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
+| A01 | complete privately | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
+| A02 | in progress | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
+| A03 | in progress | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
 | A04 | planned | A02 and A03 tested replacements, actual consumers identified | Final source patch ledger removes superseded integrations with their consumers and tests. Deliver exact receipts and selected native test evidence to 68e. |
 
 ## Verification boundary
@@ -260,7 +260,13 @@ by the native source recipe and its digest is part of the release identity.
 prepare` in the private tool root completed the paired release and published
 its verified receipt. `server select` reopened the same generation, and both
 executables reported the matching `pse.mx.1.1.0.482afb739a0ca349` identity.
-Actual paired import and application receiving remain open.
+`server prepare --from-release` selected the same release in the independent
+rehearsal tool root. Both executable digests, the Cargo lock and the original
+build receipt matched. The normal Study preparation owner built the ABI 4
+production artifact from that builder. The first live native service tests
+opened the generated catalog and exercised the installed Study readiness
+check. Qualification of resource refusal, deadlines and physical drain
+continues on the separate guest artifact.
 
 **Tested, alternate compiler diagnostic.** The same release pair built in
 scratch on the supplier's tagged Rust 1.95.0 without the VM workaround.
