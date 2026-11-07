@@ -96,7 +96,7 @@ native lifetime. Exact maintained source links and limits are in
 |---|---|---|---|
 | H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
 | H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
-| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly. Temporal refinement, broader physical families, trajectory-use permission and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
+| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly; a separate interior-cohort refinement and strict zero-initial scheme/domain refusal pass two targeted controls. Broader physical families, trajectory-use permission and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
 | H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
@@ -143,8 +143,15 @@ separate from the earlier finite-placement launcher defect. The original scope i
 but that observation does not rewrite the failed historical settlement receipt. A subsequent
 clean native selection passed the same seven scientific controls plus the protected-delivery
 consumer below:8/8, zero failures/pending/build warnings and complete capture/settlement.
-Coarser/fine temporal refinement remains in progress; algebraic solver accuracy must be separated
-from temporal discretization error rather than widening the physical comparison to hide either.
+The next two targeted native controls now pass with complete capture/settlement and zero failures
+or build warnings: actual target-keyed numerical requirements expose a zero-initial Radau
+scheme/domain conflict, retained as an original infeasible/unqualified diagnostic control, while
+a separate interior-initialized cohort passes the unchanged eightfold coarse/fine common-time
+error discriminator. Both preserve the original physical bounds and acceptance allowances.
+[66d's numerical-demand section](66d-mathematical-representation-and-numerical-execution.md#numerical-demand-exposed-by-temporal-refinement)
+owns the independent faer stage-equation check, production Symbolica stencil mechanism and
+precise evidence limits. This is a selected temporal comparison, not general positivity or
+convergence-order qualification.
 
 The integrated protected-delivery consumer submits the original typed Study `SimulationOperation`,
 retains its actual integrated fixture and checks the accepted native result at the nonzero clock.

@@ -175,7 +175,7 @@ allocation bounds.
 
 ### Numerical demand exposed by temporal refinement
 
-The integrated H03 discriminator compares the same original four-cell physical problem at
+The first H03 discriminator compared the zero-initial four-cell physical problem at
 31/61 temporal points. Ordinary physical allowances pass, but their engineering row floors
 mask the expected temporal signal: the initial common-time maximum errors were approximately
 0.187/0.177 mol/m³. Tightening scalar solver fractions alone left those observations unchanged.
@@ -195,19 +195,38 @@ The first explicit request, capped at `1e-10 * original nominal` per actual row,
 1240 selected coarse rows with matching units/provenance/budgets before execution and in the
 retained result. That coarse solve returned an infeasible/unqualified diagnostic candidate;
 the fine solve was not reached. Its focused control failed 1/1 with zero warnings and complete
-settlement against the zero baseline. Keep the strict discriminator and original failed evidence.
-D01/D02 now inspect actual native options, original violations, conditioning and presolve before
-choosing a defensible output-driven precision demand or correcting its realization. No physical
-tolerance widening, successful-refinement claim or new accuracy mechanism follows from the request
-being accepted. The original source control is
+settlement against the zero baseline. Native options and original violation lineage locate the
+conflict in the original `Cell.conserve material` row, not a lost precision request. The exact
+three-stage right-Radau first element requires negative intermediate concentrations for this
+zero-initial step: approximately -0.228 mol/m³ at coarse spacing and -0.0199/-0.0139 mol/m³ at
+fine spacing, conflicting with the original nonnegative concentration domain. An independently
+authored Runge–Kutta tableau and faer 0.24.4 `Mat::from_fn`, `partial_piv_lu()` and
+[`Solve::solve`](../../vendor/faer/src/linalg/solvers.rs) check the linear stage equations and
+their residuals; they do not consume the production stencil. Production
+[`collocation::element`](../../crates/pse-math/src/collocation.rs) continues to use Symbolica's
+exact polynomial construction, certified real-root refinement and derivative/integration
+weights. No alternative production discretizer or solver-option relaxation was introduced.
+
+Retain that original strict case as an explicit infeasible/unqualified native diagnostic
+control. A distinct, interior-initialized 10-to-100 mol/m³ cohort has independently positive
+first-stage values and retains the same geometry, clock, original complete 31/61-point
+populations and physical allowances. Both resolutions use the actual Analysis row demands;
+the unchanged eightfold common-time error-improvement discriminator passes. **Tested,
+targeted:** native `scripts/pse test pse-runtime --lib --features
+solver-ipopt,solver-kinsol,solver-root-isolation,solver-diffsol` selecting the refinement and
+strict-zero refusal controls passed 2/2, zero failures/build warnings, complete original capture
+and settlement (`01a1b345-1b34-75e3-8159-484ec11dfd0f`). This establishes the selected
+scheme/domain distinction and refinement comparison, not general positivity, convergence order,
+other physical families or a completed D package. No physical bound, acceptance allowance or
+native quality check was weakened. The source controls are
 [`aqueous_inventory_tests`](../../crates/pse-runtime/src/workflow/modeling/aqueous_inventory_tests.rs).
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now exposes numerical demand versus physical row floors and an unqualified native coarse solve under verified tighter Analysis requirements; resolve that actual demand/realization before claiming temporal refinement. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention corrections are implemented. Integrate the next justified precision/representation correction through native options, original-coordinate quality and H03 refinement, then other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
+| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. Continue other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
 | D03 | planned | A selected large-response consumer; current direct factor/SVD route | Decide factors versus faer actions using correctness, convergence/preconditioner, scratch and whole-operation evidence. Deliver the action route only if justified; otherwise retain factors with the comparison and revisit trigger. |
 | D04 | planned | Changed maintained arithmetic/provider consumers | Complete receiving controls for actual SCIP/Diffsol/KINSOL/NLP/native-root closures affected by changes; add missing invocation-bound regime/selection observation under ADR-0251's selected contract. Source/preparation logs cannot stand in for winning observations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |

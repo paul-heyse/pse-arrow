@@ -283,9 +283,16 @@ public-reader9 are selected populations, not whole-series acceptance. A's origin
 assessment is integrated; its next unit supplies actual native member permission with original
 attempt/input custody. C03's actual-child pending-Close receiving unit is integrated, retaining the
 existing lifecycle machinery. H's strict temporal-refinement request and discriminator are integrated
-too; D owns the currently failing tighter-demand coarse solve while the science lane advances Water
-equipment protected delivery. E/F advances original typed prerequisite facts and the corresponding
-finite analytical reader.
+too. Its tighter-demand failure is now explained by an independently verified zero-initial
+Radau scheme/domain conflict; the original case remains a strict refusal control and a distinct
+interior-initialized cohort passes the unchanged refinement discriminator (2/2 targeted controls,
+zero failures/warnings, complete capture/settlement). Water's three homogeneous equipment cases
+now preserve complete original native reports through protected typed read and independently
+checked IPC export in the owning checkout. Their typed engineering-client registration seam and
+broader property/application population remain open. A's first native fit-member permission is
+integrated with actual attempt/source/report custody, while standalone trajectory custody and
+the selected protected reader are next. E/F advances original typed prerequisite facts and the
+corresponding finite analytical reader.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input

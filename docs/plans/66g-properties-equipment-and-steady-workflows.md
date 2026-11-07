@@ -100,7 +100,7 @@ physical identity. Specific mechanisms and limits are in
 | G01 | planned | 66l's selected scientific/configuration/input identity; existing source admission | Every required property/equipment row has a concrete existing/missing science, ordinary-data, numerical-product or qualification disposition and a consuming case |
 | G02 | planned | G01 selected state/property closure; 66a coordinate/product and 66d provider slice where changed | Missing state/caloric/phase and pure-fluid outputs delivered through actual equipment consumers; existing implementations receive only missing evidence |
 | G03 | planned | G01 selected chemistry/transport inputs; native physical membership and basis | Required transport, reaction and electrolyte/speciation increments operate with conserved quantities, validity, derivatives and independent consuming expectations |
-| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Seven targeted branch controls pass for thermal/component closure, original readback and temporal/holdup refusals. Explicit unknown-Cp/Perry extrapolation qualifiers and actual-flow exposure guards remain. Other equipment/water/configuration, independent reference-binary and protected/client acceptance remain open. |
+| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Seven targeted branch controls pass for thermal/component closure, original readback and temporal/holdup refusals. Three homogeneous HEOS Water cases now reach protected/portable consumers. Explicit unknown-Cp/Perry extrapolation qualifiers and actual-flow exposure guards remain, along with other equipment/configurations, independent reference-binary and typed-client acceptance. |
 | G05 | planned | Working selected equipment/recycle/initialization closure | HDA, methanol and custom extension consumers deliver their distinct simulation/design outcomes with original scientific inputs and complete linked outputs |
 | G06 | planned | Changed producers and 66b/66e/66f receiving consumers | Selected declarations, native clients, diagnostics, retained/exported readers and source/reference mappings migrate together; replaced adapters and fixtures are deleted |
 | G07 | planned | Selected G02–G06 deliveries and 66l independent expectations | Configuration-specific missing acceptance is complete, required failures remain attributable, scope claims reconcile with 66l and enduring contracts are published |
@@ -112,6 +112,30 @@ FeedFlash source for the actual selected BT and water cases; completing an alrea
 authored candidate means integrating and testing it, not rewriting it for a new ID.
 G05 can proceed when its actual child equations and inputs work; it need not wait for
 all electrolyte, solids or pure-fluid configurations.
+
+### Selected Water protected-result delivery — November6
+
+The original liquid-pump, vapor-turbine and hot-vapor-turbine fixtures now execute through
+explicitly prepared HEOS Water registrations, retain native Step0/reference-point permission,
+and preserve all ten original report rows through protected typed reading, bounded IPC export
+and independent Arrow/Protobuf-context interpretation. The full population includes inherited
+temperature, enthalpy, energy-flow and flow reports as well as work; filtering to the two work
+rows would discard original evidence. Foreign revision selection refuses. See the shared
+[`protected_steam_case`](../../crates/pse-runtime/src/workflow/modeling/steam_tests.rs) consumer.
+This reuses the existing CoolProp low-level state/phase owner and native equipment equations;
+it adds no provider factory, inferred EOS-name restoration or alternate production path.
+
+**Tested, targeted in the owning checkout:** native `scripts/pse test pse-runtime --lib` with
+the declared scientific/provider fixture closure selected the pump consumer (1/1) and both
+vapor consumers (2/2); zero failures/build warnings and complete capture/settlement. Original
+invocations are `01a1b33f-de92-710a-9bc0-7f8669ae8d40` and
+`01a1b345-6dba-74c5-bd8a-4e1cc57bf7de`. The change is integrated on main; assembled main
+receiving remains separate. Static IAPWS/released-case expectations are independent stored
+expectations, not fresh reference execution. The pump is the selected hydraulic approximation;
+the existing homogeneous phase/datum/derivative limits remain. Wet, saturated, critical and
+mixed-phase equipment are not qualified by these three cases. The typed engineering admission
+path currently has no explicit prepared scientific-registration input; C/A own that remaining
+custody seam before a client can consume these configurations without name-based restoration.
 
 Each increment includes an operation request with exact selected definition,
 specifications, scientific source/data revisions and requested products; its native
