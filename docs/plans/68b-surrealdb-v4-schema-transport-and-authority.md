@@ -163,9 +163,10 @@ control unless the actual v4 receiving test proves the whole existing effect bou
 ## B05 — Test one shared named type
 
 Compare a registry-generated native `u64` field and callable type against today's
-`decimal` field and integral-range assertion. Start with a regenerated non-identity
-counter and its guarded function. A named type is useful when the same domain
-constraint is shared by fields and function arguments. Compare a decimal-backed
+`decimal` field and integral-range assertion. Start with the regenerated private
+evidence generation's `expected_members` and its count guard. A named type is
+useful when the same domain constraint is shared by fields and function
+arguments. Compare a decimal-backed
 named type only if that shared validation is valuable with the existing representation.
 
 **Tested, supplier interface.** A disposable v4.0.0 embedded CLI stored `0u64`,
@@ -196,7 +197,11 @@ role. Generate them from the existing registry when they remove repeated domain
 checks across real consumers. Treat enum rank, `NONE` versus `NULL`, and ordered
 array versus set semantics as explicit contracts. Apply `FLEXIBLE` only to a
 declared open metadata subtree. Native civil-time types and `bigdecimal` are
-options for an identified consumer with matching semantics and transport.
+options for an identified consumer with matching semantics and transport. CBOR v2
+preserves more value identities on its own supported interfaces. The selected
+gRPC path has separate conversions, including temporal degradation and a string
+fallback for `bigdecimal` outside the legacy decimal range. Review exact
+float–decimal equality and decimal literal precision for any new mixed predicate.
 Keep authoritative scientific IEEE bytes and queryable projections, especially
 for signed zero. Named record-ID components are a locality option for a new
 regenerated projection. Existing issued IDs keep their interpretation.
