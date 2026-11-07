@@ -165,7 +165,59 @@ fn release_original_images(
     } else {
         None
     };
-    release_images(directory.path(), action, inventory.as_ref(), fixture_settled)
+    let unlisted = if inventory.is_none() && !action.is_compiler() {
+        unlisted_builds(&original)?
+    } else {
+        Vec::new()
+    };
+    release_images(directory.path(), action, inventory.as_ref(), fixture_settled, &unlisted)
+}
+
+fn unlisted_builds(
+    original: &crate::test_inventory::CapturedReport,
+) -> Result<Vec<(usize, crate::discovery::BuildCapture)>, HostError> {
+    use crate::test_workflow::execute::{EvidenceRole, EvidenceRoot, Outcome, evidence};
+
+    if original.observation.outcome != Outcome::Failed {
+        return Ok(Vec::new());
+    }
+    let files = original.observation.evidence.as_deref().ok_or_else(|| host(invalid(
+        "failed discovery lacks an original compiler capture account",
+    )))?;
+    let builds: Vec<_> = files.iter().filter(|file| file.role == EvidenceRole::CompilerContext).cloned().collect();
+    if builds.is_empty() {
+        return Ok(Vec::new());
+    }
+    let captured = evidence::capture(&original.parent, &builds, crate::developer_evidence::MAX_INPUT_BYTES)?;
+    if captured.len() != builds.len() {
+        return Err(host(invalid("original failed discovery has an unsettled compiler capture")));
+    }
+    #[derive(Deserialize)]
+    struct OriginalSelection {
+        selection: crate::selection::Plan,
+        admission: Vec<crate::correctness::Resolution>,
+    }
+    let selected: OriginalSelection = serde_json::from_slice(&original.report).map_err(host)?;
+    captured.into_iter().map(|capture| {
+        let commitment = &builds[capture.dependency];
+        let group = commitment.group.ok_or_else(|| host(invalid("original compiler capture group absent")))?;
+        let admitted = selected.admission.get(group).ok_or_else(|| host(invalid("original compiler capture group was not admitted")))?;
+        let plan = selected.selection.groups().get(group).ok_or_else(|| host(invalid("original compiler capture group was not selected")))?;
+        let build: crate::discovery::BuildCapture = serde_json::from_slice(&capture.original).map_err(host)?;
+        if commitment.root != EvidenceRoot::Workflow
+            || commitment.path != format!("inventory/group-{group}/build/build.json")
+            || build.version != 1
+            || !build.incomplete.is_empty()
+            || build.resolution.packages != admitted.packages
+            || build.resolution.native_capabilities != admitted.native_capabilities
+            || build.resolution.units.len() != admitted.units.len()
+            || !build.resolution.units.iter().all(|unit| admitted.units.contains(unit))
+        {
+            return Err(host(invalid("failed discovery compiler capture differs from its original admitted group")));
+        }
+        plan.validate_resolution(&build.resolution)?;
+        Ok((group, build))
+    }).collect()
 }
 
 fn require_fixture_settlement(original: &crate::test_inventory::CapturedReport) -> Result<(), HostError> {
@@ -196,6 +248,7 @@ pub(crate) fn release_images(
     action: Action,
     inventory: Option<&crate::discovery::Inventory>,
     fixture_settled: Option<bool>,
+    unlisted: &[(usize, crate::discovery::BuildCapture)],
 ) -> Result<(), HostError> {
     use rustix::fs::{FlockOperation, Mode, OFlags, flock, openat};
 
@@ -244,15 +297,21 @@ pub(crate) fn release_images(
         });
         crate::discovery::capture::release_executable(&directory, &path.join(control), expected)?;
     }
+    let release_group = |group: usize, captured: &crate::discovery::BuildCapture| -> Result<(), HostError> {
+        let group_name = format!("group-{group}");
+        let group_root = open(&directory, &group_name)?
+            .ok_or_else(|| host(invalid("original compiler group directory is absent")))?;
+        let build = open(&group_root, "build")?
+            .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
+        let build_path = path.join(&group_name).join("build");
+        release_artifacts(&build, &build_path, &captured.artifacts, &open)
+    };
+    for (group, capture) in unlisted {
+        release_group(*group, capture)?;
+    }
     if let Some(inventory) = inventory {
         for (group, listed) in inventory.groups.iter().enumerate() {
-            let group_name = format!("group-{group}");
-            let group_root = open(&directory, &group_name)?
-                .ok_or_else(|| host(invalid("original compiler group directory is absent")))?;
-            let build = open(&group_root, "build")?
-                .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
-            let build_path = path.join(&group_name).join("build");
-            release_artifacts(&build, &build_path, &listed.build.artifacts, &open)?;
+            release_group(group, &listed.build)?;
         }
         if let Some(fixture_settled) = fixture_settled
             && let Some(fixtures) = open(&workflow, "fixtures")?
@@ -819,14 +878,14 @@ mod tests {
 
         let competing = File::open(scratch.path()).unwrap();
         rustix::fs::flock(&competing, rustix::fs::FlockOperation::LockExclusive).unwrap();
-        assert!(matches!(release_images(scratch.path(), Action::Test, None, None),
+        assert!(matches!(release_images(scratch.path(), Action::Test, None, None, &[]),
             Err(HostError::Io(error)) if error.kind() == io::ErrorKind::WouldBlock));
         drop(competing);
-        assert!(release_images(scratch.path(), Action::Test, None, None).is_err());
+        assert!(release_images(scratch.path(), Action::Test, None, None, &[]).is_err());
         assert!(nextest.is_file() && association.is_file() && correctness.is_file());
         fs::remove_file(&nextest).unwrap(); // Interruption between image and sidecar unlink.
-        release_images(scratch.path(), Action::Test, None, None).unwrap();
-        release_images(scratch.path(), Action::Test, None, None).unwrap();
+        release_images(scratch.path(), Action::Test, None, None, &[]).unwrap();
+        release_images(scratch.path(), Action::Test, None, None, &[]).unwrap();
         assert!(!association.exists() && !correctness.exists());
         assert_eq!(fs::read(report).unwrap(), b"retained inventory");
     }

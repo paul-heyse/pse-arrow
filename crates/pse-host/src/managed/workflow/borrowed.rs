@@ -85,27 +85,27 @@ pub(crate) fn register(
     crate::invocation::publish_bytes(&queue.join(directory.id().as_str()), &bytes, Some(RECORD_LIMIT), 0o400)
 }
 
-fn release_recorded(store: &InvocationStore, directory: &InvocationDirectory) -> Result<(), HostError> {
+fn release_recorded(store: &InvocationStore, directory: &InvocationDirectory, borrowed: bool) -> Result<(), HostError> {
     let result = store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
-        .ok_or_else(|| host(invalid("original borrowed workflow result is absent")))?;
+        .ok_or_else(|| host(invalid("original foreground workflow result is absent")))?;
     let workflow = result.payload.workflow.as_ref()
-        .ok_or_else(|| host(invalid("original borrowed workflow transport is incomplete")))?;
-    if !result.payload.borrowed_reservation
+        .ok_or_else(|| host(invalid("original foreground workflow transport is incomplete")))?;
+    if result.payload.borrowed_reservation != borrowed
         || result.payload.native_lifetime_pending != Some(false)
         || result.settlement != Settlement::Complete
         || !complete_capture(&result)
         || !workflow.terminal.required_capture_complete
     {
-        return Err(host(invalid("original borrowed workflow capture is incomplete")));
+        return Err(host(invalid("original foreground workflow capture is incomplete")));
     }
     release_original_images(store, directory, workflow.terminal.action)
 }
 
 fn custody(directory: &InvocationDirectory) -> Result<ForegroundCustody, HostError> {
     let custody: ForegroundCustody = directory.evidence(InvocationEvidence::Custody)?
-        .ok_or_else(|| host(invalid("original borrowed workflow custody is absent")))?;
+        .ok_or_else(|| host(invalid("original foreground workflow custody is absent")))?;
     if custody.version != 4 {
-        return Err(host(invalid("unsupported borrowed workflow custody")));
+        return Err(host(invalid("unsupported foreground workflow custody")));
     }
     Ok(custody)
 }
@@ -166,7 +166,7 @@ pub(crate) fn reconcile_enclosing(
             if original_custody.manager != manager || original_custody.unit != unit || original_custody.root != *binding {
                 return Err(host(invalid("borrowed workflow belongs to a different enclosing workload")));
             }
-            release_recorded(&store, &directory)?;
+            release_recorded(&store, &directory, true)?;
             match fs::symlink_metadata(entry.path()) {
                 Ok(current) if (original.dev(), original.ino()) == (current.dev(), current.ino()) => fs::remove_file(entry.path())?,
                 Ok(_) => return Err(host(invalid("borrowed workflow queue entry changed"))),
@@ -183,19 +183,20 @@ pub(crate) fn reconcile_enclosing(
     first_error.map_or(Ok(()), Err)
 }
 
-/// Explicit retry for one foreground borrower. It cannot stop or take custody of the
-/// enclosing workload. An inactive name alone never grants release.
-pub(crate) async fn reconcile_one(
+/// Explicit retry for one original foreground workflow. An inactive name alone
+/// never grants release, and the enclosing workload is independently owned.
+pub(crate) async fn reconcile_foreground(
     store: &InvocationStore,
     directory: &InvocationDirectory,
-    runtime: &Path,
+    borrowed_runtime: Option<&Path>,
 ) -> Result<bool, HostError> {
     let custody = custody(directory)?;
     let manager = HostManager::connect_user(None).await?;
     if !manager.foreground_binding_drained(&custody.manager, &custody.unit, &custody.root, &custody.child).await? {
         return Ok(false);
     }
-    release_recorded(store, directory)?;
+    release_recorded(store, directory, borrowed_runtime.is_some())?;
+    let Some(runtime) = borrowed_runtime else { return Ok(true) };
     let path = queue(runtime, &custody.manager, &custody.root)?;
     if queue_directory(&path, false)? {
         let record = path.join(directory.id().as_str());

@@ -60,23 +60,24 @@ pub(super) fn dispatch(
     if directory.evidence_bytes(crate::invocation::InvocationEvidence::Launch)?.is_none()
         && let Some(result) = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?
         && crate::test_workflow::execute::Action::from_command(&result.command).is_some()
-        && serde_json::from_str::<crate::managed::result::ManagedSummary>(result.payload.get())
-            .is_ok_and(|summary| summary.borrowed_reservation)
+        && let Ok(summary) = serde_json::from_str::<crate::managed::result::ManagedSummary>(result.payload.get())
     {
         if cancel {
-            return Err(HostError::Ownership("a borrowed foreground invocation cannot stop its enclosing workload".into()));
+            return Err(HostError::Ownership("foreground workflow control can only reconcile the exact original invocation with wait".into()));
         }
-        let runtime_base = crate::paths::HostPaths::new(&environment).runtime()?;
+        let runtime_base = summary.borrowed_reservation
+            .then(|| crate::paths::HostPaths::new(&environment).runtime())
+            .transpose()?;
         let released = runtime()?.block_on(async {
             tokio::time::timeout_at(
                 deadline.into(),
-                crate::managed::workflow::borrowed::reconcile_one(&store, &directory, &runtime_base),
+                crate::managed::workflow::borrowed::reconcile_foreground(&store, &directory, runtime_base.as_deref()),
             ).await
-        }).map_err(|_| HostError::Deadline("borrowed workflow release observation".into()))??;
+        }).map_err(|_| HostError::Deadline("foreground workflow release observation".into()))??;
         let mut response = Envelope::response(
             "wait",
-            if released { "original enclosing workload drained and executable release reconciled" }
-            else { "original enclosing workload remains live and executable release is pending" },
+            if released { "original foreground workload drained and executable release reconciled" }
+            else { "original foreground workload remains live and executable release is pending" },
             ControlView {
                 original_invocation: id,
                 service: None,
@@ -84,7 +85,11 @@ pub(super) fn dispatch(
                 result: Some(result),
             },
         );
-        response.observation.scope = "original_borrowed_foreground_workload_and_retained_result".into();
+        response.observation.scope = if summary.borrowed_reservation {
+            "original_borrowed_foreground_workload_and_retained_result"
+        } else {
+            "original_foreground_workload_and_retained_result"
+        }.into();
         if released {
             project_terminal_owner(&mut response, false);
         } else {
