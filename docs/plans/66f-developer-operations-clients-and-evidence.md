@@ -106,8 +106,9 @@ and adjusted paths, unavailable facts and unknown alternatives retain meaning. D
 `pse-runtime` into the host to share an adapter. Existing lightweight descriptor search/count is a
 prerequisite, not a new search rewrite.
 
-Make semantic change an actual `schema compare` capability using
-`pse_contract_proto::compare_descriptors` in `crates/pse-host/src/schema/compare.rs`, as specified
+Extend the integrated `pse inspect schema` semantic comparison to additional actually required
+native-owner policies, using the existing shared `pse_contract_proto::compare_descriptors`
+in `crates/pse-host/src/schema/compare/semantics.rs`, as specified
 by B02 and [CR03](../plan_improvement_reviews/plan64-65-contracts-and-runtime-analysis-2026-11-06.md#CR03).
 Present structural/Buf and semantic results separately, preserving unknown coverage and exact
 original-world limits. The CLI and structured report expose policy, native-rule changes and
@@ -186,8 +187,13 @@ unprepared StudyModule from explicit empty pending. Original pointers were check
 retained JSON. This source unit is integrated on main; full combined generation passed 15 targets
 and the selected 23-control host/runtime receiving passed with zero failures/build warnings and
 complete capture/settlement. A freshly prepared main CLI's prerequisite-specific journey remains
-separate from those library controls and the prior owning-checkout CLI evidence. Private per-group
-verdict facts and full F04/E07 population are still open.
+separate from those library controls and the prior owning-checkout CLI evidence. That main CLI
+journey now succeeds through an explicitly source-built immutable reader and actual
+`pse observe query`: two original members return seven prerequisite patterns, distinguishing
+unprepared StudyModule, source-owner admission requirements and known-empty pending. All seven
+member/pointer pairs were checked against the exact original report commitments. The captured
+reader predates the subsequent worker-only repair; it is not a fresh-source claim for that repair.
+Private per-group verdict facts and full F04/E07 population are still open.
 
 ## Packages
 

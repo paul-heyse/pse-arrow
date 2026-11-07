@@ -308,10 +308,16 @@ overlap and do not establish an additive whole-series total.
 Actual schema CLI receiving also verifies the integrated shared semantic comparator: selected
 developer-evidence ownership accepts its own SourceCodeInfo-only pair, while core-only and
 unselected populations remain explicitly unknown. No second comparator is needed.
+The explicitly prepared main observer also consumed two original developer members through
+`pse observe query`, returning seven prerequisite patterns with all exact original commitments
+and member/pointers checked. It retains known-empty versus unprepared/owner-admission-required
+meaning without present readiness or action authority.
 
 The lifecycle lane now corrects the original-cause delivery defect exposed by a failed orphan
 retirement, retaining native join, passive diagnostic observation and actual parent process/I/O
-settlement as distinct facts. A implements caller-owned partial-observation buffers through
+settlement as distinct facts. Its first production repair is integrated and receiving on main;
+independent review requires a further pre-copy diagnostic-budget correction because retained
+native bytes do not bound repeated rendered facts. A implements caller-owned partial-observation buffers through
 steady, fitting and dynamic assessment. The scientific lane extends one explicitly prepared
 Water artifact/binding for library-owned saturated endpoint second derivatives before the held
 wet turbine consumer. These changes remain in isolated worktrees until coherent integration.
