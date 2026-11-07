@@ -237,6 +237,16 @@ async fn list_retains_native_paths_direct_ancestry_dirty_state_and_no_preparatio
     assert_eq!(association.checkout.path, peer.as_os_str());
     assert!(association.target.is_none());
     assert!(association.state_directory.is_none());
+    let linked_view = list(&peer, OsStr::new("HEAD"), &environment).await.unwrap();
+    assert_eq!(linked_view.exit_code(), 0);
+    for row in linked_view.payload.worktrees {
+        let registration = row.registration.unwrap();
+        let reported = Path::new(OsStr::from_bytes(row.git.git_dir.as_bytes()));
+        assert_eq!(
+            registration.administration.path,
+            reported.canonicalize().unwrap().into_os_string()
+        );
+    }
     assert!(!peer.join("target").exists());
     assert!(!scratch.path().join("state").exists());
     let wire = serde_json::to_value(response).unwrap();

@@ -177,8 +177,10 @@ fn registration(
     repository
         .make_paths_absolute()
         .map_err(repository::RepositoryError::from)?;
-    let git_dir = repository.git_dir();
-    if observed_git_dir.is_some_and(|expected| expected != git_dir) {
+    let git_dir = repository.git_dir().canonicalize()?;
+    if let Some(expected) = observed_git_dir
+        && expected.canonicalize()? != git_dir
+    {
         return Err(HostError::Ownership(
             "Git worktree administration changed during observation".into(),
         ));
@@ -188,7 +190,7 @@ fn registration(
         repository_id: state.repository_id.as_str().into(),
         state: state.root.as_os_str().to_owned(),
         checkout: ObservedDirectory::required(&path)?,
-        administration: ObservedDirectory::required(git_dir)?,
+        administration: ObservedDirectory::required(&git_dir)?,
         target: ObservedDirectory::observe(&path.join("target"))?,
         state_directory: ObservedDirectory::observe(&state.root)?,
     })
