@@ -144,8 +144,11 @@ ordinary xtask test graph and belongs in the post-migration unit comparison.
 
 The ordinary KINSOL portable-root case now re-executes the admitted test image and enters the
 production native receiver. The targeted case passed with complete settlement. Standalone
-bootstrap and opt-in telemetry have their own explicitly prepared test selection. Broader
-scientific-input consumers and the preparation owner's retained copies remain in C03.
+bootstrap and opt-in telemetry have their own explicitly prepared test selection. The four
+ordinary native dynamics cases capture their one authored physical package in memory through
+the existing package owner. All four passed with Diffsol and Ipopt, explicit Arrow validation,
+complete settlement and zero prepared fixture requirements. Multi-package and reference
+consumers remain in C03.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

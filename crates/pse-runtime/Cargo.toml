@@ -280,13 +280,6 @@ scope.modules = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
-id = "dynamic-scientific-inputs"
-target = "native_dynamic_workflows"
-kind = "test"
-ownership = "preparation-only"
-inputs = ["scientific-inputs"]
-
-[[package.metadata.pse.test-fixtures]]
 id = "pid-scientific-inputs"
 target = "reference_pid_exchange"
 kind = "test"

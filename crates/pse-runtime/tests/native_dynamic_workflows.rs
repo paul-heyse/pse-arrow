@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Public, store-free dynamics/events, shooting and rolling-horizon callers.
-//! Requires solver-diffsol, solver-ipopt, force-validate and captured scientific inputs.
+//! Requires solver-diffsol, solver-ipopt and force-validate.
 #![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,
@@ -10,13 +10,13 @@
     reason = "fixture construction and independent scientific assertions fail directly"
 )]
 
-#[path = "../../../tests/fixtures/scientific-inputs.rs"]
-mod scientific_inputs;
 #[path = "reference_support/context.rs"]
 mod support;
 
 use futures_util::{FutureExt, future::BoxFuture};
-use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
+use pse_admission::authoring_driver::document::{
+    OwnedDocumentSet, capture_package, load_package_documents_owned,
+};
 use pse_backend_native::{
     dynamics::{DynamicSensitivity, Method, Profile, ScheduledInput, Termination},
     solve::{
@@ -73,7 +73,28 @@ fn package<'a>(
     source: &'a str,
 ) -> BoxFuture<'a, Result<ModelingPackage>> {
     async move {
-        let physical = scientific_inputs::package_documents("packages/reference/physical");
+        let physical = {
+            let root = support::root().canonicalize()?.join("packages/reference/physical");
+            let capture = || -> Result<_> {
+                if root.canonicalize()? != root {
+                    return Err(std::io::Error::other("physical fixture path traverses a symlink").into());
+                }
+                Ok(capture_package(
+                    &root,
+                    context.runtime.registry(),
+                    Default::default(),
+                )?)
+            };
+            let original = capture()?;
+            let observed = capture()?;
+            if original.files != observed.files || original.directories != observed.directories {
+                return Err(std::io::Error::other(
+                    "physical fixture bytes or document membership changed during capture",
+                )
+                .into());
+            }
+            original.files
+        };
         let header: toml::Value = toml::from_str(std::str::from_utf8(&physical["package.toml"])?)?;
         let version: Vec<i64> = header["package"]["version"]
             .as_str()
