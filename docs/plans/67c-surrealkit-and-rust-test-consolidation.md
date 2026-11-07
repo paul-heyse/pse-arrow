@@ -125,7 +125,7 @@ and protocol settlement, preserving explicit holds or unresolved evidence for th
 | --- | --- | --- | --- |
 | C01 | in-progress | Existing SurrealKit pin, generated schema and native fixture selection | Deliver the bounded test-owned endpoint and real TOML lane. Exercise seed and actor isolation, expected refusal, schema or rollout parity where selected, explicit wrong-endpoint refusal, and verified cleanup through success, failure and interruption. |
 | C02 | in-progress | C01 database assertions and complete owned case map | Migrate database-only cases, consolidate the Rust cases and remove each replaced test-selection variant and duplicate target. Independently compare named assertions and run representative isolated Rust, native and force-validated controls. Supply the actual variant delta to 67d. |
-| C03 | planned | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
+| C03 | in-progress | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
 
 ## Execution checkpoint — November 7
 
@@ -142,6 +142,11 @@ The tooling evidence tests now select the live fixture by their exact test ident
 existing `evidence-tools` capability. The `xtask/canonical-tests` feature is removed. The
 remaining test-only fixture descriptor dependency is a dev dependency. It still enters the
 ordinary xtask test graph and belongs in the post-migration unit comparison.
+
+The ordinary KINSOL portable-root case now re-executes the admitted test image and enters the
+production native receiver. The targeted case passed with complete settlement. Standalone
+bootstrap and opt-in telemetry have their own explicitly prepared test selection. Broader
+scientific-input consumers and the preparation owner's retained copies remain in C03.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

@@ -532,7 +532,7 @@ kind = "lib"
 ownership = "preparation-only"
 inputs = ["native-lane"]
 scope.tests = [
-  "math::native_child::tests::actual_portable_native_root_child_reconstructs_and_parent_screens",
+  "math::native_child::tests::actual_portable_native_root_standalone_bootstraps_and_parent_screens",
 ]
 
 [[package.metadata.pse.test-fixtures]]

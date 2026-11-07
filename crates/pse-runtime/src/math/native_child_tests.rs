@@ -622,13 +622,31 @@ fn native_child_descriptor_only_provider_is_not_a_reconstructible_factory() {
     ));
 }
 
-// The actual private binary is an explicit executable prerequisite supplied by the
-// integrated selector. Never discover a stale PATH binary or build one within a test.
 #[tokio::test]
 async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
+    assert_ne!(
+        std::env::var("PSE_NATIVE_TELEMETRY_ACCEPTANCE").as_deref(),
+        Ok("1"),
+        "select the explicit standalone native root test for telemetry acceptance"
+    );
+    let directory = tempfile::tempdir().unwrap();
+    // The harness child enters the production private receiver in actual mode.
+    let child = fake_child("actual", &directory.path().join("child.pid"));
+    actual_portable_native_root_fixture(child).await;
+}
+
+// The standalone binary remains an explicit executable prerequisite supplied by the selector.
+#[tokio::test]
+#[ignore = "requires the explicitly prepared standalone native lane executable"]
+async fn actual_portable_native_root_standalone_bootstraps_and_parent_screens() {
+    let fixture = async {
+        let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE")
+            .expect("integrator supplies exact built pse-native-lane executable");
+        let child = NativeChild::qualify(executable, 128 << 20).unwrap();
+        actual_portable_native_root_fixture(child).await;
+    };
     // Ambient exporter selection alone does not initialize a test process host.
-    // The external acceptance driver explicitly selects this composition and supplies
-    // an independently chosen W3C parent. Ordinary scientific runs keep their baseline.
+    // Explicit telemetry acceptance supplies an independently chosen W3C parent.
     let telemetry = if std::env::var("PSE_NATIVE_TELEMETRY_ACCEPTANCE").as_deref() == Ok("1") {
         Some(
             std::thread::Builder::new()
@@ -654,7 +672,7 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
         )
         .unwrap();
         let span = carrier.operation_span("native.child.actual_acceptance");
-        tracing::Instrument::instrument(actual_portable_native_root_fixture(), span).await;
+        tracing::Instrument::instrument(fixture, span).await;
         // Every original solve result, reservation and actual process-reap assertion
         // above has settled before optional parent-host SDK teardown. Export failure
         // is a separate diagnostic fact and cannot rewrite that scientific outcome.
@@ -668,13 +686,11 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
             tracing::warn!(target: "pse.telemetry.diagnostic", code = "telemetry.acceptance.shutdown_failed", "optional acceptance export shutdown failed after native settlement");
         }
     } else {
-        actual_portable_native_root_fixture().await;
+        fixture.await;
     }
 }
 
-async fn actual_portable_native_root_fixture() {
-    let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE")
-        .expect("integrator supplies exact built pse-native-lane executable");
+async fn actual_portable_native_root_fixture(child: NativeChild) {
     let (service, _) = super::super::tests::service_with_policy(
         512 << 20,
         super::super::MathPolicy {
@@ -684,7 +700,6 @@ async fn actual_portable_native_root_fixture() {
         },
     );
     let baseline = service.pool.reserved();
-    let child = NativeChild::qualify(executable, 128 << 20).unwrap();
     for target in [2.0, 4.0, 2.0] {
         // These are acceptance references issued by the actual reaped result, not
         // guessed process associations or replacement scientific identifiers.
