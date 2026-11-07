@@ -32,7 +32,11 @@ const HTTP_FIXTURE: &str =
     include_str!("../../../../scripts/tests/fixtures/surrealkit/control-transaction.surql");
 const ROLLOUT_SUITE: &str =
     include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout.toml");
-const ROLLOUT_ID: &str = "20261021131104__canonical_28f894ce3c844206";
+const ROLLOUT_SCHEMA: &str =
+    include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout-schema.surql");
+const ROLLOUT_MANIFEST: &str =
+    include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout-manifest.toml");
+const ROLLOUT_ID: &str = "20261107215752__canonical_v4_fixture";
 const PARITY_CASE: &str = "replaying every rollout defines what sync defines";
 const DRIFT_TABLE: &str = "pse_surreal_kit_parity_drift";
 const NAMESPACE: &str = "surrealkit_contract";
@@ -116,7 +120,11 @@ async fn provision_namespace(
     }
 }
 
-fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeServiceError> {
+fn stage_project(
+    folder: &Path,
+    schema: &str,
+    seed: Option<&str>,
+) -> Result<PathBuf, NativeServiceError> {
     for directory in [
         "schema",
         "tests/suites",
@@ -126,7 +134,7 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
     ] {
         fs::create_dir_all(folder.join(directory))?;
     }
-    fs::write(folder.join("schema/canonical.surql"), SCHEMA)?;
+    fs::write(folder.join("schema/canonical.surql"), schema)?;
     fs::write(folder.join("tests/suites/canonical.toml"), SUITE)?;
     fs::write(
         folder.join("tests/fixtures/control-transaction.surql"),
@@ -138,7 +146,11 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
     } else {
         stage_fifo(&seed_path)?;
     }
-    // SurrealKit begins with empty local snapshots for this fresh project.
+    write_empty_snapshots(folder)?;
+    Ok(seed_path)
+}
+
+fn write_empty_snapshots(folder: &Path) -> Result<(), NativeServiceError> {
     fs::write(
         folder.join("snapshots/schema_snapshot.json"),
         r#"{"version":1,"files":[]}"#,
@@ -147,7 +159,7 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
         folder.join("snapshots/catalog_snapshot.json"),
         r#"{"version":2,"entities":[]}"#,
     )?;
-    Ok(seed_path)
+    Ok(())
 }
 
 fn stage_fifo(path: &Path) -> Result<(), NativeServiceError> {
@@ -416,9 +428,6 @@ fn verify_pre_report_refusal(
 }
 
 fn stage_rollout_project(folder: &Path, drift: bool) -> Result<(), NativeServiceError> {
-    let release =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../database/canonical-schema/rollouts");
-    let frozen = release.join(ROLLOUT_ID);
     let destination = folder.join("rollouts").join(ROLLOUT_ID);
     for path in [
         folder.join("schema"),
@@ -428,19 +437,10 @@ fn stage_rollout_project(folder: &Path, drift: bool) -> Result<(), NativeService
     ] {
         fs::create_dir_all(path)?;
     }
-    let manifest = format!("{ROLLOUT_ID}.toml");
-    fs::copy(
-        release.join(&manifest),
-        folder.join("rollouts").join(manifest),
-    )?;
-    for member in [
-        "schema/canonical.surql",
-        "snapshots/schema_snapshot.json",
-        "snapshots/catalog_snapshot.json",
-    ] {
-        fs::copy(frozen.join(member), destination.join(member))?;
-    }
-    let mut schema = fs::read_to_string(frozen.join("target-schema.surql"))?;
+    fs::write(destination.with_extension("toml"), ROLLOUT_MANIFEST)?;
+    fs::write(destination.join("schema/canonical.surql"), ROLLOUT_SCHEMA)?;
+    write_empty_snapshots(&destination)?;
+    let mut schema = ROLLOUT_SCHEMA.to_owned();
     if drift {
         use std::fmt::Write as _;
         writeln!(schema, "\nDEFINE TABLE {DRIFT_TABLE} SCHEMAFULL;")
@@ -523,14 +523,14 @@ fn verify_rollout_report(
 
 async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, NativeServiceError> {
     let passing = root.join("passing");
-    stage_project(&passing, Some(SEED))?;
+    stage_project(&passing, SCHEMA, Some(SEED))?;
     let status = tool
         .run(&passing, SuiteSelection::CurrentSchema, None)
         .await?;
     let passed = verify_report(&passing.join("result.json"), status, None)?;
 
     let assertion_failure = root.join("assertion-failure");
-    stage_project(&assertion_failure, Some(&SEED.replace("42dec", "43dec")))?;
+    stage_project(&assertion_failure, SCHEMA, Some(&SEED.replace("42dec", "43dec")))?;
     let status = tool
         .run(&assertion_failure, SuiteSelection::CurrentSchema, None)
         .await?;
@@ -541,7 +541,7 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     )?;
 
     let setup_failure = root.join("setup-failure");
-    stage_project(&setup_failure, Some(SEED))?;
+    stage_project(&setup_failure, ROLLOUT_SCHEMA, Some(SEED))?;
     fs::write(
         setup_failure.join("setup.surql"),
         format!("THROW '{SETUP_REFUSAL}';"),
@@ -552,18 +552,18 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     verify_pre_report_refusal(&setup_failure, status, SETUP_REFUSAL)?;
 
     let seed_failure = root.join("seed-failure");
-    stage_project(&seed_failure, Some(&format!("THROW '{SEED_REFUSAL}';")))?;
+    stage_project(&seed_failure, ROLLOUT_SCHEMA, Some(&format!("THROW '{SEED_REFUSAL}';")))?;
     let status = tool
         .run(&seed_failure, SuiteSelection::CurrentSchema, None)
         .await?;
     verify_pre_report_refusal(&seed_failure, status, SEED_REFUSAL)?;
 
     let setup_interrupted = root.join("setup-interrupted");
-    stage_project(&setup_interrupted, Some(SEED))?;
+    stage_project(&setup_interrupted, ROLLOUT_SCHEMA, Some(SEED))?;
     let setup = setup_interrupted.join("setup.surql");
     stage_fifo(&setup)?;
     let seed_interrupted = root.join("seed-interrupted");
-    let seed = stage_project(&seed_interrupted, None)?;
+    let seed = stage_project(&seed_interrupted, ROLLOUT_SCHEMA, None)?;
     for (project, input) in [(setup_interrupted, setup), (seed_interrupted, seed)] {
         let status = tool
             .run(&project, SuiteSelection::CurrentSchema, Some(input))

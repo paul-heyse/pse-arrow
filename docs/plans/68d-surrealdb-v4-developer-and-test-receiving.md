@@ -135,7 +135,8 @@ surrealkit` built the exact RC.1 source with the locked remote gRPC closure
 in a private tool root. The build reported zero errors and warnings against
 the zero target. `verify` accepted its upstream and patched lock identities,
 repeat installation reused the same executable, and stale and foreign
-selections were refused. The live suite remains gated by the 68a server.
+selections were refused. The durable tool owner selects the same RC.1 binary
+for the live rehearsal.
 
 **Implemented, D02 fixture.** The selected suite has separate authored setup
 and seed failures and interruption controls. The force-validated native
@@ -145,6 +146,15 @@ definition witness requires the canonical maintenance owner and Study
 extension. The suite's logical test database supplies its own sync and
 rollout parity observations. The assembled receiving run still needs the
 B witness on its canonical catalog.
+
+The standalone RC.1 sync on the exact persistent v4 server passed all 19
+production-schema cases. The first managed full suite timed out in a later
+sync case. The retry observed it specifically in seed refusal after the
+full generated schema was installed again. Setup and seed probes now use
+a small authored schema, and the RC.1 `rollout plan` owner froze its v4
+rollout input. The two full generated-schema cases still exercise sync,
+and the separate `both` cases compare the pinned rollout and intentional
+drift. The full managed suite is being rerun with those inputs.
 
 **Tested, v3 baseline.** The scoped native `scripts/pse test pse-host --lib`
 selection `rerun_controlled_failure_probe` produced one intentional failure.
@@ -163,7 +173,9 @@ exported original report selected with `PSE_PLAN68_ORIGINAL_REPORT` and the
 existing `host-contracts` feature. The projection includes the original
 invocation outcome, exact digest and provenance. Coverage stays partial
 because individual test rows and dependency observations are omitted. The
-live import, readback and finite-query parity require the private v4 server.
+live `pse test xtask --lib -F xtask/evidence-tools,xtask/host-contracts`
+scoped-role and cursor-fence control passed on the private v4 store with
+zero failures and complete settlement using the current exported original.
 
 **Tested, offline projection.** With the actual v3 original report selected,
 `pse test xtask --lib -F xtask/evidence-tools,xtask/host-contracts --ignored
