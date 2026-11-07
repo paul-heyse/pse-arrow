@@ -1,0 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Paul Heyse
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+name = "authored_rollout_contract"
+tags = ["canonical", "rollout"]
+
+[[cases]]
+name = "definitions_do_not_activate"
+kind = "sql_expect"
+sql = "RETURN (SELECT * FROM canonical_interpretations);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = []

@@ -5,7 +5,6 @@
 
 use super::{NativeServiceError, fixture_with_schema};
 use pse_diagnostics::{DrainFailurePolicy, SupervisedChild};
-use pse_host::paths::{HostPaths, UserDirectory};
 use pse_operations::{
     canonical::{CanonicalOptions, MESSAGE_BYTES},
     generated::surreal::{SCHEMA, SCHEMA_DIGEST},
@@ -16,7 +15,6 @@ use pse_operations::{
     },
 };
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     fs,
@@ -27,71 +25,26 @@ use std::{
     time::{Duration, Instant},
 };
 
-const PIN: &str = include_str!("../../../../.config/surrealkit.toml");
 const SUITE: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/canonical.toml");
 const SEED: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/seed.surql");
+const ROLLOUT_SUITE: &str =
+    include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout.toml");
+const ROLLOUT_ID: &str = "20261021131104__canonical_28f894ce3c844206";
+const PARITY_CASE: &str = "replaying every rollout defines what sync defines";
+const DRIFT_TABLE: &str = "pse_surreal_kit_parity_drift";
 const NAMESPACE: &str = "surrealkit_contract";
 const SETUP_USER: &str = "suite_owner";
 const INSPECTOR: &str = "suite_viewer";
 const SUITE_NAME: &str = "production_generated_contract";
+const ROLLOUT_SUITE_NAME: &str = "authored_rollout_contract";
 const DATABASE_PREFIX: &str = "contract";
 
-#[derive(Deserialize, PartialEq)]
-struct ToolPin {
-    version: String,
-    repository: String,
-    source_revision: String,
-}
-
-#[derive(Deserialize)]
-struct ToolReceipt {
-    #[serde(flatten)]
-    pin: ToolPin,
-    source_commit: String,
-    source_build: bool,
-    release_build_locked: bool,
-    binary_sha256: String,
-}
-
 fn prepared_tool() -> Result<PathBuf, NativeServiceError> {
-    let pin: ToolPin =
-        toml::from_str(PIN).map_err(|_| NativeServiceError::Refused("invalid SurrealKit pin"))?;
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?;
     let environment = std::env::vars_os().collect();
-    let paths = HostPaths::new(&environment);
-    let binary = match paths.selected("PSE_SURREALKIT_BIN") {
-        Some(binary) => PathBuf::from(binary),
-        None => paths
-            .base(UserDirectory::Data)
-            .map_err(|_| NativeServiceError::Refused("no prepared SurrealKit data root"))?
-            .join("pse-arrow/tools/surrealkit")
-            .join(format!("v{}", pin.version))
-            .join(format!("grpc-{}", std::env::consts::ARCH))
-            .join("surrealkit"),
-    };
-    let invalid = || {
-        NativeServiceError::Refused(
-            "SurrealKit requires its prepared pinned binary and release receipt",
-        )
-    };
-    let receipt = binary.with_file_name("release.json");
-    if !binary.is_absolute()
-        || !binary.is_file()
-        || binary.canonicalize().map_err(|_| invalid())? != binary
-        || !receipt.symlink_metadata().map_err(|_| invalid())?.is_file()
-    {
-        return Err(invalid());
-    }
-    let receipt: ToolReceipt =
-        serde_json::from_slice(&fs::read(receipt)?).map_err(|_| invalid())?;
-    if receipt.pin != pin
-        || receipt.source_commit != pin.source_revision
-        || !receipt.source_build
-        || !receipt.release_build_locked
-        || receipt.binary_sha256 != hex::encode(Sha256::digest(fs::read(&binary)?))
-    {
-        return Err(invalid());
-    }
-    Ok(binary)
+    Ok(pse_host::surrealkit::verify(&root, &environment)?)
 }
 
 fn owned_address(endpoint: &str, live_endpoint: &str) -> Result<SocketAddr, NativeServiceError> {
@@ -194,12 +147,33 @@ struct SuiteTool<'a> {
     inspection_password: &'a str,
 }
 
+#[derive(Clone, Copy)]
+enum SuiteSelection {
+    CurrentSchema,
+    AuthoredRollout,
+}
+
+impl SuiteSelection {
+    fn cli(self) -> (&'static str, &'static str) {
+        match self {
+            Self::CurrentSchema => ("sync", SUITE_NAME),
+            Self::AuthoredRollout => ("both", ROLLOUT_SUITE_NAME),
+        }
+    }
+}
+
 impl SuiteTool<'_> {
     async fn run(
         &self,
         folder: &Path,
+        selection: SuiteSelection,
         interrupt_at: Option<PathBuf>,
     ) -> Result<ExitStatus, NativeServiceError> {
+        let (schema_source, suite) = selection.cli();
+        let allowance = match selection {
+            SuiteSelection::CurrentSchema => Duration::from_secs(30),
+            SuiteSelection::AuthoredRollout => Duration::from_secs(120),
+        };
         let mut command = Command::new(self.binary);
         command
             .env_clear()
@@ -208,7 +182,7 @@ impl SuiteTool<'_> {
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .args(["test", "--schema-from", "sync", "--suite", SUITE_NAME])
+            .args(["test", "--schema-from", schema_source, "--suite", suite])
             .args([
                 "--host",
                 self.endpoint,
@@ -229,16 +203,24 @@ impl SuiteTool<'_> {
                 "PSE_SURREALKIT_INSPECTION_PASSWORD",
                 self.inspection_password,
             );
+        if matches!(selection, SuiteSelection::AuthoredRollout) {
+            command.arg("--no-seed");
+        }
         tokio::task::spawn_blocking(move || {
             let mut child = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None)
                 .map_err(|_| NativeServiceError::Refused("SurrealKit child admission failed"))?;
-            let deadline = Instant::now() + Duration::from_secs(30);
+            let deadline = Instant::now() + allowance;
             let observed = if let Some(seed) = interrupt_at {
                 wait_for_seed_reader(&mut child, &seed, deadline).map(Some)
             } else {
                 child
                     .wait_ready(None, Some(deadline))
-                    .map_err(|_| NativeServiceError::Refused("SurrealKit child observation failed"))
+                    .map_err(|error| {
+                        eprintln!(
+                            "SurrealKit {suite} ({schema_source}) child observation: {error}"
+                        );
+                        NativeServiceError::Refused("SurrealKit child observation failed")
+                    })
                     .map(|()| None)
             };
             let status = child
@@ -297,7 +279,16 @@ struct SuiteIdentity {
 #[derive(Deserialize)]
 struct CaseReport {
     name: String,
+    kind: String,
     passed: bool,
+    assertions: Vec<AssertionReport>,
+}
+
+#[derive(Deserialize)]
+struct AssertionReport {
+    name: String,
+    passed: bool,
+    message: String,
 }
 
 #[derive(Deserialize)]
@@ -325,10 +316,7 @@ fn verify_report(
 ) -> Result<usize, NativeServiceError> {
     let source: SuiteIdentity = toml::from_str(SUITE)
         .map_err(|_| NativeServiceError::Refused("invalid authored SurrealKit suite"))?;
-    let report: Report = serde_json::from_slice(&fs::read(path).map_err(|_| {
-        NativeServiceError::Refused("SurrealKit stopped before writing its original suite report")
-    })?)
-    .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))?;
+    let report = read_report(path)?;
     let Some(suite) = report.suites.first() else {
         return Err(NativeServiceError::Refused(
             "missing SurrealKit suite result",
@@ -372,15 +360,132 @@ fn verify_report(
     Ok(report.cases_passed)
 }
 
+fn read_report(path: &Path) -> Result<Report, NativeServiceError> {
+    serde_json::from_slice(&fs::read(path).map_err(|_| {
+        NativeServiceError::Refused("SurrealKit stopped before writing its original suite report")
+    })?)
+    .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))
+}
+
+fn stage_rollout_project(folder: &Path, drift: bool) -> Result<(), NativeServiceError> {
+    let release =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../database/canonical-schema/rollouts");
+    let frozen = release.join(ROLLOUT_ID);
+    let destination = folder.join("rollouts").join(ROLLOUT_ID);
+    for path in [
+        folder.join("schema"),
+        folder.join("tests/suites"),
+        destination.join("schema"),
+        destination.join("snapshots"),
+    ] {
+        fs::create_dir_all(path)?;
+    }
+    let manifest = format!("{ROLLOUT_ID}.toml");
+    fs::copy(
+        release.join(&manifest),
+        folder.join("rollouts").join(manifest),
+    )?;
+    for member in [
+        "schema/canonical.surql",
+        "snapshots/schema_snapshot.json",
+        "snapshots/catalog_snapshot.json",
+    ] {
+        fs::copy(frozen.join(member), destination.join(member))?;
+    }
+    let mut schema = fs::read_to_string(frozen.join("target-schema.surql"))?;
+    if drift {
+        use std::fmt::Write as _;
+        writeln!(schema, "\nDEFINE TABLE {DRIFT_TABLE} SCHEMAFULL;")
+            .expect("writing to a String succeeds");
+    }
+    fs::write(folder.join("schema/canonical.surql"), schema)?;
+    fs::write(folder.join("tests/suites/rollout.toml"), ROLLOUT_SUITE)?;
+    fs::write(
+        folder.join("tests/config.toml"),
+        "[rollouts]\nparity = true\n",
+    )?;
+    Ok(())
+}
+
+fn verify_rollout_report(
+    path: &Path,
+    status: ExitStatus,
+    drift: bool,
+) -> Result<(), NativeServiceError> {
+    let report = read_report(path)?;
+    let refused = || NativeServiceError::Refused("unexpected SurrealKit rollout parity report");
+    let [parity, sync, replay] = report.suites.as_slice() else {
+        return Err(refused());
+    };
+    let [case] = parity.cases.as_slice() else {
+        return Err(refused());
+    };
+    let failed = usize::from(drift);
+    if status.code() != Some(failed as i32)
+        || report.suites_total != 3
+        || report.suites_failed != failed
+        || report.cases_total != 3
+        || report.cases_failed != failed
+        || report.cases_passed != 3 - failed
+        || parity.suite_name != "rollout parity"
+        || case.name != PARITY_CASE
+        || case.kind != "rollout_parity"
+        || case.passed == drift
+        || sync.database == replay.database
+    {
+        return Err(refused());
+    }
+    for (suite, source) in [(sync, "sync"), (replay, "rollouts")] {
+        if suite.suite_name != format!("{ROLLOUT_SUITE_NAME} [{source}]")
+            || suite.namespace != NAMESPACE
+            || !suite
+                .database
+                .starts_with(&format!("{DATABASE_PREFIX}_sk_test_"))
+            || !matches!(suite.cases.as_slice(), [case] if case.name == "definitions_do_not_activate" && case.passed)
+        {
+            return Err(refused());
+        }
+    }
+    let disagreements: Vec<_> = case.assertions.iter().filter(|a| !a.passed).collect();
+    if !case.assertions.iter().any(|assertion| {
+        assertion.name == "matching definitions"
+            && assertion.passed
+            && assertion
+                .message
+                .split_once(' ')
+                .and_then(|(count, _)| count.parse::<usize>().ok())
+                .is_some_and(|count| count > 0)
+    }) || if drift {
+        disagreements.is_empty()
+            || disagreements.iter().any(|assertion| {
+                !assertion.name.contains(DRIFT_TABLE)
+                    || assertion.message != "defined by sync but not by the rollouts"
+            })
+    } else {
+        !disagreements.is_empty()
+    } {
+        eprintln!(
+            "SurrealKit parity disagreements: {:?}",
+            disagreements.iter().map(|a| &a.name).collect::<Vec<_>>()
+        );
+        return Err(refused());
+    }
+    Ok(())
+}
+
 async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, NativeServiceError> {
     let passing = root.join("passing");
     stage_project(&passing, Some(SEED))?;
-    let status = tool.run(&passing, None).await?;
+    let status = tool
+        .run(&passing, SuiteSelection::CurrentSchema, None)
+        .await?;
     let passed = verify_report(&passing.join("result.json"), status, None)?;
 
     let assertion_failure = root.join("assertion-failure");
     stage_project(&assertion_failure, Some(&SEED.replace("42dec", "43dec")))?;
-    let status = tool.run(&assertion_failure, None).await?;
+    let status = tool
+        .run(&assertion_failure, SuiteSelection::CurrentSchema, None)
+        .await?;
     verify_report(
         &assertion_failure.join("result.json"),
         status,
@@ -392,7 +497,9 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
         &setup_failure,
         Some("THROW 'fixture seed deliberately failed';"),
     )?;
-    let status = tool.run(&setup_failure, None).await?;
+    let status = tool
+        .run(&setup_failure, SuiteSelection::CurrentSchema, None)
+        .await?;
     if status.code() != Some(1) || setup_failure.join("result.json").try_exists()? {
         return Err(NativeServiceError::Refused(
             "SurrealKit setup control had unexpected finality",
@@ -401,11 +508,21 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
 
     let interrupted = root.join("interrupted");
     let seed = stage_project(&interrupted, None)?;
-    let status = tool.run(&interrupted, Some(seed)).await?;
+    let status = tool
+        .run(&interrupted, SuiteSelection::CurrentSchema, Some(seed))
+        .await?;
     if status.signal().is_none() || interrupted.join("result.json").try_exists()? {
         return Err(NativeServiceError::Refused(
             "SurrealKit interruption control had unexpected finality",
         ));
+    }
+    for (name, drift) in [("rollout", false), ("rollout-drift", true)] {
+        let project = root.join(name);
+        stage_rollout_project(&project, drift)?;
+        let status = tool
+            .run(&project, SuiteSelection::AuthoredRollout, None)
+            .await?;
+        verify_rollout_report(&project.join("result.json"), status, drift)?;
     }
     Ok(passed)
 }
@@ -416,7 +533,7 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
     let binary = prepared_tool().unwrap();
     let mut service = fixture_with_schema(false).unwrap();
     let state = service.state().to_path_buf();
-    let deadline = Instant::now() + Duration::from_secs(240);
+    let deadline = Instant::now() + Duration::from_secs(300);
     let outcome = service
         .run(deadline, |service| {
             Box::pin(async move {
@@ -459,6 +576,6 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
     };
     assert!(!state.try_exists().unwrap());
     eprintln!(
-        "SurrealKit generated schema {SCHEMA_DIGEST}: {cases} cases passed; owned endpoint disposed"
+        "SurrealKit generated schema {SCHEMA_DIGEST}: {cases} cases passed; authored rollout parity and drift control exercised; owned endpoint disposed"
     );
 }

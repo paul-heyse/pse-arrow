@@ -1094,13 +1094,21 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 ToolAction::Install { tool } => (true, tool),
                 ToolAction::Verify { tool } => (false, tool),
             };
-            let tool = crate::diagnostic_tools::Tool::parse(&name)?;
             let values = std::env::vars_os().collect();
             let root = checkout_root(selected)?;
-            let path = if install {
-                crate::diagnostic_tools::install(&root, tool, &values)?
+            let path = if name == "surrealkit" {
+                if install {
+                    crate::surrealkit::install(&root, &values)?
+                } else {
+                    crate::surrealkit::verify(&root, &values)?
+                }
             } else {
-                crate::diagnostic_tools::verify(&root, tool, &values)?
+                let tool = crate::diagnostic_tools::Tool::parse(&name)?;
+                if install {
+                    crate::diagnostic_tools::install(&root, tool, &values)?
+                } else {
+                    crate::diagnostic_tools::verify(&root, tool, &values)?
+                }
             };
             writeln!(io::stdout(), "{}", path.display())?;
             Ok(0)

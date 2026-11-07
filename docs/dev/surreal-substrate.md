@@ -267,14 +267,22 @@ module/schema and physical ownership. Existing installations and unrelated servi
 
 Pinned native schema tooling and Rust fixture sources retain their producer-specific interfaces.
 The SurrealKit generated-schema suite runs as an explicit selection in the native-service test
-target. It requires the source-built binary and adjacent release receipt selected by
-[`.config/surrealkit.toml`](../../.config/surrealkit.toml). Set `PSE_SURREALKIT_BIN` to
-select an explicit absolute path, or use the versioned release under the project data root.
-The existing server and study-module preparations supply the owned endpoint. The test stages
-the current generated schema and authored seed, runs the suite in scoped logical databases, and
-settles and disposes the endpoint even when a suite assertion or setup fails.
+target. Explicit installation builds the source revision selected by
+[`.config/surrealkit.toml`](../../.config/surrealkit.toml) against the standalone gRPC SDK pin
+and the reviewed lock adjustment. It publishes the binary, Cargo lock and release receipt
+together in the versioned project data root. Repeating the install verifies and reuses the same
+release. Set `PSE_SURREALKIT_BIN` to select an explicit absolute path to an equivalent verified
+release. Tests verify the preparation and never build the tool.
+
+The existing server and study-module preparations supply the owned endpoint. The test runs
+the current generated schema and authored seed in scoped logical databases. It separately
+compares sync and rollout replay using the retained rollout's frozen target, then verifies that
+a deliberate schema drift is reported. The fixture settles and disposes the endpoint even
+when a suite assertion or setup fails.
 
 ```bash
+scripts/pse-env -- scripts/pse diagnostic-tools install surrealkit
+scripts/pse diagnostic-tools verify surrealkit
 scripts/pse test pse-operations:native_service -F pse-operations/native-service \
   --ignored only -E 'test(=surrealkit::surrealkit_generated_contract_uses_owned_service_and_disposes)'
 ```
@@ -303,13 +311,19 @@ none of these retained choices claims general capability absence or representati
 
 ## Disposable tests and retained evidence
 
-The fresh Rust fixture owns only directories it created. Successful native settlement and an
-ordinary test-runner exit permit its explicit disposal; failure/cancellation/uncertain joins
-retain evidence and authentic ownership for diagnosis. Unknown historical data and unrelated
-services are preserved. There is no replacement Python `test_resources` registry or automatic
-failed-run cleanup command. Do not delete retained state because a path is large, old or its
-creating process is absent. Recover/release only through its actual native owner and original
-identity predicates.
+| Purpose | Owner and closeout |
+|---|---|
+| Database contracts | SurrealKit suites specify schema, seeds, actors and assertions. Use isolated logical databases on a test-owned endpoint. The native fixture verifies absence or disposes the endpoint after drain. |
+| Application or physical lifecycle tests | Rust owns service, clients and state. Build the smallest authored input that proves the transition. Reopen through the stopped-state capability when the assertion needs persistence. A physical copy belongs to a selected backup or restore assertion. |
+| Developer evidence | Read the original working report and inventory while the invocation owns them. Regenerate selected cases from source when the report has been released. Keep any current comparison bounded to its declared selection and lifetime. |
+| Durable scientific or operational data | The canonical store and the original publication or deployment owners decide release using their actual holds, borrowers, recovery requirements and settlement. |
+
+The fresh Rust fixture owns only directories it created. A failed assertion can still leave a
+settled fixture eligible for disposal. Uncertain joins or state identity retain the original
+owner and the resources needed to reconcile it. A process exit, old timestamp or filesystem
+size cannot establish that authority. Record physical allocation independently of logical
+deletion. [Invocation evidence](agent-environment.md#choosing-tests) ·
+[Allocated storage](agent-environment.md#inspecting-allocated-storage)
 
 ## Typed scientific inspection
 

@@ -63,6 +63,36 @@ allow = false
 error_contains = "but field must conform to:"
 
 [[cases]]
+name = "decimal_fractional_generation_refused"
+kind = "sql_expect"
+sql = "CREATE canonical_guards:invalid_fraction SET key='invalid_fraction', generation=0.5dec;"
+allow = false
+error_contains = "generation"
+
+[[cases]]
+name = "decimal_negative_generation_refused"
+kind = "sql_expect"
+sql = "CREATE canonical_guards:invalid_negative SET key='invalid_negative', generation=-1dec;"
+allow = false
+error_contains = "generation"
+
+[[cases]]
+name = "decimal_overflow_generation_refused"
+kind = "sql_expect"
+sql = "CREATE canonical_guards:invalid_overflow SET key='invalid_overflow', generation=18446744073709551616dec;"
+allow = false
+error_contains = "generation"
+
+[[cases]]
+name = "invalid_generations_leave_no_rows"
+kind = "sql_expect"
+sql = "SELECT * FROM canonical_guards WHERE key IN ['invalid', 'invalid_fraction', 'invalid_negative', 'invalid_overflow'];"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = []
+
+[[cases]]
 name = "enforced_endpoint_refusal"
 kind = "sql_expect"
 sql = "RELATE canonical_analysis_nodes:absent->canonical_analysis_edges:absent->canonical_analysis_nodes:missing SET key='absent',analysis='fixture',source='absent',target='missing',kind='fixture';"
