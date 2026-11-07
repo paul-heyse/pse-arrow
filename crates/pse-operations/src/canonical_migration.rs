@@ -229,6 +229,8 @@ impl CanonicalStore {
         options: &CanonicalOptions,
         version: Option<u64>,
     ) -> Result<(), CanonicalError> {
+        use crate::canonical_script::{Envelope, GuardedScript};
+
         let store = Self::connect(options).await?;
         let installed = async {
             if !store.initialization_required().await? {
@@ -250,10 +252,15 @@ impl CanonicalStore {
             bindings.insert("study_module_backend", module.backend()?);
             bindings.insert("study_module_sha256", module.sha256.clone());
             bindings.insert("payload_incarnation", store.files.incarnation.clone());
-            let maintenance = SchemaMaintenance { store: store.clone() };
-            if maintenance.execute::<Option<bool>>(&body, "true", bindings).await? != Some(true) {
+            let script = GuardedScript::new(Envelope::Installation)
+                .returning::<Option<bool>>(&body, "true")?;
+            let result = script.result();
+            let mut response =
+                bounded_query(store.activation_db.script(script).bind(bindings)).await?;
+            if result.take(&mut response)? != Some(true) {
                 return Err(CanonicalError::IncompleteResponse);
             }
+            let maintenance = SchemaMaintenance { store: store.clone() };
             let actual = maintenance.inspect().await?;
             let exact_schema = match version {
                 Some(V2_VERSION) => actual.predecessor.versioned(V2_VERSION,V2_DIGEST),
