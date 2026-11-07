@@ -21,17 +21,17 @@ use std::{
 };
 mod publication;
 pub(in crate::workflow) use publication::Handoff as PublicationHandoff;
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(in crate::workflow) use publication::observed as observed_scientific_publication;
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(in crate::workflow) use publication::observed_idle;
 
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 tokio::task_local! {
     static FIRST_CLAIM_BARRIER: std::cell::RefCell<Option<Arc<tokio::sync::Barrier>>>;
 }
 
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(in crate::workflow) async fn synchronized_first_study_claim<T>(
     barrier: Arc<tokio::sync::Barrier>,
     work: impl Future<Output = T>,
@@ -368,11 +368,7 @@ where
                     refill = matches!(&result,Ok(value) if !matches!(value,Processed::Idle));
                     match result {
                         Ok(Processed::Idle) => {
-                            #[cfg(all(
-                                test,
-                                feature = "canonical-tests",
-                                feature = "solver-ipopt"
-                            ))]
+                            #[cfg(all(test, feature = "solver-ipopt"))]
                             publication::idle();
                         }
                         Ok(Processed::Maintenance { .. }) => progressed = true,
@@ -736,7 +732,6 @@ mod lane_tests {
         assert_eq!(owners, vec![7, 11]);
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn lost_publication_ack_keeps_original_failure_and_separate_durable_uncertainty() {
         use crate::workflow::RunResult;
@@ -824,7 +819,6 @@ mod lane_tests {
         owners.sort();
         assert_eq!(owners, vec![7, 11]);
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn periodic_recovery_rotates_past_an_earlier_study_that_stays_busy() {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
@@ -899,7 +893,6 @@ mod lane_tests {
             ]
         );
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn periodic_recovery_preserves_local_cancelled_owner_until_turn_release() {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
@@ -1015,7 +1008,7 @@ mod lane_tests {
         );
         // Expiry permits independent crash recovery, but this worker still knows
         // its own native lane has not joined and must retain that exact turn.
-        pse_operations::testing::expire_acknowledged_attempt(store, &claim.fence)
+        crate::workflow::fixture_controls::expire_acknowledged_attempt(store, &claim.fence)
             .await
             .unwrap();
         *position.lock().await = None;
@@ -1948,12 +1941,12 @@ impl Runtime {
             .ok_or_else(|| contract("worker claimed phase storage extent"))?;
         // Both claimed phase and selected launch branch are prepaid before the claim.
         let _launch_owner = self.shared.math().reserve("study:worker-launch", extent)?;
-        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        #[cfg(all(test, feature = "solver-ipopt"))]
         let claim_barrier = FIRST_CLAIM_BARRIER
             .try_with(|barrier| barrier.borrow_mut().take())
             .ok()
             .flatten();
-        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        #[cfg(all(test, feature = "solver-ipopt"))]
         if let Some(barrier) = &claim_barrier {
             tokio::select! {
                 _ = barrier.wait() => {},
@@ -1973,7 +1966,7 @@ impl Runtime {
                 )
                 .await
         };
-        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        #[cfg(all(test, feature = "solver-ipopt"))]
         if let Some(barrier) = claim_barrier {
             tokio::select! {
                 _ = barrier.wait() => {},

@@ -94,7 +94,7 @@ async fn stage(
     (elapsed, record, prepared)
 }
 async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
-    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),
@@ -266,7 +266,7 @@ async fn pressure(
     spec: &Value,
     phases: &phases::Phases,
 ) -> (Duration, Value) {
-    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),

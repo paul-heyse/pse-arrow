@@ -647,7 +647,6 @@ const CREDENTIALS_FILE_BYTES: u64 = 64 * 1024;
 
 impl CanonicalOptions {
     /// Selected deployment state for explicit native fixture admission.
-    #[cfg(any(test, feature = "test-support", feature = "native-service"))]
     pub(crate) fn state_path(&self) -> &Path {
         &self.state_path
     }
@@ -931,7 +930,6 @@ impl ProtectedSelection {
                 CanonicalError::Configuration("protection cleanup executor unavailable".into())
             })?;
             let activity = owner.activity()?;
-            #[cfg(any(test, feature = "test-support"))]
             let fixture = store.fixture_lifetime.clone();
             let metadata_owner = owner.metadata_owner.get().cloned();
             let task = executor.spawn(async move {
@@ -949,7 +947,6 @@ impl ProtectedSelection {
                 drop(activity);
                 // The last fixture borrower may physically disconnect here.
                 // Its own cleanup continuation must already have ended.
-                #[cfg(any(test, feature = "test-support"))]
                 drop(fixture);
                 result
             });
@@ -990,7 +987,6 @@ impl Drop for ProtectionOwner {
         }
         if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
             let store = store.clone();
-            #[cfg(any(test, feature = "test-support"))]
             let store = {
                 // The last lexical fixture borrower must join this tracked release
                 // before its test process can exit. Retaining the fixture in this
@@ -1054,7 +1050,7 @@ pub(crate) enum QueryEffect {
     Mutation,
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "canonical_pacing_observation.rs"]
 pub(crate) mod pacing_observation;
 
@@ -1079,7 +1075,7 @@ impl ProblemTurns {
             return Err(CanonicalError::Timeout);
         }
         let gate = self.gate(problem)?;
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         let queued = {
             pacing_observation::submitted(problem);
             std::time::Instant::now()
@@ -1088,7 +1084,7 @@ impl ProblemTurns {
             match effect {
                 QueryEffect::Read => {
                     let _turn = gate.read_owned().await;
-                    #[cfg(all(test, feature = "canonical-tests"))]
+                    #[cfg(test)]
                     let _observation =
                         pacing_observation::entered(problem, effect, queued.elapsed());
                     if tokio::time::Instant::now() >= deadline {
@@ -1098,7 +1094,7 @@ impl ProblemTurns {
                 }
                 QueryEffect::Mutation => {
                     let _turn = gate.write_owned().await;
-                    #[cfg(all(test, feature = "canonical-tests"))]
+                    #[cfg(test)]
                     let _observation =
                         pacing_observation::entered(problem, effect, queued.elapsed());
                     if tokio::time::Instant::now() >= deadline {
@@ -1140,8 +1136,7 @@ pub struct CanonicalStore {
     study_module_sha256: Arc<std::sync::OnceLock<String>>,
     // Fields drop in declaration order. The fixture's final drain must run
     // after both client aliases have relinquished this handle's continuation.
-    #[cfg(any(test, feature = "test-support"))]
-    pub(crate) fixture_lifetime: Option<Arc<crate::testing::FixtureLifetime>>,
+    pub(crate) fixture_lifetime: Option<Arc<crate::native_fixture::FixtureLifetime>>,
 }
 impl std::fmt::Debug for CanonicalStore {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -1318,7 +1313,7 @@ impl CanonicalStore {
                                     bounded_query(build()?).await
                                 })
                                 .await;
-                            #[cfg(all(test, feature = "canonical-tests"))]
+                            #[cfg(test)]
                             if result
                                 .as_ref()
                                 .err()
@@ -1436,7 +1431,6 @@ impl CanonicalStore {
         Ok(Self {
             db,
             problem_turns: Arc::default(),
-            #[cfg(any(test, feature = "test-support"))]
             fixture_lifetime: None,
             result_read_drain: Arc::new(crate::canonical_results::ResultReadDrain::default()),
             activation_db,
@@ -1801,14 +1795,14 @@ impl CanonicalStore {
             .await
     }
     /// Activate only the caller's closed source stage under its generation and head fences.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) async fn activate_source_stage(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
     ) -> Result<Revision, CanonicalError> {
         self.activate_source_stage_authorized(stage, None).await
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) async fn activate_source_stage_authorized(
         &self,
         stage: &crate::canonical_staging::ClosedStage,
@@ -1889,7 +1883,7 @@ impl CanonicalStore {
                                 .map_err(|_| CanonicalError::Timeout)
                                 .and_then(|response| response.map_err(CanonicalError::from))
                                 .and_then(complete_response);
-                                #[cfg(any(test, feature = "test-support"))]
+                                #[cfg(test)]
                                 let result = if project.is_some()
                                     && result.is_ok()
                                     && crate::canonical_projects::simulate_reply_loss()
@@ -1992,7 +1986,7 @@ impl CanonicalStore {
             .await
     }
     /// Explicit historical inventory, indexed by problem and revision interval.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) async fn inventory(
         &self,
         revision: &Revision,
@@ -2009,7 +2003,7 @@ impl CanonicalStore {
             }).await
     }
     /// Read an immutable version by exact identity.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) async fn object(
         &self,
         version: &str,
@@ -2087,7 +2081,6 @@ impl CanonicalStore {
                 // A fixture's physical clients outlive the caller's short-lived test
                 // executor. Their automatic protection releases must have that same
                 // retained lifetime, including when a test abandons its result reader.
-                #[cfg(any(test, feature = "test-support"))]
                 let executor = self
                     .fixture_lifetime
                     .as_ref()
@@ -2462,7 +2455,6 @@ impl CanonicalStore {
     /// Final fixture ownership may join terminal client work after its reply
     /// woke the caller. Seal new admission before waiting for actual activity;
     /// this path grants no cancellation or early close of escaped protected reads.
-    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn drain_fixture_connection(&self) -> Result<(), CanonicalError> {
         self.drain_owned_connection().await
     }
@@ -2493,15 +2485,20 @@ impl CanonicalStore {
         })
         .await
     }
-    #[cfg(any(test, feature = "test-support"))]
-    fn seal_final_fixture_owner(&self, lifetime: &Arc<crate::testing::FixtureLifetime>) -> bool {
+    /// Join result-read releases already enqueued by this client.
+    /// Independent readers keep their protections and may enqueue later releases.
+    /// # Errors
+    /// An original tracked release failed or its join exceeded the request allowance.
+    pub async fn join_result_releases(&self) -> Result<(), CanonicalError> {
+        self.result_read_drain.join_pending_releases().await
+    }
+    fn seal_final_fixture_owner(&self, lifetime: &Arc<crate::native_fixture::FixtureLifetime>) -> bool {
         self.db
             .access
             .physical
             .seal_if_final_fixture(|| Arc::strong_count(lifetime) == 1)
     }
     /// Drain an owned logical fixture; the original native command owns state disposal.
-    #[cfg(any(test, feature = "test-support"))]
     pub async fn remove_isolated_fixture(&self) -> Result<(), CanonicalError> {
         let lifetime = self.fixture_lifetime.as_ref().ok_or_else(|| {
             CanonicalError::Configuration(
@@ -2531,16 +2528,15 @@ impl CanonicalStore {
         Ok(())
     }
     /// Retain the logical fixture lifetime for all physical client borrowers.
-    #[cfg(any(test, feature = "test-support"))]
     pub(crate) fn own_fixture(mut self, executor: &'static tokio::runtime::Runtime) -> Self {
         // The cleanup handle has no lifetime owner, so there is no reference cycle.
         let detached = self.clone();
-        self.fixture_lifetime = Some(Arc::new(crate::testing::FixtureLifetime::new(
+        self.fixture_lifetime = Some(Arc::new(crate::native_fixture::FixtureLifetime::new(
             detached, executor,
         )));
         self
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     fn replace_fixture_transport(
         &mut self,
         options: &CanonicalOptions,
@@ -2562,7 +2558,7 @@ impl CanonicalStore {
         self.db = replacement;
         Ok(())
     }
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(test)]
     pub(crate) fn borrow_fixture(mut self, owner: &Self) -> Result<Self, CanonicalError> {
         self.fixture_lifetime = Some(
             owner
@@ -2577,7 +2573,7 @@ impl CanonicalStore {
         );
         Ok(self)
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn owns_fixture(&self) -> bool {
         self.fixture_lifetime.is_some()
     }
@@ -2775,7 +2771,7 @@ fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $pin.expires_at <= time::micros() OR $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:product_publication_authority_expired'; };
 "#;
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn test_source_edit_sql() -> Result<String, CanonicalError> {
     crate::canonical_script::test_script_sql(
         &crate::canonical_staging::bounded_edit_sql(EDIT),
@@ -3835,7 +3831,7 @@ mod description_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_server_unit {
     #![allow(
         clippy::expect_used,
@@ -3858,7 +3854,7 @@ mod canonical_server_unit {
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_init_{}", uuid::Uuid::new_v4().simple());
         (
-            crate::testing::canonical_fixture_with_options(&options, false).unwrap(),
+            crate::native_fixture::canonical_fixture_with_options(&options, false).unwrap(),
             options,
         )
     }
@@ -4222,7 +4218,7 @@ mod canonical_server_unit {
     }
     #[test]
     fn source_protection_cleanup_outlives_its_callers_executor() {
-        let store = crate::testing::canonical_fixture_store().unwrap();
+        let store = crate::native_fixture::canonical_fixture_store().unwrap();
         let caller = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
@@ -4480,7 +4476,7 @@ mod canonical_server_unit {
         drop(selection);
         store.result_read_drain.drain().await.unwrap();
         // A separately connected handle for the same database remains supported.
-        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let peer = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         let selection = store
             .protect(revision, std::time::Duration::from_secs(30))
             .await
@@ -4856,7 +4852,7 @@ mod canonical_server_unit {
             }
             options.endpoint = endpoint;
         }
-        let store = crate::testing::canonical_fixture_with_options(&options, true)?;
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true)?;
         let mut cases = Vec::new();
         let mut original_failure = None;
         for (case, bytes, lanes) in [
@@ -5276,7 +5272,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let address = url::Url::parse(&options.endpoint)
             .unwrap()
             .socket_addrs(|| None)
@@ -5322,7 +5318,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let edits = (0..3500)
             .map(|ordinal| {
                 let logical = format!("object-{ordinal}");
@@ -5443,7 +5439,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, false).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, false).unwrap();
         assert!(
             store.open().await.is_err(),
             "normal open must not install missing schema"
@@ -5586,7 +5582,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         store.open().await.unwrap();
         let result: Result<(), CanonicalError> = async {
             for (index, value) in [0, (1u64<<63)-1, 1u64<<63, (1u64<<63)+1, u64::MAX-1, u64::MAX].into_iter().enumerate() {

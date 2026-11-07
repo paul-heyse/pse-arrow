@@ -30,7 +30,7 @@ mod study;
 pub use inspection::EngineeringModelingOutput;
 pub use source_read::EngineeringPhysicalOutput;
 pub use study::EngineeringStudyOutput;
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(all(test, feature = "solver-kinsol"))]
 mod canonical_study_tests;
 
 type OwnerError = Box<dyn std::error::Error + Send + Sync>;
@@ -1847,10 +1847,10 @@ mod tests {
         }
     }
 
-    #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+    #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn canonical_engineering_original_run_survives_lost_waiter_and_service_retirement() {
-        let store = pse_operations::testing::canonical_fixture_store().unwrap();
+        let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
         let (service, _spill) = service_on(Some(store.clone()));
         let source = admitted(&service).await;
         let page = service

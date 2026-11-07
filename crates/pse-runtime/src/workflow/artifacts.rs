@@ -8,12 +8,15 @@ use pse_model::HeapUsage;
 use pse_model::generated::products::ScientificRelation;
 use pse_operations::canonical::MetadataResponse;
 use pse_operations::canonical_artifacts::{Artifact, ArtifactLocator};
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(all(test, feature = "solver-diffsol"))]
 use pse_relations::columnar::RelationRow;
 use std::sync::Arc;
 
-#[cfg(all(test, feature = "canonical-tests"))]
-tokio::task_local! { pub(super) static SCIENTIFIC_HANDOFF_REPLY_LOSS: bool; }
+#[cfg(test)]
+tokio::task_local! {
+    pub(super) static SCIENTIFIC_HANDOFF_REPLY_LOSS: bool;
+    pub(super) static CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION: std::cell::Cell<bool>;
+}
 
 /// A bounded original recovery document is a settlement capability, never a reader.
 #[derive(Clone, Debug)]
@@ -1085,6 +1088,50 @@ impl Runtime {
                 "canonical:artifact-promotion-publication-response",
                 MetadataResponse::Selection,
             )?;
+            #[cfg(test)]
+            let mut loaded = 0;
+            #[cfg(test)]
+            let final_verification = std::sync::atomic::AtomicBool::new(false);
+            #[cfg(test)]
+            use std::sync::atomic::Ordering;
+            let mut load_block = |ordinal| {
+                #[cfg(test)]
+                {
+                    // The loader has been called once for the request digest,
+                    // once for admission and once for attachment. The final
+                    // verification pass begins only after every group ACK.
+                    if loaded == blocks.len() * 3
+                        && CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION.try_with(|_| ()).is_ok()
+                    {
+                        final_verification.store(true, Ordering::Relaxed);
+                        cancel.cancel();
+                        return Err(pse_operations::canonical::CanonicalError::IncompleteResponse);
+                    }
+                    loaded += 1;
+                }
+                blocks
+                    .get(ordinal as usize)
+                    .cloned()
+                    .ok_or(pse_operations::canonical::CanonicalError::PayloadLimit)
+            };
+            let publication = self.canonical_store()?.persist_artifact_stream(
+                &header,
+                sources,
+                std::slice::from_ref(input.as_ref()),
+                &mut load_block,
+                owner_kind,
+                owner,
+            );
+            #[cfg(test)]
+            let publication = async {
+                let reply = publication.await;
+                if final_verification.load(Ordering::Relaxed) {
+                    // The loader refused before activation. Keep the original
+                    // waiter pending so the real cancellation race settles it.
+                    std::future::pending::<()>().await;
+                }
+                reply
+            };
             let publication = super::connected_results::protected_response_scope(
                 // Original read custody and actual metadata grants remain separate;
                 // copied member buffers retain their independent local allocation.
@@ -1093,18 +1140,16 @@ impl Runtime {
                     input_owner.clone(),
                     response,
                 ),
-                self.canonical_store()?.persist_artifact(
-                    &header,
-                    sources,
-                    std::slice::from_ref(input.as_ref()),
-                    &blocks,
-                    owner_kind,
-                    owner,
-                ),
+                publication,
             );
             let acknowledged = match cancel.until_cancelled(publication).await {
                 Ok(reply) => reply?,
                 Err(_) => {
+                    #[cfg(test)]
+                    if final_verification.load(Ordering::Relaxed) {
+                        let _ = CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION
+                            .try_with(|settled| settled.set(true));
+                    }
                     return Err(
                         pse_operations::canonical::CanonicalError::ArtifactUnsettled {
                             intent: Box::new(header),
@@ -1127,7 +1172,7 @@ impl Runtime {
                     .into(),
                 );
             }
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             if SCIENTIFIC_HANDOFF_REPLY_LOSS
                 .try_with(|lost| *lost)
                 .unwrap_or(false)
@@ -1156,7 +1201,7 @@ impl Runtime {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(all(test, feature = "solver-diffsol"))]
 mod tests {
     use super::*;
     use std::sync::Arc;
@@ -1591,7 +1636,7 @@ mod intent_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod response_ownership_tests {
     #![allow(
         clippy::unwrap_used,

@@ -763,11 +763,11 @@ mod tests {
         assert_eq!(dropped, 1);
     }
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "reader-history-tests.rs"]
 mod reader_history_tests;
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "controlled original sealed progress fixture admits partial outcome only"

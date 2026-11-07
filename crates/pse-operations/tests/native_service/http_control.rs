@@ -67,6 +67,31 @@ async fn sign_in(
         })?
         .to_owned())
 }
+
+async fn disable_control_actor(
+    service: &NativeCanonicalService,
+    key: &str,
+) -> Result<(), NativeServiceError> {
+    use pse_operations::{
+        canonical::CanonicalError,
+        canonical_codec::{decode_boolean, decode_string, required},
+    };
+    let mut response = service.fixture_query(
+        "UPDATE ONLY type::record('canonical_control_actors',$key) SET enabled=false RETURN AFTER;",
+        ("key", key.to_owned()),
+    ).await?;
+    let verified = (|| {
+        let mut row = response.take::<Option<_>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+        if decode_string(required(&mut row, "key")?)? != key
+            || decode_boolean(required(&mut row, "enabled")?)?
+        {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        Ok(())
+    })();
+    Ok(verified?)
+}
+
 #[tokio::test]
 async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() {
     let mut service = fixture_with_schema(false).unwrap();
@@ -82,20 +107,6 @@ async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() 
         store.issue_control_actor("viewer", password, true, false).await?;
         store.issue_control_actor("revoked", password, true, true).await?;
         let client = reqwest::Client::builder().no_proxy().redirect(reqwest::redirect::Policy::none()).timeout(Duration::from_secs(20)).build().unwrap();
-        pse_operations::testing::install_control_transaction_probe(store).await?;
-        for (route, expected_status, marker) in [
-            ("success",200,"committed-success"),
-            ("refusal",409,"committed-refusal"),
-        ] {
-            let (status, body) = post(&client,&format!("{endpoint}/api/native_fixture/canonical/pse-fixture/control/{route}"),None,vec![]).await?;
-            assert_eq!(status,expected_status,"positive API transaction control: {body:?}");
-            assert_eq!(body["marker"],marker);
-        }
-        let (status, body) = post(&client,&format!("{endpoint}/api/native_fixture/canonical/pse-fixture/control/failure"),None,vec![]).await?;
-        assert_eq!(status,500,"after-write THROW must fail: {body:?}");
-        assert!(body.to_string().contains("private control after-write failure witness"),"unrelated API failure: {body:?}");
-        assert_eq!(pse_operations::testing::control_transaction_probe_markers(store).await?,vec!["committed-refusal","committed-success"],
-            "engine errors roll back while explicit success/refusal responses commit");
         let allowed = sign_in(&client,&endpoint,"allowed",password).await?;
         let denied = sign_in(&client,&endpoint,"denied",password).await?;
         let viewer = sign_in(&client,&endpoint,"viewer",password).await?;
@@ -108,7 +119,7 @@ async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() 
         let (status, body) = post(&client,&format!("{base}/cancel"),Some(&denied),vec![0xff]).await?;
         assert_eq!(status,403,"grant denial must precede invalid UTF-8 parsing: {body:?}");
         assert_eq!(body["error"],"control_actor_refused");
-        pse_operations::testing::disable_control_actor(store,"revoked").await?;
+        disable_control_actor(service,"revoked").await?;
         let (status, body) = post(&client,&format!("{base}/cancel"),Some(&revoked),vec![0xff]).await?;
         assert_eq!(status,403,"previously issued token ignored actor revocation: {body:?}");
         assert_eq!(body["error"],"control_actor_refused");

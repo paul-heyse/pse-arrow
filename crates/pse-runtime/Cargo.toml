@@ -39,12 +39,7 @@ product-operators = [
 ]
 diagnostic-taskdump = ["tokio/taskdump"]
 compiled-evaluator = ["pse-math/compiled-evaluator"]
-canonical-tests = ["pse-operations/canonical-tests"]
-native-study-tests = [
-  "canonical-tests",
-  "pse-operations/native-service",
-  "pse-operations/canonical-maintenance",
-]
+native-service = ["pse-operations/native-service"]
 solver-ipopt = ["pse-backend-native/ipopt"]
 solver-uno = ["pse-backend-native/uno"]
 solver-petsc = ["pse-backend-native/petsc"]
@@ -165,7 +160,6 @@ chrono.workspace = true
 http-body-util.workspace = true
 proptest.workspace = true
 uuid.workspace = true
-pse-operations = { workspace = true, features = ["test-support"] }
 pse-relations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
 datafusion-common.workspace = true
@@ -186,9 +180,9 @@ scope.tests = [
 id = "prepared-scientific-worker-equipment"
 target = "pse_runtime"
 kind = "lib"
-required-features = ["property-coolprop", "solver-kinsol"]
+required-features = ["property-coolprop", "solver-ipopt"]
 ownership = "preparation-only"
-inputs = ["scientific-worker", "scientific-inputs"]
+inputs = ["scientific-worker"]
 scope.tests = [
   "workflow::modeling::steam_tests::authored_liquid_pump_through_prepared_scientific_worker_keeps_original_controls",
   "workflow::modeling::steam_tests::authored_steam_turbine_through_prepared_scientific_worker_keeps_original_controls",
@@ -198,10 +192,12 @@ scope.tests = [
 # Runtime fixture requirements are authored beside their consumers, not inferred by the host.
 [[package.metadata.pse.test-fixtures]]
 id = "native-study-owned"
-target = "native_study"
-kind = "test"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["native-service", "solver-kinsol"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["workflow::native_study_tests"]
 
 [[package.metadata.pse.test-fixtures]]
 id = "native-repeated-analysis-owned"
@@ -214,7 +210,7 @@ inputs = ["server", "study-module", "service-helper"]
 id = "native-adoption-owned"
 target = "native_adoption"
 kind = "test"
-required-features = ["native-study-tests"]
+required-features = ["native-service"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
@@ -253,9 +249,9 @@ inputs = ["server", "study-module", "service-helper"]
 id = "managed-study-worker"
 target = "pse_runtime"
 kind = "lib"
-required-features = ["canonical-tests"]
+required-features = ["solver-ipopt"]
 ownership = "runner-borrowed"
-inputs = ["server", "study-module", "service-helper", "worker"]
+inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
   "workflow::study_tests::managed_primary_reopened_continuation_uses_shared_secant_and_original_correction",
   "workflow::study_tests::managed_primary_multipage_read_overlaps_compiler_leases_and_original_science",
@@ -271,7 +267,7 @@ scope.tests = [
 id = "connected-results-owned"
 target = "pse_runtime"
 kind = "lib"
-required-features = ["native-study-tests"]
+required-features = ["native-service"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = [
@@ -280,17 +276,9 @@ scope.modules = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
-id = "pid-scientific-inputs"
-target = "reference_pid_exchange"
-kind = "test"
-ownership = "preparation-only"
-inputs = ["scientific-inputs"]
-
-[[package.metadata.pse.test-fixtures]]
 id = "product-retained-history"
 target = "pse_runtime"
 kind = "lib"
-required-features = ["canonical-tests"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper", "product-reader"]
 scope.modules = ["workflow::study_observation::reader_history_tests"]
@@ -365,7 +353,7 @@ scope.tests = [
   "workflow::fitting::oracle::p09_tests::fitting_member_permission_retains_exact_durable_attempt_and_passive_facts",
   "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
   "workflow::horizon::tests::compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership",
-  "workflow::horizon::tests::compact_horizon_post_science_pressure_moves_original_completion_on_refusal",
+  "workflow::horizon::tests::compact_horizon_durable_post_science_pressure_moves_original_completion_on_refusal",
   "workflow::horizon::tests::compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory",
   "workflow::horizon::tests::horizon_records_one_durable_attempt",
   "workflow::live_simulation::tests::canonical_live_expired_admission_yields_one_joined_refusal",
@@ -444,19 +432,6 @@ scope.tests = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
-id = "library-scientific-inputs"
-target = "pse_runtime"
-kind = "lib"
-ownership = "preparation-only"
-inputs = ["scientific-inputs"]
-scope.modules = ["workflow::modeling::steam_tests"]
-scope.tests = [
-  "workflow::strategies::conditional::reference_fixture::conditional_unit_reference_request_declares_original_inventories_and_root_refusal",
-  "workflow::modeling::forms_tests::authored_gdp_fixture_selects_the_enumerated_alternative",
-  "workflow::modeling::conformance::tests::authored_milp_routes_to_highs",
-]
-
-[[package.metadata.pse.test-fixtures]]
 id = "producer-replay-inputs"
 target = "pse_runtime"
 kind = "lib"
@@ -522,6 +497,7 @@ inputs = ["pid-reference-python"]
 id = "native-lane-child"
 target = "pse_runtime"
 kind = "lib"
+required-features = ["solver-kinsol"]
 ownership = "preparation-only"
 inputs = ["native-lane"]
 scope.tests = [
@@ -543,7 +519,7 @@ scope.tests = [
 # linked native solvers.
 name = "worker"
 required-features = [
-  "native-study-tests",
+  "native-service",
   "product-operators",
   "solver-ipopt",
   "solver-scip",
@@ -577,7 +553,7 @@ required-features = ["engineering-service", "product-reader"]
 [[bin]]
 name = "pse-engineering-fixture"
 path = "src/bin/pse-engineering-fixture.rs"
-required-features = ["native-study-tests", "product-reader"]
+required-features = ["engineering-service", "native-service", "product-reader"]
 
 [[test]]
 name = "scientific_worker"
@@ -609,12 +585,8 @@ name = "product_reader"
 required-features = ["product-reader"]
 
 [[test]]
-name = "native_study"
-required-features = ["native-study-tests", "solver-kinsol"]
-
-[[test]]
 name = "native_repeated_analysis"
-required-features = ["native-study-tests", "solver-kinsol"]
+required-features = ["native-service", "solver-kinsol"]
 
 [[test]]
 name = "reference_degeneracy_exchange"
@@ -630,12 +602,12 @@ required-features = ["solver-ipopt"]
 
 [[test]]
 name = "native_research"
-required-features = ["native-study-tests"]
+required-features = ["native-service"]
 
 [[test]]
 name = "native_boundary_acceptance"
 required-features = [
-  "native-study-tests",
+  "native-service",
   "product-operators",
   "solver-scip",
   "solver-ipopt",
@@ -651,7 +623,7 @@ required-features = ["solver-diffsol"]
 
 [[test]]
 name = "native_worker_lifecycle"
-required-features = ["native-study-tests", "product-operators"]
+required-features = ["native-service", "product-operators"]
 
 [[test]]
 name = "native_workspace"

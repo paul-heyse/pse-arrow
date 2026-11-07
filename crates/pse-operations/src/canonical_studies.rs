@@ -3,7 +3,7 @@
 
 //! Bounded occurrence storage and scoped decisions over the canonical substrate.
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 use crate::canonical::bounded_query;
 use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
 use crate::{
@@ -31,8 +31,6 @@ use std::{
 use surrealdb_types::{Bytes, Object, ToSql, Value};
 
 mod progression;
-#[cfg(feature = "test-support")]
-pub use progression::controls as progression_controls;
 pub use progression::{
     PreparedStudyClaim, StudyContinuation, StudyPreparation, StudyProgress, StudyProgressAction,
 };
@@ -1471,7 +1469,7 @@ impl CanonicalStore {
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?)
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     async fn readiness_hint(&self, point: &str) -> Result<Option<ReadinessHint>, CanonicalError> {
         let mut response = bounded_query(
             self.db
@@ -2742,7 +2740,7 @@ mod outcome_projection_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "controlled scientific fixture admission without pointer or ABI operations"
@@ -2766,7 +2764,7 @@ mod canonical_studies_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit isolated server fixture");
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_studies_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store.edit("problem", None, "source", &[]).await.unwrap();
         (store, options.database, revision)
     }
@@ -4220,7 +4218,7 @@ mod canonical_studies_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = database.clone();
-        let restarted = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let restarted = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         let other_page = restarted
             .advance_study_readiness("readiness-fanout")
             .await
@@ -4808,7 +4806,7 @@ mod canonical_studies_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = database;
-        let restarted = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let restarted = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         // Recovery starts from the persisted operation, not a newly derived page
         // or a fresh operation UUID. A committed prefix must not be appended twice.
         assert_eq!(
@@ -4869,7 +4867,7 @@ mod canonical_studies_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = database;
-        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let peer = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         let start = tokio::sync::Barrier::new(2);
         let apply = async {
             start.wait().await;

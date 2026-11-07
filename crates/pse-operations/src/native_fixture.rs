@@ -3,8 +3,14 @@
 
 //! A borrowed selection of one freshly owned command-scoped canonical fixture.
 //! This descriptor grants no service shutdown or persistent-data disposal authority.
-use crate::canonical::{CanonicalError, CanonicalOptions};
+use crate::{
+    canonical::{CanonicalError, CanonicalOptions, CanonicalStore, bounded_query},
+    canonical_execution::AttemptFence,
+    canonical_script::{Envelope, GuardedScript},
+    transport::client::IndexedResults,
+};
 use serde::{Deserialize, Serialize};
+use surrealdb_types::SurrealValue;
 use std::{
     fs::{self, OpenOptions},
     io::Read,
@@ -14,6 +20,54 @@ use std::{
 
 #[cfg(feature = "native-service")]
 use std::io::Write;
+
+#[cfg(all(test, feature = "native-service"))]
+use crate::native_service::{NativeModuleSource, NativeServiceSpec};
+
+mod logical;
+pub(crate) use logical::FixtureLifetime;
+#[cfg(test)]
+pub(crate) use logical::canonical_fixture_peer;
+
+pub use logical::{canonical_fixture_store, canonical_fixture_with_options};
+
+#[cfg(all(test, feature = "native-service"))]
+#[path = "native_fixture/migration_tests.rs"]
+mod migration_tests;
+
+#[cfg(all(test, feature = "native-service"))]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    reason = "the isolated lifecycle test requires admitted native images and state"
+)]
+pub(crate) fn owned_test_service_spec() -> NativeServiceSpec {
+    let environment = std::env::vars_os().collect();
+    let helper = PathBuf::from(
+        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
+            .expect("explicit already-built native-service helper"),
+    );
+    assert!(helper.is_absolute() && helper.is_file());
+    NativeServiceSpec {
+        server: pse_host::server::select(&environment).unwrap(),
+        helper,
+        module_source: if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+            NativeModuleSource::Prepared(
+                pse_host::study_module::select(
+                    &PathBuf::from(record),
+                    pse_host::study_module::Variant::Production,
+                )
+                .unwrap(),
+            )
+        } else {
+            NativeModuleSource::RecordedState(PathBuf::from(
+                std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
+                    .expect("explicit private module receipt selector"),
+            ))
+        },
+        state_parent: std::env::temp_dir(),
+    }
+}
 
 /// Explicit child selection, issued only after the private native service is ready.
 pub const SELECTION_ENV: &str = "PSE_NATIVE_CANONICAL_FIXTURE";
@@ -148,6 +202,76 @@ impl FixtureSelection {
     pub fn descriptor(&self) -> PathBuf {
         self.state.join(SELECTION_FILE)
     }
+    fn require_borrower(&self, store: &CanonicalStore) -> Result<(), CanonicalError> {
+        let options = CanonicalOptions::from_state_for_database(
+            store.deployment_state(),
+            Some(store.database()),
+        )?;
+        self.validate_options(&options)?;
+        if store.fixture_lifetime.is_none()
+            || options.endpoint != store.endpoint()
+            || options.namespace != store.namespace()
+        {
+            return Err(refused("the store is not a registered borrower of this fixture"));
+        }
+        Ok(())
+    }
+
+    /// Execute checked SQL through this registered disposable fixture's existing client.
+    /// The fixture retains original outbound work through cancellation and physical drain.
+    /// # Errors
+    /// The store is not a registered borrower of this fixture or the checked request fails.
+    pub async fn query(
+        &self,
+        store: &CanonicalStore,
+        sql: &str,
+        bindings: impl SurrealValue,
+    ) -> Result<IndexedResults, CanonicalError> {
+        self.require_borrower(store)?;
+        fixture_query(store, sql, bindings).await
+    }
+
+    /// Expire one exact acknowledged claim on this registered disposable fixture.
+    /// # Errors
+    /// The original active claim differs, or the guarded write did not acknowledge.
+    pub async fn expire_acknowledged_attempt(
+        &self,
+        store: &CanonicalStore,
+        fence: &AttemptFence,
+    ) -> Result<(), CanonicalError> {
+        self.require_borrower(store)?;
+        let activity = store.admit_activity()?;
+        activity.scope(async {
+            let generation = crate::canonical_codec::encode_uint(fence.generation())?;
+            let script = GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<bool>>(
+                "LET $run = SELECT * FROM ONLY type::record('canonical_runs',$run); LET $attempt = SELECT * FROM ONLY type::record('canonical_attempts',$attempt); IF $run = NONE OR $attempt = NONE OR $attempt.run != $run.key OR $run.current_attempt != $attempt.key OR $run.current_generation != $generation OR $attempt.generation != $generation OR $attempt.phase IN ['terminal','terminal_compacted'] { THROW 'PSE_REFUSAL:fixture_expiry_claim_changed'; }; UPDATE ONLY $attempt.id SET expires_at = time::micros() - 1;",
+                "true",
+            )?;
+            let result = script.result();
+            let mut response = bounded_query(
+                store.db.script(script)
+                    .bind(("run", fence.run().to_owned()))
+                    .bind(("attempt", fence.attempt().to_owned()))
+                    .bind(("generation", generation)),
+            ).await?;
+            if result.take(&mut response)? != Some(true) {
+                return Err(CanonicalError::IncompleteResponse);
+            }
+            Ok(())
+        }).await
+    }
+
+    /// Resolve the real payload instance directory for a registered fixture borrower.
+    /// # Errors
+    /// The store is not a registered borrower of this authenticated disposable service.
+    pub fn payload_instances(
+        &self,
+        store: &crate::canonical::CanonicalStore,
+    ) -> Result<PathBuf, CanonicalError> {
+        self.require_borrower(store)?;
+        Ok(store.files.fixture_instances())
+    }
+
     /// Verify the selected isolated logical database before creating any remote state.
     /// Explicit transport relays are allowed while credentials/state/namespace remain owned.
     /// # Errors
@@ -167,6 +291,15 @@ impl FixtureSelection {
         }
         Ok(())
     }
+}
+
+pub(crate) async fn fixture_query(
+    store: &CanonicalStore,
+    sql: &str,
+    bindings: impl SurrealValue,
+) -> Result<IndexedResults, CanonicalError> {
+    let activity = store.admit_activity()?;
+    activity.scope(async { bounded_query(store.db.query(sql).bind(bindings)).await }).await
 }
 
 #[cfg(feature = "native-service")]
@@ -475,7 +608,7 @@ mod command {
             let publication = publish_run_report(
                 report_path.as_deref(),
                 runner_exit.load(std::sync::atomic::Ordering::Acquire),
-                outcome.is_ok() && disposal.is_ok(),
+                disposal.is_ok(),
             );
             let result = match (outcome, disposal) {
                 (Ok(status), Ok(())) => Ok(status),
@@ -543,6 +676,12 @@ mod command {
                 publish_run_report(Some(&path), 0, true).is_err(),
                 "original outcome cannot be overwritten"
             );
+            let no_child = directory.path().join("before-child.json");
+            publish_run_report(Some(&no_child), i32::MIN, true).unwrap();
+            let report: pse_host::fixtures::CanonicalRunReport =
+                serde_json::from_slice(&fs::read(no_child).unwrap()).unwrap();
+            assert_eq!(report.runner_exit, None);
+            assert!(report.fixture_settled);
         }
         #[test]
         fn captured_inventory_refuses_before_service_creation() {

@@ -818,7 +818,7 @@ impl Runtime {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod tests {
     #![allow(
         clippy::unwrap_used,

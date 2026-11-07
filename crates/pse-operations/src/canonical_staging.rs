@@ -124,7 +124,7 @@ enum StagePurpose {
     SourceEdit,
     Product,
     // Explicit interrupted-writer recovery remains separate from API edit replay.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     SourceResume,
 }
 
@@ -882,7 +882,7 @@ impl CanonicalStore {
         Ok(())
     }
 
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     async fn begin_stage(
         &self,
         problem: &str,
@@ -1179,7 +1179,7 @@ impl CanonicalStore {
     /// Assemble only this demanded immutable object. Production multi-message
     /// scientific reads use the protected variant below.
     #[cfg(test)]
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) async fn assemble_object(
         &self,
         version: &str,
@@ -2253,7 +2253,7 @@ mod canonical_staging_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_server_unit {
     #![allow(
         clippy::expect_used,
@@ -2270,7 +2270,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_staging_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         (store, options.database)
     }
 
@@ -2457,7 +2457,7 @@ mod canonical_server_unit {
         let edits = [edit("independent-parallel-shared-version", "x", 128)];
         let mut clients = Vec::new();
         for ordinal in 0..16 {
-            let client = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+            let client = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
             let problem = format!("independent-problem-{ordinal:02}");
             let planned = plan(&problem, None, &edits).unwrap();
             let token = client
@@ -2611,7 +2611,7 @@ mod canonical_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = database.clone();
-        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let peer = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         let edits = [edit("independent-shared-version", "x", 128)];
         let old_plan = plan("old-problem", None, &edits).unwrap();
         let old = store
@@ -2676,7 +2676,7 @@ mod canonical_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = database.clone();
-        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let peer = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         let edits = [edit("guarded-shared-version", "x", 128)];
 
         let old_plan = plan("old-guarded", None, &edits).unwrap();

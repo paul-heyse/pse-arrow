@@ -2766,7 +2766,6 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn fitting_member_permission_retains_exact_durable_attempt_and_passive_facts() {
     use crate::workflow::{MemberScientificPermission, RunDurability};

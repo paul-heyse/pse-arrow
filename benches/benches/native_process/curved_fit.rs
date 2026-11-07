@@ -233,5 +233,9 @@ pub(super) async fn run(
         objective.is_finite() && objective <= objective_budget,
         "{report:?}"
     );
-    std::hint::black_box((&report.reports, &report.responses, &report.predictions));
+    std::hint::black_box((
+        report.assessment.reports(),
+        &report.responses,
+        &report.predictions,
+    ));
 }

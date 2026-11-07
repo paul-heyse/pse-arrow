@@ -18,7 +18,7 @@ async fn fixture() -> CanonicalStore {
         "canonical_test_legacy_capture_{}",
         uuid::Uuid::new_v4().simple()
     );
-    let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+    let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     // Restore only the exact old capture family in this newly owned disposable
     // database. Full predecessor→successor qualification belongs to migration.
     let declaration = crate::canonical::migration::SCHEMA_V3_DECLARATION;
@@ -58,7 +58,7 @@ async fn fixture() -> CanonicalStore {
 fn peer(store: &CanonicalStore) -> CanonicalStore {
     let mut options = CanonicalOptions::from_state(store.deployment_state()).unwrap();
     options.database = store.database().to_owned();
-    crate::testing::canonical_fixture_peer(store, &options).unwrap()
+    crate::native_fixture::canonical_fixture_peer(store, &options).unwrap()
 }
 
 async fn pending(store: &CanonicalStore, key: &str, owner: &str) {

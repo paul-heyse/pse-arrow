@@ -3,16 +3,15 @@
 //! Native preparation handoff for bounded canonical study progression.
 use super::*;
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(test)]
 tokio::task_local! {
     static PREPARED_ACK_LOST: bool;
     static PREPARED_READBACK_FAILED: bool;
 }
 
-#[cfg(feature = "test-support")]
+#[cfg(test)]
 #[path = "progression_controls.rs"]
-/// Controls that require an explicitly supplied privately owned canonical store.
-pub mod controls;
+mod controls;
 
 /// Exact bounded traversal position. Only the issuing database can consume it.
 #[derive(Clone, Debug)]
@@ -199,14 +198,14 @@ impl CanonicalStore {
                 .bind(("point", scope.point.key.clone())).bind(("expected", expected.clone())).bind(("seed", Bytes::from(seed.clone()))).bind(("operation", operation.to_owned())).bind(("request", Bytes::from(request.clone())))
                 .bind(("claim_request", Bytes::from(claim_request.clone()))).bind(("attempt", attempt.clone())).bind(("worker", worker.to_owned())).bind(("lifetime", lifetime)))).await
                 .and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
-            #[cfg(any(test, feature = "test-support"))]
+            #[cfg(test)]
             let response = if response.is_ok() && PREPARED_ACK_LOST.try_with(|lost| *lost).unwrap_or(false) {
                 Err(CanonicalError::IncompleteResponse)
             } else { response };
             let mut result = match response {
                 Ok(result) => result,
                 Err(error) => crate::canonical::settlement::settle_exact("study-preparation", operation, &request, Err(error), async {
-                    #[cfg(any(test, feature = "test-support"))]
+                    #[cfg(test)]
                     if PREPARED_READBACK_FAILED.try_with(|failed| *failed).unwrap_or(false) {
                         return Err(CanonicalError::IncompleteResponse);
                     }

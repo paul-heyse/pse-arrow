@@ -129,6 +129,8 @@ pub use progress::ProgressStream;
 mod bindings;
 mod native_deployment;
 mod native_worker;
+#[cfg(all(test, feature = "native-service", feature = "solver-kinsol"))]
+mod native_study_tests;
 mod physical_cache;
 pub mod sampling;
 mod worker;
@@ -272,7 +274,7 @@ pub use research_publication::{
     ResearchParameterTarget, ResearchPublicationIntent, ResearchPublicationPreview,
     ResearchPublicationRequest,
 };
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod projects_consumer_tests;
 pub(crate) use modeling::PackageAdmission;
 pub use modeling::documents::{
@@ -326,12 +328,14 @@ pub use modeling::{
     ModelingRootSourceImpact, ModelingSourceClosure, ModelingSourceImpact,
     ModelingSourceImpactStatus,
 };
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod caller_lifetime_tests;
 #[cfg(test)]
 mod data_documents_tests;
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod durable_tests;
+#[cfg(test)]
+pub(crate) mod fixture_controls;
 mod local_analysis;
 mod modeling_results;
 mod results;
@@ -342,7 +346,6 @@ mod study_tests;
 #[cfg(test)]
 pub(crate) mod tests;
 #[cfg(test)]
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 mod worker_tests;
 use crate::{SharedRuntime, math::MathRuntimeError};
 use pse_engine::{

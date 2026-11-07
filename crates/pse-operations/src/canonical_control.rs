@@ -4,7 +4,11 @@
 use crate::canonical_study_workbench::{StudyWorkbenchFilter, StudyWorkbenchHeader};
 use pse_model::document::Version;
 
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(test)]
+#[path = "canonical_control_tests.rs"]
+mod tests;
+
+#[cfg(test)]
 tokio::task_local! {
     pub(crate) static CONTROL_ACK_LOST: bool;
     pub(crate) static CONTROL_READBACK_FAILED: bool;
@@ -285,7 +289,7 @@ impl crate::canonical::CanonicalStore {
     ) -> Result<ControlReconcileResponse, crate::canonical::CanonicalError> {
         use crate::canonical::transport::{original_deadline, within_clock};
         use crate::canonical::{CanonicalError, REQUEST_TIMEOUT, protected_query};
-        #[cfg(any(test, feature = "test-support"))]
+        #[cfg(test)]
         if CONTROL_READBACK_FAILED
             .try_with(|failed| *failed)
             .unwrap_or(false)
@@ -369,7 +373,7 @@ impl crate::canonical::CanonicalStore {
             }.await;
             // Fault only the acknowledged local result after the real server
             // transaction. The ordinary original-identity readback remains real.
-            #[cfg(any(test, feature = "test-support"))]
+            #[cfg(test)]
             let response = if response.is_ok() && CONTROL_ACK_LOST.try_with(|lost| *lost).unwrap_or(false) {
                 Err(CanonicalError::IncompleteResponse)
             } else { response };

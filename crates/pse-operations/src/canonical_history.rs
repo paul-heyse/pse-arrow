@@ -220,7 +220,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "controlled synthetic terminal observations exercise storage ownership only"
@@ -244,7 +244,7 @@ mod canonical_history_tests {
             .expect("owned current-version canonical fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_history_{}", uuid::Uuid::new_v4().simple());
-        crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+        crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
     }
     async fn request(store: &CanonicalStore, key: &str) -> RunRequest {
         RunRequest {

@@ -200,7 +200,6 @@ impl ResultReadDrain {
         }
         self.wait_for_releases().await
     }
-    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn drain(&self) -> Result<(), CanonicalError> {
         if self.live.load(std::sync::atomic::Ordering::SeqCst) != 0 {
             return Err(invalid("canonical client still has live protected readers"));
@@ -210,7 +209,6 @@ impl ResultReadDrain {
     /// Join cleanup already enqueued by dropped readers while independent
     /// readers may remain live. This does not close protection admission or
     /// establish global reader drain; later drops still enqueue tracked releases.
-    #[cfg(any(test, feature = "test-support"))]
     pub(crate) async fn join_pending_releases(&self) -> Result<(), CanonicalError> {
         self.releases.close();
         self.wait_for_releases().await
@@ -1617,7 +1615,7 @@ mod protection_drain_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_results_server_unit {
     #![allow(
         clippy::expect_used,
@@ -1638,7 +1636,7 @@ mod canonical_results_server_unit {
             .expect("explicit supervised server fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store.edit("problem", None, "source-1", &[]).await.unwrap();
         (store, options.database, revision)
     }

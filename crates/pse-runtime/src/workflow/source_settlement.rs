@@ -174,7 +174,6 @@ mod tests {
             WorkflowError::Canonical(CanonicalError::SourceEditRefused { .. })
         ));
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn explicit_recording_reads_do_not_make_ephemeral_compute_durable() {
         let local = crate::workflow::tests::runtime();

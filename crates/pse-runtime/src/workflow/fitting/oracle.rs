@@ -3596,7 +3596,7 @@ mod tests {
         }
         assert!(document.endpoints.qualification_seconds.is_none());
     }
-    #[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+    #[cfg(feature = "solver-ipopt")]
     #[tokio::test]
     async fn persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells() {
         use pse_model::{generated::enums::DerivedQuantity, scalars::Fraction};

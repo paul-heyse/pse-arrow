@@ -393,15 +393,45 @@ fn service_environment_entry(key: &str, value: &str) -> Result<String, WorkflowE
     Ok(format!("{key}={value}"))
 }
 
+enum Receiver {
+    Product,
+    #[cfg(all(test, feature = "solver-ipopt"))]
+    Test {
+        entry: &'static str,
+        controller: PathBuf,
+    },
+}
+
+#[cfg(all(test, feature = "solver-ipopt"))]
+pub(super) const TEST_WORKER_INPUT: &str = "PSE_TEST_MANAGED_WORKER_INPUT";
+#[cfg(all(test, feature = "solver-ipopt"))]
+pub(super) const TEST_WORKER_CONTROLLER: &str = "PSE_TEST_MANAGED_WORKER_CONTROLLER";
+
 impl NativeStudyWorker {
     /// Construct one private launch handoff, with no host/service effects.
     /// # Errors
     /// Invalid scientific resources, unavailable prepared image or private handoff failure.
     pub fn new(spec: NativeStudyWorkerSpec<'_>) -> Result<Self, WorkflowError> {
+        Self::new_receiver(spec, Receiver::Product)
+    }
+
+    #[cfg(all(test, feature = "solver-ipopt"))]
+    pub(super) fn new_test_receiver(
+        spec: NativeStudyWorkerSpec<'_>,
+        entry: &'static str,
+        controller: &Path,
+    ) -> Result<Self, WorkflowError> {
+        if spec.executable != std::env::current_exe().map_err(infrastructure)? {
+            return Err(contract("native study test receiver requires the current test image"));
+        }
+        Self::new_receiver(spec, Receiver::Test { entry, controller: controller.to_owned() })
+    }
+
+    fn new_receiver(spec: NativeStudyWorkerSpec<'_>, receiver: Receiver) -> Result<Self, WorkflowError> {
         spec.allocation.validate()?;
         let store = spec.ready.store();
         let executable_path = spec.executable.canonicalize().map_err(infrastructure)?;
-        if executable_path
+        if matches!(receiver, Receiver::Product) && executable_path
             .file_name()
             .is_none_or(|name| name != "pse-worker")
         {
@@ -465,6 +495,23 @@ impl NativeStudyWorker {
                 .ok_or_else(|| contract("native canonical state path must be UTF-8"))?
                 .into(),
         );
+        let path = path
+            .to_str()
+            .ok_or_else(|| contract("native worker input path must be UTF-8"))?
+            .to_owned();
+        let arguments = match receiver {
+            Receiver::Product => vec!["--native-input".into(), path],
+            #[cfg(all(test, feature = "solver-ipopt"))]
+            Receiver::Test { entry, controller } => {
+                let controller = controller
+                    .to_str()
+                    .filter(|_| controller.is_absolute())
+                    .ok_or_else(|| contract("native test controller path must be absolute UTF-8"))?;
+                selected_environment.insert(TEST_WORKER_INPUT.into(), path);
+                selected_environment.insert(TEST_WORKER_CONTROLLER.into(), controller.into());
+                vec!["--exact".into(), entry.into(), "--ignored".into(), "--nocapture".into()]
+            }
+        };
         let environment = selected_environment
             .into_iter()
             .filter(|(key, _)| {
@@ -480,14 +527,10 @@ impl NativeStudyWorker {
             })
             .map(|(key, value)| service_environment_entry(&key, &value))
             .collect::<Result<Vec<_>, WorkflowError>>()?;
-        let path = path
-            .to_str()
-            .ok_or_else(|| contract("native worker input path must be UTF-8"))?
-            .to_owned();
         let launch = ServiceSpec {
             intent,
             executable: executable_path,
-            arguments: vec!["--native-input".into(), path],
+            arguments,
             environment,
         };
         use std::os::unix::fs::MetadataExt;
@@ -515,35 +558,6 @@ impl NativeStudyWorker {
     /// Retained startup/terminal diagnostics, including after uncertain launch.
     pub fn directory(&self) -> &Path {
         &self.directory
-    }
-    /// Select the existing bounded native-entry qualification control before launch.
-    /// Refusal returns the original owner, including any already-dispatched ownership.
-    /// # Errors
-    /// Launch is closed/dispatched or the control path is not absolute UTF-8.
-    #[cfg(feature = "canonical-tests")]
-    pub fn with_qualification_native_entry(
-        mut self,
-        path: PathBuf,
-    ) -> Result<Self, Box<(Self, WorkflowError)>> {
-        let argument = match path.to_str() {
-            Some(value) if path.is_absolute() => value.to_owned(),
-            _ => {
-                return Err(Box::new((
-                    self,
-                    contract("native entry qualification requires an absolute UTF-8 path"),
-                )));
-            }
-        };
-        if self.closing || self.dispatched {
-            return Err(Box::new((
-                self,
-                contract("native entry qualification must precede original launch"),
-            )));
-        }
-        self.spec
-            .arguments
-            .extend(["--qualification-native-entry".into(), argument]);
-        Ok(self)
     }
     /// Submit once and wait for application readiness under one original absolute clock.
     /// Errors/cancellation leave this original owner available for shutdown/reconciliation.
@@ -659,8 +673,8 @@ impl NativeStudyWorker {
     /// qualification control. Physical drain never fabricates an application join.
     /// # Errors
     /// The original performing owner is absent or its physical drain is unknown.
-    #[cfg(feature = "canonical-tests")]
-    pub async fn kill_and_drain_for_qualification(
+    #[cfg(all(test, feature = "solver-ipopt"))]
+    pub(super) async fn kill_and_drain_for_qualification(
         &mut self,
         deadline: Instant,
     ) -> Result<UnitObservation, WorkflowError> {

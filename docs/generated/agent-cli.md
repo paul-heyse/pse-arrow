@@ -2783,7 +2783,7 @@ Arguments:
   <FIXTURE>
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - runtime:      Scientific input capsule and captured native-lane executable only
+          - native-lane:  Source-built standalone native-lane executable
 
 Options:
   -C <checkout>
@@ -2821,7 +2821,7 @@ Arguments:
   <FIXTURE>
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - runtime:      Scientific input capsule and captured native-lane executable only
+          - native-lane:  Source-built standalone native-lane executable
 
 Options:
   -C <checkout>
@@ -2858,6 +2858,7 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
+  retire-host   Preview or release one completed checkout-local host tool generation
   prepare       Build/capture the declared native tool; passive queries never invoke this operation
   catalog       Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema  Read the actual retained native document-owner response schema
@@ -2867,6 +2868,47 @@ Commands:
 Options:
   -C <checkout>
 
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools retire-host`
+
+~~~~text
+Preview or release one completed checkout-local host tool generation
+
+Usage: pse tools retire-host [OPTIONS] <GENERATION>
+
+Arguments:
+  <GENERATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --release <RELEASE>
+          Exact release token returned by the current generation preview
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -3549,7 +3591,7 @@ Options:
 ~~~~text
 Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples> <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples|--retire-build <INVOCATION>> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>
@@ -3664,6 +3706,12 @@ Options:
 
       --extract-examples
           Explicitly preprocess native doctests to format2; no examples compile or run
+
+      --retire-build <INVOCATION>
+          Preview the exact original acquisition's regenerable Cargo build output after drain
+
+      --release <IDENTITY>
+          Release the Cargo output identity from the preview
 
   -h, --help
           Print help (see a summary with '-h')

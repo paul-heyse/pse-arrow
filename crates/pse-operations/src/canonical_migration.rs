@@ -924,7 +924,7 @@ impl QuiescentSchemaMigration {
     }
     /// Publish only the closed v2 checkpoint and deliberately discard its ACK.
     /// This fixture control exercises actual original-request readback before interruption.
-    #[cfg(feature = "test-support")]
+    #[cfg(test)]
     pub async fn checkpoint_v2_lost_ack_for_test(&self) -> Result<(), CanonicalError> {
         self.advance_v2_checkpoint(true).await
     }
@@ -1252,7 +1252,7 @@ LET $pse_migration_receipt=CREATE ONLY type::record('canonical_maintenance_activ
 "#;
 
 /// Fixed-row actual-transaction controls, available only to explicitly selected fixtures.
-#[cfg(all(feature = "test-support", feature = "native-service"))]
+#[cfg(all(test, feature = "native-service"))]
 mod schema_fence_control {
     use super::*;
     use crate::transport::client::{Client, HeldTransaction, RequestContext, Root};
@@ -1393,7 +1393,7 @@ mod schema_fence_control {
         }
     }
 }
-#[cfg(all(feature = "test-support", feature = "native-service"))]
+#[cfg(all(test, feature = "native-service"))]
 pub use schema_fence_control::SchemaFenceWrite;
 
 #[cfg(test)]

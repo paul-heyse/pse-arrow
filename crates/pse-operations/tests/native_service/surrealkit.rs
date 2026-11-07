@@ -27,6 +27,8 @@ use std::{
 
 const SUITE: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/canonical.toml");
 const SEED: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/seed.surql");
+const HTTP_FIXTURE: &str =
+    include_str!("../../../../scripts/tests/fixtures/surrealkit/control-transaction.surql");
 const ROLLOUT_SUITE: &str =
     include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout.toml");
 const ROLLOUT_ID: &str = "20261021131104__canonical_28f894ce3c844206";
@@ -112,11 +114,15 @@ async fn provision_namespace(
 }
 
 fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeServiceError> {
-    for directory in ["schema", "tests/suites", "seed", "snapshots"] {
+    for directory in ["schema", "tests/suites", "tests/fixtures", "seed", "snapshots"] {
         fs::create_dir_all(folder.join(directory))?;
     }
     fs::write(folder.join("schema/canonical.surql"), SCHEMA)?;
     fs::write(folder.join("tests/suites/canonical.toml"), SUITE)?;
+    fs::write(
+        folder.join("tests/fixtures/control-transaction.surql"),
+        HTTP_FIXTURE,
+    )?;
     let seed_path = folder.join("seed/seed.surql");
     if let Some(seed) = seed {
         fs::write(&seed_path, seed)?;
@@ -175,6 +181,7 @@ impl SuiteTool<'_> {
             SuiteSelection::AuthoredRollout => Duration::from_secs(120),
         };
         let mut command = Command::new(self.binary);
+        let http_endpoint = self.endpoint.replacen("grpc://", "http://", 1);
         command
             .env_clear()
             .env("HOME", folder)
@@ -190,6 +197,8 @@ impl SuiteTool<'_> {
                 NAMESPACE,
                 "--db",
                 DATABASE_PREFIX,
+                "--base-url",
+                &http_endpoint,
             ])
             .args(["--auth-level", "namespace", "--connect-timeout-secs", "10"])
             .arg("--folder")

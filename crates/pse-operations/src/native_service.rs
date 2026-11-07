@@ -516,7 +516,7 @@ pub struct NativeCanonicalService {
     ready: Option<SchemaReady>,
     connections: Vec<CanonicalStore>,
     maintenances: Vec<SchemaMaintenance>,
-    #[cfg(feature = "test-support")]
+    #[cfg(test)]
     schema_writes: Vec<crate::canonical::migration::SchemaFenceWrite>,
     ingresses: Vec<OwnedIngress>,
     process_drained: Option<UnitObservation>,
@@ -640,7 +640,7 @@ impl StoppedCanonicalState {
         service.ready = None;
         service.connections.clear();
         service.maintenances.clear();
-        #[cfg(feature = "test-support")]
+        #[cfg(test)]
         service.schema_writes.clear();
         service.ingresses.clear();
         service.process_drained = None;
@@ -821,7 +821,7 @@ impl NativeCanonicalService {
             ready: None,
             connections: Vec::new(),
             maintenances: Vec::new(),
-            #[cfg(feature = "test-support")]
+            #[cfg(test)]
             schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,
@@ -856,6 +856,19 @@ impl NativeCanonicalService {
             &self.state.nonce,
         )?)
     }
+    /// Execute checked fixture SQL through this service's original ready client.
+    /// This capability borrows the private disposable state and its existing driver.
+    /// # Errors
+    /// Private state, readiness, or the checked original request fails.
+    pub async fn fixture_query(
+        &self,
+        sql: &str,
+        bindings: impl surrealdb_types::SurrealValue,
+    ) -> Result<crate::transport::client::IndexedResults, NativeServiceError> {
+        self.state.verify()?;
+        Ok(crate::native_fixture::fixture_query(self.ready()?.store(), sql, bindings).await?)
+    }
+
     /// Original manager intent; a unit name alone grants no stop authority.
     pub fn intent(&self) -> &LaunchIntent {
         &self.intent
@@ -916,16 +929,23 @@ impl NativeCanonicalService {
         self.manager = Some(manager.clone());
         self.launch_dispatched = true;
         let parent = manager.borrow(enclosing.unit);
-        self.unit = Some(
-            manager
-                .start_service_bound(
-                    &self.service_spec(),
-                    &parent,
-                    &ResourceControls::default(),
-                    deadline,
-                )
-                .await?,
-        );
+        let started = manager
+            .start_service_bound(
+                &self.service_spec(),
+                &parent,
+                &ResourceControls::default(),
+                deadline,
+            )
+            .await;
+        self.unit = Some(match started {
+            Ok(unit) => unit,
+            Err(error) => {
+                // A dropped launch future retains custody. Only a returned,
+                // definite pre-dispatch error proves that no unit was created.
+                self.launch_dispatched = matches!(&error, HostError::UnknownLaunch { .. });
+                return Err(error.into());
+            }
+        });
         self.wait_owned_listener(deadline).await?;
         if !self.reopening {
             crate::transport::operation_scope(deadline, self.provision_viewer(deadline)).await?;
@@ -1348,7 +1368,7 @@ impl NativeCanonicalService {
     /// This fixture-only control never accepts SQL, arbitrary rows or another deployment.
     /// # Errors
     /// Original service/fence differs, or actual authentication/admission/transaction staging fails.
-    #[cfg(feature = "test-support")]
+    #[cfg(test)]
     pub async fn stage_schema_fence_write(
         &mut self,
         ready: &SchemaReady,
@@ -1424,13 +1444,13 @@ impl NativeCanonicalService {
     /// Any independent canonical connection, ingress, or database settlement fails.
     pub async fn shutdown(&mut self, deadline: Instant) -> Result<(), NativeServiceError> {
         self.closing = true;
-        #[cfg(feature = "test-support")]
+        #[cfg(test)]
         let schema_drains = futures_util::future::join_all(
             self.schema_writes
                 .iter()
                 .map(crate::canonical::migration::SchemaFenceWrite::cancel),
         );
-        #[cfg(not(feature = "test-support"))]
+        #[cfg(not(test))]
         let schema_drains = async { Vec::<Result<(), CanonicalError>>::new() };
         // Connection close can still dispatch cancellation or protection-release RPCs.
         // Keep their original server alive until those owners have settled; process
@@ -2153,7 +2173,7 @@ mod tests {
             ready: None,
             connections: Vec::new(),
             maintenances: Vec::new(),
-            #[cfg(feature = "test-support")]
+            #[cfg(test)]
             schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,

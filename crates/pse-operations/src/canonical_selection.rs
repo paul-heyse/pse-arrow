@@ -123,7 +123,7 @@ fn membership_page_script(
     .returning(head, &page)
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn test_membership_page_sql(
     selection: &ProtectedSelection,
 ) -> Result<String, CanonicalError> {
@@ -2146,7 +2146,7 @@ impl CanonicalStore {
         .await
     }
     /// Corrupt only a disposable native fixture's first immutable product block.
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(test)]
     pub async fn corrupt_product_block(&self, key: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
         activity
@@ -2179,7 +2179,7 @@ impl CanonicalStore {
             .await
     }
     /// Corrupt an isolated fixture's product descriptor without touching protected roots.
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(test)]
     pub async fn corrupt_product_descriptor(&self, key: &str) -> Result<(), CanonicalError> {
         let activity = self.admit_activity()?;
         activity.scope(async {
@@ -2749,7 +2749,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 impl CanonicalStore {
     async fn test_reuse_product(
         &self,
@@ -2778,7 +2778,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_server_unit {
     #![allow(
         clippy::expect_used,
@@ -2815,7 +2815,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_{}", uuid::Uuid::new_v4().simple());
-        crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+        crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
     }
     async fn read(store: &CanonicalStore, revision: crate::canonical::Revision) -> SelectedRead {
         SelectedRead::new(
@@ -4925,7 +4925,7 @@ mod canonical_server_unit {
             CanonicalOptions::from_state(Path::new(&std::env::var("PSE_SURREAL_STATE").unwrap()))
                 .unwrap();
         options.database = store.database().to_owned();
-        let reopened = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let reopened = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         reopened.open().await.unwrap();
         let mut selected = second.clone();
         assert_eq!(

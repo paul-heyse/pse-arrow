@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Public repeated analysis of original protected scientific results and recorded points.
 //! Requires the production native-service helper and an explicitly prepared module receipt.
-#![cfg(all(feature = "native-study-tests", feature = "solver-kinsol"))]
+#![cfg(all(feature = "native-service", feature = "solver-kinsol"))]
 #![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,

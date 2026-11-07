@@ -1487,6 +1487,8 @@ impl HostManager {
     /// workload scope. The parent is borrowed: no stop/reference authority is
     /// granted over it. Systemd enforces BindsTo/After; application readiness and
     /// exact executable-body environment remain their respective owners' work.
+    /// A returned error after possible dispatch is `HostError::UnknownLaunch`.
+    /// Cancelling the future leaves the caller responsible for the original intent.
     pub async fn start_service_bound(
         &self,
         spec: &ServiceSpec,
@@ -1834,9 +1836,11 @@ impl HostManager {
                 .observe()
                 .await
                 .map_err(|error| unknown_launch(&spec.intent, error))?;
-            if Group::path(&observed.control_group)?.parent()
-                != Some(Group::path(&binding.parent.group)?.as_path())
-            {
+            let group = Group::path(&observed.control_group)
+                .map_err(|error| unknown_launch(&spec.intent, error))?;
+            let parent = Group::path(&binding.parent.group)
+                .map_err(|error| unknown_launch(&spec.intent, error))?;
+            if group.parent() != Some(parent.as_path()) {
                 return Err(unknown_launch(
                     &spec.intent,
                     "bound service escaped its authenticated allocation parent",

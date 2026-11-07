@@ -121,7 +121,7 @@ Save the absolute immutable module receipt. Then, for example:
 ```bash
 PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/module.json \
   scripts/pse test pse-operations:pse_operations --target-kind lib \
-  --features canonical-tests,native-service -E 'test(canonical_server_unit)'
+  --features native-service -E 'test(canonical_server_unit)'
 ```
 
 Choose the actual target/features/filter for the intended caller; a native solver target also
@@ -209,14 +209,13 @@ H acceptance scenario. Use the [current work index](../plans/README.md) for rema
 
 ## Scientific test input and support ownership
 
-The native bounded document reader/package resolver derives exact package/data membership and
-absence facts from the authored scientific input catalog. A synthetic declaration projection
-is separately identified; it cannot qualify external data or an independent oracle. Tests
-consume their declared input owner directly; no Python invocation-wide capture controller or
-`PSE_SCIENTIFIC_INPUTS` preparation command remains.
+The native bounded document reader and package resolver derive exact package and data membership
+from the authored scientific input catalog. Runtime tests capture and verify the inputs in their
+own process. The explicit `xtask scientific-inputs` and `scientific-inputs-check` commands
+export and verify the same capsule for separately selected consumers. Synthetic declaration
+projections and independent reference executables retain distinct owners.
 
 Compatible compiler tests may share an immutable admitted revision within one process and
 publish it into fresh workspaces. Mutable runtimes, attempts, databases and borrowers retain
-independent ownership. `canonical-tests` selects actual test participation and `test-support`
-selects fixture/hooks where declared. Native fixture descriptors authenticate state identity
-and private ownership before effects; a copied path or a missing fixture never grants admission.
+independent ownership. Native service linkage follows the declared capability. Native fixture
+descriptors authenticate state identity and private ownership before effects.

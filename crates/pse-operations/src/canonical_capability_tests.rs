@@ -34,7 +34,7 @@ async fn fixture() -> CanonicalStore {
         "canonical_test_capabilities_{}",
         uuid::Uuid::new_v4().simple()
     );
-    crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+    crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
 }
 
 fn edit(version: &str, logical: &str, scope: &str, kind: &str, supplier: bool) -> ObjectEdit {

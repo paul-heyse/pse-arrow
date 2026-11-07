@@ -219,7 +219,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "controlled storage fixture supplies explicit scientific terminal classification"
@@ -247,7 +247,7 @@ mod canonical_result_retention_server_unit {
             "canonical_test_result_retention_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         (store, options.database)
     }
     async fn request(store: &CanonicalStore, key: &str) -> RunRequest {

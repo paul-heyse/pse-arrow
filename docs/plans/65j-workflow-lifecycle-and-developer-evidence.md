@@ -626,7 +626,7 @@ complete. The prior environment refusals remain distinct from test failures. Thi
 that selected preparation/execution context, not universal fixture reuse or full J05 acceptance.
 
 The return to ordinary incremental/compiler-cache defaults exposed a separate runtime-fixture
-reentry defect. [`construction_inputs`](../../crates/pse-host/src/fixtures/runtime.rs) retained
+reentry defect. `construction_inputs` in `crates/pse-host/src/fixtures/runtime.rs` at `9e8f91f86` retained
 the native CMake/cache bridge but discarded the selected Rust wrapper. Final validation then
 reentered native selection without that wrapper, removed the bridge and correctly refused its
 own changed context; zero source files changed. Construction now preserves `RUSTC_WRAPPER` and

@@ -68,7 +68,7 @@ mod atomic_capture {
     fn peer(store: &CanonicalStore) -> CanonicalStore {
         let mut options = CanonicalOptions::from_state(store.deployment_state()).unwrap();
         options.database = store.database().to_owned();
-        crate::testing::canonical_fixture_peer(store, &options).unwrap()
+        crate::native_fixture::canonical_fixture_peer(store, &options).unwrap()
     }
 
     fn conflict(error: surrealdb_types::Error) {

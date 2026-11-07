@@ -114,7 +114,7 @@ pub(crate) fn launch(
         "pse-runtime",
         "pse-engineering-fixture",
         "crates/pse-runtime/src/bin/pse-engineering-fixture.rs",
-        &["native-study-tests", "product-reader"],
+        &["engineering-service", "native-service", "product-reader"],
     )?;
     let caller = std::env::vars_os().collect();
     let environment = crate::environment::activate_with_options(

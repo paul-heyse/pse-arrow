@@ -704,7 +704,6 @@ async fn worker_source_loader_observes_precancelled_admission_on_cache_hits_and_
 
 /// SC01 selected metadata references actual Parquet-backed typed records; reopening
 /// uses the admitted data document owner and preserves original raw values.
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn research_parquet_versions_reopen_original_typed_data_and_reject_partial_input() {
     use super::{ResearchDataObject, ResearchDatasetRequest};

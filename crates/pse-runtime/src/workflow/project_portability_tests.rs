@@ -599,7 +599,6 @@ fn project_portability_interrupted_final_manifest_publication_leaves_only_partia
     assert!(ProjectBundleReader::open(root.path(), 16 << 20).is_err());
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_fresh_destination() {
     let runtime = workflow::durable_tests::durable_runtime();
@@ -730,7 +729,6 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     store.remove_isolated_fixture().await.unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn project_portability_active_original_settles_after_expiry_without_copy_or_original_pack() {
     let runtime = workflow::durable_tests::durable_runtime();
@@ -1005,7 +1003,6 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
     assert!(ProjectBundleReader::open(root.path(), 16 << 20).is_err());
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads()
 {
@@ -1114,7 +1111,7 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
     let output = tempfile::tempdir().unwrap();
     let complete_path = output.path().join("must-refuse");
     let metadata_path = output.path().join("metadata");
-    let manifest=store.with_unavailable_fixture_payloads(async {
+    let manifest=workflow::fixture_controls::with_unavailable_fixture_payloads(store, async {
         let unavailable=store.read_artifact(&artifact.key).await.unwrap();assert!(unavailable.block(0).await.is_err(),"the selected artifact's original sealed bytes are genuinely absent");drop(unavailable);
         assert!(Box::pin(runtime.project_export(&complete_path,&request,physical.clone(),&cancel)).await.is_err(),"executable export cannot silently reinterpret missing selected artifact bytes as metadata");
         assert!(!complete_path.join("project.json").exists());
@@ -1166,7 +1163,6 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
     drop(runtime);
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 #[allow(
     clippy::print_stderr,

@@ -34,7 +34,7 @@ capsule against the original builder and current inputs. A move of SQL assertion
 does not by itself remove those scientific runtime captures. [SurrealKit pin](../../.config/surrealkit.toml) ·
 [Existing TOML suite](../../scripts/tests/fixtures/surrealkit/canonical.toml) ·
 [Fixture declarations](../../crates/pse-operations/Cargo.toml) ·
-[Runtime capture owner](../../crates/pse-host/src/fixtures/runtime.rs) ·
+[Current standalone lane owner](../../crates/pse-host/src/fixtures/native_lane.rs) ·
 [Fixture settlement](../dev/surreal-substrate.md#targeted-fixture-controls)
 
 ## Database contract lane
@@ -106,7 +106,7 @@ routine builder/lane preparation and per-invocation capture path. Keep readiness
 missing inputs, and original joined failures observable. Repeated preparation must cease
 producing redundant retained copies even when the required worker remains.
 [Scientific inputs catalog](../../tests/fixtures/scientific-inputs.toml) ·
-[Current runtime owner](../../crates/pse-host/src/fixtures/runtime.rs)
+[Current native lane owner](../../crates/pse-host/src/fixtures/native_lane.rs)
 
 Keep physical lifecycle, restart, persistent migration, recovery, real protocol, and scientific
 execution controls in their native owners. Generate the smallest synthetic state that exercises
@@ -182,6 +182,38 @@ and native lane, checks their current source and build context, and reuses them 
 original input owner confirms correspondence. Two explicit preparations under the same four
 native profiles returned the same selection and original bytes. The second added no generation
 and left the physical allocation unchanged.
+
+The current source moves the remaining ordinary authored scientific inputs into the tests that
+consume them. Runtime and xtask use the same authored catalog and capture source. The independent
+PID reference still invokes Python. The actual scientific-worker equipment case still uses
+the prepared worker and its original custody. The standalone lane has its own explicit
+`fixture prepare native-lane` and `fixture show native-lane` selection. The ordinary runtime
+no longer prepares or copies a scientific-inputs builder or capsule. The inspected runtime
+library and PID compiler populations remained at 1,099 and 1,084 units. The removed work was
+the separate builder invocation and its retained output. The selected readiness and fixture
+controls passed, including absent lane refusal without state creation.
+
+The four raw HTTP transaction assertions now run in SurrealKit. The owned run passed all
+19 cases and the separate seed mismatch, setup, interruption, rollout and drift controls.
+Rust retains typed caller, transport, publication, recovery and physical service assertions.
+The current source removes `canonical-tests`, `native-study-tests` and
+`pse-operations/test-support`. Actual native-service and maintenance capability selections
+remain. Runtime-only fault instrumentation lives in its test source or in the owning
+operations unit tests. The worker self-exec control enters the original worker service
+composition through a selected test image. A real executable worker journey still uses
+the product binary. Native checks on the complete cutover and the affected scientific cases
+remain the acceptance boundary.
+
+**Tested.** The current all-target compiler check passed for the selected runtime,
+operations, xtask, benchmark and conformance roots with explicit Arrow validation.
+The exact timed operations test selection passed 13 cases, including logical
+progression, retained-reader drain, project and control receipts, two physical
+migrations and the real HTTP actor checks. The original fixture report verified
+complete settlement with no retained executable captures. The reviewed runtime
+artifact control retains response custody at its cancellation boundary. A separate
+operations unit case exercises dropping the original canonical publication after
+its acknowledged group. The linked runtime and new exact artifact cases still
+need execution evidence.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

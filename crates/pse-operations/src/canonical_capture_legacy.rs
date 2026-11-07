@@ -58,6 +58,6 @@ LET $pse_legacy_capture_page=IF array::len($pse_legacy_rows)=0 {
 };
 "#;
 
-#[cfg(all(test, feature = "canonical-tests", feature = "canonical-maintenance"))]
+#[cfg(all(test, feature = "canonical-maintenance"))]
 #[path = "canonical_capture_legacy_tests.rs"]
 mod tests;

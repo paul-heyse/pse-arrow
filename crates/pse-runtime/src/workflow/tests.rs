@@ -173,7 +173,6 @@ pub(crate) fn runtime_on_threads(
     Runtime::from_shared_local(shared, sessions.bind_model(registry).unwrap()).unwrap()
 }
 /// Genuine store-effect fixtures explicitly request durable source/run acknowledgement.
-#[cfg(feature = "canonical-tests")]
 pub(crate) fn durable_runtime() -> Runtime {
     let local = runtime();
     Runtime::from_shared(
@@ -208,7 +207,7 @@ fn shared_runtime_on_threads(
     .unwrap()
 }
 pub(crate) fn canonical_deployment() -> CanonicalDeployment {
-    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     CanonicalDeployment::new(
         store,
         OuterAttestation {
@@ -416,7 +415,6 @@ fn workflow_composition_binds_same_owner_factory_without_a_store() {
     ));
 }
 
-#[cfg(feature = "canonical-tests")]
 #[test]
 fn workflow_durability_selection_uses_this_deployment() {
     let runtime = durable_runtime();

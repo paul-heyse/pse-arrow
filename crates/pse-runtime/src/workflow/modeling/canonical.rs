@@ -4365,7 +4365,7 @@ mod tests {
     }
     /// G1 composes real durable publication/execution with disconnected local replay.
     /// Requires the canonical fixture server and linked KINSOL; no storage fallback.
-    #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+    #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn solve_durable_replay_after_publication_close_requires_explicit_local_receiver() {
         use crate::workflow::{Durability, RunDurability, RunReport, RunResult};
@@ -4539,7 +4539,6 @@ mod tests {
         assert!(fresh.canonical_run_key().is_none());
         assert!(fresh.canonical_attempt_key().is_none());
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn durable_source_ack_conflict_and_disconnected_owned_compute() {
         let runtime = crate::workflow::tests::durable_runtime();

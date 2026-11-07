@@ -4,13 +4,13 @@
 use super::operator_error::Result;
 use clap::Args;
 use pse_operations::canonical::CanonicalStore;
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 use pse_runtime::workflow::{
     PreparationDiscoveryRequest, ProjectDraftDocuments, ResearchReadRequest, StudyCohortRequest,
     StudyWorkbenchRequest,
 };
 use pse_runtime::{CancelSource, workflow::OuterAttestation};
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 use std::collections::BTreeMap;
 use std::{path::PathBuf, time::Instant};
 
@@ -135,7 +135,7 @@ mod transport_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod tests {
     #![allow(
         clippy::unwrap_used,
@@ -144,7 +144,7 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn project_cli_runtime_import_fork_compare_and_passive_discovery() {
-        let store = pse_operations::testing::canonical_fixture_store().unwrap();
+        let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
         let directory = tempfile::tempdir().unwrap();
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()

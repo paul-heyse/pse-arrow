@@ -23,16 +23,16 @@ use std::{
 };
 use surrealdb_types::{Object, Value};
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[derive(Clone)]
 struct EffectPause {
     kind: &'static str,
     ready: Arc<tokio::sync::Notify>,
     resume: Arc<tokio::sync::Notify>,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! { static FILE_EFFECT_PAUSE: EffectPause; }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 async fn effect_pause(kind: &str) {
     if let Ok(pause) = FILE_EFFECT_PAUSE.try_with(Clone::clone)
         && pause.kind == kind
@@ -488,6 +488,9 @@ impl FileSession {
             .join("instances")
             .join(format!("{instance}.sealed")))
     }
+    pub(crate) fn fixture_instances(&self) -> PathBuf {
+        self.root.join("instances")
+    }
 }
 fn configuration(error: impl std::fmt::Display) -> CanonicalError {
     CanonicalError::Configuration(error.to_string())
@@ -504,87 +507,6 @@ fn text(row: &mut Object, name: &'static str) -> Result<String, CanonicalError> 
 }
 
 impl CanonicalStore {
-    /// Temporarily withhold only a registered disposable database's sealed payload instances.
-    /// Tests exercise genuine missing-file reads; the original directory is restored on return or drop.
-    #[cfg(any(test, feature = "test-support"))]
-    pub async fn with_unavailable_fixture_payloads<F: Future>(
-        &self,
-        future: F,
-    ) -> Result<F::Output, CanonicalError> {
-        if !self.database().starts_with("canonical_test_") || self.fixture_lifetime.is_none() {
-            return Err(configuration(
-                "payload withholding requires a registered isolated fixture",
-            ));
-        }
-        struct Restore {
-            original: PathBuf,
-            withheld: PathBuf,
-            restored: bool,
-        }
-        impl Restore {
-            fn restore(&mut self) -> Result<(), CanonicalError> {
-                // Never remove files created by the exercised operation. An unexpected nonempty
-                // directory refuses restoration and preserves the withheld original for diagnosis.
-                match std::fs::remove_dir(&self.original) {
-                    Ok(()) => {}
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(e) => return Err(configuration(e)),
-                };
-                std::fs::rename(&self.withheld, &self.original).map_err(configuration)?;
-                self.restored = true;
-                Ok(())
-            }
-        }
-        impl Drop for Restore {
-            fn drop(&mut self) {
-                if !self.restored {
-                    let _ = self.restore();
-                }
-            }
-        }
-        let original = self.files.root.join("instances");
-        if !std::fs::symlink_metadata(&original)
-            .map_err(|e| {
-                configuration(format!(
-                    "fixture requires actual published FileTier payloads before withholding: {e}"
-                ))
-            })?
-            .file_type()
-            .is_dir()
-        {
-            return Err(configuration(
-                "fixture sealed-instance path is not an ordinary directory",
-            ));
-        }
-        if std::fs::read_dir(&original)
-            .map_err(configuration)?
-            .next()
-            .transpose()
-            .map_err(configuration)?
-            .is_none()
-        {
-            return Err(configuration(
-                "fixture requires nonempty published FileTier instances before withholding",
-            ));
-        }
-        let withheld = self
-            .files
-            .root
-            .join(format!(".withheld-{}", uuid::Uuid::new_v4()));
-        std::fs::rename(&original, &withheld).map_err(configuration)?;
-        let mut restore = Restore {
-            original,
-            withheld,
-            restored: false,
-        };
-        // Original owner admission still requires its ordinary layout; only sealed payloads
-        // are unavailable, not the service's authenticated per-database directory.
-        std::fs::create_dir(&restore.original).map_err(configuration)?;
-        let outcome = future.await;
-        restore.restore()?;
-        Ok(outcome)
-    }
-
     pub(crate) async fn registered_file_owner(&self) -> Result<String, CanonicalError> {
         self.files.require_current()?;
         let mut owner = self.files.owner.lock().await;
@@ -627,7 +549,7 @@ impl CanonicalStore {
                 .ok_or(CanonicalError::IncompleteResponse)?,
         )?;
         if !pending.acknowledged {
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             effect_pause("register").await;
             let mut response = protected_query("canonical_files::register_owner", || {
                 Ok(self
@@ -755,7 +677,7 @@ impl CanonicalStore {
             if !self.files.path(&descriptor.instance)?.try_exists().map_err(configuration)?{return Err(configuration("original sealed file is missing; immutable physical paths cannot be recreated"));}
         }
         publish_locked(&self.files.root,&descriptor,bytes,&lock)?;
-        #[cfg(all(test,feature="canonical-tests"))]
+        #[cfg(test)]
         effect_pause("seal").await;
         let mut response=protected_query("canonical_files::seal", || Ok(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::seal($pse_rpc_expires_at,$key,$owner,$incarnation,$descriptor)")?).bind(("key",intent.instance.clone())).bind(("owner",intent.owner.clone())).bind(("incarnation",self.files.incarnation.clone())).bind(("descriptor",descriptor.encode()?)))).await?;
         let saved=last_object(&mut response)?;
@@ -809,7 +731,7 @@ impl CanonicalStore {
         let _lock=lock_instance(&self.files.root,instance).await?;
         let mut response=bounded_query(self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Option<Object>>("","fn::pse_files_v1::collect($pse_rpc_expires_at,$key,$incarnation)")?).bind(("key",instance.to_owned())).bind(("incarnation",self.files.incarnation.clone()))).await?;
         let row=last_object(&mut response)?;if file_state(&row)? == CanonicalFileState::Collected{return Ok(());}
-        #[cfg(all(test,feature="canonical-tests"))]
+        #[cfg(test)]
         effect_pause("collect").await;
         match std::fs::remove_file(&path){Ok(())=>File::open(path.parent().ok_or_else(||configuration("file parent absent"))?).and_then(|f|f.sync_all()).map_err(configuration)?,Err(error) if error.kind()==std::io::ErrorKind::NotFound=>{},Err(error)=>return Err(configuration(error))}
         let pending=self.files.root.join(".pending").join(format!("{instance}.pending"));
@@ -1586,7 +1508,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -1604,7 +1526,7 @@ mod catalog_controls {
             .expect("explicit file lifecycle fixture state required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_file_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store.edit("problem", None, "source", &[]).await.unwrap();
         (store, revision)
     }

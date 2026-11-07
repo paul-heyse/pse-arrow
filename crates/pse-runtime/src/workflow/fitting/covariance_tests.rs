@@ -1006,7 +1006,7 @@ async fn fit_uncertainty_admission() {
 
 /// One original four-observation regression checks durable retention and descriptive
 /// transport without expanding the scientific covariance/accuracy campaign.
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 #[tokio::test]
 async fn review_qualification_durable_fit_preserves_original_response_and_rows() {
     use pse_relations::generated::runtime::fit_observations;
@@ -1288,7 +1288,7 @@ fn covariance_policy_preserves_exact_evidence_and_backsolve_refusals() {
 
 /// An explicit state variable and nonlinear equality retain constraint curvature
 /// in the fit KKT system. No polynomial substitution removes that boundary.
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 async fn nonlinear_state_fit_package(
     runtime: crate::workflow::Runtime,
     observed_x: f64,
@@ -1341,7 +1341,7 @@ async fn nonlinear_state_fit_package(
 /// Half absolute-sigma RSS gives exact information 1+6s² after the
 /// lambda=-s² state constraint curvature. Response-only information is 1+4s².
 /// The two nonzero-residual optima distinguish both formulas and a stale point.
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 #[tokio::test]
 async fn nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen() {
     use crate::workflow::modeling::sensitivity_tests::reopened_rows;

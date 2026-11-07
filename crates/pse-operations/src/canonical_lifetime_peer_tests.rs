@@ -417,7 +417,7 @@ async fn decision_wire_fixture(
             .build()
             .unwrap()
     });
-    let lifetime = Arc::new(crate::testing::FixtureLifetime::new(
+    let lifetime = Arc::new(crate::native_fixture::FixtureLifetime::new(
         store.clone(),
         executor,
     ));

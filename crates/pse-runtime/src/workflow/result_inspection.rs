@@ -1613,5 +1613,5 @@ mod result_inspection_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_result_inspection_server_unit;

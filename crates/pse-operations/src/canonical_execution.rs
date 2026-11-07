@@ -26,22 +26,22 @@ use serde::{Deserialize, Serialize};
 use std::{future::IntoFuture, time::Duration};
 use surrealdb_types::{Bytes, Object, Value};
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! { static APPEND_GROUP_REPLY_LOSS: bool; }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[derive(Clone, Copy, Debug)]
 enum ExecutionAckFault {
     Missing,
     Malformed,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! {
     static EXECUTION_ACK_FAULT: (&'static str, ExecutionAckFault);
     static EXECUTION_ACK_READBACK_FAILURE: bool;
 }
 
-#[cfg(all(test, feature = "canonical-tests", feature = "native-service"))]
+#[cfg(all(test, feature = "native-service"))]
 #[path = "canonical_publication_controls.rs"]
 mod native_publication_controls;
 
@@ -52,7 +52,7 @@ fn take_execution_ack(
     response: &mut crate::transport::client::IndexedResults,
 ) -> Result<Object, CanonicalError> {
     let row = response.take::<Option<Object>>(0)?;
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     let row = match EXECUTION_ACK_FAULT
         .try_with(|(selected, fault)| (*selected == owner).then_some(*fault))
         .ok()
@@ -270,7 +270,7 @@ pub struct RunRequest {
     pub attestation: Vec<u8>,
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "controlled fixture scientific admission asserts outcomes without pointer or ABI operations"
@@ -289,7 +289,7 @@ mod canonical_execution_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_execution_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("problem", None, "initial-source", &[])
             .await
@@ -520,7 +520,7 @@ mod canonical_execution_server_unit {
                 );
             }
             drop(read);
-            crate::testing::drain_result_releases(&store).await.unwrap();
+            store.result_read_drain.drain().await.unwrap();
             run(&store, &request.revision, "cancel-ack-normalization").await;
             let cancelled = EXECUTION_ACK_FAULT
                 .scope(
@@ -752,7 +752,7 @@ mod canonical_execution_server_unit {
             (1, 1)
         );
         drop(inline);
-        crate::testing::drain_result_releases(&store).await.unwrap();
+        store.result_read_drain.drain().await.unwrap();
         store.forget_run_results(fence.run()).await.unwrap();
         let mut complete = false;
         for _ in 0..32 {
@@ -786,7 +786,6 @@ mod canonical_execution_server_unit {
         remove(&store, &database).await;
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_inline_admitted_ipc_members_share_one_actual_body_and_no_files() {
         use pse_relations::generated::runtime::fit_parameters;
@@ -5518,7 +5517,7 @@ impl CanonicalStore {
         activity
             .scope(async {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
-                    #[cfg(all(test, feature = "canonical-tests"))]
+                    #[cfg(test)]
                     if EXECUTION_ACK_READBACK_FAILURE.try_with(|fail| *fail).unwrap_or(false) {
                         bounded_query(self.db.control_query("THROW 'controlled_ack_readback_failure';")).await?;
                         return Err(CanonicalError::IncompleteResponse);
@@ -5851,7 +5850,7 @@ impl CanonicalStore {
                 Ok(self.db.query("RETURN fn::pse_execution_v1::append_many($pse_rpc_expires_at,$run,$attempt,$generation,$items);")
                     .bind(("run",fence.run.as_str().to_owned())).bind(("attempt",fence.attempt.as_str().to_owned()))
                     .bind(("generation",generation.clone())).bind(("items",encoded.clone())).scientific_payload_owners(owners.clone()))).await;
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             let result = if result.is_ok() && APPEND_GROUP_REPLY_LOSS.try_with(|lost| *lost).unwrap_or(false) {
                 // Controlled actual-server post-commit reply loss. Settlement
                 // still reads every genuine original operation receipt.

@@ -226,7 +226,7 @@ impl StudyModuleReceipt {
         }
         Ok(selection.schema_migration_target)
     }
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn read_qualification(state: &Path) -> Result<Self, CanonicalError> {
         #[derive(Deserialize)]
         struct Selection {
@@ -642,7 +642,6 @@ pub(super) mod tests {
         .unwrap();
         assert!(fixture.receipt.validate(&fixture.state).is_err());
     }
-    #[cfg(feature = "canonical-tests")]
     #[test]
     fn study_module_receipt_qualification_variants_bind_exact_features_and_declared_limits() {
         let fixture = Fixture::new();

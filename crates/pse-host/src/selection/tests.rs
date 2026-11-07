@@ -797,13 +797,13 @@ fn real_separate_target_groups_share_invocation_metadata_without_building() {
 }
 
 #[test]
-fn real_native_study_explain_derives_its_target_features_without_preparation() {
+fn real_native_repeated_analysis_explain_derives_its_target_features_without_preparation() {
     let data = cargo_metadata::MetadataCommand::new()
         .current_dir(env!("CARGO_MANIFEST_DIR"))
         .no_deps()
         .exec()
         .unwrap();
-    let mut selected = intent(Some(("native_study", Some("test"))));
+    let mut selected = intent(Some(("native_repeated_analysis", Some("test"))));
     selected.package = "pse-runtime".into();
     selected.features.defaults = false;
     let planned = plan(&data, request(vec![selected])).unwrap();
@@ -812,7 +812,7 @@ fn real_native_study_explain_derives_its_target_features_without_preparation() {
             .target()
             .unwrap()
             .required_features,
-        BTreeSet::from(["native-study-tests".into(), "solver-kinsol".into()])
+        BTreeSet::from(["native-service".into(), "solver-kinsol".into()])
     );
     let before = serde_json::to_value(&planned).unwrap();
     let resolved = planned.resolve().unwrap();

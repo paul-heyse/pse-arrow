@@ -62,7 +62,7 @@ impl CanonicalStore {
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
             let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::dataset($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
             let response = protected_query("canonical_research::dataset",query).await;
-            #[cfg(any(test, feature = "test-support"))]
+            #[cfg(test)]
             let response = if response.is_ok() && crate::canonical_projects::simulate_reply_loss() { Err(CanonicalError::IncompleteResponse) } else { response };
             let write = response.and_then(|mut response| {
                 ResultSlot::<Option<Object>>::returned().take(&mut response)?
@@ -115,7 +115,7 @@ impl CanonicalStore {
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
             let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::selection($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
             let response = protected_query("canonical_research::selection",query).await;
-            #[cfg(any(test, feature = "test-support"))]
+            #[cfg(test)]
             let response = if response.is_ok() && crate::canonical_projects::simulate_reply_loss() { Err(CanonicalError::IncompleteResponse) } else { response };
             let write = response.and_then(|mut response| {
                 ResultSlot::<Option<Object>>::returned().take(&mut response)?
@@ -185,7 +185,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_research_server_unit {
     #![allow(
         clippy::unwrap_used,
@@ -200,7 +200,7 @@ mod canonical_research_server_unit {
         let mut options =
             crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_research_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let source = store.edit("science", None, "source", &[]).await.unwrap();
         store
             .create_project("create", "project", "Research")

@@ -19,7 +19,7 @@ pub use pse_model::generated::runtime::{
 use std::collections::{BTreeMap, BTreeSet};
 use surrealdb_types::{Object, Value};
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "canonical_analyses/race_tests.rs"]
 mod race_tests;
 
@@ -594,7 +594,7 @@ mod canonical_analysis_publication_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_analyses_server_unit {
     use super::*;
     use crate::canonical::CanonicalOptions;
@@ -603,7 +603,7 @@ mod canonical_analyses_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").expect("explicit native fixture required");
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_analysis_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("analysis-source", None, "source", &[])
             .await
@@ -899,7 +899,7 @@ mod canonical_analyses_server_unit {
             "canonical_test_analysis_retire_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("retire-source", None, "retire-source-initial", &[])
             .await
@@ -1051,7 +1051,7 @@ mod canonical_analyses_server_unit {
             "canonical_test_analysis_restore_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("restore-source", None, "initial", &[])
             .await

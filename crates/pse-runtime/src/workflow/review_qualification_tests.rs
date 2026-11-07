@@ -115,7 +115,6 @@ pub(in crate::workflow) async fn assert_review_transport(
 }
 
 /// The caller checks these inventory members against actual managed occurrence results.
-#[cfg(feature = "canonical-tests")]
 pub(in crate::workflow) fn assert_inventory_transport(
     inventory: ReviewInventorySelection,
     operation: pse_diagnostics::observation::OperationSnapshot,

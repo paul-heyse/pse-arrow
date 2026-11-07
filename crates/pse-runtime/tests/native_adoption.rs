@@ -482,7 +482,7 @@ async fn native_nonunit_importance_withholds_fit_covariance() -> Result<()> {
     finish(outcome, context.close().await)
 }
 
-#[cfg(feature = "native-study-tests")]
+#[cfg(feature = "native-service")]
 mod canonical {
     use super::*;
     use pse_ids::{Frame, FramedHasher};

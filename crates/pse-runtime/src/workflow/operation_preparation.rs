@@ -399,7 +399,6 @@ mod initialization_tests {
     async fn initialization_operation_retains_success_and_failed_stage_projection() {
         initialization_round_trip(crate::workflow::tests::runtime(), false).await;
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_initialization_operation_reopens_complete_success_and_failure_history() {
         initialization_round_trip(crate::workflow::durable_tests::durable_runtime(), true).await;
@@ -409,7 +408,7 @@ mod initialization_tests {
     async fn initialization_root_response_retains_original_point_permission_and_invocation() {
         initialization_root_response(crate::workflow::tests::runtime(), false).await;
     }
-    #[cfg(all(feature = "solver-kinsol", feature = "canonical-tests"))]
+    #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn canonical_initialization_root_response_reopens_scoped_permission() {
         initialization_root_response(crate::workflow::durable_tests::durable_runtime(), true).await;

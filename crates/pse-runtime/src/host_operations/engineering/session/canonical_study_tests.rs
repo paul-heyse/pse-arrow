@@ -12,7 +12,7 @@ use crate::host_operations::engineering_contract::{
     EngineeringPrepareStudy, EngineeringRestoreStudy, EngineeringStudyKey, EngineeringSubmitStudy,
 };
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refuses_rebinding() {
     use crate::workflow::{
@@ -24,7 +24,7 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
         study::{OccurrenceKey, StartPolicy},
     };
 
-    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     let (service, _spill) = tests::service_on(Some(store.clone()));
     let source = tests::admitted(&service).await;
     let page = service

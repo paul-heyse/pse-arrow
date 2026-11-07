@@ -312,10 +312,12 @@ async fn authored_vessel_fitting_preserves_shared_parameters_checks_and_identifi
             }
         }
         assert!(
-            report.checks_complete && report.checks.iter().all(|c| c.satisfied),
+            report.assessment.complete()
+                && report.assessment.failure().is_none()
+                && report.assessment.checks().iter().all(|c| c.satisfied),
             "{kind}: {report:?}"
         );
-        assert!(!report.checks.is_empty());
+        assert!(!report.assessment.checks().is_empty());
         assert_eq!(report.estimate_qualified(), kind != "unidentifiable");
         if report.estimate_qualified() {
             use pse_relations::{

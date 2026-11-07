@@ -347,7 +347,7 @@ pub(super) fn operation_context(
             "workflow operation refused"
         ),
     }
-    #[cfg(feature = "canonical-tests")]
+    #[cfg(test)]
     {
         #[allow(
             clippy::print_stderr,

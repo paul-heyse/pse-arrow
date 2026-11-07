@@ -302,7 +302,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     unsafe_code,
     reason = "owned synthetic terminal fixture exercises retention, not scientific qualification"
@@ -325,7 +325,7 @@ mod canonical_lifecycle_tests {
             std::env::var("PSE_SURREAL_STATE").expect("supervised disposable fixture required");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_lifecycle_{}", uuid::Uuid::new_v4().simple());
-        crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+        crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
     }
     #[tokio::test]
     async fn referenced_source_stale_and_foreign_selections_cannot_release() {

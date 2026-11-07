@@ -52,7 +52,7 @@ bytes.workspace = true
 pse-diagnostics.workspace = true
 pse-admission.workspace = true
 pse-runtime.workspace = true
-pse-operations = { workspace = true, features = ["test-support"] }
+pse-operations.workspace = true
 pse-modeling.workspace = true
 pse-authoring.workspace = true
 pse-compiler.workspace = true

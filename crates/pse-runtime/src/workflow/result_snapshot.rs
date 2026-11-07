@@ -406,7 +406,7 @@ impl ResultSnapshot {
     pub(super) fn blocks(&self) -> &[Block] {
         &self.0.blocks
     }
-    #[cfg(all(test, feature = "native-study-tests"))]
+    #[cfg(all(test, feature = "native-service"))]
     pub(super) fn inventory_reserved_bytes(&self) -> usize {
         self.0._owner.size() + self.0.decode.read_owner.size() + self.0.decode._owner.size()
     }
@@ -1241,7 +1241,7 @@ impl NativeResultSelection {
         })))
     }
 
-    #[cfg(all(test, feature = "native-study-tests"))]
+    #[cfg(all(test, feature = "native-service"))]
     pub(super) fn block_may_match(
         &self,
         services: &RetainedDataServices,
@@ -1520,6 +1520,6 @@ mod decoder_lane_inquiry {
     }
 }
 
-#[cfg(all(test, feature = "native-study-tests"))]
+#[cfg(all(test, feature = "native-service"))]
 #[path = "result_pruning_tests.rs"]
 mod result_pruning_tests;

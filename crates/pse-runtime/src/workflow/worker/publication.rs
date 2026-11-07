@@ -3,27 +3,27 @@
 //! Private two-way handoff; public completion still waits for export and ACK.
 use super::*;
 
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 type ScientificReadyObserver = Arc<dyn Fn() + Send + Sync>;
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 tokio::task_local! { static SCIENTIFIC_READY: ScientificReadyObserver; }
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 tokio::task_local! { static IDLE: ScientificReadyObserver; }
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(in crate::workflow) async fn observed<T>(
     observer: ScientificReadyObserver,
     work: impl Future<Output = T>,
 ) -> T {
     SCIENTIFIC_READY.scope(observer, work).await
 }
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(in crate::workflow) async fn observed_idle<T>(
     observer: ScientificReadyObserver,
     work: impl Future<Output = T>,
 ) -> T {
     IDLE.scope(observer, work).await
 }
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(super) fn idle() {
     let _ = IDLE.try_with(|observer| observer());
 }
@@ -36,7 +36,7 @@ pub(super) struct Ready {
 pub(in crate::workflow) struct Handoff {
     lane: usize,
     cancel: crate::CancelSource,
-    #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+    #[cfg(all(test, feature = "solver-ipopt"))]
     observer: Option<ScientificReadyObserver>,
     ready: tokio::sync::mpsc::Sender<Ready>,
     acknowledged: tokio::sync::oneshot::Receiver<()>,
@@ -55,7 +55,7 @@ impl Handoff {
             ready,
             acknowledged,
             acknowledge,
-            #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+            #[cfg(all(test, feature = "solver-ipopt"))]
             observer: SCIENTIFIC_READY.try_with(Arc::clone).ok(),
         }
     }
@@ -72,10 +72,10 @@ impl Handoff {
             ready,
             acknowledged,
             acknowledge,
-            #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+            #[cfg(all(test, feature = "solver-ipopt"))]
             observer,
         } = self;
-        #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+        #[cfg(all(test, feature = "solver-ipopt"))]
         if let Some(observer) = observer {
             observer();
         }

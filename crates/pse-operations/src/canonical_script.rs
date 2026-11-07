@@ -109,7 +109,7 @@ impl<T> PreparedScript<T> {
         (self.sql, self.bindings, self.selection)
     }
     /// Pace only an already typed installation fixture, preserving every authority binding.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn test_delay_installation(
         mut self,
         delay: Duration,
@@ -368,7 +368,7 @@ pub(crate) fn test_script_sql(body: &str, expression: &str) -> Result<String, Ca
     Ok(test_script::<Value>(body, expression)?.into_parts().0)
 }
 /// Fixture bodies retain the same typed framing, bindings and result slot as production.
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(test)]
 pub(crate) fn test_script<T>(
     body: &str,
     expression: &str,
@@ -572,7 +572,7 @@ mod tests {
             );
         }
     }
-    #[cfg(all(feature = "canonical-tests", feature = "canonical-maintenance"))]
+    #[cfg(feature = "canonical-maintenance")]
     #[test]
     fn delayed_installation_keeps_typed_policy_bindings_and_native_syntax() {
         let mut script = GuardedScript::new(Envelope::Installation)

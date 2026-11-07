@@ -84,8 +84,8 @@ Reopening uses the original physical and authored closure, never current latest 
 
 Discovery returns bounded resident/canonical metadata and separate eligibility. It does not
 compile, transfer providers, renew cache recency or reconstruct portable bodies. See
-[the operational guide](operational-store.md) and native public caller tests in
-`crates/pse-runtime/tests/native_research.rs` and `native_study.rs` for actual consumer scopes.
+[the operational guide](operational-store.md) and the native research and study caller tests
+for actual consumer scopes.
 
 ### Disposable development knowledge
 
@@ -93,6 +93,12 @@ compile, transfer providers, renew cache recency or reconstruct portable bodies.
 xtask. Its explicit selection, coverage and bytes have no scientific admission authority.
 The separate evidence index can be disposed by its own operator. Neither facility replaces
 a source owner, execution capability or canonical scientific history.
+
+Developer test results live in the performing workflow's working report while they are
+needed. Select the current test or campaign to regenerate an expired result. A database
+used to investigate selected evidence has its own input selection and disposal boundary.
+Retain published scientific results and their authored provenance through the canonical
+owner and use its explicit release and recovery operations.
 
 ### Selected-service diagnostics
 
@@ -237,6 +243,13 @@ Old-state reconstruction needs its explicit owning decision and native caller, n
 Python lifecycle command. Frozen forward schema publications remain append-only producer inputs.
 
 ## Targeted fixture controls
+
+| Assertion boundary | Fixture and lifetime |
+|---|---|
+| Generated schema, SurrealQL transactions, and database-level acceptance or refusal | Use the pinned SurrealKit suite with authored setup and per-case logical databases. The native test owns the endpoint and settles and disposes it after the suite. |
+| Rust caller, transport, or scientific behavior against an isolated logical database | Select a runner-borrowed fixture. The command owns the service and gives each test an isolated database in the original endpoint. |
+| Physical restart, recovery, or service lifecycle | Select a target-owned fixture. The test keeps the original native owner through the observed stop, reader drain, and disposal. |
+| Authored projects, published results, and operator recovery | Use the explicitly selected canonical owner. Preserve the original admitted state, exact provenance and any live or recovery holds. |
 
 `scripts/pse test` admits source build/list through the checkout's prepared correctness adapter
 and resolves the selected tests' fixture declarations. Borrowed cases delegate that exact captured

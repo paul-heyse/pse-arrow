@@ -106,10 +106,10 @@ pub fn selected_module(
 pub struct PreparedExecution {
     module: Option<study_module::StudyModuleReceipt>,
     tools: BTreeMap<Input, Executable>,
-    workers: BTreeMap<(Input, usize), Executable>,
+    scientific_workers: BTreeMap<usize, Executable>,
     runner: Option<Executable>,
     reader: Option<crate::product_reader::ProductReaderSelection>,
-    runtime: Option<runtime::SelectedRuntime>,
+    native_lane: Option<native_lane::SelectedNativeLane>,
 }
 /// Exact post-list prerequisite account. Assessment uses existing owner selection and
 /// validation; the original selections follow it into explicit helper preparation.
@@ -119,7 +119,7 @@ pub struct ExecutionInputs {
     requirements: Vec<Requirement>,
     demand: BTreeSet<Input>,
     module: Option<study_module::StudyModuleReceipt>,
-    runtime: Option<runtime::SelectedRuntime>,
+    native_lane: Option<native_lane::SelectedNativeLane>,
     observations: Vec<Readiness>,
     failures: Vec<InputFailure>,
 }
@@ -144,50 +144,30 @@ impl ExecutionInputs {
             .collect();
         let mut failures = Vec::new();
         let mut states = BTreeMap::new();
-        let mut runtime = None;
-        let runtime_demand: BTreeSet<_> = [Input::ScientificInputs, Input::NativeLane]
-            .into_iter()
-            .filter(|input| {
-                demand.contains(input)
-                    && !environment.contains_key(OsStr::new(runtime::variable(*input)))
-            })
-            .collect();
-        // One immutable runtime selection preserves capsule/lane correspondence. Its
-        // refusal is attributed to every role it was asked to supply, without flattening it.
-        match runtime::selected_for_demand(root, environment, &runtime_demand) {
-            Ok(Some(selected)) => {
-                let mut bound = environment.clone();
-                // selected_for_demand already checked the original current context.
-                match selected.bind_original(&mut bound, &runtime_demand) {
-                    Ok(()) => {
-                        for &input in &runtime_demand {
-                            let variable = runtime::variable(input);
-                            states.insert(
-                                input,
-                                InputState::OwnerAdmissionRequired {
-                                    path: bound.get(OsStr::new(variable)).map(PathBuf::from),
-                                },
-                            );
-                        }
-                        runtime = Some(selected);
-                    }
-                    Err(cause) => {
-                        record_runtime_refusal(&mut states, &mut failures, &runtime_demand, cause)
-                    }
-                }
-            }
-            Ok(None) => {}
-            Err(cause) => {
-                record_runtime_refusal(&mut states, &mut failures, &runtime_demand, cause)
-            }
-        }
+        let mut native_lane = None;
         let borrowed = requirements
             .iter()
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
         let mut module = None;
         for &input in &demand {
-            if states.contains_key(&input) {
-                continue;
+            if input == Input::NativeLane {
+                match native_lane::selected_for_run(root, environment) {
+                    Ok(Some(selected)) => {
+                        states.insert(
+                            input,
+                            InputState::OwnerAdmissionRequired {
+                                path: Some(selected.path().into()),
+                            },
+                        );
+                        native_lane = Some(selected);
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(cause) => {
+                        record_refusal(&mut states, &mut failures, input, cause);
+                        continue;
+                    }
+                }
             }
             if let Some(variable) = original_input_variable(input, environment) {
                 match environment
@@ -272,7 +252,7 @@ impl ExecutionInputs {
             requirements: requirements.into(),
             demand,
             module,
-            runtime,
+            native_lane,
             observations,
             failures,
         }
@@ -298,7 +278,7 @@ impl ExecutionInputs {
             requirements,
             demand,
             module,
-            runtime,
+            native_lane,
             failures,
             ..
         } = self;
@@ -309,7 +289,6 @@ impl ExecutionInputs {
         let environment = &environment;
         let requirements = requirements.as_slice();
         if demand.contains(&Input::ServiceHelper)
-            || demand.contains(&Input::Worker)
             || demand.contains(&Input::ScientificWorker)
             || demand.contains(&Input::ObservationHelper)
         {
@@ -325,10 +304,10 @@ impl ExecutionInputs {
         let mut selected = PreparedExecution {
             module,
             tools: BTreeMap::new(),
-            workers: BTreeMap::new(),
+            scientific_workers: BTreeMap::new(),
             runner: None,
             reader: None,
-            runtime,
+            native_lane,
         };
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
@@ -353,48 +332,34 @@ impl ExecutionInputs {
                 }
             }
         }
-        for (input, binary, base_feature, directory) in [
-            (Input::Worker, "pse-worker", "product-operators", "worker"),
-            (
-                Input::ScientificWorker,
-                "pse-scientific-worker",
-                "property-coolprop",
-                "scientific-worker",
-            ),
-        ] {
-            if !demand.contains(&input) {
-                continue;
-            }
+        if demand.contains(&Input::ScientificWorker) {
             let mut groups = BTreeMap::<usize, BTreeSet<String>>::new();
             for requirement in requirements
                 .iter()
-                .filter(|requirement| requirement.inputs().contains(&input))
+                .filter(|requirement| requirement.inputs().contains(&Input::ScientificWorker))
             {
                 let features = groups
                     .entry(requirement.group())
-                    .or_insert_with(|| BTreeSet::from([base_feature.to_owned()]));
+                    .or_insert_with(|| BTreeSet::from(["property-coolprop".into()]));
                 features.extend(requirement.unit().features.iter().cloned());
             }
             // All other build inputs are fixed by this invocation: checkout, environment
             // (including compiler/native selection), package, binary and host target.
             // Coalesce actual helper build requests, not the independent fixture groups.
-            let workers = capture_worker_groups(groups, |group, features| {
+            selected.scientific_workers = capture_scientific_worker_groups(groups, |group, features| {
                 let artifacts = build(
                     root,
                     environment,
-                    &destination.join(format!("{directory}-{group}")),
+                    &destination.join(format!("scientific-worker-{group}")),
                     "pse-runtime",
                     features,
-                    &[binary],
+                    &["pse-scientific-worker"],
                 )?;
                 artifacts
                     .into_iter()
-                    .find_map(|(name, executable)| (name == binary).then_some(executable))
-                    .ok_or_else(|| invalid("source-built worker helper is absent"))
+                    .find_map(|(name, executable)| (name == "pse-scientific-worker").then_some(executable))
+                    .ok_or_else(|| invalid("source-built scientific worker is absent"))
             })?;
-            for (group, executable) in workers {
-                selected.workers.insert((input, group), executable);
-            }
         }
         if demand.contains(&Input::ProductReader) {
             selected.reader = Some(
@@ -429,25 +394,7 @@ fn record_refusal(
     input: Input,
     cause: FixtureError,
 ) {
-    record_shared_refusal(states, failures, input, std::sync::Arc::new(cause));
-}
-fn record_runtime_refusal(
-    states: &mut BTreeMap<Input, InputState>,
-    failures: &mut Vec<InputFailure>,
-    demand: &BTreeSet<Input>,
-    cause: FixtureError,
-) {
     let cause = std::sync::Arc::new(cause);
-    for &input in demand {
-        record_shared_refusal(states, failures, input, cause.clone());
-    }
-}
-fn record_shared_refusal(
-    states: &mut BTreeMap<Input, InputState>,
-    failures: &mut Vec<InputFailure>,
-    input: Input,
-    cause: std::sync::Arc<FixtureError>,
-) {
     let state = if matches!(cause.as_ref(), FixtureError::Unprepared(_)) {
         InputState::Unprepared {
             code: pse_diagnostics::DiagnosticCode::FixtureUnprepared
@@ -487,8 +434,10 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
-        if let Some(runtime) = &self.runtime {
-            runtime.bind(&command.cwd, &mut command.environment, &demand)?;
+        if demand.contains(&Input::NativeLane)
+            && let Some(selected) = &self.native_lane
+        {
+            selected.lend(&command.cwd, &mut command.environment)?;
         }
         let borrowed = relevant
             .iter()
@@ -507,25 +456,28 @@ impl PreparedExecution {
         }
         for (input, variable) in [
             (Input::ServiceHelper, "PSE_NATIVE_FIXTURE_SERVICE_HELPER"),
-            (Input::Worker, "PSE_WORKER_BINARY"),
-            (Input::ScientificWorker, "PSE_SCIENTIFIC_WORKER_BINARY"),
             (
                 Input::ObservationHelper,
                 "PSE_NATIVE_FIXTURE_OBSERVATION_HELPER",
             ),
         ] {
             if demand.contains(&input) {
-                let executable = if matches!(input, Input::Worker | Input::ScientificWorker) {
-                    self.workers.get(&(input, command.group))
-                } else {
-                    self.tools.get(&input)
-                }
-                .ok_or_else(|| invalid("required source-built fixture helper is absent"))?;
+                let executable = self.tools.get(&input)
+                    .ok_or_else(|| invalid("required source-built fixture helper is absent"))?;
                 executable.verify()?;
                 command
                     .environment
                     .insert(variable.into(), executable.captured.as_os_str().to_owned());
             }
+        }
+        if demand.contains(&Input::ScientificWorker) {
+            let executable = self.scientific_workers.get(&command.group)
+                .ok_or_else(|| invalid("required source-built scientific worker is absent"))?;
+            executable.verify()?;
+            command.environment.insert(
+                "PSE_SCIENTIFIC_WORKER_BINARY".into(),
+                executable.captured.as_os_str().to_owned(),
+            );
         }
         if demand.contains(&Input::ProductReader) {
             // Native correctness commands deliberately drop managed execution markers.
@@ -613,7 +565,7 @@ impl PreparedExecution {
     }
 }
 
-fn capture_worker_groups(
+fn capture_scientific_worker_groups(
     groups: BTreeMap<usize, BTreeSet<String>>,
     mut capture: impl FnMut(usize, &[String]) -> Result<Executable, FixtureError>,
 ) -> Result<BTreeMap<usize, Executable>, FixtureError> {
@@ -644,10 +596,11 @@ fn original_input_variable(input: Input, environment: &Environment) -> Option<&'
         | Input::StudyModule
         | Input::ServiceHelper
         | Input::Worker
+        | Input::ScientificInputs
         | Input::ScientificWorker
         | Input::ProductReader
         | Input::ObservationHelper => None,
-        Input::ScientificInputs | Input::NativeLane => Some(runtime::variable(input)),
+        Input::NativeLane => Some(native_lane::VARIABLE),
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),
@@ -781,7 +734,7 @@ mod capture_tests {
             (3, BTreeSet::from(["base".into(), "extra".into()])),
         ]);
         let mut calls = Vec::new();
-        let workers = capture_worker_groups(groups, |group, features| {
+        let workers = capture_scientific_worker_groups(groups, |group, features| {
             calls.push(features.to_vec());
             Ok(Executable {
                 original: format!("original-{group}").into(),
@@ -797,7 +750,7 @@ mod capture_tests {
         assert_ne!(workers[&1], workers[&3]);
         let mut empty_calls = 0;
         assert!(
-            capture_worker_groups(BTreeMap::new(), |_, _| {
+            capture_scientific_worker_groups(BTreeMap::new(), |_, _| {
                 empty_calls += 1;
                 Err(invalid("empty selection must not capture"))
             })

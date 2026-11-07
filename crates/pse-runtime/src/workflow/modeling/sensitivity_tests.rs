@@ -359,7 +359,7 @@ async fn sensitivity_withheld_without_local_analysis() {
 
 /// The same nonlinear state relation used by the covariance witness. `b` supplies
 /// an independent keyed parameter axis: the physical forcing is a + 2*b.
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 const NONLINEAR_CURVATURE: &str = "package p { def Root {
     param a: Scalar = 3; param b: Scalar = 0;
     var y: Scalar; var x: Scalar;
@@ -370,7 +370,7 @@ const NONLINEAR_CURVATURE: &str = "package p { def Root {
 
 /// Explicit conditioning and accuracy requests are inputs, independent of the
 /// analytic answer. Unequal scales expose normalized/physical transport errors.
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 pub(in crate::workflow) fn curvature_requirement(
     kind: NumericalTarget,
     target: SemanticId,
@@ -398,7 +398,7 @@ pub(in crate::workflow) fn curvature_requirement(
     }
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 pub(in crate::workflow) async fn reopened_rows<R: RelationRow>(
     runtime: &Runtime,
     result: &crate::workflow::RunResult,
@@ -433,7 +433,7 @@ pub(in crate::workflow) async fn reopened_rows<R: RelationRow>(
 /// L=f+lambda*(y-x²), so at x=s, y=s², a=s+2s³ the multiplier
 /// is -s². The tangent denominator is 1+6s², not the 1+4s² from
 /// omitting multiplier curvature. d²f*/da²=1-1/(1+6s²).
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 #[tokio::test]
 async fn nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen() {
     let runtime = crate::workflow::durable_tests::durable_runtime();

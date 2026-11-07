@@ -136,6 +136,14 @@ The independent `scripts/bootstrap-host` seed and its native generation construc
 compile directly. Both explicitly disable Cargo wrappers, including wrappers configured in
 the user's Cargo home.
 
+Retire one exact checkout-local host generation with
+`scripts/pse tools retire-host GENERATION --format json`. Use the returned
+`release` token with `--release TOKEN` when the preview has no blockers. The owner
+rechecks the current selection, retained selector links, private invocation records
+including removed worktrees, and live images. An interrupted release can resume with the
+same token and state namespace. Incomplete preparations and unresolved records need
+independent attribution.
+
 The environment selects existing checkout-local tool paths, compiler inputs and native
 sccache. It provisions no virtual environment or provider. Cache `auto` falls back to direct
 compilation when optional cache prerequisites or supported modes are absent; required cache
@@ -613,6 +621,15 @@ data. A facade may require explicit preparation of its defining package; absence
 artifact is unprepared, not an empty API result. `scripts/pse probe --help` exposes separate
 authored experiments; printing an example never executes it.
 
+Each acquisition creates a private Cargo target. After the artifact is committed and the
+original native root drains, the API owner releases the target and keeps the artifact with
+its source and context evidence. For a failed, interrupted, or borrowed acquisition whose
+target remains, run `scripts/pse api PACKAGE --retire-build INVOCATION` to preview the exact
+target and allocated bytes. Append `--release IDENTITY` from that preview after the enclosing
+owner drains. The owner checks the original invocation and target identity under the
+acquisition lease. A repeat can report the target already absent. Acquisitions created before
+this receipt was recorded need separate owner evidence.
+
 `scripts/pse inspect api PACKAGE --compare-with /original/acquisition/document.json --budget 10`
 reads native structural differences against the currently acquired PACKAGE context. Continue
 with the returned cursor; different original bytes, extraction context or backend policy refuse.
@@ -751,15 +768,15 @@ carry secrets as data; explanations and public status omit them. A scientific Ru
 install providers. Export availability never changes numerical admission or results.
 
 The ordinary portable-root test re-executes its own test image and enters the production private
-receiver. For the standalone executable's bootstrap, explicitly prepare the runtime fixture and
+receiver. For the standalone executable's bootstrap, explicitly prepare the native lane and
 select the separate test. The optional telemetry journey on that test takes
 `PSE_NATIVE_TELEMETRY_ACCEPTANCE=1`, an independent W3C parent in
 `PSE_NATIVE_TELEMETRY_ACCEPTANCE_PARENT`, and the resolved native exporter settings.
-Repeated preparation reuses the verified selected capsule and lane in the same source and
-native build context. Prepare under the same native profile selection used by the test.
+Repeated preparation reuses the verified lane in the same source and native build context.
+Prepare under the same native profile selection used by the test.
 
 ```bash
-scripts/pse-env --native=compiler,klu,solver,isolation -- scripts/pse-host fixture prepare runtime
+scripts/pse-env --native=compiler,klu,solver,isolation -- scripts/pse-host fixture prepare native-lane
 scripts/pse-env --native=compiler,klu,solver,isolation -- \
   scripts/pse test pse-runtime --lib --features pse-runtime/solver-kinsol --ignored only \
   -E 'test(=math::native_child::tests::actual_portable_native_root_standalone_bootstraps_and_parent_screens)'

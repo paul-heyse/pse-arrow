@@ -98,6 +98,21 @@ fn pure_selection_neither_prepares_tools_nor_requires_a_database() {
 }
 
 #[test]
+fn retired_inputs_decode_original_observations_and_refuse_new_declarations() {
+    for (name, role) in [
+        ("worker", Input::Worker),
+        ("scientific-inputs", Input::ScientificInputs),
+    ] {
+        assert_eq!(serde_json::from_value::<Input>(json!(name)).unwrap(), role);
+        let mut declaration = owned();
+        declaration["inputs"].as_array_mut().unwrap().push(json!(name));
+        let data = metadata(json!([declaration]));
+        let error = requirements(&data, &resolved(&data, &[], Operation::Test)).unwrap_err();
+        assert!(error.to_string().contains("declares a retired input role"));
+    }
+}
+
+#[test]
 fn study_module_readiness_hint_selects_checkout_pointer_preparation_without_effects() {
     use clap::CommandFactory as _;
     let scratch = tempfile::tempdir().unwrap();
@@ -155,13 +170,13 @@ fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
     requirement
         .declaration
         .inputs
-        .insert(Input::ScientificInputs);
+        .insert(Input::TraceProcessor);
     let error = ExecutionInputs::assess(directory.path(), &BTreeMap::new(), &[requirement])
         .prepare(&destination)
         .unwrap_err();
     assert!(matches!(
         error,
-        FixtureError::Inputs(ref inputs) if inputs.iter().any(|failure| failure.input == Input::ScientificInputs)
+        FixtureError::Inputs(ref inputs) if inputs.iter().any(|failure| failure.input == Input::TraceProcessor)
     ));
     assert!(!destination.exists());
 }
@@ -172,7 +187,7 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
     requirement.declaration.inputs = BTreeSet::from([
-        Input::ScientificInputs,
+        Input::TraceProcessor,
         Input::NativeLane,
         Input::EngineeringEndpoint,
     ]);
@@ -191,8 +206,8 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
             .collect::<Vec<_>>(),
         [
             Input::EngineeringEndpoint,
-            Input::ScientificInputs,
-            Input::NativeLane
+            Input::NativeLane,
+            Input::TraceProcessor
         ]
     );
     assert!(!destination.exists());
@@ -205,7 +220,7 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
     requirement.declaration.inputs.extend([
-        Input::ScientificInputs,
+        Input::TraceProcessor,
         Input::NativeLane,
         Input::EngineeringEndpoint,
         Input::DiagnosticEvidence,
@@ -236,7 +251,7 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
         assert_eq!(next, &prepare(input));
     }
     for input in [
-        Input::ScientificInputs,
+        Input::TraceProcessor,
         Input::NativeLane,
         Input::EngineeringEndpoint,
     ] {
@@ -269,22 +284,22 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
 }
 
 #[test]
-fn explicit_scientific_input_remains_with_its_original_owner_without_helper_builds() {
+fn explicit_native_lane_input_remains_with_its_original_owner_without_helper_builds() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
     requirement.declaration.ownership = Ownership::PreparationOnly;
-    requirement.declaration.inputs = BTreeSet::from([Input::ScientificInputs]);
+    requirement.declaration.inputs = BTreeSet::from([Input::NativeLane]);
     let environment = BTreeMap::from([(
-        "PSE_SCIENTIFIC_INPUTS".into(),
-        "/original/capsule.json".into(),
+        native_lane::VARIABLE.into(),
+        "/original/native-lane".into(),
     )]);
     ExecutionInputs::assess(directory.path(), &environment, &[requirement])
         .prepare(&destination)
         .unwrap();
     assert!(
         !destination.exists(),
-        "the test owner, not the host, interprets the selected capsule"
+        "the original lane owner interprets the explicit executable"
     );
 }
 
@@ -466,7 +481,6 @@ fn real_manifest_declarations_cover_both_ownership_modes_without_a_parallel_regi
     );
     assert!(!operations.iter().any(|declaration| declaration.target == "pse_operations" && declaration.scope.contains("canonical_staging::canonical_server_unit::declaration_count_and_metadata_extent_remain_bounded")));
     for target in [
-        "native_study",
         "native_repeated_analysis",
         "native_adoption",
         "native_research",
@@ -486,7 +500,10 @@ fn real_manifest_declarations_cover_both_ownership_modes_without_a_parallel_regi
         runtime
             .iter()
             .any(|declaration| declaration.target == "pse_runtime"
-                && declaration.inputs.contains(&Input::Worker))
+                && declaration.kind == "lib"
+                && declaration.ownership == Ownership::TargetOwned
+                && declaration.scope.modules.contains("workflow::native_study_tests")
+                && declaration.inputs.contains(&Input::StudyModule))
     );
 }
 
@@ -531,14 +548,12 @@ fn real_scopes_distinguish_local_covariance_and_memory_controls_from_owned_servi
         "public_durable_scip_memory_stop_retains_unavailable_feasibility_and_exact_rows",
     );
     assert!(memory.contains(&Input::StudyModule));
-    assert!(!memory.contains(&Input::Worker));
     assert!(
-        !inputs(
-            "native_boundary_acceptance",
-            "public_managed_detail_keeps_external_owners_exact_attempts_and_complete_prefixes"
+        inputs(
+            "pse_runtime",
+            "workflow::study_tests::managed_primary_reopened_continuation_uses_shared_secant_and_original_correction"
         )
-        .contains(&Input::Worker),
-        "same-package integration targets receive the worker from Cargo"
+        .contains(&Input::StudyModule)
     );
     assert!(
         !inputs(

@@ -12,6 +12,9 @@ password_env = "PSE_SURREALKIT_INSPECTION_PASSWORD"
 [[fixtures]]
 sql = "CREATE canonical_guards:exact SET key='exact', generation=18446744073709551615dec, incarnation='fixture'; CREATE canonical_payload_blocks:exact SET key='exact', version='fixture', ordinal=18446744073709551615dec, payload=encoding::base64::decode('AAEA/w=='), digest='fixture';"
 
+[[fixtures]]
+file = "../fixtures/control-transaction.surql"
+
 [[cases]]
 name = "deadline_function_live"
 kind = "sql_expect"
@@ -91,6 +94,48 @@ allow = true
 [[cases.assertions]]
 path = ""
 equals = []
+
+[[cases]]
+name = "http_success_commits"
+kind = "api_request"
+method = "POST"
+path = "/pse-fixture/control/success"
+expected_status = 200
+headers = { accept = "application/json", content-type = "application/json" }
+[[cases.body_assertions]]
+path = "marker"
+equals = "committed-success"
+
+[[cases]]
+name = "http_explicit_refusal_commits"
+kind = "api_request"
+method = "POST"
+path = "/pse-fixture/control/refusal"
+expected_status = 409
+headers = { accept = "application/json", content-type = "application/json" }
+[[cases.body_assertions]]
+path = "marker"
+equals = "committed-refusal"
+
+[[cases]]
+name = "http_after_write_throw_fails"
+kind = "api_request"
+method = "POST"
+path = "/pse-fixture/control/failure"
+expected_status = 500
+headers = { accept = "application/json", content-type = "application/json" }
+[[cases.body_assertions]]
+path = ""
+contains = "private control after-write failure witness"
+
+[[cases]]
+name = "http_privileged_readback_distinguishes_commit_and_rollback"
+kind = "sql_expect"
+sql = "SELECT VALUE marker FROM pse_control_transaction_probe ORDER BY marker;"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = ["committed-refusal", "committed-success"]
 
 [[cases]]
 name = "enforced_endpoint_refusal"

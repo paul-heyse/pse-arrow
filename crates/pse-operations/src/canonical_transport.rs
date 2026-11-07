@@ -538,7 +538,7 @@ impl CanonicalClient {
             .into_owned()
     }
     /// Exercise the actual zero-statement bootstrap response without opening a schema.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(crate) fn test_empty_initialization_response(
         &self,
     ) -> crate::transport::client::Query<'static> {

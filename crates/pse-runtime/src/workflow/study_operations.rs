@@ -200,7 +200,7 @@ tokio::task_local! {
     static DECLARED_ADMISSION_OBSERVER: Box<dyn Fn() + Send + Sync>;
 }
 
-#[cfg(all(test, any(feature = "canonical-tests", feature = "native-solvers")))]
+#[cfg(test)]
 pub(in crate::workflow) async fn counted_declared_admissions<T>(
     work: impl Future<Output = T>,
 ) -> (T, usize) {
@@ -212,7 +212,7 @@ pub(in crate::workflow) async fn counted_declared_admissions<T>(
         .await
 }
 
-#[cfg(all(test, any(feature = "canonical-tests", feature = "solver-kinsol")))]
+#[cfg(test)]
 pub(in crate::workflow) async fn observed_declared_admission<T>(
     observer: Box<dyn Fn() + Send + Sync>,
     work: impl Future<Output = T>,
@@ -220,7 +220,7 @@ pub(in crate::workflow) async fn observed_declared_admission<T>(
     DECLARED_ADMISSION_OBSERVER.scope(observer, work).await
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(in crate::workflow) async fn cancel_after_declared_admission<T>(
     work: impl Future<Output = T>,
     cancel: CancelSource,

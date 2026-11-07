@@ -1097,7 +1097,6 @@ mod tests {
         cursor.close();
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_live_expired_admission_yields_one_joined_refusal() {
         let runtime = crate::workflow::durable_tests::durable_runtime();
@@ -1142,7 +1141,6 @@ mod tests {
             .unwrap();
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_live_sample_acknowledgments_close_the_original_attempt_prefix() {
         let runtime = crate::workflow::durable_tests::durable_runtime();

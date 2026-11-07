@@ -41,7 +41,7 @@ pse-buildinfo.workspace = true
 pse-admission.workspace = true
 pse-diagnostics.workspace = true
 pse-runtime.workspace = true
-pse-operations = { workspace = true, features = ["test-support"] }
+pse-operations.workspace = true
 pse-modeling.workspace = true
 pse-model.workspace = true
 pse-math.workspace = true

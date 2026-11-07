@@ -27,13 +27,12 @@ fn holder_kind(value: &str) -> Result<CanonicalArtifactHolderKind, CanonicalErro
 }
 use surrealdb_types::{Object, Value};
 
-#[cfg(any(test, feature = "test-support"))]
-tokio::task_local! { pub(crate) static CANCEL_AFTER_ARTIFACT_APPEND_ACK: std::sync::Arc<dyn Fn() + Send + Sync>; }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! {
     static ARTIFACT_APPEND_REPLY_LOSS: bool;
     static ARTIFACT_APPEND_GROUPS: std::cell::Cell<usize>;
+    static ARTIFACT_APPEND_CANCEL: tokio_util::sync::CancellationToken;
 }
 
 pub use pse_model::generated::runtime::{
@@ -521,7 +520,7 @@ impl CanonicalStore {
                 .bind(("blocks", rows.to_vec())))
         })
         .await?;
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         if ARTIFACT_APPEND_REPLY_LOSS
             .try_with(|lost| *lost)
             .unwrap_or(false)
@@ -530,13 +529,6 @@ impl CanonicalStore {
         }
         let keys = ResultSlot::<Vec<String>>::returned().take(&mut response)?;
         validate_artifact_ack(rows, &keys)?;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Ok(cancel) = CANCEL_AFTER_ARTIFACT_APPEND_ACK.try_with(Clone::clone) {
-            cancel();
-            // The real group ACK has arrived. Suspend the publication so its
-            // caller's cancellation path drops this exact in-flight transfer.
-            std::future::pending::<()>().await;
-        }
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count(
                 "canonical.artifact.metadata.groups_acknowledged",
@@ -549,8 +541,14 @@ impl CanonicalStore {
                 rows.len() as u64,
             );
         }
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         let _ = ARTIFACT_APPEND_GROUPS.try_with(|groups| groups.set(groups.get() + 1));
+        #[cfg(test)]
+        if let Ok(cancel) = ARTIFACT_APPEND_CANCEL.try_with(Clone::clone) {
+            cancel.cancel();
+            // Leave this canonical activity alive until the original caller drops it.
+            std::future::pending::<()>().await;
+        }
         Ok(())
     }
     /// Stage bounded content and transfer exact producer closure to independent ownership atomically.
@@ -804,7 +802,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_artifact_tests {
     #![allow(
         clippy::unwrap_used,
@@ -818,7 +816,7 @@ mod canonical_artifact_tests {
         let mut options =
             crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_artifact_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("artifact-source", None, "original-source", &[])
             .await
@@ -1080,6 +1078,42 @@ mod canonical_artifact_tests {
         );
         store
             .release_artifact_intent(&intent, "audit", "lost-group-ack")
+            .await
+            .unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn canonical_artifact_drops_live_transfer_after_original_group_ack() {
+        let (store, revision) = fixture().await;
+        let (intent, blocks) = content(&store, &revision, "audit", "cancelled-group").await;
+        let cancel = tokio_util::sync::CancellationToken::new();
+        let publication = ARTIFACT_APPEND_CANCEL.scope(
+            cancel.clone(),
+            store.persist_artifact(
+                &intent,
+                std::slice::from_ref(&revision),
+                &[],
+                &blocks,
+                "audit",
+                "cancelled-group",
+            ),
+        );
+        assert!(cancel.run_until_cancelled(publication).await.is_none());
+        assert!(store.artifact(&intent.key).await.is_err());
+        let mut staged = bounded_query(
+            store
+                .db
+                .query(
+                    "RETURN SELECT VALUE key FROM canonical_artifact_blocks WHERE artifact=$key;",
+                )
+                .bind(("key", intent.key.clone())),
+        )
+        .await
+        .unwrap();
+        assert_eq!(staged.take::<Vec<String>>(0).unwrap(), vec![blocks[0].key.clone()]);
+        store
+            .release_artifact_intent(&intent, "audit", "cancelled-group")
             .await
             .unwrap();
         store.remove_isolated_fixture().await.unwrap();

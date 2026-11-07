@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples> <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples|--retire-build <INVOCATION>> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>  Exact locked dependency name, name@version or source-qualified Cargo package ID
@@ -64,12 +64,16 @@ Options:
           Explicitly check workspace library documentation through native rustdoc
       --extract-examples
           Explicitly preprocess native doctests to format2; no examples compile or run
+      --retire-build <INVOCATION>
+          Preview the exact original acquisition's regenerable Cargo build output after drain
+      --release <IDENTITY>
+          Release the Cargo output identity from the preview
   -h, --help
           Print help (see more with '--help')
 --help
 Explicitly acquire Rust API artifacts, run compatibility rules or check documentation
 
-Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples> <CRATE_QUERY> [PATH]
+Usage: pse api [OPTIONS] <--prepare|--compatibility|--check-docs|--extract-examples|--retire-build <INVOCATION>> <CRATE_QUERY> [PATH]
 
 Arguments:
   <CRATE_QUERY>
@@ -184,6 +188,12 @@ Options:
 
       --extract-examples
           Explicitly preprocess native doctests to format2; no examples compile or run
+
+      --retire-build <INVOCATION>
+          Preview the exact original acquisition's regenerable Cargo build output after drain
+
+      --release <IDENTITY>
+          Release the Cargo output identity from the preview
 
   -h, --help
           Print help (see a summary with '-h')

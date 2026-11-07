@@ -85,7 +85,7 @@ pub(super) fn durable_runtime_on(runtime: Runtime) -> Runtime {
         .unwrap()
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquisition() {
     let runtime = durable_runtime();
@@ -216,7 +216,6 @@ async fn canonical_admitted_seed_shares_payload_and_refuses_fresh_retired_acquis
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_durable_constant_completion_reopens_exact_manifest() {
     let runtime = durable_runtime();
@@ -408,7 +407,6 @@ async fn canonical_durable_constant_completion_reopens_exact_manifest() {
         .unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_registration_refusal_never_returns_success_or_fabricates_header() {
     let runtime = durable_runtime();
@@ -426,7 +424,7 @@ async fn canonical_registration_refusal_never_returns_success_or_fabricates_head
         .await
         .unwrap();
     // Refuse registration on the actual installed store, without bypassing composition.
-    pse_operations::testing::invalidate_prepared_revision(
+    fixture_controls::invalidate_prepared_revision(
         runtime.canonical_store().unwrap(),
         package.canonical_revision().unwrap(),
     )
@@ -498,7 +496,7 @@ async fn canonical_registration_refuses_foreign_source_issuer_before_physical_or
     assert!(package.physical.sources.is_empty());
     let physical_problem = format!("physical:context:{}", package.physical.identity());
     assert!(
-        pse_operations::testing::source_problem_head(
+        fixture_controls::source_problem_head(
             target.canonical_store().unwrap(),
             &physical_problem
         )
@@ -539,7 +537,7 @@ async fn canonical_registration_refuses_foreign_source_issuer_before_physical_or
             .is_none()
     );
     assert!(
-        pse_operations::testing::source_problem_head(
+        fixture_controls::source_problem_head(
             target.canonical_store().unwrap(),
             &physical_problem
         )

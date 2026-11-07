@@ -7,7 +7,7 @@
 pub mod canonical;
 pub mod canonical_analyses;
 pub mod canonical_artifacts;
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_capability_tests;
 pub mod canonical_capture_results;
 pub mod canonical_codec;
@@ -41,8 +41,8 @@ pub mod transport;
 /// Registry-generated native schema and codec contracts.
 #[rustfmt::skip]
 pub mod generated;
-#[cfg(any(test, feature = "test-support"))]
-pub mod testing;
+#[cfg(test)]
+mod testing;
 pub use ids::mint_id;
 
 // Guarded scripts share the canonical request owner; no alternate transport.

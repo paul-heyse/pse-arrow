@@ -1385,11 +1385,39 @@ async fn killed_worker_preserves_native_observations_and_refuses_unknown_effect_
         let local = managed.bind_worker(local, worker);
         let handle = long_scip_study(&shared, &local, Duration::from_secs(30), 2).await;
         let (run, first) = wait_study_assignment(&local, &handle, &managed.workers[worker]).await;
-        // Abruptly kill through the original retained owner. A manager signal reply
-        // is insufficient: this capability also proves the population physically drained.
-        let killed = managed.workers[worker]
-            .kill_and_drain_for_qualification(Instant::now() + Duration::from_secs(45))
+        // Resolve the original manager/ready association before opening the
+        // pidfd. The signal exercises abrupt leader death, and the existing
+        // performing owner separately joins the original physical population.
+        let original = &mut managed.workers[worker];
+        let ready: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(original.directory().join("ready.json")).unwrap(),
+        )
+        .unwrap();
+        let manager = pse_host::HostManager::connect_user(None).await.unwrap();
+        let observed = manager.observe(original.intent().unit()).await.unwrap();
+        assert_eq!(ready["pid"], observed.main_pid);
+        assert_eq!(
+            ready["invocation"].as_str().unwrap(),
+            observed.invocation.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+        );
+        use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
+        let reader = ProcessReader::default();
+        let ProcessRead::Present(before) = reader.process(observed.main_pid) else {
+            panic!("original worker process identity unavailable")
+        };
+        let pid = rustix::process::Pid::from_raw(i32::try_from(observed.main_pid).unwrap()).unwrap();
+        let leader = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).unwrap();
+        let confirmed = manager.observe(original.intent().unit()).await.unwrap();
+        assert_eq!(confirmed.invocation, observed.invocation);
+        assert_eq!(confirmed.main_pid, observed.main_pid);
+        assert_eq!(confirmed.control_group, observed.control_group);
+        assert!(matches!(reader.process(observed.main_pid), ProcessRead::Present(after)
+            if after.identity == before.identity));
+        rustix::process::pidfd_send_signal(&leader, rustix::process::Signal::KILL).unwrap();
+        let killed = original
+            .shutdown(Instant::now() + Duration::from_secs(45))
             .await
+            .unwrap()
             .unwrap();
         assert_eq!(
             killed.completed_status(),

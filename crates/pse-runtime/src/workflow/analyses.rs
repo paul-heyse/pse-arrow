@@ -16,7 +16,7 @@ use pse_columnar::{CancellationToken, MemoryConsumer, MemoryReservation};
 use pse_operations::canonical_analyses::{
     ANALYSIS_EDGES, ANALYSIS_NODES, AnalysisEdge, AnalysisNode, analysis_key,
 };
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 use std::time::Duration;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -30,7 +30,7 @@ enum TransferCheckpoint {
     BeforeGraph,
     AfterGraphAck,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! {
     static CANCEL_TRANSFER_AT: TransferCheckpoint;
     static GRAPH_HANDOFF_REPLY_LOSS: bool;
@@ -39,14 +39,14 @@ fn transfer_checkpoint(
     phase: TransferCheckpoint,
     cancel: &CancellationToken,
 ) -> Result<(), WorkflowError> {
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     if CANCEL_TRANSFER_AT
         .try_with(|at| *at == phase)
         .unwrap_or(false)
     {
         cancel.cancel();
     }
-    #[cfg(not(all(test, feature = "canonical-tests")))]
+    #[cfg(not(test))]
     let _ = phase;
     cancel
         .checkpoint()
@@ -1750,11 +1750,11 @@ impl PublicationServices {
             .persist_analysis(&header, sources, inputs, &retained_nodes, &retained_edges)
             .await?;
         let valid = check_analysis_ack(self.pool(), &header, &acknowledged);
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         let lost = GRAPH_HANDOFF_REPLY_LOSS
             .try_with(|lost| *lost)
             .unwrap_or(false);
-        #[cfg(not(all(test, feature = "canonical-tests")))]
+        #[cfg(not(test))]
         let lost = false;
         if valid.is_err() || lost {
             return Err(
@@ -1910,7 +1910,7 @@ impl ModelingSolvePreparation {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_analyses_server_unit {
     use super::*;
     use pse_relations::columnar::RelationRow;
@@ -2323,7 +2323,7 @@ mod analysis_bounds_unit {
 #[path = "analyses-response-tests.rs"]
 mod response_evidence_unit;
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "analyses-transfer-tests.rs"]
 mod transfer_unit;
 

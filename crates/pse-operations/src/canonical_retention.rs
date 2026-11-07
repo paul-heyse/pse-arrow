@@ -368,7 +368,7 @@ mod postcommit_clock_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_server_unit {
     #![allow(
         clippy::expect_used,
@@ -403,7 +403,7 @@ mod canonical_server_unit {
             std::env::var("PSE_SURREAL_STATE").expect("canonical-test supplies supervised state");
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = format!("canonical_test_retention_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         (store, options.database)
     }
 
@@ -491,7 +491,7 @@ mod canonical_server_unit {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(Path::new(&state)).unwrap();
         options.database = database.clone();
-        let peer = crate::testing::canonical_fixture_peer(&store, &options).unwrap();
+        let peer = crate::native_fixture::canonical_fixture_peer(&store, &options).unwrap();
         peer.forget_history(&second).await.unwrap();
         for index in 0..6 {
             assert!(
@@ -1096,6 +1096,6 @@ mod canonical_server_unit {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "canonical_conflict_tests.rs"]
 mod canonical_server_unit_exact_conflicts;

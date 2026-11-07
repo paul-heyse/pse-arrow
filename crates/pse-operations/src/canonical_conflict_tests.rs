@@ -21,7 +21,7 @@ async fn fixture() -> (CanonicalStore, CanonicalOptions, Revision) {
     let state = std::env::var("PSE_SURREAL_STATE").expect("explicit managed fixture required");
     let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
     options.database = format!("canonical_test_exact_{}", uuid::Uuid::new_v4().simple());
-    let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+    let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let revision = store.edit("source", None, "first", &[]).await.unwrap();
     (store, options, revision)
 }

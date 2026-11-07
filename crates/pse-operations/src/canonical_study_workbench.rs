@@ -320,7 +320,6 @@ impl Drop for CaptureOwner {
             return;
         }
         let store = self.store.clone();
-        #[cfg(any(test, feature = "test-support"))]
         let store = {
             let mut store = store;
             store.fixture_lifetime = None;
@@ -376,7 +375,7 @@ async fn release_capture_as(
     request: &[u8],
     custodian: &str,
 ) -> Result<(), CanonicalError> {
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     let pause = {
         CAPTURE_RELEASE_PAUSES
             .lock()
@@ -384,7 +383,7 @@ async fn release_capture_as(
             .get(key)
             .cloned()
     };
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     if let Some(pause) = pause {
         pause.entered.notify_one();
         pause.resume.notified().await;
@@ -392,7 +391,7 @@ async fn release_capture_as(
     loop {
         let mut response=protected_query("canonical_study_workbench::capture_release",|| Ok(store.db.cleanup_query("RETURN fn::pse_workbench_v1::release_capture($pse_rpc_expires_at,$key,$owner,$request,$custodian);")
             .bind(("key",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec()))).bind(("custodian",custodian.to_owned())))).await?;
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         if CAPTURE_RELEASE_REPLY_LOSS
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -413,17 +412,17 @@ async fn release_capture_as(
         }
     }
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[derive(Debug, Default)]
 pub(crate) struct CaptureReleasePause {
     pub(crate) entered: tokio::sync::Notify,
     pub(crate) resume: tokio::sync::Notify,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 static CAPTURE_RELEASE_PAUSES: std::sync::LazyLock<
     std::sync::Mutex<std::collections::BTreeMap<String, Arc<CaptureReleasePause>>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeMap::new()));
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn pause_capture_release(key: &str) -> Arc<CaptureReleasePause> {
     let pause = Arc::new(CaptureReleasePause::default());
     CAPTURE_RELEASE_PAUSES
@@ -432,11 +431,11 @@ pub(crate) fn pause_capture_release(key: &str) -> Arc<CaptureReleasePause> {
         .insert(key.into(), pause.clone());
     pause
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 static CAPTURE_RELEASE_REPLY_LOSS: std::sync::LazyLock<
     std::sync::Mutex<std::collections::BTreeSet<String>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeSet::new()));
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn lose_capture_release_reply(key: &str) {
     CAPTURE_RELEASE_REPLY_LOSS
         .lock()
@@ -444,11 +443,11 @@ pub(crate) fn lose_capture_release_reply(key: &str) {
         .insert(key.into());
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 static CAPTURE_REPLY_LOSS: std::sync::LazyLock<
     std::sync::Mutex<std::collections::BTreeSet<String>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(std::collections::BTreeSet::new()));
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) fn lose_capture_reply(key: &str) {
     CAPTURE_REPLY_LOSS
         .lock()
@@ -730,7 +729,7 @@ impl CanonicalStore {
                     .bind(("study",filter.study.clone())).bind(("project",filter.project.clone())).bind(("branch",filter.branch.clone())).bind(("source",filter.source.clone())).bind(("physical_revision",filter.physical_revision.clone())).bind(("context",filter.context.clone())).bind(("research_reference",filter.research_reference.clone()))
                     .bind(("outcome",filter.outcome.map(serde_json::to_value).transpose().map_err(|e| CanonicalError::Configuration(e.to_string()))?.and_then(|v|v.as_str().map(str::to_owned))))
                     .bind(("after",String::new())).bind(("maximum",maximum)).bind(("extent",maximum+1)).bind(("members",members)))).await.and_then(|mut response| {ResultSlot::<Option<Object>>::returned().take(&mut response)?.ok_or(CanonicalError::IncompleteResponse)});
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 let write=if write.is_ok() && CAPTURE_REPLY_LOSS.lock().unwrap_or_else(std::sync::PoisonError::into_inner).remove(key) { Err(CanonicalError::IncompleteResponse) } else {write};
                 crate::canonical::settlement::settle_exact("study-cohort-capture",key,&request,write,async {
                     let mut response=protected_query("canonical_study_workbench::capture_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_captures',$capture);").bind(("capture",key.to_owned())))).await?;

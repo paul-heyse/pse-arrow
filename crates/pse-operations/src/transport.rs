@@ -169,7 +169,7 @@ where
                     Ok(query) => bounded_query(query).await,
                     Err(error) => Err(error),
                 };
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 if result
                     .as_ref()
                     .err()
@@ -193,7 +193,7 @@ where
 /// Labels are supplied by callers; bindings and query text are never logged.
 pub(crate) fn operation_failed(operation: &'static str, error: &CanonicalError) {
     tracing::warn!(operation, error = %error, "canonical operation failed");
-    #[cfg(any(test, feature = "test-support"))]
+    #[cfg(test)]
     {
         #[allow(
             clippy::print_stderr,

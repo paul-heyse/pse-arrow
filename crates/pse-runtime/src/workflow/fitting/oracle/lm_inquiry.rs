@@ -1256,7 +1256,6 @@ async fn fit_neutral_scratch_discards_after_actual_derivative_upgrade_refusal() 
 
 /// The same public fixture crosses the actual canonical result boundary. Reopening
 /// reads stored method/status/work; it never reconstructs a synthetic FitReport.
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile() {
     let runtime = crate::workflow::tests::durable_runtime();
@@ -1862,7 +1861,6 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
 
 /// SC01-SC03: authored affine calibration, immutable research selection, actual LM,
 /// reopened qualified export and ordinary source publication are one composed journey.
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     use crate::workflow::tests::{compiler_profile, id};
@@ -2244,11 +2242,9 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     );
     let intent: crate::workflow::ResearchPublicationIntent =
         serde_json::from_slice(&serde_json::to_vec(&preview.intent).unwrap()).unwrap();
-    let receipt = pse_operations::testing::lose_project_source_reply(Box::pin(
-        runtime.research_publish(&intent, &cancel),
-    ))
-    .await
-    .unwrap_or_else(|error| panic!("{error}"));
+    let receipt = Box::pin(runtime.research_publish(&intent, &cancel))
+        .await
+        .unwrap_or_else(|error| panic!("{error}"));
     assert_eq!(receipt.run, run);
     assert_eq!(receipt.attempt, attempt);
     assert_eq!(receipt.revision, "publish-fit");

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Canonical claims precede native effects; immutable closed manifests own stored observations.
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(all(test, feature = "solver-kinsol"))]
 use super::RunReport;
 use super::connected_results::{
     PrepaidReaderFuture, pooled_response_owner, prepaid_reader_future, protected_response_scope,
@@ -900,7 +900,7 @@ pub(super) struct Outcome {
     pub(super) retryable: bool,
 }
 // Task-local export control: absent from production and never shared across attempts.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum FinishExportPhase {
     Progress,
@@ -909,7 +909,7 @@ enum FinishExportPhase {
     Completion,
     AcknowledgedSeal,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[derive(Debug)]
 struct FinishExportGate {
     phase: FinishExportPhase,
@@ -917,7 +917,7 @@ struct FinishExportGate {
     release: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
     failure: Option<Arc<WorkflowError>>,
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 impl FinishExportGate {
     async fn at(gate: &OnceLock<Self>, phase: FinishExportPhase) -> Result<(), WorkflowError> {
         let Some(gate) = gate.get().filter(|gate| gate.phase == phase) else {
@@ -947,11 +947,11 @@ impl FinishExportGate {
         }
     }
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 tokio::task_local! {
     static WORKER_EXPORT_CONTROL: Arc<Mutex<Option<FinishExportGate>>>;
 }
-#[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(all(test, feature = "solver-ipopt"))]
 pub(super) async fn gated_worker_export<T>(
     reached: tokio::sync::oneshot::Sender<()>,
     release: tokio::sync::oneshot::Receiver<()>,
@@ -1151,10 +1151,7 @@ pub(crate) struct DurableAttempt {
     horizon_prefix: Option<
         std::collections::BTreeMap<SemanticId, super::result_projection::ResultStreamPosition>,
     >,
-    #[cfg(any(
-        feature = "solver-diffsol",
-        all(test, feature = "canonical-tests", feature = "solver-kinsol")
-    ))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
     horizon_seed_next: u64,
     horizon_prefix_failure: Option<Arc<WorkflowError>>,
     output: super::StudyOutputDemand,
@@ -1232,10 +1229,7 @@ impl DurableAttempt {
             live_prefix_failed: false,
             live_append_control: None,
             horizon_prefix: None,
-            #[cfg(any(
-                feature = "solver-diffsol",
-                all(test, feature = "canonical-tests", feature = "solver-kinsol")
-            ))]
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -1274,7 +1268,7 @@ impl DurableAttempt {
         let _ = shared.set(fence);
         let acknowledgments = PublicationAcks::new(&operations.pool);
         let stream = Streamer::new(&operations, shared.clone(), acknowledgments.clone());
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         if let Ok(Some(gate)) = WORKER_EXPORT_CONTROL
             .try_with(|control| control.lock().ok().and_then(|mut gate| gate.take()))
         {
@@ -1286,10 +1280,7 @@ impl DurableAttempt {
             live_prefix_failed: false,
             live_append_control: None,
             horizon_prefix: None,
-            #[cfg(any(
-                feature = "solver-diffsol",
-                all(test, feature = "canonical-tests", feature = "solver-kinsol")
-            ))]
+            #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
             horizon_seed_next: 0,
             horizon_prefix_failure: None,
             output: super::StudyOutputDemand::Full {},
@@ -1630,10 +1621,7 @@ impl DurableAttempt {
         )
         .await
     }
-    #[cfg(any(
-        feature = "solver-diffsol",
-        all(test, feature = "canonical-tests", feature = "solver-kinsol")
-    ))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
     pub(super) fn begin_horizon_prefix(
         &mut self,
         output: super::StudyOutputDemand,
@@ -1653,19 +1641,13 @@ impl DurableAttempt {
         self.horizon_prefix = Some(Default::default());
         Ok(())
     }
-    #[cfg(any(
-        feature = "solver-diffsol",
-        all(test, feature = "canonical-tests", feature = "solver-kinsol")
-    ))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
     pub(super) fn refuse_horizon_prefix(&mut self, error: Arc<WorkflowError>) {
         if self.horizon_prefix_failure.is_none() {
             self.horizon_prefix_failure = Some(error);
         }
     }
-    #[cfg(any(
-        feature = "solver-diffsol",
-        all(test, feature = "canonical-tests", feature = "solver-kinsol")
-    ))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-kinsol")))]
     pub(super) async fn publish_horizon_step(
         &mut self,
         result: &RunResult,
@@ -1707,7 +1689,7 @@ impl DurableAttempt {
             result,
             &self.acknowledgments,
             &mut self.horizon_seed_next,
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             &self.stream.export_gate,
         )
         .await?;
@@ -1851,7 +1833,7 @@ impl DurableAttempt {
                 self.fence()?,
                 result,
                 &self.acknowledgments,
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 &self.stream.export_gate,
             )
             .await
@@ -2049,7 +2031,7 @@ impl DurableAttempt {
                 .as_ref()
                 .is_none_or(|selected| summary.contains(id) || selected.contains(id))
         }) {
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Table).await?;
             let selected_detail = selected
                 .as_ref()
@@ -2153,7 +2135,7 @@ impl DurableAttempt {
         let mut receipt = if stored.state == AttemptState::Cancelled || !current.ingestion_open() {
             inline_completion(stored.clone())
         } else {
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             FinishExportGate::at(&self.stream.export_gate, FinishExportPhase::Completion).await?;
             match write_chunks(
                 &self.operations.store,
@@ -2333,7 +2315,7 @@ impl DurableAttempt {
             match sealed {
                 Ok(ack) => {
                     let (attempt, run) = ack.into_parts();
-                    #[cfg(all(test, feature = "canonical-tests"))]
+                    #[cfg(test)]
                     FinishExportGate::at(
                         &self.stream.export_gate,
                         FinishExportPhase::AcknowledgedSeal,
@@ -2567,7 +2549,7 @@ fn classify(result: &RunResult, cancelled: bool) -> Outcome {
         retryable: false,
     }
 }
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(super) fn inspection_fixture_completion(
     stored: StoredCompletion,
 ) -> Result<Vec<u8>, WorkflowError> {
@@ -2855,7 +2837,7 @@ struct Streamer {
     outcome: super::ProgressWriterOutcome,
     acknowledgments: Arc<PublicationAcks>,
     fence: Arc<OnceLock<AttemptFence>>,
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     export_gate: Arc<OnceLock<FinishExportGate>>,
 }
 impl Streamer {
@@ -2869,7 +2851,7 @@ impl Streamer {
         // and bounded serialization/append/receipt scratch are admitted up front.
         let memory = progress_memory(&operations.pool, capacity);
         let ready = Arc::new(tokio::sync::Notify::new());
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         let export_gate = Arc::new(OnceLock::new());
         if memory.is_none() {
             return Self {
@@ -2879,7 +2861,7 @@ impl Streamer {
                 outcome: super::ProgressWriterOutcome::MemoryRefused,
                 acknowledgments,
                 fence,
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 export_gate,
             };
         }
@@ -2889,7 +2871,7 @@ impl Streamer {
         let writer_tap = tap.clone();
         let signal = ready.clone();
         let operations = operations.clone();
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         let writer_gate = export_gate.clone();
         let writer_acknowledgments = acknowledgments.clone();
         let writer_fence = fence.clone();
@@ -2940,7 +2922,7 @@ impl Streamer {
                         let mut output = pse_ids::BoundedSink::new(bytes, RESULT_BATCH_BYTES);
                         match serde_json::to_writer(&mut output, &events[start..end]) {
                             Ok(()) => {
-                                #[cfg(all(test, feature = "canonical-tests"))]
+                                #[cfg(test)]
                                 FinishExportGate::at(&writer_gate, FinishExportPhase::Progress)
                                     .await
                                     .map_err(|_| super::ProgressWriteStage::Publication {})?;
@@ -3008,7 +2990,7 @@ impl Streamer {
                 outcome: super::ProgressWriterOutcome::MemoryRefused,
                 acknowledgments,
                 fence,
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 export_gate,
             };
         };
@@ -3020,7 +3002,7 @@ impl Streamer {
             outcome: super::ProgressWriterOutcome::Complete,
             acknowledgments,
             fence,
-            #[cfg(all(test, feature = "canonical-tests"))]
+            #[cfg(test)]
             export_gate,
         }
     }
@@ -3489,7 +3471,7 @@ async fn store_seeds(
     fence: &AttemptFence,
     result: &RunResult,
     acknowledgments: &PublicationAcks,
-    #[cfg(all(test, feature = "canonical-tests"))] export_gate: &OnceLock<FinishExportGate>,
+    #[cfg(test)] export_gate: &OnceLock<FinishExportGate>,
 ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     let mut next = 0;
     let result = append_seeds(
@@ -3498,7 +3480,7 @@ async fn store_seeds(
         result,
         acknowledgments,
         &mut next,
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         export_gate,
     )
     .await?;
@@ -3511,7 +3493,7 @@ async fn append_seeds(
     result: &RunResult,
     acknowledgments: &PublicationAcks,
     next: &mut u64,
-    #[cfg(all(test, feature = "canonical-tests"))] export_gate: &OnceLock<FinishExportGate>,
+    #[cfg(test)] export_gate: &OnceLock<FinishExportGate>,
 ) -> Result<(Vec<(usize, SolutionId)>, Arc<pse_columnar::AllocationLease>), WorkflowError> {
     let reservation =
         MemoryConsumer::new("canonical:acknowledged-seed-identities").register(&operations.pool);
@@ -3623,7 +3605,7 @@ async fn append_seeds(
             run_sequence: run.sequence,
             attempt_generation: fence.generation(),
         };
-        #[cfg(all(test, feature = "canonical-tests"))]
+        #[cfg(test)]
         FinishExportGate::at(export_gate, FinishExportPhase::Seed).await?;
         let acknowledged = operations
             .store
@@ -4259,7 +4241,7 @@ fn reserve(
     Ok(pse_columnar::AllocationLease::new(reservation))
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "physical-publication-tests.rs"]
 mod physical_publication_unit;
 
@@ -4387,7 +4369,7 @@ mod physical_publication_action_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_durable_codec {
     #![allow(
         clippy::unwrap_used,
@@ -6130,7 +6112,7 @@ mod canonical_durable_codec {
         .unwrap_err();
         assert!(failure.to_string().contains("deliberate producer failure"));
         assert_eq!(
-            pse_operations::testing::pending_result_batch_rows(
+            crate::workflow::fixture_controls::pending_result_batch_rows(
                 &operations.store,
                 &fence,
                 &solve_metrics::RELATION_ID.to_string(),

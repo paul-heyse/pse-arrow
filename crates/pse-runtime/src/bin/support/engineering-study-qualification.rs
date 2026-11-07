@@ -27,8 +27,8 @@ use std::{
     time::{Duration, Instant},
 };
 
-const FEATURES: &str = "engineering-service,native-study-tests,product-operators,solver-kinsol";
-const ROUTE_FEATURES: &str = "engineering-service,native-study-tests,product-operators,solver-kinsol,solver-ipopt,solver-diffsol";
+const FEATURES: &str = "engineering-service,native-service,product-operators,solver-kinsol";
+const ROUTE_FEATURES: &str = "engineering-service,native-service,product-operators,solver-kinsol,solver-ipopt,solver-diffsol";
 
 #[derive(Debug)]
 pub(super) struct Failure {
@@ -1019,7 +1019,7 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
         "pse-runtime",
         "pse-engineering-fixture",
         "crates/pse-runtime/src/bin/pse-engineering-fixture.rs",
-        &["native-study-tests", "product-reader"],
+        &["engineering-service", "native-service", "product-reader"],
     )?;
     let frontend_image = runtime.require_binary(
         &args.root,

@@ -95,7 +95,7 @@ async fn absent_creation_settlement_order(creation_commits_first: bool) {
         "canonical_test_analysis_race_{}",
         uuid::Uuid::new_v4().simple()
     );
-    let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+    let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let revision = store
         .edit("race-source", None, "race-initial", &[])
         .await
@@ -190,7 +190,7 @@ async fn canonical_analysis_held_page_append_and_activation_conflict_with_retire
         "canonical_test_analysis_mutation_{}",
         uuid::Uuid::new_v4().simple()
     );
-    let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+    let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let revision = store
         .edit("mutation-source", None, "mutation-initial", &[])
         .await
@@ -314,7 +314,7 @@ async fn canonical_analysis_original_request_rejects_changed_payload_and_lineage
         "canonical_test_analysis_seal_{}",
         uuid::Uuid::new_v4().simple()
     );
-    let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+    let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let revision = store
         .edit("seal-source", None, "seal-initial", &[])
         .await

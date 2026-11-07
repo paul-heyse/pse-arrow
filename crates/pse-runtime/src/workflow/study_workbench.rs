@@ -1053,6 +1053,6 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[path = "study_workbench_tests.rs"]
 pub(in crate::workflow) mod canonical_tests;

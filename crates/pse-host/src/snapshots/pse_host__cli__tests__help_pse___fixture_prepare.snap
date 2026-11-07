@@ -6,7 +6,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 Usage: pse __fixture-prepare [OPTIONS] [FIXTURE]
 
 Arguments:
-  [FIXTURE]  [default: study-module] [possible values: study-module, runtime]
+  [FIXTURE]  [default: study-module] [possible values: study-module, native-lane]
 
 Options:
   -C <checkout>
@@ -21,7 +21,7 @@ Arguments:
   [FIXTURE]
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - runtime:      Scientific input capsule and captured native-lane executable only
+          - native-lane:  Source-built standalone native-lane executable
 
           [default: study-module]
 

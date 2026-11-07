@@ -775,6 +775,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
+        "tools retire-host" => envelope::schema::<crate::generation::retirement::Retirement>(command, view),
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -901,9 +902,9 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     crate::fixtures::selected_module(&root, &environment)
                         .map(crate::fixtures::FixtureSelection::StudyModule)
                 }
-                crate::fixtures::FixtureKind::Runtime => {
-                    crate::fixtures::selected_runtime(&root, &environment)
-                        .map(crate::fixtures::FixtureSelection::Runtime)
+                crate::fixtures::FixtureKind::NativeLane => {
+                    crate::fixtures::selected_native_lane(&root, &environment)
+                        .map(crate::fixtures::FixtureSelection::NativeLane)
                 }
             }
             .map_err(|error| {
@@ -926,9 +927,9 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 crate::fixtures::FixtureKind::StudyModule => runtime()?
                     .block_on(crate::fixtures::prepare_module(&root, &environment))
                     .map(crate::fixtures::FixtureSelection::StudyModule),
-                crate::fixtures::FixtureKind::Runtime => {
-                    crate::fixtures::prepare_runtime(&root, &environment)
-                        .map(crate::fixtures::FixtureSelection::Runtime)
+                crate::fixtures::FixtureKind::NativeLane => {
+                    crate::fixtures::prepare_native_lane(&root, &environment)
+                        .map(crate::fixtures::FixtureSelection::NativeLane)
                 }
             }
             .map_err(|error| {
@@ -2120,7 +2121,7 @@ mod tests {
             ("prepare", GenerationIntent::NewWork),
             ("show", GenerationIntent::Passive),
         ] {
-            for fixture in ["study-module", "runtime"] {
+            for fixture in ["study-module", "native-lane"] {
                 let parsed = Cli::try_parse_from(["pse", "fixture", action, fixture]).unwrap();
                 assert_eq!(parsed.command.unwrap().generation_intent(), expected);
             }
@@ -2130,9 +2131,9 @@ mod tests {
         let show_schema =
             serde_json::to_string(&response_schema("fixture show", &Default::default()).unwrap())
                 .unwrap();
-        assert!(show_schema.contains("scientific_inputs"));
+        assert!(!show_schema.contains("scientific_inputs"));
         assert!(show_schema.contains("native_lane"));
-        let private = Cli::try_parse_from(["pse", "__fixture-prepare", "runtime"]).unwrap();
+        let private = Cli::try_parse_from(["pse", "__fixture-prepare", "native-lane"]).unwrap();
         assert_eq!(
             private.command.unwrap().generation_intent(),
             GenerationIntent::Internal

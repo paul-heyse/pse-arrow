@@ -195,7 +195,7 @@ async fn seed(
         }
         OwnedDocumentSet::try_from_bundles(bundles, &pool, &owner.cancel).unwrap()
     };
-    let store = pse_operations::testing::canonical_fixture_store().unwrap();
+    let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
         owner.runtime.clone(),

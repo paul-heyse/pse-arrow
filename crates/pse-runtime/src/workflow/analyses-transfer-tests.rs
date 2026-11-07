@@ -237,7 +237,7 @@ async fn canonical_acknowledged_analysis_facts_match_independent_artifact_after_
         .scientific_artifact(response.evidence_artifact.as_deref().unwrap())
         .await
         .unwrap();
-    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+    runtime.canonical_store().unwrap().join_result_releases()
         .await
         .unwrap();
     runtime
@@ -398,14 +398,31 @@ async fn canonical_final_graph_ack_loss_retains_exact_intent_and_independent_evi
 
 #[tokio::test]
 async fn canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_of_graph() {
+    use super::super::artifacts::CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION;
+    use pse_diagnostics::observation::Value;
+
     let (runtime, run, attempt) = fixture().await.expect("publish recorded transfer fixture");
     let cancel = CancellationToken::new();
-    let interrupted = cancel.clone();
-    let result = pse_operations::testing::cancel_after_artifact_append_ack(
-        move || interrupted.cancel(),
-        runtime.result_analysis(&run, &attempt, &controls(), cancel.clone()),
-    )
-    .await;
+    let activity = runtime.admit_activity().unwrap();
+    let reader = activity.0.observation.as_ref().unwrap().reader();
+    let result = CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION
+        .scope(std::cell::Cell::new(false), async {
+            let result = activity
+                .scope(runtime.result_analysis(&run, &attempt, &controls(), cancel.clone()))
+                .await;
+            assert!(
+                CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION.with(std::cell::Cell::get),
+                "the actual cancellation branch must settle the pending publication"
+            );
+            result
+        })
+        .await;
+    drop(activity);
+    let acknowledged = reader.snapshot(Duration::from_secs(60)).metrics.into_iter()
+        .find(|metric| metric.name == "canonical.artifact.metadata.groups_acknowledged")
+        .map(|metric| metric.cumulative);
+    assert!(matches!(acknowledged, Some(Value::Count(1))),
+        "this fixture must cancel after its first and only acknowledged group: {acknowledged:?}");
     assert!(cancel.is_cancelled());
     let Err(WorkflowError::ArtifactTransferUnsettled {
         analysis: None,
@@ -440,7 +457,7 @@ async fn canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_o
         "the exact protected producer remains readable after interrupted transfer"
     );
     drop(source);
-    pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+    runtime.canonical_store().unwrap().join_result_releases()
         .await
         .unwrap();
     assert!(
@@ -760,7 +777,7 @@ async fn read_growth(
         })
         .await?;
     drop(activity);
-    pse_operations::testing::drain_result_releases(runtime.canonical_store()?).await?;
+    runtime.canonical_store()?.join_result_releases().await?;
     Ok(ReadGrowth {
         constructor,
         first,

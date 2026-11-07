@@ -3117,7 +3117,6 @@ mod creation_authority_tests {
         assert!(runtime.canonical().is_err());
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn recording_connection_does_not_authorize_study_source_publication() {
         let runtime = super::super::tests::runtime()

@@ -59,7 +59,6 @@ fn failed_retirement_never_retries_the_original_trial_or_hides_cancellation() {
 pub(super) fn service() -> Arc<MathService> {
     service_and_cache().0
 }
-#[cfg(feature = "canonical-tests")]
 pub(super) fn limited_service(bytes: usize) -> Arc<MathService> {
     service_in(bytes).0
 }
@@ -862,11 +861,7 @@ async fn nested_provider_analysis_admits_known_source_below_default_workspace_ca
     assert_eq!(service.pool.reserved(), 0);
 }
 
-#[cfg(all(
-    feature = "canonical-tests",
-    feature = "solver-kinsol",
-    feature = "solver-root-isolation"
-))]
+#[cfg(all(feature = "solver-kinsol", feature = "solver-root-isolation"))]
 #[tokio::test]
 async fn nested_preparation_admits_small_sources_with_generous_worker_capacity() {
     use crate::workflow::tests as fixture;
@@ -926,7 +921,7 @@ async fn nested_preparation_admits_small_sources_with_generous_worker_capacity()
     assert_eq!(prepared.model.case.compiled().plan.columns().len(), 1);
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn general_rebind_admits_small_projection_with_generous_worker_capacity() {
     use crate::workflow::tests as fixture;

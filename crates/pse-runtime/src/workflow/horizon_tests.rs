@@ -772,7 +772,6 @@ async fn mhe_recovers_initial_state() {
 }
 
 /// One native horizon retains every completed step and reopens recorded progress.
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn horizon_records_one_durable_attempt() {
     use crate::workflow::RunDurability;
@@ -1880,10 +1879,16 @@ async fn owned_loop(
 
 #[tokio::test]
 async fn compact_horizon_post_science_pressure_moves_original_completion_on_refusal() {
-    #[cfg(feature = "canonical-tests")]
+    compact_horizon_post_science_pressure(horizon_runtime(), false).await;
+}
+
+#[tokio::test]
+async fn compact_horizon_durable_post_science_pressure_moves_original_completion_on_refusal() {
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
-    #[cfg(not(feature = "canonical-tests"))]
-    let runtime = horizon_runtime();
+    compact_horizon_post_science_pressure(runtime, true).await;
+}
+
+async fn compact_horizon_post_science_pressure(runtime: Runtime, durable: bool) {
     let activity = runtime.admit_activity().unwrap();
     activity.scope(async {
     let (package, [root, whole, _]) = package(runtime.clone()).await;
@@ -1906,7 +1911,7 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
             estimator: None,
             controller: Some(controller(&package, root, x, vec![1.; 2])),
         },
-        cfg!(feature = "canonical-tests"),
+        durable,
     )
     .await;
     execution.refuse_next_export();
@@ -1994,7 +1999,6 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
             "failed export cannot become complete empty membership for {id}"
         );
     }
-    #[cfg(feature = "canonical-tests")]
     if let Some((run, attempt)) = keys {
         let crate::workflow::RunDurability::Durable(record) = result.durability() else {
             panic!("actual durable attempt required")
@@ -2010,12 +2014,9 @@ async fn compact_horizon_post_science_pressure_moves_original_completion_on_refu
                 .is_err()
         );
     }
-    #[cfg(not(feature = "canonical-tests"))]
-    let _ = keys;
     }).await;
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership() {
     let runtime = crate::workflow::durable_tests::durable_runtime_on(horizon_runtime());
@@ -2168,7 +2169,6 @@ async fn compact_mhe_keeps_only_rolling_measurements_inputs_and_arrival_role() {
         .await;
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory() {
     const STEPS: usize = 3;

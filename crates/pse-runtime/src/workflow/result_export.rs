@@ -397,7 +397,7 @@ impl<'a> ResultCursor<'a> {
     }
 
     /// Traverse an already selected checked relation without another encoding pass.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     pub(super) fn from_checked(batch: FieldCheckedBatch) -> Self {
         let schema = batch.batch().schema();
         let (sender, receiver) = tokio::sync::mpsc::channel(1);

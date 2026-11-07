@@ -7,7 +7,7 @@ use super::{
     ACTIVATION_REQUEST_TIMEOUT, CanonicalError, CanonicalStore, WriteAdmission, bounded_query,
     original_deadline, wire, within_clock,
 };
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 use crate::canonical_script::ResultSlot;
 use crate::canonical_script::{Envelope, GuardedScript};
 use serde::{Deserialize, Serialize};
@@ -723,11 +723,10 @@ mod tests {
         assert!(append_catalog(&mut Definitions::new(), &data_effect).is_err());
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn generated_maintenance_pages_fence_generations_and_replay_exact_effects() {
         use crate::canonical::RefusalCode;
-        let store = crate::testing::canonical_fixture_store().unwrap();
+        let store = crate::native_fixture::canonical_fixture_store().unwrap();
         let revision = store
             .edit("zz-maintenance-protected", None, "source", &[])
             .await
@@ -898,7 +897,6 @@ mod tests {
         store.remove_isolated_fixture().await.unwrap();
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events() {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
@@ -907,7 +905,7 @@ mod tests {
             "canonical_test_event_catalog_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let expected: Definitions = parse_definitions(wire::SCHEMA)
             .unwrap()
             .into_iter()

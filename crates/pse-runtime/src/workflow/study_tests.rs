@@ -1,26 +1,30 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable occurrence contracts and canonical dependency-scoped execution.
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 #[path = "../../../../tests/fixtures/native-worker-environment.rs"]
 mod native_worker_environment;
+#[cfg(feature = "solver-ipopt")]
+#[path = "study_worker_controller.rs"]
+mod study_worker_controller;
 
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
+const MANAGED_WORKER_ENTRY: &str = "workflow::study_tests::managed_study_worker_entry";
+
+#[cfg(feature = "solver-ipopt")]
+#[test]
+#[ignore = "launched by its original managed study fixture with a private worker handoff"]
+fn managed_study_worker_entry() {
+    study_worker_controller::run();
+}
+
 use super::durable_tests::durable_runtime;
-#[cfg(any(
-    feature = "canonical-tests",
-    feature = "solver-ipopt",
-    feature = "solver-kinsol"
-))]
 use super::tests::sources;
 use super::*;
 use pse_model::study::*;
-#[cfg(feature = "canonical-tests")]
 use pse_operations::canonical_studies::StudySummary;
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 use std::time::Duration;
 
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 const CASES: &str = r#"package algebraic {
 def Root { param a:Scalar=4; var x:Scalar; eq square:x*x==a; annotation start x(1); annotation bounds x(0,10); annotation report x("root"); annotation check x(x>1); }
 def Failed { var x:Scalar; eq square:x*x == -1; annotation start x(1); annotation report x("root"); }
@@ -65,7 +69,6 @@ fn point(
         },
     }
 }
-#[cfg(feature = "canonical-tests")]
 async fn admitted(
     runtime: &Runtime,
     points: impl FnOnce(
@@ -117,7 +120,7 @@ async fn admitted(
         definition,
     )
 }
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 #[allow(
     clippy::print_stderr,
@@ -230,7 +233,7 @@ async fn canonical_worker_claim_and_idle_phase_probe() {
     );
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication() {
     let runtime = durable_runtime();
@@ -366,7 +369,7 @@ async fn canonical_same_runtime_concurrent_claims_preserve_distinct_native_publi
     assert_eq!(attempts.len(), 2);
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledged_attempts() {
     use std::sync::{
@@ -556,7 +559,7 @@ async fn same_worker_publication_handoff_refills_and_bounds_actual_unacknowledge
     }
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn same_worker_publication_refills_a_study_created_after_actual_idle_discovery() {
     use std::sync::{
@@ -839,7 +842,6 @@ fn study_definition_historical_readmission_codec_unit() {
     }
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
     let runtime = durable_runtime();
@@ -903,7 +905,6 @@ async fn canonical_study_cancel_preserves_distinct_unattempted_outcomes() {
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_late_corruption() {
     use datafusion::execution::memory_pool::MemoryConsumer;
@@ -1020,7 +1021,7 @@ async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_lat
         "admission precedes occurrence page allocation"
     );
     drop(filler);
-    pse_operations::testing::invalidate_terminal_study_outcome(
+    fixture_controls::invalidate_terminal_study_outcome(
         runtime.canonical_store().unwrap(),
         &handle.study_id().to_string(),
         *expected.last().unwrap(),
@@ -1052,7 +1053,6 @@ async fn canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_lat
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     let runtime = durable_runtime();
@@ -1104,7 +1104,7 @@ async fn canonical_study_plan_admits_physical_once_before_ready_occurrences() {
     );
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "native-solvers"))]
+#[cfg(feature = "native-solvers")]
 #[tokio::test]
 async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     let runtime = durable_runtime();
@@ -1168,7 +1168,6 @@ async fn canonical_study_equal_bindings_and_failed_usable_dependency() {
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
     for (attempt_limit, native_started) in [(1, false), (2, false), (2, true)] {
@@ -1212,7 +1211,7 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
                 .await
                 .unwrap();
         }
-        pse_operations::testing::expire_acknowledged_attempt(
+        fixture_controls::expire_acknowledged_attempt(
             runtime.canonical_store().unwrap(),
             &claim.fence,
         )
@@ -1381,12 +1380,10 @@ async fn related_case_study_uses_secant_then_original_correction() {
     .await;
 }
 
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 async fn related_definition(runtime: &Runtime) -> (ModelingPackage, LocalStudy) {
     related_definition_with_primal_accuracy(runtime, None).await
 }
 
-#[cfg(any(feature = "canonical-tests", feature = "solver-ipopt"))]
 async fn related_definition_with_primal_accuracy(
     runtime: &Runtime,
     primal_absolute_tolerance: Option<f64>,
@@ -1558,7 +1555,7 @@ async fn related_definition_with_primal_accuracy(
     (package, definition)
 }
 
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_correction() {
     use pse_relations::generated::runtime::{solve_strategy_events, solve_variables};
@@ -1685,7 +1682,6 @@ async fn managed_primary_reopened_continuation_uses_shared_secant_and_original_c
     .await;
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
     let runtime = durable_runtime();
@@ -1726,21 +1722,21 @@ async fn canonical_study_explicit_missing_seed_refuses_before_activation() {
     drop(package);
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement()
  {
     retained_input_study_survives_producer_retirement_and_worker_replacement(false).await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement()
  {
     retained_input_study_survives_producer_retirement_and_worker_replacement(true).await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 async fn retained_input_study_survives_producer_retirement_and_worker_replacement(lazy: bool) {
     let runtime = durable_tests::durable_runtime_on(tests::runtime_with_workspace(64 << 20));
     let (package, mut definition) = related_definition(&runtime).await;
@@ -2163,7 +2159,6 @@ async fn retained_input_study_survives_producer_retirement_and_worker_replacemen
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science() {
     let runtime = durable_runtime();
@@ -2285,7 +2280,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .await
         .unwrap()
         .unwrap();
-    pse_operations::testing::expire_acknowledged_attempt(store, &fence)
+    fixture_controls::expire_acknowledged_attempt(store, &fence)
         .await
         .unwrap();
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
@@ -2338,7 +2333,7 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
     drop(package);
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[allow(
     unsafe_code,
     reason = "fixture asserts rejected stale success only; actual summary rebuilt by owning runtime"
@@ -2422,7 +2417,7 @@ async fn canonical_study_cancellation_after_summary_close_fences_success() {
         ),
         "summary admission must retain the exact cancellation refusal"
     );
-    pse_operations::testing::expire_acknowledged_attempt(store, &fence)
+    fixture_controls::expire_acknowledged_attempt(store, &fence)
         .await
         .unwrap();
     assert!(runtime.finalize_canonical_study(&key).await.unwrap());
@@ -2486,7 +2481,6 @@ async fn study_creation_acquisition_observes_caller_cancellation() {
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_without_construction()
  {
@@ -2595,7 +2589,6 @@ async fn explicit_recording_preserves_exact_retained_sources_and_lazy_selection_
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefinition {
     let (_, mut admitted) = related_definition(runtime).await;
     let first = admitted.points[0].clone();
@@ -2618,7 +2611,7 @@ async fn stored_value_definition(runtime: &Runtime, count: u32) -> StudyDefiniti
         .unwrap()
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+#[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn canonical_issued_study_retry_preserves_original_population_and_refuses_changed_intent() {
     let runtime = durable_runtime();
@@ -2817,7 +2810,6 @@ async fn canonical_issued_study_retry_preserves_original_population_and_refuses_
     separate_handle.cancel().await.unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences() {
     let runtime = durable_runtime();
@@ -2884,7 +2876,6 @@ async fn stored_study_creation_reuses_one_basis_for_thousand_value_occurrences()
     handle.cancel().await.unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn stored_study_creation_rechecks_later_binding_source_and_seed_policy() {
     let runtime = durable_runtime();
@@ -2918,7 +2909,6 @@ async fn stored_study_creation_rechecks_later_binding_source_and_seed_policy() {
     }
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_layout() {
     let runtime = durable_runtime();
@@ -2957,7 +2947,6 @@ async fn stored_study_creation_replaces_basis_for_changed_descriptor_and_target_
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn recorded_durable_study_refuses_precancelled_creation() {
     let runtime = durable_runtime();
@@ -2982,7 +2971,6 @@ async fn recorded_durable_study_refuses_precancelled_creation() {
     );
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn stored_study_creation_observes_cancellation_during_declared_admission() {
     let runtime = durable_runtime();
@@ -3527,7 +3515,7 @@ async fn ephemeral_study_continuation_reuses_one_private_native_session() {
     );
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drain() {
     let runtime = parallel_study_runtime();
@@ -3716,7 +3704,7 @@ async fn ephemeral_study_single_population_slot_lends_preparation_and_completes(
     }
 }
 
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 struct ManagedStudyFixture {
     runtime: Runtime,
     directory: std::path::PathBuf,
@@ -3731,7 +3719,7 @@ struct ManagedStudyFixture {
 }
 /// Unsettled fixture owners remain addressable for this test process's lifetime.
 /// Dropping an async test or preserving its original panic does not prove drain.
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 struct UnsettledManagedStudyFixture {
     worker: Option<NativeStudyWorker>,
     schema_ready: Option<pse_operations::canonical::migration::SchemaReady>,
@@ -3740,11 +3728,11 @@ struct UnsettledManagedStudyFixture {
     physical_drained: bool,
     signal_failures: Vec<String>,
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 static UNSETTLED_MANAGED_STUDY_FIXTURES: std::sync::LazyLock<
     std::sync::Mutex<Vec<UnsettledManagedStudyFixture>>,
 > = std::sync::LazyLock::new(|| std::sync::Mutex::new(Vec::new()));
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 impl UnsettledManagedStudyFixture {
     fn retain(self) {
         // A poisoned observer must not cause the original native owners to drop.
@@ -3770,7 +3758,7 @@ impl UnsettledManagedStudyFixture {
         );
     }
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 fn managed_private_json(path: &std::path::Path, value: &impl serde::Serialize) {
     use std::{io::Write, os::unix::fs::OpenOptionsExt};
     let bytes = serde_json::to_vec(value).unwrap();
@@ -3786,7 +3774,7 @@ fn managed_private_json(path: &std::path::Path, value: &impl serde::Serialize) {
     file.sync_all().unwrap();
     std::fs::rename(temporary, path).unwrap();
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 fn managed_read_json(path: &std::path::Path) -> serde_json::Value {
     use std::os::unix::fs::MetadataExt;
     let metadata = std::fs::symlink_metadata(path).unwrap();
@@ -3794,7 +3782,7 @@ fn managed_read_json(path: &std::path::Path) -> serde_json::Value {
     assert!(metadata.len() <= 8192 && metadata.mode() & 0o077 == 0);
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 fn managed_cleanup_attempt(failures: &mut Vec<String>, action: &str, operation: impl FnOnce()) {
     if let Err(error) = std::panic::catch_unwind(std::panic::AssertUnwindSafe(operation)) {
         let message = error
@@ -3805,7 +3793,7 @@ fn managed_cleanup_attempt(failures: &mut Vec<String>, action: &str, operation: 
         failures.push(format!("{action}: {message}"));
     }
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 impl ManagedStudyFixture {
     async fn run(
         hold_entries: bool,
@@ -3872,11 +3860,7 @@ impl ManagedStudyFixture {
             runtime.shared.budget().memory_limit_bytes.get() <= profile.observer_memory_bytes
                 && profile.observer_memory_bytes <= 4 << 30
         );
-        let executable = std::path::PathBuf::from(
-            std::env::var_os("PSE_WORKER_BINARY")
-                .expect("managed science requires an explicit already-built PSE_WORKER_BINARY"),
-        );
-        assert!(executable.is_absolute() && executable.is_file());
+        let executable = std::env::current_exe().unwrap();
         let nonce = pse_operations::mint_id::<pse_ids::SemanticId>().to_string();
         // Controller::open checks this against NativeStudyWorkerInputs::state().
         // It remains a qualification barrier, never a launcher or host owner.
@@ -3925,7 +3909,7 @@ impl ManagedStudyFixture {
             assert_eq!(ready.store().endpoint(), store.endpoint());
             assert_eq!(ready.store().namespace(), store.namespace());
             assert_eq!(ready.store().database(), store.database());
-            let constructed = NativeStudyWorker::new(NativeStudyWorkerSpec {
+            let constructed = NativeStudyWorker::new_test_receiver(NativeStudyWorkerSpec {
                 ready,
                 executable,
                 environment: native_worker_environment::selected(),
@@ -3934,7 +3918,7 @@ impl ManagedStudyFixture {
                     maximum_in_flight: Some(profile.case_lanes),
                     ..Default::default()
                 },
-            });
+            }, MANAGED_WORKER_ENTRY, &fixture.directory);
             // Retain a constructed owner before examining either failure.
             let construction_error = match constructed {
                 Ok(original) => {
@@ -3950,9 +3934,7 @@ impl ManagedStudyFixture {
             assert!(construction_error.is_none() && disconnected.is_ok(),
                 "native construction: {construction_error:?}; schema-ready disconnect: {disconnected:?}");
             let mut worker = fixture.worker.lock().await;
-            let original = worker.take().expect("native scientific worker construction failed");
-            *worker = Some(original.with_qualification_native_entry(fixture.directory.clone()).unwrap());
-            let original = worker.as_mut().unwrap();
+            let original = worker.as_mut().expect("native scientific worker construction failed");
             original.launch(std::time::Instant::now() + Duration::from_secs(45)).await.unwrap();
             let ready = managed_read_json(&original.directory().join("ready.json"));
             fixture.worker_pid = u32::try_from(ready["pid"].as_u64().unwrap()).unwrap();
@@ -4062,7 +4044,6 @@ impl ManagedStudyFixture {
             public.is_ok(),
         );
     }
-    #[cfg(feature = "solver-ipopt")]
     async fn observation(
         &self,
         predicate: impl Fn(&serde_json::Value) -> bool,
@@ -4129,7 +4110,6 @@ impl ManagedStudyFixture {
         result
     }
 
-    #[cfg(feature = "solver-ipopt")]
     async fn kill_original(&self) {
         self.killed
             .store(true, std::sync::atomic::Ordering::Release);
@@ -4249,7 +4229,7 @@ impl ManagedStudyFixture {
     }
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[allow(
     unsafe_code,
     reason = "finite transport-only rows assert Partial; separate managed roots retain independent original numerical assertions"
@@ -4532,7 +4512,7 @@ async fn managed_primary_multipage_read_overlaps_compiler_leases_and_original_sc
     })).await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_death_returns_incomplete_study_without_fabricated_terminal() {
     ManagedStudyFixture::run_on(true, tests::durable_runtime(), 1, |fixture| {
@@ -4563,7 +4543,7 @@ async fn managed_primary_death_returns_incomplete_study_without_fabricated_termi
     })
     .await;
 }
-#[cfg(feature = "canonical-tests")]
+#[cfg(feature = "solver-ipopt")]
 impl Drop for ManagedStudyFixture {
     fn drop(&mut self) {
         if !self.finished {
@@ -4603,7 +4583,7 @@ impl Drop for ManagedStudyFixture {
     }
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original_results() {
     use pse_relations::generated::runtime::solve_variables;
@@ -4723,7 +4703,7 @@ async fn managed_primary_study_enters_sixteen_native_owners_and_retains_original
     .await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel() {
     ManagedStudyFixture::run(true, |fixture| {
@@ -4766,7 +4746,7 @@ async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel
             // Preparation retention owns source protections on this physical client.
             // Evict its idle cache and join the registered releases before disconnecting.
             runtime.clear_program_cache();
-            pse_operations::testing::drain_result_releases(runtime.canonical_store().unwrap())
+            runtime.canonical_store().unwrap().join_result_releases()
                 .await
                 .unwrap();
             runtime.close();
@@ -4832,7 +4812,7 @@ async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel
     .await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_worker_stop_joins_sixteen_native_owners_without_cancelling_study() {
     ManagedStudyFixture::run(true, |fixture| {
@@ -4884,7 +4864,7 @@ async fn managed_primary_worker_stop_joins_sixteen_native_owners_without_cancell
     .await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_tail() {
     ManagedStudyFixture::run(true, |fixture| {
@@ -4940,7 +4920,7 @@ async fn managed_primary_study_cancellation_drains_admitted_sixteen_and_refuses_
     .await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[allow(
     unsafe_code,
     reason = "separate finite Arrow transport fixture asserts Partial only; sixteen ordinary native roots retain their actual scientific qualification"
@@ -5957,7 +5937,6 @@ async fn complete_original_seed_reserves_before_allocation_and_preserves_retry_a
     assert_eq!(pool.reserved(), before);
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head() {
     let runtime = durable_runtime();
@@ -6162,7 +6141,6 @@ async fn lazy_study_admits_only_ready_selected_science_and_preserves_base_head()
     handle.cancel().await.unwrap();
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_science() {
     let runtime = durable_runtime();
@@ -6252,7 +6230,6 @@ async fn lazy_study_cancellation_and_summary_do_not_construct_unattempted_scienc
     assert_eq!(runtime.shared.math().preparations().views, before);
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn project_context_recorded_study_keeps_original_source_after_backdated_correction() {
     let runtime = durable_runtime();

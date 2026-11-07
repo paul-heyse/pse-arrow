@@ -1178,7 +1178,6 @@ async fn ordinary_reference_overheated_recycle_binary_comparison() -> TestResult
     execute_journey("ordinary_overheated", false, &mut None, true).await
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 #[allow(
     clippy::print_stderr,
@@ -1223,7 +1222,6 @@ async fn ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source(
     result
 }
 
-#[cfg(feature = "canonical-tests")]
 #[allow(
     clippy::print_stderr,
     reason = "optional canonical handoff failure remains visible independently of the scientific result"

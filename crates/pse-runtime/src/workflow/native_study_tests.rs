@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Real Rust worker science over an explicitly owned private native service.
-// Match the existing runtime and local-operation downstream target: the public
-// async ownership graph needs this finite compiler proof depth.
-#![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -956,7 +953,7 @@ fn active_cancellation<'a>(
     })
 }
 
-const CRASH_TEST: &str = "native_recorded_study_killed_process_is_drained_before_replacement_and_preserves_unknown_effect";
+const CRASH_TEST: &str = "workflow::native_study_tests::native_recorded_study_killed_process_is_drained_before_replacement_and_preserves_unknown_effect";
 const CRASH_STATE: &str = "PSE_NATIVE_STUDY_CRASH_STATE";
 
 // The same already-built test executable supplies an actual scientific worker.

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Assertions for an explicitly owned private native service, never fixture discovery.
+//! Assertions over the original isolated native progression state.
 #![allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -9,6 +9,9 @@
 use super::*;
 use crate::canonical::bounded_query;
 use pse_model::study::{Dependency, SeedNeed};
+
+#[path = "progression_tests.rs"]
+mod tests;
 
 // Erase the already-checked Send construction future at the fixture owner,
 // rather than carrying its ingestion proof through the native service closure.
@@ -69,7 +72,7 @@ async fn progression_preparation(store: &CanonicalStore) -> StudyPreparation {
 }
 
 /// Actual prepared claims survive lost ACKs and failed readback without another attempt.
-pub async fn prepared_claim_acknowledgement_is_original(store: &CanonicalStore) {
+async fn prepared_claim_acknowledgement_is_original(store: &CanonicalStore) {
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
     let points = vec![
         occurrence(&revision, 0, vec![]),
@@ -203,7 +206,7 @@ pub async fn prepared_claim_acknowledgement_is_original(store: &CanonicalStore) 
 
 /// The maximum supported immediate fan-in is loaded completely, while a stale
 /// eligibility hint cannot bypass its unfinished ordering predecessors.
-pub async fn high_degree_dependency_scope_is_complete(store: &CanonicalStore) {
+async fn high_degree_dependency_scope_is_complete(store: &CanonicalStore) {
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
     let mut points = (0..64)
         .map(|key| occurrence(&revision, key, vec![]))
@@ -263,7 +266,7 @@ pub async fn high_degree_dependency_scope_is_complete(store: &CanonicalStore) {
 }
 
 /// Exercise sparse continuation and competing workers in this private store.
-pub async fn sparse_pages_and_competing_workers(store: &CanonicalStore) {
+async fn sparse_pages_and_competing_workers(store: &CanonicalStore) {
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
     let mut points = vec![occurrence(&revision, 0, vec![])];
     points.extend(
@@ -339,7 +342,7 @@ pub async fn sparse_pages_and_competing_workers(store: &CanonicalStore) {
 }
 
 /// Exercise cancellation between canonical selection and native execution claim.
-pub async fn cancellation_fences_preparation(store: &CanonicalStore) {
+async fn cancellation_fences_preparation(store: &CanonicalStore) {
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
     let points = vec![
         occurrence(&revision, 0, vec![]),
@@ -404,7 +407,7 @@ pub async fn cancellation_fences_preparation(store: &CanonicalStore) {
 }
 
 /// Exercise issuing-store and immediate dependency revision fences before claim.
-pub async fn dependency_revision_and_issuer(store: &CanonicalStore) {
+async fn dependency_revision_and_issuer(store: &CanonicalStore) {
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();
     let points = vec![
         occurrence(&revision, 0, vec![]),
@@ -486,7 +489,7 @@ pub async fn dependency_revision_and_issuer(store: &CanonicalStore) {
 }
 
 /// Exercise native seed evidence refusal and exact original settlement identity.
-pub async fn seed_refusal_retains_original_request(store: &CanonicalStore) {
+async fn seed_refusal_retains_original_request(store: &CanonicalStore) {
     use crate::canonical_artifacts::{artifact_block, seal_artifact_request};
     use pse_model::study::{SeedAvailability, SeedRole};
     let revision = store.edit("problem", None, "source", &[]).await.unwrap();

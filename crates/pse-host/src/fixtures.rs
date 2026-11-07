@@ -17,22 +17,22 @@ use std::{
 
 mod execution;
 pub use execution::{ExecutionInputs, PreparedExecution, prepare_module, selected_module};
-mod runtime;
-pub use runtime::{RuntimeInputArtifact, RuntimeInputs, prepare_runtime, selected_runtime};
+mod native_lane;
+pub use native_lane::{NativeLaneArtifact, NativeLaneSelection, prepare_native_lane, selected_native_lane};
 
 /// Explicit preparation scope, distinct from an assertion that a live fixture is ready.
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum FixtureKind {
     /// Production module receipt through its existing native owner.
     StudyModule,
-    /// Scientific input capsule and captured native-lane executable only.
-    Runtime,
+    /// Source-built standalone native-lane executable.
+    NativeLane,
 }
 impl FixtureKind {
     pub(crate) fn argument(self) -> &'static str {
         match self {
             Self::StudyModule => "study-module",
-            Self::Runtime => "runtime",
+            Self::NativeLane => "native-lane",
         }
     }
 }
@@ -43,8 +43,8 @@ impl FixtureKind {
 pub enum FixtureSelection {
     /// Existing module receipt retains its public representation.
     StudyModule(study_module::StudyModuleReceipt),
-    /// Exact scientific capsule and lane capture selection.
-    Runtime(RuntimeInputs),
+    /// Exact standalone native-lane executable selection.
+    NativeLane(NativeLaneSelection),
 }
 
 /// Explicit immutable predecessor artifact, interpreted by the native fixture owner.
@@ -89,7 +89,7 @@ pub enum Input {
     StudyModule,
     /// Source-built pse-canonical-service helper, retained by its artifact owner.
     ServiceHelper,
-    /// Source-built pse-worker, retained by its artifact owner.
+    /// Source-built product worker retained in original observations.
     Worker,
     /// Source-built explicitly prepared scientific-provider process.
     ScientificWorker,
@@ -99,7 +99,7 @@ pub enum Input {
     ProductReader,
     /// Source-built runtime publication fixture; it constructs no database or mathematical service.
     ObservationHelper,
-    /// Explicit immutable scientific source capsule, interpreted by its consumer.
+    /// Explicit immutable scientific source capsule retained in original observations.
     ScientificInputs,
     /// Captured canonical diagnostic executor.
     CanonicalTools,
@@ -244,6 +244,14 @@ fn declarations(package: &cargo_metadata::Package) -> Result<Vec<Declaration>, F
             return Err(invalid(format!(
                 "{} has an empty or repeated fixture declaration",
                 package.name
+            )));
+        }
+        if declaration.inputs.contains(&Input::Worker)
+            || declaration.inputs.contains(&Input::ScientificInputs)
+        {
+            return Err(invalid(format!(
+                "{} fixture {} declares a retired input role",
+                package.name, declaration.id
             )));
         }
         let mut targets = package.targets.iter().filter(|target| {
@@ -464,8 +472,8 @@ fn prepare(input: Input) -> Vec<String> {
     let args: &[&str] = match input {
         Input::Server => &["scripts/pse-host", "server", "prepare"],
         Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
-        Input::ScientificInputs | Input::NativeLane => {
-            &["scripts/pse-host", "fixture", "prepare", "runtime"]
+        Input::NativeLane => {
+            &["scripts/pse-host", "fixture", "prepare", "native-lane"]
         }
         _ => &[],
     };

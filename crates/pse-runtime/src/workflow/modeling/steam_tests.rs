@@ -445,7 +445,6 @@ async fn authored_hot_steam_turbine_through_prepared_scientific_worker_keeps_ori
     conform("hot_vapor_turbine", Some(&scientific_worker_executable()?)).await
 }
 
-#[cfg(feature = "canonical-tests")]
 async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
     use base64::Engine as _;
     use buffa_descriptor::{DescriptorPool, DynamicMessage, Value as WireValue};
@@ -875,21 +874,18 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
     }
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn authored_liquid_pump_original_native_outcome_survives_protected_export()
 -> Result<(), WorkflowError> {
     protected_steam_case("liquid_pump").await
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn authored_vapor_turbine_original_native_outcome_survives_protected_export()
 -> Result<(), WorkflowError> {
     protected_steam_case("vapor_turbine").await
 }
 
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
 async fn authored_hot_vapor_turbine_original_native_outcome_survives_protected_export()
 -> Result<(), WorkflowError> {

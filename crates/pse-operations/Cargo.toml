@@ -27,10 +27,6 @@ force-validate = [
   "pse-relations/force-validate",
 ]
 default = []
-# Fixture lifetime, isolated databases and deterministic hooks for downstream tests.
-test-support = []
-# Participation in remote mechanism tests; does not select downstream instrumentation.
-canonical-tests = []
 # Parse-only server libraries; ordinary scientific runtime does not select these.
 canonical-maintenance = ["dep:surrealdb-syn", "dep:surrealdb-sql"]
 # Application-owned isolated native canonical service; the host remains DB-free.
@@ -138,7 +134,6 @@ scope.tests = [
 id = "canonical-borrowed"
 target = "pse_operations"
 kind = "lib"
-required-features = ["canonical-tests"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = [
@@ -149,6 +144,7 @@ scope.modules = [
   "canonical_artifacts::canonical_artifact_tests",
   "canonical_capability_tests",
   "canonical_contexts::tests",
+  "canonical_control::tests",
   "canonical_execution::canonical_execution_server_unit",
   "canonical_files::catalog_controls",
   "canonical_history::canonical_history_tests",
@@ -161,7 +157,8 @@ scope.modules = [
   "canonical_retention::canonical_server_unit_exact_conflicts",
   "canonical_selection::canonical_server_unit",
   "canonical_studies::canonical_studies_server_unit",
-  "testing::canonical_server_unit",
+  "canonical_studies::progression::controls::tests",
+  "native_fixture::logical::canonical_server_unit",
 ]
 scope.tests = [
   "canonical_staging::canonical_server_unit::identical_source_edit_waits_for_live_and_closed_writer_receipt",
@@ -188,7 +185,7 @@ scope.tests = [
 id = "maintenance-borrowed"
 target = "pse_operations"
 kind = "lib"
-required-features = ["canonical-tests", "canonical-maintenance"]
+required-features = ["canonical-maintenance"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
@@ -200,16 +197,24 @@ scope.tests = [
 id = "publication-owned"
 target = "pse_operations"
 kind = "lib"
-required-features = ["canonical-tests", "native-service"]
+required-features = ["native-service"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = ["canonical_execution::native_publication_controls"]
 
 [[package.metadata.pse.test-fixtures]]
+id = "migration-fault-owned"
+target = "pse_operations"
+kind = "lib"
+required-features = ["native-service"]
+ownership = "target-owned"
+inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["native_fixture::migration_tests"]
+
+[[package.metadata.pse.test-fixtures]]
 id = "operator-evidence"
 target = "pse_operations"
 kind = "lib"
-required-features = ["canonical-tests"]
 ownership = "preparation-only"
 inputs = ["canonical-tools", "diagnostic-evidence"]
 scope.tests = [
@@ -221,7 +226,6 @@ scope.tests = [
 id = "external-server-restart"
 target = "pse_operations"
 kind = "lib"
-required-features = ["canonical-tests"]
 ownership = "preparation-only"
 inputs = ["canonical-restart-control"]
 scope.tests = [

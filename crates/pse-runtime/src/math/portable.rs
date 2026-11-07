@@ -2648,7 +2648,7 @@ mod portable_frame_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_deployment_tests {
     use super::*;
 
@@ -2708,7 +2708,7 @@ mod canonical_deployment_tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod canonical_portable_body_tests {
     #![allow(
         clippy::unwrap_used,
@@ -2815,7 +2815,7 @@ mod canonical_portable_body_tests {
         );
         // The registered fixture lifetime spans distinct raw observers.
         let fixture =
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
         // One ordinary semantic body retains a balanced consumed arithmetic tree and
@@ -2959,7 +2959,7 @@ mod canonical_portable_body_tests {
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
         let store =
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let revision = store
             .edit(
@@ -3010,7 +3010,9 @@ mod canonical_portable_body_tests {
         assert!(candidate.retained_bytes() > 1024);
         // Header discovery stays valid, while protected payload hydration will now
         // find corruption. A tiny budget must refuse before reading that native block.
-        store.corrupt_product_block(published.key()).await.unwrap();
+        crate::workflow::fixture_controls::corrupt_product_block(&store, published.key())
+            .await
+            .unwrap();
         let tiny = crate::math::tests::limited_service(1024);
         let identity = body.semantic_identity().unwrap();
         let cancel = pse_diagnostics::Cancellation::new(false);
@@ -3087,7 +3089,7 @@ mod canonical_portable_body_tests {
             uuid::Uuid::new_v4().simple()
         );
         let store =
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("problem", None, "shared-material", &[])
             .await
@@ -3375,7 +3377,7 @@ mod canonical_portable_body_tests {
         );
         // The registered fixture lifetime spans distinct raw observers.
         let fixture =
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
@@ -3524,7 +3526,7 @@ mod canonical_portable_body_tests {
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
         let store = Arc::new(
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap(),
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap(),
         );
         let context = context();
         let body = admitted(
@@ -3609,7 +3611,7 @@ mod canonical_portable_body_tests {
         );
         // The registered fixture lifetime spans distinct raw observers.
         let fixture =
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap();
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let store = CanonicalStore::connect(&options).await.unwrap();
         store.open().await.unwrap();
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
@@ -3963,7 +3965,7 @@ mod canonical_portable_body_tests {
             pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
         );
         let store = Arc::new(
-            pse_operations::testing::canonical_fixture_with_options(&options, true).unwrap(),
+            pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap(),
         );
         let text = "package p {def Root {var x:Scalar;eq residual:x==2;}}";
         let context = context();

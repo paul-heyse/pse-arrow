@@ -43,14 +43,11 @@ use pse_engine::cache_service::CacheComponent;
 use pse_kernels::ProviderKey;
 use pse_math::assembly::{CaseAssembly, CaseWorker};
 pub(crate) use staged::NativeSession;
-#[cfg(all(test, feature = "solver-ipopt", not(feature = "canonical-tests")))]
-pub(crate) use staged::observed_native_entry;
 #[cfg(all(test, feature = "solver-ipopt"))]
 pub(crate) use staged::observed_native_task_entry;
 pub(crate) use staged::{SessionDisposition, StepRetention};
-#[cfg(feature = "canonical-tests")]
-#[doc(hidden)]
-pub use staged::{install_qualified_native_entry, observed_native_entry};
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+pub(crate) use staged::{install_qualified_native_entry, observed_native_entry};
 use std::{
     collections::BTreeMap,
     sync::{Arc, Mutex, atomic::AtomicUsize},

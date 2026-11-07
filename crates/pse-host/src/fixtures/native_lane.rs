@@ -1,30 +1,27 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Explicit capsule/lane preparation through existing Cargo and scientific owners.
+//! Explicit reusable capture of the standalone native-lane executable.
 use super::*;
 use crate::{
     correctness, discovery::BuildCapture, environment::Environment, generation,
     paths::CheckoutState,
 };
-use sha2::{Digest as _, Sha256};
 use std::{
     ffi::OsStr,
     fs,
     io::{Read as _, Write as _},
-    os::unix::fs::{
-        DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _,
-    },
-    process::Command,
+    os::unix::fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
 };
 
-const MAX_CAPSULE: usize = 256 << 20;
 const MAX_RECEIPT: usize = 64 << 20;
-const CATALOG: &str = "tests/fixtures/scientific-inputs.toml";
+const BINARY: &str = "pse-native-lane";
+const SOURCE: &str = "xtask/src/bin/pse-native-lane.rs";
+const FEATURES: &[&str] = &["solver-kinsol", "force-validate"];
+pub(super) const VARIABLE: &str = "PSE_NATIVE_LANE_EXECUTABLE";
 
-/// One retained original artifact; byte identity does not establish scientific readiness.
-#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct RuntimeInputArtifact {
+/// One retained original executable; byte identity does not establish scientific readiness.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct NativeLaneArtifact {
     /// Retained original bytes, never a guessed Cargo output.
     pub path: PathBuf,
     /// SHA-256 of those exact bytes.
@@ -32,42 +29,36 @@ pub struct RuntimeInputArtifact {
     /// Original byte extent.
     pub bytes: u64,
 }
-/// Explicitly selected capsule and private lane inputs, without a live fixture claim.
+
+/// Explicitly selected private lane without a live fixture claim.
 #[derive(Debug, Serialize, JsonSchema)]
-pub struct RuntimeInputs {
+pub struct NativeLaneSelection {
     /// Opaque retained preparation identity.
     pub selection: String,
     /// Original protected selection record.
     pub receipt: PathBuf,
-    /// Existing scientific-inputs owner output.
-    pub scientific_inputs: RuntimeInputArtifact,
-    /// Source-built captured private native-lane executable.
-    pub native_lane: RuntimeInputArtifact,
-    /// Exact original build evidence for both source-owned executables.
-    pub builds: Vec<PathBuf>,
+    /// Source-built private native-lane executable.
+    pub native_lane: NativeLaneArtifact,
+    /// Exact original build evidence.
+    pub build: PathBuf,
 }
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
     version: u32,
     checkout: String,
     selection: String,
-    capsule: RuntimeInputArtifact,
-    sources: Vec<generation::SourceFingerprint>,
+    source: generation::SourceFingerprint,
 }
+
 #[derive(Debug)]
-pub(super) struct SelectedRuntime {
+pub(super) struct SelectedNativeLane {
     directory: PathBuf,
     record: Record,
-    lane: Option<Executable>,
-    builder: Option<Executable>,
+    executable: Executable,
 }
-fn hash(bytes: &[u8]) -> String {
-    Sha256::digest(bytes)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
-}
+
 fn private_directory(path: &Path, create: bool) -> Result<(), FixtureError> {
     if create {
         fs::DirBuilder::new()
@@ -82,7 +73,7 @@ fn private_directory(path: &Path, create: bool) -> Result<(), FixtureError> {
         || metadata.mode() & 0o777 != 0o700
     {
         return Err(invalid(
-            "runtime fixture requires a private owned directory",
+            "native lane fixture requires a private owned directory",
         ));
     }
     Ok(())
@@ -101,7 +92,7 @@ fn read(path: &Path, maximum: usize, mode: u32) -> Result<Vec<u8>, FixtureError>
         || metadata.len() > maximum as u64
     {
         return Err(invalid(
-            "runtime fixture requires bounded protected original bytes",
+            "native lane fixture requires bounded protected original bytes",
         ));
     }
     let before = crate::artifacts::descriptor_identity(&file).map_err(HostError::from)?;
@@ -114,98 +105,51 @@ fn read(path: &Path, maximum: usize, mode: u32) -> Result<Vec<u8>, FixtureError>
         || crate::artifacts::descriptor_identity(&file).map_err(HostError::from)? != before
     {
         return Err(invalid(
-            "runtime fixture artifact changed during acquisition",
+            "native lane fixture artifact changed during acquisition",
         ));
     }
     Ok(bytes)
 }
 fn pointer(state: &CheckoutState) -> PathBuf {
-    state.fixtures().join("runtime.json")
+    state.fixtures().join("native-lane.json")
 }
 
-/// Reuse the current capsule and lane or build and capture their source owners.
+/// Reuse the current standalone lane or build and capture its source owner.
 /// # Errors
-/// Source, compiler, native admission, capture, child execution or publication refuses.
-pub fn prepare_runtime(
+/// Source, compiler, native admission, capture or publication refuses.
+pub fn prepare_native_lane(
     root: &Path,
     environment: &Environment,
-) -> Result<RuntimeInputs, FixtureError> {
+) -> Result<NativeLaneSelection, FixtureError> {
     let root = root.canonicalize().map_err(HostError::from)?;
     let state = CheckoutState::resolve(&root, environment).map_err(HostError::from)?;
     let environment = construction_environment(&root, environment)?;
     private_directory(&state.fixtures(), true)?;
-    let lock = generation::owned_file(&state.fixtures().join(".runtime-prepare.lock"), true)?;
+    let lock = generation::owned_file(&state.fixtures().join(".native-lane-prepare.lock"), true)?;
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
         .map_err(std::io::Error::from)
         .map_err(HostError::from)?;
-    let demand = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
     if pointer(&state).try_exists().map_err(HostError::from)?
-        && let Ok(selected) = open(&state, &root, &demand)
-        && selected
-            .validate_current(&root, &environment, &demand)
-            .is_ok()
+        && let Ok(selected) = open(&state, &root)
+        && selected.validate_current(&root, &environment).is_ok()
     {
-        return selected.view();
+        return Ok(selected.view());
     }
     prepare_with(
         &state,
         |directory, selection| {
-            let (builder, builder_source) = capture_binary(
-                &root,
-                &environment,
-                &directory.join("capsule-build"),
-                "xtask",
-                "xtask/src/main.rs",
-                "physical-admission",
-            )?;
-            builder.verify()?;
-            let output = directory.join("capsule-output.json");
-            let status = Command::new(&builder.captured)
-                .args([
-                    OsStr::new("scientific-inputs"),
-                    OsStr::new(CATALOG),
-                    output.as_os_str(),
-                ])
-                .current_dir(&root)
-                .env_clear()
-                .envs(&environment)
-                .status()
-                .map_err(HostError::from)?;
-            if !status.success() {
-                return Err(invalid(format!("scientific input owner exited {status}")));
-            }
-            // Freeze the actual owner's output; a failed later lane build cannot select it.
-            fs::set_permissions(&output, fs::Permissions::from_mode(0o400))
-                .map_err(HostError::from)?;
-            let capsule_bytes = read(&output, MAX_CAPSULE, 0o400)?;
-            fs::File::open(&output)
-                .and_then(|file| file.sync_all())
-                .map_err(HostError::from)?;
-            let capsule = RuntimeInputArtifact {
-                path: output,
-                sha256: hash(&capsule_bytes),
-                bytes: capsule_bytes.len() as u64,
-            };
-            let (_, lane_source) = capture_binary(
-                &root,
-                &environment,
-                &directory.join("lane-build"),
-                "pse-native-lane",
-                "xtask/src/bin/pse-native-lane.rs",
-                "solver-kinsol",
-            )?;
+            let source = capture_lane(&root, &environment, &directory.join("build"))?;
             Ok(Record {
                 version: 1,
                 checkout: state.checkout_id.as_str().into(),
                 selection: selection.into(),
-                capsule,
-                sources: vec![builder_source, lane_source],
+                source,
             })
         },
         |directory, selection| {
-            let selected = open_directory(&state, &root, directory, selection, &demand)?;
-            selected.validate_current(&root, &environment, &demand)?;
-            selected.view()
+            let selected = open_directory(&state, &root, directory, selection)?;
+            selected.validate_current(&root, &environment)?;
+            Ok(selected.view())
         },
     )
 }
@@ -216,7 +160,7 @@ fn prepare_with<T>(
     validate: impl FnOnce(&Path, &str) -> Result<T, FixtureError>,
 ) -> Result<T, FixtureError> {
     private_directory(&state.fixtures(), true)?;
-    let parent = state.fixtures().join("runtime");
+    let parent = state.fixtures().join("native-lane");
     private_directory(&parent, true)?;
     let selection = uuid::Uuid::new_v4().to_string();
     let directory = parent.join(&selection);
@@ -228,7 +172,7 @@ fn prepare_with<T>(
         Some(MAX_RECEIPT),
         0o400,
     )?;
-    // Reopen the complete candidate and establish current construction/capsule
+    // Reopen the complete candidate and establish current construction
     // correspondence before replacing any previous good selected pointer.
     let result = validate(&directory, &selection)?;
     let mut staged = tempfile::NamedTempFile::new_in(state.fixtures()).map_err(HostError::from)?;
@@ -244,33 +188,24 @@ fn prepare_with<T>(
     Ok(result)
 }
 
-fn capture_binary(
+fn capture_lane(
     root: &Path,
     environment: &Environment,
     destination: &Path,
-    binary: &str,
-    source_path: &str,
-    feature: &str,
-) -> Result<(Executable, generation::SourceFingerprint), FixtureError> {
-    let features = vec![feature.into(), "force-validate".into()];
+) -> Result<generation::SourceFingerprint, FixtureError> {
+    let features = FEATURES.iter().map(|feature| (*feature).into()).collect::<Vec<_>>();
     let (capture, before) = execution::build_capture_with(
         root,
         environment,
         destination,
         "xtask",
         &features,
-        &[binary],
+        &[BINARY],
         |resolution| source(root, environment, &features, resolution),
     )?;
-    let executable = capture.require_binary(
-        root,
-        "xtask",
-        binary,
-        source_path,
-        &[feature, "force-validate"],
-    )?;
+    capture.require_binary(root, "xtask", BINARY, SOURCE, FEATURES)?;
     before.require_unchanged(&source(root, environment, &features, &capture.resolution)?)?;
-    Ok((executable, before))
+    Ok(before)
 }
 fn source(
     root: &Path,
@@ -447,243 +382,118 @@ fn current_context(
     ))
 }
 
-/// Passively reopen both protected inputs; this does not build or start science.
+/// Passively reopen the protected standalone lane; this does not build or start science.
 /// # Errors
 /// Missing, foreign, incomplete, changed or unprotected original preparation refuses.
-pub fn selected_runtime(
+pub fn selected_native_lane(
     root: &Path,
     environment: &Environment,
-) -> Result<RuntimeInputs, FixtureError> {
+) -> Result<NativeLaneSelection, FixtureError> {
     let state = CheckoutState::resolve(root, environment).map_err(HostError::from)?;
     if !pointer(&state).try_exists().map_err(HostError::from)? {
-        return Err(FixtureError::Unprepared(Input::ScientificInputs));
+        return Err(FixtureError::Unprepared(Input::NativeLane));
     }
-    let selected = open(
-        &state,
-        root,
-        &BTreeSet::from([Input::ScientificInputs, Input::NativeLane]),
-    )?;
-    selected.view()
+    Ok(open(&state, root)?.view())
 }
-pub(super) fn selected_for_demand(
+
+pub(super) fn selected_for_run(
     root: &Path,
     environment: &Environment,
-    demand: &BTreeSet<Input>,
-) -> Result<Option<SelectedRuntime>, FixtureError> {
-    let needed = [Input::ScientificInputs, Input::NativeLane]
-        .into_iter()
-        .filter(|input| {
-            demand.contains(input) && !environment.contains_key(OsStr::new(variable(*input)))
-        })
-        .collect::<BTreeSet<_>>();
-    if needed.is_empty() || !root.join(".git").try_exists().map_err(HostError::from)? {
+) -> Result<Option<SelectedNativeLane>, FixtureError> {
+    if environment.contains_key(OsStr::new(VARIABLE))
+        || !root.join(".git").try_exists().map_err(HostError::from)?
+    {
         return Ok(None);
     }
     let state = CheckoutState::resolve(root, environment).map_err(HostError::from)?;
     if !pointer(&state).try_exists().map_err(HostError::from)? {
         return Ok(None);
     }
-    let selected = open(&state, root, &needed)?;
-    selected.validate_current(root, environment, &needed)?;
+    let selected = open(&state, root)?;
+    selected.validate_current(root, environment)?;
     Ok(Some(selected))
 }
-pub(super) fn variable(input: Input) -> &'static str {
-    match input {
-        Input::ScientificInputs => "PSE_SCIENTIFIC_INPUTS",
-        Input::NativeLane => "PSE_NATIVE_LANE_EXECUTABLE",
-        _ => "",
-    }
-}
-fn open(
-    state: &CheckoutState,
-    root: &Path,
-    demand: &BTreeSet<Input>,
-) -> Result<SelectedRuntime, FixtureError> {
+
+fn open(state: &CheckoutState, root: &Path) -> Result<SelectedNativeLane, FixtureError> {
     private_directory(&state.fixtures(), false)?;
-    private_directory(&state.fixtures().join("runtime"), false)?;
+    private_directory(&state.fixtures().join("native-lane"), false)?;
     let selection: String = serde_json::from_slice(&read(&pointer(state), 1024, 0o600)?)?;
     if uuid::Uuid::parse_str(&selection).is_err() || selection.len() != 36 {
-        return Err(invalid("invalid runtime fixture selection"));
+        return Err(invalid("invalid native lane fixture selection"));
     }
-    let directory = state.fixtures().join("runtime").join(&selection);
-    open_directory(state, root, &directory, &selection, demand)
+    let directory = state.fixtures().join("native-lane").join(&selection);
+    open_directory(state, root, &directory, &selection)
 }
+
 fn open_directory(
     state: &CheckoutState,
     root: &Path,
     directory: &Path,
     selection: &str,
-    demand: &BTreeSet<Input>,
-) -> Result<SelectedRuntime, FixtureError> {
+) -> Result<SelectedNativeLane, FixtureError> {
     private_directory(directory, false)?;
     let record: Record =
         serde_json::from_slice(&read(&directory.join("receipt.json"), MAX_RECEIPT, 0o400)?)?;
     if record.version != 1
         || record.checkout != state.checkout_id.as_str()
         || record.selection != selection
-        || record.sources.len() != 2
-        || record.capsule.path != directory.join("capsule-output.json")
     {
         return Err(invalid(
-            "runtime fixture receipt differs from original checkout/selection",
+            "native lane fixture receipt differs from original checkout/selection",
         ));
     }
-    let builder = if demand.contains(&Input::ScientificInputs) {
-        let bytes = read(&record.capsule.path, MAX_CAPSULE, 0o400)?;
-        if bytes.len() as u64 != record.capsule.bytes || hash(&bytes) != record.capsule.sha256 {
-            return Err(invalid("prepared scientific capsule changed"));
-        }
-        Some(
-            BuildCapture::read(&directory.join("capsule-build/build.json"))?.require_binary(
-                root,
-                "xtask",
-                "xtask",
-                "xtask/src/main.rs",
-                &["physical-admission", "force-validate"],
-            )?,
-        )
-    } else {
-        None
-    };
-    let lane = if demand.contains(&Input::NativeLane) {
-        Some(
-            BuildCapture::read(&directory.join("lane-build/build.json"))?.require_binary(
-                root,
-                "xtask",
-                "pse-native-lane",
-                "xtask/src/bin/pse-native-lane.rs",
-                &["solver-kinsol", "force-validate"],
-            )?,
-        )
-    } else {
-        None
-    };
-    Ok(SelectedRuntime {
+    let executable = BuildCapture::read(&directory.join("build/build.json"))?
+        .require_binary(root, "xtask", BINARY, SOURCE, FEATURES)?;
+    Ok(SelectedNativeLane {
         directory: directory.to_owned(),
         record,
-        lane,
-        builder,
+        executable,
     })
 }
-impl SelectedRuntime {
-    fn view(&self) -> Result<RuntimeInputs, FixtureError> {
-        let lane = self
-            .lane
-            .as_ref()
-            .ok_or_else(|| invalid("selected lane capture is absent"))?;
-        Ok(RuntimeInputs {
+
+impl SelectedNativeLane {
+    fn view(&self) -> NativeLaneSelection {
+        NativeLaneSelection {
             selection: self.record.selection.clone(),
             receipt: self.directory.join("receipt.json"),
-            scientific_inputs: self.record.capsule.clone(),
-            native_lane: RuntimeInputArtifact {
-                path: lane.captured.clone(),
-                sha256: lane.sha256.clone(),
-                bytes: lane.bytes,
+            native_lane: NativeLaneArtifact {
+                path: self.executable.captured.clone(),
+                sha256: self.executable.sha256.clone(),
+                bytes: self.executable.bytes,
             },
-            builds: vec![
-                self.directory.join("capsule-build/build.json"),
-                self.directory.join("lane-build/build.json"),
-            ],
-        })
+            build: self.directory.join("build/build.json"),
+        }
     }
+
     fn validate_current(
         &self,
         root: &Path,
         environment: &Environment,
-        demand: &BTreeSet<Input>,
     ) -> Result<(), FixtureError> {
         let environment = construction_environment(root, environment)?;
-        for (index, input, feature) in [
-            (0, Input::ScientificInputs, "physical-admission"),
-            (1, Input::NativeLane, "solver-kinsol"),
-        ] {
-            if demand.contains(&input) {
-                self.record.sources[index].require_current_sources(
-                    root,
-                    &current_context(
-                        root,
-                        &environment,
-                        &[feature.into(), "force-validate".into()],
-                    )?,
-                )?;
-            }
-        }
-        if demand.contains(&Input::ScientificInputs) {
-            let builder = self
-                .builder
-                .as_ref()
-                .ok_or_else(|| invalid("original capsule builder capture is absent"))?;
-            builder.verify()?;
-            let status = Command::new(&builder.captured)
-                .args([
-                    OsStr::new("scientific-inputs-check"),
-                    OsStr::new(CATALOG),
-                    self.record.capsule.path.as_os_str(),
-                ])
-                .current_dir(root)
-                .env_clear()
-                .envs(&environment)
-                .status()
-                .map_err(HostError::from)?;
-            if !status.success() {
-                return Err(invalid(format!(
-                    "scientific input owner refused current capsule correspondence: {status}"
-                )));
-            }
-        }
+        let features = FEATURES.iter().map(|feature| (*feature).into()).collect::<Vec<_>>();
+        self.record.source.require_current_sources(
+            root,
+            &current_context(root, &environment, &features)?,
+        )?;
         Ok(())
     }
-    pub(super) fn bind(
+
+    pub(super) fn lend(
         &self,
         root: &Path,
         environment: &mut Environment,
-        demand: &BTreeSet<Input>,
     ) -> Result<(), FixtureError> {
-        let needed = [Input::ScientificInputs, Input::NativeLane]
-            .into_iter()
-            .filter(|input| {
-                demand.contains(input) && !environment.contains_key(OsStr::new(variable(*input)))
-            })
-            .collect::<BTreeSet<_>>();
-        if !needed.is_empty() {
-            self.validate_current(root, environment, &needed)?;
-        }
-        self.bind_original(environment, demand)
-    }
-    pub(super) fn bind_original(
-        &self,
-        environment: &mut Environment,
-        demand: &BTreeSet<Input>,
-    ) -> Result<(), FixtureError> {
-        for input in [Input::ScientificInputs, Input::NativeLane] {
-            if !demand.contains(&input) || environment.contains_key(OsStr::new(variable(input))) {
-                continue;
-            }
-            let path = match input {
-                Input::ScientificInputs => {
-                    let bytes = read(&self.record.capsule.path, MAX_CAPSULE, 0o400)?;
-                    if bytes.len() as u64 != self.record.capsule.bytes
-                        || hash(&bytes) != self.record.capsule.sha256
-                    {
-                        return Err(invalid(
-                            "prepared scientific capsule changed before lending",
-                        ));
-                    }
-                    &self.record.capsule.path
-                }
-                Input::NativeLane => {
-                    let lane = self
-                        .lane
-                        .as_ref()
-                        .ok_or_else(|| invalid("required prepared lane is absent"))?;
-                    lane.verify()?;
-                    &lane.captured
-                }
-                _ => continue,
-            };
-            environment.insert(variable(input).into(), path.as_os_str().into());
+        if !environment.contains_key(OsStr::new(VARIABLE)) {
+            self.validate_current(root, environment)?;
+            self.executable.verify()?;
+            environment.insert(VARIABLE.into(), self.executable.captured.as_os_str().into());
         }
         Ok(())
+    }
+
+    pub(super) fn path(&self) -> &Path {
+        &self.executable.captured
     }
 }
 
@@ -697,7 +507,7 @@ mod tests {
         ])
     }
     #[test]
-    fn runtime_preparation_failure_retains_original_pointer_and_unpublished_prefix() {
+    fn native_lane_preparation_failure_retains_original_pointer_and_unpublished_prefix() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         let state =
@@ -710,8 +520,8 @@ mod tests {
             |directory, _| {
                 partial = directory.to_owned();
                 fs::write(
-                    directory.join("capsule-output.json"),
-                    b"original capsule prefix",
+                    directory.join("partial-build-output"),
+                    b"original build prefix",
                 )
                 .map_err(HostError::from)?;
                 Err(invalid("original native lane capture refused"))
@@ -729,95 +539,20 @@ mod tests {
             b"previous complete original selection"
         );
         assert_eq!(
-            fs::read(partial.join("capsule-output.json")).unwrap(),
-            b"original capsule prefix"
+            fs::read(partial.join("partial-build-output")).unwrap(),
+            b"original build prefix"
         );
         assert!(!partial.join("receipt.json").exists());
     }
     #[test]
-    fn runtime_selection_lends_only_demanded_original_inputs_and_preserves_overrides() {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("capsule-output.json");
-        let bytes = b"original owner capsule";
-        fs::write(&path, bytes).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        let selected = SelectedRuntime {
-            directory: temp.path().into(),
-            record: Record {
-                version: 1,
-                checkout: "checked".into(),
-                selection: "original".into(),
-                capsule: RuntimeInputArtifact {
-                    path: path.clone(),
-                    sha256: hash(bytes),
-                    bytes: bytes.len() as u64,
-                },
-                sources: Vec::new(),
-            },
-            lane: None,
-            builder: None,
-        };
-        let mut environment = Environment::new();
-        selected
-            .bind(temp.path(), &mut environment, &BTreeSet::new())
-            .unwrap();
-        assert!(environment.is_empty());
-        // Exercise projection after admission separately from current compiler/native
-        // admission, which cannot be established by a hand-constructed observation.
-        selected
-            .bind_original(&mut environment, &BTreeSet::from([Input::ScientificInputs]))
-            .unwrap();
-        assert_eq!(
-            environment[OsStr::new("PSE_SCIENTIFIC_INPUTS")],
-            path.as_os_str()
-        );
-        assert!(!environment.contains_key(OsStr::new("PSE_NATIVE_LANE_EXECUTABLE")));
-        for original in ["", "/explicit/invalid-capsule"] {
-            environment.insert("PSE_SCIENTIFIC_INPUTS".into(), original.into());
-            selected
-                .bind(
-                    temp.path(),
-                    &mut environment,
-                    &BTreeSet::from([Input::ScientificInputs]),
-                )
-                .unwrap();
-            assert_eq!(environment[OsStr::new("PSE_SCIENTIFIC_INPUTS")], original);
-        }
-        environment.clear();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-        fs::write(&path, b"changed bytes").unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(
-            selected
-                .bind_original(&mut environment, &BTreeSet::from([Input::ScientificInputs]))
-                .is_err()
-        );
-    }
-    #[test]
-    fn unused_or_explicit_runtime_inputs_do_not_inspect_or_prepare_a_checkout() {
+    fn explicit_native_lane_path_does_not_inspect_or_prepare_a_checkout() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("not-a-checkout");
-        assert!(
-            selected_for_demand(&root, &Environment::new(), &BTreeSet::new())
-                .unwrap()
-                .is_none()
-        );
-        let environment = Environment::from([
-            ("PSE_SCIENTIFIC_INPUTS".into(), "".into()),
-            (
-                "PSE_NATIVE_LANE_EXECUTABLE".into(),
-                "/invalid/original".into(),
-            ),
-        ]);
-        assert!(
-            selected_for_demand(
-                &root,
-                &environment,
-                &BTreeSet::from([Input::ScientificInputs, Input::NativeLane])
-            )
-            .unwrap()
-            .is_none()
-        );
+        assert!(selected_for_run(&root, &Environment::new()).unwrap().is_none());
+        for original in ["", "/invalid/original"] {
+            let environment = Environment::from([(VARIABLE.into(), original.into())]);
+            assert!(selected_for_run(&root, &environment).unwrap().is_none());
+        }
         assert!(!root.exists());
     }
 
@@ -846,7 +581,7 @@ mod tests {
         generation::SourceFingerprint::from_metadata_for(root, &metadata, context, "xtask").unwrap()
     }
     #[test]
-    fn runtime_construction_retains_original_cache_selection_across_reentry() {
+    fn native_lane_construction_retains_original_cache_selection_across_reentry() {
         let original = Environment::from([
             ("RUSTC_WRAPPER".into(), "/tools/sccache".into()),
             ("PSE_NATIVE_COMPILER_CACHE".into(), "/tools/sccache".into()),
@@ -884,7 +619,7 @@ mod tests {
         );
     }
     #[test]
-    fn runtime_current_context_refuses_changed_compiler_native_flags_and_features() {
+    fn native_lane_current_context_refuses_changed_compiler_native_flags_and_features() {
         let temp = tempfile::tempdir().unwrap();
         let original = Environment::from([
             ("CFLAGS".into(), "-O2".into()),
@@ -987,7 +722,7 @@ mod tests {
         );
     }
     #[test]
-    fn runtime_late_source_drift_refuses_candidate_before_replacing_previous_pointer() {
+    fn native_lane_late_source_drift_refuses_candidate_before_replacing_previous_pointer() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path();
         let state =
@@ -1013,12 +748,7 @@ mod tests {
                     version: 1,
                     checkout: state.checkout_id.as_str().into(),
                     selection: selection.into(),
-                    capsule: RuntimeInputArtifact {
-                        path: directory.join("capsule-output.json"),
-                        sha256: "original".into(),
-                        bytes: 1,
-                    },
-                    sources: vec![source.clone(), source.clone()],
+                    source: source.clone(),
                 })
             },
             |_, _| {

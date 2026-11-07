@@ -1745,7 +1745,7 @@ mod tests {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     reason = "Exact native fixtures fail at setup when their declared source or original publication is absent"

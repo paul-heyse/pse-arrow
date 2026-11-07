@@ -1955,7 +1955,7 @@ impl Loop {
     pub(super) fn before_export_refusal(&self) -> Option<&serde_json::Value> {
         self.original_before_refusal.as_ref()
     }
-    #[cfg(all(test, feature = "canonical-tests", feature = "solver-ipopt"))]
+    #[cfg(all(test, feature = "solver-ipopt"))]
     pub(super) fn cancel_before_first_step(&self) {
         self.cancel.cancel();
     }

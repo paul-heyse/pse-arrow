@@ -288,7 +288,7 @@ mod tests {
     fn target_identity_absence_platform_and_ignored_policy_survive_projection() {
         let parsed = Parsed::try_parse_from([
             "selection",
-            "pse-runtime:native_study",
+            "pse-runtime:native_repeated_analysis",
             "--target-kind",
             "test",
             "--without-feature",
@@ -307,7 +307,10 @@ mod tests {
         let Scope::Packages(packages) = request.scope else {
             panic!("explicit target lost")
         };
-        assert_eq!(packages[0].target.as_ref().unwrap().name, "native_study");
+        assert_eq!(
+            packages[0].target.as_ref().unwrap().name,
+            "native_repeated_analysis"
+        );
         assert_eq!(
             packages[0].target.as_ref().unwrap().kind.as_deref(),
             Some("test")

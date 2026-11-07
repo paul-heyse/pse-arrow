@@ -434,13 +434,10 @@ reference side; they need no product extension or Python candidate adapter. Miss
 packages/executables fail. Keep the declared parity environment and explicitly prepared native
 capabilities; ordinary reference execution does not install them.
 
-For the fitting, sensitivity and PID selection, prepare an exact source capture once and run:
+The PID candidate captures and verifies its authored scientific inputs in the Rust test
+process. Select the independent interpreters and run:
 
 ```bash
-reference_inputs_dir=$(mktemp -d)
-scripts/pse-env -- cargo run --locked -p xtask --features physical-admission,force-validate -- \
-  scientific-inputs tests/fixtures/scientific-inputs.toml "$reference_inputs_dir/inputs.json"
-export PSE_SCIENTIFIC_INPUTS="$reference_inputs_dir/inputs.json"
 export PSE_COVARIANCE_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
 export PSE_SENSITIVITY_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
 export PSE_PID_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"

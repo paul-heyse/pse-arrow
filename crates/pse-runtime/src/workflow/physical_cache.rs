@@ -636,7 +636,7 @@ impl Runtime {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod physical_admission_cache_unit {
     #![allow(
         clippy::unwrap_used,
@@ -684,7 +684,7 @@ mod physical_admission_cache_unit {
             "actual protected owner retains its exact metadata/release grant"
         );
         drop(pin);
-        pse_operations::testing::drain_result_releases(operations.store())
+        operations.store().join_result_releases()
             .await
             .unwrap();
         assert!(
@@ -783,7 +783,7 @@ mod physical_admission_cache_unit {
         runtime.clear_program_cache();
         assert!(escaped.upgrade().is_none());
         drop(physical);
-        pse_operations::testing::drain_result_releases(operations.store())
+        operations.store().join_result_releases()
             .await
             .unwrap();
         assert!(
@@ -1148,7 +1148,7 @@ mod physical_admission_cache_unit {
                 .is_none()
         );
         other.durability = Durability::Durable(Box::new(new_operations));
-        let other_store = pse_operations::testing::canonical_fixture_store().unwrap();
+        let other_store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
         let foreign = Operations::from_store(
             other_store.clone(),
             operations.worker(),

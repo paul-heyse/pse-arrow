@@ -1207,10 +1207,7 @@ async fn horizon_priors_and_trajectories_retain_canonical_target_correspondence(
 
 /// Acknowledged durable source plus a closed real caller makes accidental recording
 /// observable as a refusal. Local science must complete with all recording effects denied.
-#[cfg(all(
-    feature = "canonical-tests",
-    any(feature = "solver-diffsol", feature = "solver-ipopt")
-))]
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
 async fn deny_recording_after_durable_source(runtime: &Runtime, package: &ModelingPackage) {
     assert!(matches!(
         runtime.durability(),
@@ -1233,10 +1230,7 @@ async fn deny_recording_after_durable_source(runtime: &Runtime, package: &Modeli
     );
 }
 
-#[cfg(all(
-    feature = "canonical-tests",
-    any(feature = "solver-diffsol", feature = "solver-ipopt")
-))]
+#[cfg(any(feature = "solver-diffsol", feature = "solver-ipopt"))]
 fn original_local_result(report: &super::super::StudyReport, index: usize) -> &RunResult {
     let outcome = &report.outcomes[index];
     assert!(outcome.scientific.usable, "{outcome:?}");
@@ -1256,7 +1250,7 @@ fn original_local_result(report: &super::super::StudyReport, index: usize) -> &R
     result
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording()
 {
@@ -1329,7 +1323,7 @@ async fn durable_origin_local_simulation_keeps_original_full_and_compact_results
     assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording()
  {
@@ -1423,7 +1417,7 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
     assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-ipopt"))]
+#[cfg(feature = "solver-ipopt")]
 #[tokio::test]
 async fn durable_origin_local_fit_keeps_original_regression_without_recording() {
     let runtime = super::super::durable_tests::durable_runtime();
@@ -1477,7 +1471,7 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_recording() {
     let runtime = super::super::durable_tests::durable_runtime();

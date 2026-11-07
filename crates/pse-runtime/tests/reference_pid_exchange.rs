@@ -12,7 +12,7 @@
 
 #[path = "reference_support/context.rs"]
 mod reference_support;
-#[path = "../../../tests/fixtures/scientific-inputs.rs"]
+#[path = "../../../tests/fixtures/authored-scientific-inputs.rs"]
 mod scientific_inputs;
 #[path = "reference_pid_support/mod.rs"]
 mod support;

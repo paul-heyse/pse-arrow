@@ -665,7 +665,7 @@ fn decode_edge(
     })
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     clippy::expect_used,
     reason = "selected optional evidence must fail on missing prerequisites"
@@ -680,7 +680,7 @@ pub(crate) fn operator_evidence_directory() -> String {
     directory
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -1250,7 +1250,7 @@ mod tests {
 }
 
 /// Independent expected edge lists drive first, selective, late and exhausted page controls.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::panic,
@@ -1394,7 +1394,7 @@ pub(crate) async fn qualify_graph_seek_pages(
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod server_tests {
     #![allow(
         clippy::unwrap_used,
@@ -1413,7 +1413,7 @@ mod server_tests {
             "canonical_test_graph_auth_{}",
             uuid::Uuid::new_v4().simple()
         );
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         // A false conditional permission would defeat a finite scan cap for record
         // authentication. Both supported root accounts must bypass it in reality.
         crate::canonical::bounded_query(store.db.query("DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];")).await.unwrap();
@@ -1485,7 +1485,7 @@ mod server_tests {
         let state = std::env::var("PSE_SURREAL_STATE").unwrap();
         let mut options = CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_graph_{}", uuid::Uuid::new_v4().simple());
-        let store = crate::testing::canonical_fixture_with_options(&options, true).unwrap();
+        let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         let revision = store
             .edit("graph-source", None, "source", &[])
             .await

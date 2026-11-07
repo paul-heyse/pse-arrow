@@ -88,7 +88,7 @@ fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
         "declaration": {
             "id": "selected-original", "target": "original", "kind": "lib",
             "ownership": "target-owned", "scope": { "tests": ["selected_case"] },
-            "inputs": ["scientific-inputs", "native-lane", "worker", "engineering-endpoint"]
+            "inputs": ["trace-processor", "native-lane", "scientific-worker", "engineering-endpoint"]
         }
     }))
     .unwrap();
@@ -112,7 +112,7 @@ fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
     assert_eq!(pending.requirement.group(), 2);
     assert_eq!(pending.readiness.inputs.len(), 4);
     assert!(matches!(
-        pending.readiness.inputs[&crate::fixtures::Input::Worker],
+        pending.readiness.inputs[&crate::fixtures::Input::ScientificWorker],
         crate::fixtures::InputState::OwnerAdmissionRequired { .. }
     ));
     assert_eq!(report.failures.len(), 1);

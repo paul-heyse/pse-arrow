@@ -24,24 +24,23 @@ use std::sync::{
     mpsc,
 };
 
-#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
 type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
-#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
 tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
 #[cfg(all(test, feature = "solver-ipopt"))]
 type NativeTaskEntry = Arc<dyn Fn(&Arc<AtomicBool>) + Send + Sync>;
 #[cfg(all(test, feature = "solver-ipopt"))]
 tokio::task_local! { static NATIVE_TASK_ENTRY: NativeTaskEntry; }
-#[cfg(feature = "canonical-tests")]
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
 static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
 /// Install one qualified receiver observer before any scientific work is issued.
 /// The process association spans spawned run owners; local controls take precedence.
 ///
 /// # Errors
 /// An existing installation belongs to the process's original qualification controller.
-#[cfg(feature = "canonical-tests")]
-#[doc(hidden)]
-pub fn install_qualified_native_entry(
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+pub(crate) fn install_qualified_native_entry(
     observer: Arc<dyn Fn(&AtomicBool) + Send + Sync>,
 ) -> Result<(), MathRuntimeError> {
     RECEIVER_ENTRY.set(observer).map_err(|_| {
@@ -50,16 +49,11 @@ pub fn install_qualified_native_entry(
 }
 /// Observe actual admitted native session entries for composition controls. The
 /// callback crosses into the owner thread; it must cooperate with the stop flag.
-#[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
-#[doc(hidden)]
-#[cfg_attr(
-    not(feature = "canonical-tests"),
-    allow(
-        unreachable_pub,
-        reason = "the same observer is publicly re-exported only for canonical qualification controllers"
-    )
-)]
-pub async fn observed_native_entry<T>(observer: NativeEntry, work: impl Future<Output = T>) -> T {
+#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+pub(crate) async fn observed_native_entry<T>(
+    observer: NativeEntry,
+    work: impl Future<Output = T>,
+) -> T {
     NATIVE_ENTRY.scope(observer, work).await
 }
 
@@ -1659,10 +1653,11 @@ impl NativeSession {
             permits,
             tokio::runtime::Handle::current(),
         );
-        #[cfg(any(all(test, feature = "solver-ipopt"), feature = "canonical-tests"))]
-        let entry = NATIVE_ENTRY.try_with(Arc::clone).ok();
-        #[cfg(feature = "canonical-tests")]
-        let entry = entry.or_else(|| RECEIVER_ENTRY.get().cloned());
+        #[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+        let entry = NATIVE_ENTRY
+            .try_with(Arc::clone)
+            .ok()
+            .or_else(|| RECEIVER_ENTRY.get().cloned());
         #[cfg(all(test, feature = "solver-ipopt"))]
         let task_entry = NATIVE_TASK_ENTRY.try_with(Arc::clone).ok();
         let scope_owner = pse_columnar::AllocationLease::new(reservation.split(stacks));
@@ -1695,10 +1690,7 @@ impl NativeSession {
                 let outcome = execution::compute_scoped(Box::new(compute), || match retained {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            #[cfg(any(
-                                all(test, feature = "solver-ipopt"),
-                                feature = "canonical-tests"
-                            ))]
+                            #[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
                             if let Some(entry) = entry {
                                 entry(&flag);
                             }

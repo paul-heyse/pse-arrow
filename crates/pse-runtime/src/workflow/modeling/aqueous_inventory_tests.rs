@@ -969,7 +969,7 @@ async fn aqueous_integrated_zero_flow_preserves_original_nonzero_inventory() {
     .await;
 }
 
-#[cfg(all(feature = "canonical-tests", feature = "solver-diffsol"))]
+#[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read() {
     use base64::Engine as _;

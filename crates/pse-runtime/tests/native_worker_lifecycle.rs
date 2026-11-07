@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Production scientific bootstrap and original physical ownership over a native service.
-#![cfg(all(feature = "native-study-tests", feature = "product-operators"))]
+#![cfg(all(feature = "native-service", feature = "product-operators"))]
 #![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Public research discovery and frozen selection through original native source owners.
 //! Requires an explicitly prepared private canonical service, never configured user data.
-#![cfg(feature = "native-study-tests")]
+#![cfg(feature = "native-service")]
 #![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,

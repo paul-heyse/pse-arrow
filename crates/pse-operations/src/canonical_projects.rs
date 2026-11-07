@@ -42,9 +42,9 @@ impl std::ops::Deref for Draft {
         &self.head
     }
 }
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(test)]
 tokio::task_local! { pub(crate) static PROJECT_REPLY_LOSS: bool; }
-#[cfg(any(test, feature = "test-support"))]
+#[cfg(test)]
 pub(crate) fn simulate_reply_loss() -> bool {
     PROJECT_REPLY_LOSS.try_with(|value| *value).unwrap_or(false)
 }
@@ -493,7 +493,7 @@ impl CanonicalStore {
         request: &[u8],
         result: Result<crate::transport::client::IndexedResults, CanonicalError>,
     ) -> Result<ProjectAcknowledgement, CanonicalError> {
-        #[cfg(any(test, feature = "test-support"))]
+        #[cfg(test)]
         let result = if result.is_ok() && simulate_reply_loss() {
             Err(CanonicalError::IncompleteResponse)
         } else {
@@ -1304,7 +1304,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod tests {
     #![allow(
         clippy::unwrap_used,
@@ -1723,7 +1723,7 @@ mod tests {
         let mut options =
             crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_projects_{}", uuid::Uuid::new_v4().simple());
-        crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+        crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
     }
     fn edit(version: &str) -> ObjectEdit {
         ObjectEdit {

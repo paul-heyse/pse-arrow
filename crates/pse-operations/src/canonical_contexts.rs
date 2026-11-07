@@ -164,7 +164,7 @@ impl CanonicalStore {
                         .bind(("generation", codec::encode_uint(project.generation)?)))
                 })
                 .await;
-                #[cfg(all(test, feature = "canonical-tests"))]
+                #[cfg(test)]
                 let response =
                     if response.is_ok() && crate::canonical_projects::simulate_reply_loss() {
                         Err(CanonicalError::IncompleteResponse)
@@ -248,7 +248,7 @@ impl CanonicalStore {
     }
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 mod tests {
     #![allow(
         clippy::unwrap_used,
@@ -261,7 +261,7 @@ mod tests {
         let mut options =
             crate::canonical::CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap();
         options.database = format!("canonical_test_contexts_{}", uuid::Uuid::new_v4().simple());
-        crate::testing::canonical_fixture_with_options(&options, true).unwrap()
+        crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap()
     }
     async fn source(store: &CanonicalStore, key: &str) -> crate::canonical::Revision {
         store.edit("science", None, key, &[]).await.unwrap()

@@ -119,7 +119,7 @@ pub(super) fn scalar_selection_expression(
 /// Ingest the sole admitted scientific IPC payload and its admitted batch statistics
 /// through the same fenced transaction. IPC and derived metadata independently
 /// choose useful prefixes; scalar count is only a defensive extent ceiling.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(super) async fn store_result_table(
     store: &CanonicalStore,
     fence: &AttemptFence,
@@ -562,7 +562,7 @@ impl<'a> ResultAppendQueue<'a> {
     }
     /// Callers demanding an ACK keep this explicit barrier. Ordinary complete
     /// run exports use finish_deferred and join once at store_tables' boundary.
-    #[cfg(all(test, feature = "canonical-tests"))]
+    #[cfg(test)]
     async fn finish(
         &mut self,
         id: SemanticId,
@@ -620,7 +620,7 @@ impl<'a> ResultAppendQueue<'a> {
 }
 
 /// Whole-relation fixture export; production pure outcomes use the typed route.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(super) async fn store_result_table_queued(
     queue: &mut ResultAppendQueue<'_>,
     id: SemanticId,
@@ -639,7 +639,7 @@ pub(super) async fn store_result_table_queued(
 
 /// Recorded complete relations share production's deferred append queue; the
 /// fixture caller must flush once before closing its ingestion fence.
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(super) async fn store_recorded_table_deferred(
     queue: &mut ResultAppendQueue<'_>,
     id: SemanticId,
@@ -1220,7 +1220,6 @@ mod result_projection_unit {
         compute::filter_record_batch,
     };
     use pse_relations::generated::runtime::fit_parameters;
-    #[cfg(feature = "canonical-tests")]
     use pse_relations::generated::runtime::solve_constraints;
 
     fn validation() -> pse_relations::validate::ValidationContext {
@@ -1331,7 +1330,7 @@ mod result_projection_unit {
         assert!(!projection_memory_refusal(&contract("producer refused")));
     }
 
-    #[cfg(all(feature = "canonical-tests", feature = "solver-kinsol"))]
+    #[cfg(feature = "solver-kinsol")]
     #[tokio::test]
     async fn canonical_append_queue_real_projections_preserve_ack_boundaries_and_memory_refusal() {
         use pse_relations::generated::{
@@ -1520,7 +1519,7 @@ mod result_projection_unit {
             "only the prior completed metric was acknowledged"
         );
         assert_eq!(
-            pse_operations::testing::pending_result_batch_rows(
+            crate::workflow::fixture_controls::pending_result_batch_rows(
                 store,
                 &fence,
                 &run_lineage::RELATION_ID.to_string(),
@@ -1534,7 +1533,6 @@ mod result_projection_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_append_queue_cancelled_flush_preserves_refusal_and_incomplete_coverage() {
         use pse_model::study::{OccurrenceKey, PointPolicy, SeedNeed, StartPolicy};
@@ -1644,7 +1642,7 @@ mod result_projection_unit {
                 "issuing a queue item grants no ACK coverage"
             );
             assert_eq!(
-                pse_operations::testing::pending_result_batch_rows(
+                crate::workflow::fixture_controls::pending_result_batch_rows(
                     store,
                     &fence,
                     &id.to_string(),
@@ -1715,7 +1713,7 @@ mod result_projection_unit {
                 "neither failed flush nor cleanup grants completion coverage"
             );
             assert_eq!(
-                pse_operations::testing::pending_result_batch_rows(
+                crate::workflow::fixture_controls::pending_result_batch_rows(
                     store,
                     &fence,
                     &id.to_string(),
@@ -1742,7 +1740,6 @@ mod result_projection_unit {
         store.remove_isolated_fixture().await.unwrap();
     }
 
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_append_queue_groups_encoded_schemas_and_acknowledges_final_operations() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
@@ -1907,7 +1904,7 @@ mod result_projection_unit {
                 "queued payload custody must not retain the three-file encoder allowance"
             );
             assert_eq!(
-                pse_operations::testing::pending_result_batch_rows(
+                crate::workflow::fixture_controls::pending_result_batch_rows(
                     store,
                     &fence,
                     &id.to_string(),
@@ -1930,7 +1927,7 @@ mod result_projection_unit {
         );
         assert!(queue.appends.is_empty() && queue.complete.is_empty());
         assert!(queue.complete.capacity() > 0);
-        let metrics_payload = pse_operations::testing::pending_result_payload_coordinates(
+        let metrics_payload = crate::workflow::fixture_controls::pending_result_payload_coordinates(
             store,
             &fence,
             &solve_metrics::RELATION_ID.to_string(),
@@ -1939,7 +1936,7 @@ mod result_projection_unit {
         .await
         .unwrap()
         .unwrap();
-        let parameters_payload = pse_operations::testing::pending_result_payload_coordinates(
+        let parameters_payload = crate::workflow::fixture_controls::pending_result_payload_coordinates(
             store,
             &fence,
             &fit_parameters::RELATION_ID.to_string(),
@@ -1967,7 +1964,7 @@ mod result_projection_unit {
             fit_parameters::RELATION_ID.to_string()
         );
         assert_eq!(
-            pse_operations::testing::result_payload_counts(store, &fence)
+            crate::workflow::fixture_controls::result_payload_counts(store, &fence)
                 .await
                 .unwrap(),
             (2, 0)
@@ -1993,7 +1990,7 @@ mod result_projection_unit {
         for id in [solve_metrics::RELATION_ID, fit_parameters::RELATION_ID] {
             acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(
-                pse_operations::testing::pending_result_batch_rows(
+                crate::workflow::fixture_controls::pending_result_batch_rows(
                     store,
                     &fence,
                     &id.to_string(),
@@ -2007,7 +2004,7 @@ mod result_projection_unit {
         acks.complete(&fence, &solve_constraints::RELATION_ID.to_string())
             .unwrap();
         assert_eq!(
-            pse_operations::testing::pending_result_batch_rows(
+            crate::workflow::fixture_controls::pending_result_batch_rows(
                 store,
                 &fence,
                 &solve_constraints::RELATION_ID.to_string(),
@@ -2037,7 +2034,6 @@ mod result_projection_unit {
         }
         store.remove_isolated_fixture().await.unwrap();
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_append_queue_denied_control_preserves_cold_append_and_demand() {
         let runtime = super::super::durable_tests::durable_runtime();
@@ -2151,7 +2147,7 @@ mod result_projection_unit {
         assert_eq!(pool.reserved(), 64 * 1024);
         acks.complete(&fence, &name).unwrap();
         assert_eq!(
-            pse_operations::testing::pending_result_batch_rows(store, &fence, &name, 0)
+            crate::workflow::fixture_controls::pending_result_batch_rows(store, &fence, &name, 0)
                 .await
                 .unwrap(),
             Some(1)
@@ -2186,7 +2182,6 @@ mod result_projection_unit {
         );
         store.remove_isolated_fixture().await.unwrap();
     }
-    #[cfg(feature = "canonical-tests")]
     #[tokio::test]
     async fn canonical_append_queue_drains_optional_storage_before_allocating_cursor_poll() {
         use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
@@ -2332,7 +2327,7 @@ mod result_projection_unit {
         for id in [solve_metrics::RELATION_ID, fit_parameters::RELATION_ID] {
             acks.complete(&fence, &id.to_string()).unwrap();
             assert_eq!(
-                pse_operations::testing::pending_result_batch_rows(
+                crate::workflow::fixture_controls::pending_result_batch_rows(
                     store,
                     &fence,
                     &id.to_string(),

@@ -10,37 +10,12 @@
     reason = "private native fixture owns partial transport observations and exact failure assertions"
 )]
 use super::*;
-use crate::native_service::{NativeCanonicalService, NativeServiceSpec};
+use crate::native_service::NativeCanonicalService;
 use futures_util::{FutureExt, future::BoxFuture};
-use std::{path::PathBuf, time::Instant};
+use std::time::Instant;
 
 fn service() -> NativeCanonicalService {
-    let environment = std::env::vars_os().collect();
-    let helper = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-            .expect("explicit already-built native-service helper"),
-    );
-    assert!(helper.is_absolute() && helper.is_file());
-    NativeCanonicalService::new(NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper,
-        module_source: if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-            crate::native_service::NativeModuleSource::Prepared(
-                pse_host::study_module::select(
-                    &PathBuf::from(record),
-                    pse_host::study_module::Variant::Production,
-                )
-                .unwrap(),
-            )
-        } else {
-            crate::native_service::NativeModuleSource::RecordedState(PathBuf::from(
-                std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                    .expect("explicit private module receipt selector"),
-            ))
-        },
-        state_parent: std::env::temp_dir(),
-    })
-    .unwrap()
+    NativeCanonicalService::new(crate::native_fixture::owned_test_service_spec()).unwrap()
 }
 
 fn claim<'a>(store: &'a CanonicalStore, key: &'a str) -> BoxFuture<'a, AttemptFence> {
@@ -292,7 +267,7 @@ async fn native_sealed_payload_and_lost_append_and_terminal_ack_keep_original_id
                     assert_eq!(payload.batch.descriptor, original_descriptor);
                     assert_eq!(payload.batch.payload.as_slice(), bytes);
                     drop((payload, read));
-                    crate::testing::drain_result_releases(store).await.unwrap();
+                    store.result_read_drain.drain().await.unwrap();
                     Ok(())
                 })
             })
@@ -440,7 +415,7 @@ async fn native_old_publisher_settles_while_migration_is_closed_before_successor
         assert_eq!(payload.batch.payload.as_slice(), bytes);
         assert_eq!(crate::testing::result_payload_counts(successor.store(), &fence).await?, (0, 1));
         drop((payload, read));
-        crate::testing::drain_result_releases(successor.store()).await?;
+        successor.store().result_read_drain.drain().await?;
         maintenance.disconnect().await?;
         Ok(())
     })).await.unwrap();
@@ -543,7 +518,7 @@ async fn native_abandoned_reader_and_publisher_close_keep_independent_output_cus
                     .unwrap();
                 drop(abandoned);
                 publisher.close();
-                crate::testing::drain_result_releases(&publisher)
+                publisher.result_read_drain.drain()
                     .await
                     .unwrap();
                 assert!(publisher.canonical_run(fence.run()).await.is_err());
@@ -582,7 +557,7 @@ async fn native_abandoned_reader_and_publisher_close_keep_independent_output_cus
                     (0, 1)
                 );
                 drop(retained);
-                crate::testing::drain_result_releases(&reader_store)
+                reader_store.result_read_drain.drain()
                     .await
                     .unwrap();
                 reader_store.forget_run_results(fence.run()).await.unwrap();

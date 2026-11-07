@@ -641,7 +641,7 @@ async fn actual_portable_native_root_child_reconstructs_and_parent_screens() {
 async fn actual_portable_native_root_standalone_bootstraps_and_parent_screens() {
     let fixture = async {
         let executable = std::env::var_os("PSE_NATIVE_LANE_EXECUTABLE")
-            .expect("integrator supplies exact built pse-native-lane executable");
+            .expect("standalone bootstrap requires the executable selected by pse fixture prepare native-lane");
         let child = NativeChild::qualify(executable, 128 << 20).unwrap();
         actual_portable_native_root_fixture(child).await;
     };

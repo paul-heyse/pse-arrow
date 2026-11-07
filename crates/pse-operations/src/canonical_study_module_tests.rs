@@ -89,7 +89,7 @@ mod surrealism_qualification {
     fn peer(store: &CanonicalStore) -> CanonicalStore {
         let mut options = CanonicalOptions::from_state(store.deployment_state()).unwrap();
         options.database = store.database().to_owned();
-        crate::testing::canonical_fixture_peer(store, &options).unwrap()
+        crate::native_fixture::canonical_fixture_peer(store, &options).unwrap()
     }
     #[derive(Clone, Copy, Debug)]
     struct HoldInterval {
