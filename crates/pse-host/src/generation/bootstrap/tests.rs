@@ -97,6 +97,13 @@ fn native_construction_publishes_authenticated_bytes_and_passive_staleness() {
         freshness(fixture.path(), &environment).unwrap(),
         Freshness::Current
     );
+    assert_eq!(
+        construct(fixture.path(), &environment, None, BootstrapMode::CopyOnly)
+            .unwrap()
+            .exit_code,
+        0
+    );
+    assert_eq!(super::prepared(fixture.path()).unwrap().unwrap(), prepared);
     fs::write(
         fixture.path().join(EXTERNAL_INPUTS[0]),
         "# changed embedded input\n",

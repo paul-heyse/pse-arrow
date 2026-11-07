@@ -597,6 +597,17 @@ fn construct_selected(
         )
     };
     let before = observe()?;
+    if source.is_none()
+        && let Ok(Some(directory)) = selected(&root)
+        && let Ok(manifest) = GenerationManifest::load(&directory)
+        && manifest.source() == &before
+        && TOOLS
+            .iter()
+            .all(|tool| manifest.binaries.contains_key(*tool))
+    {
+        before.require_unchanged(&observe()?)?;
+        return Ok(BootstrapOutcome { exit_code: 0 });
+    }
     if let Some(source) = source.filter(|source| source.manifest.source() == &before) {
         let after = observe()?;
         let _publication = publication_lock(&tools)?;

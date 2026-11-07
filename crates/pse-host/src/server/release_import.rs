@@ -203,12 +203,11 @@ fn admit(root: &Path, path: &Path) -> Result<Candidate, HostError> {
         lock_sha256: release.lockfile_sha256,
     })
 }
-fn copy_verified(input: &mut impl Read, path: &Path, expected: &str) -> Result<(), HostError> {
-    let mut output = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .mode(0o600)
-        .open(path)?;
+fn verify_bytes(
+    input: &mut impl Read,
+    mut output: impl Write,
+    expected: &str,
+) -> Result<(), HostError> {
     let mut hasher = Sha256::new();
     let mut buffer = [0_u8; 65536];
     loop {
@@ -226,9 +225,18 @@ fn copy_verified(input: &mut impl Read, path: &Path, expected: &str) -> Result<(
         .collect();
     if actual != expected {
         return Err(invalid(
-            "copied source release bytes differ from the original receipt",
+            "source release bytes differ from the original receipt",
         ));
     }
+    Ok(())
+}
+fn copy_verified(input: &mut impl Read, path: &Path, expected: &str) -> Result<(), HostError> {
+    let mut output = OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .mode(0o600)
+        .open(path)?;
+    verify_bytes(input, &mut output, expected)?;
     output.sync_all()?;
     Ok(())
 }
@@ -280,6 +288,24 @@ fn import_candidate(
         .mode(0o600)
         .open(lock_path)?;
     lock.lock()?;
+    if let Ok(current) = select(environment)
+        && current.recipe == recipe
+    {
+        // Validate the newly supplied descriptors even when the immutable destination
+        // already matches. Reuse should not make another full staging copy.
+        verify_bytes(
+            &mut candidate.binary,
+            std::io::sink(),
+            &candidate.binary_sha256,
+        )?;
+        verify_bytes(&mut candidate.lock, std::io::sink(), &candidate.lock_sha256)?;
+        if source_identity(&candidate.root)? != candidate.identity.source {
+            return Err(invalid(
+                "selected source/package premises changed during release import",
+            ));
+        }
+        return Ok(current);
+    }
     let staging = profile.join("staging");
     private_directory(&staging)?;
     let scratch = tempfile::Builder::new()
@@ -304,13 +330,6 @@ fn import_candidate(
         return Err(invalid(
             "selected source/package premises changed during release import; no selection published",
         ));
-    }
-    // Explicit repeat admission can reuse an immutable generation, but only after
-    // verifying the presently supplied bytes against the presently supplied receipt.
-    if let Ok(current) = select(environment)
-        && current.recipe == recipe
-    {
-        return Ok(current);
     }
     publish_install(&profile, &install, &candidate.identity)
 }
@@ -441,6 +460,30 @@ mod tests {
         assert_eq!(
             fs::read(prepared.executable()).unwrap(),
             b"#!/bin/sh\nprintf 'original server\\n'\n"
+        );
+    }
+    #[test]
+    fn server_import_reuses_matching_generation_without_staging_and_checks_input_bytes() {
+        let fixture = fixture();
+        let prepared = import_inner(&fixture.root, &fixture.environment, &fixture.release).unwrap();
+        let stage = profile_root(&fixture.environment).unwrap().join("staging");
+        fs::remove_dir(&stage).unwrap();
+        fs::write(&stage, b"unexpected staging entry").unwrap();
+        let repeated = import_inner(&fixture.root, &fixture.environment, &fixture.release).unwrap();
+        assert_eq!(repeated.generation(), prepared.generation());
+        let binary = fixture
+            .release
+            .parent()
+            .unwrap()
+            .join("source/target/release/surreal");
+        fs::write(binary, b"changed source bytes").unwrap();
+        let failure = import_inner(&fixture.root, &fixture.environment, &fixture.release)
+            .unwrap_err()
+            .to_string();
+        assert!(failure.contains("source release bytes differ"), "{failure}");
+        assert_eq!(
+            select(&fixture.environment).unwrap().generation(),
+            prepared.generation()
         );
     }
     #[test]

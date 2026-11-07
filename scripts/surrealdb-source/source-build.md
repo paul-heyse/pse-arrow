@@ -19,6 +19,8 @@ An explicit `--from-release` import can snapshot a matching established source r
 a new immutable generation. It verifies the original complete receipt, recipe/source/patch/
 profile tuple and copied binary/lockfile bytes. Original compiler/environment context remains
 provenance; a caller's current loader/cache selection does not fabricate a new build context.
+Reimporting an already selected release streams the supplied binary and lockfile through
+digest verification and reuses the immutable generation without staging another copy.
 Import does not adopt a persistent service or replace its state. See
 [installed server reuse](../../docs/dev/surreal-substrate.md#installed-external-server-reuse).
 
