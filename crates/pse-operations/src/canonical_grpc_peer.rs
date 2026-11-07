@@ -456,7 +456,7 @@ async fn start_scripted(
                                                 "x".repeat(8192),
                                             )),
                                         }
-                                    } else if query == "INFO FOR DB;" {
+                                    } else if query == "INFO FOR DB" {
                                         proto::Value {
                                             value: Some(proto::value::Value::Object(
                                                 proto::Object::default(),

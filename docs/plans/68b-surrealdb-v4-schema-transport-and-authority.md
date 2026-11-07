@@ -275,9 +275,19 @@ current migration and ingress reconstruction, cross-connection session
 refusal, and HTTP actor grants and original envelopes against this prepared
 pair. Three tests ran with zero failures against the zero target and
 complete settlement. Protected scientific readback remains with 68e.
+
+The live predecessor recovery test exposed a reserved local `$parent`
+binding in the pinned v3 declarations. The three predecessor replay inputs
+now use v4 local bindings, extension names and explicit API definer
+security. Each replay has its own pinned byte checksum. Historical
+schema/codec identifiers and the archived v3 declaration bytes still
+identify the original contracts. The exact v4 gRPC server committed each
+replay into a disposable catalog. The complete recovery test also checks
+checkpoint settlement, restart and activation.
 [Catalog information](https://surrealdb.com/docs/reference/query-language/statements/info) ·
 [Transaction isolation](https://surrealdb.com/docs/reference/query-language/statements/begin#isolation-level) ·
-[Transactional index definitions](https://surrealdb.com/docs/reference/query-language/statements/define/indexes#defining-an-index-inside-a-transaction)
+[Transactional index definitions](https://surrealdb.com/docs/reference/query-language/statements/define/indexes#defining-an-index-inside-a-transaction) ·
+[Reserved local variables and extension syntax](https://surrealdb.com/docs/build/migrating/from-old-surrealdb-versions/3x-to-4x#parameters-that-surrealdb-binds-itself-are-protected)
 
 The targeted wire, value, API comparator and generator tests passed.
 The native operations compile check included the service and maintenance

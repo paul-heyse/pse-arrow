@@ -1755,10 +1755,10 @@ DEFINE FUNCTION fn::pse_project_v1::source_ack($expiry:int,$problem:string,$oper
     IF $intent=NONE { RETURN true; };
     fn::pse_project_v1::root($expiry,$operation,'project-head:'+$intent.branch);
     fn::pse_research_v1::publication_ack($expiry,$operation,$intent);
-    FOR $parent IN $intent.extra_parents {
-        fn::pse_project_v1::root($expiry,$parent,'project-ancestry:'+$operation+':'+$parent);
-        LET $edge=<string>string::len($operation)+':'+$operation+$parent;
-        CREATE ONLY type::record('canonical_project_ancestry',$edge) CONTENT {key:$edge,revision:$operation,parent:$parent};
+    FOR $pse_parent IN $intent.extra_parents {
+        fn::pse_project_v1::root($expiry,$pse_parent,'project-ancestry:'+$operation+':'+$pse_parent);
+        LET $edge=<string>string::len($operation)+':'+$operation+$pse_parent;
+        CREATE ONLY type::record('canonical_project_ancestry',$edge) CONTENT {key:$edge,revision:$operation,parent:$pse_parent};
     };
     UPDATE ONLY type::record('canonical_project_branches',$intent.branch) SET generation+=1dec;
     LET $project=IF $intent.kind='fork' { UPDATE ONLY type::record('canonical_projects',$intent.project) SET generation+=1dec } ELSE { SELECT * FROM ONLY type::record('canonical_projects',$intent.project) };
@@ -2074,8 +2074,8 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
     IF $p.deleted {THROW 'PSE_REFUSAL:project_context_unavailable';};
     IF $row.effective_to_us!=NONE AND $row.effective_to_us<=$row.effective_from_us {THROW 'PSE_REFUSAL:project_context_invalid';};
     IF $row.corrects!=NONE {
-        LET $parent=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.corrects);
-        IF $parent=NONE OR $parent.project!=$row.project OR $parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
+        LET $pse_parent=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.corrects);
+        IF $pse_parent=NONE OR $pse_parent.project!=$row.project OR $pse_parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
         LET $ancestors=SELECT * FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant=$row.corrects LIMIT 257;
         IF array::len($ancestors)>=256 {THROW 'PSE_REFUSAL:project_context_bound';};
         FOR $a IN $ancestors { LET $edge=<string>string::len($row.key)+':'+$row.key+$a.ancestor; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$a.ancestor};};
@@ -2118,8 +2118,8 @@ DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation
     IF bytes::len($row.members)>131072 OR bytes::len($row.request)>262144 {THROW 'PSE_REFUSAL:research_bound';};
     IF $row.role NOT IN ['raw','curated','derived'] {THROW 'PSE_REFUSAL:research_context_differs';};
     IF $row.parent!=NONE {
-        LET $parent=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.parent);
-        IF $parent=NONE OR $parent.project!=$row.project OR $parent.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
+        LET $pse_parent=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.parent);
+        IF $pse_parent=NONE OR $pse_parent.project!=$row.project OR $pse_parent.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
     } ELSE { IF $row.role!='raw' {THROW 'PSE_REFUSAL:research_context_differs';}; };
     RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
 };
@@ -2572,7 +2572,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:st
 // One pure guest invocation per deduplicated native page. Scientific policy is
 // the same Rust owner used by claims; no row/fact snapshot crosses the RPC.
 DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
-    RETURN mod::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,
+    RETURN ext::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,
         rows:$page.rows.map(|$row| {key:$row.key,occurrence:$row.occurrence,revision:$row.revision,policy:$row.policy,facts:$row.facts,assigned:$row.assigned,settled:$row.settled}),
         items:$page.items.map(|$item| {point:$item.point,predecessors:$item.predecessors})});
 };
@@ -2861,10 +2861,10 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
         fn::pse_history_v1::run($rpc_expiry,$point.run);
         IF $point.study != $study { THROW 'PSE_REFUSAL:study_occurrence_belongs_elsewhere'; };
         IF $point.seed_solution!=NONE {
-            LET $input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
-            IF $input=NONE OR $input.study!=$study OR $input.solution!=$point.seed_solution { THROW 'PSE_REFUSAL:study_external_seed_was_not_retained'; };
-            fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
-            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
+            LET $pse_input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
+            IF $pse_input=NONE OR $pse_input.study!=$study OR $pse_input.solution!=$point.seed_solution { THROW 'PSE_REFUSAL:study_external_seed_was_not_retained'; };
+            fn::pse_artifact_v1::available($rpc_expiry,$pse_input.artifact);
+            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$pse_input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
             IF array::len($owners)!=1 { THROW 'PSE_REFUSAL:study_external_seed_obligation_absent'; };
         };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
@@ -2988,8 +2988,8 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
-            IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
+            LET $pse_input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
+            IF $pse_input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
     };
@@ -3191,8 +3191,8 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
-            IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
+            LET $pse_input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
+            IF $pse_input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
     };
@@ -3236,7 +3236,7 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
 // values in the original database snapshot, never caller-authored SQL.
 DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object,$after:string,$extent:int) -> array<object> {
     IF $extent<2 OR $extent>65 OR bytes::len(<bytes>$after)>4096 OR array::sort(object::keys($filter))!=['branch','context','outcome','physical_revision','project','research_reference','source','study'] { THROW 'PSE_REFUSAL:control_request_invalid'; };
-    FOR $value IN object::values($filter) { IF $value!=NONE AND $value!=NULL AND (!type::is_string($value) OR bytes::len(<bytes>$value)<1 OR bytes::len(<bytes>$value)>4096) { THROW 'PSE_REFUSAL:control_request_invalid'; }; };
+    FOR $pse_value IN object::values($filter) { IF $pse_value!=NONE AND $pse_value!=NULL AND (!type::is_string($pse_value) OR bytes::len(<bytes>$pse_value)<1 OR bytes::len(<bytes>$pse_value)>4096) { THROW 'PSE_REFUSAL:control_request_invalid'; }; };
     IF $filter.outcome NOT IN [NONE,NULL] AND $filter.outcome NOT IN ["succeeded","failed","partial","cancelled"] { THROW 'PSE_REFUSAL:control_request_invalid'; };
     LET $problems=IF $filter.project=NONE OR $filter.project=NULL {[]} ELSE {SELECT VALUE problem FROM canonical_project_branches WHERE project=$filter.project LIMIT 65};
     IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
@@ -3523,8 +3523,8 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
         IF array::sort(object::keys($request.cursor))!=['after','filter','issuing_store'] OR !type::is_string($request.cursor.after) { THROW 'PSE_REFUSAL:control_request_invalid'; };
         IF bytes::len(<bytes>$request.cursor.after)<1 OR bytes::len(<bytes>$request.cursor.after)>4096 OR $request.cursor.issuing_store!=$store OR $request.cursor.filter!=$request.filter { THROW 'PSE_REFUSAL:control_request_invalid'; };
     };
-    LET $after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
-    LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$after,$request.maximum+1);
+    LET $pse_after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
+    LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$pse_after,$request.maximum+1);
     LET $selected=fn::pse_workbench_v1::browse($expiry,$rows,$request.maximum);
     LET $headers=$selected.headers.map(|$s| {study:$s.key,run:$s.run,problem:$s.problem,source:$s.revision,physical_revision:$s.physical_revision ?? NULL,physical_identity:$s.physical_identity ?? NULL,context:$s.context ?? NULL,point_count:<string>$s.point_count,generation:<string>$s.generation,active:$s.active,cancelled:$s.cancelled,terminal:$s.terminal,result_attempt:$s.result_attempt ?? NULL,outcome:$s.outcome ?? NULL});
     LET $next=IF $selected.has_more {{issuing_store:$store,filter:$request.filter,after:array::last($headers).study}} ELSE {NULL};
@@ -3533,15 +3533,15 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
 DEFINE API '/pse/control/v1/browse' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('browse'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$body.request)}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('browse'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$body.request)}; } SECURITY DEFINER;
 DEFINE API '/pse/control/v1/cancel' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; } SECURITY DEFINER;
 DEFINE API '/pse/control/v1/reconcile' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$body.request)}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$body.request)}; } SECURITY DEFINER;
 
 
 // One physical source-deletion decision shared by stage and membership cleanup.
@@ -3584,8 +3584,8 @@ DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$probl
     LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
     fn::pse_execution_v1::deadline($pse_rpc_expires_at);
     IF $position=NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
-    LET $after = $position.source_reclaim_after ?? '';
-    LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$after AND to_sequence!=NONE ORDER BY key LIMIT 1;
+    LET $pse_after = $position.source_reclaim_after ?? '';
+    LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$pse_after AND to_sequence!=NONE ORDER BY key LIMIT 1;
     IF array::len($candidates)=0 {
         UPDATE ONLY $guard SET source_reclaim_after=NONE,generation=generation+1dec;
         RETURN {done:true,after:NONE,membership:false,version:false,edges:0dec,blocks:0dec,pending:false};
@@ -3622,7 +3622,7 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     };
 };
 
-    LET $next = IF $result.pending { $after } ELSE { $candidate };
+    LET $next = IF $result.pending { $pse_after } ELSE { $candidate };
     UPDATE ONLY $guard SET source_reclaim_after=$next,generation=generation+1dec;
     fn::pse_execution_v1::deadline($pse_rpc_expires_at);
     RETURN object::extend($result,{done:false,after:$next});
@@ -3681,7 +3681,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     IF $header=NONE OR !$header.terminal { THROW 'PSE_REFUSAL:only_terminal_studies_may_be_retired'; };
     UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
     LET $inputs=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
-    FOR $input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($input,['id'])); };
+    FOR $pse_input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($pse_input,['id'])); };
     LET $rpc_result = array::len($inputs)<64;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -3706,7 +3706,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     LET $nodes=SELECT id FROM canonical_analysis_nodes WHERE analysis=$analysis ORDER BY key LIMIT 64;
     IF array::len($nodes)!=0 { DELETE $nodes.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,artifact FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
-    IF array::len($inputs)!=0 { FOR $input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    IF array::len($inputs)!=0 { FOR $pse_input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$pse_input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 64;
     IF array::len($roots)!=0 {
         FOR $root IN $roots {
@@ -3770,8 +3770,8 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     IF array::len($readers)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     IF array::len($reader_page)=64 { RETURN {pending:true}; };
     LET $point=SELECT study FROM canonical_study_points WHERE run=$run LIMIT 1;
-    LET $parent=SELECT key FROM canonical_studies WHERE run=$run LIMIT 1;
-    LET $studies=array::distinct(array::concat($point.study,$parent.key));
+    LET $pse_parent=SELECT key FROM canonical_studies WHERE run=$run LIMIT 1;
+    LET $studies=array::distinct(array::concat($point.study,$pse_parent.key));
     FOR $study IN $studies {
         SELECT * FROM ONLY type::record('canonical_study_retirements',$study) FOR UPDATE;
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'PSE_REFUSAL:run_results_are_retained_by_a_study'; };
@@ -3882,9 +3882,9 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
             LET $root=SELECT * FROM ONLY type::record('canonical_roots',$source.key);
             IF $root=NONE OR $root.owner_kind!='analysis' OR $root.owner!=$row.key OR $root.problem!=$source.problem OR $root.revision!=$source.revision OR $root.sequence!=$source.sequence { THROW 'PSE_REFUSAL:immutable_analysis_source_changed'; };
         };
-        FOR $input IN $inputs {
-            LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key);
-            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$input.artifact { THROW 'PSE_REFUSAL:immutable_analysis_input_changed'; };
+        FOR $pse_input IN $inputs {
+            LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$pse_input.key);
+            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$pse_input.artifact { THROW 'PSE_REFUSAL:immutable_analysis_input_changed'; };
         };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
@@ -3900,21 +3900,21 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         IF array::len($pruned)!=0 { THROW 'PSE_REFUSAL:analysis_source_reclaimed'; };
     };
     IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 OR $row.revision NOT IN $sources.revision { THROW 'PSE_REFUSAL:analysis_primary_source_omitted'; };
-    FOR $input IN $inputs {
-        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
-        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$input.protection);
-        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection)) OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'PSE_REFUSAL:analysis_artifact_input_not_admitted'; };
-        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$input.artifact LIMIT 66;
+    FOR $pse_input IN $inputs {
+        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$pse_input.artifact);
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$pse_input.protection) FOR UPDATE;
+        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$pse_input.protection);
+        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$pse_input.protection)) OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$pse_input.artifact OR $pse_input.analysis!=$row.key { THROW 'PSE_REFUSAL:analysis_artifact_input_not_admitted'; };
+        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$pse_input.artifact LIMIT 66;
         IF array::len($selected)=0 OR array::len($selected)>65 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'PSE_REFUSAL:analysis_omitted_artifact_source'; };
     };
     LET $saved=CREATE ONLY type::record('canonical_analyses',$row.key) CONTENT $row;
     FOR $source IN $sources {
         CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='analysis',owner=$row.key;
     };
-    FOR $input IN $inputs {
-        fn::pse_artifact_v1::attach($rpc_expiry,$input.artifact,$input.obligation,true);
-        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$input.artifact)}) RETURN NONE;
+    FOR $pse_input IN $inputs {
+        fn::pse_artifact_v1::attach($rpc_expiry,$pse_input.artifact,$pse_input.obligation,true);
+        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($pse_input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$pse_input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$pse_input.artifact)}) RETURN NONE;
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -3942,9 +3942,9 @@ DEFINE FUNCTION fn::pse_analysis_v1::append($rpc_expiry: int, $key: string,$node
         IF $edge.analysis!=$key OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.source AND $endpoint.analysis=$key))!=1 OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.target AND $endpoint.analysis=$key))!=1 { THROW 'PSE_REFUSAL:analysis_edge_membership'; };
         IF ($edge.evidence_artifact=NONE)!=($edge.evidence_block=NONE) OR ($edge.evidence_artifact=NONE AND ($edge.evidence_row!=NONE OR $edge.evidence_field!=NONE)) { THROW 'PSE_REFUSAL:analysis_typed_evidence_incomplete'; };
         IF $edge.evidence_artifact!=NONE {
-            LET $input=$inputs.filter(|$input| $input.artifact=$edge.evidence_artifact);
+            LET $pse_input=$inputs.filter(|$pse_input| $pse_input.artifact=$edge.evidence_artifact);
             LET $block=$blocks.filter(|$block| $block.artifact=$edge.evidence_artifact AND $block.ordinal=$edge.evidence_block);
-            IF array::len($input)!=1 OR array::len($input[0].matches)!=1 OR array::len($block)!=1 OR array::len($block[0].matches)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$block[0].matches[0].rows) { THROW 'PSE_REFUSAL:analysis_evidence_outside_retained_artifact'; };
+            IF array::len($pse_input)!=1 OR array::len($pse_input[0].matches)!=1 OR array::len($block)!=1 OR array::len($block[0].matches)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$block[0].matches[0].rows) { THROW 'PSE_REFUSAL:analysis_evidence_outside_retained_artifact'; };
         };
         LET $old=SELECT * FROM ONLY type::record('canonical_analysis_edges',$edge.key);
         IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence_artifact!=$edge.evidence_artifact OR $old.evidence_block!=$edge.evidence_block OR $old.evidence_row!=$edge.evidence_row OR $old.evidence_field!=$edge.evidence_field { THROW 'PSE_REFUSAL:immutable_analysis_edge_changed'; }; }
@@ -4033,21 +4033,21 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
         IF $revision=NONE OR $revision.problem!=$source.problem OR $revision.sequence!=$source.sequence OR $revision.interpretation!=$row.interpretation OR array::len($pruned)!=0 { THROW 'PSE_REFUSAL:artifact_source_unavailable'; };
     };
     IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 { THROW 'PSE_REFUSAL:artifact_primary_source_omitted'; };
-    FOR $input IN $inputs {
-        fn::pse_artifact_v1::producer($rpc_expiry,$input);
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
-        LET $selected=SELECT * FROM ONLY type::record('canonical_result_protections',$input.protection);
-        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection)) OR $selected=NONE OR $selected.run!=$input.run OR $selected.attempt!=$input.attempt OR $selected.manifest!=$input.manifest { THROW 'PSE_REFUSAL:artifact_exact_producer_protection_absent'; };
-        LET $actual=SELECT revision FROM canonical_run_sources WHERE run=$input.run LIMIT 66;
+    FOR $pse_input IN $inputs {
+        fn::pse_artifact_v1::producer($rpc_expiry,$pse_input);
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$pse_input.protection) FOR UPDATE;
+        LET $selected=SELECT * FROM ONLY type::record('canonical_result_protections',$pse_input.protection);
+        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$pse_input.protection)) OR $selected=NONE OR $selected.run!=$pse_input.run OR $selected.attempt!=$pse_input.attempt OR $selected.manifest!=$pse_input.manifest { THROW 'PSE_REFUSAL:artifact_exact_producer_protection_absent'; };
+        LET $actual=SELECT revision FROM canonical_run_sources WHERE run=$pse_input.run LIMIT 66;
         IF array::len($actual)=0 OR array::len($actual)>65 OR array::len(array::complement($actual.revision,$sources.revision))!=0 { THROW 'PSE_REFUSAL:artifact_actual_source_omitted'; };
     };
     CREATE ONLY type::record('canonical_artifacts',$row.key) CONTENT $row;
     FOR $source IN $sources { CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='artifact',owner=$row.key; };
-    FOR $input IN $inputs { CREATE ONLY type::record('canonical_artifact_staging_inputs',$input.key) CONTENT object::remove($input,['protection']); };
-    FOR $input IN $inputs {
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
+    FOR $pse_input IN $inputs { CREATE ONLY type::record('canonical_artifact_staging_inputs',$pse_input.key) CONTENT object::remove($pse_input,['protection']); };
+    FOR $pse_input IN $inputs {
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$pse_input.protection) FOR UPDATE;
         IF $pin=NONE OR $pin.released { THROW 'PSE_REFUSAL:artifact_transfer_protection_unavailable'; };
-        IF !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection) { fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at); };
+        IF !fn::pse_files_v1::ticket_open($rpc_expiry,$pse_input.protection) { fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at); };
     };
     fn::pse_execution_v1::lease($rpc_expiry,<int>$row.creation_expires_at);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
@@ -4077,7 +4077,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::activate($rpc_expiry:int,$key:string,$oblig
     IF !$row.active AND $row.creation_expires_at<=time::micros() { THROW 'PSE_REFUSAL:artifact_creation_expired_before_activation'; };
     LET $inputs=SELECT * FROM canonical_artifact_staging_inputs WHERE artifact=$key ORDER BY key LIMIT 65;
     IF array::len($inputs)>64 { THROW 'PSE_REFUSAL:artifact_input_bound'; };
-    FOR $input IN $inputs { fn::pse_artifact_v1::producer($rpc_expiry,$input); };
+    FOR $pse_input IN $inputs { fn::pse_artifact_v1::producer($rpc_expiry,$pse_input); };
     LET $coverage=SELECT count() AS n, math::sum(payload_bytes) AS bytes FROM canonical_artifact_blocks WHERE artifact=$key GROUP ALL;
     IF $coverage[0].n!=$row.block_count OR $coverage[0].bytes!=$row.payload_bytes { THROW 'PSE_REFUSAL:artifact_content_incomplete'; };
     fn::pse_artifact_v1::attach($rpc_expiry,$key,$obligation,false);
@@ -4153,7 +4153,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     LET $blocks=SELECT id,key FROM canonical_artifact_blocks WHERE artifact=$intent.key ORDER BY ordinal LIMIT 64;
     IF array::len($blocks)!=0 { FOR $block IN $blocks { fn::pse_files_v1::release_borrower($rpc_expiry,'artifact:'+$block.key); }; DELETE $blocks.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,run FROM canonical_artifact_staging_inputs WHERE artifact=$intent.key ORDER BY key LIMIT 64;
-    FOR $input IN $inputs { fn::pse_execution_v1::result_creator($rpc_expiry,$input.run); };
+    FOR $pse_input IN $inputs { fn::pse_execution_v1::result_creator($rpc_expiry,$pse_input.run); };
     IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='artifact' AND owner=$intent.key ORDER BY key LIMIT 64;
     FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
@@ -4186,7 +4186,7 @@ DEFINE FUNCTION fn::pse_history_v1::run($rpc_expiry:int,$run:string) -> bool {
     fn::pse_history_v1::check_owner($rpc_expiry,'run',$run);
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_run_association_bound_exceeded'; };
-    FOR $parent IN $parents { fn::pse_history_v1::check_owner($rpc_expiry,'study',$parent.study); };
+    FOR $pse_parent IN $parents { fn::pse_history_v1::check_owner($rpc_expiry,'study',$pse_parent.study); };
     RETURN true;
 };
 
@@ -4252,15 +4252,15 @@ DEFINE FUNCTION fn::pse_history_v1::record_operation($rpc_expiry:int,$key:string
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:operation_association_bound_exceeded'; };
     LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
     LET $selected_study=$study ?? $finalization;
-    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
-        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+    LET $applicable=IF $point!=NONE {$parents.filter(|$pse_parent|$pse_parent.study=$selected_study AND $pse_parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$pse_parent|$pse_parent.study=$selected_study AND $pse_parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$pse_parent|$pse_parent.point!=NONE);
         IF array::len($points)!=0 {$points} ELSE {$parents}
     };
     IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
-    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $pse_parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
     CREATE ONLY type::record('canonical_execution_operations',$key) SET key=$key,run=$run,attempt=$attempt,kind=$kind,request=$request,result=$result,
         issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,
-        study=$parent.study,point=$parent.point,minimal=false,disposition='settled';
+        study=$pse_parent.study,point=$pse_parent.point,minimal=false,disposition='settled';
     IF $attempt!=NONE { fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run); };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
@@ -4274,14 +4274,14 @@ DEFINE FUNCTION fn::pse_history_v1::record_append_operations($rpc_expiry:int,$ru
     LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
     LET $study=NONE; LET $point=NONE;
     LET $selected_study=$finalization;
-    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
-        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+    LET $applicable=IF $point!=NONE {$parents.filter(|$pse_parent|$pse_parent.study=$selected_study AND $pse_parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$pse_parent|$pse_parent.study=$selected_study AND $pse_parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$pse_parent|$pse_parent.point!=NONE);
         IF array::len($points)!=0 {$points} ELSE {$parents}
     };
     IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
-    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $pse_parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
     LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
-    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$parent.study,point:$parent.point,minimal:false,disposition:'settled'});
+    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$pse_parent.study,point:$pse_parent.point,minimal:false,disposition:'settled'});
     INSERT INTO canonical_execution_operations $rows RETURN NONE;
     fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
@@ -4324,9 +4324,9 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
     IF (SELECT * FROM ONLY type::record('canonical_history_retirements','run:'+$run) FOR UPDATE)!=NONE { RETURN false; };
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_inventory_association_bound'; };
-    FOR $parent IN $parents {
-        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$parent.study) FOR UPDATE)!=NONE { RETURN false; };
+    FOR $pse_parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$pse_parent.study);
+        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$pse_parent.study) FOR UPDATE)!=NONE { RETURN false; };
     };
     RETURN true;
 };
@@ -4335,9 +4335,9 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
 DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string) -> bool {
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
-    FOR $parent IN $parents {
-        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+    FOR $pse_parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$pse_parent.study);
+        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$pse_parent.study) FOR UPDATE;
         IF ($count.count ?? 0dec)>0dec { RETURN true; };
     };
     RETURN false;
@@ -4375,7 +4375,7 @@ DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:str
         fn::pse_history_v1::run($rpc_expiry,$owner);
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
         IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
-        FOR $parent IN $parents { fn::pse_execution_v1::touch($rpc_expiry,'history:study:'+$parent.study); };
+        FOR $pse_parent IN $parents { fn::pse_execution_v1::touch($rpc_expiry,'history:study:'+$pse_parent.study); };
     };
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$scope);
     LET $header=IF $kind='run' {SELECT key FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT key FROM ONLY type::record('canonical_studies',$owner)};
@@ -4435,9 +4435,9 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF $retired=NONE OR !$retired.complete OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$owner))=NONE) { THROW 'PSE_REFUSAL:history_release_requires_settled_retired_run_payloads'; };
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
         IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_release_association_bound'; };
-        FOR $parent IN $parents {
-            fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-            LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+        FOR $pse_parent IN $parents {
+            fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$pse_parent.study);
+            LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$pse_parent.study) FOR UPDATE;
             IF ($parent_count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:study_audit_retains_run_history'; };
         };
     } ELSE {

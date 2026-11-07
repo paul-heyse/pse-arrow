@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Version-bound canonical construction and explicit quiescent schema evolution.
 //!
-//! Frozen pre-epoch, schema-v2 and schema-v3 declarations are historical predecessors,
-//! not a current schema authority. Legacy clients cannot be retroactively fenced:
-//! that transition requires the deployment owner's exclusive maintenance boundary.
+//! The pinned v4 replay declarations reconstruct pre-epoch, schema-v2 and schema-v3
+//! predecessors. Their historical schema identities and the replay bytes are distinct.
+//! The deployment owner's exclusive maintenance boundary fences the transition.
 use super::{CanonicalError, CanonicalOptions, CanonicalStore, bounded_query, wire};
 use crate::{
     canonical_codec as codec, canonical_execution::AttemptFence, canonical_script::ResultSlot,
@@ -17,11 +17,11 @@ use std::{
 };
 use surrealdb_types::{Decimal, Number, Object, SurrealValue, Value};
 
-/// Preserved declaration needed to construct a real pre-epoch disposable database.
+/// Pinned v4 replay declaration for a pre-epoch disposable database.
 pub const PRE_EPOCH_DECLARATION: &str = include_str!("migrations/substrate-v10-pre-epoch.surql");
-/// Immutable native admission predecessor, kept outside generated publication.
+/// Pinned v4 replay declaration for the original native admission predecessor.
 pub const SCHEMA_V2_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v2.surql");
-/// Immutable pre-atomic-capture native schema, never a current declaration owner.
+/// Pinned v4 replay declaration for the pre-atomic-capture predecessor.
 pub const SCHEMA_V3_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v3.surql");
 #[path = "canonical_capture_legacy.rs"]
 mod legacy_capture;
@@ -1620,7 +1620,6 @@ mod tests {
             V2_DIGEST,
             "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc"
         );
-        assert_eq!(SCHEMA_V2_DECLARATION.len(), 413340);
         let migration = request(&legacy_marker());
         let first = v2_checkpoint_body(&migration).unwrap();
         assert!(first.starts_with(APPLY_PREDECESSOR));
