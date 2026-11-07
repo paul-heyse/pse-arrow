@@ -162,6 +162,30 @@ present cancellation control, scientific usability or a new native verdict. See
 [DRE05](../plan_improvement_reviews/plan64-65-data-results-and-evidence-analysis-2026-11-06.md#DRE05)
 and E07 for selected composition and exact query contracts.
 
+The prerequisite extension now retains optional original `pending` facts through the same
+authenticated report bytes and source-owned passive `Pending`/readiness types. Absent pending
+remains unknown; explicit empty remains known-empty. Present-invalid, duplicate/unsorted
+capabilities, duplicate inputs, unsupported states and excessive original populations refuse.
+No `Report` or private group-verdict decoder, current readiness or preparation effect is created.
+See [`prerequisite rows`](../../crates/pse-runtime/src/tooling/capture/evidence/developer/prerequisites.rs)
+and proposed [ADR-0252](../adr/0252-ephemeral-developer-evidence-relations.md).
+The generated `runtime.developer_prerequisite_facts` table is ephemeral under existing evidence
+ownership. Its fixed maintained DataFusion query is separate from cause aggregation to avoid
+cross-product counts, and its response retains paired original member/hash/JSON-pointer references.
+The shared projection admission helper forwards the original typed resource error rather than
+stringifying it. Pre-admission uses existing typed Serde sizing before Arrow/string retention;
+this is allocation accounting, not allocator/RSS proof or scientific capability reconstruction.
+
+**Tested, targeted in the owning checkout:** native force-validated `cargo t -p pse-host
+-p pse-runtime --lib -E '<original prerequisite parser/fact and review_query::developer controls>'`
+under the explicit compiler/KLU/solver/isolation environment selected
+the original prerequisite parser, authenticated fact consumer and `review_query::developer`
+controls passed 14/14, zero failures/warnings. Actual `pse-project observe` consumed two exported
+original native reports and returned seven prerequisite patterns distinguishing the original
+unprepared StudyModule from explicit empty pending. Original pointers were checked against the
+retained JSON. This source unit is integrated on main; combined generation/receiving remains
+separate. Private per-group verdict facts and full F04/E07 population are still open.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |

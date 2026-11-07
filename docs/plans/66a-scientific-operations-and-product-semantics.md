@@ -109,9 +109,24 @@ optional original assessment, including explicit historical unavailability. See
 Missing-column refusal and absent historical metadata have controls; authentic persisted-v3
 adoption remains unqualified. These observations confer no new scientific-use permission.
 
-The next native permission delivery must bind the actual original member, report/source and
-enclosing run/attempt. A whole-member scope can qualify an original trajectory separately from fit
-optimality; a sampled point needs its own retained native coordinate authority. Original physical
+The first native permission delivery is integrated: `ProductScope::Member` and the output-only
+[`MemberScientificPermission`](../../crates/pse-runtime/src/workflow/completion/member.rs)
+bind an original fit experiment to its actual run/attempt, source/physical/preparation and private
+report/assessment custody. `FitTrajectory::qualified_report` consumes that exact correspondence;
+raw failed evidence remains readable and decoded snapshots cannot mint live proof. Local native
+completion and missing-accuracy refusal remain the decision owners, independently of aggregate
+fit optimality or an unrelated sibling failure. Actual converted candidate parameters are retained
+by their existing assessment owner and projected through the original source/layout; no input map
+is recreated by an exporter. Proposed [ADR-0254](../adr/0254-govern-original-fit-trajectory-members.md)
+records this bounded contract and the next standalone/protected consumer. Native `scripts/pse test
+pse-runtime --lib --features solver-diffsol,solver-ipopt,solver-highs,native-study-tests,engineering-service`
+selected fitting, snapshot and actual durable-attempt controls passed 9/9 in the owning checkout, zero failures/build
+warnings, complete capture/settlement (`01a1b349-a547-73c7-b3f3-ef7fbc39728b`); touched all-target
+compilation passed under the same explicit solver/service fixture closure. Integrated receiving
+of this member extension remains separate from the earlier 70-control main population.
+
+A whole-member scope can qualify an original trajectory separately from fit optimality;
+a sampled point needs its own retained native coordinate authority. Original physical
 time, authored target/source and mesh-site correspondence describe points; row ordinals, callback
 caches, caller maps and newly hashed time labels cannot supply authority. Missing demanded accuracy
 evidence withholds use. Preserve qualified siblings independently of aggregate fit failure.
@@ -129,7 +144,7 @@ supplies its governing grant; native numerical acceptance alone does not issue t
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment ownership, retained/exported observations and joined trajectories are integrated, including terminal-cause continuation and borrowed-profile repairs. Implement missing member/trajectory governing scope through producers, native permission, storage and independent readers; close the remaining steady partial-buffer producer and authentic historical adoption gaps. No new member permission is yet implemented. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment and native fit-member permission are integrated with actual attempt/source/report custody, terminal-cause continuation and borrowed-profile repairs. Standalone native custody and its protected reader are in implementation. Complete remaining point/product authority, steady partial-buffer producer and authentic historical adoption gaps; broader A02 and integrated receiving remain open. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |

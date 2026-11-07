@@ -100,7 +100,7 @@ physical identity. Specific mechanisms and limits are in
 | G01 | planned | 66l's selected scientific/configuration/input identity; existing source admission | Every required property/equipment row has a concrete existing/missing science, ordinary-data, numerical-product or qualification disposition and a consuming case |
 | G02 | planned | G01 selected state/property closure; 66a coordinate/product and 66d provider slice where changed | Missing state/caloric/phase and pure-fluid outputs delivered through actual equipment consumers; existing implementations receive only missing evidence |
 | G03 | planned | G01 selected chemistry/transport inputs; native physical membership and basis | Required transport, reaction and electrolyte/speciation increments operate with conserved quantities, validity, derivatives and independent consuming expectations |
-| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Seven targeted branch controls pass for thermal/component closure, original readback and temporal/holdup refusals. Three homogeneous HEOS Water cases now reach protected/portable consumers. Explicit unknown-Cp/Perry extrapolation qualifiers and actual-flow exposure guards remain, along with other equipment/configurations, independent reference-binary and typed-client acceptance. |
+| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Original readback now explicitly verifies separate unknown-Cp/Perry permissions and all four actual-flow exposure contexts, including an isolated original over-capacity refusal. Three homogeneous HEOS Water cases reach protected/portable consumers. Other equipment/configurations, independent reference-binary and typed-client acceptance remain open. |
 | G05 | planned | Working selected equipment/recycle/initialization closure | HDA, methanol and custom extension consumers deliver their distinct simulation/design outcomes with original scientific inputs and complete linked outputs |
 | G06 | planned | Changed producers and 66b/66e/66f receiving consumers | Selected declarations, native clients, diagnostics, retained/exported readers and source/reference mappings migrate together; replaced adapters and fixtures are deleted |
 | G07 | planned | Selected G02–G06 deliveries and 66l independent expectations | Configuration-specific missing acceptance is complete, required failures remain attributable, scope claims reconcile with 66l and enduring contracts are published |
@@ -136,6 +136,19 @@ the existing homogeneous phase/datum/derivative limits remain. Wet, saturated, c
 mixed-phase equipment are not qualified by these three cases. The typed engineering admission
 path currently has no explicit prepared scientific-registration input; C/A own that remaining
 custody seam before a client can consume these configurations without name-based restoration.
+
+The ordinary FeedFlash consumer now also checks the existing source-owned applicability policy
+explicitly: unknown-Cp family permission remains distinct from Perry record-scoped extrapolation,
+and all four caloric/energy contexts retain their original source, actual flow dependency, unit and
+frozen bound. A 1.0015 mol/s input exceeds the original 1.001 mol/s exposure bound while its
+equimolar component deviation remains inside the unchanged 0.001 mol/s physical allowance.
+All four exposure checks refuse, all other original checks pass, and failed typed readback retains
+that exact outcome. This exercises the existing native assessment owner; no source coefficient,
+permission, bound, comparator or production path was replaced. The original 2 mol/s negative also
+failed legitimate authored component expectations; its failure is retained and the sharper input
+isolates the intended guard. The positive two-mode consumer passed in that mixed selection, and
+the corrected isolated negative passed 1/1 with zero failures/warnings and complete settlement
+(`01a1b35a-f9b1-74b4-b8b7-5b7467b8821e`). Combined main receiving remains separate.
 
 Each increment includes an operation request with exact selected definition,
 specifications, scientific source/data revisions and requested products; its native
