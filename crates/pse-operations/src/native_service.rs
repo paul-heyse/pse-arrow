@@ -863,7 +863,7 @@ impl NativeCanonicalService {
     pub async fn fixture_query(
         &self,
         sql: &str,
-        bindings: impl surrealdb_types::SurrealValue,
+        bindings: impl SurrealValue,
     ) -> Result<crate::transport::client::IndexedResults, NativeServiceError> {
         self.state.verify()?;
         Ok(crate::native_fixture::fixture_query(self.ready()?.store(), sql, bindings).await?)

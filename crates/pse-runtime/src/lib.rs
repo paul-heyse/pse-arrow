@@ -87,11 +87,18 @@ pub mod math;
 /// Typed native modeling, completion-owned jobs, physical results and explicit publication.
 pub mod workflow;
 
-#[cfg(test)]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-highs",
+        feature = "solver-ipopt",
+        feature = "solver-kinsol"
+    )
+))]
 #[path = "../../../tests/fixtures/authored-scientific-inputs.rs"]
 mod scientific_inputs;
 
-#[cfg(test)]
+#[cfg(all(test, any(feature = "solver-ipopt", feature = "solver-kinsol")))]
 #[path = "../../../tests/fixtures/reference-source-fixture.rs"]
 mod reference_source_fixture;
 

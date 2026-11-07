@@ -266,7 +266,7 @@ impl FixtureSelection {
     /// The store is not a registered borrower of this authenticated disposable service.
     pub fn payload_instances(
         &self,
-        store: &crate::canonical::CanonicalStore,
+        store: &CanonicalStore,
     ) -> Result<PathBuf, CanonicalError> {
         self.require_borrower(store)?;
         Ok(store.files.fixture_instances())

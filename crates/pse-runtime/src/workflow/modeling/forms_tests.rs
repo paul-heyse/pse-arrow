@@ -774,7 +774,9 @@ async fn indicator_realization_requires_native_backend() {
 
 #[tokio::test]
 async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
-    let runtime = crate::workflow::tests::runtime();
+    // The full imported schema closure coexists with source indexing and checked
+    // declarations during admission; this is larger than the local toy fixtures.
+    let runtime = fixture::runtime_with_workspace(64 << 20);
     let services = runtime.execution_services();
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
     // The fixture's oracle is declared by the seed's references and the domain's
@@ -784,12 +786,7 @@ async fn authored_gdp_fixture_selects_the_enumerated_alternative() {
         pse_authoring::language::IdentityPolicy::Explicit,
     );
     let physical = fixture::physical();
-    // The full imported schema closure coexists with source indexing and checked
-    // declarations during admission; this is larger than the local toy fixtures.
-    let package = fixture::runtime_with_workspace(64 << 20)
-        .modeling_package(rows, physical)
-        .await
-        .unwrap();
+    let package = runtime.modeling_package(rows, physical).await.unwrap();
     let mut policy = ModelingConformancePolicy {
         compiler: fixture::compiler_profile(),
         solver: profile(SolverSelection::Auto),
