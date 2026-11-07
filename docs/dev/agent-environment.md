@@ -295,6 +295,8 @@ the created checkout present with its recovery route. Review/allow its direnv co
 `target/`. Never set `CARGO_TARGET_DIR` or share targets between checkouts (ADR-0122). The
 sccache cache is shared. Remove a worktree only after integrating its changes and preserving
 necessary evidence and explicitly settling actual users, using `git worktree remove PATH`.
+Git removes the checkout directory and its registration in the same step. Resolve any
+checkout-specific state outside that directory through its original resource owners.
 The supported CLI is `worktree new|list`; `pse worktree rm` is explicitly deferred
 ([register R-56](../adr/register.md)). Automated owner-aware removal refusal and teardown are
 unavailable. Administrative removal must preserve readers, children, reusable sessions,
@@ -305,6 +307,24 @@ a checkout-wide admission or retirement boundary.
 invocation users without preparing tools or settling owners. Unknown native facts remain unknown;
 neither a terminal result nor this inventory grants removal authority. `--warm` submits the existing
 detached workspace check after successful preparation; its acknowledgement is not build completion.
+
+### Inspecting allocated storage
+
+Use `pse worktree list --format json` for checkout and native user observations. Select exact
+target and state directories by their checkout or resource receipts. Check each root's mount
+with `findmnt --target PATH` and record absent, inaccessible, or unexpected roots separately.
+Pass the verified directories on each filesystem to one physical allocation scan:
+
+```bash
+du --one-file-system --block-size=1 --summarize -- "$checkout_target" "$checkout_state"
+df --block-size=1 --output=source,used,avail,target -- "$checkout_target" "$checkout_state"
+```
+
+One `du` invocation counts a shared inode once across its arguments. Use separate output for
+apparent size when it matters. A missing root or partial native observation leaves that part
+of the census unknown. Use original settlement and current reader, hold, and selection facts
+to classify release candidates. Compare measured allocations and filesystem availability
+separately after release.
 
 ## Choosing tests
 

@@ -149,7 +149,7 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| E01 | in-progress | Read access to selected state and owners | Read-only census with allocated bytes, coverage, and held, releasable, or unknown classes. Supply the repeat baseline. |
+| E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
 | E03 | planned | Existing resource ownership and named hold contract from history companion | Purpose-bound scratch, stores and campaigns release through their original owners. Verify selected evidence before release. |
 | E04 | planned | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
@@ -185,7 +185,9 @@ backing filesystem. The linked targets held 276.84 GiB, the main invocation ledg
 native view disclosed unresolved historical identities. Those rows do not establish either
 active use or release eligibility. The exact per-root observations and separately measured
 filesystem capacity are in the incident evidence directory named by [67a](67a-plan66-consolidation-and-incident-cleanup.md).
-The census still needs unavailable-root and shared-inode controls before E01 closes.
+The [operator census](../dev/agent-environment.md#inspecting-allocated-storage) uses one physical
+scan per filesystem. A temporary two-root control counted one shared inode once and preserved
+an unavailable root as a partial observation with its diagnostic.
 
 Ordinary Git removal retired the integrated assessment checkout. The recorded external
 association remains usable for its two drained invocations with missing terminal records.
