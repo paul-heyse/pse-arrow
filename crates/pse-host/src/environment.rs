@@ -451,10 +451,15 @@ pub fn compose_with_cache(
                 settings.root.join(".config/sccache.toml").into_os_string(),
             );
             default(&mut env, "SCCACHE_MAX_FRAME_LENGTH", &settings.cache_frame);
-            let directory = crate::paths::HostPaths::new(&env).compiler_cache()?;
+            if !text(&env, "SCCACHE_MAX_FRAME_LENGTH")?
+                .and_then(|value| value.parse::<u32>().ok())
+                .is_some_and(|bytes| bytes > 0)
+            {
+                return Err(failure("SCCACHE_MAX_FRAME_LENGTH must be a positive u32 byte count"));
+            }
+            let (directory, endpoint) = crate::paths::HostPaths::new(&env).compiler_cache_pair()?;
             insert(&mut env, "SCCACHE_DIR", directory.into_os_string());
             default(&mut env, "SCCACHE_CACHE_SIZE", &settings.cache_size);
-            let endpoint = crate::paths::HostPaths::new(&env).compiler_cache_socket()?;
             insert(&mut env, "SCCACHE_SERVER_UDS", endpoint.into_os_string());
         }
     }
@@ -1072,6 +1077,64 @@ mod tests {
                 CacheMode::On
             )
             .is_err()
+        );
+    }
+    #[test]
+    fn selected_cache_frame_cannot_silently_fall_back_to_upstream_default() {
+        for frame in ["", "0", "256M", "4294967296"] {
+            let caller = map(&[
+                ("HOME", "/home/test"),
+                ("SCCACHE_MAX_FRAME_LENGTH", frame),
+            ]);
+            let error = compose(&settings(), &caller, &Environment::new(), &Environment::new())
+                .unwrap_err();
+            assert!(error.to_string().contains("SCCACHE_MAX_FRAME_LENGTH"));
+            assert!(compose_with_cache(
+                &settings(),
+                &caller,
+                &Environment::new(),
+                &Environment::new(),
+                CacheMode::Off,
+            ).is_ok());
+        }
+    }
+
+    #[test]
+    fn compiler_cache_directory_and_endpoint_are_selected_together() {
+        let resolve = |inputs| {
+            compose(&settings(), &inputs, &Environment::new(), &Environment::new())
+        };
+        let defaults = resolve(map(&[("HOME", "/home/test")])).unwrap();
+        for (key, value) in [
+            ("SCCACHE_DIR", "/isolated/cache"),
+            ("SCCACHE_SERVER_UDS", "/isolated/server.sock"),
+        ] {
+            let error = resolve(map(&[("HOME", "/home/test"), (key, value)])).unwrap_err();
+            assert!(error
+                .to_string()
+                .contains("SCCACHE_DIR and SCCACHE_SERVER_UDS together"));
+        }
+        let isolated = resolve(map(&[
+            ("HOME", "/home/test"),
+            ("SCCACHE_DIR", "/isolated/cache"),
+            ("SCCACHE_SERVER_UDS", "/isolated/server.sock"),
+        ]))
+        .unwrap();
+        assert_ne!(
+            get(&defaults.values, "SCCACHE_DIR"),
+            get(&isolated.values, "SCCACHE_DIR")
+        );
+        assert_ne!(
+            get(&defaults.values, "SCCACHE_SERVER_UDS"),
+            get(&isolated.values, "SCCACHE_SERVER_UDS")
+        );
+        assert_eq!(
+            get(&isolated.values, "SCCACHE_DIR"),
+            Some(OsStr::new("/isolated/cache"))
+        );
+        assert_eq!(
+            get(&isolated.values, "SCCACHE_SERVER_UDS"),
+            Some(OsStr::new("/isolated/server.sock"))
         );
     }
     #[test]

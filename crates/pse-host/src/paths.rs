@@ -105,12 +105,41 @@ impl<'a> HostPaths<'a> {
         if let Some(path) = self.selected("SCCACHE_SERVER_UDS") {
             return Ok(path.into());
         }
+        self.default_compiler_cache_socket()
+    }
+
+    fn default_compiler_cache_socket(&self) -> Result<PathBuf, EnvironmentError> {
         match self.selected("XDG_RUNTIME_DIR") {
             Some(path) => Ok(PathBuf::from(path).join("pse-sccache.sock")),
             None => Ok(self
                 .base(UserDirectory::Cache)?
                 .join("pse-arrow/sccache.sock")),
         }
+    }
+
+    /// Select the default pair together or an explicitly isolated pair.
+    pub(crate) fn compiler_cache_pair(&self) -> Result<(PathBuf, PathBuf), EnvironmentError> {
+        let directory = self.compiler_cache()?;
+        let endpoint = self.compiler_cache_socket()?;
+        let default_directory = self.base(UserDirectory::Cache)?.join("pse-arrow/sccache");
+        let default_endpoint = self.default_compiler_cache_socket()?;
+        if (directory == default_directory) != (endpoint == default_endpoint) {
+            return Err(EnvironmentError(
+                "select a distinct SCCACHE_DIR and SCCACHE_SERVER_UDS together".into(),
+            ));
+        }
+        if !directory.is_absolute() {
+            return Err(EnvironmentError("SCCACHE_DIR must be absolute".into()));
+        }
+        let address = endpoint.to_str().ok_or_else(|| {
+            EnvironmentError("SCCACHE_SERVER_UDS must be UTF-8".into())
+        })?;
+        if !endpoint.is_absolute() && !address.starts_with("\\x00") {
+            return Err(EnvironmentError(
+                "SCCACHE_SERVER_UDS must be absolute or a Linux abstract address".into(),
+            ));
+        }
+        Ok((directory, endpoint))
     }
     /// Admission requires a selected absolute runtime base; no home fallback is valid.
     pub fn runtime(&self) -> Result<PathBuf, EnvironmentError> {

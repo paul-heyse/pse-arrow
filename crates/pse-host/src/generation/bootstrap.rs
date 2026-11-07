@@ -117,7 +117,7 @@ fn build_environment(inputs: &Environment) -> Result<Environment, HostError> {
     }
     // A fixed construction environment makes additional ambient variables incapable of
     // changing compiler/build-script output without entering the fingerprint.
-    Ok(inputs
+    let mut environment: Environment = inputs
         .iter()
         .filter(|(name, _)| {
             let Some(name) = name.to_str() else {
@@ -172,7 +172,11 @@ fn build_environment(inputs: &Environment) -> Result<Environment, HostError> {
                 || name.starts_with("SCCACHE_")
         })
         .map(|(key, value)| (key.clone(), value.clone()))
-        .collect())
+        .collect();
+    // Cargo consults its user configuration when these selections are absent.
+    environment.insert("RUSTC_WRAPPER".into(), OsString::new());
+    environment.insert("RUSTC_WORKSPACE_WRAPPER".into(), OsString::new());
+    Ok(environment)
 }
 
 fn context(rustc: String, cargo: String, environment: &Environment) -> BuildContext {

@@ -30,6 +30,60 @@ fn exact_version_observation_rejects_prefix_or_suffix_drift() {
 }
 
 #[test]
+fn compiler_cache_stats_distinguish_live_daemon_from_configured_defaults() -> Result {
+    let values = Environment::from([
+        ("SCCACHE_SERVER_UDS".into(), "/selected/cache.sock".into()),
+        ("SCCACHE_DIR".into(), "/selected/cache".into()),
+        ("SCCACHE_CLIENT_SIDE".into(), "1".into()),
+        ("SCCACHE_MAX_FRAME_LENGTH".into(), "268435456".into()),
+        ("SCCACHE_NO_CACHE".into(), "".into()),
+    ]);
+    let mut stats = serde_json::json!({
+        "version": "0.19.0",
+        "effective_cache_mode": null,
+        "cache_location": "Local disk: \"/selected/cache\"",
+        "cache_size": 0,
+        "max_cache_size": 107_374_182_400_u64,
+        "use_preprocessor_cache_mode": false,
+    });
+    let assess = |stats: &serde_json::Value| {
+        assess_cache_daemon(stats.to_string().as_bytes(), &values, Some("0.19.0"))
+    };
+    assert!(assess(&stats).unwrap_err().contains("no live daemon"));
+
+    stats["effective_cache_mode"] = serde_json::json!("ReadWrite");
+    let observed = assess(&stats)?;
+    for fact in [
+        "sccache 0.19.0 at /selected/cache.sock",
+        "backend disk",
+        "mode ReadWrite",
+        "maximum bytes 107374182400",
+        "client frame bytes 268435456",
+        "request bypass",
+    ] {
+        assert!(observed.contains(fact), "{observed}");
+    }
+
+    stats["cache_location"] = serde_json::json!("Local disk: \"/another/cache\"");
+    assert!(assess(&stats).unwrap_err().contains("different local cache directory"));
+    stats["version"] = serde_json::json!("0.18.0");
+    assert!(assess(&stats).unwrap_err().contains("expected 0.19.0"));
+    Ok(())
+}
+
+#[test]
+fn compiler_cache_listener_census_keeps_duplicate_bindings_visible() {
+    let table = b"Num RefCount Protocol Flags Type St Inode Path\n\
+        00: 02 00000000 00010000 0001 01 10 /cache/space endpoint\n\
+        00: 02 00000000 00010000 0001 01 11 /cache/space endpoint\n\
+        00: 03 00000000 00000000 0001 03 12 /cache/space endpoint\n\
+        00: 03 00000000 00010000 0001 01 13 @private-endpoint\n";
+    assert_eq!(unix_listener_count(table, OsStr::new("/cache/space endpoint")), 2);
+    assert_eq!(unix_listener_count(table, OsStr::new("\\x00private-endpoint")), 1);
+    assert_eq!(unix_listener_count(table, OsStr::new("/cache/space")), 0);
+}
+
+#[test]
 fn component_observation_requires_each_declared_component() {
     let mut probe = probe(None);
     probe.components = Some(vec!["rustfmt".into(), "clippy".into(), "rust-src".into()]);

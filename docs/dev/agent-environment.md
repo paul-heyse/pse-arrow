@@ -132,12 +132,17 @@ the parent. The mapping is never evaluated as shell source. Failure leaves paren
 unchanged. Printed programs, explanations and debug views omit private values; source-free
 explanation leaves unread personal choices unresolved.
 
+The independent `scripts/bootstrap-host` seed and its native generation construction
+compile directly. Both explicitly disable Cargo wrappers, including wrappers configured in
+the user's Cargo home.
+
 The environment selects existing checkout-local tool paths, compiler inputs and native
 sccache. It provisions no virtual environment or provider. Cache `auto` falls back to direct
 compilation when optional cache prerequisites or supported modes are absent; required cache
 selection refuses incompatible settings. `--cache off` disables wrapping even with an invalid
-inherited binary. Successful compiler output remains successful if only the cache service
-disappears; genuine compiler failure propagates. The Python per-compiler router is retired.
+inherited binary. The direct sccache executable owns cache startup and I/O error handling.
+The [build guide](build-performance.md#compiler-cache) describes the selected mode and the
+boundaries of its fallback behavior.
 
 ## Explicit compiler/KLU preparation
 
@@ -151,13 +156,21 @@ scripts/pse-host server select
 just surreal-module
 ```
 
-Supported capability names are `compiler,solver,klu,isolation,uno,petsc`. Preparation owns
+Supported capability names are `compiler,solver,klu,isolation,uno,petsc,coolprop`. Preparation owns
 source/tool observation and immutable publication; selection admits only completed compatible
 artifacts. `--native=CAPABILITIES` selects them, bare `--native` uses
 `PSE_NATIVE_CAPABILITIES` or the full default `solver,klu,isolation,uno,petsc`, and explicit
 `--native=` selects native runtime settings without providers. Launch never constructs a
 missing provider. Compiler/KLU has a bounded live scientific qualification basis; other
 provider controls do not establish every scientific consumer's acceptance.
+
+`coolprop` explicitly constructs the pinned source plus maintained saturation C export,
+using checksum-retained CPM dependencies and the selected Python header-generation tool.
+Configuration uses local sources only. Selection exports its immutable `COOLPROP_DIR`;
+the maintained sys binding consumes that completed image without a bundled fallback or
+Cargo-time native construction. The backend build admits the exact source/patch/image
+recipe and retains it in the native Water profile. Wet equipment qualification remains
+separate from artifact and endpoint ABI controls (ADR-0238).
 
 Native generations live under the selected cache root, with compiler/KLU in `rust-v1/kinsol`.
 Explicit preparation snapshots the default CMake compiler-cache bridge into immutable

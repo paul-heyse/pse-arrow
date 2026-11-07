@@ -45,16 +45,19 @@ changes still rerun the script. This policy applies to recipes, rust-analyzer an
 correctness commands. It preserves meaningful
 compiler, feature, profile or validation differences.
 
+## Compiler cache
+
 Ordinary local `just` commands and direnv select the versioned managed `sccache`
 declared in `.config/diagnostic-tools.toml`; an unrelated PATH binary does not replace it.
 The current selection is 0.19.0. Install it with `just diagnostic-tools sccache` or
 `just bootstrap-rust-tools`.
-`just doctor` verifies the managed executable's bytes and version and reports the effective
-selection without installing anything. Service admission checks the selected managed bytes
-against the declaration while computing its existing executable-generation identity.
+`just doctor` verifies the selected managed executable's bytes and version. It asks the
+effective endpoint for daemon statistics without starting a daemon. The report distinguishes
+the daemon's storage mode, backend, version and size from the client's selected compilation
+mode and frame size. A configured cache with no live daemon is reported separately.
 Explicit `RUSTC_WRAPPER` settings take precedence, including the empty string and custom
 wrappers. `PSE_SCCACHE_BINARY` selects an alternative real ELF binary on the managed
-wrapper route; doctor reports its actual version/path as an override. A missing optional
+wrapper route. Doctor reports the selected executable and checks its release version. A missing optional
 managed install leaves automatic builds unwrapped; explicit cache-on requests refuse.
 CI retains its existing cache policy. Workspace
 crates use O2, with incremental compilation in dev/test; release retains non-incremental
@@ -91,11 +94,17 @@ No `target-cpu=native`, fast-math, panic-abort or global incremental
 disable is introduced. Correctness recipes still request Arrow force validation.
 
 The automatic local cache has a 100 GiB budget under
-`${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`, with a dedicated endpoint. It
-does not stop the user's default cache server. An explicit `SCCACHE_DIR` keeps the
-user's server configuration. Ordinary managed-cache statistics observe the admitted service.
+`${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`. The endpoint is
+`$XDG_RUNTIME_DIR/pse-sccache.sock` when the runtime directory is set, with a cache-directory
+sibling as the fallback. A custom cache experiment must select both a distinct `SCCACHE_DIR`
+and a distinct `SCCACHE_SERVER_UDS`. Each disk directory needs a single writer.
+The upstream filesystem-socket startup unlinks the pathname before it binds. Concurrent cold
+starts can leave two listeners claiming that name. Doctor reports a duplicate listener as
+unhealthy, even if the reachable daemon responds to the statistics query.
 Compiler-cache eligibility, successful artifact restoration and end-to-end feedback latency
 are separate observations; a hit counter alone establishes no workflow speedup.
+[sccache local storage](https://github.com/mozilla/sccache/blob/v0.19.0/docs/Local.md) ·
+[sccache 0.19.0 listener](https://github.com/mozilla/sccache/blob/v0.19.0/src/server.rs)
 
 The shared environment requires sccache client-side compilation, keeping compiler
 children inside the invoking operation's supervision. It disables the C/C++ direct
@@ -104,17 +113,20 @@ include shortcut so preprocessing observes newly present headers. The repository
 remain supported. The presence of `SCCACHE_LOG` (even an empty value) or a configured
 distributed scheduler disables upstream client-side compilation. The repository also
 restricts `SCCACHE_ERROR_LOG` on this route. These settings cause ordinary builds to use
-the compiler directly; direct managed compiler calls refuse before service admission. An explicit cache
-experiment refuses those settings rather than measuring a different execution mode.
-The local cache remains a trusted build input, not an artifact provenance authority.
+the compiler directly. An explicit cache-on command rejects incompatible settings.
+`SCCACHE_IGNORE_SERVER_IO_ERROR=1` covers a server-side compile response error. It did
+not recover a failed storage handshake in the 0.19.0 client-side probe and remains unset
+by default. The cache remains a trusted build input.
+[sccache 0.19.0 client paths](https://github.com/mozilla/sccache/blob/v0.19.0/src/commands.rs)
 
 Client-side cache publication sends a complete compressed entry over daemon IPC.
 `.config/build.toml` declares a 256 MiB message ceiling; `SCCACHE_MAX_FRAME_LENGTH`
 can select another positive decimal byte limit, up to the protocol's four-byte bound.
-The managed service captures this selection in its generation identity and scrubbed
-daemon environment, and nested recipes, language servers, installer contexts and
-measurements retain it. The resident daemon has an 8 GiB supervised memory allowance.
-Neither ceiling is a standing memory allocation; actual large transfers consume buffers.
+The environment passes it to the direct sccache executable. Upstream sccache starts the
+daemon with its launching environment and reuses the listener already present at the selected
+endpoint. A live daemon can therefore retain a previous frame or backend setting. The host
+does not provision a separate service generation or a resident daemon memory allowance.
+The client and daemon frame ceilings limit messages. Actual large transfers consume buffers.
 The 100 GiB disk budget and default compression remain unchanged.
 Raising the frame ceiling does not enlarge existing entries. Newly accepted large entries
 incur actual IPC and storage work on publication; later restoration can avoid compilation.

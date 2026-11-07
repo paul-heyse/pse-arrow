@@ -45,8 +45,9 @@ if [ -n "$source_checkout" ]; then
     fi
 fi
 cd "$root"
-# A cold checkout must not enter the retiring interpreter compiler wrappers.
-unset RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER CARGO_BUILD_RUSTC_WRAPPER CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER
+# The independent seed compiles directly, including when Cargo home config names a wrapper.
+unset CARGO_BUILD_RUSTC_WRAPPER CARGO_BUILD_RUSTC_WORKSPACE_WRAPPER
+export RUSTC_WRAPPER= RUSTC_WORKSPACE_WRAPPER=
 selected="$root/target/host-tools"
 mkdir -p "$selected"
 # Only explicit updates serialize, per checkout. Cargo and installed tools never

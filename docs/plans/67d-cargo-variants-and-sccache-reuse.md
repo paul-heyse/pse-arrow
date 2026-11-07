@@ -191,6 +191,16 @@ selection had one matching `arrow-array` dependency unit and native correctness 
 explicit force validation. This establishes the two source contexts for the comparison.
 Consumer mapping and the post-migration variant census remain open.
 
+The managed route now verifies the selected 0.19.0 binary and reports actual daemon
+readiness, storage location, mode, and listener multiplicity. It validates a selected frame
+size and keeps alternate endpoints paired with alternate storage roots. Cold host preparation
+explicitly selects direct Rust compilation even when a user Cargo config supplies a wrapper.
+The isolated pinned-nightly metadata probe restored both outputs byte-for-byte and missed after
+an included source changed. The client-side handshake refusal was identical with
+`SCCACHE_IGNORE_SERVER_IO_ERROR` set and unset. A separate six-client control exposed six
+listeners on one stock 0.19 filesystem socket. The writer lifetime fix, representative large
+restore, and critical-path measurements remain open.
+
 ## Acceptance
 
 Preserve the actual selected test assertions, provider integrity, and force-validation

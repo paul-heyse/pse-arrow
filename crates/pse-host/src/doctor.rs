@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Read-only native checkout diagnostics; no dependency or service preparation.
-use crate::environment::{self, Environment, EnvironmentSettings};
+use crate::{
+    diagnostic_tools::{self, Tool},
+    environment::{self, Environment, EnvironmentSettings},
+};
 use serde::Serialize;
 use std::{
     ffi::{OsStr, OsString},
@@ -63,6 +66,7 @@ struct Probe {
     arguments: Vec<OsString>,
     expected: Option<String>,
     components: Option<Vec<String>>,
+    cache_environment: Option<Environment>,
     blocking: bool,
     fix: String,
     timeout: Duration,
@@ -81,6 +85,7 @@ impl Probe {
             arguments: vec!["--version".into()],
             expected,
             components: None,
+            cache_environment: None,
             blocking,
             fix: fix.into(),
             timeout: Duration::from_secs(10),
@@ -129,8 +134,15 @@ impl Probe {
         Check::new(self.name, self.blocking, outcome, self.fix)
     }
     async fn execute(&self, root: &Path) -> Result<String, String> {
-        let mut child = tokio::process::Command::new(&self.program)
-            .args(&self.arguments)
+        let mut command = tokio::process::Command::new(&self.program);
+        if let Some(environment) = &self.cache_environment {
+            let endpoint = cache_endpoint(environment)?;
+            if observed_cache_listeners(endpoint)? == 0 {
+                return Err(format!("no live daemon observed at {}", endpoint.to_string_lossy()));
+            }
+            command.env_clear().envs(environment);
+        }
+        let mut child = command.args(&self.arguments)
             .current_dir(root)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -168,16 +180,129 @@ impl Probe {
         let status = status?;
         let (stdout, stderr) = (stdout?, stderr?);
         if !status.success() {
+            if self.cache_environment.is_some() {
+                return Err(format!("sccache daemon observation failed with {status}"));
+            }
             return Err(format!(
                 "{} exited {status}: {}",
                 self.program.display(),
                 String::from_utf8_lossy(&stderr).trim()
             ));
         }
+        if let Some(environment) = &self.cache_environment {
+            let observed = assess_cache_daemon(&stdout, environment, self.expected.as_deref())?;
+            return match observed_cache_listeners(cache_endpoint(environment)?)? {
+                1 => Ok(observed),
+                0 => Err(format!("{observed}; listener no longer observed")),
+                count => Err(format!("{observed}; {count} listening sockets claim this endpoint")),
+            };
+        }
         let mut text = stdout;
         text.extend_from_slice(&stderr);
-        self.assess(&String::from_utf8_lossy(&text))
+        let observed = self.assess(&String::from_utf8_lossy(&text))?;
+        if self.name == "compiler-cache" {
+            return Ok(format!("{observed} at {}", self.program.display()));
+        }
+        Ok(observed)
     }
+}
+
+fn cache_endpoint(environment: &Environment) -> Result<&OsStr, String> {
+    environment
+        .get(OsStr::new("SCCACHE_SERVER_UDS"))
+        .map(OsString::as_os_str)
+        .ok_or_else(|| "sccache Unix endpoint unavailable".into())
+}
+
+fn observed_cache_listeners(endpoint: &OsStr) -> Result<usize, String> {
+    let table = std::fs::read("/proc/net/unix")
+        .map_err(|error| format!("sccache listener ownership unavailable: {error}"))?;
+    Ok(unix_listener_count(&table, endpoint))
+}
+
+fn unix_listener_count(table: &[u8], endpoint: &OsStr) -> usize {
+    use std::os::unix::ffi::OsStrExt as _;
+    let endpoint = endpoint.as_bytes();
+    let abstract_name = endpoint.strip_prefix(b"\\x00");
+    table
+        .split(|byte| *byte == b'\n')
+        .filter(|line| {
+            // Procfs labels live AF_UNIX stream listeners with SO_ACCEPTCON
+            // and prints an abstract address with '@' in place of its first NUL.
+            let mut fields = line.splitn(8, |byte| *byte == b' ');
+            if fields.nth(3) != Some(&b"00010000"[..])
+                || fields.next() != Some(&b"0001"[..])
+            {
+                return false;
+            }
+            let Some(path) = fields.nth(2) else { return false };
+            match abstract_name {
+                Some(name) => path.strip_prefix(b"@") == Some(name),
+                None => path == endpoint,
+            }
+        })
+        .count()
+}
+
+#[derive(serde::Deserialize)]
+struct CacheDaemonStats {
+    version: String,
+    effective_cache_mode: Option<String>,
+    cache_location: String,
+    cache_size: Option<u64>,
+    max_cache_size: Option<u64>,
+    use_preprocessor_cache_mode: bool,
+}
+
+fn assess_cache_daemon(
+    output: &[u8],
+    environment: &Environment,
+    expected: Option<&str>,
+) -> Result<String, String> {
+    let stats: CacheDaemonStats = serde_json::from_slice(output)
+        .map_err(|_| "sccache daemon statistics did not match the 0.19 format".to_owned())?;
+    let selected = |name: &str| {
+        environment.get(OsStr::new(name)).and_then(|value| value.to_str()).unwrap_or("unselected")
+    };
+    let endpoint = selected("SCCACHE_SERVER_UDS");
+    let mode = stats.effective_cache_mode.as_deref().ok_or_else(|| {
+        format!("no live daemon observed at {endpoint}; sccache returned configured defaults")
+    })?;
+    if let Some(expected) = expected
+        && stats.version != expected
+    {
+        return Err(format!("daemon at {endpoint} has version {}; expected {expected}", stats.version));
+    }
+    // Remote location metadata can contain endpoint details. Report the backend
+    // name only. The local path is checked against the selected directory.
+    let backend = if stats.cache_location.starts_with("Local disk: ") {
+        let directory = Path::new(selected("SCCACHE_DIR"));
+        if stats.cache_location != format!("Local disk: {directory:?}") {
+            return Err(format!("daemon at {endpoint} uses a different local cache directory"));
+        }
+        "disk"
+    } else if stats.cache_location.starts_with("Multi-level (") {
+        "multi-level"
+    } else {
+        stats.cache_location.split_once(',').map_or("unknown", |(name, _)| name)
+    };
+    let extent = |bytes: Option<u64>| bytes.map_or_else(|| "unreported".into(), |bytes| bytes.to_string());
+    let request = if environment.contains_key(OsStr::new("SCCACHE_NO_CACHE")) {
+        "bypass"
+    } else if environment.contains_key(OsStr::new("SCCACHE_RECACHE")) {
+        "recache"
+    } else {
+        "normal"
+    };
+    Ok(format!(
+        "sccache {} at {endpoint}; backend {backend}; mode {mode}; current bytes {}; maximum bytes {}; daemon direct preprocessing {}; client-side compilation {}; client frame bytes {}; request {request}",
+        stats.version,
+        extent(stats.cache_size),
+        extent(stats.max_cache_size),
+        stats.use_preprocessor_cache_mode,
+        selected("SCCACHE_CLIENT_SIDE"),
+        selected("SCCACHE_MAX_FRAME_LENGTH"),
+    ))
 }
 async fn output(
     input: impl tokio::io::AsyncRead + Unpin,
@@ -211,6 +336,48 @@ fn executable(name: &str, environment: &Environment) -> PathBuf {
         .unwrap_or_else(|| PathBuf::from(name))
 }
 
+const CACHE_FIX: &str = "prepare the declared sccache or select direct compilation explicitly";
+
+fn compiler_cache_probes(root: &Path, values: Environment) -> Result<[Probe; 2], String> {
+    let wrapper = values.get(OsStr::new("RUSTC_WRAPPER"));
+    let Some(wrapper) = wrapper.filter(|wrapper| !wrapper.is_empty()) else {
+        return Err(if wrapper.is_some() {
+            "effective compiler route is direct".into()
+        } else {
+            "managed compiler cache was not selected by the effective environment".into()
+        });
+    };
+    let binary = PathBuf::from(wrapper);
+    if binary.file_name() != Some(OsStr::new("sccache")) {
+        return Err(format!("effective compiler wrapper is {}", binary.display()));
+    }
+    let expected = diagnostic_tools::tool_spec(root, Tool::Sccache)
+        .map_err(|error| error.to_string())?
+        .version;
+    if binary == diagnostic_tools::binary_path(root, Tool::Sccache, &values)
+        .map_err(|error| error.to_string())?
+    {
+        diagnostic_tools::verify(root, Tool::Sccache, &values)
+            .map_err(|error| error.to_string())?;
+    }
+    let binary = if binary == Path::new("sccache") {
+        executable("sccache", &values)
+    } else {
+        binary
+    };
+    let version = Probe::version("compiler-cache", binary.clone(), Some(expected.clone()), false, CACHE_FIX);
+    let mut daemon = Probe::version(
+        "compiler-cache-daemon",
+        binary,
+        Some(expected),
+        false,
+        "use the effective compiler-cache endpoint and inspect its existing daemon",
+    );
+    daemon.arguments = ["--show-stats", "--stats-format=json"].map(OsString::from).to_vec();
+    daemon.cache_environment = Some(values);
+    Ok([version, daemon])
+}
+
 fn declarations(root: &Path, environment: &Environment) -> (Vec<Check>, Vec<Probe>) {
     let mut checks = Vec::new();
     let mut probes = Vec::new();
@@ -234,25 +401,9 @@ fn declarations(root: &Path, environment: &Environment) -> (Vec<Check>, Vec<Prob
                 )),
                 "",
             ));
-            if let Some(binary) = settings.cache_binary {
-                let expected = load(&root.join(".config/diagnostic-tools.toml"))
-                    .ok()
-                    .and_then(|tools| {
-                        tools
-                            .get("sccache")
-                            .and_then(|tool| tool.get("version"))
-                            .and_then(toml::Value::as_str)
-                            .map(str::to_owned)
-                    });
-                probes.push(Probe::version(
-                    "compiler-cache",
-                    binary,
-                    expected,
-                    false,
-                    "prepare the declared sccache or select direct compilation explicitly",
-                ));
-            } else {
-                checks.push(Check::new("compiler-cache", false, Err("native cache unavailable or deliberately disabled; direct compilation remains available".into()), "prepare the declared optional sccache if cache use is wanted"));
+            match compiler_cache_probes(root, plan.values) {
+                Ok(cache) => probes.extend(cache),
+                Err(reason) => checks.push(Check::new("compiler-cache", false, Err(reason), CACHE_FIX)),
             }
         }
         Err(error) => checks.push(Check::new(
@@ -392,7 +543,9 @@ fn declarations(root: &Path, environment: &Environment) -> (Vec<Check>, Vec<Prob
                             tool.get("version").and_then(toml::Value::as_str),
                             tool.get("member").and_then(toml::Value::as_str),
                         ) {
-                            match crate::diagnostic_tools::Tool::parse(name).and_then(|tool| crate::diagnostic_tools::verify(root, tool, environment)) {
+                            match Tool::parse(name)
+                                .and_then(|tool| diagnostic_tools::verify(root, tool, environment))
+                            {
                                 Ok(binary) => probes.push(Probe::version(format!("optional-{name}"), binary, Some(version.into()), false, "prepare the selected optional diagnostic tool explicitly")),
                                 Err(error) => checks.push(Check::new(format!("optional-{name}"), false, Err(error.to_string()), "prepare the selected optional diagnostic tool explicitly; doctor never repairs an unverified installation")),
                             }
