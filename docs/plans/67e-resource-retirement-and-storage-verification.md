@@ -152,7 +152,7 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
 | E03 | planned | Existing resource ownership and named hold contract from history companion | Purpose-bound scratch, stores and campaigns release through their original owners. Verify selected evidence before release. |
-| E04 | planned | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
+| E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
 | E05 | in-progress | E03 release semantics and exact current unit identity | Native fixture teardown remains truthful and owner-proven legacy fragments can retire. Persistent telemetry follows its own owner. |
 | E06 | planned | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
 
@@ -200,3 +200,10 @@ disabled, unloaded Surreal definition passed the exact pre-release checks and wa
 The independent post-release observation found the fragment absent and telemetry definitions
 and manager identities consistent with the preview. The remaining candidates are pending their
 individual owner rechecks.
+
+The incident runtime fixture release verified 19 original completed preparations, each with
+two exact captured executables and a capsule matching the current selection's digest.
+The release removed 29,886,689,280 allocated bytes. The native reader independently verified
+the current capsule and native lane afterward. Five older preparations and four generations
+without a complete original preparation were held. The remaining retirement classes still
+need their own owner paths.

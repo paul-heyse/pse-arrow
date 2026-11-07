@@ -1,0 +1,907 @@
+diff --git a/Cargo.toml b/Cargo.toml
+index afcd3a7cffb1f40433d38f9c6d85526337986da4..450694b0a384f20c0694a1dc090da2cc1cf94e79 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -57,20 +57,8 @@ version = "1.1"
+ version = "0.72"
+ optional = true
+ 
+-[target.'cfg(all(target_os = "linux", target_arch = "aarch64"))'.dependencies.coolprop-sys-linux-aarch64]
+-version = "8.0.0"
+-
+-[target.'cfg(all(target_os = "linux", target_arch = "x86_64"))'.dependencies.coolprop-sys-linux-x86-64]
+-version = "8.0.0"
+-
+-[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies.coolprop-sys-macos-aarch64]
+-version = "8.0.0"
++[build-dependencies.sha2]
++version = "=0.11.0"
+ 
+-[target.'cfg(all(target_os = "macos", target_arch = "x86_64"))'.dependencies.coolprop-sys-macos-x86-64]
+-version = "8.0.0"
+-
+-[target.'cfg(all(target_os = "windows", target_arch = "aarch64"))'.dependencies.coolprop-sys-windows-aarch64]
+-version = "8.0.0"
+-
+-[target.'cfg(all(target_os = "windows", target_arch = "x86_64"))'.dependencies.coolprop-sys-windows-x86-64]
+-version = "8.0.0"
++[build-dependencies.serde_json]
++version = "=1.0.151"
+diff --git a/CoolPropLib.h b/CoolPropLib.h
+index 91a0fabb58945090c3aa10a6c58b0d9e65aaaeb7..797ee8c712fed91da9700c40738d8215609a82d9 100644
+--- a/CoolPropLib.h
++++ b/CoolPropLib.h
+@@ -195,6 +195,9 @@ EXPORT_CODE double CONVENTION AbstractState_keyed_output(const long handle, cons
+                                                          long *errcode, char *message_buffer,
+                                                          const long buffer_length);
+ 
++EXPORT_CODE double CONVENTION AbstractState_second_saturation_deriv(const long handle, const long Of,
++    const long Wrt1, const long Wrt2, long* errcode, char* message_buffer, const long buffer_length);
++
+ EXPORT_CODE double CONVENTION AbstractState_first_saturation_deriv(const long handle, const long Of,
+                                                                    const long Wrt, long *errcode,
+                                                                    char *message_buffer,
+diff --git a/build.rs b/build.rs
+index 3bc5d90d6d3975e6aa0db0d338b9507dcf4c3fb3..d64b4f58889d2bd98536198a9a59f89f85e3a231 100644
+--- a/build.rs
++++ b/build.rs
+@@ -1,4 +1,25 @@
+ fn main() {
++    use sha2::{Digest, Sha256};
++    use std::{env, fs, path::PathBuf};
++    println!("cargo:rerun-if-env-changed=COOLPROP_DIR");
++    let prefix = PathBuf::from(env::var_os("COOLPROP_DIR").expect("explicit CoolProp native preparation is required"));
++    assert!(prefix.is_absolute(), "CoolProp prepared prefix must be absolute");
++    let image = prefix.join("lib/libCoolProp.so");
++    let receipt = prefix.join(".complete.json");
++    println!("cargo:rerun-if-changed={}", receipt.display());
++    println!("cargo:rerun-if-changed={}", image.display());
++    let bytes = fs::read(&receipt).expect("completed CoolProp preparation receipt");
++    let document: serde_json::Value = serde_json::from_slice(&bytes).expect("valid preparation receipt");
++    assert_eq!(document["version"], 1);
++    assert_eq!(document["identity"]["kind"], "coolprop");
++    let digest: String = Sha256::digest(fs::read(&image).expect("prepared CoolProp image"))
++        .iter()
++        .map(|byte| format!("{byte:02x}"))
++        .collect();
++    assert_eq!(document["files"]["lib/libCoolProp.so"], digest);
++    fs::write(PathBuf::from(env::var_os("OUT_DIR").unwrap()).join("coolprop-receipt.json"), bytes).unwrap();
++    println!("cargo:rustc-env=PSE_COOLPROP_IMAGE={}", image.display());
++    println!("cargo:rustc-env=PSE_COOLPROP_IMAGE_SHA256={digest}");
+     #[cfg(feature = "regen-bindings")]
+     {
+         use std::{env, path::PathBuf};
+diff --git a/pse-patch.md b/pse-patch.md
+new file mode 100644
+index 0000000000000000000000000000000000000000..bef4c86b60772697cb0783fb6e1faab796db61b0
+--- /dev/null
++++ b/pse-patch.md
+@@ -0,0 +1,17 @@
++# CoolProp sys native-provider integration
++
++This maintained copy retains `coolprop-sys` 8.0.0's upstream process-wide access lock,
++native handle API and licenses. Its original published archive is SHA256
++`7d388a1023cf8236d1a9f372db5f3ade4dc752b7588eef68848bba2050b2eb08`.
++The source VCS revision is `30801b93f8a27dfa7f93537151bc5d39630d3f24`.
++
++The local manifest removes bundled platform-image dependencies. The build consumes
++`COOLPROP_DIR` from explicit immutable native preparation, checks its original receipt/image
++and records that image for the existing global loader. It neither downloads nor builds native
++code. The matched C declaration adds the library-owned second saturation derivative export;
++`xtask codegen --only bindgen` regenerates the function table. The backend additionally checks
++the declared native source/patch recipe and this maintained supplier's complete delta.
++
++The native C export patch is separate from this Rust supplier delta. It lives inside the
++original CoolProp wrapper's handle manager and exception boundary; no second state owner,
++EOS, interpolation or production finite-difference derivative is introduced (ADR-0238).
+diff --git a/src/bindings_generated.rs b/src/bindings_generated.rs
+index 866c48aefe6465d7fa476c74d85051cd21c7e06f..ecf036f10fbb7def168c305ae38fb28b4138d3a8 100644
+--- a/src/bindings_generated.rs
++++ b/src/bindings_generated.rs
+@@ -1,4 +1,5 @@
+-// automatically generated by rust-bindgen 0.72.1
++// @generated by cargo xtask codegen --only bindgen; do not edit
++/* automatically generated by rust-bindgen 0.73.2 */
+ 
+ pub const __bool_true_false_are_defined: u32 = 1;
+ pub const true_: u32 = 1;
+@@ -247,6 +248,15 @@ pub struct CoolProp {
+         message_buffer: *mut ::core::ffi::c_char,
+         buffer_length: ::core::ffi::c_long,
+     ) -> f64,
++    pub AbstractState_second_saturation_deriv: unsafe extern "C" fn(
++        handle: ::core::ffi::c_long,
++        Of: ::core::ffi::c_long,
++        Wrt1: ::core::ffi::c_long,
++        Wrt2: ::core::ffi::c_long,
++        errcode: *mut ::core::ffi::c_long,
++        message_buffer: *mut ::core::ffi::c_char,
++        buffer_length: ::core::ffi::c_long,
++    ) -> f64,
+     pub AbstractState_first_saturation_deriv: unsafe extern "C" fn(
+         handle: ::core::ffi::c_long,
+         Of: ::core::ffi::c_long,
+@@ -507,10 +517,10 @@ impl CoolProp {
+     where
+         P: AsRef<::std::ffi::OsStr>,
+     {
++        let path = path.as_ref();
+         let library = ::libloading::Library::new(path)?;
+         Self::from_library(library)
+     }
+-
+     pub unsafe fn from_library<L>(library: L) -> Result<Self, ::libloading::Error>
+     where
+         L: Into<::libloading::Library>,
+@@ -521,18 +531,22 @@ impl CoolProp {
+         let PropsSI = __library.get(b"PropsSI\0").map(|sym| *sym)?;
+         let PropsSImulti = __library.get(b"PropsSImulti\0").map(|sym| *sym)?;
+         let PhaseSI = __library.get(b"PhaseSI\0").map(|sym| *sym)?;
+-        let get_global_param_string =
+-            __library.get(b"get_global_param_string\0").map(|sym| *sym)?;
+-        let get_parameter_information_string =
+-            __library.get(b"get_parameter_information_string\0").map(|sym| *sym)?;
++        let get_global_param_string = __library
++            .get(b"get_global_param_string\0")
++            .map(|sym| *sym)?;
++        let get_parameter_information_string = __library
++            .get(b"get_parameter_information_string\0")
++            .map(|sym| *sym)?;
+         let get_fluid_param_string = __library.get(b"get_fluid_param_string\0").map(|sym| *sym)?;
+-        let get_fluid_param_string_len =
+-            __library.get(b"get_fluid_param_string_len\0").map(|sym| *sym)?;
++        let get_fluid_param_string_len = __library
++            .get(b"get_fluid_param_string_len\0")
++            .map(|sym| *sym)?;
+         let set_config_string = __library.get(b"set_config_string\0").map(|sym| *sym)?;
+         let set_config_double = __library.get(b"set_config_double\0").map(|sym| *sym)?;
+         let set_config_bool = __library.get(b"set_config_bool\0").map(|sym| *sym)?;
+-        let set_departure_functions =
+-            __library.get(b"set_departure_functions\0").map(|sym| *sym)?;
++        let set_departure_functions = __library
++            .get(b"set_departure_functions\0")
++            .map(|sym| *sym)?;
+         let set_reference_stateS = __library.get(b"set_reference_stateS\0").map(|sym| *sym)?;
+         let set_reference_stateD = __library.get(b"set_reference_stateD\0").map(|sym| *sym)?;
+         let propssi_ = __library.get(b"propssi_\0").map(|sym| *sym)?;
+@@ -550,77 +564,112 @@ impl CoolProp {
+         let HAProps = __library.get(b"HAProps\0").map(|sym| *sym)?;
+         let haprops_ = __library.get(b"haprops_\0").map(|sym| *sym)?;
+         let AbstractState_factory = __library.get(b"AbstractState_factory\0").map(|sym| *sym)?;
+-        let AbstractState_fluid_names =
+-            __library.get(b"AbstractState_fluid_names\0").map(|sym| *sym)?;
++        let AbstractState_fluid_names = __library
++            .get(b"AbstractState_fluid_names\0")
++            .map(|sym| *sym)?;
+         let AbstractState_free = __library.get(b"AbstractState_free\0").map(|sym| *sym)?;
+-        let AbstractState_set_fractions =
+-            __library.get(b"AbstractState_set_fractions\0").map(|sym| *sym)?;
+-        let AbstractState_get_mole_fractions =
+-            __library.get(b"AbstractState_get_mole_fractions\0").map(|sym| *sym)?;
+-        let AbstractState_get_mole_fractions_satState =
+-            __library.get(b"AbstractState_get_mole_fractions_satState\0").map(|sym| *sym)?;
+-        let AbstractState_get_fugacity =
+-            __library.get(b"AbstractState_get_fugacity\0").map(|sym| *sym)?;
+-        let AbstractState_get_fugacity_coefficient =
+-            __library.get(b"AbstractState_get_fugacity_coefficient\0").map(|sym| *sym)?;
++        let AbstractState_set_fractions = __library
++            .get(b"AbstractState_set_fractions\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_mole_fractions = __library
++            .get(b"AbstractState_get_mole_fractions\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_mole_fractions_satState = __library
++            .get(b"AbstractState_get_mole_fractions_satState\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_fugacity = __library
++            .get(b"AbstractState_get_fugacity\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_fugacity_coefficient = __library
++            .get(b"AbstractState_get_fugacity_coefficient\0")
++            .map(|sym| *sym)?;
+         let AbstractState_update = __library.get(b"AbstractState_update\0").map(|sym| *sym)?;
+-        let AbstractState_specify_phase =
+-            __library.get(b"AbstractState_specify_phase\0").map(|sym| *sym)?;
+-        let AbstractState_unspecify_phase =
+-            __library.get(b"AbstractState_unspecify_phase\0").map(|sym| *sym)?;
+-        let AbstractState_keyed_output =
+-            __library.get(b"AbstractState_keyed_output\0").map(|sym| *sym)?;
+-        let AbstractState_first_saturation_deriv =
+-            __library.get(b"AbstractState_first_saturation_deriv\0").map(|sym| *sym)?;
+-        let AbstractState_first_partial_deriv =
+-            __library.get(b"AbstractState_first_partial_deriv\0").map(|sym| *sym)?;
+-        let AbstractState_second_two_phase_deriv =
+-            __library.get(b"AbstractState_second_two_phase_deriv\0").map(|sym| *sym)?;
+-        let AbstractState_second_partial_deriv =
+-            __library.get(b"AbstractState_second_partial_deriv\0").map(|sym| *sym)?;
+-        let AbstractState_first_two_phase_deriv_splined =
+-            __library.get(b"AbstractState_first_two_phase_deriv_splined\0").map(|sym| *sym)?;
+-        let AbstractState_first_two_phase_deriv =
+-            __library.get(b"AbstractState_first_two_phase_deriv\0").map(|sym| *sym)?;
+-        let AbstractState_update_and_common_out =
+-            __library.get(b"AbstractState_update_and_common_out\0").map(|sym| *sym)?;
+-        let AbstractState_update_and_1_out =
+-            __library.get(b"AbstractState_update_and_1_out\0").map(|sym| *sym)?;
+-        let AbstractState_update_and_5_out =
+-            __library.get(b"AbstractState_update_and_5_out\0").map(|sym| *sym)?;
+-        let AbstractState_set_binary_interaction_double =
+-            __library.get(b"AbstractState_set_binary_interaction_double\0").map(|sym| *sym)?;
+-        let AbstractState_set_cubic_alpha_C =
+-            __library.get(b"AbstractState_set_cubic_alpha_C\0").map(|sym| *sym)?;
+-        let AbstractState_set_fluid_parameter_double =
+-            __library.get(b"AbstractState_set_fluid_parameter_double\0").map(|sym| *sym)?;
+-        let AbstractState_build_phase_envelope =
+-            __library.get(b"AbstractState_build_phase_envelope\0").map(|sym| *sym)?;
+-        let AbstractState_get_phase_envelope_data =
+-            __library.get(b"AbstractState_get_phase_envelope_data\0").map(|sym| *sym)?;
++        let AbstractState_specify_phase = __library
++            .get(b"AbstractState_specify_phase\0")
++            .map(|sym| *sym)?;
++        let AbstractState_unspecify_phase = __library
++            .get(b"AbstractState_unspecify_phase\0")
++            .map(|sym| *sym)?;
++        let AbstractState_keyed_output = __library
++            .get(b"AbstractState_keyed_output\0")
++            .map(|sym| *sym)?;
++        let AbstractState_second_saturation_deriv = __library
++            .get(b"AbstractState_second_saturation_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_first_saturation_deriv = __library
++            .get(b"AbstractState_first_saturation_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_first_partial_deriv = __library
++            .get(b"AbstractState_first_partial_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_second_two_phase_deriv = __library
++            .get(b"AbstractState_second_two_phase_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_second_partial_deriv = __library
++            .get(b"AbstractState_second_partial_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_first_two_phase_deriv_splined = __library
++            .get(b"AbstractState_first_two_phase_deriv_splined\0")
++            .map(|sym| *sym)?;
++        let AbstractState_first_two_phase_deriv = __library
++            .get(b"AbstractState_first_two_phase_deriv\0")
++            .map(|sym| *sym)?;
++        let AbstractState_update_and_common_out = __library
++            .get(b"AbstractState_update_and_common_out\0")
++            .map(|sym| *sym)?;
++        let AbstractState_update_and_1_out = __library
++            .get(b"AbstractState_update_and_1_out\0")
++            .map(|sym| *sym)?;
++        let AbstractState_update_and_5_out = __library
++            .get(b"AbstractState_update_and_5_out\0")
++            .map(|sym| *sym)?;
++        let AbstractState_set_binary_interaction_double = __library
++            .get(b"AbstractState_set_binary_interaction_double\0")
++            .map(|sym| *sym)?;
++        let AbstractState_set_cubic_alpha_C = __library
++            .get(b"AbstractState_set_cubic_alpha_C\0")
++            .map(|sym| *sym)?;
++        let AbstractState_set_fluid_parameter_double = __library
++            .get(b"AbstractState_set_fluid_parameter_double\0")
++            .map(|sym| *sym)?;
++        let AbstractState_build_phase_envelope = __library
++            .get(b"AbstractState_build_phase_envelope\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_phase_envelope_data = __library
++            .get(b"AbstractState_get_phase_envelope_data\0")
++            .map(|sym| *sym)?;
+         let AbstractState_get_phase_envelope_data_checkedMemory = __library
+             .get(b"AbstractState_get_phase_envelope_data_checkedMemory\0")
+             .map(|sym| *sym)?;
+-        let AbstractState_build_spinodal =
+-            __library.get(b"AbstractState_build_spinodal\0").map(|sym| *sym)?;
+-        let AbstractState_get_spinodal_data =
+-            __library.get(b"AbstractState_get_spinodal_data\0").map(|sym| *sym)?;
+-        let AbstractState_all_critical_points =
+-            __library.get(b"AbstractState_all_critical_points\0").map(|sym| *sym)?;
+-        let AbstractState_keyed_output_satState =
+-            __library.get(b"AbstractState_keyed_output_satState\0").map(|sym| *sym)?;
+-        let AbstractState_backend_name =
+-            __library.get(b"AbstractState_backend_name\0").map(|sym| *sym)?;
+-        let AbstractState_fluid_param_string =
+-            __library.get(b"AbstractState_fluid_param_string\0").map(|sym| *sym)?;
++        let AbstractState_build_spinodal = __library
++            .get(b"AbstractState_build_spinodal\0")
++            .map(|sym| *sym)?;
++        let AbstractState_get_spinodal_data = __library
++            .get(b"AbstractState_get_spinodal_data\0")
++            .map(|sym| *sym)?;
++        let AbstractState_all_critical_points = __library
++            .get(b"AbstractState_all_critical_points\0")
++            .map(|sym| *sym)?;
++        let AbstractState_keyed_output_satState = __library
++            .get(b"AbstractState_keyed_output_satState\0")
++            .map(|sym| *sym)?;
++        let AbstractState_backend_name = __library
++            .get(b"AbstractState_backend_name\0")
++            .map(|sym| *sym)?;
++        let AbstractState_fluid_param_string = __library
++            .get(b"AbstractState_fluid_param_string\0")
++            .map(|sym| *sym)?;
+         let AbstractState_phase = __library.get(b"AbstractState_phase\0").map(|sym| *sym)?;
+-        let AbstractState_saturated_liquid_keyed_output =
+-            __library.get(b"AbstractState_saturated_liquid_keyed_output\0").map(|sym| *sym)?;
+-        let AbstractState_saturated_vapor_keyed_output =
+-            __library.get(b"AbstractState_saturated_vapor_keyed_output\0").map(|sym| *sym)?;
++        let AbstractState_saturated_liquid_keyed_output = __library
++            .get(b"AbstractState_saturated_liquid_keyed_output\0")
++            .map(|sym| *sym)?;
++        let AbstractState_saturated_vapor_keyed_output = __library
++            .get(b"AbstractState_saturated_vapor_keyed_output\0")
++            .map(|sym| *sym)?;
+         let add_fluids_as_JSON = __library.get(b"add_fluids_as_JSON\0").map(|sym| *sym)?;
+-        let C_is_valid_fluid_string =
+-            __library.get(b"C_is_valid_fluid_string\0").map(|sym| *sym)?;
++        let C_is_valid_fluid_string = __library
++            .get(b"C_is_valid_fluid_string\0")
++            .map(|sym| *sym)?;
+         let C_extract_backend = __library.get(b"C_extract_backend\0").map(|sym| *sym)?;
+         Ok(CoolProp {
+             __library,
+@@ -665,6 +714,7 @@ impl CoolProp {
+             AbstractState_specify_phase,
+             AbstractState_unspecify_phase,
+             AbstractState_keyed_output,
++            AbstractState_second_saturation_deriv,
+             AbstractState_first_saturation_deriv,
+             AbstractState_first_partial_deriv,
+             AbstractState_second_two_phase_deriv,
+@@ -694,7 +744,6 @@ impl CoolProp {
+             C_extract_backend,
+         })
+     }
+-
+     pub unsafe fn Props1SI(
+         &self,
+         FluidName: *const ::core::ffi::c_char,
+@@ -702,7 +751,6 @@ impl CoolProp {
+     ) -> f64 {
+         (self.Props1SI)(FluidName, Output)
+     }
+-
+     pub unsafe fn Props1SImulti(
+         &self,
+         Outputs: *const ::core::ffi::c_char,
+@@ -723,7 +771,6 @@ impl CoolProp {
+             resdim1,
+         )
+     }
+-
+     pub unsafe fn PropsSI(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -735,7 +782,6 @@ impl CoolProp {
+     ) -> f64 {
+         (self.PropsSI)(Output, Name1, Prop1, Name2, Prop2, FluidName)
+     }
+-
+     pub unsafe fn PropsSImulti(
+         &self,
+         Outputs: *const ::core::ffi::c_char,
+@@ -770,7 +816,6 @@ impl CoolProp {
+             resdim2,
+         )
+     }
+-
+     pub unsafe fn PhaseSI(
+         &self,
+         Name1: *const ::core::ffi::c_char,
+@@ -783,7 +828,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.PhaseSI)(Name1, Prop1, Name2, Prop2, FluidName, phase, n)
+     }
+-
+     pub unsafe fn get_global_param_string(
+         &self,
+         param: *const ::core::ffi::c_char,
+@@ -792,7 +836,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.get_global_param_string)(param, Output, n)
+     }
+-
+     pub unsafe fn get_parameter_information_string(
+         &self,
+         param: *const ::core::ffi::c_char,
+@@ -801,7 +844,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.get_parameter_information_string)(param, Output, n)
+     }
+-
+     pub unsafe fn get_fluid_param_string(
+         &self,
+         fluid: *const ::core::ffi::c_char,
+@@ -811,7 +853,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.get_fluid_param_string)(fluid, param, Output, n)
+     }
+-
+     pub unsafe fn get_fluid_param_string_len(
+         &self,
+         fluid: *const ::core::ffi::c_char,
+@@ -819,7 +860,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.get_fluid_param_string_len)(fluid, param)
+     }
+-
+     pub unsafe fn set_config_string(
+         &self,
+         key: *const ::core::ffi::c_char,
+@@ -827,15 +867,12 @@ impl CoolProp {
+     ) {
+         (self.set_config_string)(key, val)
+     }
+-
+     pub unsafe fn set_config_double(&self, key: *const ::core::ffi::c_char, val: f64) {
+         (self.set_config_double)(key, val)
+     }
+-
+     pub unsafe fn set_config_bool(&self, key: *const ::core::ffi::c_char, val: bool) {
+         (self.set_config_bool)(key, val)
+     }
+-
+     pub unsafe fn set_departure_functions(
+         &self,
+         string_data: *const ::core::ffi::c_char,
+@@ -845,7 +882,6 @@ impl CoolProp {
+     ) {
+         (self.set_departure_functions)(string_data, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn set_reference_stateS(
+         &self,
+         Ref: *const ::core::ffi::c_char,
+@@ -853,7 +889,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_int {
+         (self.set_reference_stateS)(Ref, reference_state)
+     }
+-
+     pub unsafe fn set_reference_stateD(
+         &self,
+         Ref: *const ::core::ffi::c_char,
+@@ -864,7 +899,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_int {
+         (self.set_reference_stateD)(Ref, T, rhomolar, hmolar0, smolar0)
+     }
+-
+     pub unsafe fn propssi_(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -877,38 +911,30 @@ impl CoolProp {
+     ) {
+         (self.propssi_)(Output, Name1, Prop1, Name2, Prop2, FluidName, output)
+     }
+-
+     pub unsafe fn F2K(&self, T_F: f64) -> f64 {
+         (self.F2K)(T_F)
+     }
+-
+     pub unsafe fn K2F(&self, T_K: f64) -> f64 {
+         (self.K2F)(T_K)
+     }
+-
+     pub unsafe fn get_param_index(&self, param: *const ::core::ffi::c_char) -> ::core::ffi::c_long {
+         (self.get_param_index)(param)
+     }
+-
+     pub unsafe fn get_input_pair_index(
+         &self,
+         pair: *const ::core::ffi::c_char,
+     ) -> ::core::ffi::c_long {
+         (self.get_input_pair_index)(pair)
+     }
+-
+     pub unsafe fn redirect_stdout(&self, file: *const ::core::ffi::c_char) -> ::core::ffi::c_long {
+         (self.redirect_stdout)(file)
+     }
+-
+     pub unsafe fn get_debug_level(&self) -> ::core::ffi::c_int {
+         (self.get_debug_level)()
+     }
+-
+     pub unsafe fn set_debug_level(&self, level: ::core::ffi::c_int) {
+         (self.set_debug_level)(level)
+     }
+-
+     pub unsafe fn saturation_ancillary(
+         &self,
+         fluid_name: *const ::core::ffi::c_char,
+@@ -919,7 +945,6 @@ impl CoolProp {
+     ) -> f64 {
+         (self.saturation_ancillary)(fluid_name, output, Q, input, value)
+     }
+-
+     pub unsafe fn HAPropsSI(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -932,11 +957,9 @@ impl CoolProp {
+     ) -> f64 {
+         (self.HAPropsSI)(Output, Name1, Prop1, Name2, Prop2, Name3, Prop3)
+     }
+-
+     pub unsafe fn cair_sat(&self, T: f64) -> f64 {
+         (self.cair_sat)(T)
+     }
+-
+     pub unsafe fn hapropssi_(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -950,7 +973,6 @@ impl CoolProp {
+     ) {
+         (self.hapropssi_)(Output, Name1, Prop1, Name2, Prop2, Name3, Prop3, output)
+     }
+-
+     pub unsafe fn HAProps(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -963,7 +985,6 @@ impl CoolProp {
+     ) -> f64 {
+         (self.HAProps)(Output, Name1, Prop1, Name2, Prop2, Name3, Prop3)
+     }
+-
+     pub unsafe fn haprops_(
+         &self,
+         Output: *const ::core::ffi::c_char,
+@@ -977,7 +998,6 @@ impl CoolProp {
+     ) {
+         (self.haprops_)(Output, Name1, Prop1, Name2, Prop2, Name3, Prop3, output)
+     }
+-
+     pub unsafe fn AbstractState_factory(
+         &self,
+         backend: *const ::core::ffi::c_char,
+@@ -988,7 +1008,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_long {
+         (self.AbstractState_factory)(backend, fluids, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_fluid_names(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -999,7 +1018,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_fluid_names)(handle, fluids, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_free(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1009,7 +1027,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_free)(handle, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_set_fractions(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1028,7 +1045,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_get_mole_fractions(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1049,7 +1065,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_get_mole_fractions_satState(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1072,7 +1087,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_get_fugacity(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1083,7 +1097,6 @@ impl CoolProp {
+     ) -> f64 {
+         (self.AbstractState_get_fugacity)(handle, i, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_get_fugacity_coefficient(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1100,7 +1113,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_update(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1121,7 +1133,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_specify_phase(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1132,7 +1143,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_specify_phase)(handle, phase, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_unspecify_phase(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1142,7 +1152,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_unspecify_phase)(handle, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_keyed_output(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1153,7 +1162,26 @@ impl CoolProp {
+     ) -> f64 {
+         (self.AbstractState_keyed_output)(handle, param, errcode, message_buffer, buffer_length)
+     }
+-
++    pub unsafe fn AbstractState_second_saturation_deriv(
++        &self,
++        handle: ::core::ffi::c_long,
++        Of: ::core::ffi::c_long,
++        Wrt1: ::core::ffi::c_long,
++        Wrt2: ::core::ffi::c_long,
++        errcode: *mut ::core::ffi::c_long,
++        message_buffer: *mut ::core::ffi::c_char,
++        buffer_length: ::core::ffi::c_long,
++    ) -> f64 {
++        (self.AbstractState_second_saturation_deriv)(
++            handle,
++            Of,
++            Wrt1,
++            Wrt2,
++            errcode,
++            message_buffer,
++            buffer_length,
++        )
++    }
+     pub unsafe fn AbstractState_first_saturation_deriv(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1172,7 +1200,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_first_partial_deriv(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1193,7 +1220,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_second_two_phase_deriv(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1218,7 +1244,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_second_partial_deriv(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1243,7 +1268,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_first_two_phase_deriv_splined(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1266,7 +1290,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_first_two_phase_deriv(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1287,7 +1310,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_update_and_common_out(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1320,7 +1342,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_update_and_1_out(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1347,7 +1368,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_update_and_5_out(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1382,7 +1402,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_set_binary_interaction_double(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1405,7 +1424,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_set_cubic_alpha_C(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1430,7 +1448,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_set_fluid_parameter_double(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1451,7 +1468,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_build_phase_envelope(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1468,7 +1484,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_get_phase_envelope_data(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1497,7 +1512,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_get_phase_envelope_data_checkedMemory(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1532,7 +1546,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_build_spinodal(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1542,7 +1555,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_build_spinodal)(handle, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_get_spinodal_data(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1565,7 +1577,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_all_critical_points(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1590,7 +1601,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_keyed_output_satState(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1609,7 +1619,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_backend_name(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1620,7 +1629,6 @@ impl CoolProp {
+     ) {
+         (self.AbstractState_backend_name)(handle, backend, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_fluid_param_string(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1641,7 +1649,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_phase(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1651,7 +1658,6 @@ impl CoolProp {
+     ) -> ::core::ffi::c_int {
+         (self.AbstractState_phase)(handle, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn AbstractState_saturated_liquid_keyed_output(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1668,7 +1674,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn AbstractState_saturated_vapor_keyed_output(
+         &self,
+         handle: ::core::ffi::c_long,
+@@ -1685,7 +1690,6 @@ impl CoolProp {
+             buffer_length,
+         )
+     }
+-
+     pub unsafe fn add_fluids_as_JSON(
+         &self,
+         backend: *const ::core::ffi::c_char,
+@@ -1696,14 +1700,12 @@ impl CoolProp {
+     ) {
+         (self.add_fluids_as_JSON)(backend, fluidstring, errcode, message_buffer, buffer_length)
+     }
+-
+     pub unsafe fn C_is_valid_fluid_string(
+         &self,
+         fluidName: *const ::core::ffi::c_char,
+     ) -> ::core::ffi::c_int {
+         (self.C_is_valid_fluid_string)(fluidName)
+     }
+-
+     pub unsafe fn C_extract_backend(
+         &self,
+         fluid_string: *const ::core::ffi::c_char,
+diff --git a/src/lib.rs b/src/lib.rs
+index bb5ece265456f0f465c9515b62aba8544866ba4f..26188fee0fb8168d1ef4bff5bcf3dd8a3fd5e8c7 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -106,19 +106,12 @@ use std::{
+ 
+ pub mod bindings;
+ 
+-/// `CoolProp` dynamic library absolute path.
+-#[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_linux_aarch64::COOLPROP_PATH;
+-#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_linux_x86_64::COOLPROP_PATH;
+-#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_macos_aarch64::COOLPROP_PATH;
+-#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_macos_x86_64::COOLPROP_PATH;
+-#[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_windows_aarch64::COOLPROP_PATH;
+-#[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+-pub const COOLPROP_PATH: &str = coolprop_sys_windows_x86_64::COOLPROP_PATH;
++/// Authenticated explicitly prepared native image; no bundled fallback.
++pub const COOLPROP_PATH: &str = env!("PSE_COOLPROP_IMAGE");
++/// SHA256 of the image admitted by the consuming build.
++pub const COOLPROP_IMAGE_SHA256: &str = env!("PSE_COOLPROP_IMAGE_SHA256");
++/// Original immutable preparation receipt consumed by this build.
++pub const COOLPROP_RECEIPT: &str = include_str!(concat!(env!("OUT_DIR"), "/coolprop-receipt.json"));
+ 
+ /// Process-wide synchronization boundary for the loaded `CoolProp` dynamic library.
+ ///

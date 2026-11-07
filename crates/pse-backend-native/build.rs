@@ -26,6 +26,8 @@ mod build_link;
 mod build_receipt;
 #[path = "build-source.rs"]
 mod build_source;
+#[path = "build-coolprop.rs"]
+mod build_coolprop;
 
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 
@@ -34,6 +36,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("cargo:rerun-if-changed=build-link.rs");
     println!("cargo:rerun-if-changed=build_receipt.rs");
     println!("cargo:rerun-if-changed=build-source.rs");
+    println!("cargo:rerun-if-changed=build-coolprop.rs");
     let isolation = env::var_os("CARGO_FEATURE_ROOT_ISOLATION").is_some();
     if isolation {
         println!("cargo:rerun-if-env-changed=PSE_ROOT_ISOLATION_DIR");
@@ -105,6 +108,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").ok_or("CARGO_MANIFEST_DIR unset")?)
         .join("../..");
     supplier_sources(&out, &root, &workspace_manifest)?;
+    if env::var_os("CARGO_FEATURE_COOLPROP").is_some() {
+        build_coolprop::authenticate(&out, &root, &workspace_manifest)?;
+    }
     kinsol_profile(&out)?;
     Ok(())
 }

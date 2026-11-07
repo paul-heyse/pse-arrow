@@ -18,6 +18,7 @@ build = "build.rs"
 # Provider requirements are consumed from actual selected backend unit features by the host.
 # build.rs still owns link inputs; this table owns preparation capability selection.
 [package.metadata.pse.native-capabilities]
+coolprop = ["coolprop"]
 ipopt = ["solver"]
 scip = ["solver"]
 sdp = ["solver"]

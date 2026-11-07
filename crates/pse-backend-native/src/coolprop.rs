@@ -5,8 +5,8 @@
 //! ADR-0238: source declarations select an offline descriptor; a caller explicitly
 //! prepares and supplies the corresponding registration. No source name loads code.
 //! Release data: <https://github.com/CoolProp/CoolProp/tree/ae81610e7d23efc57f9d051c8e70a4d66e87537f>.
-//! The initial Linux x86_64 image is authenticated against the library in the published
-//! <https://static.crates.io/crates/coolprop-sys-linux-x86-64/coolprop-sys-linux-x86-64-8.0.0.crate>.
+//! One explicitly prepared source/patch/dependency/toolchain image serves homogeneous and
+//! saturated calls; build admission and runtime bytes retain the same original receipt.
 //! The admitted process profile has no global CoolProp reference/configuration mutation. A newly
 //! constructed scalar or grouped state relies on that lifetime premise; a common native h/u shift
 //! would preserve energy consistency while changing the factory's original datum. An embedding that
@@ -37,8 +37,6 @@ pub const COOLPROP_REVISION: &str = "ae81610e7d23efc57f9d051c8e70a4d66e87537f";
 /// Exact released scientific parameter source, distinct from the wrapper revision.
 pub const WATER_JSON_SHA256: &str =
     "85021d3803d2b02edb1d3e90bd60f4eee4a70380e06ed6b7b44e57716b4c2266";
-const LINUX_X86_64_SHA256: &str =
-    "5c53697a38d09dc5afea0c4976b790a8803ac4cd51d6b10af9b8ed9c2fdc3105";
 const REVISION: &str = "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02";
 const FITTED_GAS_CONSTANT: f64 = 8.314_371_357_587;
 const MOLAR_MASS: f64 = 0.018_015_268;
@@ -382,7 +380,8 @@ impl WaterFactory {
             .hash(&spec.identity())
             .str(COOLPROP_REVISION)
             .str(WATER_JSON_SHA256)
-            .str(LINUX_X86_64_SHA256);
+            .str(coolprop_sys::COOLPROP_IMAGE_SHA256)
+            .str(include_str!(concat!(env!("OUT_DIR"), "/coolprop-profile.json")));
         for value in [
             reference.temperature,
             reference.pressure,
@@ -443,12 +442,12 @@ pub fn registration(
 fn ensure_library() -> Result<(), ProviderError> {
     if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         return Err(terminal(
-            "CoolProp capability is unprepared: this platform's bundled artifact is not yet qualified",
+            "CoolProp capability is unprepared: this source-prepared target is not yet qualified",
         ));
     }
     if !Path::new(coolprop_sys::COOLPROP_PATH).is_file() {
         return Err(terminal(
-            "CoolProp capability is unprepared: bundled native library is absent",
+            "CoolProp capability is unprepared: selected native library is absent",
         ));
     }
     let image = std::fs::read(coolprop_sys::COOLPROP_PATH)
@@ -457,16 +456,16 @@ fn ensure_library() -> Result<(), ProviderError> {
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
-    if digest != LINUX_X86_64_SHA256 {
+    if digest != coolprop_sys::COOLPROP_IMAGE_SHA256 {
         return Err(terminal(
-            "CoolProp prepared artifact differs from the selected published platform image",
+            "CoolProp prepared artifact differs from the authenticated compiled image",
         ));
     }
     std::panic::catch_unwind(|| std::sync::LazyLock::force(&COOLPROP))
         .map(|_| ())
         .map_err(|_| {
             terminal(
-                "CoolProp capability is unprepared: bundled library or required ABI failed to load",
+                "CoolProp capability is unprepared: selected library or required ABI failed to load",
             )
         })
 }

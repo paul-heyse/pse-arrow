@@ -178,10 +178,10 @@ until the relevant toolchain has a real consumer.
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | D01 | in-progress | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
-| D02 | planned | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
+| D02 | in-progress | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
 | D03 | in-progress | Managed 0.19.0 and stable representative selections. Timing can begin before D02 rollout. | Truthful managed-route configuration and stats, representative metadata and large-entry restoration, changed-input and fallback controls, and recorded timings. |
-| D04 | planned | Native owner and representative command context | Demonstrated restore of identified GCC/Clang outputs under existing provider contracts. A direct-mode trial needs separate negative-header evidence. |
-| D05 | planned | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Read-only remote promotion and outage evidence with a proceed or defer outcome for an optional real backend. |
+| D04 | in-progress | Native owner and representative command context | Demonstrated restore of identified GCC/Clang outputs under existing provider contracts. A direct-mode trial needs separate negative-header evidence. |
+| D05 | complete | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Verified private disk/WebDAV promotion and failure behavior. Defer deployment until a named compatible consumer shows representative transfer and recovery savings. |
 
 ## Execution checkpoint — November 7
 
@@ -198,8 +198,30 @@ explicitly selects direct Rust compilation even when a user Cargo config supplie
 The isolated pinned-nightly metadata probe restored both outputs byte-for-byte and missed after
 an included source changed. The client-side handshake refusal was identical with
 `SCCACHE_IGNORE_SERVER_IO_ERROR` set and unset. A separate six-client control exposed six
-listeners on one stock 0.19 filesystem socket. The writer lifetime fix, representative large
-restore, and critical-path measurements remain open.
+listeners on one stock 0.19 filesystem socket. The writer lifetime fix, representative
+DataFusion or Symbolica restore, and critical-path measurements remain open.
+
+An isolated pinned-nightly Cargo package with the managed binary showed a warm incremental
+freshness path without cache work and a non-incremental check miss and write followed by a
+Rust hit after its selected outputs were removed. Under the 256 MiB frame, a separate
+non-incremental Cargo build restored a 41,947,450-byte library and a 41,945,356-byte metadata
+file byte-for-byte with one write, one hit and zero write errors. The controls establish
+eligibility and output recovery. Repository workload timing still governs lane adoption.
+
+The native CMake bridge already covers CoolProp and KLU. The pinned `cc` crate uses the
+selected wrapper for its compatible local shims. PETSc
+`make all` now supplies a compiler launcher only for C/C++ compilation. The pinned
+PETSc translation-unit probe restored both object and dependency output byte-for-byte,
+as did the CoolProp CMake bridge controls. Direct mode restored stale output after a new
+optional include and a newly introduced shadow header in the private GCC probe. Ordinary
+preprocessing correctly missed in both cases. Keep direct mode disabled.
+
+The private WebDAV control recorded an initial absent key, read-only L1 restore and L0
+backfill, credential refusal, remote write refusal, and mid-run and startup unavailability.
+The `l0` policy continued using local storage. The `all` startup policy refused the
+unavailable tier. The consumer matched the producer's object and dependency bytes, then
+served the next compile without a remote request. Defer a deployed tier until a named
+compatible consumer establishes representative savings.
 
 ## Acceptance
 

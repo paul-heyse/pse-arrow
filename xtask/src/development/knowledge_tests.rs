@@ -274,7 +274,6 @@ fn knowledge_query_checks_version_before_body_and_preserves_predicate() {
     assert!(KnowledgeQuery::decode_json(br#"{"mode":"subjects"}"#).is_err());
     assert!(KnowledgeQuery::decode_json(br#"{"version":1,"version":1}"#).is_err());
 }
-#[cfg(feature = "canonical-tests")]
 async fn rejects_native_row(
     importer: &EvidenceStore,
     table: &str,
@@ -319,7 +318,6 @@ async fn rejects_native_row(
     );
     Ok(())
 }
-#[cfg(feature = "canonical-tests")]
 fn prepared_object(prepared: &Prepared, table: &str) -> Object {
     let Value::Object(row) = &prepared.rows[table][0] else {
         panic!("prepared typed object")
@@ -402,7 +400,6 @@ fn knowledge_query_refuses_unbounded_or_unstructured_text_and_mixed_modes() {
     request.kind = Some(parsed("generator"));
     assert!(request.validate().is_err());
 }
-#[cfg(feature = "canonical-tests")]
 pub(crate) async fn exercise_native(
     importer: &EvidenceStore,
     reader: &EvidenceStore,

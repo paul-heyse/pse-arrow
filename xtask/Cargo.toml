@@ -74,11 +74,6 @@ canonical-tools = [
   "dep:pse-runtime",
   "pse-operations/canonical-maintenance",
 ]
-canonical-tests = [
-  "package-fixtures",
-  "pse-runtime/canonical-tests",
-  "pse-operations/test-support",
-]
 thermodynamic-oracles = [
   "dep:feos",
   "dep:feos-core",
@@ -193,7 +188,20 @@ miette.workspace = true
 [dev-dependencies]
 protovalidate-buffa-protos.workspace = true
 futures-util.workspace = true
+pse-operations = { workspace = true, features = ["test-support"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
+
+[[package.metadata.pse.test-fixtures]]
+id = "evidence-service-borrowed"
+target = "xtask"
+kind = "lib"
+required-features = ["evidence-tools"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "development::evidence::tests::evidence_native_scoped_roles_complete_generation_and_cursor_fences",
+  "development::developer_history::tests::history_native_roles_replay_conflict_and_unknown_ack",
+]
 
 [[bin]]
 name = "pse-canonical-recovery-fixture"

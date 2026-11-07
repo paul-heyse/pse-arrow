@@ -11,6 +11,8 @@ pub const MAP_PATH: &str = "scripts/generated/generated-outputs.json";
 pub const MAP_PRODUCER: &str = "generated-output-map";
 /// The native ABI producer's existing exact output; also the missing-map protection fallback.
 pub const IPOPT_BINDINGS: &str = "crates/pse-ipopt-sys/src/bindings.rs";
+/// Maintained CoolProp sys ABI generated from its matching native declaration.
+pub const COOLPROP_BINDINGS: &str = "vendor/coolprop-sys/src/bindings_generated.rs";
 /// Current routing wire interpretation.
 pub const VERSION: u32 = 1;
 

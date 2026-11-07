@@ -6,7 +6,7 @@
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeSet, error::Error, fs, path::Path};
 
-fn sha256(bytes: &[u8]) -> String {
+pub(crate) fn sha256(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .map(|byte| format!("{byte:02x}"))

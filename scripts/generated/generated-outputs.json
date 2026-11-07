@@ -71,6 +71,40 @@
       "contributors": null
     },
     {
+      "producer": "coolprop-native-abi",
+      "outputs": [
+        {
+          "path": "vendor/coolprop-sys/src/bindings_generated.rs",
+          "kind": "file"
+        }
+      ],
+      "regenerate": [
+        "just",
+        "codegen",
+        "--only",
+        "bindgen"
+      ],
+      "inputs": [
+        {
+          "path": "Cargo.toml",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/coolprop.rs",
+          "kind": "file"
+        },
+        {
+          "path": "vendor/coolprop-sys/CoolPropLib.h",
+          "kind": "file"
+        },
+        {
+          "path": "vendor/patches/coolprop-saturation-second.patch",
+          "kind": "file"
+        }
+      ],
+      "contributors": null
+    },
+    {
       "producer": "developer-evidence",
       "outputs": [
         {
@@ -1524,6 +1558,14 @@
           "kind": "file"
         },
         {
+          "path": "vendor/coolprop-sys/CoolPropLib.h",
+          "kind": "file"
+        },
+        {
+          "path": "vendor/patches/coolprop-saturation-second.patch",
+          "kind": "file"
+        },
+        {
           "path": "xtask/src/codegen",
           "kind": "tree"
         },
@@ -1533,6 +1575,10 @@
         },
         {
           "path": "xtask/src/codegen/code_intelligence.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/coolprop.rs",
           "kind": "file"
         },
         {

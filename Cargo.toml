@@ -338,7 +338,7 @@ faer = { version = "=0.24.4", default-features = false, features = [
 ] }
 feos = { version = "=0.10.1", default-features = false, features = ["pcsaft"] }
 feos-core = { version = "=0.10.1", default-features = false }
-coolprop-sys = "=8.0.0"
+coolprop-sys = { version = "=8.0.0", path = "vendor/coolprop-sys" }
 nalgebra = { version = "=0.35.0", default-features = false, features = ["std"] }
 highs = "=2.4.0"
 highs-sys = "=1.15.0"
@@ -637,6 +637,26 @@ unsafe-allowlist = [
 ]
 
 # Dependencies consumed by standalone source tooling, outside the workspace graph.
+# One explicitly prepared CoolProp image; no bundled native fallback (ADR-0238).
+[workspace.metadata.pse.coolprop]
+version = "8.0.0"
+revision = "ae81610e7d23efc57f9d051c8e70a4d66e87537f"
+archive = "https://codeload.github.com/CoolProp/CoolProp/tar.gz/ae81610e7d23efc57f9d051c8e70a4d66e87537f"
+sha256 = "ee35a029f647ea43ef55864343a39be33461dc3b20f3e9520d8ec8815b66c7a6"
+patch = "vendor/patches/coolprop-saturation-second.patch"
+options = ["COOLPROP_SHARED_LIBRARY=ON", "COOLPROP_RELEASE=ON", "BUILD_TESTING=OFF", "COOLPROP_NO_EXAMPLES=ON", "CMAKE_CXX_FLAGS=-ffp-contract=off -fno-fast-math"]
+dependencies = [
+  { name = "Eigen", archive = "https://gitlab.com/libeigen/eigen/-/archive/5.0.1/eigen-5.0.1.tar.gz", sha256 = "e9c326dc8c05cd1e044c71f30f1b2e34a6161a3b6ecf445d56b53ff1669e3dec" },
+  { name = "msgpack-c", archive = "https://codeload.github.com/msgpack/msgpack-c/tar.gz/919908742b4fdbc575e77fe1a8657e70c9573c44", sha256 = "d05fb365d0546323af9748f1f85ab7ff9ef80c103bc052594401ece410018589" },
+  { name = "nlohmann_json", archive = "https://codeload.github.com/nlohmann/json/tar.gz/refs/tags/v3.12.0", sha256 = "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187" },
+  { name = "valijson", archive = "https://codeload.github.com/tristanpenman/valijson/tar.gz/refs/tags/v1.0.6", sha256 = "bf0839de19510ff7792d8a8aca94ea11a288775726b36c4c9a2662651870f8da" },
+  { name = "IF97", archive = "https://codeload.github.com/CoolProp/IF97/tar.gz/7aaced024a702f0985474bf293cdaae9c8d06521", sha256 = "f62207a854293b1814f2619477d71e17ffaf04cf448c2bd79d173336eb4d36f6" },
+  { name = "REFPROP_headers", archive = "https://codeload.github.com/CoolProp/REFPROP-headers/tar.gz/b4faab1b73911c32c4b69c526c7e92f74edb67de", sha256 = "ca0c32502369c710f3525d704edda329337c0a1b157d93a793de95aa0fe4eabb" },
+  { name = "boost_headers", archive = "https://codeload.github.com/CoolProp/boost-headers/tar.gz/c68104660ca4bd80d0d5cb34c4eba0cf5bab3f73", sha256 = "cacfc88dd8959d0a70988d770a05f1320ecea19cc3159be1be2bea94785221d3" },
+  { name = "multicomplex", archive = "https://codeload.github.com/usnistgov/multicomplex/tar.gz/39bf9ca52c7882ff0788bb9087c7548ebd8fba4c", sha256 = "4c63ccbe17d7348134825558cc04e8fd4eecee1c6cd56a4138c45f3c6034f9fc" },
+  { name = "fmt", archive = "https://codeload.github.com/fmtlib/fmt/tar.gz/refs/tags/12.0.0", sha256 = "aa3e8fbb6a0066c03454434add1f1fc23299e85758ceec0d7d2d974431481e40" },
+]
+
 [workspace.metadata.pse.tool-dependencies]
 surrealdb = { version = "=3.3.4", default-features = false, features = [
   "protocol-grpc",

@@ -148,3 +148,10 @@ batch retained 6.7 MiB in its inventory directory after image release. It exerci
 changed bytes, interrupted-release reconciliation, original-byte history projection, and failed
 rerun from a fresh inventory after old executable disposal. Detached work, borrowed scopes and
 independent holds require their own integration. ADR-0255 records the proposed history boundary.
+
+The isolated history pilot has a separate schema and database-scoped writer and reader.
+One immutable row binds the original invocation, selected facts, three original content
+commitments, and finite expiry. The native publication entry acquires the original foreground
+settlement before it reaches the writer. A private pinned-engine control verified schema,
+role isolation, duplicate refusal, exact readback, and expiry index selection. The Rust
+publication, competing writers, and lost-acknowledgement controls remain to be exercised.

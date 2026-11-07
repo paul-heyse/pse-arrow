@@ -61,6 +61,7 @@ fn normalized_generated_and_vcs_paths_stay_protected_when_the_map_is_unavailable
         "crates/a/src/generated/b.rs",
         "crates/pse-operations/src/generated/schema.surql",
         "crates/pse-ipopt-sys/src/bindings.rs",
+        "vendor/coolprop-sys/src/bindings_generated.rs",
         "scripts/generated/settings.rs",
         "xtask/src/generated/item.rs",
     ] {

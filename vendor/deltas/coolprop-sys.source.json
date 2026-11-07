@@ -1,0 +1,58 @@
+{
+  "archive_sha256": "7d388a1023cf8236d1a9f372db5f3ade4dc752b7588eef68848bba2050b2eb08",
+  "delta_sha256": "e0df22355f44bc85a09ef30813e888b4a9912af524c2f05a581aaf492489939c",
+  "files": {
+    ".cargo_vcs_info.json": {
+      "mode": "100644",
+      "sha256": "312ef196e41263cbdb4be1a915ac38d4e158a03969478f2824cebe8e6175b595"
+    },
+    ".clang-format": {
+      "mode": "100644",
+      "sha256": "889de0c77a6ce473d981be32315a12752c0d7e4f59e40a9fc2e4b7a5fb410e02"
+    },
+    "Cargo.lock": {
+      "mode": "100644",
+      "sha256": "aa2a4e57dc55c3550fa6217e4f5f2fd52a661e3eecb496911fabd96ff58ef4bf"
+    },
+    "Cargo.toml": {
+      "mode": "100644",
+      "sha256": "b43db6ae099b66a733b03ce213253bf7f38bc601a37143bcef8aa726a55af413"
+    },
+    "Cargo.toml.orig": {
+      "mode": "100644",
+      "sha256": "1c0f431800d48bbb76b53504aa4b6b8aa25e3338e7c7e451ecbce5fff935374c"
+    },
+    "CoolPropLib.h": {
+      "mode": "100644",
+      "sha256": "a957d7518fda2544a7e99e895fb8e19c0872935a801df9c02c39403490121d69"
+    },
+    "README.md": {
+      "mode": "100644",
+      "sha256": "5dd7e04e08cfab10f85bf81acc514866aa1db2780ad8f1ca8cc8c4061a83ae6c"
+    },
+    "build.rs": {
+      "mode": "100644",
+      "sha256": "5bff3388c8e7a7b67689dff596020fb29f337d92a0669e40370708eea3251d0f"
+    },
+    "pse-patch.md": {
+      "mode": "100644",
+      "sha256": "ec64029aa3b4af63b0d8f2e5fa513d6f51449814ee92cbb747972ffbeef72ab5"
+    },
+    "src/bindings.rs": {
+      "mode": "100644",
+      "sha256": "ef999fb5157e296a751c3b37857ce95923d6cc25dabab91ce99d7faf84194578"
+    },
+    "src/bindings_generated.rs": {
+      "mode": "100644",
+      "sha256": "9ed7fea797d464f1f194262685ac7c9e56ccc85a70a5aa3af9645da09d701ec5"
+    },
+    "src/lib.rs": {
+      "mode": "100644",
+      "sha256": "34b3572ad57051d1c2aa08a73198421e253a55bff02484953d4fd53d3bcb4603"
+    },
+    "tests/concurrent_init.rs": {
+      "mode": "100644",
+      "sha256": "58d35ac47bdba0641898473e6aa17fefd1280d1e3671fbd3c4463bf0a79e1dba"
+    }
+  }
+}

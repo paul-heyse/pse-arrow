@@ -186,4 +186,6 @@ modeling and default runtime checks passed. The fitting retirement control still
 native feature selection. Ordinary Git worktree removal released the assessment checkout
 and target, with 44,861,931,520 allocated bytes in the pre-release checkout. Both external
 invocations had drained native scopes and absent terminal records. Their 629,936,128 allocated
-bytes stay with the original state owner. The other two checkouts still need receiving work.
+bytes stay with the original state owner. An independent incident fixture batch released 19
+superseded runtime generations with 29,886,689,280 allocated bytes. Its currently selected
+capsule and lane passed native readback. The other two checkouts still need retirement work.

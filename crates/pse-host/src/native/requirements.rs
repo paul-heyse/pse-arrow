@@ -62,6 +62,7 @@ mod tests {
     #[test]
     fn declared_backend_features_use_provider_owned_closure() {
         for (feature, expected) in [
+            ("coolprop", "compiler,coolprop"),
             ("ipopt", "solver"),
             ("scip", "solver"),
             ("sdp", "solver"),
@@ -105,7 +106,7 @@ mod tests {
             .collect();
         assert_eq!(
             requirements_from_backend_features(&metadata(), &full).expect("all"),
-            ["compiler", "solver", "klu", "isolation", "uno", "petsc"]
+            ["compiler", "solver", "klu", "isolation", "uno", "petsc", "coolprop"]
                 .into_iter()
                 .map(str::to_owned)
                 .collect()

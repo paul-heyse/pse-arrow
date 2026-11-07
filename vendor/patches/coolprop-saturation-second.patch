@@ -1,0 +1,35 @@
+--- a/src/CoolPropLib.cpp
++++ b/src/CoolPropLib.cpp
+@@ -693,6 +693,20 @@
+     return _HUGE;
+ }
+ 
++EXPORT_CODE double CONVENTION AbstractState_second_saturation_deriv(const long handle, const long Of, const long Wrt1, const long Wrt2,
++    long* errcode, char* message_buffer, const long buffer_length) {
++    *errcode = 0;
++    fpu_reset_guard guard;
++    try {
++        shared_ptr<CoolProp::AbstractState>& AS = handle_manager.get(handle);
++        return AS->second_saturation_deriv(static_cast<CoolProp::parameters>(Of),
++            static_cast<CoolProp::parameters>(Wrt1), static_cast<CoolProp::parameters>(Wrt2));
++    } catch (...) {
++        HandleException(errcode, message_buffer, buffer_length);
++    }
++    return _HUGE;
++}
++
+ EXPORT_CODE double CONVENTION AbstractState_first_saturation_deriv(const long handle, const long Of, const long Wrt, long* errcode,
+                                                                    char* message_buffer, const long buffer_length) {
+     *errcode = 0;
+--- a/include/CoolProp/CoolPropLib.h
++++ b/include/CoolProp/CoolPropLib.h
+@@ -447,6 +447,9 @@
+      * @param buffer_length The length of the buffer for the error code
+      * @return
+      */
++EXPORT_CODE double CONVENTION AbstractState_second_saturation_deriv(const long handle, const long Of,
++    const long Wrt1, const long Wrt2, long* errcode, char* message_buffer, const long buffer_length);
++
+ EXPORT_CODE double CONVENTION AbstractState_keyed_output(const long handle, const long param, long* errcode, char* message_buffer,
+                                                          const long buffer_length);
+ 

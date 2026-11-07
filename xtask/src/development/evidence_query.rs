@@ -603,7 +603,7 @@ fn json_rows(batches: &[RecordBatch]) -> Result<Vec<serde_json::Value>, Evidence
     Ok(rows)
 }
 
-#[cfg(all(test, feature = "canonical-tests"))]
+#[cfg(test)]
 pub(crate) use comparison::tests::exercise_indexed_comparison;
 
 #[cfg(test)]

@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 use super::*;
 use crate::development::evidence::EvidenceFact;
-#[cfg(feature = "canonical-tests")]
 use crate::development::evidence::EvidenceStore;
 
 fn source(id: &str, facts: Vec<EvidenceFact>) -> EvidenceSnapshot {
@@ -347,7 +346,6 @@ async fn evidence_comparison_large_selected_cut_keeps_hidden_ambiguity_and_denom
     assert!(analysis.compare(&request, &[]).await.is_err());
 }
 /// Called by the existing owned service fixture; it controls initialization and cleanup.
-#[cfg(feature = "canonical-tests")]
 pub(crate) async fn exercise_indexed_comparison(
     importer: &EvidenceStore,
     reader: &EvidenceStore,

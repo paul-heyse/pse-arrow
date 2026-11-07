@@ -18,6 +18,7 @@ delta includes its native release replacement and maintained integration.
 
 | Directory | Package | Version | Archive SHA256 | Packaged VCS revision | Packaged VCS path | Origin |
 |---|---|---|---|---|---|---|
+| `coolprop-sys` | `coolprop-sys` | `8.0.0` | `7d388a1023cf8236d1a9f372db5f3ade4dc752b7588eef68848bba2050b2eb08` | `30801b93f8a27dfa7f93537151bc5d39630d3f24` | `coolprop-sys` | https://github.com/portyanikhin/rfluids |
 | `suitesparse-sys` | `suitesparse_sys` | `0.1.4` | `9e4ced97d4de36a6c50e381ae4f9d91d89d056576ceedd2252e4c688dd96b15f` | `590e034a9d708bab072585399e5018d170c87455` | `.` | https://github.com/martinjrobins/suitesparse-sys |
 | `sundials-sys` | `sundials-sys` | `0.6.2` | `6fbd1d53481b83fc758406097f07b668bf243945e2b1f7db93a8f997cf6b44c9` | `86aaec38c3cdb4b0a919e6b006a5bc24e72e7e35` | `.` | https://github.com/Chris00/sundials-sys |
 | `diffsol` | `diffsol` | `0.16.2` | `4b324c954a5178683516e35e06051f02e3e2471d22b8175d9a01b274bd81269d` | `dc30fee49e692c65577b11a1181bfca62f5ebf42` | `crates/diffsol` | https://github.com/martinjrobins/diffsol |
@@ -43,6 +44,7 @@ categories describe the diff and do not assert semantic equivalence.
 
 | Directory | Modified substantive | Modified whitespace-only | Added | Deleted | Delta |
 |---|---:|---:|---:|---:|---|
+| `coolprop-sys` | 5 | 0 | 1 | 0 | [coolprop-sys.patch](coolprop-sys.patch) |
 | `suitesparse-sys` | 1 | 0 | 1 | 0 | [suitesparse-sys.patch](suitesparse-sys.patch) |
 | `sundials-sys` | 657 | 0 | 138 | 103 | [sundials-sys.patch](sundials-sys.patch) |
 | `diffsol` | 2 | 0 | 0 | 0 | [diffsol.patch](diffsol.patch) |

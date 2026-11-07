@@ -108,25 +108,18 @@ fn evidence_config_debug_does_not_disclose_secrets() {
     foreign.endpoint = "grpc://192.0.2.1:8000".into();
     assert!(foreign.address().is_err());
 }
-#[cfg(feature = "canonical-tests")]
 #[tokio::test]
+#[ignore = "requires the explicitly selected native evidence fixture"]
 async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
-    let state = std::path::PathBuf::from(
-        std::env::var("PSE_SURREAL_STATE").expect("explicit selected service required"),
-    );
-    let deployment: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
-    let credentials: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(deployment["credentials_file"].as_str().unwrap()).unwrap(),
-    )
-    .unwrap();
-    let username = credentials["username"].as_str().unwrap();
-    let password = credentials["password"].as_str().unwrap();
+    let fixture = pse_operations::native_fixture::FixtureSelection::selected().unwrap();
+    let service = canonical::CanonicalOptions::from_state(fixture.state()).unwrap();
+    let username = service.username.as_str();
+    let password = service.password.as_str();
     let options = ToolingOptions {
-        endpoint: deployment["endpoint"].as_str().unwrap().into(),
+        endpoint: service.endpoint.clone(),
         namespace: format!("pse_tooling_test_{}", uuid::Uuid::new_v4().simple()),
         database: "evidence".into(),
-        service_instance_id: deployment["instance_id"].as_str().unwrap().into(),
+        service_instance_id: format!("native-fixture:{}", fixture.state().display()),
         credentials: Credentials {
             reader_username: "reader".into(),
             reader_password: uuid::Uuid::new_v4().to_string(),
@@ -152,7 +145,7 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         let mut absence=transport::bounded_query(importer.query("SELECT * FROM evidence_facts:forbidden;")?).await?;
         assert!(absence.take::<Vec<Object>>(0)?.is_empty(),"read-only principal cannot create facts even when native permissions return an empty selection");
         assert!(transport::bounded_query(importer.query("DEFINE USER forbidden ON DATABASE PASSWORD 'not-a-secret' ROLES OWNER;")?).await.is_err());
-        let service_ns=deployment["namespace"].as_str().unwrap();let service_db=deployment["database"].as_str().unwrap();
+        let service_ns=&service.namespace;let service_db=&service.database;
         for (user,pass) in [(&options.credentials.reader_username,&options.credentials.reader_password),(&options.credentials.importer_username,&options.credentials.importer_password)] {
             let probe=EvidenceStore::client(&options).await?;
             probe.signin(Database{namespace:options.namespace.clone(),database:options.database.clone(),username:user.clone(),password:pass.clone()}).request_context(RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std())).await?;

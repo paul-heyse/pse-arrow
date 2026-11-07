@@ -122,6 +122,7 @@ pub fn route(root: &Path, path: &Path) -> Result<EditRoute, HostError> {
     };
     if parts.contains(&OsStr::new("generated"))
         || relative == Path::new(ownership::protocol::IPOPT_BINDINGS)
+        || relative == Path::new(ownership::protocol::COOLPROP_BINDINGS)
     {
         return Ok(EditRoute::Blocked {
             reason: format!(

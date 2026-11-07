@@ -1,5 +1,16 @@
 # Local native supplier corrections
 
+The maintained `coolprop-sys` 8.0.0 integration retains its global access lock and native
+handle API but consumes the explicitly prepared `COOLPROP_DIR` image rather than bundled
+platform-image crates. Its complete source delta includes the matched saturation Second
+declaration and generated ABI; [its patch note](coolprop-sys/pse-patch.md) identifies the
+published baseline. The separately maintained native wrapper/header patch forwards the
+library-owned second saturation derivative through the original CoolProp handle manager
+and error boundary. Workspace native metadata pins every CPM archive and build option;
+explicit preparation records the selected Python header generator/compiler and immutable
+image bytes. Neither Cargo build nor runtime lookup downloads or constructs native code.
+Artifact/ABI controls and wet equipment qualification remain separate (ADR-0238).
+
 These are edited copies of the published, locked crates.io sources, including their
 packaged native trees and upstream license files. Package versions stay unchanged;
 they are local integrations, not upstream releases. The exact archives, checksums,

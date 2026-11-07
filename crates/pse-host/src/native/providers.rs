@@ -3,6 +3,7 @@
 //! Explicit immutable native providers; selection never resolves source or constructs tools.
 use super::*;
 use std::collections::BTreeSet;
+mod coolprop;
 
 const SOLVER: &[&str] = &[
     "include/coin-or/IpIpoptApplication.hpp",
@@ -43,7 +44,7 @@ const PETSC: &[&str] = &[
 ];
 // KLU also selects the compiler context; dependent providers consume that
 // completed context rather than exporting a prior checkout's bridge first.
-const ORDER: &[&str] = &["compiler", "klu", "solver", "isolation", "uno", "petsc"];
+const ORDER: &[&str] = &["compiler", "klu", "solver", "isolation", "uno", "petsc", "coolprop"];
 /// Parser-owned capability atoms, without inspecting sources or installed providers.
 pub fn capability_names() -> &'static [&'static str] {
     ORDER
@@ -55,6 +56,7 @@ fn required(kind: &str) -> &'static [&'static str] {
         "isolation" => ISOLATION,
         "uno" => UNO,
         "petsc" => PETSC,
+        "coolprop" => &["lib/libCoolProp.so", "include/CoolProp/CoolPropLib.h", "share/pse-coolprop/inputs.json"],
         _ => &[],
     }
 }
@@ -65,13 +67,13 @@ pub(super) fn capabilities(value: &str) -> Result<BTreeSet<&str>, HostError> {
     let requested: BTreeSet<_> = value.split(',').collect();
     if requested.is_empty() || requested.iter().any(|name| !ORDER.contains(name)) {
         return Err(invalid(
-            "unknown native capability; expected compiler,solver,klu,isolation,uno,petsc",
+            "unknown native capability; expected compiler,solver,klu,isolation,uno,petsc,coolprop",
         ));
     }
     let mut result = requested;
     if result
         .iter()
-        .any(|name| matches!(*name, "klu" | "isolation" | "uno" | "petsc"))
+        .any(|name| matches!(*name, "klu" | "isolation" | "uno" | "petsc" | "coolprop"))
     {
         result.insert("compiler");
     }
@@ -268,6 +270,7 @@ fn apply_provider(root: &Path, env: &Environment, kind: &str) -> Result<Environm
             }
         }
         "isolation" => enforce(&mut result, "PSE_ROOT_ISOLATION_DIR", &prefix)?,
+        "coolprop" => enforce(&mut result, "COOLPROP_DIR", &prefix)?,
         "uno" => {
             enforce(&mut result, "UNO_DIR", &prefix)?;
             libraries(&mut result, &prefix)?;
@@ -507,6 +510,7 @@ pub fn prepare_capabilities(
                 })?
             }
             "solver" => prepare_solver(root, &effective)?,
+            "coolprop" => coolprop::prepare(root, &effective)?,
             _ => prepare_source(root, &effective, kind)?,
         };
         effective = if *kind == "klu" {
@@ -914,14 +918,10 @@ fn prepare_source(root: &Path, env: &Environment, kind: &str) -> Result<PathBuf,
                 )
                 .into(),
             ]);
-            run_at(&python, &settings, &effective, &source)?;
             let make = resolve_program(OsStr::new("make"), &effective)?;
-            run_at(
-                &make,
-                &[format!("-j{width}").into(), "all".into()],
-                &effective,
-                &source,
-            )?;
+            let build_arguments = petsc_make_build_arguments(&effective, &width)?;
+            run_at(&python, &settings, &effective, &source)?;
+            run_at(&make, &build_arguments, &effective, &source)?;
             let destdir = work.join("dest");
             run_at(
                 &make,
@@ -1031,6 +1031,28 @@ fn prepare_source(root: &Path, env: &Environment, kind: &str) -> Result<PathBuf,
         Ok(())
     })
 }
+fn petsc_make_build_arguments(
+    environment: &Environment,
+    width: &str,
+) -> Result<Vec<OsString>, HostError> {
+    let mut arguments = vec![format!("-j{width}").into(), "all".into()];
+    if let Some(launcher) = text(environment, "PSE_NATIVE_COMPILER_CACHE")? {
+        // PETSc's GNU Make recipes expand CC/CXX as commands. Keep the original
+        // configure-time compiler and linker paths in the published configuration.
+        let quote = |program: &str| {
+            if program.contains(['\0', '\n', '\r']) {
+                return Err(invalid("invalid PETSc compiler launcher path"));
+            }
+            Ok(format!("'{}'", program.replace('$', "$$").replace('\'', "'\\''")))
+        };
+        let launcher = quote(launcher)?;
+        for compiler in ["CC", "CXX"] {
+            let program = quote(&identity_tool(environment, compiler)?)?;
+            arguments.push(format!("{compiler}={launcher} {program}").into());
+        }
+    }
+    Ok(arguments)
+}
 fn identity_tool(env: &Environment, key: &str) -> Result<String, HostError> {
     text(env, key)?
         .map(str::to_owned)
@@ -1118,6 +1140,7 @@ fn provider_variables(kind: &str) -> &'static [&'static str] {
         "isolation" => &["PSE_ROOT_ISOLATION_DIR"],
         "uno" => &["UNO_DIR"],
         "petsc" => &["PETSC_DIR"],
+        "coolprop" => &["COOLPROP_DIR"],
         _ => &[],
     }
 }
@@ -2076,6 +2099,30 @@ fi
             directory.path().join("different-solver").into_os_string(),
         );
         assert!(apply_provider(directory.path(), &changed_dependency, "uno").is_err());
+    }
+    #[test]
+    fn providers_petsc_make_launchers_keep_selected_compilers_and_quote_make_words() {
+        let mut environment = BTreeMap::from([
+            ("CC".into(), "/toolchain/cc with space".into()),
+            ("CXX".into(), "/toolchain/c++'s".into()),
+        ]);
+        assert_eq!(
+            petsc_make_build_arguments(&environment, "32").unwrap(),
+            ["-j32", "all"].map(OsString::from),
+        );
+        environment.insert("PSE_NATIVE_COMPILER_CACHE".into(), "/cache/$slot/sccache".into());
+        assert_eq!(
+            petsc_make_build_arguments(&environment, "32").unwrap(),
+            [
+                "-j32",
+                "all",
+                "CC='/cache/$$slot/sccache' '/toolchain/cc with space'",
+                "CXX='/cache/$$slot/sccache' '/toolchain/c++'\\''s'",
+            ]
+            .map(OsString::from),
+        );
+        environment.insert("PSE_NATIVE_COMPILER_CACHE".into(), "/cache\n/sccache".into());
+        assert!(petsc_make_build_arguments(&environment, "32").is_err());
     }
     #[test]
     fn providers_petsc_preserves_upstream_configuration_destdir_and_guard_control() {

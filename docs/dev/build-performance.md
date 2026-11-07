@@ -169,8 +169,10 @@ reuse; the math helper selects KLU/root isolation and the pipeline helper select
 Bindgen selects resource headers from its selected Clang without changing the C/C++
 compiler. When no user CMake toolchain file exists, `.config/native-cache.cmake`
 supplies the supported C/C++ compiler launchers through `CMAKE_TOOLCHAIN_FILE`, which
-the pinned `cmake` build dependency forwards. KLU also supplies launchers explicitly.
-Fortran is unchanged. GMP/MPFR retains its upstream persistent cache mechanism.
+the pinned `cmake` build dependency forwards. Native KLU and CoolProp use the same
+bridge. PETSc's `make all` receives launchers for its C/C++ compiler commands while
+configure and install use the selected toolchain. Fortran keeps its existing route.
+GMP/MPFR retains its upstream persistent cache mechanism.
 
 ## Selected timing investigations
 

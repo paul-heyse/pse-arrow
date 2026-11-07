@@ -29,6 +29,8 @@ mod recorded_result;
 
 #[cfg(feature = "native-abi")]
 mod ipopt;
+#[cfg(feature = "native-abi")]
+mod coolprop;
 #[cfg(feature = "product-schemas")]
 mod private_documents;
 #[cfg(feature = "product-schemas")]
@@ -504,7 +506,8 @@ fn check_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
 
 #[cfg(feature = "native-abi")]
 fn native_abi(root: &Path, check: bool) -> Result<()> {
-    ipopt::run(root, check)
+    ipopt::run(root, check)?;
+    coolprop::run(root, check)
 }
 
 #[cfg(not(feature = "native-abi"))]
