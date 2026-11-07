@@ -189,5 +189,13 @@ Ordinary Git worktree removal deleted all three checkouts and targets, releasing
 allocated bytes. External state with missing, unsettled or independently held evidence remains
 with its original owner. An independent incident fixture batch released 19 superseded runtime
 generations with 29,886,689,280 allocated bytes. Its selected capsule and lane passed native
-readback. The combined release recorded 522.95 GiB of allocated data, with filesystem availability
-measured separately. Exact operation receipts are in the private incident state directory.
+readback. The combined release recorded 522.95 GiB of allocated data.
+
+An additional bounded release removed 49 executable images and their 49 associations from 14
+named test invocations. It bound each image to the original inventory, rehashed it, and rechecked
+the original scope, fixture settlement and live file references before release. Six otherwise
+eligible invocations lack independent fixture-settlement confirmation and retain their images.
+All 26 previously decoded exports still match their verified bytes. Original reports and
+inventories for the 14 trimmed invocations still match their commitments. The incident total is
+586,092,539,904 allocated bytes (545.84 GiB). Filesystem availability measured separately was
+836,589,912,064 bytes at readback. Exact receipts are in the private incident state directory.
