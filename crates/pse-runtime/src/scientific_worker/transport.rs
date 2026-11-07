@@ -700,9 +700,49 @@ fn controls_lock(
         .lock()
         .map_err(|_| infrastructure("scientific worker controls poisoned"))
 }
-fn encode_response(value: p::Response) -> Result<pb::Response, connectrpc::ConnectError> {
-    pb::Response::try_from(value)
-        .map_err(|error| connectrpc::ConnectError::internal(error.to_string()))
+fn close_native_admission(controls: &SharedControls, joined: bool) -> Result<(), WorkerError> {
+    let mut controls = controls_lock(controls)?;
+    controls.closed = true;
+    if joined {
+        controls.handles.clear();
+    } else {
+        for (_, cancellation) in controls.handles.values() {
+            cancellation.cancel();
+        }
+    }
+    Ok(())
+}
+type EncodedResponse = connectrpc::PreEncoded<pb::Response>;
+fn encode_response(value: p::Response) -> Result<EncodedResponse, connectrpc::ConnectError> {
+    use buffa::Message as _;
+    let message = pb::Response::try_from(value)
+        .map_err(|error| connectrpc::ConnectError::internal(error.to_string()))?;
+    let length = usize::try_from(
+        message
+            .try_encoded_len()
+            .map_err(|error| connectrpc::ConnectError::resource_exhausted(error.to_string()))?,
+    )
+    .map_err(|error| connectrpc::ConnectError::resource_exhausted(error.to_string()))?;
+    if length > FRAME_LIMIT {
+        return Err(connectrpc::ConnectError::resource_exhausted(
+            "scientific worker response frame allowance",
+        ));
+    }
+    let mut encoded = Vec::new();
+    encoded
+        .try_reserve_exact(length)
+        .map_err(|error| connectrpc::ConnectError::resource_exhausted(error.to_string()))?;
+    message
+        .try_encode_bounded(
+            u32::try_from(FRAME_LIMIT)
+                .map_err(|error| connectrpc::ConnectError::resource_exhausted(error.to_string()))?,
+            &mut encoded,
+        )
+        .map_err(|error| connectrpc::ConnectError::resource_exhausted(error.to_string()))?;
+    // Only locally generated, validated, bounded bytes of this exact type enter
+    // PreEncoded. Binary ingress excludes its JSON fallback. Bytes clones retain
+    // this one encoding through the last concurrent response/body owner.
+    Ok(EncodedResponse::from_bytes_unchecked(encoded))
 }
 fn join_native<T>(
     runtime: tokio::runtime::Runtime,
@@ -711,6 +751,9 @@ fn join_native<T>(
     // Hyper's connection future can depart before its spawned method tasks.
     // Destroy their delivery guards before joining the lane that observes them.
     drop(runtime);
+    join_native_handle(native)
+}
+fn join_native_handle<T>(native: std::thread::JoinHandle<T>) -> Result<T, WorkerError> {
     native.join().map_err(|payload| {
         WorkerError::NativePanic(pse_diagnostics::panic::settle_payload(
             payload,
@@ -738,8 +781,22 @@ struct Server {
     jobs: tokio::sync::mpsc::Sender<Job>,
     controls: SharedControls,
     work: Arc<tokio::sync::Semaphore>,
+    terminal: tokio::sync::watch::Receiver<Option<EncodedResponse>>,
 }
 impl Server {
+    async fn terminal_response(&self) -> Result<EncodedResponse, connectrpc::ConnectError> {
+        let mut terminal = self.terminal.clone();
+        loop {
+            if let Some(response) = terminal.borrow_and_update().clone() {
+                return Ok(response);
+            }
+            terminal.changed().await.map_err(|_| {
+                connectrpc::ConnectError::unavailable(
+                    "scientific worker joined outcome unavailable",
+                )
+            })?;
+        }
+    }
     async fn submit(
         &self,
         request: p::Request,
@@ -796,6 +853,12 @@ impl services::ScientificWorker for Server {
                 )?));
             }
         };
+        if let Some(response) = self.terminal.borrow().clone() {
+            return Ok(connectrpc::Response::new(response));
+        }
+        if self.jobs.is_closed() {
+            return Ok(connectrpc::Response::new(self.terminal_response().await?));
+        }
         let work = if matches!(
             &request,
             p::Request::Prepare(_) | p::Request::Evaluate(_) | p::Request::EvaluateBatch(_)
@@ -816,19 +879,21 @@ impl services::ScientificWorker for Server {
         let submitted = match self.submit(request, work).await {
             Ok(submitted) => submitted,
             Err(SubmissionError::Admission(error)) => {
+                if self.jobs.is_closed() {
+                    return Ok(connectrpc::Response::new(self.terminal_response().await?));
+                }
                 return Ok(connectrpc::Response::new(encode_response(
                     p::Response::Failure(handler::failure(error)),
                 )?));
             }
             Err(SubmissionError::Departed) => {
-                return Err(connectrpc::ConnectError::unavailable(
-                    "scientific worker native lane departed",
-                ));
+                return Ok(connectrpc::Response::new(self.terminal_response().await?));
             }
         };
-        let reply = submitted.response.await.map_err(|_| {
-            connectrpc::ConnectError::unavailable("scientific worker native completion unavailable")
-        })?;
+        let reply = match submitted.response.await {
+            Ok(reply) => reply,
+            Err(_) => return Ok(connectrpc::Response::new(self.terminal_response().await?)),
+        };
         let response = connectrpc::Response::new(encode_response(reply.response)?);
         // This final synchronous section acknowledges only local method
         // consumption. The transport can still lose the later network reply.
@@ -867,10 +932,22 @@ pub(super) fn serve_with_preparation(
     let closed = pse_diagnostics::Cancellation::default();
     let drained = closed.clone();
     let (jobs, mut receiving) = tokio::sync::mpsc::channel::<Job>(1);
+    let (native_finished, mut native_completion) = tokio::sync::oneshot::channel::<()>();
+    let (terminal, terminal_reader) = tokio::sync::watch::channel(None);
+    // Prepare the small omission response before publication. Even if deriving
+    // or encoding a larger observation refuses allocation, readers can retain
+    // this existing Bytes owner without another allocation or a false success.
+    let omitted = encode_response(p::Response::Failure(p::Failure::UnknownCompletion(
+        "scientific worker could not transfer the complete joined failure within its declared failure allowance".into(),
+    ))).map_err(WorkerError::Exchange)?;
     let native = std::thread::Builder::new()
         .name("pse-science-native".into())
         .stack_size(NATIVE_STACK)
         .spawn(move || {
+            // Sender departure wakes the composition root on return or panic.
+            // It carries no result/settlement claim: only the original join
+            // handle below can establish and return the native outcome.
+            let _finished = native_finished;
             let mut sessions = BTreeMap::<SemanticId, PreparedSession>::new();
             let mut failures = Vec::new();
             while let Some(job) = receiving.blocking_recv() {
@@ -1062,6 +1139,10 @@ pub(super) fn serve_with_preparation(
             super::retirement_result(failures)
         })
         .map_err(infrastructure)?;
+    let mut native = Some(native);
+    let mut joined_native = None;
+    let mut admission_closed = false;
+    let mut admission_error = None;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -1086,6 +1167,7 @@ pub(super) fn serve_with_preparation(
             jobs: jobs.clone(),
             controls: controls.clone(),
             work: Arc::new(tokio::sync::Semaphore::new(1)),
+            terminal: terminal_reader,
         })
         .register(connectrpc::Router::new());
         let service = connectrpc::ConnectRpcService::new(router).with_limits(
@@ -1103,13 +1185,32 @@ pub(super) fn serve_with_preparation(
         builder.max_concurrent_streams(2);
         let connection = builder.serve_connection(hyper_util::rt::TokioIo::new(stream), service);
         tokio::pin!(connection);
-        let result = tokio::select! {
-            biased;
-            _ = closed.cancelled() => {
-                connection.as_mut().graceful_shutdown();
-                connection.await.map_err(WorkerError::Connection)
-            },
-            result = connection.as_mut() => result.map_err(WorkerError::Connection),
+        let result = loop {
+            tokio::select! {
+                biased;
+                _ = &mut native_completion, if native.is_some() => {
+                    let handle = native.take().ok_or_else(|| infrastructure("scientific worker native join already consumed"))?;
+                    let result = join_native_handle(handle).and_then(std::convert::identity);
+                    // Joining, not the wakeup, establishes completed native
+                    // ownership. No future method may enter numerical work.
+                    admission_error = close_native_admission(&controls, true).err();
+                    admission_closed = true;
+                    let response = match &result {
+                        Err(error) => encode_response(p::Response::Failure(handler::failure_observation(error)))
+                            .unwrap_or_else(|_| omitted.clone()),
+                        Ok(()) => omitted.clone(),
+                    };
+                    joined_native = Some(result);
+                    terminal.send_replace(Some(response));
+                    #[cfg(test)]
+                    observe_native_join_for_test()?;
+                },
+                _ = closed.cancelled() => {
+                    connection.as_mut().graceful_shutdown();
+                    break connection.await.map_err(WorkerError::Connection);
+                },
+                result = connection.as_mut() => break result.map_err(WorkerError::Connection),
+            }
         };
         let mut failures = result.err().into_iter().collect::<Vec<_>>();
         // Server H2 completion can also precede unread client shutdown frames.
@@ -1125,21 +1226,59 @@ pub(super) fn serve_with_preparation(
         }
         super::retirement_result(failures)
     });
-    if let Ok(mut controls) = controls_lock(&controls) {
-        controls.closed = true;
-        for (_, cancellation) in controls.handles.values() {
-            cancellation.cancel();
-        }
+    // Connection departure can race the native completion wake. Consume its
+    // original join when available before deciding native work is unsettled.
+    if joined_native.is_none()
+        && !matches!(
+            native_completion.try_recv(),
+            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+        )
+    {
+        let handle = native
+            .take()
+            .ok_or_else(|| infrastructure("scientific worker native join already consumed"))?;
+        joined_native = Some(join_native_handle(handle).and_then(std::convert::identity));
     }
-    if !closed.is_cancelled() {
+    if !admission_closed {
+        admission_error = close_native_admission(&controls, joined_native.is_some()).err();
+    }
+    if !closed.is_cancelled() && joined_native.is_none() {
         // A disconnected active RPC must settle its actual native call, even if
         // cooperative cancellation cannot interrupt the foreign instruction.
         parent_owner.terminate_unsettled_native();
     }
     drop(jobs);
-    let native = join_native(runtime, native).and_then(std::convert::identity);
-    let failures = result.err().into_iter().chain(native.err()).collect();
+    let native = match joined_native {
+        Some(result) => {
+            drop(runtime);
+            result
+        }
+        None => join_native(
+            runtime,
+            native.ok_or_else(|| infrastructure("scientific worker native join absent"))?,
+        )
+        .and_then(std::convert::identity),
+    };
+    let failures = result
+        .err()
+        .into_iter()
+        .chain(native.err())
+        .chain(admission_error)
+        .collect();
     super::retirement_result(failures)
+}
+
+#[cfg(test)]
+fn observe_native_join_for_test() -> Result<(), WorkerError> {
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("prepare-departure-retire-faults") {
+        let marker = PathBuf::from(
+            std::env::var_os("PSE_SCIENCE_TEST_MARKER")
+                .ok_or_else(|| infrastructure("missing native join test marker"))?,
+        );
+        std::fs::write(marker.with_extension("native-joined"), b"joined")
+            .map_err(infrastructure)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1775,6 +1914,7 @@ mod tests {
                 jobs,
                 controls: SharedControls::default(),
                 work: Arc::new(tokio::sync::Semaphore::new(1)),
+                terminal: tokio::sync::watch::channel(None).1,
             },
             receiving,
         )
@@ -1790,6 +1930,56 @@ mod tests {
                     completion
                 })
                 .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn terminal_readers_wait_for_join_and_retain_shared_bytes_after_departure() {
+        use buffa::Message as _;
+        use connectrpc::Encodable as _;
+        let (mut server, receiving) = server();
+        drop(receiving);
+        let (publisher, reader) = tokio::sync::watch::channel(None);
+        server.terminal = reader;
+        assert!(matches!(
+            server.submit(p::Request::Shutdown, None).await,
+            Err(SubmissionError::Departed)
+        ));
+        let mut departed = Box::pin(server.terminal_response());
+        assert!(futures_util::poll!(&mut departed).is_pending());
+        drop(departed);
+        let mut first = Box::pin(server.terminal_response());
+        let mut second = Box::pin(server.terminal_response());
+        assert!(futures_util::poll!(&mut first).is_pending());
+        assert!(futures_util::poll!(&mut second).is_pending());
+        publisher.send_replace(Some(
+            encode_response(p::Response::Failure(p::Failure::Contract(
+                "joined immutable facts".into(),
+            )))
+            .unwrap(),
+        ));
+        let first = first
+            .await
+            .unwrap()
+            .encode(connectrpc::CodecFormat::Proto)
+            .unwrap();
+        let second = second
+            .await
+            .unwrap()
+            .encode(connectrpc::CodecFormat::Proto)
+            .unwrap();
+        assert_eq!(
+            first.as_ptr(),
+            second.as_ptr(),
+            "terminal readers share one immutable byte owner"
+        );
+        drop(publisher);
+        drop(server);
+        drop(first);
+        let response =
+            p::Response::try_from(pb::Response::decode_from_slice(&second).unwrap()).unwrap();
+        assert!(
+            matches!(response, p::Response::Failure(p::Failure::Contract(detail)) if detail == "joined immutable facts")
         );
     }
 

@@ -79,92 +79,194 @@ impl p::Demand {
 
 /// Typed selected-water failure, retaining envelope coordinates as exact bits.
 pub(super) fn failure(error: WorkerError) -> p::Failure {
-    let mut remaining = p::FAILURE_NODES;
-    match capture_failure(error, 0, &mut remaining) {
+    failure_observation(&error)
+}
+
+/// Borrow the original performing owner's error without adopting or consuming
+/// it. The joined native result remains owned independently of this observation.
+pub(super) fn failure_observation(error: &WorkerError) -> p::Failure {
+    observe_with_budget(
+        error,
+        FailureBudget {
+            nodes: p::FAILURE_NODES,
+            text: p::FAILURE_RETAINED_TEXT,
+        },
+    )
+}
+fn observe_with_budget(error: &WorkerError, mut budget: FailureBudget) -> p::Failure {
+    match capture_failure(error, 0, &mut budget) {
         Ok(failure) if failure.within_limits() => failure,
         _ => p::Failure::UnknownCompletion("scientific worker could not transfer the complete failure within its declared failure allowance".into()),
     }
 }
-fn capture_failure(
-    error: WorkerError,
-    depth: usize,
-    remaining: &mut usize,
-) -> Result<p::Failure, ()> {
-    use pse_model::diagnostic::DiagnosticProjection as _;
-    if depth > p::FAILURE_DEPTH || *remaining == 0 {
-        return Err(());
+
+struct FailureBudget {
+    nodes: usize,
+    text: usize,
+}
+impl FailureBudget {
+    fn node(&mut self, depth: usize) -> Result<(), ()> {
+        if depth > p::FAILURE_DEPTH {
+            return Err(());
+        }
+        self.nodes = self.nodes.checked_sub(1).ok_or(())?;
+        Ok(())
     }
-    *remaining -= 1;
+    fn text(&mut self, value: &str) -> Result<String, ()> {
+        self.text = self.text.checked_sub(value.len()).ok_or(())?;
+        let mut copy = String::new();
+        copy.try_reserve_exact(value.len()).map_err(|_| ())?;
+        copy.push_str(value);
+        Ok(copy)
+    }
+    fn vector<T>(&self, length: usize) -> Result<Vec<T>, ()> {
+        if length > self.nodes {
+            return Err(());
+        }
+        let mut values = Vec::new();
+        values.try_reserve_exact(length).map_err(|_| ())?;
+        Ok(values)
+    }
+}
+
+fn admit_diagnostic_shape(
+    error: &dyn pse_diagnostics::TypedDiagnostic,
+    depth: usize,
+    budget: &mut FailureBudget,
+) -> Result<(), ()> {
+    budget.node(depth)?;
+    if let Some(children) = error.diagnostic_children() {
+        for child in children {
+            admit_diagnostic_shape(child, depth + 1, budget)?;
+        }
+    }
+    Ok(())
+}
+
+fn capture_diagnostic<
+    T: pse_model::diagnostic::DiagnosticProjection + pse_diagnostics::TypedDiagnostic,
+>(
+    error: &T,
+    retained: impl FnOnce() -> Option<usize>,
+    depth: usize,
+    budget: &mut FailureBudget,
+) -> Result<p::Failure, ()> {
+    // Unknown library-owned retention is not an allocation allowance. Inspect
+    // shape and admit the known original extent before copying source facts.
+    admit_diagnostic_shape(error, depth, budget)?;
+    budget.text = budget.text.checked_sub(retained().ok_or(())?).ok_or(())?;
+    Ok(p::Failure::Diagnostic(Box::new(error.boundary_diagnostic(
+        pse_diagnostics::DiagnosticStage::Evaluation,
+    ))))
+}
+
+fn capture_failure(
+    error: &WorkerError,
+    depth: usize,
+    budget: &mut FailureBudget,
+) -> Result<p::Failure, ()> {
+    budget.node(depth)?;
     Ok(match error {
-        WorkerError::Provider(ProviderError::Retirement { failures }) => {
-            p::Failure::ProviderRetirement {
-                failures: failures
-                    .into_iter()
-                    .map(|failure| {
-                        Ok(p::KeyedFailure {
-                            key: failure.key.0,
-                            cause: Box::new(capture_failure(
-                                (*failure.cause).into(),
-                                depth + 1,
-                                remaining,
-                            )?),
-                        })
-                    })
-                    .collect::<Result<_, ()>>()?,
+        WorkerError::Provider(error) => return capture_provider_failure(error, depth, budget),
+        WorkerError::Retirement { causes } => {
+            if causes.is_empty() || causes.len() > 128 {
+                return Err(());
             }
+            let mut copied = budget.vector(causes.len())?;
+            for cause in causes {
+                copied.push(capture_failure(cause, depth + 1, budget)?);
+            }
+            p::Failure::Retirement { causes: copied }
         }
-        WorkerError::Provider(ProviderError::Settlement { operation, cleanup }) => {
+        WorkerError::NativePanic(detail) => p::Failure::NativePanic(budget.text(detail)?),
+        WorkerError::RemoteDiagnostic(diagnostic) => {
+            use pse_model::HeapUsage as _;
+            // The already passive tree has no native type reconstruction.
+            // Its finite extent is checked before cloning its owned buffers.
+            fn shape(
+                value: &pse_model::diagnostic::BoundaryDiagnostic,
+                depth: usize,
+                budget: &mut FailureBudget,
+            ) -> Result<(), ()> {
+                budget.node(depth)?;
+                for child in &value.causes {
+                    shape(child, depth + 1, budget)?;
+                }
+                Ok(())
+            }
+            shape(diagnostic, depth + 1, budget)?;
+            budget.text = budget.text.checked_sub(diagnostic.heap_bytes()).ok_or(())?;
+            p::Failure::Diagnostic(diagnostic.clone())
+        }
+        WorkerError::RemoteResource(reason) => p::Failure::Resource(budget.text(reason)?),
+        WorkerError::UnknownCompletion(reason) => {
+            p::Failure::UnknownCompletion(budget.text(reason)?)
+        }
+        error => return capture_diagnostic(error, || error.retained_bytes(), depth, budget),
+    })
+}
+
+fn capture_provider_failure(
+    error: &ProviderError,
+    depth: usize,
+    budget: &mut FailureBudget,
+) -> Result<p::Failure, ()> {
+    Ok(match error {
+        ProviderError::Retirement { failures } => {
+            if failures.is_empty() || failures.len() > 64 {
+                return Err(());
+            }
+            let mut copied = budget.vector(failures.len())?;
+            for failure in failures {
+                budget.node(depth + 1)?;
+                copied.push(p::KeyedFailure {
+                    key: failure.key.0,
+                    cause: Box::new(capture_provider_failure(&failure.cause, depth + 1, budget)?),
+                });
+            }
+            p::Failure::ProviderRetirement { failures: copied }
+        }
+        ProviderError::Settlement { operation, cleanup } => {
+            budget.node(depth + 1)?;
+            let operation = capture_provider_failure(operation, depth + 1, budget)?;
+            budget.node(depth + 1)?;
             p::Failure::ProviderSettlement {
-                operation: Box::new(capture_failure((*operation).into(), depth + 1, remaining)?),
-                cleanup: Box::new(capture_failure((*cleanup).into(), depth + 1, remaining)?),
+                operation: Box::new(operation),
+                cleanup: Box::new(capture_provider_failure(cleanup, depth + 1, budget)?),
             }
         }
-        WorkerError::Retirement { causes } => p::Failure::Retirement {
-            causes: causes
-                .into_iter()
-                .map(|cause| capture_failure(cause, depth + 1, remaining))
-                .collect::<Result<_, _>>()?,
-        },
-        WorkerError::Provider(ProviderError::RetirementPanic(detail)) => {
-            p::Failure::ProviderRetirementPanic(detail)
+        ProviderError::RetirementPanic(detail) => {
+            p::Failure::ProviderRetirementPanic(budget.text(detail)?)
         }
-        WorkerError::NativePanic(detail) => p::Failure::NativePanic(detail),
-        WorkerError::Provider(ProviderError::Singular(detail)) => p::Failure::Singular(detail),
-        WorkerError::Provider(ProviderError::LinearizationChanged) => {
-            p::Failure::LinearizationChanged
-        }
-        WorkerError::Provider(ProviderError::RegimeCrossing {
+        ProviderError::Singular(detail) => p::Failure::Singular(budget.text(detail)?),
+        ProviderError::LinearizationChanged => p::Failure::LinearizationChanged,
+        ProviderError::RegimeCrossing {
             selector,
             bound,
             selected,
-        }) => p::Failure::RegimeCrossing {
-            selector,
-            bound,
-            selected,
+        } => p::Failure::RegimeCrossing {
+            selector: *selector,
+            bound: *bound,
+            selected: *selected,
         },
-        WorkerError::RemoteDiagnostic(diagnostic) => p::Failure::Diagnostic(diagnostic),
-        WorkerError::Provider(ProviderError::Cancelled) => p::Failure::Cancelled,
-        WorkerError::Provider(ProviderError::Deadline) => p::Failure::Deadline,
-        WorkerError::Provider(ProviderError::Limit(reason)) => p::Failure::Resource(reason.into()),
-        WorkerError::RemoteResource(reason) => p::Failure::Resource(reason),
-        WorkerError::Provider(ProviderError::Contract(reason)) => p::Failure::Contract(reason),
-        WorkerError::Provider(ProviderError::Trial(reason)) => p::Failure::Trial(reason),
-        WorkerError::Provider(ProviderError::OutsideEnvelope {
+        ProviderError::Cancelled => p::Failure::Cancelled,
+        ProviderError::Deadline => p::Failure::Deadline,
+        ProviderError::Limit(reason) => p::Failure::Resource(budget.text(reason)?),
+        ProviderError::Contract(reason) => p::Failure::Contract(budget.text(reason)?),
+        ProviderError::Trial(reason) => p::Failure::Trial(budget.text(reason)?),
+        ProviderError::OutsideEnvelope {
             axis,
             value: x,
             lower,
             upper,
-        }) => p::Failure::OutsideEnvelope {
-            axis,
-            value: x,
-            lower,
-            upper,
+        } => p::Failure::OutsideEnvelope {
+            axis: budget.text(axis)?,
+            value: *x,
+            lower: *lower,
+            upper: *upper,
         },
-        WorkerError::UnknownCompletion(reason) => p::Failure::UnknownCompletion(reason),
-        WorkerError::Provider(ProviderError::Terminal(detail)) => p::Failure::Terminal(detail),
-        error => p::Failure::Diagnostic(Box::new(
-            error.boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation),
-        )),
+        ProviderError::Terminal(detail) => p::Failure::Terminal(budget.text(detail)?),
+        error => return capture_diagnostic(error, || Some(error.retained_bytes()), depth, budget),
     })
 }
 pub(super) fn refusal(value: p::Failure) -> WorkerError {
@@ -418,6 +520,68 @@ pub(super) fn evaluate_batch(
 mod tests {
     use super::*;
     use pse_kernels::ProviderFactory as _;
+
+    #[test]
+    fn borrowed_failure_refuses_oversize_or_copy_budget_without_consuming_original() {
+        let error = WorkerError::Provider(ProviderError::Contract(
+            "x".repeat(p::FAILURE_RETAINED_TEXT + 1),
+        ));
+        assert!(matches!(
+            failure_observation(&error),
+            p::Failure::UnknownCompletion(_)
+        ));
+        assert!(
+            matches!(&error, WorkerError::Provider(ProviderError::Contract(detail)) if detail.len() == p::FAILURE_RETAINED_TEXT + 1)
+        );
+        let original = WorkerError::Provider(ProviderError::Contract(
+            "original owned native cause".into(),
+        ));
+        let refused = observe_with_budget(
+            &original,
+            FailureBudget {
+                nodes: p::FAILURE_NODES,
+                text: 0,
+            },
+        );
+        assert!(matches!(refused, p::Failure::UnknownCompletion(_)));
+        assert!(
+            matches!(failure_observation(&original), p::Failure::Contract(detail) if detail == "original owned native cause")
+        );
+        // Actual collection reservation refusal is recoverable too, without
+        // trying to allocate an enormous fixture or reducing any host budget.
+        let budget = FailureBudget {
+            nodes: usize::MAX,
+            text: 0,
+        };
+        assert!(budget.vector::<u64>(usize::MAX).is_err());
+    }
+
+    #[test]
+    fn borrowed_failure_refuses_unknown_opaque_extent_and_deep_tree() {
+        let original = WorkerError::Process {
+            action: "retire",
+            source: std::io::Error::other("original OS failure"),
+        };
+        assert!(matches!(
+            failure_observation(&original),
+            p::Failure::UnknownCompletion(_)
+        ));
+        assert!(matches!(
+            original,
+            WorkerError::Process {
+                action: "retire",
+                ..
+            }
+        ));
+        let mut deep = WorkerError::Provider(ProviderError::Contract("original deep cause".into()));
+        for _ in 0..p::FAILURE_DEPTH + 1 {
+            deep = WorkerError::Retirement { causes: vec![deep] };
+        }
+        assert!(matches!(
+            failure_observation(&deep),
+            p::Failure::UnknownCompletion(_)
+        ));
+    }
 
     #[test]
     fn water_preparation_refuses_changed_data_units_regime_and_datum_configuration() {

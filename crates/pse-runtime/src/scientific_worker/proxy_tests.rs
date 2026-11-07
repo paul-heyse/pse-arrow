@@ -697,6 +697,62 @@ async fn preparation_witness(path: std::path::PathBuf, expected: &str) {
     }
 }
 
+fn assert_terminal_retirements(
+    failure: &p::Failure,
+    orphan: &str,
+    remaining: &[String],
+    key: ContentHash,
+) {
+    use pse_model::diagnostic::{BoundaryDiagnostic, Observation};
+    fn text(value: &BoundaryDiagnostic, name: &str, expected: &str) -> bool {
+        matches!(value.observations.get(name), Some(Observation::Text(actual)) if actual == expected)
+            || value.causes.iter().any(|cause| text(cause, name, expected))
+    }
+    fn contract(value: &BoundaryDiagnostic, expected: &str) -> bool {
+        (value.code == pse_diagnostics::DiagnosticCode::KernelUnboundParameter
+            && text(value, "detail", expected))
+            || value.causes.iter().any(|cause| contract(cause, expected))
+    }
+    let p::Failure::Retirement { causes } = failure else {
+        panic!("complete native aggregate required: {failure:?}")
+    };
+    let [
+        p::Failure::ProviderRetirement { failures },
+        p::Failure::Retirement { causes: stops },
+    ] = causes.as_slice()
+    else {
+        panic!("original orphan and all remaining native errors required: {causes:?}")
+    };
+    let [original] = failures.as_slice() else {
+        panic!("one original keyed orphan failure required")
+    };
+    assert_eq!(original.key, key);
+    assert!(
+        matches!(original.cause.as_ref(), p::Failure::Contract(detail)
+        if detail == &format!("controlled native retirement failure {orphan}"))
+    );
+    let mut generations = Vec::new();
+    for stop in stops {
+        let p::Failure::Diagnostic(diagnostic) = stop else {
+            panic!("Stop facts must remain explicitly passive observations")
+        };
+        assert!(
+            matches!(diagnostic.observations.get("action"), Some(Observation::Text(action)) if action == "Stop")
+        );
+        let Some(Observation::Text(generation)) = diagnostic.observations.get("generation") else {
+            panic!("original Stop generation required")
+        };
+        assert!(text(diagnostic, "provider_key", &key.to_string()));
+        assert!(contract(
+            diagnostic,
+            &format!("provider contract: controlled native retirement failure {generation}")
+        ));
+        generations.push(generation.clone());
+    }
+    generations.sort();
+    assert_eq!(generations, remaining);
+}
+
 #[test]
 fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
     struct ReleaseGate(std::path::PathBuf);
@@ -823,6 +879,15 @@ fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
 
 #[test]
 fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fails_closed() {
+    receive_failed_retirement(false);
+}
+
+#[test]
+fn immediate_parent_failure_retains_already_joined_child_finalization() {
+    receive_failed_retirement(true);
+}
+
+fn receive_failed_retirement(immediate_parent_finish: bool) {
     use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
     struct ReleaseGate(std::path::PathBuf);
     impl Drop for ReleaseGate {
@@ -851,6 +916,13 @@ fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fai
         .collect();
     expected.push(generation.clone());
     expected.sort();
+    let mut remaining = expected
+        .iter()
+        .filter(|value| **value != generation)
+        .cloned()
+        .collect::<Vec<_>>();
+    remaining.sort();
+    let key = proxy.factory.spec().key().0;
     let remote = proxy.remote.as_mut().unwrap();
     let pid = remote.child.pid();
     let endpoint = remote._endpoint.path().to_path_buf();
@@ -893,44 +965,59 @@ fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fai
         actual, expected,
         "all three exact native finishes must be attempted once"
     );
-    let original = io
-        .exchange(
-            p::Request::Evaluate(p::Evaluate {
-                handle: survivor,
-                invocation: 1,
-                inputs: vec![500., 20.],
-                directions: vec![],
-                cotangents: vec![],
-                weights: vec![],
-            }),
-            &proxy.scope,
-            None,
-        )
-        .unwrap_err();
-    assert!(matches!(&original, WorkerError::Exchange(error)
-        if error.code == connectrpc::ErrorCode::Unavailable
-            && matches!(error.message.as_deref(), Some("scientific worker native lane departed" | "scientific worker native completion unavailable"))));
-    let WorkerError::Exchange(error) = &original else {
-        unreachable!()
+    let delivery = io.exchange(
+        p::Request::Evaluate(p::Evaluate {
+            handle: survivor,
+            invocation: 1,
+            inputs: vec![500., 20.],
+            directions: vec![],
+            cotangents: vec![],
+            weights: vec![],
+        }),
+        &proxy.scope,
+        None,
+    );
+    assert!(
+        matches!(&delivery, Ok(p::Response::Failure(_))),
+        "joined native retirement facts must reach the parent, not generic unavailability: {delivery:?}"
+    );
+    let p::Response::Failure(failure) = delivery.unwrap() else {
+        panic!("terminal observations required")
     };
-    let original_message = error.message.clone();
-    entered.recv_timeout(Duration::from_secs(10)).unwrap();
-    // The existing fail-closed server exits 125 after the failed native lane's
-    // unavailable response closes H2. Observe actual exit, without reaping or
-    // conflating stream cancellation with physical process settlement.
-    let reader = ProcessReader::default();
-    let end = Instant::now() + Duration::from_secs(10);
-    loop {
-        match reader.stat(pid) {
-            ProcessRead::Present(stat) if stat.state == 'Z' => break,
-            ProcessRead::Present(_) => {}
-            other => panic!("owned failing child observation changed: {other:?}"),
+    assert_terminal_retirements(&failure, &generation, &remaining, key);
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("native-joined")).unwrap(),
+        "joined"
+    );
+    let original = handler::refusal(failure);
+    // Observation does not revive science or a normal Shutdown grant. A second
+    // terminal reader receives the same immutable original outcome.
+    let p::Response::Failure(repeated) = io
+        .exchange(p::Request::Shutdown, &proxy.scope, None)
+        .unwrap()
+    else {
+        panic!("joined failure must not acknowledge successful Shutdown")
+    };
+    assert_terminal_retirements(&repeated, &generation, &remaining, key);
+    if !immediate_parent_finish {
+        io.request_stop();
+        entered.recv_timeout(Duration::from_secs(10)).unwrap();
+        // The test child returns its original joined error (normal test failure),
+        // rather than taking terminate_unsettled_native's abrupt exit125 path.
+        let reader = ProcessReader::default();
+        let end = Instant::now() + Duration::from_secs(10);
+        loop {
+            match reader.stat(pid) {
+                ProcessRead::Present(stat) if stat.state == 'Z' => break,
+                ProcessRead::Present(_) => {}
+                other => panic!("owned failing child observation changed: {other:?}"),
+            }
+            assert!(
+                Instant::now() < end,
+                "failed child did not exit through existing containment"
+            );
+            std::thread::sleep(Duration::from_millis(1));
         }
-        assert!(
-            Instant::now() < end,
-            "failed child did not exit through existing containment"
-        );
-        std::thread::sleep(Duration::from_millis(1));
     }
     assert_eq!(pool.reserved(), admitted);
     assert!(endpoint.exists());
@@ -944,6 +1031,9 @@ fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fai
         drop(proxy);
         result
     });
+    if immediate_parent_finish {
+        entered.recv_timeout(Duration::from_secs(10)).unwrap();
+    }
     // Reap can finish while the I/O thread is still at its actual join gate;
     // admission and endpoint must remain owned until that independent join.
     let end = Instant::now() + Duration::from_secs(10);
@@ -956,15 +1046,28 @@ fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fai
     assert!(endpoint.exists());
     release.send(()).unwrap();
     let result = finish.join().unwrap();
-    let WorkerError::Retirement { causes } = result else {
+    let WorkerError::Retirement { causes } = &result else {
         panic!("parent must preserve independent dispatch and child-exit causes")
     };
-    assert!(matches!(causes.first(), Some(WorkerError::Exchange(error))
-        if error.code == connectrpc::ErrorCode::Unavailable && error.message == original_message));
+    let native = if matches!(
+        causes.first(),
+        Some(WorkerError::Provider(ProviderError::Retirement { .. }))
+    ) {
+        &result
+    } else {
+        causes.first().unwrap()
+    };
+    assert_terminal_retirements(
+        &handler::failure_observation(native),
+        &generation,
+        &remaining,
+        key,
+    );
     assert!(
         causes
             .iter()
-            .any(|cause| matches!(cause, WorkerError::Exit(status) if status.code() == Some(125)))
+            .any(|cause| matches!(cause, WorkerError::Exit(status) if status.code() == Some(101))),
+        "normal parent failure lost the already joined child's original finalization: {result:?}"
     );
     assert!(!endpoint.exists());
     assert_eq!(pool.reserved(), baseline);

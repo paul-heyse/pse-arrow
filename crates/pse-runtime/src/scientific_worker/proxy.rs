@@ -148,13 +148,13 @@ impl Remote {
     }
     fn fail(mut self, cause: WorkerError) -> WorkerError {
         let mut failures = vec![cause];
-        self.settle(&mut failures);
+        self.settle(&mut failures, true);
         match failures.len() {
             1 => failures.remove(0),
             _ => WorkerError::Retirement { causes: failures },
         }
     }
-    fn settle(&mut self, failures: &mut Vec<WorkerError>) {
+    fn settle(&mut self, failures: &mut Vec<WorkerError>, explicit_finish: bool) {
         if self.retired {
             return;
         }
@@ -167,7 +167,12 @@ impl Remote {
         if let Some(io) = self.io.as_mut() {
             io.request_stop();
         }
-        match self.child.drain(if self.closed {
+        // Explicit result-bearing finish permits the existing bounded cleanup
+        // allowance, including a completed failing native lane whose final
+        // diagnostics still need to leave the server. This is no assertion of
+        // remote native usability: expiry still kills/waits the original child.
+        // Abandonment keeps immediate containment without an acknowledged close.
+        match self.child.drain(if self.closed || explicit_finish {
             Duration::from_millis(100)
         } else {
             Duration::ZERO
@@ -187,14 +192,14 @@ impl Remote {
         drop(admission);
     }
     fn finish(mut self, mut failures: Vec<WorkerError>) -> Result<(), WorkerError> {
-        self.settle(&mut failures);
+        self.settle(&mut failures, true);
         super::retirement_result(failures)
     }
 }
 impl Drop for Remote {
     fn drop(&mut self) {
         let mut failures = Vec::new();
-        self.settle(&mut failures);
+        self.settle(&mut failures, false);
         if let Err(error) = super::retirement_result(failures) {
             tracing::error!(error = %error, "scientific worker abandonment settlement failed");
         }

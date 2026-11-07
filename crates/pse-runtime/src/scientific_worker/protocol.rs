@@ -21,7 +21,7 @@ pub(super) const FAILURE_DEPTH: usize = 32;
 #[cfg(feature = "property-coolprop")]
 pub(super) const FAILURE_NODES: usize = 1024;
 #[cfg(feature = "property-coolprop")]
-const FAILURE_RETAINED_TEXT: usize = 64 << 10;
+pub(super) const FAILURE_RETAINED_TEXT: usize = 64 << 10;
 
 pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
