@@ -17,6 +17,8 @@ use std::{
 };
 use surrealdb_types::{Object, SurrealValue};
 
+const CATALOG_INVENTORY: &str = "INFO FOR DB;";
+
 #[cfg(test)]
 #[path = "canonical_lifetime_peer_tests.rs"]
 mod lifetime_tests;
@@ -216,7 +218,7 @@ pub(crate) struct ClientState {
     budget: Duration,
     namespace: String,
     database: String,
-    selection: tokio::sync::Mutex<(bool, bool)>,
+    selection: tokio::sync::Mutex<bool>,
     owner: crate::transport::client::Root,
     viewer: crate::transport::client::Root,
     blocked: AtomicBool,
@@ -251,7 +253,7 @@ impl CanonicalClient {
                 budget,
                 namespace: options.namespace.clone(),
                 database: options.database.clone(),
-                selection: tokio::sync::Mutex::new((false, false)),
+                selection: tokio::sync::Mutex::new(false),
                 owner: crate::transport::client::Root {
                     username: options.username.clone(),
                     password: options.password.clone(),
@@ -276,8 +278,8 @@ impl CanonicalClient {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
 
-    /// VIEWER cannot implicitly define catalog entries during USE. Probe one
-    /// record under that account, then restore the owner for explicit writes.
+    /// VIEWER cannot implicitly define catalog entries during USE. Inspect the
+    /// selected catalog as that account, then restore the owner for explicit writes.
     /// Acknowledged setup replays in this same authorization order. A registered
     /// active context cannot be reclaimed while this handle borrows it.
     pub(crate) async fn select_existing(&self) -> Result<bool, super::CanonicalError> {
@@ -291,7 +293,7 @@ impl CanonicalClient {
                             .into(),
                     ));
                 }
-                if selection.1 {
+                if *selection {
                     return Ok(true);
                 }
                 self.blocked.store(true, Ordering::Release);
@@ -311,26 +313,23 @@ impl CanonicalClient {
                     .await?;
                 let observed = self
                     .client
-                    .select::<Option<Object>>(("canonical_interpretations", "current"))
+                    .query(CATALOG_INVENTORY)
                     .request_context(context())
-                    .await;
+                    .await
+                    .and_then(|mut result| result.take::<Option<Object>>(0));
                 let next = match observed {
-                    Ok(_) => (true, true),
+                    Ok(Some(_)) => true,
+                    Ok(None) => return Err(super::CanonicalError::IncompleteResponse),
                     Err(error) => match error.not_found_details() {
                         Some(surrealdb_types::NotFoundError::Namespace { name })
                             if name == &self.namespace =>
                         {
-                            (false, false)
+                            false
                         }
                         Some(surrealdb_types::NotFoundError::Database { name })
                             if name == &self.database =>
                         {
-                            (true, false)
-                        }
-                        Some(surrealdb_types::NotFoundError::Table { name })
-                            if name == "canonical_interpretations" =>
-                        {
-                            (true, true)
+                            false
                         }
                         _ => return Err(error.into()),
                     },
@@ -344,7 +343,7 @@ impl CanonicalClient {
                     .await?;
                 *selection = next;
                 transition.acknowledged();
-                Ok(next.1)
+                Ok(next)
             }))
             .await
     }
@@ -363,10 +362,9 @@ impl CanonicalClient {
                     .signin(self.owner.clone())
                     .request_context(context())
                     .await?;
-                // 3.3 plans even built-in clock calls at database context level.
-                // Catalog creation precedes that context, so it cannot carry the
-                // ordinary in-database UTC fence. Submitted DDL remains uncertain
-                // after caller expiry; only acknowledged completion admits selection.
+                // Catalog creation precedes the ordinary in-database UTC fence.
+                // Submitted DDL remains uncertain after caller expiry. Only
+                // acknowledged completion admits selection.
                 super::complete_response(
                     super::bounded_query(
                         self.client
@@ -534,7 +532,7 @@ impl CanonicalClient {
     }
     /// Exact bootstrap inventory. This never executes caller SQL.
     pub(crate) fn catalog_inventory(&self) -> crate::transport::client::Query<'static> {
-        self.query_class("INFO FOR DB;", true, SchemaEnvelope::Maintenance)
+        self.query_class(CATALOG_INVENTORY, true, SchemaEnvelope::Maintenance)
             .into_owned()
     }
     /// Exercise the actual zero-statement bootstrap response without opening a schema.

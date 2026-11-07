@@ -1,6 +1,6 @@
 ---
 title: "Plan68c: SurrealDB v4 query improvements"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -148,6 +148,19 @@ v4 query and record the comparison. Inline and lightweight relations are already
 available in the old family. Keep stored occurrences. Defer materialized
 back-references, new GQL projections and live or durable change delivery until a
 named consumer and an equivalent scope or recovery contract exist.
+
+The standard v4 build includes ISO GQL for multi-hop and shortest-path
+patterns. SurrealQL remains the general query language and directly serves
+the six indexed relation readers. The pinned 0.14.1 native gRPC service has
+no dedicated GQL method. The SurrealQL `eval::gql` bridge requires enabling
+dynamic evaluation, while the native HTTP GQL route admits both reads and
+mutations. Keep the canonical build on its existing bounded transport.
+Revisit the supplier feature for a named pattern that simplifies a current
+consumer, with a bounded scoped read and a matched comparison.
+[GQL overview](https://surrealdb.com/docs/learn/querying/gql/overview) ·
+[Tagged server features](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/server/Cargo.toml) ·
+[Tagged native gRPC implementation](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/server/src/rpc/grpc.rs) ·
+[GQL capabilities](https://surrealdb.com/docs/learn/security/authorization/capabilities#gql-entry-surfaces)
 [Canonical graph owners and tests](../../crates/pse-operations/src/canonical_explanations.rs) ·
 [Private knowledge traversal](../../xtask/src/development/knowledge.rs) ·
 [Tagged v3 inline tests](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/core/src/kvs/tests/inline_props_test.rs) ·
@@ -183,7 +196,10 @@ production consumer for its compound expiry index.
 ### C05 — Spill, mixed load and physical observation
 
 Reuse the native service's owned `--temporary-directory` and `TMPDIR`. Qualify
-4.0.0 sort, distinct, grouping and join spill within a disposable generation.
+4.0.0 sort and grouping spill within a disposable generation. The distinct
+and hash-join spill implementations belong to GQL, which the selected server
+feature closure leaves disabled. Retain their tagged supplier evidence for a
+future GQL consumer.
 Exercise `SURREAL_MEMORY_LIMIT`, `SURREAL_QUERY_MEMORY_MINIMUM` and
 `SURREAL_QUERY_MEMORY_MAX` as query controls alongside the independent MX and
 host bounds in 68a. The v4 cooperative limit can wait and overrun and supplies no
@@ -207,15 +223,30 @@ supported route. An unselected tuning option does not hold the cutover.
 [Runtime limits and scheduling](https://surrealdb.com/docs/reference/cli/db/environment-variables) ·
 [Tagged observability contract](https://github.com/surrealdb/surrealdb/blob/v4.0.0/doc/OBSERVABILITY.md)
 
+**Implemented, private candidate.** The native owner records explicitly
+selected query-memory values as positive integer byte counts and forwards
+only those values across its cleared environment. It checks the private
+scratch directory and a small synced write before starting the server.
+Live spill, cancellation, mixed load and allocation readback remain open
+pending the prepared 68a generation.
+
+**Tested.** Native `pse test pse-operations --lib -F
+pse-operations/native-service -E
+'test(=native_service::tests::native_service_query_memory_preserves_only_explicit_byte_limits)'`
+passed one test with zero failures against the zero target and complete
+settlement. It covers byte-setting validation and original record readback.
+[Tagged distinct spill](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/core/src/exec/vm/distinct_spill.rs) ·
+[Tagged join spill](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/core/src/exec/vm/join_spill.rs)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| C01 | Planned | 68b bounded client on private v4, current scoped knowledge fixture | Snapshot request and status, identical pages and authority, write refusal and terminal settlement verified. A supplier limitation closes the optional read-only change only if the existing v4 behavior qualifies. |
-| C02 | Planned | Matched v3 baseline, 68b definitions, 68d fixture selection | Existing catalog receiving matrix passes with exact rows, refusal, ordering and custody. Index readiness established. Optional layout changes carry their own equivalence and work evidence. |
-| C03 | Planned | C02 graph fixture and same-bound plan output | Six exact native graph paths pass. Existing projection reports actual graph counters without inventing coverage. Knowledge inline candidate receives an explicit adopt or retain disposition. |
-| C04 | Planned | C01 qualified private read, C02 analyzer and index readiness | Existing lexical search passes. A named ranked candidate receives an explicit adopt or retain disposition with evidence. |
-| C05 | Planned | 68a owned v4 runtime and Plan67 retirement controls | Spill, cancellation, crash residuals, cleanup and safe coexistence qualified. Scheduler tuning adopted only on matched benefit. |
+| C01 | In progress | 68b bounded client on private v4, current scoped knowledge fixture | Snapshot request and status, identical pages and authority, write refusal and terminal settlement verified. A supplier limitation closes the optional read-only change only if the existing v4 behavior qualifies. |
+| C02 | In progress | Matched v3 baseline, 68b definitions, 68d fixture selection | Existing catalog receiving matrix passes with exact rows, refusal, ordering and custody. Index readiness established. Optional layout changes carry their own equivalence and work evidence. |
+| C03 | In progress | C02 graph fixture and same-bound plan output | Six exact native graph paths pass. Existing projection reports actual graph counters without inventing coverage. Knowledge inline candidate receives an explicit adopt or retain disposition. |
+| C04 | In progress | C01 qualified private read, C02 analyzer and index readiness | Existing lexical search passes. A named ranked candidate receives an explicit adopt or retain disposition with evidence. |
+| C05 | In progress | 68a owned v4 runtime and Plan67 retirement controls | Spill, cancellation, crash residuals, cleanup and safe coexistence qualified. Scheduler tuning adopted only on matched benefit. |
 
 Use targeted `pse` selections for the existing canonical graph-explanation,
 study-candidate and analysis controls in `pse-operations` and the native scoped
@@ -225,3 +256,30 @@ runs use explicit force-validation. Record fixture generation, roles, native
 server receipt, command, actual result and failure count against zero. Give
 [68e](68e-surrealdb-v4-fresh-generation-and-acceptance.md) the required
 receiving outcomes separately from optional query choices and measured benefits.
+
+## Private candidate checkpoint — November 7
+
+**Implemented.** The private knowledge query reads one current snapshot
+and validates the BEGIN and COMMIT slots. The existing native fixtures
+now request evidence count and lexical and graph plan observations. The
+canonical graph projection retains allowlisted counters on `Values`
+without assuming predicate placement. Existing graph and lexical query
+shapes remain selected while the matched v4 runs are pending.
+
+**Tested, supplier interface.** The official v4.0.0 embedded memory CLI
+returned one matching member and an explicit zero for a missing prefix
+using the generation count shape and compound unique index. This exercises
+the count semantics independently of the candidate transport.
+
+**Tested, targeted.** Native `pse test xtask --lib --features evidence-tools`
+selected `knowledge_read_only_snapshot_requires_current_typed_status_and_terminal_completion`.
+Native `pse test pse-operations --lib` selected three graph projection
+controls for counter-only `Values`, explicit scope and projection bounds.
+All four tests passed with zero failures against the zero target.
+
+**Tested, compile.** The native `pse check pse-operations xtask --all-targets
+-F pse-operations/native-service,pse-operations/canonical-maintenance,xtask/evidence-tools,xtask/host-contracts`
+selection passed with explicit Arrow force-validation, zero errors and
+warnings against the zero target, and complete settlement. Live query
+equivalence, resource observations and any optional adoption still depend
+on the private prepared generation.

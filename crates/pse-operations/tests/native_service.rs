@@ -107,6 +107,22 @@ fn report_ingresses(service: &NativeCanonicalService) {
     }
 }
 
+async fn raw_native_rpc(
+    address: std::net::SocketAddr,
+) -> surrealdb_protocol::proto::rpc::v1::surreal_db_service_client::SurrealDbServiceClient<
+    tonic::transport::Channel,
+> {
+    let channel = tonic::transport::Endpoint::from_shared(format!("http://{address}"))
+        .unwrap()
+        .connect_timeout(Duration::from_secs(5))
+        .connect()
+        .await
+        .unwrap();
+    surrealdb_protocol::proto::rpc::v1::surreal_db_service_client::SurrealDbServiceClient::new(
+        channel,
+    )
+}
+
 #[tokio::test]
 async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_ready() {
     let mut service = fixture_with_schema(false).unwrap();
@@ -223,6 +239,59 @@ async fn native_service_process_stop_joins_without_database_transport() {
         .await
         .unwrap();
     service.dispose().unwrap();
+}
+
+#[tokio::test]
+async fn native_service_rejects_issued_session_on_another_accepted_connection() {
+    use surrealdb_protocol::proto::rpc::v1::{AttachSessionRequest, RequestContext};
+
+    let mut service = fixture_with_schema(false).unwrap();
+    let state = service.state().to_path_buf();
+    service
+        .run(Instant::now() + Duration::from_secs(180), |service| {
+            Box::pin(async move {
+                service
+                    .launch(Instant::now() + Duration::from_secs(90))
+                    .await?;
+                let endpoint = service.ready()?.store().endpoint().to_owned();
+                let address = endpoint
+                    .strip_prefix("grpc://")
+                    .and_then(|address| address.parse().ok())
+                    .ok_or(NativeServiceError::Refused(
+                        "invalid native fixture endpoint",
+                    ))?;
+                // Independently connected channels open separate accepted sockets.
+                let mut original = raw_native_rpc(address).await;
+                let mut other = raw_native_rpc(address).await;
+                let issued = original
+                    .attach_session(AttachSessionRequest::default())
+                    .await
+                    .unwrap()
+                    .into_inner();
+                assert!(issued.created);
+                let session = issued.session.unwrap();
+                let reattach = AttachSessionRequest {
+                    context: Some(RequestContext {
+                        session: Some(session.clone()),
+                        ..Default::default()
+                    }),
+                };
+                let refusal = other.attach_session(reattach.clone()).await.unwrap_err();
+                assert_eq!(refusal.code(), tonic::Code::NotFound);
+                let retained = original
+                    .attach_session(reattach)
+                    .await
+                    .unwrap()
+                    .into_inner();
+                assert_eq!(retained.session, Some(session));
+                assert!(!retained.created);
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+    service.dispose().unwrap();
+    assert!(!state.exists());
 }
 
 #[tokio::test]

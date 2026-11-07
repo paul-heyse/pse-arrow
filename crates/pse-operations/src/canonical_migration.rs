@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Version-bound canonical construction and explicit quiescent schema evolution.
 //!
-//! Frozen pre-epoch, schema-v2 and schema-v3 declarations are historical predecessors,
-//! not a current schema authority. Legacy clients cannot be retroactively fenced:
-//! that transition requires the deployment owner's exclusive maintenance boundary.
+//! The pinned v4 replay declarations reconstruct pre-epoch, schema-v2 and schema-v3
+//! predecessors. Their historical schema identities and the replay bytes are distinct.
+//! The deployment owner's exclusive maintenance boundary fences the transition.
 use super::{CanonicalError, CanonicalOptions, CanonicalStore, bounded_query, wire};
 use crate::{
     canonical_codec as codec, canonical_execution::AttemptFence, canonical_script::ResultSlot,
@@ -15,13 +15,13 @@ use std::{
     future::Future,
     sync::{Arc, OnceLock},
 };
-use surrealdb_types::{Decimal, Number, Object, SurrealValue, Value};
+use surrealdb_types::{Decimal, Number, Object, SurrealValue, ToSql, Value};
 
-/// Preserved declaration needed to construct a real pre-epoch disposable database.
+/// Pinned v4 replay declaration for a pre-epoch disposable database.
 pub const PRE_EPOCH_DECLARATION: &str = include_str!("migrations/substrate-v10-pre-epoch.surql");
-/// Immutable native admission predecessor, kept outside generated publication.
+/// Pinned v4 replay declaration for the original native admission predecessor.
 pub const SCHEMA_V2_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v2.surql");
-/// Immutable pre-atomic-capture native schema, never a current declaration owner.
+/// Pinned v4 replay declaration for the pre-atomic-capture predecessor.
 pub const SCHEMA_V3_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v3.surql");
 #[path = "canonical_capture_legacy.rs"]
 mod legacy_capture;
@@ -229,6 +229,8 @@ impl CanonicalStore {
         options: &CanonicalOptions,
         version: Option<u64>,
     ) -> Result<(), CanonicalError> {
+        use crate::canonical_script::{Envelope, GuardedScript};
+
         let store = Self::connect(options).await?;
         let installed = async {
             if !store.initialization_required().await? {
@@ -250,10 +252,15 @@ impl CanonicalStore {
             bindings.insert("study_module_backend", module.backend()?);
             bindings.insert("study_module_sha256", module.sha256.clone());
             bindings.insert("payload_incarnation", store.files.incarnation.clone());
-            let maintenance = SchemaMaintenance { store: store.clone() };
-            if maintenance.execute::<Option<bool>>(&body, "true", bindings).await? != Some(true) {
+            let script = GuardedScript::new(Envelope::Installation)
+                .returning::<Option<bool>>(&body, "true")?;
+            let result = script.result();
+            let mut response =
+                bounded_query(store.activation_db.script(script).bind(bindings)).await?;
+            if result.take(&mut response)? != Some(true) {
                 return Err(CanonicalError::IncompleteResponse);
             }
+            let maintenance = SchemaMaintenance { store: store.clone() };
             let actual = maintenance.inspect().await?;
             let exact_schema = match version {
                 Some(V2_VERSION) => actual.predecessor.versioned(V2_VERSION,V2_DIGEST),
@@ -684,7 +691,7 @@ impl SchemaMaintenance {
     fn require_original_module(
         &self,
         request: &SchemaMigrationRequest,
-    ) -> Result<(), CanonicalError> {
+    ) -> Result<super::study_module::StudyModuleReceipt, CanonicalError> {
         let module = super::study_module::StudyModuleReceipt::read_migration_source(
             &self.store.state_path,
             &request.predecessor.study_module_sha256,
@@ -706,8 +713,9 @@ impl SchemaMaintenance {
             {
                 return Err(CanonicalError::Quiesced);
             }
+            return Ok(selected);
         }
-        Ok(())
+        Ok(module)
     }
     /// Read the original immutable activation receipt after restart or lost ACK,
     /// including a historical target. Absence grants no replay permission; an
@@ -934,7 +942,7 @@ impl QuiescentSchemaMigration {
     /// Never replay a transformation because readback itself failed.
     pub async fn apply_receipt(self) -> Result<SchemaMigrationReceipt, CanonicalError> {
         let request = &self.request;
-        self.maintenance.require_original_module(request)?;
+        let module = self.maintenance.require_original_module(request)?;
         if let Some(receipt) = self.maintenance.reconcile_receipt(request).await? {
             return Ok(receipt);
         }
@@ -968,7 +976,8 @@ impl QuiescentSchemaMigration {
         if request.needs_v2_checkpoint() {
             self.advance_v2_checkpoint(false).await?;
         }
-        let bindings = request.bindings()?;
+        let mut bindings = request.bindings()?;
+        bindings.extend(module.catalog_bindings());
         let body = final_application_body(request)?;
         let write: Result<Object, CanonicalError> = self
             .maintenance
@@ -1066,15 +1075,38 @@ fn verify_frozen_declarations() -> Result<(), CanonicalError> {
 fn migration_declarations(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
     verify_frozen_declarations()?;
-    Ok(overwrite_declarations(
-        if request.target_version == V2_VERSION {
-            SCHEMA_V2_DECLARATION
-        } else if request.target_version == V3_VERSION {
-            SCHEMA_V3_DECLARATION
-        } else {
-            wire::SCHEMA
-        },
-    ))
+    Ok(match request.target_version {
+        V2_VERSION => v2_declarations(request),
+        V3_VERSION => overwrite_declarations(SCHEMA_V3_DECLARATION),
+        _ => overwrite_declarations(wire::SCHEMA),
+    })
+}
+
+fn v2_declarations(request: &SchemaMigrationRequest) -> String {
+    let declarations = overwrite_declarations(SCHEMA_V2_DECLARATION);
+    if !request.predecessor.legacy() {
+        return declarations;
+    }
+    // Level-4 catalogs require an explicit value for each required field added
+    // to an existing row. The epoch belongs to the validated original request.
+    let epoch = Value::String(request.successor_epoch.clone()).to_sql();
+    declarations
+        .split_inclusive('\n')
+        .map(|line| {
+            let field = line
+                .strip_prefix("DEFINE FIELD OVERWRITE ")
+                .and_then(|line| line.split_once(" ON canonical_interpretations "))
+                .map(|(name, _)| name);
+            let (name, value) = match field {
+                Some("schema_version") => ("pse_v2_schema_version", "2dec"),
+                Some("schema_epoch") => ("pse_v2_schema_epoch", epoch.as_str()),
+                Some("admission_open") => ("pse_v2_admission_closed", "false"),
+                _ => return line.to_owned(),
+            };
+            let definition = line.trim_end().trim_end_matches(';');
+            format!("{definition} MIGRATE EXISTING ROWS AS {name} USING {value};\n")
+        })
+        .collect()
 }
 fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
@@ -1084,7 +1116,7 @@ fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, Canoni
     }
     Ok(format!(
         "{APPLY_PREDECESSOR}\n{}\n{PUBLISH_V2_CHECKPOINT}",
-        overwrite_declarations(SCHEMA_V2_DECLARATION)
+        v2_declarations(request)
     ))
 }
 fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
@@ -1098,7 +1130,7 @@ fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, Ca
     let (validation_body, validation_predicate) = if request.target_version != VERSION {
         (
             super::study_module::CATALOG_VALIDATION_BODY.to_owned(),
-            HISTORICAL_READONLY_MODULE_PREDICATE.to_owned(),
+            super::study_module::CATALOG_VALIDATION_PREDICATE.to_owned(),
         )
     } else {
         (
@@ -1187,9 +1219,6 @@ impl MigrationScript {
     }
 }
 const MIGRATION_SNAPSHOT: &str = "{marker:(SELECT * FROM ONLY canonical_interpretations:current),pending:(SELECT * FROM ONLY canonical_maintenance_operations:current)}";
-// Historical receipt settlement attests its original readonly artifact only.
-// It neither invokes current policy modes nor grants current-schema readiness.
-const HISTORICAL_READONLY_MODULE_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
 const ATOMIC_CAPTURE_CUTOVER: &str = r#"
 LET $pse_capture_pending=SELECT key FROM canonical_study_captures WHERE state!='released' LIMIT 1;
 LET $pse_capture_gate=SELECT * FROM ONLY type::record('canonical_study_capture_gate','current') FOR UPDATE;
@@ -1614,11 +1643,16 @@ mod tests {
             V2_DIGEST,
             "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc"
         );
-        assert_eq!(SCHEMA_V2_DECLARATION.len(), 413340);
         let migration = request(&legacy_marker());
         let first = v2_checkpoint_body(&migration).unwrap();
         assert!(first.starts_with(APPLY_PREDECESSOR));
-        assert!(first.contains(&overwrite_declarations(SCHEMA_V2_DECLARATION)));
+        assert!(first.contains(&v2_declarations(&migration)));
+        assert!(first.contains("MIGRATE EXISTING ROWS AS pse_v2_schema_version USING 2dec;"));
+        assert!(first.contains(&format!(
+            "MIGRATE EXISTING ROWS AS pse_v2_schema_epoch USING {};",
+            Value::String(migration.successor_epoch.clone()).to_sql()
+        )));
+        assert!(first.contains("MIGRATE EXISTING ROWS AS pse_v2_admission_closed USING false;"));
         assert!(first.ends_with(PUBLISH_V2_CHECKPOINT));
         assert!(PUBLISH_V2_CHECKPOINT.contains("admission_open=false"));
         assert!(!PUBLISH_V2_CHECKPOINT.contains("canonical_maintenance_activations"));
@@ -1776,8 +1810,7 @@ mod tests {
         assert_eq!(bytes(settled.request()).unwrap(), recorded);
         assert!(require_current_target(&decoded).is_err());
         let declarations = migration_declarations(&decoded).unwrap();
-        assert!(declarations.starts_with(&overwrite_declarations(SCHEMA_V2_DECLARATION)));
-        assert_eq!(declarations, overwrite_declarations(SCHEMA_V2_DECLARATION));
+        assert_eq!(declarations, v2_declarations(&decoded));
         let mut retargeted = decoded.clone();
         retargeted.target_version = VERSION;
         retargeted.target_digest = wire::SCHEMA_DIGEST.into();
@@ -1813,7 +1846,7 @@ mod tests {
                 overwrite_declarations(SCHEMA_V3_DECLARATION)
             );
             let application = final_application_body(&decoded).unwrap();
-            assert!(application.contains(HISTORICAL_READONLY_MODULE_PREDICATE));
+            assert!(application.contains(super::super::study_module::CATALOG_VALIDATION_PREDICATE));
             assert!(!application.contains("study_capture::capture"));
             assert!(!application.contains(ATOMIC_CAPTURE_CUTOVER));
             let mut retargeted = decoded.clone();
@@ -1970,13 +2003,13 @@ mod tests {
             ("checkpoint quiescent resume", VERIFY_V2_CHECKPOINT, "true"),
         ] {
             let script = MigrationScript::new(body, expression, Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("{name}: {error}");
             }
         }
         for application in &applications {
             let script = MigrationScript::new(application, "$pse_migration_receipt", Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("ordered final edge: {error}");
             }
         }
@@ -1990,7 +2023,7 @@ mod tests {
             ),
         ] {
             let script = MigrationScript::new(body, result, Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("{name}: {error}");
             }
         }

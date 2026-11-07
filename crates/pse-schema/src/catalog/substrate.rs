@@ -21,25 +21,25 @@ pub const SCHEMA_VERSION: u64 = 4;
 /// Supported predecessor of native epoch admission, retained as an immutable migration input.
 pub const PRE_EPOCH_SCHEMA_DIGEST: &str =
     "b6ee758d774a6510a9db894c9062cfe103439bdecc049efeaab8cd26581a21a3";
-/// Raw bytes of the frozen generated predecessor declaration, distinct from its schema/codec digest.
+/// Raw bytes of the pinned v4 replay declaration, distinct from the original schema/codec digest.
 pub const PRE_EPOCH_DECLARATION_SHA256: &str =
-    "68eb820178f7cdc1cb042395b836c88cb9fbc5ead42a20d1d65099f4626d066b";
+    "697bcae372f8fd004179cc840fa34c13b7114b35940ee205986a22623bcfcbce";
 /// Exact native admission predecessor; its scientific interpretation is still v10.
 pub const SCHEMA_V2_VERSION: u64 = 2;
 /// Frozen schema/codec digest, never recomputed from the current generator.
 pub const SCHEMA_V2_DIGEST: &str =
     "04c2b46a1ee5d153244089e816e1fc2586c1208a8fce5e48998f22a091c55bcc";
-/// Raw bytes of the immutable schema-v2 declaration.
+/// Raw bytes of the pinned v4 replay declaration for schema v2.
 pub const SCHEMA_V2_DECLARATION_SHA256: &str =
-    "4b082f4d8bdc6a17ff3ce00a1cf30c8569422a51e7678f1e9e6bc0c9871e1aae";
+    "bbf413aef25756f21e46a567966c9627689a5f86a966367d8a9b82c8f0109481";
 /// Exact progression/capture predecessor before atomic capture publication.
 pub const SCHEMA_V3_VERSION: u64 = 3;
 /// Frozen schema/codec digest of the original schema-v3 contract.
 pub const SCHEMA_V3_DIGEST: &str =
     "56871005a52697e9e619f4a9ebe63df9447a292489481550fea14e76d4d5beb8";
-/// Raw bytes of the immutable schema-v3 declaration.
+/// Raw bytes of the pinned v4 replay declaration for schema v3.
 pub const SCHEMA_V3_DECLARATION_SHA256: &str =
-    "ccf56f76e8e68475c7ac00f92cf56b94a6376e59c9e2ba12180ff82fb0c2ac6f";
+    "0671dd2b6acd5ab9e07cde6ca1648997a5a58522678ff8f557889b37a3a84636";
 
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;

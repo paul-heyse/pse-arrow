@@ -25,7 +25,7 @@ DEFINE FUNCTION fn::pse_history_v1::run($rpc_expiry:int,$run:string) -> bool {
     fn::pse_history_v1::check_owner($rpc_expiry,'run',$run);
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_run_association_bound_exceeded'; };
-    FOR $parent IN $parents { fn::pse_history_v1::check_owner($rpc_expiry,'study',$parent.study); };
+    FOR $history_parent IN $parents { fn::pse_history_v1::check_owner($rpc_expiry,'study',$history_parent.study); };
     RETURN true;
 };
 
@@ -91,15 +91,15 @@ DEFINE FUNCTION fn::pse_history_v1::record_operation($rpc_expiry:int,$key:string
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:operation_association_bound_exceeded'; };
     LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
     LET $selected_study=$study ?? $finalization;
-    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
-        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+    LET $applicable=IF $point!=NONE {$parents.filter(|$history_parent|$history_parent.study=$selected_study AND $history_parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$history_parent|$history_parent.study=$selected_study AND $history_parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$history_parent|$history_parent.point!=NONE);
         IF array::len($points)!=0 {$points} ELSE {$parents}
     };
     IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
-    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $history_parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
     CREATE ONLY type::record('canonical_execution_operations',$key) SET key=$key,run=$run,attempt=$attempt,kind=$kind,request=$request,result=$result,
         issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,
-        study=$parent.study,point=$parent.point,minimal=false,disposition='settled';
+        study=$history_parent.study,point=$history_parent.point,minimal=false,disposition='settled';
     IF $attempt!=NONE { fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run); };
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
@@ -113,14 +113,14 @@ DEFINE FUNCTION fn::pse_history_v1::record_append_operations($rpc_expiry:int,$ru
     LET $finalization=IF $attempt=NONE {NONE} ELSE {(SELECT finalization_study FROM ONLY type::record('canonical_attempts',$attempt)).finalization_study};
     LET $study=NONE; LET $point=NONE;
     LET $selected_study=$finalization;
-    LET $applicable=IF $point!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$parent|$parent.study=$selected_study AND $parent.point=NONE)} ELSE {
-        LET $points=$parents.filter(|$parent|$parent.point!=NONE);
+    LET $applicable=IF $point!=NONE {$parents.filter(|$history_parent|$history_parent.study=$selected_study AND $history_parent.point=$point)} ELSE IF $selected_study!=NONE {$parents.filter(|$history_parent|$history_parent.study=$selected_study AND $history_parent.point=NONE)} ELSE {
+        LET $points=$parents.filter(|$history_parent|$history_parent.point!=NONE);
         IF array::len($points)!=0 {$points} ELSE {$parents}
     };
     IF array::len($applicable)>1 OR (($study!=NONE OR $point!=NONE OR $finalization!=NONE) AND array::len($applicable)!=1) { THROW 'PSE_REFUSAL:operation_exact_study_point_attribution_differs'; };
-    LET $parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
+    LET $history_parent=IF array::len($applicable)=0 {NONE} ELSE {$applicable[0]};
     LET $issuing=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
-    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$parent.study,point:$parent.point,minimal:false,disposition:'settled'});
+    LET $rows=$items.map(|$item| {id:type::record('canonical_execution_operations',$item.operation),key:$item.operation,run:$run,attempt:$attempt,kind:'append',request:$item.request,result:$item.request,issuing_store:$issuing,study:$history_parent.study,point:$history_parent.point,minimal:false,disposition:'settled'});
     INSERT INTO canonical_execution_operations $rows RETURN NONE;
     fn::pse_history_v1::identity($rpc_expiry,'attempt',$attempt,$run);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
@@ -163,9 +163,9 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
     IF (SELECT * FROM ONLY type::record('canonical_history_retirements','run:'+$run) FOR UPDATE)!=NONE { RETURN false; };
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_inventory_association_bound'; };
-    FOR $parent IN $parents {
-        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$parent.study) FOR UPDATE)!=NONE { RETURN false; };
+    FOR $history_parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$history_parent.study);
+        IF (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$history_parent.study) FOR UPDATE)!=NONE { RETURN false; };
     };
     RETURN true;
 };
@@ -174,9 +174,9 @@ DEFINE FUNCTION fn::pse_history_v1::visible_run($rpc_expiry:int,$run:string) -> 
 DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string) -> bool {
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
     IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
-    FOR $parent IN $parents {
-        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+    FOR $history_parent IN $parents {
+        fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$history_parent.study);
+        LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$history_parent.study) FOR UPDATE;
         IF ($count.count ?? 0dec)>0dec { RETURN true; };
     };
     RETURN false;
@@ -214,7 +214,7 @@ DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:str
         fn::pse_history_v1::run($rpc_expiry,$owner);
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
         IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_obligation_association_bound'; };
-        FOR $parent IN $parents { fn::pse_execution_v1::touch($rpc_expiry,'history:study:'+$parent.study); };
+        FOR $history_parent IN $parents { fn::pse_execution_v1::touch($rpc_expiry,'history:study:'+$history_parent.study); };
     };
     fn::pse_execution_v1::touch($rpc_expiry,'history:'+$scope);
     LET $header=IF $kind='run' {SELECT key FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT key FROM ONLY type::record('canonical_studies',$owner)};
@@ -274,9 +274,9 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         IF $retired=NONE OR !$retired.complete OR ($header.terminal_attempt=NONE AND (SELECT * FROM ONLY type::record('canonical_history_identities','effect-free-run:'+$owner))=NONE) { THROW 'PSE_REFUSAL:history_release_requires_settled_retired_run_payloads'; };
         LET $parents=SELECT study FROM canonical_history_locators WHERE run=$owner LIMIT 3;
         IF array::len($parents)>2 { THROW 'PSE_REFUSAL:history_release_association_bound'; };
-        FOR $parent IN $parents {
-            fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$parent.study);
-            LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$parent.study) FOR UPDATE;
+        FOR $history_parent IN $parents {
+            fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$history_parent.study);
+            LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$history_parent.study) FOR UPDATE;
             IF ($parent_count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:study_audit_retains_run_history'; };
         };
     } ELSE {

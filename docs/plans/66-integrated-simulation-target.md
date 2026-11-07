@@ -129,7 +129,9 @@ I01–I12 map respectively to A/J, C, F, B, B, E, C, F, C, B/F, B and E/F. Novem
 I01–I11 retain operation/product/invalidation, developer/direction/history, option/comparison/
 assurance/JSON/population reasoning at A–F/L. No completed bounded decision is reopened without
 a changed consuming premise. New mechanisms are investigated through their complete contracts,
-not a repeated broad library census. SurrealDB v4 remains outside this target.
+not a repeated broad library census. [Plan68](68-surrealdb-v4-cutover.md)
+owns the SurrealDB v4 platform cutover under ADR-0257. Plan66 supplies the
+available scientific receiving journeys and retains their acceptance.
 
 Original diagnostic identities retain their narrower scope: source F03/DA-048 and F06
 continue at A02/A05 and J's actual analysis consumers; F04/DA-006 is a bounded A01/B

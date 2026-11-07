@@ -35,9 +35,9 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
             LET $root=SELECT * FROM ONLY type::record('canonical_roots',$source.key);
             IF $root=NONE OR $root.owner_kind!='analysis' OR $root.owner!=$row.key OR $root.problem!=$source.problem OR $root.revision!=$source.revision OR $root.sequence!=$source.sequence { THROW 'PSE_REFUSAL:immutable_analysis_source_changed'; };
         };
-        FOR $input IN $inputs {
-            LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$input.key);
-            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$input.artifact { THROW 'PSE_REFUSAL:immutable_analysis_input_changed'; };
+        FOR $analysis_input IN $inputs {
+            LET $selected=SELECT * FROM ONLY type::record('canonical_analysis_inputs',$analysis_input.key);
+            IF $selected=NONE OR $selected.analysis!=$row.key OR $selected.artifact!=$analysis_input.artifact { THROW 'PSE_REFUSAL:immutable_analysis_input_changed'; };
         };
         LET $rpc_result = $old;
         fn::pse_execution_v1::deadline($rpc_expiry);
@@ -53,21 +53,21 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
         IF array::len($pruned)!=0 { THROW 'PSE_REFUSAL:analysis_source_reclaimed'; };
     };
     IF array::len($sources[WHERE revision=$row.revision AND problem=$row.primary_problem])!=1 OR $row.revision NOT IN $sources.revision { THROW 'PSE_REFUSAL:analysis_primary_source_omitted'; };
-    FOR $input IN $inputs {
-        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
-        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$input.protection) FOR UPDATE;
-        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$input.protection);
-        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$input.protection)) OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$input.artifact OR $input.analysis!=$row.key { THROW 'PSE_REFUSAL:analysis_artifact_input_not_admitted'; };
-        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$input.artifact LIMIT 66;
+    FOR $analysis_input IN $inputs {
+        LET $artifact=fn::pse_artifact_v1::available($rpc_expiry,$analysis_input.artifact);
+        LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$analysis_input.protection) FOR UPDATE;
+        LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$analysis_input.protection);
+        IF $pin=NONE OR $pin.released OR ($pin.expires_at<=time::micros() AND !fn::pse_files_v1::ticket_open($rpc_expiry,$analysis_input.protection)) OR $pin.revision!=$artifact.revision OR $read=NONE OR $read.artifact!=$analysis_input.artifact OR $analysis_input.analysis!=$row.key { THROW 'PSE_REFUSAL:analysis_artifact_input_not_admitted'; };
+        LET $selected=SELECT revision FROM canonical_roots WHERE owner_kind='artifact' AND owner=$analysis_input.artifact LIMIT 66;
         IF array::len($selected)=0 OR array::len($selected)>65 OR array::len(array::complement($selected.revision,$sources.revision))!=0 { THROW 'PSE_REFUSAL:analysis_omitted_artifact_source'; };
     };
     LET $saved=CREATE ONLY type::record('canonical_analyses',$row.key) CONTENT $row;
     FOR $source IN $sources {
         CREATE ONLY type::record('canonical_roots',$source.key) SET key=$source.key,problem=$source.problem,revision=$source.revision,sequence=$source.sequence,owner_kind='analysis',owner=$row.key;
     };
-    FOR $input IN $inputs {
-        fn::pse_artifact_v1::attach($rpc_expiry,$input.artifact,$input.obligation,true);
-        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$input.artifact)}) RETURN NONE;
+    FOR $analysis_input IN $inputs {
+        fn::pse_artifact_v1::attach($rpc_expiry,$analysis_input.artifact,$analysis_input.obligation,true);
+        INSERT RELATION INTO canonical_analysis_inputs object::extend(object::remove($analysis_input,['protection','obligation']),{id:type::record('canonical_analysis_inputs',$analysis_input.key),in:type::record('canonical_analyses',$row.key),out:type::record('canonical_artifacts',$analysis_input.artifact)}) RETURN NONE;
     };
     LET $rpc_result = $saved;
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -95,9 +95,9 @@ DEFINE FUNCTION fn::pse_analysis_v1::append($rpc_expiry: int, $key: string,$node
         IF $edge.analysis!=$key OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.source AND $endpoint.analysis=$key))!=1 OR array::len($endpoints.filter(|$endpoint| $endpoint.key=$edge.target AND $endpoint.analysis=$key))!=1 { THROW 'PSE_REFUSAL:analysis_edge_membership'; };
         IF ($edge.evidence_artifact=NONE)!=($edge.evidence_block=NONE) OR ($edge.evidence_artifact=NONE AND ($edge.evidence_row!=NONE OR $edge.evidence_field!=NONE)) { THROW 'PSE_REFUSAL:analysis_typed_evidence_incomplete'; };
         IF $edge.evidence_artifact!=NONE {
-            LET $input=$inputs.filter(|$input| $input.artifact=$edge.evidence_artifact);
+            LET $analysis_input=$inputs.filter(|$analysis_input| $analysis_input.artifact=$edge.evidence_artifact);
             LET $block=$blocks.filter(|$block| $block.artifact=$edge.evidence_artifact AND $block.ordinal=$edge.evidence_block);
-            IF array::len($input)!=1 OR array::len($input[0].matches)!=1 OR array::len($block)!=1 OR array::len($block[0].matches)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$block[0].matches[0].rows) { THROW 'PSE_REFUSAL:analysis_evidence_outside_retained_artifact'; };
+            IF array::len($analysis_input)!=1 OR array::len($analysis_input[0].matches)!=1 OR array::len($block)!=1 OR array::len($block[0].matches)!=1 OR ($edge.evidence_row!=NONE AND $edge.evidence_row>=$block[0].matches[0].rows) { THROW 'PSE_REFUSAL:analysis_evidence_outside_retained_artifact'; };
         };
         LET $old=SELECT * FROM ONLY type::record('canonical_analysis_edges',$edge.key);
         IF $old!=NONE { IF $old.key!=$edge.key OR $old.analysis!=$edge.analysis OR $old.source!=$edge.source OR $old.target!=$edge.target OR $old.kind!=$edge.kind OR $old.evidence_artifact!=$edge.evidence_artifact OR $old.evidence_block!=$edge.evidence_block OR $old.evidence_row!=$edge.evidence_row OR $old.evidence_field!=$edge.evidence_field { THROW 'PSE_REFUSAL:immutable_analysis_edge_changed'; }; }

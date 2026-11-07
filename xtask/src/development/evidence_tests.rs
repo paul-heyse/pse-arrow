@@ -1,6 +1,106 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 use super::*;
+
+#[cfg(feature = "host-contracts")]
+fn original_report_snapshot(path: &Path) -> Result<EvidenceSnapshot, EvidenceError> {
+    use buffa::Message as _;
+    use buffa_descriptor::generated::descriptor::FileDescriptorSet;
+    use pse_host::{developer_evidence, developer_evidence_contracts};
+    use std::io::Read as _;
+
+    const MAX_REPORT_BYTES: u64 = 4 * 1024 * 1024;
+    let mut bytes = Vec::new();
+    std::fs::File::open(path)
+        .and_then(|file| file.take(MAX_REPORT_BYTES + 1).read_to_end(&mut bytes))
+        .map_err(|error| config(error.to_string()))?;
+    if bytes.len() as u64 > MAX_REPORT_BYTES {
+        return Err(config(
+            "original report exceeds scoped evidence fixture bound",
+        ));
+    }
+    let descriptors =
+        FileDescriptorSet::decode_from_slice(developer_evidence_contracts::DESCRIPTORS)
+            .map_err(|error| config(error.to_string()))?;
+    let facts = developer_evidence::inspect_facts(
+        &descriptors,
+        "pse.developer.evidence.v1.CapturedWorkflowReport",
+        &bytes,
+        &developer_evidence::binary_options(),
+    )
+    .map_err(|error| config(error.to_string()))?;
+    let status =
+        serde_json::to_value(facts.report.outcome).map_err(|error| config(error.to_string()))?;
+    let status = status
+        .as_str()
+        .ok_or_else(|| config("invalid original outcome"))?;
+    let member = "invocation".to_owned();
+    let source = EvidenceSnapshot {
+        version: 2,
+        authority: "pse-host".into(),
+        codec: format!(
+            "exact-resource-files-invocation-v{}",
+            facts.readback.report_version
+        ),
+        source_id: facts.report.invocation.to_string(),
+        snapshot_digest: hex(&bytes),
+        // This explicit projection omits test rows and dependency observations.
+        coverage: "partial".into(),
+        expected_members: vec![member.clone()],
+        facts: vec![EvidenceFact {
+            member,
+            kind: "invocation".into(),
+            status: status.into(),
+            detail_ref: Some(format!("sha256:{}#/outcome", facts.readback.report_sha256)),
+            ..EvidenceFact::default()
+        }],
+    };
+    source.validate()?;
+    Ok(source)
+}
+
+#[cfg(feature = "host-contracts")]
+async fn qualify_original_report(
+    importer: &EvidenceStore,
+    reader: &EvidenceStore,
+    path: &Path,
+) -> Result<(), EvidenceError> {
+    use crate::development::evidence_query::{EvidenceAnalysis, EvidenceQuestion};
+
+    let original = original_report_snapshot(path)?;
+    assert_eq!(original.facts[0].status, "failed");
+    let receipt = importer.import(&original).await?;
+    let page = reader
+        .select(&EvidenceQuery {
+            generation: Some(receipt.generation.clone()),
+            ..Default::default()
+        })
+        .await?;
+    assert_eq!(page.source_id, original.source_id);
+    assert_eq!(page.snapshot_digest, original.snapshot_digest);
+    assert_eq!(page.coverage, "partial");
+    assert_eq!(page.facts, original.facts);
+    let cut = reader.source_cut(&[receipt.generation], false).await?;
+    let mut offline = EvidenceAnalysis::new(vec![original], false)?;
+    let mut indexed = EvidenceAnalysis::new(cut, false)?;
+    let question = EvidenceQuestion::default();
+    assert_eq!(
+        offline.ask(&question, &[]).await?,
+        indexed.ask(&question, &[]).await?
+    );
+    Ok(())
+}
+
+#[cfg(feature = "host-contracts")]
+#[test]
+#[ignore = "requires an explicitly exported original controlled-failure report"]
+fn evidence_project_original_failed_report() {
+    let path = std::env::var_os("PSE_PLAN68_ORIGINAL_REPORT").expect("select original report");
+    let snapshot = original_report_snapshot(Path::new(&path)).unwrap();
+    assert_eq!(snapshot.coverage, "partial");
+    assert_eq!(snapshot.facts[0].status, "failed");
+}
+
 fn snapshot() -> EvidenceSnapshot {
     EvidenceSnapshot {
         version: 2,
@@ -191,6 +291,10 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         assert!(matches!(reader.select(&EvidenceQuery{generation:Some(key.clone()),..Default::default()}).await,Err(EvidenceError::Cursor)));
         assert!(matches!(reader.source_cut(&[key],false).await,Err(EvidenceError::Unavailable(_))));
         let mut invalid=options.clone();invalid.service_instance_id="foreign-service".into();assert!(matches!(EvidenceStore::open(&invalid,EvidenceAccess::Reader).await,Err(EvidenceError::Unavailable(_))));
+        #[cfg(feature = "host-contracts")]
+        if let Some(path) = std::env::var_os("PSE_PLAN68_ORIGINAL_REPORT") {
+            qualify_original_report(&importer, &reader, Path::new(&path)).await?;
+        }
         // Complete-response checking rejects preceding rows when a later statement fails.
         assert!(transport::bounded_query(importer.query("SELECT * FROM evidence_facts LIMIT 1; THROW 'later statement failure';")?).await.is_err());
         // Pinned native REMOVE DATABASE remains inside its enclosing transaction.

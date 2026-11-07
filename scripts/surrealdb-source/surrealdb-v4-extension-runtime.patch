@@ -1,0 +1,351 @@
+diff --git a/surrealdb/core/src/surrealism/runner.rs b/surrealdb/core/src/surrealism/runner.rs
+index fc08b36..d5f0492 100644
+--- a/surrealdb/core/src/surrealism/runner.rs
++++ b/surrealdb/core/src/surrealism/runner.rs
+@@ -34,6 +34,7 @@ use surrealism_runtime::exports::ExportsManifest;
+ use surrealism_runtime::host::InvocationContext;
+ use surrealism_runtime::package::{SurrealismPackage, UnpackOptions};
+ use surrealism_runtime::runtime::{Call, InstanceSettings, Runtime};
++use surrealism_runtime::SurrealismError;
+ use web_time::Instant;
+ 
+ use crate::dbs::Capabilities;
+@@ -219,6 +220,19 @@ impl SurrealismRunner {
+ 	}
+ }
+ 
++fn map_invocation_error(error: SurrealismError) -> anyhow::Error {
++	match error {
++		SurrealismError::ControllerCapacityExceeded
++		| SurrealismError::NoInvocationSlot { .. }
++		| SurrealismError::NestedInvocationNoSlot { .. } => anyhow::Error::new(
++			crate::exec::Error::Thrown(
++				"PSE_REFUSAL:surrealism_controller_capacity_exceeded".to_owned(),
++			),
++		),
++		other => anyhow::Error::new(other),
++	}
++}
++
+ impl ExtensionRunner for SurrealismRunner {
+ 	fn name(&self) -> &'static str {
+ 		"surrealism"
+@@ -227,6 +241,7 @@ impl ExtensionRunner for SurrealismRunner {
+ 	/// Creates the guarded engine, which reserves the pool's address space
+ 	/// and starts its epoch ticker.
+ 	fn start(&self) -> Result<()> {
++		surrealism_runtime::epoch::validate_global_controller_configuration()?;
+ 		self.engines.engine(true)?;
+ 		Ok(())
+ 	}
+@@ -331,7 +346,8 @@ impl PreparedExtension for PreparedSurrealism {
+ 					deadline: call.limits.deadline,
+ 					nested: call.limits.depth > 0,
+ 				})
+-				.await?;
++				.await
++				.map_err(map_invocation_error)?;
+ 			Ok(values)
+ 		})
+ 	}
+diff --git a/surrealism/runtime/src/epoch.rs b/surrealism/runtime/src/epoch.rs
+index e1451a3..48579d0 100644
+--- a/surrealism/runtime/src/epoch.rs
++++ b/surrealism/runtime/src/epoch.rs
+@@ -222,6 +222,61 @@ pub struct Engines {
+ pub struct SlotPermit {
+ 	_slot: OwnedSemaphorePermit,
+ 	_top_level: Option<OwnedSemaphorePermit>,
++	/// Process-wide bound retained until the physical Store is dropped.
++	_global: OwnedSemaphorePermit,
++}
++
++/// A datastore may own several engine pools with different memory or timeout
++/// settings. Bound their physical Stores together, independent of pool identity.
++static GLOBAL_CONTROLLER_SLOTS: OnceLock<Result<Arc<Semaphore>, String>> = OnceLock::new();
++
++fn global_controller_limit(value: Option<&str>) -> Result<usize, String> {
++	// With no PSE-specific ceiling, match the upstream server default.
++	let value = value.unwrap_or("64");
++	value
++		.parse::<usize>()
++		.ok()
++		.filter(|value| *value > 0 && *value <= Semaphore::MAX_PERMITS)
++		.ok_or_else(|| {
++			"SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS must be a finite positive semaphore capacity"
++				.to_owned()
++		})
++}
++
++fn global_controller_slots() -> SurrealismResult<&'static Arc<Semaphore>> {
++	GLOBAL_CONTROLLER_SLOTS
++		.get_or_init(|| {
++			let configured = std::env::var("SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS")
++				.map(Some)
++				.or_else(|error| match error {
++					std::env::VarError::NotPresent => Ok(None),
++					std::env::VarError::NotUnicode(_) => {
++						Err("invalid Surrealism controller capacity encoding".to_owned())
++					}
++				})?;
++			Ok(Arc::new(Semaphore::new(global_controller_limit(
++				configured.as_deref(),
++			)?)))
++		})
++		.as_ref()
++		.map_err(|error| SurrealismError::Other(anyhow::anyhow!(error.clone())))
++}
++
++/// Validate the process-wide controller limit during server startup.
++pub fn validate_global_controller_configuration() -> SurrealismResult<()> {
++	global_controller_slots().map(|_| ())
++}
++
++fn acquire_global_controller_slot() -> SurrealismResult<OwnedSemaphorePermit> {
++	try_global_controller_slot(global_controller_slots()?)
++}
++
++fn try_global_controller_slot(
++	slots: &Arc<Semaphore>,
++) -> SurrealismResult<OwnedSemaphorePermit> {
++	Arc::clone(slots)
++		.try_acquire_owned()
++		.map_err(|_| SurrealismError::ControllerCapacityExceeded)
+ }
+ 
+ impl std::fmt::Debug for Engines {
+@@ -266,6 +321,8 @@ pub fn engines(settings: EngineSettings) -> Arc<Engines> {
+ /// How long an invocation may wait for a slot.
+ #[derive(Clone, Copy, Debug)]
+ pub enum SlotWait {
++	/// Refuse at once when either the top-level or Wasmtime slot budget is full.
++	FailFast,
+ 	/// Wait up to this long, then fail.
+ 	Bounded(Duration),
+ 	/// Fail at once if no slot is free.
+@@ -352,12 +409,30 @@ impl Engines {
+ 
+ 	/// Take one slot for an invocation. The permit returns it on drop.
+ 	///
+-	/// A top-level invocation ([`SlotWait::Bounded`]) first takes one of the
+-	/// slots top-level invocations may share, then a slot, both within its
+-	/// wait. A nested one ([`SlotWait::Never`]) takes any free slot, reserved
+-	/// or not, or fails at once.
++	/// A top-level invocation first takes one of the slots top-level invocations
++	/// may share, then a slot. Canonical calls use [`SlotWait::FailFast`]; callers
++	/// that explicitly opt in may use [`SlotWait::Bounded`]. A nested one
++	/// ([`SlotWait::Never`]) takes any free slot, reserved or not, or fails at once.
+ 	pub async fn acquire_slot(&self, wait: SlotWait) -> SurrealismResult<SlotPermit> {
++		let global = acquire_global_controller_slot()?;
+ 		match wait {
++			SlotWait::FailFast => {
++				let refused = || SurrealismError::NoInvocationSlot {
++					waited: Duration::ZERO,
++					slots: self.slot_count(),
++				};
++				let top_level = Arc::clone(&self.top_level)
++					.try_acquire_owned()
++					.map_err(|_| refused())?;
++				let slot = Arc::clone(&self.slots)
++					.try_acquire_owned()
++					.map_err(|_| refused())?;
++				Ok(SlotPermit {
++					_slot: slot,
++					_top_level: Some(top_level),
++					_global: global,
++				})
++			}
+ 			SlotWait::Never => {
+ 				let slot = Arc::clone(&self.slots).try_acquire_owned().map_err(|_| {
+ 					tracing::warn!(
+@@ -372,6 +447,7 @@ impl Engines {
+ 				Ok(SlotPermit {
+ 					_slot: slot,
+ 					_top_level: None,
++					_global: global,
+ 				})
+ 			}
+ 			SlotWait::Bounded(wait) => {
+@@ -381,6 +457,7 @@ impl Engines {
+ 					Ok::<_, tokio::sync::AcquireError>(SlotPermit {
+ 						_slot: slot,
+ 						_top_level: Some(top_level),
++						_global: global,
+ 					})
+ 				};
+ 				match tokio::time::timeout(wait, acquire).await {
+@@ -400,12 +477,57 @@ impl Engines {
+ 
+ #[cfg(test)]
+ mod tests {
++	use std::sync::Arc;
+ 	use std::time::Duration;
+ 
++	use surrealism_types::err::SurrealismError;
++	use tokio::sync::Semaphore;
+ 	use wasmtime::*;
+ 	use web_time::Instant;
+ 
+-	use super::{EngineSettings, SlotWait, deadline_after, engines, yield_until_deadline};
++	use super::{
++		EngineSettings, SlotWait, deadline_after, engines, global_controller_limit,
++		try_global_controller_slot, yield_until_deadline,
++	};
++
++	#[test]
++	fn global_controller_budget_is_finite_positive_and_fail_fast_until_physical_drop() {
++		assert_eq!(global_controller_limit(None).unwrap(), 64);
++		assert_eq!(global_controller_limit(Some("16")).unwrap(), 16);
++		for value in ["0", "-1", "max", "18446744073709551615"] {
++			assert!(global_controller_limit(Some(value)).is_err());
++		}
++
++		let slots = Arc::new(Semaphore::new(1));
++		let physical_store = try_global_controller_slot(&slots).unwrap();
++		assert!(matches!(
++			try_global_controller_slot(&slots),
++			Err(SurrealismError::ControllerCapacityExceeded)
++		));
++		drop(physical_store);
++		assert!(try_global_controller_slot(&slots).is_ok());
++	}
++
++	#[tokio::test(flavor = "current_thread")]
++	async fn canonical_top_level_slot_admission_is_fail_fast_and_keeps_nested_reserve() {
++		let engines = engines(EngineSettings {
++			max_concurrent_invocations: 4,
++			max_memory_bytes: Some(1 << 20),
++		});
++		let mut held = Vec::new();
++		for _ in 0..3 {
++			held.push(engines.acquire_slot(SlotWait::FailFast).await.expect("top-level slot"));
++		}
++		assert!(matches!(
++			engines.acquire_slot(SlotWait::FailFast).await,
++			Err(SurrealismError::NoInvocationSlot { waited, .. }) if waited.is_zero()
++		));
++		held.push(engines.acquire_slot(SlotWait::Never).await.expect("nested reserve"));
++		assert!(matches!(
++			engines.acquire_slot(SlotWait::Never).await,
++			Err(SurrealismError::NestedInvocationNoSlot { .. })
++		));
++	}
+ 
+ 	/// Top-level invocations cannot take the reserved slots, so a nested
+ 	/// invocation still finds one when queries hold every slot they may.
+diff --git a/surrealism/runtime/src/runtime.rs b/surrealism/runtime/src/runtime.rs
+index f9a47aa..73f7168 100644
+--- a/surrealism/runtime/src/runtime.rs
++++ b/surrealism/runtime/src/runtime.rs
+@@ -55,9 +55,24 @@ use crate::package::{AttachedFs, SurrealismPackage};
+ use crate::store::StoreData;
+ use crate::wasi_context::{StdioCallback, WasiTemplate};
+ 
+-/// The longest a top-level invocation waits for a slot when its query has no
+-/// timeout of its own.
+-const SLOT_WAIT_WITHOUT_DEADLINE: Duration = Duration::from_secs(30);
++async fn with_context_deadline<T>(
++	deadline: Option<Instant>,
++	future: impl std::future::Future<Output = T>,
++) -> SurrealismResult<T> {
++	let context_timeout = deadline.map(|at| at.saturating_duration_since(Instant::now()));
++	let timeout = || SurrealismError::Timeout {
++		effective: context_timeout,
++		context_timeout,
++		module_limit: None,
++	};
++	match context_timeout {
++		Some(effective) if effective.is_zero() => Err(timeout()),
++		Some(effective) => tokio::time::timeout(effective, future)
++			.await
++			.map_err(|_| timeout()),
++		None => Ok(future.await),
++	}
++}
+ 
+ /// A compiled component for one engine flavour.
+ struct Linked {
+@@ -403,15 +418,14 @@ impl Runtime {
+ 	}
+ 
+ 	async fn run_invocation(&self, call: Call) -> SurrealismResult<Vec<surrealdb_types::Value>> {
++		// Refuse an already-expired call before reserving either slot budget.
++		with_context_deadline(call.deadline, async {}).await?;
+ 		let wait = if call.nested {
+ 			SlotWait::Never
+ 		} else {
+-			// Bounded by the caller's own deadline whatever `strict_timeout`
+-			// says: that flag concerns the guest's execution, and this wait is
+-			// the host's.
+-			SlotWait::Bounded(call.deadline.map_or(SLOT_WAIT_WITHOUT_DEADLINE, |d| {
+-				d.saturating_duration_since(Instant::now())
+-			}))
++			// Canonical top-level work refuses capacity at once. Nested calls
++			// also refuse at once because their caller holds a physical slot.
++			SlotWait::FailFast
+ 		};
+ 		let slot = self.engines.acquire_slot(wait).await?;
+ 		let mut controller = self.instantiate(&call.settings, Some(slot), call.deadline).await?;
+@@ -455,7 +469,8 @@ impl Runtime {
+ 			))
+ 		})?;
+ 
+-		let net = settings.net.for_invocation().await;
++		let net = with_context_deadline(deadline, settings.net.for_invocation())
++		.await?;
+ 		let (wasi, table) =
+ 			self.wasi.instantiate(&net, Arc::clone(&settings.stdout), Arc::clone(&settings.stderr));
+ 		let mut limits = StoreLimitsBuilder::new();
+@@ -483,6 +498,13 @@ impl Runtime {
+ 		}
+ 		let remaining = deadline.map(|d| d.saturating_duration_since(Instant::now()));
+ 		let limit = crate::controller::effective_timeout(remaining, settings.max_execution_time);
++		if limit.is_some_and(|limit| limit.is_zero()) {
++			return Err(SurrealismError::Timeout {
++				effective: limit,
++				context_timeout: remaining,
++				module_limit: settings.max_execution_time,
++			});
++		}
+ 		store.data_mut().deadline =
+ 			limit.map(|limit| crate::epoch::deadline_after(&epoch_counter, limit));
+ 
+@@ -560,10 +582,23 @@ mod tests {
+ 
+ 	use web_time::Instant;
+ 
+-	use super::{InstanceSettings, Runtime};
++	use super::{InstanceSettings, Runtime, with_context_deadline};
+ 	use crate::abi::Abi;
+ 	use crate::epoch::{EngineSettings, engines};
+ 
++	#[tokio::test(flavor = "current_thread")]
++	async fn original_deadline_bounds_async_host_preparation() {
++		let deadline = Instant::now() + Duration::from_millis(30);
++		tokio::time::sleep(Duration::from_millis(20)).await;
++		let err = with_context_deadline(
++			Some(deadline),
++			async { tokio::time::sleep(Duration::from_millis(100)).await },
++		)
++		.await
++		.expect_err("the original absolute deadline expires during host preparation");
++		assert!(matches!(err, crate::SurrealismError::Timeout { .. }), "{err}");
++	}
++
+ 	/// Instantiating runs a core module's `start` function, and that is
+ 	/// bounded by the execution time limit like any other guest code.
+ 	#[tokio::test(flavor = "current_thread")]
+diff --git a/surrealism/types/src/err.rs b/surrealism/types/src/err.rs
+index 9eb07e0..a6591bf 100644
+--- a/surrealism/types/src/err.rs
++++ b/surrealism/types/src/err.rs
+@@ -6,6 +6,9 @@ use std::time::Duration;
+ 
+ #[derive(thiserror::Error, Debug)]
+ pub enum SurrealismError {
++	#[cfg(feature = "host")]
++	#[error("Process-wide Surrealism controller capacity exceeded")]
++	ControllerCapacityExceeded,
+ 	#[cfg(feature = "host")]
+ 	#[error("WASM compilation failed: {0}")]
+ 	Compilation(wasmtime::Error),

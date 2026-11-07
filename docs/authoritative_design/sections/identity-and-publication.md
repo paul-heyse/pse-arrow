@@ -998,6 +998,12 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+> Default deployments reconstruct fresh level-4 v4 catalogs through the
+> existing declaration, custody and activation owners. Historical v3 state
+> stays with its original owners. Recovery after v4 write admission proceeds
+> on v4.
+
 #### 20.6.1 From immutable source to retained result
 
 The lifecycle crosses several owners; none of their identities substitutes for another:

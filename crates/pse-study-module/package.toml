@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 target = "rust"
-abi = 2
+abi = 4
 
 [package]
 organisation = "pse"
@@ -11,11 +11,10 @@ version = "1.0.0"
 [capabilities]
 allow_scripting = false
 allow_arbitrary_queries = false
+allow_write = false
 allow_functions = []
 allow_net = []
 max_memory_bytes = 67108864
-max_execution_time = 6000
+max_execution_time = 1000
 max_pool_size = 4
-max_kv_entries = 0
-max_kv_value_bytes = 0
 strict_timeout = true

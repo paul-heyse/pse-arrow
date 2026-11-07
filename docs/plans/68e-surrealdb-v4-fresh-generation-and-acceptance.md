@@ -1,6 +1,6 @@
 ---
 title: "Plan68e: Fresh SurrealDB v4 generation and assembled acceptance"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -51,6 +51,47 @@ operations.
 [Supplier backup boundaries](https://surrealdb.com/docs/manage/self-hosted/backups-and-recovery) ·
 [Native offline custody](../../crates/pse-operations/src/canonical_files/offline.rs)
 
+#### E01 checkpoint — read-only owner census, 2026-11-07
+
+The candidate checkout's user-manager inventory showed 20
+loaded `pse-surreal-*.service` units, all `inactive/dead`; 37 matching unit
+files were present (20 enabled, 17 disabled). A targeted native
+`pse-host activity` observation confirmed one named unit as inactive with no
+main process. The unqualified activity read could not associate this agent
+process with a loaded unit. These observations do not identify a catalog's
+level, exact bytes, consumer, version, payload closure, or whether other
+service managers or manually launched processes own data.
+
+Main's v3 reader still selects the frozen 3.3.4 release. The rollback ref
+`pse/plan68-v3-rollback` preserves the corresponding main source, and the
+native owner selects the byte-identical release from the separate
+`surreal-v3-rollback` tool root. The local default catalog directory is
+absent. Keep configured historical catalogs under their existing owners.
+
+The [68a source build](68a-surrealdb-v4-supplier-runtime-and-extension.md)
+now supplies the private 4.0.0/MX 1.1.0 release. The normal `server prepare
+--from-release` owner imported it into the rehearsal root and preserved
+both executable digests, the lock and the original build receipt. The
+same selection built the ABI 4 Study extension for the live fixtures.
+
+The existing
+`pse-canonical-recovery` inventory/backup/restore route owns canonical
+payload-file custody. Identifying a historical catalog's current consumer
+and recovery holds requires its original owner.
+
+Classify named evidence consumers through their original owners before
+selecting a historical import or release. E02 now runs against the private
+server, helper and module receipt. Filesystem-only
+`canonical_files::offline` controls exercise copy and inventory integrity.
+Live native controls cover catalog initialization, SQL and service recovery.
+
+**Tested, v3 baseline only.** Main's native `scripts/pse test pse-operations
+--lib -E 'test(/offline_(complete_inventory_backup_and_lockless_archive_restore|unnamed_copy_interruption_and_exact_published_restore_resume|checkpoint_resumes_exact_request_and_rechecks_every_byte)/)'`
+ran three filesystem custody controls with zero failures against a zero target
+and complete settlement. The initial filter matched zero tests. This supplies
+baseline payload copy and inventory integrity evidence for the named restore
+case on the v4 fixture.
+
 ### E02 — Rehearse the complete receiving boundary
 
 Use an explicitly prepared private source-built v4 service. Exercise
@@ -87,7 +128,29 @@ complete unrelated Plan66 scientific packages.
 [Canonical native-service tests](../../crates/pse-operations/tests/native_service.rs) ·
 [Developer receiving](68d-surrealdb-v4-developer-and-test-receiving.md)
 
+The first live current-schema runs pass fresh startup, maintenance and
+ingress reconstruction, connection-bound session ownership, and HTTP actor
+grants. The [68b checkpoint](68b-surrealdb-v4-schema-transport-and-authority.md#private-candidate-checkpoint)
+records the catalog and index changes that cleared startup. The targeted
+native recovery rerun passed the original checkpoint, process restart,
+activation and exact receipt readback. The serializable-isolation and Study
+lost-acknowledgement cases passed. Query controls passed after the graph
+fixture separated its installation from the permission and read assertions.
+The live SurrealKit and scoped evidence controls passed in [68d](68d-surrealdb-v4-developer-and-test-receiving.md#private-candidate-checkpoint--november-7).
+The selected native fit journey passed. The aqueous protected-export run
+completed the scientific, permission and independent Arrow/Protobuf checks.
+Its fixture owner then timed out while draining one canonical connection.
+Explicit test-local joins and final-owner changes reproduced the teardown
+failure. The original test remains intact. Plan66l owns the assembled
+scientific fixture and its remaining lifecycle work. The selected v4
+process, recovery and developer disposal tests completed their own drains.
+
 ### E03 — Select, open writes and release
+
+The isolated pre-write rehearsal selected the exact v4 server, returned to
+the frozen v3 source and receipt, then reselected the same v4 generation.
+The workstation has no default catalog and no active SurrealDB service.
+The historical catalogs and v3 rollback release remain in isolated custody.
 
 Freeze the admitted v3 selection, close old write admission and verify
 physical settlement, including outstanding readers, native operations and
@@ -114,9 +177,9 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| E01 | Planned | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
-| E02 | Planned | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Assembled v4 scientific, developer, transport, recovery and physical settlement evidence with matched v3 observations. |
-| E03 | Planned | E02 and governing decision route complete | Verified pre-write rollback and authoritative v4 selection, post-write forward recovery, owner-issued v3 release and removal of replaced paths. |
+| E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
+| E02 | Platform receiving verified | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Current v4 storage, recovery, developer and query behavior qualified for fresh source selection. The aqueous fixture drain remains with Plan66. |
+| E03 | In progress | Scoped platform receiving and governing decision route | Verify the authoritative v4 source and local default selection. Keep historical v3 custody until its own release conditions hold. |
 
 ## Verification and outcome boundary
 

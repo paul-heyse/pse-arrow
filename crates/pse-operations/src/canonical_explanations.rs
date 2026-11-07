@@ -8,6 +8,7 @@ use crate::{
     canonical::{
         CanonicalError, CanonicalStore, MetadataResponse, REQUEST_TIMEOUT, protected_query,
     },
+    canonical_script::{Envelope, GuardedScript},
     generated::surreal as wire,
 };
 use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
@@ -342,12 +343,25 @@ fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
                             .collect::<BTreeMap<_, _>>()
                         })
                         .unwrap_or_default();
+                    let graph_counters_observed = [
+                        "edges_scanned",
+                        "cache_hits",
+                        "cache_misses",
+                        "block_hits",
+                        "delta_hits",
+                        "records_fetched",
+                        "props_evals",
+                        "props_fallbacks",
+                    ]
+                    .into_iter()
+                    .any(|key| counters.contains_key(key));
                     if operator.contains("Graph")
                         || matches!(
                             operator.as_str(),
                             "IndexScan" | "Filter" | "Sort" | "TopK" | "Limit"
                         )
                         || !selected.is_empty()
+                        || (operator == "Values" && graph_counters_observed)
                     {
                         output.push(serde_json::json!({"operator":operator,"attributes":selected,"observed_counters":counters,
                             "folded_blocks_observed":counters.contains_key("block_hits"),"delta_entries_observed":counters.contains_key("delta_hits"),
@@ -961,6 +975,65 @@ mod tests {
     }
 
     #[test]
+    fn graph_plan_retains_counter_only_values_without_inventing_predicate_scope() {
+        let mut metrics = Object::new();
+        metrics.insert("edges_scanned", codec::encode_int(11).unwrap());
+        metrics.insert("records_fetched", codec::encode_int(3).unwrap());
+        let mut values = Object::new();
+        values.insert("operator", Value::String("Values".into()));
+        values.insert("metrics", Value::Object(metrics));
+
+        let observed = graph_plan_observations(&Value::Object(values.clone()));
+        assert_eq!(observed.len(), 1);
+        assert_eq!(observed[0]["operator"], "Values");
+        assert_eq!(observed[0]["observed_counters"]["edges_scanned"], 11);
+        assert_eq!(observed[0]["observed_counters"]["records_fetched"], 3);
+        assert_eq!(
+            observed[0]["predicate_interpretation"],
+            "no native predicate placement observation"
+        );
+        assert_eq!(observed[0]["folded_blocks_observed"], false);
+
+        values.insert("metrics", Value::Object(Object::new()));
+        assert!(graph_plan_observations(&Value::Object(values)).is_empty());
+    }
+
+    #[test]
+    fn graph_plan_preserves_explicit_record_scope_and_absence() {
+        for (scope, expected) in [
+            (Some("record"), "predicate requires edge record evaluation"),
+            (None, "no native predicate placement observation"),
+        ] {
+            let mut attrs = Object::new();
+            if let Some(scope) = scope {
+                attrs.insert("predicate_scope", Value::String(scope.into()));
+            }
+            let mut plan = Object::new();
+            plan.insert("operator", Value::String("GraphEdgeScan".into()));
+            plan.insert("attributes", Value::Object(attrs));
+            let observed = graph_plan_observations(&Value::Object(plan));
+            assert_eq!(observed[0]["predicate_interpretation"], expected);
+        }
+    }
+
+    #[test]
+    fn graph_plan_projection_retains_depth_and_operator_bounds() {
+        let mut scan = Object::new();
+        scan.insert("operator", Value::String("GraphEdgeScan".into()));
+        let scan = Value::Object(scan);
+        let mut nested = scan.clone();
+        for _ in 0..65 {
+            let mut wrapper = Object::new();
+            wrapper.insert("child", nested);
+            nested = Value::Object(wrapper);
+        }
+        assert!(graph_plan_observations(&nested).is_empty());
+
+        let observations = graph_plan_observations(&Value::Array(vec![scan; 300].into()));
+        assert_eq!(observations.len(), 256);
+    }
+
+    #[test]
     fn graph_seek_shapes_use_named_owner_prefixes_without_offset() {
         for (anchor, scope, index, predicate) in [
             (
@@ -1416,7 +1489,18 @@ mod server_tests {
         let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         // A false conditional permission would defeat a finite scan cap for record
         // authentication. Both supported root accounts must bypass it in reality.
-        crate::canonical::bounded_query(store.db.query("DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];")).await.unwrap();
+        crate::canonical::bounded_query(
+            store.db.script(
+                GuardedScript::new(Envelope::Installation)
+                    .returning::<Value>(
+                        "DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];",
+                        "NONE",
+                    )
+                    .unwrap(),
+            ),
+        )
+        .await
+        .unwrap();
         let address = url::Url::parse(&options.endpoint)
             .unwrap()
             .socket_addrs(|| None)

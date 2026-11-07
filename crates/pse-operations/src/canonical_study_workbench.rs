@@ -768,7 +768,7 @@ mod tests {
             assert!(!sql.contains("eligible"));
             #[cfg(feature = "canonical-maintenance")]
             assert!(
-                surrealdb_syn::parse(&sql).is_ok(),
+                surrealdb_expr::parser::parse(&sql).is_ok(),
                 "native workbench script must parse: {sql}"
             );
             let expression = if frozen {

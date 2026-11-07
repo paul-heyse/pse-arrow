@@ -15,6 +15,9 @@ use std::{io::Read, path::Path};
 
 use pse_buildinfo::study_module::{ModuleLimits, StudyModuleRecord};
 
+#[cfg(any(test, feature = "native-service"))]
+pub(crate) const QUALIFICATION_RECORD: &str = "study-module-qualification.json";
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, serde::Serialize)]
 #[serde(transparent)]
 pub(crate) struct StudyModuleReceipt(StudyModuleRecord);
@@ -36,7 +39,7 @@ struct ModuleDeclaration {
 }
 impl ModuleDeclaration {
     fn read() -> Result<Self, CanonicalError> {
-        Self::from_manifest(include_str!("../../pse-study-module/surrealism.toml"))
+        Self::from_manifest(include_str!("../../pse-study-module/package.toml"))
     }
     fn from_manifest(source: &str) -> Result<Self, CanonicalError> {
         let manifest: toml::Value = toml::from_str(source).map_err(invalid)?;
@@ -50,17 +53,14 @@ impl ModuleDeclaration {
             .and_then(toml::Value::as_table)
             .cloned()
             .ok_or_else(|| invalid("declared capabilities absent"))?;
-        let declared: toml::Value =
-            toml::from_str(include_str!("../../pse-study-module/surrealism.toml"))
-                .map_err(invalid)?;
         if capabilities.remove("allow_scripting") != Some(toml::Value::Boolean(false))
             || capabilities.remove("allow_arbitrary_queries") != Some(toml::Value::Boolean(false))
-            || capabilities.remove("allow_functions")
-                != declared
-                    .get("capabilities")
-                    .and_then(|value| value.get("allow_functions"))
-                    .cloned()
+            || capabilities.remove("allow_write") != Some(toml::Value::Boolean(false))
+            || capabilities.remove("allow_functions") != Some(toml::Value::Array(Vec::new()))
             || capabilities.remove("allow_net") != Some(toml::Value::Array(Vec::new()))
+            || manifest.get("attach").is_some()
+            || manifest.get("bindings").is_some()
+            || manifest.get("signer").is_some()
         {
             return Err(invalid(
                 "module pure policy grants or external-attachment denial differ",
@@ -98,25 +98,26 @@ impl StudyModuleReceipt {
     /// The same selected module limits constrain its server runtime. These are
     /// guest-policy limits, independent of native host workload placement.
     #[cfg(feature = "native-service")]
-    pub(crate) fn runtime_environment(&self) -> Vec<(String, String)> {
+    pub(crate) fn runtime_environment(
+        &self,
+        qualification: Option<&Self>,
+    ) -> Vec<(String, String)> {
+        let memory = self
+            .limits
+            .max_memory_bytes
+            .max(qualification.map_or(0, |receipt| receipt.limits.max_memory_bytes));
+        let timeout = self
+            .limits
+            .max_execution_time_ms
+            .max(qualification.map_or(0, |receipt| receipt.limits.max_execution_time_ms));
         [
-            (
-                "SURREAL_SURREALISM_MAX_MEMORY",
-                self.limits.max_memory_bytes.to_string(),
-            ),
-            (
-                "SURREAL_SURREALISM_MAX_EXECUTION_TIME",
-                self.limits.max_execution_time_ms.to_string(),
-            ),
-            (
-                "SURREAL_SURREALISM_MAX_KV_ENTRIES",
-                self.limits.max_kv_entries.to_string(),
-            ),
-            (
-                "SURREAL_SURREALISM_MAX_KV_VALUE_BYTES",
-                self.limits.max_kv_value_bytes.to_string(),
-            ),
+            ("SURREAL_SURREALISM_MAX_MEMORY", memory.to_string()),
+            ("SURREAL_SURREALISM_MAX_EXECUTION_TIME", timeout.to_string()),
             ("SURREAL_SURREALISM_MAX_FS_BYTES", "0".into()),
+            (
+                "SURREAL_SURREALISM_ALLOW_UNBOUNDED_EXECUTION",
+                "false".into(),
+            ),
             ("SURREAL_SURREALISM_LOG_LEVEL", "warn".into()),
         ]
         .into_iter()
@@ -130,6 +131,23 @@ impl StudyModuleReceipt {
         &self,
         state: &Path,
         directory: &Path,
+    ) -> Result<Self, CanonicalError> {
+        self.copy_private(state, directory, Self::validate)
+    }
+    #[cfg(feature = "native-service")]
+    pub(crate) fn copy_qualification_into_private(
+        &self,
+        state: &Path,
+        directory: &Path,
+    ) -> Result<Self, CanonicalError> {
+        self.copy_private(state, directory, Self::validate_qualification)
+    }
+    #[cfg(feature = "native-service")]
+    fn copy_private(
+        &self,
+        state: &Path,
+        directory: &Path,
+        validate: fn(&Self, &Path) -> Result<(), CanonicalError>,
     ) -> Result<Self, CanonicalError> {
         use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
         let owner = std::fs::metadata(state).map_err(invalid)?;
@@ -149,7 +167,7 @@ impl StudyModuleReceipt {
         {
             return Err(invalid("module copy must be inside its new private state"));
         }
-        self.validate(state)?;
+        validate(self, state)?;
         std::fs::create_dir(directory).map_err(invalid)?;
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700))
             .map_err(invalid)?;
@@ -181,7 +199,7 @@ impl StudyModuleReceipt {
             .map_err(invalid)?;
         let mut selected = self.clone();
         selected.artifact = destination;
-        selected.validate(state)?;
+        validate(&selected, state)?;
         Ok(selected)
     }
     pub(crate) fn read(state: &Path) -> Result<Self, CanonicalError> {
@@ -226,41 +244,65 @@ impl StudyModuleReceipt {
         }
         Ok(selection.schema_migration_target)
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature = "native-service"))]
     pub(crate) fn read_qualification(state: &Path) -> Result<Self, CanonicalError> {
-        #[derive(Deserialize)]
-        struct Selection {
-            study_module_qualification: StudyModuleReceipt,
-        }
-        let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
-        let receipt: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
-        let receipt = receipt.study_module_qualification;
-        let (kind, declared) = if receipt.inputs.get("features")
-            == Some(&serde_json::json!(["module-qualification"]))
+        use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+        const MAX_RECEIPT: u64 = 8 * 1024 * 1024;
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(state.join(QUALIFICATION_RECORD))
+            .map_err(invalid)?;
+        let status = file.metadata().map_err(invalid)?;
+        if !status.is_file()
+            || status.nlink() != 1
+            || status.uid() != std::fs::metadata(state).map_err(invalid)?.uid()
+            || status.mode() & 0o7777 != 0o400
+            || status.len() > MAX_RECEIPT
         {
-            (
-                "pse-study-module-qualification-v1",
-                ModuleDeclaration::read()?,
-            )
-        } else if receipt.inputs.get("features")
-            == Some(&serde_json::json!(["module-qualification-long-hold"]))
-        {
-            (
-                "pse-study-module-qualification-long-hold-v1",
-                ModuleDeclaration::from_manifest(include_str!(
-                    "../../pse-study-module/surrealism-qualification-long-hold.toml"
-                ))?,
-            )
-        } else {
             return Err(invalid(
-                "exact separate qualification feature receipt required",
+                "qualification receipt requires bounded immutable private bytes",
             ));
-        };
-        receipt.validate_declared(state, kind, &declared)?;
+        }
+        let mut bytes = Vec::new();
+        file.take(MAX_RECEIPT + 1)
+            .read_to_end(&mut bytes)
+            .map_err(invalid)?;
+        if bytes.len() as u64 != status.len() {
+            return Err(invalid(
+                "qualification receipt extent changed while reading",
+            ));
+        }
+        let receipt: Self = serde_json::from_slice(&bytes).map_err(invalid)?;
+        receipt.validate_qualification(state)?;
         Ok(receipt)
     }
+    #[cfg(any(test, feature = "native-service"))]
+    fn validate_qualification(&self, state: &Path) -> Result<(), CanonicalError> {
+        let (kind, declared) =
+            if self.inputs.get("features") == Some(&serde_json::json!(["module-qualification"])) {
+                (
+                    "pse-study-extension-qualification-v1",
+                    ModuleDeclaration::read()?,
+                )
+            } else if self.inputs.get("features")
+                == Some(&serde_json::json!(["module-qualification-long-hold"]))
+            {
+                (
+                    "pse-study-extension-qualification-long-hold-v1",
+                    ModuleDeclaration::from_manifest(include_str!(
+                        "../../pse-study-module/package-qualification-long-hold.toml"
+                    ))?,
+                )
+            } else {
+                return Err(invalid(
+                    "exact separate qualification feature receipt required",
+                ));
+            };
+        self.validate_declared(state, kind, &declared)
+    }
     fn validate(&self, state: &Path) -> Result<(), CanonicalError> {
-        self.validate_kind(state, "pse-study-module-v1")
+        self.validate_kind(state, "pse-study-extension-v1")
     }
     fn validate_kind(&self, state: &Path, kind: &str) -> Result<(), CanonicalError> {
         self.validate_declared(state, kind, &ModuleDeclaration::read()?)
@@ -275,11 +317,12 @@ impl StudyModuleReceipt {
             || self.sdk_version != declared.sdk
             || self.abi != declared.abi
             || self.inputs.is_empty()
-            || self.sha256.len() != 64
-            || !self
-                .sha256
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            || [&self.sha256, &self.manifest_sha256].iter().any(|digest| {
+                digest.len() != 64
+                    || !digest
+                        .bytes()
+                        .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+            })
             || self.bytes == 0
             || self.bytes > 64 * 1024 * 1024
         {
@@ -378,20 +421,43 @@ impl StudyModuleReceipt {
         Ok(format!("file:{parent}"))
     }
     pub(crate) fn declarations(&self, overwrite: bool) -> String {
+        self.extension_declarations(&self.bucket(), "pse", overwrite)
+    }
+    pub(crate) fn manifest_digest(&self) -> String {
+        format!("sha256:{}", self.manifest_sha256)
+    }
+    pub(crate) fn extension_declarations(
+        &self,
+        bucket: &str,
+        extension: &str,
+        overwrite: bool,
+    ) -> String {
         let kind = if overwrite { " OVERWRITE" } else { "" };
-        let bucket = self.bucket();
         format!(
-            "DEFINE BUCKET{kind} {bucket} READONLY BACKEND $study_module_backend PERMISSIONS NONE;\nDEFINE MODULE{kind} mod::pse FROM f\"{bucket}:/study.surli\" UNSIGNED PERMISSIONS FULL;\n"
+            "DEFINE BUCKET{kind} {bucket} READONLY BACKEND $study_module_backend PERMISSIONS NONE;\nDEFINE EXTENSION{kind} ext::{extension} FROM f\"{bucket}:/study.surli\" DIGEST '{}' UNSIGNED CAPABILITIES {{memory:{},timeout:{}ms}} PERMISSIONS FULL;\n",
+            self.manifest_digest(),
+            self.limits.max_memory_bytes,
+            self.limits.max_execution_time_ms,
         )
+    }
+    pub(crate) fn catalog_bindings(&self) -> surrealdb_types::Object {
+        let mut bindings = surrealdb_types::Object::new();
+        bindings.insert("study_module_manifest_digest", self.manifest_digest());
+        bindings.insert("study_module_memory", self.limits.max_memory_bytes);
+        bindings.insert(
+            "study_module_timeout",
+            surrealdb_types::Duration::from_millis(self.limits.max_execution_time_ms),
+        );
+        bindings
     }
 }
 /// Exact installed catalogue proof shared by ordinary opening and native migration.
-/// Bind `$bucket` and `$backend` from the immutable validated module receipt.
-pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.modules.filter(|$row|$row.name='pse');";
-pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::sort($m[0].exports.name)=['study::readiness'] AND array::len($m[0].exports.filter(|$export|$export.writeable))=0";
+/// Bind the location, manifest digest and runtime limits from the validated receipt.
+pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.extensions.filter(|$row|$row.name='pse');";
+pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].digest=$study_module_manifest_digest AND $m[0].signer=NONE AND $m[0].bindings=NONE AND $m[0].permissions=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND $m[0].capabilities={net:false,functions:false,queries:false,scripting:false,write:false,memory:$study_module_memory,timeout:$study_module_timeout,strict_timeout:true} AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
 pub(crate) fn capability_validation_predicate() -> String {
     format!(
-        "{CATALOG_VALIDATION_PREDICATE} AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start"
+        "$pse_catalog_matches=true AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start"
     )
 }
 
@@ -454,7 +520,7 @@ pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
     page.insert("mode", "claim");
     page.insert("seed", Bytes::from(b"null".to_vec()));
     Ok(format!(
-        "{CATALOG_VALIDATION_BODY} LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=mod::pse::study::readiness({prepare}); LET $pse_claim_probe=mod::pse::study::readiness({});",
+        "{CATALOG_VALIDATION_BODY} LET $pse_catalog_matches=({CATALOG_VALIDATION_PREDICATE}); LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=IF $pse_catalog_matches {{ext::pse::study::readiness({prepare})}} ELSE {{NONE}}; LET $pse_claim_probe=IF $pse_catalog_matches {{ext::pse::study::readiness({})}} ELSE {{NONE}};",
         Bytes::from(encode(&action)?).to_sql(),
         Bytes::from(encode(&StartProvenance::NotNeeded)?).to_sql(),
         page.to_sql()
@@ -484,14 +550,13 @@ impl CanonicalStore {
         let receipt = StudyModuleReceipt::read(&self.state_path)?;
         self.validate_study_module(&receipt).await?;
         let mut response = bounded_query(self.db.metadata_query(MetadataResponse::DiagnosticPlan,
-            "LET $info=INFO FOR DB STRUCTURE; RETURN {buckets:$info.buckets.filter(|$row|$row.name=$bucket),modules:$info.modules.filter(|$row|$row.name='pse')};")
+            "LET $info=INFO FOR DB STRUCTURE; RETURN {buckets:$info.buckets.filter(|$row|$row.name=$bucket),extensions:$info.extensions.filter(|$row|$row.name='pse')};")
             .bind(("bucket", receipt.bucket()))).await?;
         let installed = UnframedResult::<surrealdb_types::Value>::returned().take(&mut response)?;
         Ok(
             serde_json::json!({"selected": receipt, "installed": installed,
             "attestation": "pure readonly study::readiness export, immutable bucket and pure preparation/claim capability probes passed",
-            "custom_function_grant": "fn::* is required by the pinned target parser; the attested capture export uses fixed function names and bound values, with no caller SQL or function-name input",
-            "scope": "catalogue and pure synthetic policy invocation; no scientific execution or installation; local deadline/memory/controller-pool limits remain in force"}),
+            "scope": "catalogue and pure synthetic policy invocation under native deadline, memory and concurrency limits"}),
         )
     }
 
@@ -512,7 +577,8 @@ impl CanonicalStore {
                     ),
                 )
                 .bind(("bucket", receipt.bucket()))
-                .bind(("backend", receipt.backend()?)),
+                .bind(("backend", receipt.backend()?))
+                .bind(receipt.catalog_bindings()),
         )
         .await?;
         if UnframedResult::<Option<bool>>::returned().take(&mut response)? != Some(true) {
@@ -546,9 +612,10 @@ pub(super) mod tests {
             .collect();
         let declared = ModuleDeclaration::read().unwrap();
         StudyModuleReceipt(StudyModuleRecord {
-            kind: "pse-study-module-v1".into(),
+            kind: "pse-study-extension-v1".into(),
             artifact,
             sha256,
+            manifest_sha256: "1".repeat(64),
             bytes: payload.len() as u64,
             sdk_version: declared.sdk,
             abi: declared.abi,
@@ -633,8 +700,11 @@ pub(super) mod tests {
             fixture
                 .receipt
                 .declarations(true)
-                .contains("DEFINE MODULE OVERWRITE mod::pse")
+                .contains("DEFINE EXTENSION OVERWRITE ext::pse")
         );
+        let declaration = fixture.receipt.declarations(false);
+        assert!(declaration.contains(&format!("DIGEST '{}'", fixture.receipt.manifest_digest())));
+        assert!(declaration.contains("CAPABILITIES {memory:67108864,timeout:1000ms}"));
         std::fs::set_permissions(
             &fixture.receipt.artifact,
             std::fs::Permissions::from_mode(0o600),
@@ -647,15 +717,15 @@ pub(super) mod tests {
         let fixture = Fixture::new();
         for (kind, features, declared) in [
             (
-                "pse-study-module-qualification-v1",
+                "pse-study-extension-qualification-v1",
                 serde_json::json!(["module-qualification"]),
                 ModuleDeclaration::read().unwrap(),
             ),
             (
-                "pse-study-module-qualification-long-hold-v1",
+                "pse-study-extension-qualification-long-hold-v1",
                 serde_json::json!(["module-qualification-long-hold"]),
                 ModuleDeclaration::from_manifest(include_str!(
-                    "../../pse-study-module/surrealism-qualification-long-hold.toml"
+                    "../../pse-study-module/package-qualification-long-hold.toml"
                 ))
                 .unwrap(),
             ),
@@ -665,12 +735,12 @@ pub(super) mod tests {
             receipt.limits = declared.limits;
             receipt.inputs.insert("features".into(), features);
             let write = |receipt: &StudyModuleReceipt| {
-                std::fs::write(
-                    fixture.state.join("config.json"),
-                    serde_json::to_vec(&serde_json::json!({"study_module_qualification":receipt}))
-                        .unwrap(),
-                )
-                .unwrap()
+                let path = fixture.state.join(QUALIFICATION_RECORD);
+                if path.exists() {
+                    std::fs::remove_file(&path).unwrap();
+                }
+                std::fs::write(&path, serde_json::to_vec(receipt).unwrap()).unwrap();
+                std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o400)).unwrap();
             };
             write(&receipt);
             StudyModuleReceipt::read_qualification(&fixture.state).unwrap();
@@ -679,7 +749,7 @@ pub(super) mod tests {
             write(&wrong);
             assert!(StudyModuleReceipt::read_qualification(&fixture.state).is_err());
             let mut wrong = receipt.clone();
-            wrong.kind = "pse-study-module-v1".into();
+            wrong.kind = "pse-study-extension-v1".into();
             write(&wrong);
             assert!(StudyModuleReceipt::read_qualification(&fixture.state).is_err());
             let mut wrong = receipt.clone();
