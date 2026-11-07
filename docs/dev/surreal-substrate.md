@@ -42,6 +42,20 @@ External existing-service mutation is outside this fresh-state owner.
 
 ### Project and derived evidence operations
 
+For routine project inspection, prepare a captured product image with
+`pse observe prepare` and use its reader ID with `pse project`. `inspect-pack`
+reads an existing pack offline. `metadata`, `show`, `branches`, `branch`,
+`draft-show` and `study-workbench` connect to an existing deployment selected by
+`--state`. They use the configured database unless `--database` selects another
+initialized database. Continue bounded pages with the original cursor.
+
+`pse project create` takes the project key and title. `pse project navigate` takes
+the original project descriptor and navigation action as JSON on stdin or from
+`--intent`. Both require the issuing store observed by a read and an original
+`--operation` key. If the outcome is uncertain, `pse project acknowledgement`
+looks up that same operation on the same store. An absent acknowledgement leaves
+the effect unresolved.
+
 `just project-build` explicitly constructs `pse-project`; `just project --help` exposes the
 prepared operator. Select existing state explicitly and use its typed project documents.
 Project roots, draft/save/admit/publication intents, source comparison, merge/undo and context

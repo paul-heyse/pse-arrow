@@ -1,6 +1,6 @@
 ---
 title: "Plan69b: Codex workstation and preparation"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -92,6 +92,6 @@ authenticate and settle its owners reliably, bring the combined mutation to R-56
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | planned | Existing Codex shell, bridge and native admission | Cold and warm launch evidence, with authenticated scope, selected mode and passive discovery. |
-| B02 | planned | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Absent, stale and mismatched cases, seed and local preparation, and exact continuation and warm reuse. |
-| B03 | planned | B01, A03, and existing scratch and retirement owners | Early socket refusal and actual release, bounded recovery, and fixed compositions with demonstrated consumers. |
+| B01 | in progress | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. Assembled checkout and selected-mode evidence remains. |
+| B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Cold help, fixed preparation, verified seed selection and warm receipts are implemented. The assembled prerequisite and continuation journey remains. |
+| B03 | in progress | B01, A03, and existing scratch and retirement owners | The Study fixture owns a short private scratch path and checks it before launch. Live drain and bounded recovery remain to be exercised. |

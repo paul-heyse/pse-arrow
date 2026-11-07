@@ -1,6 +1,6 @@
 ---
 title: "Plan69d: Routine product and data operations"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -61,6 +61,20 @@ Assert that the receiving A03 envelope retains owner code, typed target and oper
 facts, settlement, and an exact safe retry or reference. Distinguish an unresolved
 acknowledgement from refusal before mutation.
 
+### D02 owner checkpoint
+
+The canonical owner binds `create_project`, `project_navigate` and
+`project_acknowledgement` to the exact request, store identity and original operation key.
+The captured binary offers the separate bounded `perform` protocol. The CLI checks that
+the capture declares that protocol before submission. The owner verifies the expected
+issuer, projects typed original failures, and omits the opaque request bytes from the
+receipt. An absent acknowledgement leaves settlement unproved. The recovery command
+observes the same key. Navigation can read the original project descriptor and typed action
+from an authored input or stdin. The passive observation channel retains its separate contract.
+[Canonical project owner](../../crates/pse-operations/src/canonical_projects.rs) ·
+[Existing project operator](../../crates/pse-runtime/src/bin/project/tools.rs) ·
+[Captured transport](../../crates/pse-runtime/src/tooling/reader.rs)
+
 ## D03 — Supported queries and exchange
 
 Inspect the existing query, pack and product owners for bounded data queries, typed export,
@@ -85,10 +99,69 @@ incomplete or failed publication.
 [Presentation and adapter policy](69g-output-policy-and-owner-driven-progress.md) ·
 [Pinned writer adapter source](https://docs.rs/indicatif/0.18.6/src/indicatif/iter.rs.html)
 
+### D03 owner checkpoint
+
+- **Bounded queries.** D01's prepared reader already returns typed project headers and pages
+  of up to 64 metadata or branch rows with the issuing store and original continuation. Its
+  offline pack inspection verifies the manifest and member extents and digests and returns the
+  manifest and its checksum. The same reader already supports exact study and attempt observation
+  with native cursors and up to 512 events per page. Additional passive routes can proceed
+  independently of D02. `pse project study-workbench` delegates to
+  `control_study_workbench_page` through the same captured reader and target selection. It
+  defaults to 64 compact live headers, takes optional exact filters and accepts the original
+  issuer- and predicate-bound cursor. The host parser and reader fixture cover the new route.
+  `research_read` reads up to 128 dataset headers per
+  project/key seek page or one exact dataset or frozen selection. Its current `Runtime` method
+  only reads and decodes canonical metadata. Share that owner through D01's bounded encoding
+  and authenticated connection-only dispatch.
+  [Project reader](../../crates/pse-runtime/src/tooling/reader/canonical/project.rs) ·
+  [Prepared reader](../../crates/pse-runtime/src/tooling/reader.rs) ·
+  [Study browse](../../crates/pse-operations/src/canonical_control.rs) ·
+  [Research read](../../crates/pse-runtime/src/workflow/research.rs)
+- **Closure and export.** `ProjectClosure` and `ProjectExport` take an exact `ProjectSelection`,
+  explicit member keys, original run/attempt and result row predicates, omissions, and document
+  and copy allowances. The closure owner caps each primary key list at 1,024 and documents at
+  64 MiB. A descriptive closure returns authenticated metadata and can move separately when
+  the prepared connection-only adapter can invoke it with an already-issued selection. Issuing
+  that selection currently uses source admission. Executable closure and export require authored
+  physical inputs that admit the same physical identity. Both exports require an intentional
+  fresh destination and return the original manifest after verifying copied members and publishing
+  `project.json` last. A partial directory may remain before publication. The D02/A03 effect
+  handoff must preserve that distinction and reconcile uncertain publication against the original
+  destination. Stdout currently fits the manifest or acknowledgement. A streamed pack would
+  require a separate owner publication contract.
+  [Source selection](../../crates/pse-runtime/src/workflow/projects.rs) ·
+  [Closure](../../crates/pse-runtime/src/workflow/project_closure.rs) ·
+  [Pack owner](../../crates/pse-runtime/src/workflow/project_portability.rs) ·
+  [Manifest publication](../../crates/pse-runtime/src/workflow/portable_payload.rs)
+- **Import.** `ProjectImportIssue` verifies an executable pack and returns the original immutable
+  intent bound to the exact manifest digest, receiving store and fresh operation and destination
+  IDs. Carry that intent to `ProjectImportStatus` and `ProjectImport`; the issue/apply document
+  allowance defaults to 16 MiB. Apply rechecks the pack, admits the source and binds the exact
+  evidence artifact before copying it. The original `ProjectImportReport` distinguishes acknowledged
+  source from completed project membership. `ProjectImportRecover` takes the same intent and
+  original artifact header and returns exact pending, collected or completed state. `ProjectImportOpen`
+  requires completed membership and reopens admitted source. D02/A03 must preserve those original
+  identities, diagnostics and safe continuations before exposing effects. The one-shot operator
+  currently accepts a request file and spill directory and returns JSON. The prepared reader has
+  no equivalent typed exchange-effect route yet.
+  [Original action types](../../crates/pse-runtime/src/host_operations/project.rs) ·
+  [Action dispatch](../../crates/pse-runtime/src/host_operations/project/handler.rs) ·
+  [Import checkpoints](../../crates/pse-operations/src/canonical_project_imports.rs) ·
+  [One-shot operator](../../crates/pse-runtime/src/bin/project/runtime.rs)
+- **Study deliverables.** `StudyCohort`, `StudyResult` and `StudyAnalyze` share a protected
+  frozen cut of at most 64 studies and 10,000 members. Cohort pages and selected result IPC
+  use explicit byte allowances and a staged destination. Analysis uses an exact registered
+  output and row interval and a 4 MiB IPC encoder bound. Preserve the original capture receipt,
+  output publication facts and capture-owner lifetime in an explicit effect adapter. The receipt
+  identifies the cut for attribution and grants zero ability to reopen its protected payload.
+  [Cohort and analysis owner](../../crates/pse-runtime/src/workflow/study_workbench.rs) ·
+  [Selected result export](../../crates/pse-runtime/src/workflow/connected_results.rs)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| D01 | planned | A01–A03, B02 prepared route, current product read owner | Bounded typed reads through one front door with authenticated target selection and passive discovery. |
-| D02 | planned | D01 dispatch and target selection, original product effect owner | Original receipt and stable recovery through duplicate, stale and uncertain acknowledgement controls. |
-| D03 | planned | D01 and each exact query or exchange owner, D02 for writes | Supported data operations migrate. Each absent owner capability has a recorded prerequisite or deferral. |
+| D01 | in progress | A01–A03, B02 prepared route, current product read owner | Offline pack and connection-only metadata, branch and draft routes exist. Authorized default selection, ambiguity and live cursor controls remain. |
+| D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. Isolated owner controls and assembled receiving verification remain. |
+| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | The typed passive study workbench uses the prepared project reader. Research metadata and typed exchange remain open. |

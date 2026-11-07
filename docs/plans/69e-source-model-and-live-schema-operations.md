@@ -1,6 +1,6 @@
 ---
 title: "Plan69e: Source model and live schema operations"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -36,6 +36,34 @@ one composed preview and validation action. Keep both cases in scope under that 
 Novel algorithms and physical choices remain author work. A general source patch engine would
 require a separate demonstrated workload.
 
+### Selected cases and lowering decision
+
+**Interface-checked.** The optional-field fixture adds a descriptive field to
+`canonical_projects` in the authored registry. The Rust relation and Surreal schema
+and codec generators receive this change. Project creation and metadata readers
+also consume the relation. The acceptance fixture must show that an existing row
+without the optional field still opens and that an explicit description survives the
+selected projection. A relation declaration alone cannot choose whether the field
+is exposed by a project request or kept as internal metadata.
+[Project declaration](../../crates/pse-schema/src/catalog/projects.rs) ·
+[Registry codegen](../../xtask/src/codegen.rs) ·
+[Project reader](../../crates/pse-operations/src/canonical_projects.rs)
+
+**Interface-checked.** The rename fixture changes the Rust field
+`PackResultSelection.field` to `selected_field`. The declaration also supplies the
+recorded-result projection at tag 7. The fixture must account for the established
+Proto and JSON names, preserve the original field-selection meaning, and prove
+existing pack and result readers still interpret the same selection. A generic
+rename cannot choose whether wire and JSON names should change or what compatibility
+route should carry them.
+[Recorded result declaration](../../crates/pse-model/src/recorded_result.rs) ·
+[Recorded-result generator](../../xtask/src/codegen/recorded_result.rs) ·
+[Result projection consumer](../../crates/pse-runtime/src/workflow/result_selection.rs)
+
+Use the authored-edit path for both cases. The fixtures supply explicit choices about
+field exposure and wire names. The composed CLI workflow binds the resulting
+declaration and consumer changes, reports generated impact and runs selected checks.
+
 ## E02 — Preview, publish and recover source changes
 
 Give each supported form a preview containing exact checkout revision and relevant file
@@ -62,14 +90,34 @@ preview. Preserve bounded content and the exact partial-publication recovery uni
 [Miette source spans](https://docs.rs/miette/7.6.0/miette/struct.SourceSpan.html) ·
 [Related findings](https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html#method.related)
 
+### Generator staging checkpoint
+
+**Interface-checked.** The aggregate build compiles against files written by the Rust,
+recorded-result and Surreal bootstrap stages. The current check mode compares temporary
+output and discards the candidate bytes. Preview needs a private snapshot of the selected
+authored checkout, including its working edits and pinned build inputs, where all four stages
+can run in order. Capture exact changed bytes and the before and after file identities under
+the generator's declared output roots. Release the snapshot and its build target when the
+staged delta is secured. [Ordered recipe](../../justfile) ·
+[Generator comparison and publication](../../xtask/src/codegen.rs) ·
+[Generated tree and declared roots](../../crates/pse-codegen/src/codegen/mod.rs)
+
+**Proposed.** Add guarded installation to the generator's writer and bring the direct ABI
+writers into the same boundary. Bind the delta to the preview's checkout revision and inputs.
+Recheck those premises before writing. Publish each owned file atomically and recover by
+reading back its identity against the staged before and after states. Resume at the first
+unsettled file and refuse any third state. Exact staging and guarded installation are the
+prerequisites for the CLI route. [Ownership map](../../xtask/src/codegen/ownership.rs) ·
+[Ipopt writer](../../xtask/src/codegen/ipopt.rs) · [CoolProp writer](../../xtask/src/codegen/coolprop.rs)
+
 ## E03 — Inspect, preview, apply and recover live schema
 
 Use D01’s authenticated target selection. Inspect installed definitions passively. A rollout
 preview binds exact server, namespace, database, predecessor, target declaration, relevant
 module and rollout identity. Confirm the premise at application and preserve the original
 operation identity. If the acknowledgement is uncertain, reconcile actual settlement against
-that identity before further writes. Reuse `SchemaMaintenance::validate_definitions` to produce
-an observed target witness and `activate_definitions` to recheck the actual definitions at
+that identity before further writes. Reuse `CanonicalStore::validate_definitions` to produce
+an observed target witness and `CanonicalStore::activate_definitions` to recheck the actual definitions at
 activation. Require a settled rollout and a generated-target witness. A staged source preview,
 phase-only witness, or drained process alone cannot establish activation eligibility.
 
@@ -88,6 +136,14 @@ recovery and protected activation. Compare any proposed wrapper against those gu
 prefer composing the existing owners when they suffice. Test stale predecessor, changed target
 or module, interrupted apply and exact recovery. Receive version-specific schema and transport
 from Plan68 without taking ownership of its migration or qualification.
+Current owner inspection found two prerequisites. Passive installed-catalog observation
+needs a connection-only projection because validation requires a live quiesced
+initializer, matching listener and credential identities, and the installed module.
+The existing xtask route installs the module before validation. Activation also needs
+the producer that issues and settles the exact rollout nonce and can reconcile it after
+interruption. The isolated SurrealKit fixture establishes parity and drift behavior.
+Plan68b owns version-specific inventory and the bounded wire, and Plan68d and 68e own
+their exact fixture and selected candidate evidence.
 [SurrealKit pin](../../.config/surrealkit.toml) ·
 [Pinned suite runner](https://github.com/surrealdb/surrealkit/blob/92ebc3cc89b99f00d21c7d2cbf5136d728367061/crates/surrealkit/src/tester/runner.rs) ·
 [Canonical maintenance](../../crates/pse-operations/src/canonical_maintenance.rs) ·
@@ -97,6 +153,6 @@ from Plan68 without taking ownership of its migration or qualification.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| E01 | planned | Existing source registry and generator consumers | Two source-change maps and a decision for each case, with impact, compatibility and scientific constraints recorded. |
-| E02 | planned | E01 decision, A01 and A03, generator and affected-check owners | Exact preview, generated publication and recoverable partial effects for the selected forms. |
-| E03 | planned | D01 target selection, A03 and canonical maintenance, Plan68 for version-specific receiving | Exact schema preview, stale refusal, original settlement and fresh-witness activation. |
+| E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
+| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The generator tree writer stages exact file identities and publishes guarded changes. Isolated orchestration, persisted custody and the CLI receiving workflow remain. |
+| E03 | blocked | Passive installed-catalog owner and authenticated rollout producer, D01 target selection, A03, Plan68 version-specific receiving | Exact schema preview, stale refusal, original settlement and fresh-witness activation. |

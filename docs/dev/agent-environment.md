@@ -384,6 +384,21 @@ after the original native roots drain. The probe owner rechecks readers and iden
 its lease. The authored source, lockfile, and original run records remain available for
 regeneration. A replaced directory requires a fresh preview.
 
+### Reading and expiring ordinary test summaries
+
+Use `pse inspect invocation ID` for the compact result and `--detail failures`,
+`--detail provenance` or `--detail outputs` for selected original evidence. A missing
+detail reports its availability separately from the test verdict. Newly classified,
+settled ordinary test summaries can expire after seven days. The retirement witness
+expires seven days after release. The original report and protected evidence keep
+their own custody rules.
+
+Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
+`--release TOKEN` to release that selection. Use `pse tools hold-result ID` with
+`--consumer NAME --condition CONDITION` to record a hold. Omit the condition to clear
+that consumer's hold. `pse tools prepare-result-expiry --enable` installs and enables
+the repository's user timer for eligible records in its authenticated registered worktrees.
+
 ## Choosing tests
 
 The Plan59 native commands support `scripts/pse tests PACKAGE -E 'test(name)'`,

@@ -1,6 +1,6 @@
 ---
 title: "Plan69f: Parser startup and argument forwarding"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -75,9 +75,29 @@ and the actual route and conditions in the package outcome.
 [Recursive build](https://docs.rs/clap/4.6.7/clap/struct.Command.html#method.build) ·
 [Existing scoped catalog control](../../crates/pse-host/src/catalog/tests.rs)
 
+### Deferral decision
+
+Keep eager construction. In the November 7 isolated comparison, the pinned
+clap 4.6.7 fixture deferred five leaves shaped from `check`, `test`, `tests`,
+`qualify-study` and `run-all`. It used the shared catalog implementation and preserved
+the representative scoped command, root help and untouched scoped description. The
+full catalog and selected test description changed the order of inherited arguments.
+Deferring the decorated `inspect` parent also refused the named-child mutation before
+build. Bypassing that mutation omitted the descendant metadata. Both outcomes fail
+the catalog parity prerequisite for adoption.
+
+**Measured.** The optimized fixture ran 31 alternating pairs of 300 warm iterations.
+It avoided 85 of 92 argument definitions before selection and reduced the median paired
+parser and scoped catalog work by 19.15 μs combined. Thirty-one warmed prepared eager
+process runs of `scripts/pse commands inspect invocation --format json` had a median of
+427.49 ms on the pre-integration generation. The two measurements cover different
+boundaries. A second prepared generation with deferred construction was not timed.
+[Catalog decoration](../../crates/pse-host/src/catalog.rs) ·
+[Shared argument description](../../scripts/cli-catalog.rs)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| F01 | planned | Existing strict parser, usage envelope and special entry protocols | Successful paths skip full prefix reflection. Usage, raw token, format, help and version controls distinguish the supported cases. |
-| F02 | planned | F01 and A01's scoped and full discovery contracts | One matched comparison with parity controls and a recorded eager or selective-deferred decision. |
+| F01 | in progress | Existing strict parser, usage envelope and special entry protocols | Successful paths skip full prefix reflection. Focused usage and format controls precede the prepared receiving journey. |
+| F02 | complete | F01 and A01's scoped and full discovery contracts | Retain eager construction after the selective alternatives failed current catalog parity. The measurement boundary is recorded above. |

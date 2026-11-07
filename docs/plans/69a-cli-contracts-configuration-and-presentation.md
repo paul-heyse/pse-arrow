@@ -1,6 +1,6 @@
 ---
 title: "Plan69a: CLI catalog, configuration, and diagnostics"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -165,6 +165,6 @@ source, independent warnings, unsafe recovery operands, and a delegated cause.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A01 | planned | Existing parser and catalog | Complete discovery and accurate examples, with parser parity and passive behavior checked. |
-| A02 | planned | Current identity and configuration owners | Shared redacted resolution used by receiving routes, with explicit precedence and ambiguity controls. |
-| A03 | planned | Native envelope and original owner receipts | Structured recovery across receiving routes, including usage refusal and unresolved effects. |
+| A01 | in progress | Existing parser and catalog | Passive package candidates and initial effect metadata are implemented. Complete discovery, examples and parser parity remain. |
+| A02 | in progress | Current identity and configuration owners | Investigation has exact file acquisition, same-resolution provenance and a redacted public view. Cross-command settings and authorized default target selection remain. |
+| A03 | in progress | Native envelope and original owner receipts | Preparation and project reads use the existing envelope. Typed original failures and recovery across effect receivers remain. |

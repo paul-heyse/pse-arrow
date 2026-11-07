@@ -1,6 +1,6 @@
 ---
 title: "Plan69: Intent-first CLI and Codex workflows"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -74,10 +74,10 @@ the scheduled packages. The target acceptance below remains **Proposed**.
   [Plan66](66-integrated-simulation-target.md) · [Plan67](67-storage-lifecycle-and-build-reuse.md) ·
   [Plan68](68-surrealdb-v4-cutover.md)
 
-The proposal schedules no binding rule change as accepted. In particular, automatic expiry of
-the compact developer class needs a separate decision before activation. Until then the plan
-uses the existing explicit owner release route, including for expiry-eligible records. Published
-generations and original evidence retain their existing release rules. A combined worktree
+The maintainer selected automatic expiry for newly classified, settled and regenerable
+compact developer results on November 7. C04 owns the bounded release and timer activation.
+Explicit owner preview and release remain available. Published generations and original
+evidence retain their existing release rules. A combined worktree
 mutation remains deferred under R-56. If execution exposes a needed binding change, present its
 consequence for explicit acceptance or rejection and record the decision and ADR or design route
 before dependent work. [Plan67 retirement](67e-resource-retirement-and-storage-verification.md#E03) ·
@@ -106,6 +106,28 @@ and full A01 discovery contracts. In A02, resolve acquisition before specifying
 attribution. B–E receive those shared contracts as needed. Additional progress
 presentation uses each receiver's existing owner events. Conditional experiments
 do not gate receiving work that already has the required contract.
+
+## Execution checkpoint
+
+The first implementation wave adds strict parse before usage-format recovery,
+machine-format search progress gating, passive catalog candidates, exact investigation
+configuration acquisition, explicit cold and prepared host preparation, and the
+ordinary workspace test default. Compact invocation inspection and the checkout
+release owner are wired. The user timer is enabled and its fixed service ran
+successfully. Offline project-pack
+inspection and connection-only project metadata use the existing captured product
+owner. Online reads currently require an explicit deployment and use its configured
+database by default. The separate project-effect protocol carries the expected issuer
+and original operation key for creation, navigation and acknowledgement lookup. E01
+records the two fixture cases and the authored-edit fallback. E02 stages per-file
+identities in the generator writer before guarded publication.
+
+Next qualify the project receivers and connect shared settings across commands.
+The generator's isolated preview and persisted recovery, live schema rollout, project
+exchange, and assembled journeys remain open. F02 retains eager construction after
+selective deferral failed catalog parity. A04's first machine-output control is separate
+from the remaining owner-event work. Keep v4-specific evidence on its exact receiving
+baseline once Plan68's contracts are available on main.
 
 ## Opportunity dispositions
 

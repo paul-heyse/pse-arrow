@@ -1,6 +1,6 @@
 ---
 title: "Plan69c: Ordinary testing and managed results"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -95,9 +95,14 @@ under its synchronization at release, retaining material for active borrowers an
 effects. Verify clock start, expiry boundary, hold and borrower races, interrupted retry,
 redaction and protected references using controlled time and isolated data.
 
-Start with preview and explicit owner release. Automatic expiry for this bounded, regenerable
-class requires explicit acceptance before enabling it. If declined, retain the same expiry
-eligibility and explicit release path. Published generations and protected original evidence
+The maintainer selected automatic expiry for this bounded, regenerable class. Keep
+preview and exact explicit owner release. Use `pse tools retire-result ID` to preview,
+then pass the returned `--release TOKEN` to release that exact selection. Use
+`pse tools hold-result ID --consumer NAME --condition CONDITION` to set a hold and omit
+the condition to clear that named hold. Use `pse tools sweep-results` for a bounded
+checkout-local pass. The repository-scoped user timer runs the same owner sweep
+with `--registered`. Prepare it with `pse tools prepare-result-expiry` and use
+`--enable` after the isolated release and timer controls pass. Published generations and protected original evidence
 retain their separate release routes. Do not migrate historical ledgers or recreate old dumps.
 Defer a SurrealDB index, expiry jobs over persistent history, and a maintained summary unless a
 named recurring query cannot be served adequately from compact owner records. A new decision
@@ -110,7 +115,7 @@ would establish the query, real-role selection, durability, exact retirement and
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| C01 | planned | A01 and current Cargo, Nextest and fixture contracts | Bare selection and admitted coverage agree with the independently mapped ordinary population, including integration and missing-prerequisite controls. |
-| C02 | planned | C01, F01, A03 and Plan67 exact custody | Original and rerun verdicts, settlement, forwarded filter and exact identity controls. |
-| C03 | planned | A01–A03, existing inspection and history | Compact lookup, bounded diagnostics and provenance, and explicit export over native references. |
-| C04 | planned | C03 and Plan67 release owner | Class lifetimes, authenticated release, held and expired behavior, and separate automation decision. |
+| C01 | in progress | A01 and current Cargo, Nextest and fixture contracts | Bare tests select the workspace ordinary profile and the managed primary has its own profile. The complete admitted workspace journey remains. |
+| C02 | in progress | C01, F01, A03 and Plan67 exact custody | Rerun verification checks an exact one-to-one identity match. The original-to-rerun journey remains. |
+| C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. Receiving checks and deliberate export remain. |
+| C04 | in progress | C03 and Plan67 release owner | The timer is enabled and its fixed service ran successfully. Foreground settled ordinary tests can publish the expiry class. Detached and borrowed custody need their own positive settlement witness before classification. |
