@@ -1411,7 +1411,7 @@ fn launch_managed_finalize(
             terminal.response(),
         )?;
         directory.publish_result(&terminal)?;
-        let release = crate::managed::workflow::release_foreground_controls(&directory, &terminal);
+        let release = crate::managed::workflow::release_foreground_images(&store, &directory, &terminal);
         let mut response = store
             .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(
                 directory.id(),
@@ -1419,7 +1419,7 @@ fn launch_managed_finalize(
             .ok_or_else(|| HostError::Ownership("published foreground result is absent".into()))?;
         if let Err(error) = release {
             response.observation.limitations.push(format!(
-                "settled workflow control release did not complete: {error}"
+                "settled workflow executable release did not complete: {error}"
             ));
         }
         return Ok(presentation

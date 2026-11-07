@@ -125,7 +125,7 @@ Keep selected portable cohorts separately from live expiry, and test their actua
 | --- | --- | --- | --- |
 | B01 | in-progress | Current capture, report and Plan66 C/E/F owners | Choose the active custody path per real tool, inventory and test consumer. Specify the minimum native export and rerun facts, the release evidence, and the narrow persistence decision route. Check that A's independently verified native export remains readable by the selected backfill path. |
 | B02 | in-progress | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
-| B03 | planned | B01 projection contract and applicable persistence decision | Publish one bounded native test workflow to the selected SurrealDB pilot. Verify an independent reader, scope/credential isolation, duplicate or conflicting publication, unknown acknowledgement and unavailable history. Report actual ingestion and query bounds. |
+| B03 | in-progress | B01 projection contract and applicable persistence decision | Publish one bounded native test workflow to the selected SurrealDB pilot. Verify an independent reader, scope/credential isolation, duplicate or conflicting publication, unknown acknowledgement and unavailable history. Report actual ingestion and query bounds. |
 | B04 | planned | B03 independent readback and B02 release for selected consumer | Deliver failure triage and named comparison, wire exact eligible rerun facts into Plan66f's current-inventory resolver, then release superseded full payloads. Verify no-match, absent/changed target, incomplete native reconciliation, held or expired raw facts, guarded expiry, repeated physical reclamation and cohort restore. |
 
 A can release owner-approved incident data after a verified narrow export using the existing
@@ -140,9 +140,11 @@ The private tool controls have one stable image per active operation. The origin
 inventory commitments are sufficient for historical selection and a new inventory lookup.
 The first release slice uses the foreground owner's published result and complete physical
 settlement, including the absence of an enclosing borrower. It limits release to the two fixed
-inventory controls or the fixed compiler adapter. A native SurrealKit test invocation left
-the original inventory after both control copies and sidecars were gone. Its selected evidence
-passed independent descriptor readback. The targeted host controls verified refusal of changed
-capture bytes, interrupted-release reconciliation, and failed rerun from a fresh inventory
-after old executable disposal. Test executables, detached work and independent holds require
-their own owner integration. ADR-0255 records the proposed history boundary.
+inventory controls or the fixed compiler adapter. The settled foreground test path also
+releases compiler-captured executables identified by the authenticated original inventory.
+A native SurrealKit test left the original inventory after both control copies and sidecars
+were released. Its selected evidence passed independent descriptor readback. The targeted host
+batch retained 6.7 MiB in its inventory directory after image release. It exercised refusal of
+changed bytes, interrupted-release reconciliation, original-byte history projection, and failed
+rerun from a fresh inventory after old executable disposal. Detached work, borrowed scopes and
+independent holds require their own integration. ADR-0255 records the proposed history boundary.

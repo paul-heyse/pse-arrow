@@ -379,9 +379,13 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
         .executable
         .captured
         .clone();
-    fs::remove_file(&old_executable).unwrap();
-    crate::managed::workflow::release_controls(destination.parent().unwrap(), Action::Test)
-        .unwrap();
+    crate::managed::workflow::release_images(
+        destination.parent().unwrap(),
+        Action::Test,
+        Some(&captured.inventory),
+    )
+    .unwrap();
+    assert!(!old_executable.exists());
     for name in ["cargo-nextest", "cargo-pse-correctness"] {
         assert!(!destination.join("inventory").join(name).exists());
         assert!(
@@ -394,6 +398,10 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
     assert!(
         crate::test_inventory::captured(&store, original.invocation.as_str(), None).is_ok(),
         "historical readback needs the committed inventory rather than the old control bytes"
+    );
+    assert!(
+        crate::test_workflow::native_test_history(&store, &original.invocation).is_err(),
+        "native helper observations alone cannot publish settled history"
     );
     assert!(
         captured.inventory.test(&failed[0]).is_err(),
@@ -480,6 +488,24 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
     }
     replace(&report_path, &original_report);
     replace(&manager_path, &original_manager);
+    // A synthetic manager pair isolates the history reader's original-byte association.
+    let mut settled: Envelope<ManagedSummary> =
+        serde_json::from_slice(&original_manager).unwrap();
+    settled.settlement = Settlement::Complete;
+    settled.payload.native_lifetime_pending = Some(false);
+    store
+        .directory(&original.invocation)
+        .unwrap()
+        .publish_evidence(InvocationEvidence::Settlement, &settled)
+        .unwrap();
+    let settled_bytes = fs::read(manager_path.with_file_name("settlement.json")).unwrap();
+    assert!(crate::test_workflow::native_test_history(&store, &original.invocation).is_err());
+    replace(&manager_path, &settled_bytes);
+    let history = crate::test_workflow::native_test_history(&store, &original.invocation).unwrap();
+    assert_eq!(history.outcome, Outcome::Failed);
+    assert_eq!(history.selected_tests, 1);
+    assert_eq!(history.failed_cases, intent().unwrap().plan.rerun_cases());
+    assert_eq!(history.settlement_sha256, ContentIdentity::of(&settled_bytes).sha256);
     let inventory_path = destination.join("inventory/inventory.json");
     let inventory_bytes = fs::read(&inventory_path).unwrap();
     fs::set_permissions(&inventory_path, fs::Permissions::from_mode(0o600)).unwrap();

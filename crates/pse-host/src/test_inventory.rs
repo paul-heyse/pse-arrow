@@ -667,40 +667,16 @@ pub(crate) fn captured_at_limit(
     session: Option<&str>,
     maximum: Option<usize>,
 ) -> Result<CapturedEvidence, HostError> {
+    let original = captured_report_at_limit(store, selector, session, maximum)?;
+    let (inventory, bytes) = captured_inventory(&original, maximum)?;
     let CapturedReport {
         id,
         report,
-        parent,
         observation,
         original,
         ..
-    } = captured_report_at_limit(store, selector, session, maximum)?;
-    if observation.inventory.as_deref() != Some("inventory/inventory.json") {
-        return Err(invalid(
-            "original report has no supported inventory association",
-        ));
-    }
-    let remaining = maximum
-        .map(|maximum| {
-            maximum
-                .checked_sub(report.len())
-                .ok_or_else(|| invalid("original report exceeds the selected portable extent"))
-        })
-        .transpose()?;
-    let bytes = read_original_inventory_bounded(&parent, remaining)?;
-    observation
-        .validate_inventory(&bytes)
-        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+    } = original;
     let sha = digest(&bytes);
-    let inventory: Inventory = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
-    if !inventory.capture_complete() {
-        return Err(invalid(
-            "original inventory lacks complete supported discovery capture",
-        ));
-    }
-    observation
-        .validate_selected_population(&inventory)
-        .map_err(|error| HostError::Workflow(Box::new(error)))?;
     Ok(CapturedEvidence {
         id,
         report,
@@ -716,6 +692,40 @@ pub(crate) fn captured_at_limit(
             .ok_or_else(|| invalid("original workflow terminal disappeared"))?
             .terminal,
     })
+}
+
+/// Authenticate the exact inventory and its original population without opening its images.
+pub(crate) fn captured_inventory(
+    original: &CapturedReport,
+    maximum: Option<usize>,
+) -> Result<(Inventory, Vec<u8>), HostError> {
+    let CapturedReport { observation, parent, report, .. } = original;
+    if observation.inventory.as_deref() != Some("inventory/inventory.json") {
+        return Err(invalid(
+            "original report has no supported inventory association",
+        ));
+    }
+    let remaining = maximum
+        .map(|maximum| {
+            maximum
+                .checked_sub(report.len())
+                .ok_or_else(|| invalid("original report exceeds the selected portable extent"))
+        })
+        .transpose()?;
+    let bytes = read_original_inventory_bounded(parent, remaining)?;
+    observation
+        .validate_inventory(&bytes)
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+    let inventory: Inventory = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+    if !inventory.capture_complete() {
+        return Err(invalid(
+            "original inventory lacks complete supported discovery capture",
+        ));
+    }
+    observation
+        .validate_selected_population(&inventory)
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+    Ok((inventory, bytes))
 }
 
 /// One canonical read keeps the authenticated terminal beside its exact report bytes.

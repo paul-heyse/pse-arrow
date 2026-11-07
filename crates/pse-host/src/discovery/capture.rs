@@ -247,6 +247,7 @@ pub(crate) fn executable(
 pub(crate) fn release_executable(
     directory: &File,
     path: &Path,
+    expected: Option<&Executable>,
 ) -> Result<(), CorrectnessError> {
     use rustix::fs::{Mode, OFlags, openat, unlinkat};
 
@@ -296,7 +297,10 @@ pub(crate) fn release_executable(
         return Err(invalid("executable association exceeds its expected extent"));
     }
     let executable: Executable = serde_json::from_slice(&bytes)?;
-    if executable.captured != path || !executable.original.is_absolute() {
+    if executable.captured != path
+        || !executable.original.is_absolute()
+        || expected.is_some_and(|expected| &executable != expected)
+    {
         return Err(invalid("executable association differs from the release member"));
     }
     let mut image = match open(name) {

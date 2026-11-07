@@ -36,6 +36,71 @@ struct HistoricalSummary {
     complete: Option<bool>,
 }
 
+/// Map the original completed failing test observations to their admitted compiler roots.
+/// Historical images are only references and are never opened here.
+pub(super) fn failed_cases(
+    evidence: &crate::test_inventory::CapturedEvidence,
+) -> Result<Vec<RerunCase>, WorkflowError> {
+    if evidence.observation.action != Action::Test {
+        return Err(WorkflowError::Invalid(
+            "original performing report identity differs".into(),
+        ));
+    }
+    if !evidence.observation.required_capture_complete {
+        return Err(WorkflowError::Invalid("original failed selection has incomplete required capture; inspect its evidence and select current tests explicitly".into()));
+    }
+    let historical: HistoricalReport = serde_json::from_slice(&evidence.report)
+        .map_err(crate::discovery::DiscoveryError::from)?;
+    let mut cases = Vec::new();
+    for group in historical.observations {
+        let HistoricalGroup::Test { observation } = group else {
+            continue;
+        };
+        if observation.summary.complete != Some(true) {
+            return Err(WorkflowError::Invalid("original failed selection has unavailable or incomplete native test reconciliation; select current tests explicitly".into()));
+        }
+        for failure in observation.summary.failed {
+            let captured = evidence.inventory.test_record(&failure)?;
+            let root = evidence
+                .inventory
+                .selection
+                .groups()
+                .get(failure.group)
+                .and_then(|group| group.roots().iter().find(|root| root.package_id() == failure.package_id))
+                .ok_or_else(|| {
+                    WorkflowError::Invalid("failed identity has no original compiler root".into())
+                })?;
+            let kind = captured
+                .artifact
+                .cargo
+                .target
+                .kind
+                .first()
+                .ok_or_else(|| WorkflowError::Invalid("failed identity has no native target kind".into()))?
+                .to_string();
+            let case = RerunCase {
+                package: root.package_name().into(),
+                target: selection::TargetIntent {
+                    name: captured.artifact.cargo.target.name.to_string(),
+                    kind: Some(kind),
+                },
+                features: selection::Features {
+                    defaults: false,
+                    all: false,
+                    enabled: captured.artifact.cargo.features.iter().cloned().collect(),
+                    absent: root.features().absent.clone(),
+                },
+                binary_id: failure.binary_id,
+                test_name: failure.test_name,
+            };
+            if !cases.contains(&case) {
+                cases.push(case);
+            }
+        }
+    }
+    Ok(cases)
+}
+
 pub(super) fn resolve(
     metadata: &cargo_metadata::Metadata,
     mut request: Request,
@@ -89,92 +154,20 @@ pub(super) fn resolve(
                 .resolve(&invocation, None)?
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
-            if !captured_evidence.observation.required_capture_complete {
-                return Err(WorkflowError::Invalid("original failed selection has incomplete required capture; inspect its evidence and select current tests explicitly".into()));
-            }
+            let cases = failed_cases(&captured_evidence)?;
             let original = crate::managed::workflow::retained_input(
                 &store,
                 &id,
                 Action::Test,
                 &captured_evidence.observation,
             )?;
-            let historical: HistoricalReport = serde_json::from_slice(&captured_evidence.report)
-                .map_err(crate::discovery::DiscoveryError::from)?;
-            if historical.observations.iter().any(|group| {
-                matches!(group,
-                HistoricalGroup::Test { observation } if observation.summary.complete != Some(true))
-            }) {
-                return Err(WorkflowError::Invalid("original failed selection has unavailable or incomplete native test reconciliation; select current tests explicitly".into()));
-            }
-            if captured_evidence.observation.action != Action::Test {
-                return Err(WorkflowError::Invalid(
-                    "original performing report identity differs".into(),
-                ));
-            }
             let inventory = captured_evidence.inventory;
-            let mut cases = Vec::new();
             let mut packages = Vec::new();
-            for failure in historical
-                .observations
-                .into_iter()
-                .flat_map(|group| match group {
-                    HistoricalGroup::Test { observation } => observation.summary.failed,
-                    HistoricalGroup::Other => Vec::new(),
-                })
-            {
-                // Bound original report/inventory facts supply only a fresh selection.
-                // Old captured executable retention is unrelated to the new source build;
-                // verify_rerun and launch authenticate the new inventory independently.
-                let captured = inventory.test_record(&failure)?;
-                let root = inventory
-                    .selection
-                    .groups()
-                    .get(failure.group)
-                    .and_then(|group| {
-                        group
-                            .roots()
-                            .iter()
-                            .find(|root| root.package_id() == failure.package_id)
-                    })
-                    .ok_or_else(|| {
-                        WorkflowError::Invalid(
-                            "failed identity has no original compiler root".into(),
-                        )
-                    })?;
-                let kind = captured
-                    .artifact
-                    .cargo
-                    .target
-                    .kind
-                    .first()
-                    .ok_or_else(|| {
-                        WorkflowError::Invalid("failed identity has no native target kind".into())
-                    })?
-                    .to_string();
-                let target = selection::TargetIntent {
-                    name: captured.artifact.cargo.target.name.to_string(),
-                    kind: Some(kind),
-                };
-                let features = selection::Features {
-                    defaults: false,
-                    all: false,
-                    enabled: captured.artifact.cargo.features.iter().cloned().collect(),
-                    absent: root.features().absent.clone(),
-                };
-                let case = RerunCase {
-                    package: root.package_name().into(),
-                    target: target.clone(),
-                    features: features.clone(),
-                    binary_id: failure.binary_id,
-                    test_name: failure.test_name,
-                };
-                if !cases.contains(&case) {
-                    cases.push(case);
-                }
+            for case in &cases {
                 let package = selection::PackageIntent {
-                    package: root.package_name().into(),
-                    target: Some(target),
-                    features,
+                    package: case.package.clone(),
+                    target: Some(case.target.clone()),
+                    features: case.features.clone(),
                 };
                 if !packages.contains(&package) {
                     packages.push(package);

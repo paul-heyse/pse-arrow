@@ -66,7 +66,8 @@ fn digest(bytes: &[u8]) -> String {
 
 /// Retire only private workflow controls after the original foreground owner has
 /// published the reconciled result and proved the entire workload drained.
-pub(crate) fn release_foreground_controls(
+pub(crate) fn release_foreground_images(
+    store: &crate::invocation::InvocationStore,
     directory: &InvocationDirectory,
     terminal: &super::result::TerminalResult<super::result::ManagedSummary>,
 ) -> Result<(), HostError> {
@@ -83,14 +84,37 @@ pub(crate) fn release_foreground_controls(
     {
         return Ok(());
     }
-    release_controls(directory.path(), workflow.terminal.action)
+    let action = workflow.terminal.action;
+    let inventory = if action.is_compiler() {
+        None
+    } else {
+        let maximum = Some(crate::developer_evidence::MAX_INPUT_BYTES);
+        let original = crate::test_inventory::captured_report_at_limit(
+            store,
+            directory.id().as_str(),
+            None,
+            maximum,
+        )?;
+        original
+            .observation
+            .inventory
+            .as_ref()
+            .map(|_| crate::test_inventory::captured_inventory(&original, maximum))
+            .transpose()?
+            .map(|(inventory, _)| inventory)
+    };
+    release_images(directory.path(), action, inventory.as_ref())
 }
 
-pub(crate) fn release_controls(invocation: &Path, action: Action) -> Result<(), HostError> {
+pub(crate) fn release_images(
+    invocation: &Path,
+    action: Action,
+    inventory: Option<&crate::discovery::Inventory>,
+) -> Result<(), HostError> {
     use rustix::fs::{Mode, OFlags, openat};
 
     let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
-    let open = |parent: &File, name| -> Result<Option<File>, HostError> {
+    let open = |parent: &File, name: &str| -> Result<Option<File>, HostError> {
         let file: File = match openat(parent, name, flags, Mode::empty()) {
             Ok(fd) => fd.into(),
             Err(rustix::io::Errno::NOENT) => return Ok(None),
@@ -116,9 +140,41 @@ pub(crate) fn release_controls(invocation: &Path, action: Action) -> Result<(), 
     let Some(directory) = open(&workflow, location)? else {
         return Ok(());
     };
+    let path = invocation.join("workflow").join(location);
     for control in controls {
-        let path = invocation.join("workflow").join(location).join(control);
-        crate::discovery::capture::release_executable(&directory, &path)?;
+        let expected = inventory.map(|inventory| match *control {
+            "cargo-nextest" => &inventory.nextest,
+            _ => &inventory.correctness,
+        });
+        crate::discovery::capture::release_executable(&directory, &path.join(control), expected)?;
+    }
+    if let Some(inventory) = inventory {
+        for (group, listed) in inventory.groups.iter().enumerate() {
+            let group_name = format!("group-{group}");
+            let group_root = open(&directory, &group_name)?
+                .ok_or_else(|| host(invalid("original compiler group directory is absent")))?;
+            let build = open(&group_root, "build")?
+                .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
+            let build_path = path.join(&group_name).join("build");
+            for (ordinal, artifact) in listed.build.artifacts.iter().enumerate() {
+                let executable = &artifact.executable;
+                let expected = crate::discovery::capture::artifact_path(
+                    &build_path,
+                    ordinal,
+                    &executable.original,
+                )?;
+                if executable.captured != expected {
+                    return Err(host(invalid("captured test image differs from its compiler position")));
+                }
+                let member_root = open(&build, &format!("artifact-{ordinal}"))?
+                    .ok_or_else(|| host(invalid("original executable directory is absent")))?;
+                crate::discovery::capture::release_executable(
+                    &member_root,
+                    &expected,
+                    Some(executable),
+                )?;
+            }
+        }
     }
     Ok(())
 }
@@ -620,11 +676,11 @@ mod tests {
         fs::write(&nextest, b"mutation").unwrap();
         fs::set_permissions(&nextest, fs::Permissions::from_mode(0o500)).unwrap();
 
-        assert!(release_controls(scratch.path(), Action::Test).is_err());
+        assert!(release_images(scratch.path(), Action::Test, None).is_err());
         assert!(nextest.is_file() && association.is_file() && correctness.is_file());
         fs::remove_file(&nextest).unwrap(); // Interruption between image and sidecar unlink.
-        release_controls(scratch.path(), Action::Test).unwrap();
-        release_controls(scratch.path(), Action::Test).unwrap();
+        release_images(scratch.path(), Action::Test, None).unwrap();
+        release_images(scratch.path(), Action::Test, None).unwrap();
         assert!(!association.exists() && !correctness.exists());
         assert_eq!(fs::read(report).unwrap(), b"retained inventory");
     }

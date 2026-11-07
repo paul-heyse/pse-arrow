@@ -3,6 +3,7 @@
 //! Test selection stages, immutable listed commands and required observation, without launch.
 mod check;
 pub mod execute;
+mod history;
 mod observation;
 mod source;
 use crate::{
@@ -18,6 +19,7 @@ pub use check::{
     AdmittedCheck, CheckIntent, CompilerFailureReference, CompilerObservation,
     CompilerObservationError, CompilerObserver, PreparedCheck,
 };
+pub use history::{NativeTestHistory, native_test_history};
 pub use observation::{CompletedObserver, FailureReference, Observation, ObservationError};
 use schemars::JsonSchema;
 use serde::Serialize;
