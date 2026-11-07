@@ -194,8 +194,8 @@ three worktrees and the prior image and export releases. Filesystem availability
 890,951,434,240 bytes at the final incident readback.
 
 **Interface-checked.** Ten incident test/check records have incomplete settlement and six lack a terminal record.
-They remain with their native owners. The fixed window has zero complete test/check trees
-remaining. Separate preparation and generic run records retain their own operating purposes.
+They were held with their native owners at that checkpoint. The fixed window had zero complete
+test/check trees remaining.
 
 **Measured.** The maintainer subsequently directed direct deletion of prior ledgers without
 migration or regeneration. The selected repository's ledgers created before 03:20 Eastern
@@ -207,3 +207,8 @@ All selected paths were absent at readback. The 34 working records for this impl
 were outside the release selection. Filesystem availability measured independently was
 916,193,566,720 bytes after release. The incident evidence directory has the compact release
 receipt. This one-time action does not change the target ownership and settlement behavior.
+
+The retired Python test-resource invocation ledger was also removed directly. Its 3,535 files
+occupied 2,066,976,768 allocated bytes, including copies of the old initializer executable.
+The directory's original incarnation, mount and process use were rechecked before release.
+The selected directory was absent at readback.
