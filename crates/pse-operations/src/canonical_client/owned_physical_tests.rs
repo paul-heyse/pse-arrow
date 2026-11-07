@@ -451,7 +451,7 @@ async fn early_query_ack_keeps_physical_admission_bounded_and_original_deadline_
                             match method {
                                 "GetCapabilities" => grpc_frame(rpc::GetCapabilitiesResponse {
                                     capabilities: Some(rpc::ServerCapabilities {
-                                        server_version: "3.3.4".into(),
+                                        server_version: "4.0.0".into(),
                                         ..Default::default()
                                     }),
                                 }),

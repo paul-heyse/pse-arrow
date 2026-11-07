@@ -5,22 +5,21 @@ ordered patches and compiler provenance. The source is
 [`crates/pse-host/src/server.rs`](../../crates/pse-host/src/server.rs).
 `NativeCanonicalService` and the application own actual launch, schema readiness, connections
 and physical settlement; host preparation establishes executable identity only.
-ADR-0214 records the storage/transport decision. Current acceptance belongs to
-[Plan58](../../docs/plans/58-rust-owned-system.md).
+ADR-0214 records the storage and transport decision. ADR-0257 and
+[Plan68](../../docs/plans/68-surrealdb-v4-cutover.md) own the private v4 candidate.
 
 Preparation acquires the exact upstream Git object, verifies and applies the declared patches,
 verifies the checksum-pinned DiskANN source, and builds with the repository-pinned toolchain.
-It records the explicit release `panic="unwind"` override and executable/lockfile digests.
+It builds `surreal` and `surreal-ext` together and records the release
+`panic="unwind"` override and both executable digests with the lockfile.
 The compiled version includes the patch identity. Immutable publication selects a completed
 native generation; failed or interrupted construction preserves the preceding selection.
 There is no released-binary fallback or automatic build on selection.
 
-An explicit `--from-release` import can snapshot a matching established source release into
-a new immutable generation. It verifies the original complete receipt, recipe/source/patch/
-profile tuple and copied binary/lockfile bytes. Original compiler/environment context remains
-provenance; a caller's current loader/cache selection does not fabricate a new build context.
-Reimporting an already selected release streams the supplied binary and lockfile through
-digest verification and reuses the immutable generation without staging another copy.
+An explicit `--from-release` import can snapshot a matching native source-built generation.
+Pass its original `.complete.json` alongside `surreal`, `surreal-ext` and `Cargo.lock`.
+Import verifies the source, patch order, original build context and each opened file.
+Reimport verifies the supplied bytes and reuses an identical immutable selection.
 Import does not adopt a persistent service or replace its state. See
 [installed server reuse](../../docs/dev/surreal-substrate.md#installed-external-server-reuse).
 
@@ -30,27 +29,14 @@ The Rust server declaration owns application order; this table explains the reta
 
 | Input | Reason |
 |---|---|
-| `mx-1.0-minimal.patch` | Exact engine requirement and the three owned `ByteSlice` to `Vec` return conversions. The minimal stage preserves SI. |
-| `mx-1.0-controls.patch` | Explicit SSI, finite memory/age/queue settings, typed nonretrying engine failures, native metrics and revealing adapter tests. Persistence failures preserve unknown commit outcomes. |
-| `grpc-connection-ownership.patch` | Authentic accepted TCP identity, connection-bound sessions and bounded cleanup through physical socket loss, beneath plain and TLS serving. Cross-connection session reuse refuses. |
-| `grpc-session-admission.patch` | Atomic global session-cap reservation across accepted connections; the permit remains charged until native cleanup completes. |
-| `grpc-status-details.patch` | Native structured unary gRPC errors in independently bounded 8 KiB binary metadata. Explicit commit conflicts retain typed retry meaning; generic messages never become conflict evidence. |
-| `api-failure-rollback.patch` | Ordinary failing API expressions poison their write transaction so earlier writes roll back; intentional API responses retain their explicit response/commit semantics. |
-| `canonical-profile.patch` | Persistent startup requires synchronous AOL, fsync on every append and a valid periodic snapshot interval greater than 30 seconds. Invalid settings cannot silently disable snapshots. |
-| `diskann-0.56.0.patch` | Explicit `Arc::as_ref()` at the generic batch call fixes compilation without changing vector-index semantics. The installer verifies the original archive first. |
-| `pinned-compiler.patch` | Removes redundant manifest fields, inherits lints, uses identical primitive float constants and the delegated atomic method, and moves `cfg_aliases` to the compatible warning-correcting patch release. |
-| `surrealism-locked-build.patch` | Locked Cargo build/metadata and an already declared `.cargo/config.toml`; module compilation does not write project configuration. |
-| `surrealism-build-features.patch` | Explicit module feature selections pass from the released CLI into its locked Cargo build. |
-| `surrealism-global-controllers.patch` | Process-wide fail-fast controller admission follows the physical WASM Store through idle pooling/cache eviction and returns typed capacity refusal. |
-| `surrealism-memory-count.patch` | One linear memory per admitted Store bounds aggregate linear memory by controller count times the per-memory allowance. |
-| `surrealism-controller-deadline.patch` | Original context/module deadlines survive queueing, cold instantiation, initialization and invocation; cancellation/zero remaining time are checked before allocation/work. |
+| `surrealdb-v4-runtime-controls.patch` | Canonical MX isolation, bounded persistent startup and typed effects, connection-bound gRPC sessions and cleanup, typed unary errors, and enclosing API rollback. |
+| `surrealdb-v4-extension-build.patch` | Locked WASI build and metadata with the caller's explicit feature selection. |
+| `surrealdb-v4-extension-runtime.patch` | Process-wide fail-fast admission through physical Store release and the original deadline through invocation preparation. |
+| `surrealdb-v4-diskann-resolution.patch` and `surrealdb-diskann-0.61.0.patch` | Select the checksum-verified 0.61.0 source and apply the single explicit `Arc::as_ref()` at the batch call rejected by the pinned nightly. |
 
 The upstream integration is described by the
-[MX release](https://github.com/surrealdb/surrealmx/releases/tag/v1.0.0),
-[SurrealDB adapter](https://github.com/surrealdb/surrealdb/blob/v3.3.4/surrealdb/kvs-mem/src/lib.rs)
-and [MX options](https://github.com/surrealdb/surrealmx/blob/v1.0.0/src/options.rs).
-Compiler compatibility follows the pinned Rust sources: deprecated float constants alias the
-primitive constants, and the deprecated atomic spelling delegates with unchanged arguments.
+[MX release](https://github.com/surrealdb/surrealmx/releases/tag/v1.1.0) and
+[SurrealDB adapter](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/kvs-mem/src/lib.rs).
 
 ## Explicit native construction
 
@@ -65,7 +51,7 @@ scripts/pse-host server select
 To import an established matching release instead of compiling, explicitly select its receipt:
 
 ```bash
-scripts/pse-env -- scripts/pse-host server prepare --from-release /absolute/release.json
+scripts/pse-env -- scripts/pse-host server prepare --from-release /absolute/generation/.complete.json
 ```
 
 Neither route starts a catalog. `server select` reads a completed installation without compiling.
@@ -80,7 +66,7 @@ just surreal-module
 scripts/pse-host study-module select --receipt /absolute/module.json
 ```
 
-The already selected released server CLI owns WASI compilation/packaging. Production and
+The extension builder selected with the server owns WASI compilation and packaging. Production and
 qualification module identities remain separate. Module construction starts no database.
 The [environment guide](../../docs/dev/agent-environment.md#explicit-compilerklu-preparation)
 describes variants and the actual supported preparation boundaries.

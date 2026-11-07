@@ -1,6 +1,6 @@
 ---
 title: "Plan68b: SurrealDB v4 schema, transport, and authority"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -220,3 +220,15 @@ result. This plan records proposed work and interface evidence.
 [O01]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O01
 [O08]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O08
 [O09]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O09
+
+## Private candidate checkpoint
+
+The v4 parsers and bounded transport use the updated lock and generated
+catalog. Stock v4.0.0 on a fresh disposable memory datastore accepted all
+1,132 active definitions after moving the explicit API security clause
+and renaming protected SurrealQL bindings. That run exercised catalog
+installation. Native transport, installed-definition attestation,
+activation and protected readback still need A's prepared supplier pair.
+The targeted wire, value, API comparator and generator tests passed.
+The native operations compile check included the service and maintenance
+features.

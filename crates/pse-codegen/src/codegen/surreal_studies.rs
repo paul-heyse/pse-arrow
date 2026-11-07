@@ -130,7 +130,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:st
 // One pure guest invocation per deduplicated native page. Scientific policy is
 // the same Rust owner used by claims; no row/fact snapshot crosses the RPC.
 DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
-    RETURN mod::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,mode:NONE,seed:NONE,
+    RETURN ext::pse::study::readiness({generation:$page.study.generation,cancelled:$page.study.cancelled,mode:NONE,seed:NONE,
         rows:$page.rows.map(|$row| {key:$row.key,occurrence:$row.occurrence,revision:$row.revision,policy:$row.policy,facts:$row.facts,assigned:$row.assigned,settled:$row.settled}),
         items:$page.items.map(|$item| {point:$item.point,predecessors:$item.predecessors})});
 };
@@ -419,10 +419,10 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
         fn::pse_history_v1::run($rpc_expiry,$point.run);
         IF $point.study != $study { THROW 'PSE_REFUSAL:study_occurrence_belongs_elsewhere'; };
         IF $point.seed_solution!=NONE {
-            LET $input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
-            IF $input=NONE OR $input.study!=$study OR $input.solution!=$point.seed_solution { THROW 'PSE_REFUSAL:study_external_seed_was_not_retained'; };
-            fn::pse_artifact_v1::available($rpc_expiry,$input.artifact);
-            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
+            LET $study_input=SELECT * FROM ONLY type::record('canonical_study_inputs',$study+':'+$point.seed_solution);
+            IF $study_input=NONE OR $study_input.study!=$study OR $study_input.solution!=$point.seed_solution { THROW 'PSE_REFUSAL:study_external_seed_was_not_retained'; };
+            fn::pse_artifact_v1::available($rpc_expiry,$study_input.artifact);
+            LET $owners=SELECT key FROM canonical_artifact_obligations WHERE artifact=$study_input.artifact AND owner_kind='study' AND owner=$study LIMIT 1;
             IF array::len($owners)!=1 { THROW 'PSE_REFUSAL:study_external_seed_obligation_absent'; };
         };
         LET $old = SELECT * FROM ONLY type::record('canonical_study_points', $point.key);
@@ -546,8 +546,8 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
-            IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
+            LET $study_input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
+            IF $study_input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
     };
@@ -749,8 +749,8 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
     IF $rpc_result.settled AND !$rpc_result.assigned AND $rpc_result.attempt=NONE {
         LET $run=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.run);
         IF $run=NONE {
-            LET $input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
-            IF $input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
+            LET $study_input=SELECT key FROM ONLY type::record('canonical_runs',$rpc_result.admission_run);
+            IF $study_input=NONE { THROW 'PSE_REFUSAL:unadmitted_occurrence_input_owner_unavailable'; };
             fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$rpc_result.run,$rpc_result.run);
         } ELSE { fn::pse_history_v1::effect_free($rpc_expiry,$rpc_result); };
     };
@@ -798,7 +798,7 @@ const PROGRESSION_FUNCTIONS: &str = r#"
 DEFINE FUNCTION fn::pse_study_v1::progression_policy($scope:object,$mode:string,$seed:option<bytes>) -> object {
     LET $rows=array::concat([$scope.point],$scope.predecessors);
     IF bytes::len(encoding::cbor::encode($rows))>1048576 { THROW 'PSE_REFUSAL:study_readiness_single_scope_extent'; };
-    LET $reply=mod::pse::study::readiness({generation:$scope.study.generation,cancelled:$scope.study.cancelled,mode:$mode,seed:$seed,
+    LET $reply=ext::pse::study::readiness({generation:$scope.study.generation,cancelled:$scope.study.cancelled,mode:$mode,seed:$seed,
         rows:$rows.map(|$row| {key:$row.key,occurrence:$row.occurrence,revision:$row.revision,policy:$row.policy,facts:$row.facts,assigned:$row.assigned,settled:$row.settled,outcome:$row.outcome}),
         items:[{point:$scope.point.key,predecessors:$scope.predecessors.key}]});
     IF $reply.accepted=false OR array::len($reply.decisions)!=1 { THROW 'PSE_REFUSAL:study_readiness_policy_refused'; };
@@ -845,8 +845,8 @@ DEFINE FUNCTION fn::pse_study_v1::progress($expiry:int,$issuer:string,$module:st
     // Cancellation changes the authority generation. Revisit the examined
     // prefix rather than allowing an old traversal to certify current idle.
     LET $same=$cursor!=NONE AND $cursor.next_study=false AND $cursor.generation=$s.generation AND $cursor.cancelled=$s.cancelled;
-    LET $after=IF $same {$cursor.after} ELSE {NONE};
-    LET $continuation={study:$s.key,generation:$s.generation,cancelled:$s.cancelled,after:$after,next_study:false,maintained:true};
+    LET $progress_after=IF $same {$cursor.after} ELSE {NONE};
+    LET $continuation={study:$s.key,generation:$s.generation,cancelled:$s.cancelled,after:$progress_after,next_study:false,maintained:true};
     IF $same=false OR $cursor.maintained=false {
         // Preserve the durable pending-operation/epoch protocol. Preparation is
         // committed before its effect body; reconnects recover the original ID.
@@ -867,11 +867,11 @@ DEFINE FUNCTION fn::pse_study_v1::progress($expiry:int,$issuer:string,$module:st
     // Select nine to distinguish eight examined entries from exhausted discovery.
     // A stale eligible hint remains an examined entry, never a false end marker.
     LET $entries=IF $s.cancelled {
-        SELECT key,ordinal FROM canonical_study_points WHERE study=$s.key AND settled=false AND assigned=false AND ordinal>($after ?? -1dec) ORDER BY ordinal LIMIT 9
+        SELECT key,ordinal FROM canonical_study_points WHERE study=$s.key AND settled=false AND assigned=false AND ordinal>($progress_after ?? -1dec) ORDER BY ordinal LIMIT 9
     } ELSE {
-        SELECT point AS key,ordinal FROM canonical_study_readiness WHERE study=$s.key AND eligible=true AND ordinal>($after ?? -1dec) ORDER BY ordinal LIMIT 9
+        SELECT point AS key,ordinal FROM canonical_study_readiness WHERE study=$s.key AND eligible=true AND ordinal>($progress_after ?? -1dec) ORDER BY ordinal LIMIT 9
     };
-    LET $result=array::slice($entries,0,8).fold({kind:'waiting',after:$after,examined:0dec},|$acc,$entry| fn::pse_study_v1::progression_item($expiry,$acc,$entry));
+    LET $result=array::slice($entries,0,8).fold({kind:'waiting',after:$progress_after,examined:0dec},|$acc,$entry| fn::pse_study_v1::progression_item($expiry,$acc,$entry));
     LET $more=$result.kind!='waiting' OR array::len($entries)>8;
     LET $next=IF $more {object::extend($continuation,{after:$result.after})} ELSE {{study:$s.key,after:NONE,next_study:true,maintained:false}};
     IF $result.kind!='waiting' OR $more {

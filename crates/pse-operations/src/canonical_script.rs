@@ -563,7 +563,7 @@ mod tests {
                 .unwrap()
                 .into_parts();
             assert!(
-                surrealdb_syn::parse(&sql).is_ok(),
+                surrealdb_expr::parser::parse(&sql).is_ok(),
                 "native parser refused {envelope:?}: {sql}"
             );
             assert!(
@@ -586,7 +586,7 @@ mod tests {
             .unwrap();
         assert!(delayed.schema_policy().1);
         let (sql, bindings, selection) = delayed.into_parts();
-        assert!(surrealdb_syn::parse(&sql).is_ok(), "{sql}");
+        assert!(surrealdb_expr::parser::parse(&sql).is_ok(), "{sql}");
         assert_eq!(
             bindings.get("fixture_original"),
             Some(&Value::String("original".into()))

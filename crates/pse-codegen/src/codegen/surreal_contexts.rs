@@ -21,8 +21,8 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
     IF $p.deleted {THROW 'PSE_REFUSAL:project_context_unavailable';};
     IF $row.effective_to_us!=NONE AND $row.effective_to_us<=$row.effective_from_us {THROW 'PSE_REFUSAL:project_context_invalid';};
     IF $row.corrects!=NONE {
-        LET $parent=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.corrects);
-        IF $parent=NONE OR $parent.project!=$row.project OR $parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
+        LET $context_parent=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.corrects);
+        IF $context_parent=NONE OR $context_parent.project!=$row.project OR $context_parent.scope!=$row.scope {THROW 'PSE_REFUSAL:project_context_invalid';};
         LET $ancestors=SELECT * FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant=$row.corrects LIMIT 257;
         IF array::len($ancestors)>=256 {THROW 'PSE_REFUSAL:project_context_bound';};
         FOR $a IN $ancestors { LET $edge=<string>string::len($row.key)+':'+$row.key+$a.ancestor; CREATE ONLY type::record('canonical_context_ancestry',$edge) CONTENT {key:$edge,descendant:$row.key,ancestor:$a.ancestor};};

@@ -326,7 +326,7 @@ async fn start_scripted(
                         let bytes = match method.as_str() {
                             "GetCapabilities" => frame(rpc::GetCapabilitiesResponse {
                                 capabilities: Some(rpc::ServerCapabilities {
-                                    server_version: "3.3.4".into(),
+                                    server_version: "4.0.0".into(),
                                     ..Default::default()
                                 }),
                             }),

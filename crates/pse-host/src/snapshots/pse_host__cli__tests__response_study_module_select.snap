@@ -37,6 +37,7 @@ expression: "serde_json::to_string_pretty(&response).unwrap()"
     "kind": "fixture",
     "artifact": "/fixture/study.surli",
     "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "manifest_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
     "bytes": 32,
     "sdk_version": "fixture",
     "abi": 1,
@@ -45,8 +46,6 @@ expression: "serde_json::to_string_pretty(&response).unwrap()"
       "max_memory_bytes": 1024,
       "max_pool_size": 1,
       "max_execution_time_ms": 1000,
-      "max_kv_entries": 0,
-      "max_kv_value_bytes": 0,
       "strict_timeout": true
     }
   }

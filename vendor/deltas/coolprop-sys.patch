@@ -1,5 +1,5 @@
 diff --git a/Cargo.toml b/Cargo.toml
-index afcd3a7cffb1f40433d38f9c6d85526337986da4..450694b0a384f20c0694a1dc090da2cc1cf94e79 100644
+index afcd3a7cffb1f40433d38f9c6d85526337986da4..4009af883fa5c9d91d85c37b3a8ad520376a2b46 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -57,20 +57,8 @@ version = "1.1"
@@ -26,7 +26,7 @@ index afcd3a7cffb1f40433d38f9c6d85526337986da4..450694b0a384f20c0694a1dc090da2cc
 -[target.'cfg(all(target_os = "windows", target_arch = "x86_64"))'.dependencies.coolprop-sys-windows-x86-64]
 -version = "8.0.0"
 +[build-dependencies.serde_json]
-+version = "=1.0.151"
++version = "=1.0.154"
 diff --git a/CoolPropLib.h b/CoolPropLib.h
 index 91a0fabb58945090c3aa10a6c58b0d9e65aaaeb7..797ee8c712fed91da9700c40738d8215609a82d9 100644
 --- a/CoolPropLib.h

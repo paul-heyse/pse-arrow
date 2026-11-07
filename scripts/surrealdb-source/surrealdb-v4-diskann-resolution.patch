@@ -1,0 +1,24 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index 8058b01..760d0ef 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -7773,8 +7773,6 @@ dependencies = [
+ [[package]]
+ name = "surrealdb-diskann"
+ version = "0.61.0"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "a953ad510f5c2ead708c8e5ed37df7dec7eb41198bbb6d7fb1d71174851e3511"
+ dependencies = [
+  "anyhow",
+  "bytemuck",
+diff --git a/Cargo.toml b/Cargo.toml
+index 8d1dde3..dbffbcf 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -926,3 +926,6 @@ panic = 'unwind'
+ # rustc. Worth it for an iterative profiling loop.
+ lto = "thin"
+ codegen-units = 16
++
++[patch.crates-io]
++surrealdb-diskann = { path = ".pse-deps/diskann" }

@@ -684,7 +684,7 @@ impl SchemaMaintenance {
     fn require_original_module(
         &self,
         request: &SchemaMigrationRequest,
-    ) -> Result<(), CanonicalError> {
+    ) -> Result<super::study_module::StudyModuleReceipt, CanonicalError> {
         let module = super::study_module::StudyModuleReceipt::read_migration_source(
             &self.store.state_path,
             &request.predecessor.study_module_sha256,
@@ -706,8 +706,9 @@ impl SchemaMaintenance {
             {
                 return Err(CanonicalError::Quiesced);
             }
+            return Ok(selected);
         }
-        Ok(())
+        Ok(module)
     }
     /// Read the original immutable activation receipt after restart or lost ACK,
     /// including a historical target. Absence grants no replay permission; an
@@ -934,7 +935,7 @@ impl QuiescentSchemaMigration {
     /// Never replay a transformation because readback itself failed.
     pub async fn apply_receipt(self) -> Result<SchemaMigrationReceipt, CanonicalError> {
         let request = &self.request;
-        self.maintenance.require_original_module(request)?;
+        let module = self.maintenance.require_original_module(request)?;
         if let Some(receipt) = self.maintenance.reconcile_receipt(request).await? {
             return Ok(receipt);
         }
@@ -968,7 +969,8 @@ impl QuiescentSchemaMigration {
         if request.needs_v2_checkpoint() {
             self.advance_v2_checkpoint(false).await?;
         }
-        let bindings = request.bindings()?;
+        let mut bindings = request.bindings()?;
+        bindings.extend(module.catalog_bindings());
         let body = final_application_body(request)?;
         let write: Result<Object, CanonicalError> = self
             .maintenance
@@ -1098,7 +1100,7 @@ fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, Ca
     let (validation_body, validation_predicate) = if request.target_version != VERSION {
         (
             super::study_module::CATALOG_VALIDATION_BODY.to_owned(),
-            HISTORICAL_READONLY_MODULE_PREDICATE.to_owned(),
+            super::study_module::CATALOG_VALIDATION_PREDICATE.to_owned(),
         )
     } else {
         (
@@ -1187,9 +1189,6 @@ impl MigrationScript {
     }
 }
 const MIGRATION_SNAPSHOT: &str = "{marker:(SELECT * FROM ONLY canonical_interpretations:current),pending:(SELECT * FROM ONLY canonical_maintenance_operations:current)}";
-// Historical receipt settlement attests its original readonly artifact only.
-// It neither invokes current policy modes nor grants current-schema readiness.
-const HISTORICAL_READONLY_MODULE_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
 const ATOMIC_CAPTURE_CUTOVER: &str = r#"
 LET $pse_capture_pending=SELECT key FROM canonical_study_captures WHERE state!='released' LIMIT 1;
 LET $pse_capture_gate=SELECT * FROM ONLY type::record('canonical_study_capture_gate','current') FOR UPDATE;
@@ -1813,7 +1812,7 @@ mod tests {
                 overwrite_declarations(SCHEMA_V3_DECLARATION)
             );
             let application = final_application_body(&decoded).unwrap();
-            assert!(application.contains(HISTORICAL_READONLY_MODULE_PREDICATE));
+            assert!(application.contains(super::super::study_module::CATALOG_VALIDATION_PREDICATE));
             assert!(!application.contains("study_capture::capture"));
             assert!(!application.contains(ATOMIC_CAPTURE_CUTOVER));
             let mut retargeted = decoded.clone();
@@ -1970,13 +1969,13 @@ mod tests {
             ("checkpoint quiescent resume", VERIFY_V2_CHECKPOINT, "true"),
         ] {
             let script = MigrationScript::new(body, expression, Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("{name}: {error}");
             }
         }
         for application in &applications {
             let script = MigrationScript::new(application, "$pse_migration_receipt", Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("ordered final edge: {error}");
             }
         }
@@ -1990,7 +1989,7 @@ mod tests {
             ),
         ] {
             let script = MigrationScript::new(body, result, Object::new());
-            if let Err(error) = surrealdb_syn::parse(&script.sql) {
+            if let Err(error) = surrealdb_expr::parser::parse(&script.sql) {
                 panic!("{name}: {error}");
             }
         }

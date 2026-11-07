@@ -1,6 +1,6 @@
 ---
 title: "Plan68: SurrealDB v4 cutover"
-status: planned
+status: in-progress
 date: 2026-11-07
 adrs: [ADR-0257]
 doc_role: plan

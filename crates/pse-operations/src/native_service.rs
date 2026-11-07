@@ -8,7 +8,7 @@ use crate::{
     canonical::{
         CanonicalError, CanonicalOptions, CanonicalStore, MESSAGE_BYTES,
         migration::{SchemaMaintenance, SchemaMigrationReceipt, SchemaReady},
-        study_module::StudyModuleReceipt,
+        study_module::{QUALIFICATION_RECORD, StudyModuleReceipt},
     },
     deployment::{CanonicalConnectionSettings, ServiceIdentity},
     transport::{
@@ -99,7 +99,18 @@ impl ModuleServiceCapacity {
                 "module service capacity is outside the engine's positive semaphore range",
             ));
         }
+        self.invocation_slots()?;
         Ok(())
+    }
+    fn invocation_slots(&self) -> Result<u32, NativeServiceError> {
+        // Leave room for the upstream pool's nested reservation. The
+        // process-wide controller permit still caps all physical invocations.
+        u32::try_from(self.controllers)
+            .ok()
+            .and_then(|count| count.checked_add(count.div_ceil(3)))
+            .ok_or(NativeServiceError::Refused(
+                "module service capacity exceeds the v4 invocation pool range",
+            ))
     }
     fn environment(pool: u32) -> Result<Self, NativeServiceError> {
         let read = |name| {
@@ -250,6 +261,10 @@ pub struct NativeServiceSpec {
     /// Parent for a newly created private disposable directory.
     pub state_parent: PathBuf,
 }
+enum ModuleCompanion {
+    Migration(NativeModuleSource),
+    Qualification(StudyModuleReceipt),
+}
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Credentials {
@@ -270,6 +285,8 @@ struct StartupPayload {
     bind: SocketAddr,
     nonce: String,
     module_capacity: ModuleServiceCapacity,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    qualification_sha256: Option<String>,
 }
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -287,6 +304,8 @@ struct Configuration {
     payload_incarnation: String,
     accepting_writes: bool,
     study_module: StudyModuleReceipt,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    study_module_qualification_controllers: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
     schema_migration_predecessor: Option<StudyModuleReceipt>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -330,6 +349,13 @@ impl RetainedRecords {
             let value: serde_json::Value =
                 private_read(&state.join("target-module-source-receipt.json"))?;
             hashes.push(hex::encode(Sha256::digest(json(&value)?)));
+        }
+        if config
+            .get("study_module_qualification_controllers")
+            .is_some()
+        {
+            let qualification = StudyModuleReceipt::read_qualification(state)?;
+            hashes.push(hex::encode(Sha256::digest(json(&qualification)?)));
         }
         Ok(Self { hashes })
     }
@@ -658,6 +684,18 @@ impl NativeCanonicalService {
     pub fn new(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
         Self::new_with_schema(spec, InitialSchema::Current)
     }
+    pub(crate) fn new_qualification_fixture(
+        spec: NativeServiceSpec,
+        qualification: pse_host::study_module::StudyModuleReceipt,
+    ) -> Result<Self, NativeServiceError> {
+        Self::new_with_companion(
+            spec,
+            InitialSchema::Current,
+            Some(ModuleCompanion::Qualification(
+                StudyModuleReceipt::from_prepared(qualification),
+            )),
+        )
+    }
     /// Construct a newly owned predecessor fixture only, for explicit adjacent migration.
     /// The predecessor never grants ordinary application readiness.
     /// # Errors
@@ -679,7 +717,11 @@ impl NativeCanonicalService {
         spec: NativeServiceSpec,
         target_source: NativeModuleSource,
     ) -> Result<Self, NativeServiceError> {
-        Self::new_with_target(spec, InitialSchema::SchemaV2, Some(target_source))
+        Self::new_with_companion(
+            spec,
+            InitialSchema::SchemaV2,
+            Some(ModuleCompanion::Migration(target_source)),
+        )
     }
     /// Create a private frozen v3 store with its original module and a prepared target.
     /// # Errors
@@ -688,18 +730,22 @@ impl NativeCanonicalService {
         spec: NativeServiceSpec,
         target_source: NativeModuleSource,
     ) -> Result<Self, NativeServiceError> {
-        Self::new_with_target(spec, InitialSchema::SchemaV3, Some(target_source))
+        Self::new_with_companion(
+            spec,
+            InitialSchema::SchemaV3,
+            Some(ModuleCompanion::Migration(target_source)),
+        )
     }
     fn new_with_schema(
         spec: NativeServiceSpec,
         initial_schema: InitialSchema,
     ) -> Result<Self, NativeServiceError> {
-        Self::new_with_target(spec, initial_schema, None)
+        Self::new_with_companion(spec, initial_schema, None)
     }
-    fn new_with_target(
+    fn new_with_companion(
         spec: NativeServiceSpec,
         initial_schema: InitialSchema,
-        target_source: Option<NativeModuleSource>,
+        companion: Option<ModuleCompanion>,
     ) -> Result<Self, NativeServiceError> {
         if !spec.helper.is_absolute() || !spec.helper.is_file() {
             return Err(NativeServiceError::Refused(
@@ -715,26 +761,44 @@ impl NativeCanonicalService {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o700))?;
         let module = spec.module_source.into_canonical()?;
         private_write(&path.join("original-module-receipt.json"), &module)?;
-        let module_root = path.join(if target_source.is_some() {
+        let module_root = path.join(if companion.is_some() {
             "modules"
         } else {
             "module"
         });
-        let (module, target) = if let Some(target_source) = target_source {
+        if companion.is_some() {
             private_directory(&module_root)?;
-            let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
-            let target = target_source.into_canonical()?;
-            private_write(&path.join("target-module-source-receipt.json"), &target)?;
-            let target = target.copy_into_private(&path, &module_root.join("target"))?;
-            if target.sha256 == old.sha256 {
-                return Err(NativeServiceError::Refused(
-                    "module upgrade fixture requires distinct old and target artifacts",
-                ));
-            }
-            (old, Some(target))
-        } else {
-            (module.copy_into_private(&path, &module_root)?, None)
-        };
+        }
+        let (module, target, qualification) =
+            match companion {
+                Some(ModuleCompanion::Migration(target_source)) => {
+                    let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
+                    let target = target_source.into_canonical()?;
+                    private_write(&path.join("target-module-source-receipt.json"), &target)?;
+                    let target = target.copy_into_private(&path, &module_root.join("target"))?;
+                    if target.sha256 == old.sha256 {
+                        return Err(NativeServiceError::Refused(
+                            "module upgrade fixture requires distinct old and target artifacts",
+                        ));
+                    }
+                    (old, Some(target), None)
+                }
+                Some(ModuleCompanion::Qualification(qualification)) => (
+                    module.copy_into_private(&path, &module_root.join("production"))?,
+                    None,
+                    Some(qualification.copy_qualification_into_private(
+                        &path,
+                        &module_root.join("qualification"),
+                    )?),
+                ),
+                None => (module.copy_into_private(&path, &module_root)?, None, None),
+            };
+        if let Some(receipt) = &qualification {
+            let record = path.join(QUALIFICATION_RECORD);
+            private_write(&record, receipt)?;
+            fs::set_permissions(&record, fs::Permissions::from_mode(0o400))?;
+            File::open(&record)?.sync_all()?;
+        }
         for directory in ["tmp", "cache", "home", "runs"] {
             private_directory(&path.join(directory))?;
         }
@@ -762,6 +826,7 @@ impl NativeCanonicalService {
             bind,
             nonce: nonce.clone(),
             module_capacity: ModuleServiceCapacity::environment(module.limits.max_pool_size)?,
+            qualification_sha256: qualification.as_ref().map(|receipt| receipt.sha256.clone()),
         };
         private_write(&run.join("startup.json"), &payload)?;
         let config = Configuration {
@@ -782,6 +847,9 @@ impl NativeCanonicalService {
             accepting_writes: true,
             schema_migration_predecessor: target.as_ref().map(|_| module.clone()),
             schema_migration_target: target,
+            study_module_qualification_controllers: qualification
+                .as_ref()
+                .map(|_| payload.module_capacity.controllers),
             study_module: module,
         };
         private_write(&path.join("config.json"), &config)?;
@@ -1046,8 +1114,8 @@ impl NativeCanonicalService {
         let context = || RequestContext::control(deadline);
         let provisioned = async {
             client.signin(Root { username: credentials.username, password: credentials.password }).request_context(context()).await?;
-            // Exact 3.3.4 PASSWORD grammar requires a literal, not a parameter.
-            // The SDK owns escaping; this SQL travels only over the native RPC.
+            // The native SQL renderer escapes the password literal.
+            // This statement travels only over the authenticated RPC.
             let password=Value::String(credentials.selection_password).to_sql();
             let response = client.query(format!("DEFINE USER OVERWRITE `pse-selection` ON ROOT PASSWORD {password} ROLES VIEWER;"))
                 .request_context(context()).await?;
@@ -1645,6 +1713,17 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
     }
     let server = server::reopen_generation(&payload.generation, &payload.recipe)?;
     let module = StudyModuleReceipt::read(&payload.state)?;
+    let qualification = if let Some(expected) = &payload.qualification_sha256 {
+        let receipt = StudyModuleReceipt::read_qualification(&payload.state)?;
+        if &receipt.sha256 != expected {
+            return Err(NativeServiceError::Refused(
+                "startup qualification artifact identity differs",
+            ));
+        }
+        Some(receipt)
+    } else {
+        None
+    };
     payload
         .module_capacity
         .validate(module.limits.max_pool_size)?;
@@ -1701,7 +1780,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .env("SURREAL_USER", credentials.username)
         .env("SURREAL_PASS", credentials.password)
         .env("SURREAL_GRPC_MAX_MESSAGE_SIZE", MESSAGE_BYTES.to_string())
-        .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "files,surrealism")
+        .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "surrealism")
         .env("SURREAL_BUCKET_FOLDER_ALLOWLIST", &payload.module_root)
         .env(
             "SURREAL_SURREALISM_CACHE_SIZE",
@@ -1711,7 +1790,11 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
             "SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS",
             payload.module_capacity.controllers.to_string(),
         )
-        .envs(module.runtime_environment())
+        .env(
+            "SURREAL_SURREALISM_MAX_CONCURRENT_INVOCATIONS",
+            payload.module_capacity.invocation_slots()?.to_string(),
+        )
+        .envs(module.runtime_environment(qualification.as_ref()))
         .stdin(Stdio::null())
         .stdout(Stdio::from(log.try_clone()?))
         .stderr(Stdio::from(log))
@@ -2075,6 +2158,8 @@ mod tests {
         // Explicit saturation controls deliberately retain fewer physical Stores.
         let finite = ModuleServiceCapacity::select(Some("2"), Some("8"), 4).unwrap();
         assert_eq!((finite.cached_modules, finite.controllers), (2, 8));
+        let slots = finite.invocation_slots().unwrap();
+        assert!(slots - (slots / 4).max(1) >= 8);
         assert_eq!(
             ModuleServiceCapacity::select(None, Some("8"), 4)
                 .unwrap()

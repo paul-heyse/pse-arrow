@@ -167,6 +167,59 @@ impl<T: SurrealValue> QueryResult<Vec<T>> for usize {
     }
 }
 
+#[cfg(test)]
+mod v4_value_tests {
+    use surrealdb_protocol::proto::v1::{Value as ProtoValue, value::Value as ProtoValueKind};
+    use surrealdb_types::{Number, Value};
+
+    fn decode(value: ProtoValueKind) -> Result<Value, String> {
+        Value::try_from(ProtoValue { value: Some(value) }).map_err(|error| error.to_string())
+    }
+
+    #[test]
+    fn protocol_v4_sized_numbers_preserve_supported_widths() {
+        assert!(matches!(
+            decode(ProtoValueKind::I8(-8)).unwrap(),
+            Value::Number(Number::I8(-8))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::U8(8)).unwrap(),
+            Value::Number(Number::U8(8))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::I16(-16)).unwrap(),
+            Value::Number(Number::I16(-16))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::U16(16)).unwrap(),
+            Value::Number(Number::U16(16))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::I32(-32)).unwrap(),
+            Value::Number(Number::I32(-32))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::U32(32)).unwrap(),
+            Value::Number(Number::U32(32))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::U64(64)).unwrap(),
+            Value::Number(Number::U64(64))
+        ));
+        assert!(matches!(
+            decode(ProtoValueKind::F32(1.5)).unwrap(),
+            Value::Number(Number::F32(1.5))
+        ));
+        assert!(
+            matches!(decode(ProtoValueKind::F16(1.5)).unwrap(), Value::Number(Number::F16(v)) if v.to_f32() == 1.5)
+        );
+        assert!(decode(ProtoValueKind::I8(128)).is_err());
+        assert!(decode(ProtoValueKind::U8(u32::MAX)).is_err());
+        assert!(decode(ProtoValueKind::I16(32_768)).is_err());
+        assert!(decode(ProtoValueKind::U16(u32::MAX)).is_err());
+    }
+}
+
 #[derive(Default)]
 struct Statement {
     complete: bool,

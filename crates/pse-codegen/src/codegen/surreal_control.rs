@@ -69,8 +69,8 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
         IF array::sort(object::keys($request.cursor))!=['after','filter','issuing_store'] OR !type::is_string($request.cursor.after) { THROW 'PSE_REFUSAL:control_request_invalid'; };
         IF bytes::len(<bytes>$request.cursor.after)<1 OR bytes::len(<bytes>$request.cursor.after)>4096 OR $request.cursor.issuing_store!=$store OR $request.cursor.filter!=$request.filter { THROW 'PSE_REFUSAL:control_request_invalid'; };
     };
-    LET $after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
-    LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$after,$request.maximum+1);
+    LET $cursor_after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
+    LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$cursor_after,$request.maximum+1);
     LET $selected=fn::pse_workbench_v1::browse($expiry,$rows,$request.maximum);
     LET $headers=$selected.headers.map(|$s| {study:$s.key,run:$s.run,problem:$s.problem,source:$s.revision,physical_revision:$s.physical_revision ?? NULL,physical_identity:$s.physical_identity ?? NULL,context:$s.context ?? NULL,point_count:<string>$s.point_count,generation:<string>$s.generation,active:$s.active,cancelled:$s.cancelled,terminal:$s.terminal,result_attempt:$s.result_attempt ?? NULL,outcome:$s.outcome ?? NULL});
     LET $next=IF $selected.has_more {{issuing_store:$store,filter:$request.filter,after:array::last($headers).study}} ELSE {NULL};
@@ -79,13 +79,13 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
 DEFINE API '/pse/control/v1/browse' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('browse'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$body.request)}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('browse'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::browse($expiry,$body.request)}; } SECURITY DEFINER;
 DEFINE API '/pse/control/v1/cancel' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); LET $reply=fn::pse_control_v1::cancel($expiry,$actor,$body.request); RETURN {status:IF $reply.status=NONE {409} ELSE {200},body:$reply}; } SECURITY DEFINER;
 DEFINE API '/pse/control/v1/reconcile' FOR post
     PERMISSIONS WHERE $auth!=NONE
     MIDDLEWARE api::req::max_body(65536),api::res::body('json')
-    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$body.request)}; };
+    THEN { LET $actor=fn::pse_control_v1::actor('cancel'); IF $actor=NONE { RETURN {status:403,body:{error:'control_actor_refused'}}; }; LET $body=fn::pse_control_v1::json($request); LET $expiry=fn::pse_control_v1::expiry($body); RETURN {status:200,body:fn::pse_control_v1::reconcile($expiry,$actor,$body.request)}; } SECURITY DEFINER;
 "#;

@@ -49,8 +49,8 @@ DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$probl
     LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
     fn::pse_execution_v1::deadline($pse_rpc_expires_at);
     IF $position=NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
-    LET $after = $position.source_reclaim_after ?? '';
-    LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$after AND to_sequence!=NONE ORDER BY key LIMIT 1;
+    LET $source_after = $position.source_reclaim_after ?? '';
+    LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$source_after AND to_sequence!=NONE ORDER BY key LIMIT 1;
     IF array::len($candidates)=0 {
         UPDATE ONLY $guard SET source_reclaim_after=NONE,generation=generation+1dec;
         RETURN {done:true,after:NONE,membership:false,version:false,edges:0dec,blocks:0dec,pending:false};
@@ -87,7 +87,7 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     };
 };
 
-    LET $next = IF $result.pending { $after } ELSE { $candidate };
+    LET $next = IF $result.pending { $source_after } ELSE { $candidate };
     UPDATE ONLY $guard SET source_reclaim_after=$next,generation=generation+1dec;
     fn::pse_execution_v1::deadline($pse_rpc_expires_at);
     RETURN object::extend($result,{done:false,after:$next});
@@ -146,7 +146,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
     IF $header=NONE OR !$header.terminal { THROW 'PSE_REFUSAL:only_terminal_studies_may_be_retired'; };
     UPSERT type::record('canonical_study_retirements',$study) SET key=$study,study=$study;
     LET $inputs=SELECT * FROM canonical_artifact_obligations WHERE owner_kind='study' AND owner=$study ORDER BY key LIMIT 64;
-    FOR $input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($input,['id'])); };
+    FOR $artifact_input IN $inputs { fn::pse_artifact_v1::release($rpc_expiry,object::remove($artifact_input,['id'])); };
     LET $rpc_result = array::len($inputs)<64;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
@@ -171,7 +171,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
     LET $nodes=SELECT id FROM canonical_analysis_nodes WHERE analysis=$analysis ORDER BY key LIMIT 64;
     IF array::len($nodes)!=0 { DELETE $nodes.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $inputs=SELECT id,artifact FROM canonical_analysis_inputs WHERE analysis=$analysis ORDER BY key LIMIT 64;
-    IF array::len($inputs)!=0 { FOR $input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
+    IF array::len($inputs)!=0 { FOR $artifact_input IN $inputs { LET $owners=SELECT * FROM canonical_artifact_obligations WHERE artifact=$artifact_input.artifact AND owner_kind='analysis' AND owner=$analysis LIMIT 1; FOR $owner IN $owners { fn::pse_artifact_v1::release($rpc_expiry,object::remove($owner,['id'])); }; }; DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     LET $roots=SELECT id,problem FROM canonical_roots WHERE owner_kind='analysis' AND owner=$analysis ORDER BY key LIMIT 64;
     IF array::len($roots)!=0 {
         FOR $root IN $roots {
@@ -235,8 +235,8 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     IF array::len($readers)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     IF array::len($reader_page)=64 { RETURN {pending:true}; };
     LET $point=SELECT study FROM canonical_study_points WHERE run=$run LIMIT 1;
-    LET $parent=SELECT key FROM canonical_studies WHERE run=$run LIMIT 1;
-    LET $studies=array::distinct(array::concat($point.study,$parent.key));
+    LET $study_parent=SELECT key FROM canonical_studies WHERE run=$run LIMIT 1;
+    LET $studies=array::distinct(array::concat($point.study,$study_parent.key));
     FOR $study IN $studies {
         SELECT * FROM ONLY type::record('canonical_study_retirements',$study) FOR UPDATE;
         IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$study))=NONE { THROW 'PSE_REFUSAL:run_results_are_retained_by_a_study'; };

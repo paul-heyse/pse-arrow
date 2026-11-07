@@ -20,28 +20,27 @@ use std::{
 mod release_import;
 use release_import::{import_inner, origin_complete};
 
-const VERSION: &str = "3.3.4";
-const REVISION: &str = "1ac2b1dba7cd177621a4cf5d507caebeb2414395";
+const VERSION: &str = "4.0.0";
+const REVISION: &str = "284fe93afc851c3baec2c262c01289602021a70d";
 const ORIGIN: &str = "https://github.com/surrealdb/surrealdb.git";
-const ENGINE: &str = "1.0.0";
-const SURREALISM: &str = "0.6.4";
-const FEATURES: &str = "storage-mem,cli,mcp,surrealism";
+const ENGINE: &str = "1.1.0";
+const SURREALISM: &str = "0.7.0";
+const PROTOCOL: &str = "0.14.1";
+const SERVER_PACKAGE: &str = "surreal-db";
+const EXTENSION_PACKAGE: &str = "surreal-ext";
+const EXTENSION_VERSION: &str = "1.0.0";
+const FEATURES: &str = "surreal-db/storage-mem,surreal-db/cli,surreal-db/surrealism";
+const EXECUTABLES: [&str; 2] = ["surreal", "surreal-ext"];
 const BUILD_CONFIG: &str = "profile.release.panic=\"unwind\"";
-const DISKANN_SHA256: &str = "3ead115d8a4f3917c1ae9c3db0aa4dd56251841864ef8637329969f8e5145dd3";
+const COMPILER_BINDING: &str = "resolved-absolute-paths";
+const DISKANN_SHA256: &str = "a953ad510f5c2ead708c8e5ed37df7dec7eb41198bbb6d7fb1d71174851e3511";
+const DISKANN_DIRECTORY: &str = "surrealdb-diskann-0.61.0/";
+const DISKANN_PATCH: &str = "surrealdb-diskann-0.61.0.patch";
 const PATCHES: &[&str] = &[
-    "mx-1.0-minimal.patch",
-    "mx-1.0-controls.patch",
-    "grpc-connection-ownership.patch",
-    "pinned-compiler.patch",
-    "canonical-profile.patch",
-    "grpc-session-admission.patch",
-    "grpc-status-details.patch",
-    "api-failure-rollback.patch",
-    "surrealism-locked-build.patch",
-    "surrealism-build-features.patch",
-    "surrealism-global-controllers.patch",
-    "surrealism-memory-count.patch",
-    "surrealism-controller-deadline.patch",
+    "surrealdb-v4-runtime-controls.patch",
+    "surrealdb-v4-extension-build.patch",
+    "surrealdb-v4-extension-runtime.patch",
+    "surrealdb-v4-diskann-resolution.patch",
 ];
 const BUILD_ENV: &[&str] = &[
     "HOME",
@@ -208,6 +207,10 @@ impl PreparedServer {
     pub fn executable(&self) -> PathBuf {
         self.generation.join("surreal")
     }
+    /// Extension builder from this exact source generation.
+    pub fn extension_builder(&self) -> PathBuf {
+        self.generation.join("surreal-ext")
+    }
     /// Immutable installation directory; legacy installations are never modified.
     pub fn generation(&self) -> &Path {
         &self.generation
@@ -225,10 +228,16 @@ struct SourceIdentity {
     origin: String,
     engine: String,
     surrealism: String,
+    protocol: String,
+    server_package: String,
+    extension_package: String,
+    extension_version: String,
     features: String,
     profile: String,
     build_config: String,
+    compiler_binding: String,
     patches: BTreeMap<String, String>,
+    patch_order: Vec<String>,
     diskann_archive: String,
     diskann_patch: String,
     metadata: String,
@@ -241,12 +250,22 @@ impl SourceIdentity {
             && self.origin == ORIGIN
             && self.engine == ENGINE
             && self.surrealism == SURREALISM
+            && self.protocol == PROTOCOL
+            && self.server_package == SERVER_PACKAGE
+            && self.extension_package == EXTENSION_PACKAGE
+            && self.extension_version == EXTENSION_VERSION
             && self.features == FEATURES
             && self.profile == "release"
             && self.build_config == BUILD_CONFIG
+            && self.compiler_binding == COMPILER_BINDING
+            && self.patches.len() == PATCHES.len()
             && self.diskann_archive == DISKANN_SHA256
             && hexadecimal(&self.diskann_patch, 64)
-            && self.patches.len() == PATCHES.len()
+            && self
+                .patch_order
+                .iter()
+                .map(String::as_str)
+                .eq(PATCHES.iter().copied())
             && PATCHES.iter().all(|name| {
                 self.patches
                     .get(*name)
@@ -279,13 +298,19 @@ fn source_identity(root: &Path) -> Result<SourceIdentity, HostError> {
         origin: ORIGIN.into(),
         engine: ENGINE.into(),
         surrealism: SURREALISM.into(),
+        protocol: PROTOCOL.into(),
+        server_package: SERVER_PACKAGE.into(),
+        extension_package: EXTENSION_PACKAGE.into(),
+        extension_version: EXTENSION_VERSION.into(),
         features: FEATURES.into(),
         profile: "release".into(),
         build_config: BUILD_CONFIG.into(),
+        compiler_binding: COMPILER_BINDING.into(),
         metadata: metadata(&patches),
         patches,
+        patch_order: PATCHES.iter().map(|name| (*name).to_owned()).collect(),
         diskann_archive: DISKANN_SHA256.into(),
-        diskann_patch: digest(&inputs.join("diskann-0.56.0.patch"))?,
+        diskann_patch: digest(&inputs.join(DISKANN_PATCH))?,
         platform: format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH),
     })
 }
@@ -650,6 +675,7 @@ fn configuration(root: &Path, environment: &Environment) -> Result<CargoConfigur
                     "checksum-freshness",
                 ],
                 "resolver" => &["feature-unification"],
+                "env" => &["RUSTC_ICE"],
                 "future-incompat-report" => &["frequency"],
                 "target" => &[],
                 _ => return Err(invalid(format!("unsupported Cargo configuration {name}"))),
@@ -680,6 +706,19 @@ fn configuration(root: &Path, environment: &Environment) -> Result<CargoConfigur
                         return Err(invalid(format!(
                             "unsupported Cargo configuration {name}.{key}"
                         )));
+                    }
+                    if name == "env"
+                        && !value.as_table().is_some_and(|setting| {
+                            setting.len() == 2
+                                && setting.get("value").and_then(toml::Value::as_str)
+                                    == Some("target")
+                                && setting.get("relative").and_then(toml::Value::as_bool)
+                                    == Some(true)
+                        })
+                    {
+                        return Err(invalid(
+                            "RUSTC_ICE must use the checkout's target directory",
+                        ));
                     }
                     if [
                         "linker",
@@ -851,9 +890,9 @@ fn context(root: &Path, environment: &Environment) -> Result<BuildContext, HostE
         "env",
         "perl",
         "clang++",
+        "ldd",
         "curl",
         "tar",
-        "ldd",
     ] {
         if let Ok(path) = resolve(OsStr::new(name), root, environment) {
             tools.insert(
@@ -865,7 +904,7 @@ fn context(root: &Path, environment: &Environment) -> Result<BuildContext, HostE
             );
         }
     }
-    for name in ["git", "curl", "tar", "ldd"] {
+    for name in ["git", "ldd", "curl", "tar"] {
         if !tools.contains_key(name) {
             return Err(invalid(format!(
                 "{name} is required for source preparation"
@@ -1094,7 +1133,7 @@ fn archive_names(listing: &str, verbose: &str) -> Result<(), HostError> {
     for (name, kind) in names.iter().zip(kinds) {
         let path = Path::new(name);
         if !kind.starts_with(['-', 'd'])
-            || !name.starts_with("diskann-0.56.0/")
+            || !name.starts_with(DISKANN_DIRECTORY)
             || path
                 .components()
                 .any(|part| !matches!(part, Component::Normal(_)))
@@ -1162,7 +1201,7 @@ fn acquire(
             ],
         )?;
     }
-    let archive = scratch.path().join("diskann-0.56.0.crate");
+    let archive = scratch.path().join("surrealdb-diskann-0.61.0.crate");
     run(
         &identity.context()?.tools["curl"].path,
         vec![
@@ -1172,7 +1211,8 @@ fn acquire(
             "=https".into(),
             "--output".into(),
             archive.clone().into_os_string(),
-            "https://static.crates.io/crates/diskann/diskann-0.56.0.crate".into(),
+            "https://static.crates.io/crates/surrealdb-diskann/surrealdb-diskann-0.61.0.crate"
+                .into(),
         ],
     )?;
     if digest(&archive)? != DISKANN_SHA256 {
@@ -1208,7 +1248,7 @@ fn acquire(
         ],
     )?;
     fs::rename(
-        dependencies.join("diskann-0.56.0"),
+        dependencies.join("surrealdb-diskann-0.61.0"),
         dependencies.join("diskann"),
     )?;
     run(
@@ -1218,7 +1258,8 @@ fn acquire(
             pending.clone().into_os_string(),
             "apply".into(),
             "--directory=.pse-deps/diskann".into(),
-            root.join("scripts/surrealdb-source/diskann-0.56.0.patch")
+            root.join("scripts/surrealdb-source")
+                .join(DISKANN_PATCH)
                 .into_os_string(),
         ],
     )?;
@@ -1298,18 +1339,7 @@ fn verify_source(
     if file_map(&source.join(".pse-deps/diskann"))? != dependencies {
         return Err(invalid("checked DiskANN source bytes changed"));
     }
-    let manifest = fs::read_to_string(source.join("Cargo.toml"))?;
-    let lock = fs::read_to_string(source.join("Cargo.lock"))?;
-    if !manifest.contains("surrealmx = \"=1.0.0\"")
-        || !lock.contains("name = \"surrealmx\"\nversion = \"1.0.0\"")
-        || !lock.contains(&format!(
-            "name = \"surrealism-runtime\"\nversion = \"{SURREALISM}\""
-        ))
-    {
-        return Err(invalid(
-            "source does not retain the pinned MX/Surrealism resolution",
-        ));
-    }
+    release_import::lock_pins(&source.join("Cargo.lock"))?;
     Ok(())
 }
 fn seal(path: &Path) -> Result<(), HostError> {
@@ -1363,12 +1393,18 @@ fn validate(
             .map(String::as_str)
             .collect::<BTreeSet<_>>()
             != match &receipt.identity.origin {
-                ConstructionOrigin::Built { .. } => BTreeSet::from(["surreal", "Cargo.lock"]),
+                ConstructionOrigin::Built { .. } => {
+                    BTreeSet::from(["surreal", "surreal-ext", "Cargo.lock"])
+                }
                 ConstructionOrigin::ImportedRelease { .. } => {
-                    BTreeSet::from(["surreal", "Cargo.lock", "release.json"])
+                    BTreeSet::from(["surreal", "surreal-ext", "Cargo.lock", "release.json"])
                 }
             }
-        || generation.join("surreal").metadata()?.permissions().mode() & 0o111 == 0
+        || EXECUTABLES.iter().any(|name| {
+            generation.join(name).metadata().map_or(true, |meta| {
+                !meta.is_file() || meta.permissions().mode() & 0o111 == 0
+            })
+        })
     {
         return Err(invalid(
             "selected server identity is incomplete or unsupported",
@@ -1458,6 +1494,10 @@ fn cargo_arguments(source: &Path) -> Vec<OsString> {
         "--manifest-path".into(),
         source.join("Cargo.toml").into_os_string(),
         "--locked".into(),
+        "--package".into(),
+        SERVER_PACKAGE.into(),
+        "--package".into(),
+        EXTENSION_PACKAGE.into(),
         "--no-default-features".into(),
         "--features".into(),
         FEATURES.into(),
@@ -1465,17 +1505,19 @@ fn cargo_arguments(source: &Path) -> Vec<OsString> {
         "release".into(),
         "--bin".into(),
         "surreal".into(),
+        "--bin".into(),
+        "surreal-ext".into(),
         "--config".into(),
         BUILD_CONFIG.into(),
     ]
 }
-fn compiled_artifact(work: &Path, identity: &Identity) -> Result<PathBuf, HostError> {
+fn compiled_artifact(work: &Path, identity: &Identity, name: &str) -> Result<PathBuf, HostError> {
     let target = work.join("source/target");
     let target = match &identity.context()?.target {
         Some(triple) => target.join(triple),
         None => target,
     };
-    Ok(target.join("release/surreal"))
+    Ok(target.join("release").join(name))
 }
 fn compile(
     root: &Path,
@@ -1505,6 +1547,16 @@ fn compile(
     }
     atomic_record(&request, identity)?;
     let mut selected = environment.clone();
+    // Cargo changes into supplier package directories before compiling them.
+    // Keep the checkout's authenticated compiler instead of a rustup proxy
+    // that could pick the supplier checkout's toolchain.
+    let context = identity.context()?;
+    for (variable, tool) in [("RUSTC", "rustc"), ("RUSTDOC", "rustdoc")] {
+        selected.insert(
+            variable.into(),
+            context.tools[tool].path.clone().into_os_string(),
+        );
+    }
     selected.insert("SURREAL_BUILD_VERSION".into(), VERSION.into());
     selected.insert(
         "SURREAL_BUILD_METADATA".into(),
@@ -1517,20 +1569,24 @@ fn compile(
         &selected,
         &work.join("build.log"),
     )?;
-    let binary = compiled_artifact(work, identity)?;
+    let binary = compiled_artifact(work, identity, "surreal")?;
     regular(&binary)?;
-    let version = capture(&binary, &args(&["version"]), root, &selected)?;
+    let version = capture(&binary, &args(&["--version"]), root, &selected)?;
     if !version.contains(VERSION) || !version.contains(&identity.source.metadata) {
         return Err(invalid(
             "built executable version differs from selected source",
         ));
     }
-    capture(
-        &binary,
-        &args(&["module", "build", "--help"]),
-        root,
-        &selected,
-    )?;
+    let builder = compiled_artifact(work, identity, "surreal-ext")?;
+    regular(&builder)?;
+    let version = capture(&builder, &args(&["--version"]), root, &selected)?;
+    let expected_builder = format!("{EXTENSION_VERSION}+{}", identity.source.metadata);
+    if version.split_whitespace().next() != Some(expected_builder.as_str()) {
+        return Err(invalid(
+            "built extension tool version differs from selected source",
+        ));
+    }
+    capture(&builder, &args(&["build", "--help"]), root, &selected)?;
     verify_source(root, work, identity, environment)
 }
 fn publish(profile: &Path, work: &Path, identity: &Identity) -> Result<PreparedServer, HostError> {
@@ -1542,7 +1598,11 @@ fn publish(profile: &Path, work: &Path, identity: &Identity) -> Result<PreparedS
     let install = scratch.path().join("install");
     fs::create_dir(&install)?;
     for (source, name) in [
-        (compiled_artifact(work, identity)?, "surreal"),
+        (compiled_artifact(work, identity, "surreal")?, "surreal"),
+        (
+            compiled_artifact(work, identity, "surreal-ext")?,
+            "surreal-ext",
+        ),
         (work.join("source/Cargo.lock"), "Cargo.lock"),
     ] {
         regular(&source)?;
@@ -1561,7 +1621,9 @@ fn publish_install(
     private_directory(&generations)?;
     let generation = uuid::Uuid::now_v7().simple().to_string();
     let destination = generations.join(&generation);
-    fs::set_permissions(install.join("surreal"), fs::Permissions::from_mode(0o555))?;
+    for name in EXECUTABLES {
+        fs::set_permissions(install.join(name), fs::Permissions::from_mode(0o555))?;
+    }
     atomic_record(
         &install.join(".complete.json"),
         &Receipt {
@@ -1775,21 +1837,21 @@ mod tests {
         for name in PATCHES {
             fs::write(inputs.join(name), "--- a/Cargo.toml\n+++ b/Cargo.toml\n").unwrap();
         }
-        fs::write(inputs.join("diskann-0.56.0.patch"), "fixture DiskANN patch").unwrap();
+        fs::write(inputs.join(DISKANN_PATCH), "fixture DiskANN patch").unwrap();
         let source = source_identity(&root).unwrap();
         let profile = directory.path().join("tools/rust-v1");
         private_directory(&profile).unwrap();
         let work = profile.join("builds/fixture");
         private_directory(&work).unwrap();
         let acquired = work.join("source");
+        fs::create_dir_all(&acquired).unwrap();
         fs::create_dir_all(acquired.join(".pse-deps/diskann")).unwrap();
-        fs::write(acquired.join("Cargo.toml"), "surrealmx = \"=1.0.0\"\n").unwrap();
-        fs::write(acquired.join("Cargo.lock"), "name = \"surrealmx\"\nversion = \"1.0.0\"\nname = \"surrealism-runtime\"\nversion = \"0.6.4\"\n").unwrap();
         fs::write(
-            acquired.join(".pse-deps/diskann/lib.rs"),
-            "fixture checked dependency",
+            acquired.join("Cargo.toml"),
+            format!("surrealmx = \"{ENGINE}\"\n"),
         )
         .unwrap();
+        fs::write(acquired.join("Cargo.lock"), release_import::fixture_lock()).unwrap();
         atomic_record(
             &work.join("source-files.json"),
             &BTreeMap::from([("Cargo.toml", digest(&acquired.join("Cargo.toml")).unwrap())]),
@@ -1811,8 +1873,8 @@ mod tests {
         executable(
             &cargo,
             &format!(
-                "#!/bin/sh\nset -eu\nmkdir -p \"$PSE_SERVER_BUILD/source/target/release\"\ncat > \"$PSE_SERVER_BUILD/source/target/release/surreal\" <<'BINARY'\n#!/bin/sh\nif [ \"$1\" = version ]; then printf '%s\\n' 'surreal {VERSION}+{}'; fi\nBINARY\nchmod 755 \"$PSE_SERVER_BUILD/source/target/release/surreal\"\n",
-                source.metadata
+                "#!/bin/sh\nset -eu\nmkdir -p \"$PSE_SERVER_BUILD/source/target/release\"\ncat > \"$PSE_SERVER_BUILD/source/target/release/surreal\" <<'BINARY'\n#!/bin/sh\nif [ \"$1\" = --version ]; then printf '%s\\n' 'surreal {VERSION}+{metadata}'; fi\nBINARY\ncat > \"$PSE_SERVER_BUILD/source/target/release/surreal-ext\" <<'BINARY'\n#!/bin/sh\nprintf '%s\\n' '{EXTENSION_VERSION}+{metadata} for linux on x86_64'\nBINARY\nchmod 755 \"$PSE_SERVER_BUILD/source/target/release/surreal\" \"$PSE_SERVER_BUILD/source/target/release/surreal-ext\"\n",
+                metadata = source.metadata,
             ),
         );
         let mut context = BuildContext {
@@ -1893,7 +1955,7 @@ mod tests {
         assert!(
             capture(
                 &selected.executable(),
-                &args(&["version"]),
+                &args(&["--version"]),
                 fixture.directory.path(),
                 &fixture.environment
             )
@@ -1964,8 +2026,15 @@ mod tests {
             ),
         );
         executable(
+            &fixture.work.join("builder"),
+            &format!(
+                "#!/bin/sh\nprintf '%s\\n' '{EXTENSION_VERSION}+{} for linux on x86_64'\n",
+                fixture.identity.source.metadata
+            ),
+        );
+        executable(
             &fixture.identity.context().unwrap().tools["cargo"].path,
-            "#!/bin/sh\nset -eu\nout=\"$PSE_SERVER_BUILD/source/target/$CARGO_BUILD_TARGET/release\"\nmkdir -p \"$out\"\ncp \"$PSE_SERVER_BUILD/image\" \"$out/surreal\"\n",
+            "#!/bin/sh\nset -eu\nout=\"$PSE_SERVER_BUILD/source/target/$CARGO_BUILD_TARGET/release\"\nmkdir -p \"$out\"\ncp \"$PSE_SERVER_BUILD/image\" \"$out/surreal\"\ncp \"$PSE_SERVER_BUILD/builder\" \"$out/surreal-ext\"\n",
         );
         let selected = prepared(&fixture);
         assert_eq!(
@@ -2070,15 +2139,15 @@ mod tests {
     #[test]
     fn server_archive_entries_refuse_links_traversal_and_unexpected_roots() {
         archive_names(
-            "diskann-0.56.0/\ndiskann-0.56.0/Cargo.toml\n",
+            "surrealdb-diskann-0.61.0/\nsurrealdb-diskann-0.61.0/Cargo.toml\n",
             "drwxr-xr-x directory\n-rw-r--r-- file\n",
         )
         .unwrap();
         for (names, types) in [
-            ("diskann-0.56.0/../outside\n", "-rw-r--r-- file\n"),
-            ("diskann-0.56.0/link\n", "lrwxrwxrwx link\n"),
-            ("diskann-0.56.0/hard\n", "hrwxrwxrwx hard\n"),
-            ("/diskann-0.56.0/file\n", "-rw-r--r-- file\n"),
+            ("surrealdb-diskann-0.61.0/../outside\n", "-rw-r--r-- file\n"),
+            ("surrealdb-diskann-0.61.0/link\n", "lrwxrwxrwx link\n"),
+            ("surrealdb-diskann-0.61.0/hard\n", "hrwxrwxrwx hard\n"),
+            ("/surrealdb-diskann-0.61.0/file\n", "-rw-r--r-- file\n"),
             ("another/file\n", "-rw-r--r-- file\n"),
         ] {
             assert!(archive_names(names, types).is_err());
@@ -2087,7 +2156,7 @@ mod tests {
     #[test]
     fn server_retained_recipe_keeps_patches_features_lock_and_unwind() {
         let fixture = fixture();
-        assert_eq!(fixture.identity.source.patches.len(), 13);
+        assert_eq!(fixture.identity.source.patches.len(), PATCHES.len());
         assert!(fixture.identity.source.supported());
         let arguments = cargo_arguments(&fixture.work.join("source"));
         assert!(arguments.contains(&OsString::from("--locked")));
@@ -2126,7 +2195,7 @@ mod tests {
         let directory = fixture.root.join(".cargo");
         fs::create_dir(&directory).unwrap();
         let path = directory.join("config.toml");
-        fs::write(&path, "# Cargo table document\n[build]\njobs = 32\n[unstable]\nfeature-unification = \"workspace\"\n").unwrap();
+        fs::write(&path, "# Cargo table document\n[build]\njobs = 32\n[env]\nRUSTC_ICE = { value = \"target\", relative = true }\n[unstable]\nfeature-unification = \"workspace\"\n").unwrap();
         let mut environment = fixture.environment.clone();
         environment.insert("HOME".into(), fixture.root.join("home").into_os_string());
         let (configuration, tools) = configuration(&fixture.root, &environment).unwrap();

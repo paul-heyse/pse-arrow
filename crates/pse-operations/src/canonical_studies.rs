@@ -3350,7 +3350,7 @@ mod canonical_studies_server_unit {
         use surrealdb_types::{SurrealValue, Value};
         let installed: Value = serde_json::from_value(module["installed"].clone()).unwrap();
         let buckets = Vec::<Value>::from_value(installed.get("buckets").clone()).unwrap();
-        let modules = Vec::<Value>::from_value(installed.get("modules").clone()).unwrap();
+        let modules = Vec::<Value>::from_value(installed.get("extensions").clone()).unwrap();
         assert_eq!(buckets.len(), 1);
         assert_eq!(modules.len(), 1);
         let bucket = format!(
@@ -3360,6 +3360,13 @@ mod canonical_studies_server_unit {
         assert_eq!(buckets[0].get("name"), &Value::String(bucket.clone()));
         assert_eq!(buckets[0].get("readonly"), &Value::Bool(true));
         assert_eq!(modules[0].get("name"), &Value::String("pse".into()));
+        assert_eq!(
+            modules[0].get("digest"),
+            &Value::String(format!(
+                "sha256:{}",
+                module["selected"]["manifest_sha256"].as_str().unwrap()
+            ))
+        );
         let executable = modules[0].get("executable");
         assert_eq!(executable.get("type"), &Value::String("surrealism".into()));
         assert_eq!(executable.get("bucket"), &Value::String(bucket));
@@ -3371,8 +3378,6 @@ mod canonical_studies_server_unit {
             &Value::String("study::readiness".into())
         );
         assert_eq!(exports[0].get("writeable"), &Value::Bool(false));
-        assert_eq!(module["selected"]["limits"]["max_kv_entries"], 0);
-        assert_eq!(module["selected"]["limits"]["max_kv_value_bytes"], 0);
         assert_eq!(
             store
                 .study_candidates("query-inspection", Some(15))
@@ -4342,7 +4347,23 @@ mod canonical_studies_server_unit {
             "the separately admitted artifact has its own private source directory"
         );
         store.open().await.unwrap();
-        bounded_query(store.db.query("REMOVE MODULE mod::pse;"))
+        let wrong_digest = receipt.declarations(true).replace(
+            &receipt.manifest_digest(),
+            &format!("sha256:{}", receipt.sha256),
+        );
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query(wrong_digest)
+                    .bind(("study_module_backend", backend.clone()))
+            )
+            .await
+            .is_err(),
+            "the installer must refuse the archive hash for an available manifest"
+        );
+        store.open().await.unwrap();
+        bounded_query(store.db.query("REMOVE EXTENSION ext::pse;"))
             .await
             .unwrap();
         assert!(
@@ -4488,10 +4509,10 @@ mod canonical_studies_server_unit {
             .unwrap();
         for (body, expression) in [
             (
-                "LET $reply=mod::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
+                "LET $reply=ext::pse::study::readiness({generation:0dec,cancelled:false,rows:[],items:[{point:'missing',predecessors:[]}]}); IF $reply.accepted=false {THROW 'PSE_REFUSAL:study_readiness_policy_refused';};",
                 "NONE",
             ),
-            ("", "mod::pse::study::readiness('malformed ABI input')"),
+            ("", "ext::pse::study::readiness('malformed ABI input')"),
         ] {
             let script = GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>(
                 &format!("UPDATE ONLY type::record('canonical_studies','module-rollback') SET generation+=1dec; {body}"), expression,

@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit construction and source-free selection of immutable study modules.
 //!
-//! The prepared released server CLI owns WASI compilation, optimization, signature
-//! extraction and packaging. This owner records provenance and publishes bytes;
+//! The prepared extension builder owns WASI compilation, optimization, signature
+//! extraction and packaging. This owner records provenance and publishes bytes.
 //! operations owns admission into an actual database. No Python constructor runs.
 
 use crate::{HostError, HostManager, environment::Environment, server::PreparedServer};
@@ -22,13 +22,16 @@ use std::{
 
 const CRATE: &str = "crates/pse-study-module";
 const TARGET: &str = "wasm32-wasip2";
+const ABI: u32 = 4;
 const MAX_ARCHIVE: u64 = 32 * 1024 * 1024;
 const MAX_MANIFEST: u64 = 64 * 1024;
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
-const MEMBERS: [&str; 3] = [
+const MANIFEST: &str = "surrealism/MANIFEST";
+const MEMBERS: [&str; 4] = [
     "surrealism/mod.wasm",
-    "surrealism/surrealism.toml",
+    "surrealism/package.toml",
     "surrealism/exports.toml",
+    MANIFEST,
 ];
 const PREAMBLE: &[u8] = b"\0asm\x0d\0\x01\0";
 const BUILD_ENV: &[&str] = &[
@@ -87,9 +90,9 @@ pub enum Variant {
 impl Variant {
     fn kind(self) -> &'static str {
         match self {
-            Self::Production => "pse-study-module-v1",
-            Self::Qualification => "pse-study-module-qualification-v1",
-            Self::LongHold => "pse-study-module-qualification-long-hold-v1",
+            Self::Production => "pse-study-extension-v1",
+            Self::Qualification => "pse-study-extension-qualification-v1",
+            Self::LongHold => "pse-study-extension-qualification-long-hold-v1",
         }
     }
     fn features(self) -> Vec<&'static str> {
@@ -214,8 +217,7 @@ fn private_directory(path: &Path) -> Result<(), HostError> {
     Ok(())
 }
 
-// Match the retained Python reader's sorted, compact, ensure_ascii JSON identity,
-// including non-ASCII source paths. No current source is consulted during selection.
+// Sorted, compact ASCII JSON also gives non-ASCII source paths a stable identity.
 fn canonical(value: &Value) -> Result<String, HostError> {
     match value {
         Value::Object(map) => {
@@ -264,9 +266,9 @@ fn input_identity(inputs: &impl Serialize) -> Result<String, HostError> {
 fn declaration(variant: Variant) -> Result<(Value, Limits, String), HostError> {
     // Embedded declarations authenticate retained packages without reading checkout sources.
     let source = if variant == Variant::LongHold {
-        include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml")
+        include_str!("../../pse-study-module/package-qualification-long-hold.toml")
     } else {
-        include_str!("../../pse-study-module/surrealism.toml")
+        include_str!("../../pse-study-module/package.toml")
     };
     let config: toml::Value = toml::from_str(source).map_err(invalid)?;
     let config = serde_json::to_value(config).map_err(invalid)?;
@@ -278,6 +280,7 @@ fn declaration(variant: Variant) -> Result<(Value, Limits, String), HostError> {
     for name in [
         "allow_scripting",
         "allow_arbitrary_queries",
+        "allow_write",
         "allow_functions",
         "allow_net",
     ] {
@@ -309,17 +312,15 @@ fn declaration(variant: Variant) -> Result<(Value, Limits, String), HostError> {
     Ok((config, limits, sdk))
 }
 fn validate_scope(config: &Value) -> Result<(), HostError> {
-    let declared: toml::Value =
-        toml::from_str(include_str!("../../pse-study-module/surrealism.toml")).map_err(invalid)?;
-    let declared = serde_json::to_value(declared).map_err(invalid)?;
     if config["target"] != "rust"
-        || config["abi"] != 2
+        || config["abi"] != ABI
         || config["capabilities"]["allow_scripting"] != false
         || config["capabilities"]["allow_arbitrary_queries"] != false
-        || config["capabilities"]["allow_functions"] != declared["capabilities"]["allow_functions"]
+        || config["capabilities"]["allow_write"] != false
+        || config["capabilities"]["allow_functions"] != json!([])
         || config["capabilities"]["allow_net"] != json!([])
-        || config["capabilities"]["max_kv_entries"] != 0
-        || config["capabilities"]["max_kv_value_bytes"] != 0
+        || config.get("bindings").is_some()
+        || config.get("signer").is_some()
         || config
             .get("attach")
             .is_some_and(|value| value != &json!({}))
@@ -344,9 +345,15 @@ fn validate_exports(source: &[u8], variant: Variant) -> Result<(), HostError> {
             .and_then(toml::Value::as_str)
             .ok_or_else(|| invalid("export name absent"))?;
         if item.get("writeable").and_then(toml::Value::as_bool) != Some(false)
+            || item
+                .get("declares_transaction")
+                .and_then(toml::Value::as_bool)
+                != Some(false)
             || !names.insert(name)
         {
-            return Err(invalid("exports must be unique and readonly"));
+            return Err(invalid(
+                "exports must be unique, readonly and transaction-free",
+            ));
         }
     }
     if names != variant.exports() {
@@ -362,27 +369,19 @@ fn validate_long_hold_packaging(
     let packaging = inputs
         .get("packaging")
         .ok_or_else(|| invalid("long-hold provenance absent"))?;
-    let manifest = sources.get(&format!("{CRATE}/surrealism-qualification-long-hold.toml"));
-    let native = packaging["variant"] == "qualification-long-hold-cli-v1";
-    let constructor_valid = if native {
-        packaging
-            .as_object()
-            .is_some_and(|fields| fields.len() == 4)
-            && packaging["builder_sha256"] == inputs["builder_sha256"]
-            && packaging["staging"] == "copied-workspace-alternate-manifest-v1"
-            && inputs["preparation"]["kind"] == "rust-cli-staged-v1"
-    } else {
-        packaging
-            .as_object()
-            .is_some_and(|fields| fields.len() == 3)
-            && packaging["variant"] == "qualification-long-hold-v1"
-            && packaging["packer_sha256"].as_str().is_some_and(hexadecimal)
-    };
+    let manifest = sources.get(&format!("{CRATE}/package-qualification-long-hold.toml"));
+    let constructor_valid = packaging
+        .as_object()
+        .is_some_and(|fields| fields.len() == 4)
+        && packaging["variant"] == "qualification-long-hold-ext-v1"
+        && packaging["builder_sha256"] == inputs["builder_sha256"]
+        && packaging["staging"] == "copied-workspace-alternate-package-v1"
+        && inputs["preparation"]["kind"] == "rust-ext-staged-v1";
     if !constructor_valid
-        || !packaging["manifest_sha256"]
+        || !packaging["package_config_sha256"]
             .as_str()
             .is_some_and(hexadecimal)
-        || Some(&packaging["manifest_sha256"]) != manifest
+        || Some(&packaging["package_config_sha256"]) != manifest
     {
         return Err(invalid("long-hold packaging identity differs"));
     }
@@ -418,7 +417,7 @@ pub fn select(record: &Path, variant: Variant) -> Result<StudyModuleReceipt, Hos
 fn validate_receipt(receipt: &StudyModuleReceipt, variant: Variant) -> Result<(), HostError> {
     let (_, limits, sdk) = declaration(variant)?;
     if receipt.kind != variant.kind()
-        || receipt.abi != 2
+        || receipt.abi != ABI
         || receipt.sdk_version != sdk
         || receipt.limits != limits
         || receipt.inputs.get("kind") != Some(&json!(variant.kind()))
@@ -432,6 +431,7 @@ fn validate_receipt(receipt: &StudyModuleReceipt, variant: Variant) -> Result<()
             .and_then(Value::as_str)
             .is_some_and(hexadecimal)
         || !hexadecimal(&receipt.sha256)
+        || !hexadecimal(&receipt.manifest_sha256)
         || receipt.bytes == 0
         || receipt.bytes > MAX_ARCHIVE
     {
@@ -487,6 +487,9 @@ fn validate_receipt(receipt: &StudyModuleReceipt, variant: Variant) -> Result<()
     let bytes = bounded_read(&receipt.artifact, MAX_ARCHIVE)?;
     if bytes.len() as u64 != receipt.bytes || digest_bytes(&bytes) != receipt.sha256 {
         return Err(invalid("artifact differs from its admitted SHA256"));
+    }
+    if archive(&bytes, variant)? != receipt.manifest_sha256 {
+        return Err(invalid("archive MANIFEST differs from its admitted SHA256"));
     }
     Ok(())
 }
@@ -594,47 +597,47 @@ fn args(values: &[&str]) -> Vec<OsString> {
     values.iter().map(OsString::from).collect()
 }
 
-fn archive(
-    path: &Path,
-    variant: Variant,
-    tar: &Path,
-    root: &Path,
-    env: &Environment,
-) -> Result<(), HostError> {
-    bounded_read(path, MAX_ARCHIVE)?;
-    let mut listing = args(&["--zstd", "--list", "--file"]);
-    listing.push(path.into());
-    let names = command(tar, &listing, root, env, MAX_MANIFEST)?;
-    let names = std::str::from_utf8(&names).map_err(invalid)?;
-    if names.lines().count() != MEMBERS.len()
-        || names.lines().collect::<BTreeSet<_>>() != BTreeSet::from(MEMBERS)
-    {
-        return Err(invalid("archive has extra, duplicate or missing members"));
-    }
-    listing.push("--verbose".into());
-    let verbose = command(tar, &listing, root, env, MAX_MANIFEST)?;
-    let verbose = std::str::from_utf8(&verbose).map_err(invalid)?;
-    if verbose.lines().count() != MEMBERS.len()
-        || verbose.lines().any(|line| !line.starts_with('-'))
-    {
-        return Err(invalid(
-            "archive must contain only regular unlinked members",
-        ));
-    }
+fn archive(bytes: &[u8], variant: Variant) -> Result<String, HostError> {
+    let mut decoder = zstd::stream::read::Decoder::new(bytes)?;
+    decoder.window_log_max(25)?;
+    let mut archive = tar::Archive::new(decoder.take(MAX_ARCHIVE + 4 * MAX_MANIFEST));
     let (expected, _, _) = declaration(variant)?;
-    for member in MEMBERS {
-        let mut arguments = args(&["--zstd", "--extract", "--to-stdout", "--file"]);
-        arguments.push(path.into());
-        arguments.push("--".into());
-        arguments.push(member.into());
+    let mut manifest = None;
+    let mut hashes = BTreeMap::new();
+    for entry in archive.entries()?.raw(true) {
+        let mut entry = entry?;
+        let path = entry.path_bytes();
+        let member = MEMBERS
+            .iter()
+            .copied()
+            .find(|name| name.as_bytes() == path.as_ref())
+            .ok_or_else(|| invalid("archive contains an unexpected member"))?;
+        if !entry.header().entry_type().is_file() || entry.link_name_bytes().is_some() {
+            return Err(invalid(
+                "archive must contain only regular unlinked members",
+            ));
+        }
         let maximum = if member.ends_with(".wasm") {
             MAX_ARCHIVE
         } else {
             MAX_MANIFEST
         };
-        let bytes = command(tar, &arguments, root, env, maximum)?;
-        if bytes.is_empty() {
-            return Err(invalid("archive member is empty"));
+        if entry.size() == 0 || entry.size() > maximum {
+            return Err(invalid("archive member is outside its admitted extent"));
+        }
+        let mut bytes = Vec::new();
+        entry.read_to_end(&mut bytes)?;
+        if bytes.len() as u64 != entry.size() {
+            return Err(invalid("archive member extent differs"));
+        }
+        if member == MANIFEST {
+            if manifest.replace(bytes).is_some() {
+                return Err(invalid("archive contains duplicate MANIFEST"));
+            }
+            continue;
+        }
+        if hashes.insert(member, digest_bytes(&bytes)).is_some() {
+            return Err(invalid("archive contains a duplicate member"));
         }
         if member.ends_with(".wasm") {
             if !bytes.starts_with(PREAMBLE) {
@@ -659,7 +662,20 @@ fn archive(
             }
         }
     }
-    Ok(())
+    let manifest = manifest.ok_or_else(|| invalid("archive MANIFEST absent"))?;
+    if hashes.len() != MEMBERS.len() - 1 || manifest != manifest_bytes(&hashes).as_bytes() {
+        return Err(invalid(
+            "archive MANIFEST does not bind the exact package members",
+        ));
+    }
+    Ok(digest_bytes(&manifest))
+}
+
+fn manifest_bytes(hashes: &BTreeMap<&str, String>) -> String {
+    hashes
+        .iter()
+        .map(|(member, hash)| format!("sha256:{hash}  {member}\n"))
+        .collect()
 }
 
 fn visit(
@@ -872,10 +888,9 @@ fn inputs(
     env: &Environment,
 ) -> Result<BTreeMap<String, Value>, HostError> {
     let (declared, _, sdk) = declaration(Variant::Production)?;
-    let current: toml::Value = toml::from_str(&fs::read_to_string(
-        root.join(CRATE).join("surrealism.toml"),
-    )?)
-    .map_err(invalid)?;
+    let current: toml::Value =
+        toml::from_str(&fs::read_to_string(root.join(CRATE).join("package.toml"))?)
+            .map_err(invalid)?;
     if serde_json::to_value(current).map_err(invalid)? != declared {
         return Err(invalid(
             "host declaration is stale; explicitly rebuild host tools",
@@ -884,7 +899,7 @@ fn inputs(
     if variant == Variant::LongHold {
         let alternate: toml::Value = toml::from_str(&fs::read_to_string(
             root.join(CRATE)
-                .join("surrealism-qualification-long-hold.toml"),
+                .join("package-qualification-long-hold.toml"),
         )?)
         .map_err(invalid)?;
         if serde_json::to_value(alternate).map_err(invalid)? != declaration(variant)?.0 {
@@ -897,6 +912,7 @@ fn inputs(
     let mut arguments = args(&[
         "metadata",
         "--locked",
+        "--no-default-features",
         "--format-version",
         "1",
         "--filter-platform",
@@ -960,7 +976,7 @@ fn inputs(
         }
     }
     let mut tools = BTreeMap::new();
-    for name in ["cargo", "rustc", "tar", "zstd"] {
+    for name in ["cargo", "rustc"] {
         let path = resolve(name, env)?;
         let version = command(&path, &args(&["--version"]), root, env, MAX_MANIFEST)?;
         tools.insert(name, json!({"path":path,"sha256":digest(&path)?,"version":String::from_utf8(version).map_err(invalid)?}));
@@ -1040,6 +1056,10 @@ fn inputs(
             ))
         })
         .collect::<Result<_, HostError>>()?;
+    let build_command = build_arguments(variant, Path::new("study.surli"), Path::new(CRATE))
+        .into_iter()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect::<Vec<_>>();
     let mut captured = BTreeMap::from([
         ("kind".into(), json!(variant.kind())),
         ("features".into(), json!(variant.features())),
@@ -1048,23 +1068,23 @@ fn inputs(
         ("profile".into(), json!("release")),
         (
             "builder_sha256".into(),
-            json!(digest(&server.executable())?),
+            json!(digest(&server.extension_builder())?),
         ),
         ("sources".into(), json!(sources)),
         (
             "preparation".into(),
-            json!({"kind":"rust-cli-v1","host_sha256":digest(&host)?,"server_recipe":server.recipe(),"tools":tools,"configuration":configuration,"environment":controls,"command":["module","build","--out","study.surli",CRATE],"archive_validation":"tar-zstd-exact-three-members-v1"}),
+            json!({"kind":"rust-ext-v1","host_sha256":digest(&host)?,"server_recipe":server.recipe(),"tools":tools,"configuration":configuration,"environment":controls,"command":build_command,"archive_validation":"surli-abi4-manifest-v1"}),
         ),
     ]);
     if variant == Variant::LongHold {
         captured
             .get_mut("preparation")
-            .ok_or_else(|| invalid("preparation absent"))?["kind"] = json!("rust-cli-staged-v1");
+            .ok_or_else(|| invalid("preparation absent"))?["kind"] = json!("rust-ext-staged-v1");
         captured.insert("packaging".into(), json!({
-            "variant":"qualification-long-hold-cli-v1",
+            "variant":"qualification-long-hold-ext-v1",
             "builder_sha256":captured["builder_sha256"],
-            "manifest_sha256":sources[&format!("{CRATE}/surrealism-qualification-long-hold.toml")],
-            "staging":"copied-workspace-alternate-manifest-v1",
+            "package_config_sha256":sources[&format!("{CRATE}/package-qualification-long-hold.toml")],
+            "staging":"copied-workspace-alternate-package-v1",
         }));
     }
     Ok(captured)
@@ -1197,8 +1217,8 @@ fn stage_long_hold_workspace(
     validate_staged_configuration(root, stage, configuration, env)?;
     let alternate = stage
         .join(CRATE)
-        .join("surrealism-qualification-long-hold.toml");
-    let production = stage.join(CRATE).join("surrealism.toml");
+        .join("package-qualification-long-hold.toml");
+    let production = stage.join(CRATE).join("package.toml");
     // Replace the private inode rather than writing through readonly input modes.
     fs::remove_file(&production)?;
     fs::copy(&alternate, &production)?;
@@ -1207,6 +1227,15 @@ fn stage_long_hold_workspace(
         return Err(invalid("effective staged module declaration differs"));
     }
     Ok(())
+}
+
+fn build_arguments(variant: Variant, artifact: &Path, project: &Path) -> Vec<OsString> {
+    let mut arguments = args(&["build"]);
+    if !variant.features().is_empty() {
+        arguments.extend(args(&["--features", &variant.features().join(",")]));
+    }
+    arguments.extend(["--out".into(), artifact.into(), project.into()]);
+    arguments
 }
 
 fn prepare_inner(
@@ -1243,12 +1272,6 @@ fn prepare_inner(
         .prefix("pending-")
         .tempdir_in(&modules)?;
     let artifact = pending.path().join("study.surli");
-    let mut arguments = args(&["module", "build"]);
-    if !variant.features().is_empty() {
-        arguments.extend(args(&["--features", &variant.features().join(",")]));
-    }
-    arguments.push("--out".into());
-    arguments.push(artifact.clone().into_os_string());
     let workspace = pending.path().join("workspace");
     let build_root = if variant == Variant::LongHold {
         stage_long_hold_workspace(
@@ -1262,9 +1285,9 @@ fn prepare_inner(
     } else {
         root
     };
-    arguments.push(build_root.join(CRATE).into_os_string());
+    let arguments = build_arguments(variant, &artifact, &build_root.join(CRATE));
     command(
-        &server.executable(),
+        &server.extension_builder(),
         &arguments,
         build_root,
         &env,
@@ -1276,17 +1299,35 @@ fn prepare_inner(
         ));
     }
     if variant == Variant::LongHold {
+        validate_staged_configuration(
+            root,
+            &workspace,
+            &before["preparation"]["configuration"],
+            &env,
+        )?;
+        let staged_lock = digest(&workspace.join("Cargo.lock"))?;
+        let staged_package = digest(&workspace.join(CRATE).join("package.toml"))?;
+        let alternate = format!("{CRATE}/package-qualification-long-hold.toml");
+        if before["sources"]["Cargo.lock"] != staged_lock
+            || before["sources"][alternate] != staged_package
+        {
+            return Err(invalid(
+                "staged package declaration or lock changed during build",
+            ));
+        }
         fs::remove_dir_all(&workspace)?;
     }
-    archive(&artifact, variant, &resolve("tar", &env)?, root, &env)?;
+    let bytes = bounded_read(&artifact, MAX_ARCHIVE)?;
+    let manifest_sha256 = archive(&bytes, variant)?;
     let (_, limits, sdk) = declaration(variant)?;
     let receipt = StudyModuleReceipt(StudyModuleRecord {
         kind: variant.kind().into(),
         artifact: directory.join("study.surli"),
-        sha256: digest(&artifact)?,
-        bytes: fs::metadata(&artifact)?.len(),
+        sha256: digest_bytes(&bytes),
+        manifest_sha256,
+        bytes: bytes.len() as u64,
         sdk_version: sdk,
-        abi: 2,
+        abi: ABI,
         inputs: serde_json::Map::from_iter(before),
         limits,
     });
@@ -1371,26 +1412,39 @@ mod tests {
             ),
         ]);
         if variant == Variant::LongHold {
-            let name = format!("{CRATE}/surrealism-qualification-long-hold.toml");
+            let name = format!("{CRATE}/package-qualification-long-hold.toml");
             inputs.insert("sources".into(), json!({(name):"2".repeat(64)}));
-            inputs.insert("packaging".into(), json!({"variant":"qualification-long-hold-v1","packer_sha256":"3".repeat(64),"manifest_sha256":"2".repeat(64)}));
+            inputs.insert("preparation".into(), json!({"kind":"rust-ext-staged-v1"}));
+            inputs.insert("packaging".into(), json!({
+                "variant":"qualification-long-hold-ext-v1", "builder_sha256":"1".repeat(64),
+                "package_config_sha256":"2".repeat(64), "staging":"copied-workspace-alternate-package-v1"
+            }));
         }
         inputs
     }
     fn fixture_receipt(modules: &Path, pending: &Path, variant: Variant) -> StudyModuleReceipt {
-        let payload = b"controlled module publication bytes";
-        fs::write(pending.join("study.surli"), payload).unwrap();
         let inputs = fixture_inputs(variant);
-        let (_, limits, sdk) = declaration(variant).unwrap();
+        let (config, limits, sdk) = declaration(variant).unwrap();
+        let config = toml::to_string(&config).unwrap();
+        let functions = exports(variant);
+        let members = [
+            (MEMBERS[0], PREAMBLE),
+            (MEMBERS[1], config.as_bytes()),
+            (MEMBERS[2], functions.as_bytes()),
+        ];
+        let manifest = fixture_manifest(&members);
+        let payload = fixture_archive(&members, Some(manifest.as_bytes()));
+        fs::write(pending.join("study.surli"), &payload).unwrap();
         StudyModuleReceipt(StudyModuleRecord {
             kind: variant.kind().into(),
             artifact: modules
                 .join(input_identity(&inputs).unwrap())
                 .join("study.surli"),
-            sha256: digest_bytes(payload),
+            sha256: digest_bytes(&payload),
+            manifest_sha256: digest_bytes(manifest.as_bytes()),
             bytes: payload.len() as u64,
             sdk_version: sdk,
-            abi: 2,
+            abi: ABI,
             inputs: serde_json::Map::from_iter(inputs),
             limits,
         })
@@ -1399,8 +1453,33 @@ mod tests {
         variant
             .exports()
             .iter()
-            .map(|name| format!("[[functions]]\nname = {name:?}\nwriteable = false\n"))
+            .map(|name| format!("[[functions]]\nname = {name:?}\nwriteable = false\ndeclares_transaction = false\n"))
             .collect()
+    }
+
+    fn fixture_manifest(members: &[(&str, &[u8])]) -> String {
+        manifest_bytes(
+            &members
+                .iter()
+                .map(|(name, bytes)| (*name, digest_bytes(bytes)))
+                .collect(),
+        )
+    }
+
+    fn fixture_archive(members: &[(&str, &[u8])], manifest: Option<&[u8]>) -> Vec<u8> {
+        let encoder = zstd::stream::Encoder::new(Vec::new(), 0).unwrap();
+        let mut archive = tar::Builder::new(encoder);
+        for (path, bytes) in members
+            .iter()
+            .copied()
+            .chain(manifest.map(|bytes| (MANIFEST, bytes)))
+        {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(bytes.len() as u64);
+            header.set_mode(0o644);
+            archive.append_data(&mut header, path, bytes).unwrap();
+        }
+        archive.into_inner().unwrap().finish().unwrap()
     }
 
     #[test]
@@ -1433,6 +1512,18 @@ mod tests {
                 validate_exports(
                     exports(variant)
                         .replace("writeable = false", "writeable = true")
+                        .as_bytes(),
+                    variant
+                )
+                .is_err()
+            );
+            assert!(
+                validate_exports(
+                    exports(variant)
+                        .replace(
+                            "declares_transaction = false",
+                            "declares_transaction = true"
+                        )
                         .as_bytes(),
                     variant
                 )
@@ -1476,56 +1567,58 @@ mod tests {
 
     #[test]
     fn study_module_archive_controls_bind_exact_members_component_configuration_and_exports() {
-        let scratch = tempfile::tempdir().unwrap();
-        let root = scratch.path();
-        let stage = root.join("package");
-        fs::create_dir_all(stage.join("surrealism")).unwrap();
-        let wasm = stage.join(MEMBERS[0]);
-        let config = stage.join(MEMBERS[1]);
-        let functions = stage.join(MEMBERS[2]);
-        let declared = include_str!("../../pse-study-module/surrealism.toml");
-        fs::write(&wasm, PREAMBLE).unwrap();
-        fs::write(&config, declared).unwrap();
-        fs::write(&functions, exports(Variant::Production)).unwrap();
-        let env = Environment::from_iter([("PATH".into(), std::env::var_os("PATH").unwrap())]);
-        let tar = resolve("tar", &env).unwrap();
-        let artifact = root.join("fixture.surli");
-        let package = |members: &[&str]| {
-            let mut arguments = args(&["--zstd", "--create", "--file"]);
-            arguments.push(artifact.clone().into_os_string());
-            arguments.push("--directory".into());
-            arguments.push(stage.clone().into_os_string());
-            arguments.push("--".into());
-            arguments.extend(args(members));
-            command(&tar, &arguments, root, &env, MAX_MANIFEST).unwrap();
+        let declared = include_bytes!("../../pse-study-module/package.toml");
+        let functions = exports(Variant::Production);
+        let base = [
+            (MEMBERS[0], PREAMBLE),
+            (MEMBERS[1], declared.as_slice()),
+            (MEMBERS[2], functions.as_bytes()),
+        ];
+        let package = |members: &[(&str, &[u8])]| {
+            fixture_archive(members, Some(fixture_manifest(members).as_bytes()))
         };
-        package(&MEMBERS);
-        archive(&artifact, Variant::Production, &tar, root, &env).unwrap();
-        package(&[MEMBERS[0], MEMBERS[1], MEMBERS[2], MEMBERS[2]]);
-        assert!(archive(&artifact, Variant::Production, &tar, root, &env).is_err());
-        fs::write(stage.join("extra"), "attachment").unwrap();
-        package(&[MEMBERS[0], MEMBERS[1], MEMBERS[2], "extra"]);
-        assert!(archive(&artifact, Variant::Production, &tar, root, &env).is_err());
-        fs::write(&wasm, b"not-a-component").unwrap();
-        package(&MEMBERS);
-        assert!(archive(&artifact, Variant::Production, &tar, root, &env).is_err());
-        fs::write(&wasm, PREAMBLE).unwrap();
-        fs::write(
-            &config,
-            declared.replace("allow_net = []", "allow_net = [\"example.invalid\"]"),
-        )
-        .unwrap();
-        package(&MEMBERS);
-        assert!(archive(&artifact, Variant::Production, &tar, root, &env).is_err());
-        fs::write(&config, declared).unwrap();
-        fs::write(&functions, exports(Variant::Qualification)).unwrap();
-        package(&MEMBERS);
-        assert!(archive(&artifact, Variant::Production, &tar, root, &env).is_err());
-        archive(&artifact, Variant::Qualification, &tar, root, &env).unwrap();
-        fs::remove_file(&wasm).unwrap();
-        std::os::unix::fs::symlink(&functions, &wasm).unwrap();
-        package(&MEMBERS);
-        assert!(archive(&artifact, Variant::Qualification, &tar, root, &env).is_err());
+        let exact = package(&base);
+        let digest = archive(&exact, Variant::Production).unwrap();
+        assert_eq!(digest, digest_bytes(fixture_manifest(&base).as_bytes()));
+        assert_ne!(digest, digest_bytes(&exact));
+        assert!(archive(&fixture_archive(&base, None), Variant::Production).is_err());
+        let wrong_manifest = fixture_archive(&base, Some(b"sha256:wrong"));
+        assert!(archive(&wrong_manifest, Variant::Production).is_err());
+        assert!(
+            archive(
+                &package(&[base[0], base[1], base[2], base[2]]),
+                Variant::Production
+            )
+            .is_err()
+        );
+        assert!(
+            archive(
+                &package(&[base[0], base[1], base[2], ("extra", b"attachment")]),
+                Variant::Production
+            )
+            .is_err()
+        );
+        assert!(
+            archive(
+                &package(&[(MEMBERS[0], b"not-a-component"), base[1], base[2]]),
+                Variant::Production
+            )
+            .is_err()
+        );
+        let granted = std::str::from_utf8(declared)
+            .unwrap()
+            .replace("allow_net = []", "allow_net = [\"example.invalid\"]");
+        assert!(
+            archive(
+                &package(&[base[0], (MEMBERS[1], granted.as_bytes()), base[2]]),
+                Variant::Production
+            )
+            .is_err()
+        );
+        let qualification = exports(Variant::Qualification);
+        let package = package(&[base[0], base[1], (MEMBERS[2], qualification.as_bytes())]);
+        assert!(archive(&package, Variant::Production).is_err());
+        archive(&package, Variant::Qualification).unwrap();
     }
 
     #[test]
@@ -1545,6 +1638,9 @@ mod tests {
             receipt
         );
         assert!(select(&selected.record(), Variant::Qualification).is_err());
+        let mut wrong = receipt.clone();
+        wrong.0.manifest_sha256 = wrong.sha256.clone();
+        assert!(validate_receipt(&wrong, Variant::Production).is_err());
         let mut wrong = receipt.clone();
         wrong.0.limits.max_pool_size += 1;
         assert!(validate_receipt(&wrong, Variant::Production).is_err());
@@ -1597,33 +1693,17 @@ mod tests {
     }
 
     #[test]
-    fn study_module_retained_long_hold_and_native_cli_constructors_remain_distinct() {
+    fn study_module_long_hold_binds_alternate_package_and_builder_provenance() {
         let scratch = tempfile::tempdir().unwrap();
-        for native in [false, true] {
-            let pending = tempfile::tempdir_in(scratch.path()).unwrap();
-            let mut receipt = fixture_receipt(scratch.path(), pending.path(), Variant::LongHold);
-            if native {
-                receipt
-                    .0
-                    .inputs
-                    .insert("preparation".into(), json!({"kind":"rust-cli-staged-v1"}));
-                receipt.0.inputs.insert("packaging".into(), json!({
-                    "variant":"qualification-long-hold-cli-v1", "builder_sha256":"1".repeat(64),
-                    "manifest_sha256":"2".repeat(64), "staging":"copied-workspace-alternate-manifest-v1"
-                }));
-                receipt.0.artifact = scratch
-                    .path()
-                    .join(input_identity(&receipt.inputs).unwrap())
-                    .join("study.surli");
-            }
-            publish(scratch.path(), pending.path(), &receipt, Variant::LongHold).unwrap();
-            select(&receipt.record(), Variant::LongHold).unwrap();
-            assert!(select(&receipt.record(), Variant::Qualification).is_err());
-            let mut forged = receipt.clone();
-            forged.0.inputs.get_mut("packaging").unwrap()["manifest_sha256"] =
-                json!("f".repeat(64));
-            assert!(validate_receipt(&forged, Variant::LongHold).is_err());
-        }
+        let pending = tempfile::tempdir_in(scratch.path()).unwrap();
+        let receipt = fixture_receipt(scratch.path(), pending.path(), Variant::LongHold);
+        publish(scratch.path(), pending.path(), &receipt, Variant::LongHold).unwrap();
+        select(&receipt.record(), Variant::LongHold).unwrap();
+        assert!(select(&receipt.record(), Variant::Qualification).is_err());
+        let mut forged = receipt.clone();
+        forged.0.inputs.get_mut("packaging").unwrap()["package_config_sha256"] =
+            json!("f".repeat(64));
+        assert!(validate_receipt(&forged, Variant::LongHold).is_err());
     }
 
     #[test]
@@ -1631,13 +1711,12 @@ mod tests {
         let scratch = tempfile::tempdir().unwrap();
         let root = scratch.path().join("source");
         fs::create_dir_all(root.join(CRATE)).unwrap();
-        let original = include_str!("../../pse-study-module/surrealism.toml");
-        let alternate =
-            include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml");
-        fs::write(root.join(CRATE).join("surrealism.toml"), original).unwrap();
+        let original = include_str!("../../pse-study-module/package.toml");
+        let alternate = include_str!("../../pse-study-module/package-qualification-long-hold.toml");
+        fs::write(root.join(CRATE).join("package.toml"), original).unwrap();
         fs::write(
             root.join(CRATE)
-                .join("surrealism-qualification-long-hold.toml"),
+                .join("package-qualification-long-hold.toml"),
             alternate,
         )
         .unwrap();
@@ -1657,11 +1736,11 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            fs::read_to_string(root.join(CRATE).join("surrealism.toml")).unwrap(),
+            fs::read_to_string(root.join(CRATE).join("package.toml")).unwrap(),
             original
         );
         assert_eq!(
-            fs::read_to_string(stage.join(CRATE).join("surrealism.toml")).unwrap(),
+            fs::read_to_string(stage.join(CRATE).join("package.toml")).unwrap(),
             alternate
         );
         assert_eq!(
@@ -1715,14 +1794,14 @@ mod tests {
             .unwrap();
         }
         fs::write(
-            root.join(CRATE).join("surrealism.toml"),
-            include_str!("../../pse-study-module/surrealism.toml"),
+            root.join(CRATE).join("package.toml"),
+            include_str!("../../pse-study-module/package.toml"),
         )
         .unwrap();
         fs::write(
             root.join(CRATE)
-                .join("surrealism-qualification-long-hold.toml"),
-            include_str!("../../pse-study-module/surrealism-qualification-long-hold.toml"),
+                .join("package-qualification-long-hold.toml"),
+            include_str!("../../pse-study-module/package-qualification-long-hold.toml"),
         )
         .unwrap();
         let mut sources = BTreeMap::new();

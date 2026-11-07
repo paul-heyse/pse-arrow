@@ -1,6 +1,6 @@
 ---
 title: "Plan68a: SurrealDB v4 supplier, runtime and extension"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -202,8 +202,8 @@ or blocks private qualification when a conforming port is unavailable.
 | `grpc-session-admission.patch` | Retain atomic global reservation and charge until native cleanup. Test racing connections at the last slot and a deliberately held cleanup. |
 | `grpc-status-details.patch` | Preserve `surreal-error-bin` structured error metadata with its existing 8 KiB bound. Check explicit commit conflict, oversized text and ordinary nonretryable failure against 68b. |
 | `api-failure-rollback.patch` | Keep enclosing-transaction poisoning until actual earlier writes roll back on handler-expression failure. Independently exercise intentional API responses and actor refusal. |
-| `diskann-0.56.0.patch` | Retire the v3 archive and call-site adaptation after the tag's lock-resolved `surrealdb-diskann` 0.61.0 family builds with the selected toolchain. No vector feature adoption follows. |
-| `pinned-compiler.patch` | Try the exact tagged build with the pinned nightly. Retire obsolete hunks and carry only reproduced compatibility fixes under exact pins and the same unwind policy. |
+| `diskann-0.56.0.patch` | The pinned nightly reproduced the generic `Arc<B>: Batch` compile failure with 0.61.0. Keep the one-line call-site adaptation on the checksum-verified 0.61.0 archive and preserve the other tagged lock entries. |
+| `pinned-compiler.patch` | The pinned nightly crashes during release MIR validation of recursive VM futures and streams. The higher core recursion limit clears the depth warning. A crate-scoped trait solver trial and source-local type erasure still crash during validation or monomorphization. The attempted compiler workarounds are excluded from the selected recipe. |
 | `surrealism-locked-build.patch` | Move locked Cargo metadata and build enforcement to the actual separate builder invocation. Refuse changes to Cargo configuration and lock during guest build. |
 | `surrealism-build-features.patch` | Preserve explicit feature forwarding. Prove production, qualification and long-hold artifacts have their exact intended exports, limits and distinct receipts. |
 | `surrealism-global-controllers.patch` | Use tagged pooling where qualified, retaining stricter process-wide fail-fast physical admission. Exercise simultaneous cold/warm calls and refusal until actual slot release. |
@@ -235,3 +235,15 @@ and process ownership. 68e owns assembled acceptance and actual
 generation selection.
 [Current source-build controls](../../scripts/surrealdb-source/source-build.md) ·
 [Qualification guide](../dev/validation-assessment.md)
+
+## Private candidate checkpoint
+
+The paired server and builder use the native preparation receipt for
+release import. A focused host run passed the 33 preparation, import,
+reopen and Study artifact tests. The Study guest compiles for WASI with
+the selected SDK, and its seven native readiness tests passed. The
+supplier check reached both packages with the adapted DiskANN input.
+The release build remains blocked on the pinned compiler's async
+`CoerceUnsized` ICE in the v4 VM. Its optimized MIR and monomorphization
+diagnostics differ from the successful supplier type check. The private
+release, actual paired import and native receiving tests remain open.

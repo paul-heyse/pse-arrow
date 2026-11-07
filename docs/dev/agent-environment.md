@@ -193,13 +193,13 @@ separate from the shared compiler cache. Supplier provenance and local correctio
 [vendor/native-supplier-notes.md](../../vendor/native-supplier-notes.md).
 
 `server prepare` constructs the exact patched source server in authenticated containment.
-`server prepare --from-release /absolute/release.json` explicitly imports a matching source
-release, verifying the source/patch/profile tuple, original provenance and copied binary/lock
+`server prepare --from-release /absolute/generation/.complete.json` explicitly imports a matching source
+release, verifying the source/patch/profile tuple, original provenance and both copied binaries and lock
 bytes. `server select` reads the completed immutable installation without compiling or
 starting it. Server source patches remain maintained inputs. Schema readiness and service
 ownership belong to the application, not host preparation.
 
-`study-module prepare` uses the released server CLI for WASI compilation and packaging;
+`study-module prepare` uses the selected generation's extension builder for WASI compilation and packaging.
 `study-module select --receipt /absolute/module.json` reads already retained bytes.
 `NativeModuleSource::Prepared` transfers that capability into a native service's private state.
 `--qualification` creates a separate probe identity. With `--long-hold`, preparation builds
