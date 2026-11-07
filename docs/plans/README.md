@@ -5,7 +5,7 @@ title: "Current work and plans"
 # Current work and plans
 
 [Plan66: Integrated simulation target](66-integrated-simulation-target.md) is the sole
-go-forward plan. It carries the remaining simulation, Proto, runtime, data and developer
+go-forward simulation plan. It carries the remaining simulation, Proto, runtime, data and developer
 workflow changes from the current working tree, incorporating the November6 combined review.
 The series is the successor now; cleanup of Plans64/65 does not gate or modify it.
 
@@ -20,6 +20,11 @@ Plans64/65 and their old native
 bindings remain only for separately assigned final-state reconciliation and cleanup; they
 assign no go-forward work. Retired plans likewise supply no obligations.
 
-Use the [architecture](../authoritative_design/README.md) for enduring contracts and
-[Plan66](66-integrated-simulation-target.md) for remaining work. Local targeted checks
-precede assembled scope-end qualification.
+[Plan67: Storage lifecycle and build reuse](67-storage-lifecycle-and-build-reuse.md)
+proposes the Plan66 worktree consolidation and incident cleanup, targeted SurrealDB
+developer history, SurrealKit and Rust test consolidation, improved Cargo and sccache
+reuse, and recurring owner-issued retirement. Its coordinator owns the storage work
+and links to Plan66 for the scientific and evidence contracts it consumes.
+
+Use the [architecture](../authoritative_design/README.md) for enduring contracts.
+Local targeted checks precede assembled scope-end qualification.

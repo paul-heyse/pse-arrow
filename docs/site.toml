@@ -9,6 +9,7 @@ pagefind = "1.5.2"
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
 current_work = [
   "plans/66*.md",
+  "plans/67*.md",
 ]
 assets = [
   "functional_reviews/probes/rust-agent-cli-log-miner-2026-10-29.py",

@@ -7291,3 +7291,69 @@ id_column = 0
 id_pattern = '^(L[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67-storage-lifecycle-and-build-reuse.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = ["Review reference", "Disposition", "Owning intervention"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67a-plan66-consolidation-and-incident-cleanup.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67b-invocation-custody-and-developer-history.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67c-surrealkit-and-rust-test-consolidation.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67d-cargo-variants-and-sccache-reuse.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/67e-resource-retirement-and-storage-verification.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1

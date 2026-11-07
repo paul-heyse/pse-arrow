@@ -1,5 +1,12 @@
 # Functional opportunity reviews
 
+The [storage lifecycle and build reuse review](storage-lifecycle-and-build-reuse-2026-11-06.md)
+accounts for roughly 655 GiB of recently changed, still-present storage after the main checkout
+was cleaned. It prioritizes eliminating repeated executable captures, test-driven Cargo variants,
+and copied databases. It assesses all eleven November 5 recommendations and proposes SurrealKit
+contract suites, structured SurrealDB developer history, owner-aware release, and broader sccache
+0.19.0 reuse at the current compiler-cache budget.
+
 The [code-intelligence and CLI robustness review](code-intelligence-cli-robustness-2026-11-01.md)
 reconstructs audit query failures and develops eight connected corrections to existing workflows.
 It reproduces outline amplification, distinguishes request-relative path mistakes from native
