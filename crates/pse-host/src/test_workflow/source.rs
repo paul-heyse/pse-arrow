@@ -182,6 +182,7 @@ pub(super) fn resolve(
             }
             request.scope = Scope::Packages(packages);
             request.platform = original.request.platform;
+            request.non_incremental = original.request.non_incremental;
             request.filters = inventory.selection.filters().clone();
             request.ignored = inventory.selection.ignored();
             let plan = if cases.is_empty() {
@@ -306,6 +307,7 @@ mod tests {
             },
             platform: None,
             filters: selection::Filters::default(),
+            non_incremental: false,
             ignored: selection::IgnoredPolicy::Default,
         };
         let (empty, _) = resolve(

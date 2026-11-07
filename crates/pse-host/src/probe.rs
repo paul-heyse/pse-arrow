@@ -14,6 +14,9 @@ use std::{
     process::Command,
 };
 
+mod outputs;
+pub use outputs::{OutputRelease, clean_outputs};
+
 /// Scratch ownership/resolution failure, independent of the probe's own exit status.
 #[derive(Debug, thiserror::Error)]
 pub enum ProbeError {
@@ -667,6 +670,30 @@ fn references(
     }
     Ok(result)
 }
+async fn settled_probe<F, Fut>(
+    root: &Path,
+    store: &Path,
+    name: &str,
+    environment: &Environment,
+    observe: F,
+) -> Result<(Probe, Lease), ProbeError>
+where
+    F: FnMut(RunReference) -> Fut,
+    Fut: Future<Output = Result<bool, ProbeError>>,
+{
+    let (probe, lease) = open(store, name)?;
+    let recorded = references(root, store, &probe, environment)?;
+    let observed = futures_util::future::join_all(recorded.into_iter().map(observe)).await;
+    for native in observed {
+        if !native? {
+            return Err(invalid(
+                "an original probe native root remains live or unsettled, including an authenticated borrowed enclosing owner; explicit rm remains protected until that original root drains",
+            ));
+        }
+    }
+    refuse_live_processes(&probe.directory)?;
+    Ok((probe, lease))
+}
 async fn remove_with<F, Fut>(
     root: &Path,
     store: &Path,
@@ -678,17 +705,7 @@ where
     F: FnMut(RunReference) -> Fut,
     Fut: Future<Output = Result<bool, ProbeError>>,
 {
-    let (probe, _lease) = open(store, name)?;
-    let recorded = references(root, store, &probe, environment)?;
-    let observed = futures_util::future::join_all(recorded.into_iter().map(observe)).await;
-    for native in observed {
-        if !native? {
-            return Err(invalid(
-                "an original probe native root remains live or unsettled, including an authenticated borrowed enclosing owner; explicit rm remains protected until that original root drains",
-            ));
-        }
-    }
-    refuse_live_processes(&probe.directory)?;
+    let (probe, _lease) = settled_probe(root, store, name, environment, observe).await?;
     fs::remove_dir_all(&probe.directory)?;
     Ok(probe.directory)
 }

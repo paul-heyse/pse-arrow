@@ -88,6 +88,58 @@ async fn disposal_refuses_original_lease_and_live_process_then_removes_only_name
 }
 
 #[tokio::test]
+async fn clean_outputs_rechecks_the_preview_and_preserves_authored_probe() {
+    let (_temporary, root, store, snapshot) = fixture();
+    let environment = Environment::new();
+    let probe = new(&root, &store, "output", &[], &snapshot).unwrap();
+    fs::create_dir_all(probe.target_directory.join("build")).unwrap();
+    let artifact = probe.target_directory.join("build/output");
+    fs::write(&artifact, vec![1_u8; 8192]).unwrap();
+    let shared = probe.target_directory.join("shared");
+    fs::hard_link(&artifact, &shared).unwrap();
+    let source = probe.directory.join("src/main.rs");
+    std::os::unix::fs::symlink(&source, probe.target_directory.join("link")).unwrap();
+    let preview = clean_outputs(&root, &store, "output", &environment, None)
+        .await
+        .unwrap();
+    assert!(preview.allocated_bytes >= 8192);
+    assert!(!preview.released);
+    let expected = preview.identity.as_deref();
+    let hold = open(&store, "output").unwrap();
+    assert!(
+        clean_outputs(&root, &store, "output", &environment, expected)
+            .await
+            .is_err()
+    );
+    drop(hold);
+    let original = File::open(&probe.target_directory).unwrap();
+    let moved = probe.directory.join("old-target");
+    fs::rename(&probe.target_directory, &moved).unwrap();
+    fs::create_dir(&probe.target_directory).unwrap();
+    assert!(
+        clean_outputs(&root, &store, "output", &environment, expected)
+            .await
+            .is_err()
+    );
+    assert!(probe.target_directory.is_dir());
+    fs::remove_dir(&probe.target_directory).unwrap();
+    fs::rename(&moved, &probe.target_directory).unwrap();
+    drop(original);
+    let release = clean_outputs(&root, &store, "output", &environment, expected)
+        .await
+        .unwrap();
+    assert!(release.released);
+    assert!(!probe.target_directory.exists());
+    assert!(source.is_file());
+    assert!(probe.directory.join("Cargo.lock").is_file());
+    let repeated = clean_outputs(&root, &store, "output", &environment, expected)
+        .await
+        .unwrap();
+    assert!(!repeated.released);
+    assert!(repeated.identity.is_none());
+}
+
+#[tokio::test]
 async fn invalid_names_and_unknown_versions_cannot_select_other_paths() {
     let (_temporary, root, store, snapshot) = fixture();
     for name in ["", "..", "../escape", "a/b", "a.b", "é"] {

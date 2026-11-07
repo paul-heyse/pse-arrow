@@ -798,6 +798,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "code session stop" => envelope::schema::<control::ControlView>(command, view),
         "probe new" => envelope::schema::<crate::probe::Probe>(command, view),
         "probe rm" => envelope::schema::<PathBuf>(command, view),
+        "probe clean" => envelope::schema::<crate::probe::OutputRelease>(command, view),
         "commands" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Summary>,
         >(command, view),

@@ -31,6 +31,7 @@ Options:
       --bin <BIN_TARGET>           Select one binary target
       --without-feature <ABSENT>   Features that the actual selected compiler roots must keep absent
       --target <PLATFORM>          Explicit Cargo target platform; host dependency contexts remain independent
+      --non-incremental            Disable incremental compilation for the selected Cargo build
       --target-kind <TARGET_KIND>  Disambiguate duplicate target names by their Cargo kind, for example test or bin
       --ignore-default-filter      Bypass the selected nextest profile's default filter
   -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
@@ -120,6 +121,9 @@ Options:
 
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
+
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
 
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin

@@ -43,6 +43,9 @@ pub(super) struct SelectionArgs {
     /// Explicit Cargo target platform; host dependency contexts remain independent.
     #[arg(long = "target")]
     platform: Option<String>,
+    /// Disable incremental compilation for the selected Cargo build.
+    #[arg(long)]
+    non_incremental: bool,
     /// Disambiguate duplicate target names by their Cargo kind, for example test or bin.
     #[arg(long)]
     target_kind: Option<String>,
@@ -145,6 +148,7 @@ impl SelectionArgs {
             operation,
             scope,
             platform: self.platform.clone(),
+            non_incremental: self.non_incremental,
             filters: selection::Filters::default(),
             ignored: selection::IgnoredPolicy::Default,
         })
@@ -195,6 +199,7 @@ impl TestArgs {
                 || !self.selection.features.features.is_empty()
                 || !self.selection.absent.is_empty()
                 || self.selection.platform.is_some()
+                || self.selection.non_incremental
                 || self.selection.target_kind.is_some()
             {
                 return Err(CorrectnessError::Invalid("rerun preserves recorded compiler policy; choose an explicit new selection to change it".into()));
@@ -221,6 +226,20 @@ mod tests {
     struct Parsed {
         #[command(flatten)]
         tests: TestArgs,
+    }
+    #[test]
+    fn fresh_build_accepts_non_incremental_and_rerun_refuses_override() {
+        let parsed =
+            Parsed::try_parse_from(["selection", "pse-host", "--non-incremental"]).unwrap();
+        assert!(parsed.tests.request().unwrap().non_incremental);
+        let parsed = Parsed::try_parse_from([
+            "selection",
+            "--rerun-failed",
+            "previous",
+            "--non-incremental",
+        ])
+        .unwrap();
+        assert!(parsed.tests.request().is_err());
     }
     #[test]
     fn cargo_workspace_exclusions_and_package_filtersets_remain_legal() {

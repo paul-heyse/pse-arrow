@@ -450,6 +450,7 @@ mod tests {
             }]),
             platform: None,
             filters: Filters::default(),
+            non_incremental: false,
             ignored: IgnoredPolicy::Default,
         };
         let intent = CheckIntent::new(metadata, request, std::env::vars_os().collect()).unwrap();

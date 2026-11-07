@@ -121,6 +121,7 @@ fn reverse_declarations_include_optional_renamed_build_dev_and_native_integratio
             .unwrap(),
         platform: None,
         filters: selection::Filters::default(),
+        non_incremental: false,
         ignored: selection::IgnoredPolicy::Default,
     };
     let plan = selection::plan(&metadata, request).unwrap();

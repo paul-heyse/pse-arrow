@@ -450,6 +450,7 @@ async fn explicit_real_host_listing_captures_actual_inventory_without_setup_or_p
             words: vec!["source_symlinks_and_existing_capture_destinations_refuse".into()],
             expressions: vec![],
         },
+        non_incremental: false,
         ignored: IgnoredPolicy::Default,
     };
     let resolved = selection::plan(&data, request).unwrap().resolve().unwrap();

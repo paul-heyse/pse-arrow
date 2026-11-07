@@ -44,6 +44,7 @@ fn intent() -> (tempfile::TempDir, Intent) {
             words: vec!["same_name".into()],
             expressions: vec!["test(same_name)".into()],
         },
+        non_incremental: false,
         ignored: selection::IgnoredPolicy::Default,
     };
     let intent = Intent::new(
@@ -387,6 +388,7 @@ fn actual_admission_uses_selected_checkout_without_changing_process_context() {
         }]),
         platform: None,
         filters: selection::Filters::default(),
+        non_incremental: false,
         ignored: selection::IgnoredPolicy::Default,
     };
     let mut unavailable_environment: Environment = std::env::vars_os().collect();

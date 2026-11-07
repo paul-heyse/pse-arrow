@@ -297,6 +297,16 @@ sccache cache is shared. Remove a worktree only after integrating its changes an
 necessary evidence and explicitly settling actual users, using `git worktree remove PATH`.
 Git removes the checkout directory and its registration in the same step. Resolve any
 checkout-specific state outside that directory through its original resource owners.
+Before removal, save the selected row from `pse worktree list --format json` with the
+resource owner's retirement selection. The row records the original Git administration and
+checkout directory identities, ordinary target, and external state path and identity.
+Compare the recorded devices and inodes and, where available, creation times before acting.
+Check the backing mounts independently. A recreated worktree can reuse a path and checkout
+ID while naming a different Git administration or directory incarnation.
+After Git removal, verify that the original registration is gone. If external release is
+interrupted, resume with the original resource identities and recheck current references and
+holds. A new worktree at the old path or an unavailable backing mount requires the resource
+owner to resolve the association before release.
 The supported CLI is `worktree new|list`; `pse worktree rm` is explicitly deferred
 ([register R-56](../adr/register.md)). Automated owner-aware removal refusal and teardown are
 unavailable. Administrative removal must preserve readers, children, reusable sessions,
@@ -326,6 +336,13 @@ of the census unknown. Use original settlement and current reader, hold, and sel
 to classify release candidates. Compare measured allocations and filesystem availability
 separately after release.
 
+An authored scratch probe has a narrower output-only release. Use
+`scripts/pse probe clean NAME` to preview the allocated Cargo target bytes and exact
+directory identity. Pass that identity to `scripts/pse probe clean NAME --release IDENTITY`
+after the original native roots drain. The probe owner rechecks readers and identity under
+its lease. The authored source, lockfile, and original run records remain available for
+regeneration. A replaced directory requires a fresh preview.
+
 ## Choosing tests
 
 The Plan59 native commands support `scripts/pse tests PACKAGE -E 'test(name)'`,
@@ -335,9 +352,16 @@ builds and captures the actual selected population. Test/check/list can use `--d
 test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
 fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
 
-For an owned detached workflow, `wait` releases private test and compiler images once it
-authenticates service drain, capacity settlement and the original paired terminal records.
-The original working report and inventory remain available to the current invocation reader.
+`--non-incremental` selects Cargo's `build.incremental=false` for that check, test or
+listing. Admission and the build carry the same setting, and failed-test rerun uses the
+original selection. Unset an inherited `CARGO_INCREMENTAL=1` before using the flag because
+that environment value takes precedence in Cargo. Ordinary editing keeps the existing mode.
+
+The original detached owner releases private test and compiler images after native drain and
+paired result publication, including when nobody waits. Borrowed runs keep their images until
+the exact enclosing owner drains. `wait` can reconcile an explicitly selected settled workflow
+and leaves live borrowed scopes under their enclosing owner. The original working report and
+inventory remain available after image release.
 
 Use an original working report while it is available. After cleanup, select the named test
 or campaign from source and run it again under current admission. Record the resulting

@@ -27,6 +27,7 @@ fn input(action: Action) -> Input {
             },
             platform: None,
             filters: selection::Filters::default(),
+            non_incremental: false,
             ignored: selection::IgnoredPolicy::Default,
         },
         profile: "local".into(),

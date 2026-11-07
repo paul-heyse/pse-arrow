@@ -912,6 +912,7 @@ pub(crate) mod tests {
                 },
                 platform: None,
                 filters: crate::selection::Filters::default(),
+                non_incremental: false,
                 ignored: crate::selection::IgnoredPolicy::Default,
             },
             profile: "original".into(),

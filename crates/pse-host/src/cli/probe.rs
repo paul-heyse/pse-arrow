@@ -28,10 +28,20 @@ pub(super) enum Action {
     },
     /// Delete the authored probe only when no original owner or live process uses it.
     Rm { name: String },
+    /// Preview or release only regenerable Cargo output from an owned probe.
+    Clean {
+        name: String,
+        /// Release the exact output identity returned by preview.
+        #[arg(long)]
+        release: Option<String>,
+    },
 }
 impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
-        GenerationIntent::NewWork
+        match self {
+            Self::Clean { release: None, .. } => GenerationIntent::Passive,
+            _ => GenerationIntent::NewWork,
+        }
     }
 }
 #[derive(Debug, Serialize, JsonSchema)]
@@ -80,6 +90,22 @@ pub(super) fn dispatch(
                 "probe rm",
                 "selected probe removed after original recorded native roots drained",
                 path,
+            ))?)
+        }
+        Action::Clean { name, release } => {
+            let result = super::runtime()?
+                .block_on(probe::clean_outputs(
+                    root,
+                    &store,
+                    &name,
+                    &environment,
+                    release.as_deref(),
+                ))
+                .map_err(error)?;
+            Ok(output.emit(Envelope::response(
+                "probe clean",
+                "observed regenerable Cargo output under the original probe lease",
+                result,
             ))?)
         }
         Action::Run { name, arguments } => {

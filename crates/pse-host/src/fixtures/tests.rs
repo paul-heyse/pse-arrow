@@ -39,6 +39,7 @@ fn resolved(data: &Metadata, features: &[&str], operation: Operation) -> selecti
         }]),
         platform: None,
         filters: Filters::default(),
+        non_incremental: false,
         ignored: IgnoredPolicy::Default,
     };
     selection::plan(data, request)

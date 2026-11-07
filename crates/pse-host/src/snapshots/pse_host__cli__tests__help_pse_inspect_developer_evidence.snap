@@ -16,6 +16,7 @@ Options:
       --output <OUTPUT>
       --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
       --scope <SCOPE>              Full original dependencies, inventory selection, or report-only facts [default: full] [possible values: report, selection, full]
+      --layout <LAYOUT>            Compact bounded protobuf, or an explicit staged external-file directory [default: compact] [possible values: compact, directory]
   -h, --help                       Print help (see more with '--help')
 --help
 Export source-generated observations from original private workflow evidence
@@ -62,6 +63,12 @@ Options:
           - full:      Original dependency account and all originally committed file bytes
 
           [default: full]
+
+      --layout <LAYOUT>
+          Compact bounded protobuf, or an explicit staged external-file directory
+
+          [default: compact]
+          [possible values: compact, directory]
 
   -h, --help
           Print help (see a summary with '-h')

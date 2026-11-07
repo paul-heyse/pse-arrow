@@ -117,6 +117,7 @@ alternate=["alias/alternate"]
         }]),
         platform: Some(target.clone()),
         filters: selection::Filters::default(),
+        non_incremental: false,
         ignored: selection::IgnoredPolicy::Default,
     };
     let defaults = test_workflow::CheckIntent::new(

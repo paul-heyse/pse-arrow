@@ -1471,6 +1471,7 @@ mod tests {
                 }]),
                 platform: None,
                 filters: Filters::default(),
+                non_incremental: false,
                 ignored: IgnoredPolicy::Default,
             },
             std::env::vars_os().collect(),

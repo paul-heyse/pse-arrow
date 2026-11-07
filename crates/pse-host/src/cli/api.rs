@@ -296,6 +296,7 @@ fn perform(
                 },
                 platform: arguments.target,
                 filters: crate::selection::Filters::default(),
+                non_incremental: false,
                 ignored: crate::selection::IgnoredPolicy::Default,
             },
             "default".into(),

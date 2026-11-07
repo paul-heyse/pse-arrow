@@ -152,6 +152,9 @@ pub struct Request {
     pub scope: Scope,
     /// Explicit target triple, or Cargo's configured native/default selection.
     pub platform: Option<String>,
+    /// Disable incremental compilation for this correctness selection.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub non_incremental: bool,
     /// Test matching inputs.
     pub filters: Filters,
     /// Ignored-test policy.
@@ -330,6 +333,7 @@ impl Group {
         operation: Operation,
         roots: Vec<Root>,
         platform: Option<String>,
+        non_incremental: bool,
     ) -> Result<Self, CorrectnessError> {
         let first = roots
             .first()
@@ -343,6 +347,9 @@ impl Group {
             .into(),
             "--locked".into(),
         ];
+        if non_incremental {
+            arguments.extend(["--config".into(), "build.incremental=false".into()]);
+        }
         for root in &roots {
             arguments.extend(["-p".into(), root.package_id.clone()]);
         }
@@ -460,6 +467,8 @@ pub struct Plan {
     #[serde(default)]
     rerun: Vec<RerunCase>,
     operation: Operation,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    non_incremental: bool,
     groups: Vec<Group>,
     filters: Filters,
     ignored: IgnoredPolicy,
@@ -527,6 +536,9 @@ impl Plan {
     pub fn operation(&self) -> Operation {
         self.operation
     }
+    pub(crate) fn non_incremental(&self) -> bool {
+        self.non_incremental
+    }
 
     /// Query real Cargo graphs and verify Arrow admission, without building or preparing.
     pub fn resolve(self) -> Result<Resolved, CorrectnessError> {
@@ -560,8 +572,18 @@ impl Plan {
                         .ok_or_else(|| invalid("missing incompatible root"))?;
                     let mut remaining = group.roots;
                     let root = remaining.remove(split);
-                    let separate = Group::new(self.operation, vec![root], group.platform.clone())?;
-                    let remainder = Group::new(self.operation, remaining, group.platform)?;
+                    let separate = Group::new(
+                        self.operation,
+                        vec![root],
+                        group.platform.clone(),
+                        self.non_incremental,
+                    )?;
+                    let remainder = Group::new(
+                        self.operation,
+                        remaining,
+                        group.platform,
+                        self.non_incremental,
+                    )?;
                     pending.push_front(remainder);
                     pending.push_front(separate);
                     continue;
@@ -649,6 +671,7 @@ pub(crate) fn empty(request: &Request) -> Plan {
         source: None,
         rerun: Vec::new(),
         operation: request.operation,
+        non_incremental: request.non_incremental,
         groups: Vec::new(),
         filters: request.filters.clone(),
         ignored: request.ignored,
@@ -847,12 +870,18 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
         if let Some(index) = compatible {
             let mut roots = std::mem::take(&mut groups[index].roots);
             roots.push(root);
-            groups[index] = Group::new(request.operation, roots, request.platform.clone())?;
+            groups[index] = Group::new(
+                request.operation,
+                roots,
+                request.platform.clone(),
+                request.non_incremental,
+            )?;
         } else {
             groups.push(Group::new(
                 request.operation,
                 vec![root],
                 request.platform.clone(),
+                request.non_incremental,
             )?);
         }
     }
@@ -860,6 +889,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
         source: None,
         rerun: Vec::new(),
         operation: request.operation,
+        non_incremental: request.non_incremental,
         groups,
         filters: request.filters,
         ignored: request.ignored,

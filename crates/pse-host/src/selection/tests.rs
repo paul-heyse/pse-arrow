@@ -44,6 +44,7 @@ fn request(intents: Vec<PackageIntent>) -> Request {
         scope: Scope::Packages(intents),
         platform: None,
         filters: Filters::default(),
+        non_incremental: false,
         ignored: IgnoredPolicy::Default,
     }
 }
@@ -276,6 +277,7 @@ fn actual_feature_absence_is_checked_after_cargo_admission() {
 fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
     let mut input = request(vec![intent(None)]);
     input.platform = Some("x86_64-unknown-linux-gnu".into());
+    input.non_incremental = true;
     input.filters = Filters {
         ignore_default_filter: true,
         words: vec!["duplicate".into()],
@@ -295,6 +297,13 @@ fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
     assert_eq!(resolved.plan().ignored(), IgnoredPolicy::Only);
     assert_eq!(resolved.plan().filters().words, ["duplicate"]);
     assert!(resolved.plan().filters().ignore_default_filter);
+    assert!(resolved.plan().non_incremental());
+    assert!(
+        expected.groups()[0]
+            .arguments()
+            .windows(2)
+            .any(|pair| pair == ["--config", "build.incremental=false"])
+    );
     assert_eq!(
         resolved.admitted()[0].arguments,
         expected.groups()[0]
@@ -305,6 +314,22 @@ fn explain_and_execution_retain_platform_filters_ignored_and_pending_listing() {
     );
     assert!(resolved.needs_binary_listing());
     assert!(resolved.native_capabilities().is_empty());
+}
+
+#[test]
+fn old_requests_keep_cargo_incremental_defaults() {
+    let mut encoded = serde_json::to_value(request(vec![intent(None)])).unwrap();
+    let fields = encoded.as_object_mut().unwrap();
+    assert!(!fields.contains_key("non_incremental"));
+    let input = serde_json::from_value(encoded).unwrap();
+    let plan = plan(&metadata(), input).unwrap();
+    assert!(!plan.non_incremental());
+    assert!(
+        !plan.groups()[0]
+            .arguments()
+            .iter()
+            .any(|arg| arg == "--config")
+    );
 }
 
 #[test]

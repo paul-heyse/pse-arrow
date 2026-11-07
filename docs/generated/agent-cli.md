@@ -2478,6 +2478,9 @@ Options:
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
 
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
+
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
 
@@ -2597,6 +2600,9 @@ Options:
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
 
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
+
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
 
@@ -2709,6 +2715,9 @@ Options:
 
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
+
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
 
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
@@ -3874,9 +3883,10 @@ Create and run an explicitly isolated authored Rust experiment
 Usage: pse probe [OPTIONS] <COMMAND>
 
 Commands:
-  new  Retain an authored standalone workspace seeded from exact locked dependencies
-  run  Resolve explicitly and run the scratch binary through correctness admission
-  rm   Delete the authored probe only when no original owner or live process uses it
+  new    Retain an authored standalone workspace seeded from exact locked dependencies
+  run    Resolve explicitly and run the scratch binary through correctness admission
+  rm     Delete the authored probe only when no original owner or live process uses it
+  clean  Preview or release only regenerable Cargo output from an owned probe
 
 Options:
   -C <checkout>
@@ -4001,6 +4011,47 @@ Arguments:
 Options:
   -C <checkout>
 
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse probe clean`
+
+~~~~text
+Preview or release only regenerable Cargo output from an owned probe
+
+Usage: pse probe clean [OPTIONS] <NAME>
+
+Arguments:
+  <NAME>
+
+
+Options:
+  -C <checkout>
+
+
+      --release <RELEASE>
+          Release the exact output identity returned by preview
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -6469,6 +6520,9 @@ Options:
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
 
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
+
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
 
@@ -6581,6 +6635,9 @@ Options:
 
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
+
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
 
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin
@@ -7103,6 +7160,9 @@ Options:
 
       --target <PLATFORM>
           Explicit Cargo target platform; host dependency contexts remain independent
+
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
 
       --target-kind <TARGET_KIND>
           Disambiguate duplicate target names by their Cargo kind, for example test or bin

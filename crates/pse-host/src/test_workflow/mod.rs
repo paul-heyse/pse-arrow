@@ -139,6 +139,16 @@ impl Context {
         profile: String,
         environment: Environment,
     ) -> Result<Self, WorkflowError> {
+        if plan.non_incremental()
+            && environment
+                .get(std::ffi::OsStr::new("CARGO_INCREMENTAL"))
+                .is_some_and(|value| value != "0")
+        {
+            return Err(WorkflowError::Invalid(
+                "--non-incremental conflicts with CARGO_INCREMENTAL; unset it or set it to 0"
+                    .into(),
+            ));
+        }
         let checkout = metadata.workspace_root.as_std_path().canonicalize()?;
         let mut paths: BTreeSet<_> = [
             "Cargo.toml",

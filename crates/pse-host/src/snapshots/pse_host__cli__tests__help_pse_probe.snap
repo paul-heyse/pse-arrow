@@ -8,9 +8,10 @@ Create and run an explicitly isolated authored Rust experiment
 Usage: pse probe [OPTIONS] <COMMAND>
 
 Commands:
-  new  Retain an authored standalone workspace seeded from exact locked dependencies
-  run  Resolve explicitly and run the scratch binary through correctness admission
-  rm   Delete the authored probe only when no original owner or live process uses it
+  new    Retain an authored standalone workspace seeded from exact locked dependencies
+  run    Resolve explicitly and run the scratch binary through correctness admission
+  rm     Delete the authored probe only when no original owner or live process uses it
+  clean  Preview or release only regenerable Cargo output from an owned probe
 
 Options:
   -C <checkout>
@@ -24,9 +25,10 @@ Create and run an explicitly isolated authored Rust experiment
 Usage: pse probe [OPTIONS] <COMMAND>
 
 Commands:
-  new  Retain an authored standalone workspace seeded from exact locked dependencies
-  run  Resolve explicitly and run the scratch binary through correctness admission
-  rm   Delete the authored probe only when no original owner or live process uses it
+  new    Retain an authored standalone workspace seeded from exact locked dependencies
+  run    Resolve explicitly and run the scratch binary through correctness admission
+  rm     Delete the authored probe only when no original owner or live process uses it
+  clean  Preview or release only regenerable Cargo output from an owned probe
 
 Options:
   -C <checkout>

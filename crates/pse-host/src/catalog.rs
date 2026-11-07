@@ -165,7 +165,7 @@ impl Context<'_> {
                 let values=metadata.workspace_packages().into_iter().flat_map(|package| {
                     if domain==Domain::Packages {return vec![Candidate{value:package.name.to_string(),aliases:vec![package.id.repr.clone()],help:Some("workspace member in the supplied metadata snapshot".into()),hidden:false}];}
                     package.targets.iter().filter_map(|target| {
-                        let request=selection::Request{operation:selection::Operation::Test,scope:selection::Scope::Packages(vec![selection::PackageIntent{package:package.id.repr.clone(),target:Some(selection::TargetIntent{name:target.name.clone(),kind:None}),features:selection::Features::default()}]),platform:None,filters:selection::Filters::default(),ignored:selection::IgnoredPolicy::Default};
+                        let request=selection::Request{operation:selection::Operation::Test,scope:selection::Scope::Packages(vec![selection::PackageIntent{package:package.id.repr.clone(),target:Some(selection::TargetIntent{name:target.name.clone(),kind:None}),features:selection::Features::default()}]),platform:None,non_incremental:false,filters:selection::Filters::default(),ignored:selection::IgnoredPolicy::Default};
                         // Reuse execution's pure target/feature owner. This establishes neither
                         // admitted compiler units nor a runnable test population.
                         if selection::plan(metadata,request).is_err() {return None;}
