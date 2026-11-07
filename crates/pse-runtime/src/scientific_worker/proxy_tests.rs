@@ -67,11 +67,13 @@ struct ControlledNative {
 }
 impl Provider for ControlledNative {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
-        if self.mode == "close-pending" {
-            assert!(
-                self.marker.with_extension("returned").exists(),
-                "native finish must follow the in-flight fill's actual return"
-            );
+        if matches!(self.mode.as_str(), "close-pending" | "prepare-departure") {
+            if self.mode == "close-pending" {
+                assert!(
+                    self.marker.with_extension("returned").exists(),
+                    "native finish must follow the in-flight fill's actual return"
+                );
+            }
             writeln!(
                 std::fs::OpenOptions::new()
                     .create(true)
@@ -352,7 +354,9 @@ fn controlled_child() {
                 order: handler::order(request.order)?,
                 demand: request.demand.restore()?,
             };
-            super::super::PreparedSession::prepare(
+            let gated = mode == "prepare-departure" && demand.order == DerivativeOrder::Second;
+            let generation = request.handle.generation;
+            let prepared = super::super::PreparedSession::prepare(
                 request.handle.into(),
                 &factory,
                 &spec,
@@ -360,7 +364,16 @@ fn controlled_child() {
                 demand,
                 handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?,
                 request.result_limit as usize,
-            )
+            )?;
+            if gated {
+                std::fs::write(marker.with_extension("prepare-built"), generation.to_string()).unwrap();
+                let end = Instant::now() + Duration::from_secs(10);
+                while !marker.with_extension("prepare-release").exists() {
+                    assert!(Instant::now() < end, "caller did not release actual preparation gate");
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+            }
+            Ok(prepared)
         },
     )
     .unwrap();
@@ -626,6 +639,160 @@ fn provider_binding_finish_reaches_actual_remote_handles_process_and_io() {
         .unwrap();
     binding.finish().unwrap();
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
+    struct ReleaseGate(std::path::PathBuf);
+    impl Drop for ReleaseGate {
+        fn drop(&mut self) {
+            let _ = std::fs::write(&self.0, b"caller released preparation gate");
+        }
+    }
+    async fn witness(path: std::path::PathBuf, generation: &str) {
+        let end = Instant::now() + Duration::from_secs(10);
+        while std::fs::read_to_string(&path).ok().as_deref() != Some(generation) {
+            assert!(
+                Instant::now() < end,
+                "missing actual child witness: {path:?}"
+            );
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+    }
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("prepare-departure", &marker, &service);
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let admitted = pool.reserved();
+    assert!(admitted > baseline);
+    let orphan = p::Handle {
+        attempt: proxy.attempt,
+        session: remote.session,
+        generation: pse_operations::mint_id(),
+    };
+    let generation = orphan.generation.to_string();
+    let raw = ProviderRequest::all(proxy.factory.spec(), DerivativeOrder::Second);
+    let checked =
+        PreparedProviderRequest::new(Arc::new(proxy.factory.spec().clone()), raw.clone()).unwrap();
+    let preparation = p::Prepare {
+        version: 2,
+        handle: orphan.clone(),
+        spec: proxy.factory.descriptor.clone(),
+        configuration: proxy.factory.water.configuration_key(),
+        registry: (*proxy.factory.registry).clone(),
+        physical: proxy.factory.physical,
+        regime: "vapor".into(),
+        outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
+        order: DerivativeOrder::Second as u32,
+        demand: p::Demand::capture(&raw.demand),
+        remaining_ns: None,
+        result_limit: checked.extents().bytes().unwrap() as u64,
+    };
+    let io = remote.io.as_ref().unwrap();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        // Declared before the future so unwind drops its strong client reference
+        // before releasing the child gate or beginning Proxy containment.
+        let release = ReleaseGate(marker.with_extension("prepare-release"));
+        let mut exchange = Box::pin(io.departing_exchange(p::Request::Prepare(preparation)).unwrap());
+        tokio::select! {
+            result = &mut exchange => panic!("gated generated Prepare unexpectedly completed: {result:?}"),
+            _ = witness(marker.with_extension("prepare-built"), &generation) => {},
+        }
+        // This drops the actual generated Exchange future, not a synchronous
+        // caller's reply receiver. Hyper 1.11.1/h2 0.4.19 cancel this stream;
+        // the native Sender-closed witness below establishes server departure.
+        drop(exchange);
+        drop(release);
+        witness(marker.with_extension("prepare-claimed"), &generation).await;
+        witness(marker.with_extension("prepare-departed"), &generation).await;
+        witness(marker.with_extension("prepare-retired"), &generation).await;
+    });
+    drop(runtime);
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("finished")).unwrap(),
+        "finished\n"
+    );
+    // Normal production dispatch still uses the same authenticated connection.
+    // Controls must refuse the orphan, while numerical admission and both
+    // independently prepared native owners remain usable.
+    for request in [
+        p::Request::Close(orphan.clone()),
+        p::Request::Evaluate(p::Evaluate {
+            handle: orphan,
+            invocation: 1,
+            inputs: vec![500., 20.],
+            directions: vec![],
+            cotangents: vec![],
+            weights: vec![],
+        }),
+    ] {
+        assert!(matches!(
+            io.exchange(request, &proxy.scope, None).unwrap(),
+            p::Response::Failure(p::Failure::Contract(detail)) if detail == "scientific worker unknown or foreign handle"
+        ));
+    }
+    for (_, handle, _) in &proxy.prepared {
+        let p::Response::Values(values) = io
+            .exchange(
+                p::Request::Evaluate(p::Evaluate {
+                    handle: handle.clone(),
+                    invocation: 1,
+                    inputs: vec![500., 20.],
+                    directions: vec![],
+                    cotangents: vec![],
+                    weights: vec![],
+                }),
+                &proxy.scope,
+                None,
+            )
+            .unwrap()
+        else {
+            panic!("method departure revoked an unrelated native handle")
+        };
+        assert_eq!(&values.handle, handle);
+        assert_eq!(values.invocation, 1);
+        assert!(!values.values.is_empty());
+        assert!(values.values.iter().all(|value| *value == 1.));
+    }
+    proxy
+        .remote
+        .as_mut()
+        .unwrap()
+        .child
+        .check_running()
+        .unwrap();
+    assert_eq!(pool.reserved(), admitted);
+    assert!(endpoint.exists());
+    let (entered, release) = proxy
+        .remote
+        .as_mut()
+        .unwrap()
+        .io
+        .as_mut()
+        .unwrap()
+        .delay_cleanup();
+    let finish = std::thread::spawn(move || Box::new(proxy).finish());
+    entered.recv_timeout(Duration::from_secs(10)).unwrap();
+    assert!(!finish.is_finished());
+    assert_eq!(pool.reserved(), admitted);
+    assert!(endpoint.exists());
+    release.send(()).unwrap();
+    finish.join().unwrap().unwrap();
+    assert_eq!(
+        std::fs::read_to_string(marker.with_extension("finished")).unwrap(),
+        "finished\nfinished\nfinished\n"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
     assert_eq!(pool.reserved(), baseline);
 }
 

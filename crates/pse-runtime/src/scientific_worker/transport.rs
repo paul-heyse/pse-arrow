@@ -223,6 +223,10 @@ fn call_options(timeout: Option<Duration>) -> connectrpc::client::CallOptions {
 #[cfg(test)]
 type CleanupGate =
     Arc<std::sync::Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>>;
+#[cfg(test)]
+type TestClient = services::ScientificWorkerClient<OwnedTransport>;
+#[cfg(test)]
+type TestClientObserver = Arc<std::sync::Mutex<std::sync::Weak<TestClient>>>;
 /// An independent async driver; the native caller never drives Tokio itself.
 pub(super) struct IoOwner {
     sender: Option<tokio::sync::mpsc::Sender<Outgoing>>,
@@ -230,6 +234,8 @@ pub(super) struct IoOwner {
     stop: pse_diagnostics::Cancellation,
     #[cfg(test)]
     cleanup_gate: CleanupGate,
+    #[cfg(test)]
+    client_observer: TestClientObserver,
 }
 impl std::fmt::Debug for IoOwner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -251,6 +257,10 @@ impl IoOwner {
         let cleanup_gate = CleanupGate::default();
         #[cfg(test)]
         let thread_cleanup_gate = cleanup_gate.clone();
+        #[cfg(test)]
+        let client_observer = TestClientObserver::default();
+        #[cfg(test)]
+        let thread_client_observer = client_observer.clone();
         let thread = std::thread::Builder::new().name("pse-science-io".into()).stack_size(2 << 20).spawn(move || {
             let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
                 Ok(value) => value, Err(error) => { let _ = ready.send(Err(infrastructure(error))); return Ok(()); }
@@ -286,6 +296,12 @@ impl IoOwner {
                 };
                 let driver = tokio::spawn(connection);
                 let client = services::ScientificWorkerClient::new(OwnedTransport(sender), config);
+                #[cfg(test)]
+                let client = {
+                    let client = Arc::new(client);
+                    *thread_client_observer.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::downgrade(&client);
+                    client
+                };
                 let active = ready.send(Ok(())).is_ok();
                 use futures_util::{stream::FuturesUnordered, StreamExt as _};
                 let mut pending = FuturesUnordered::new();
@@ -367,6 +383,8 @@ impl IoOwner {
             stop,
             #[cfg(test)]
             cleanup_gate,
+            #[cfg(test)]
+            client_observer,
         };
         loop {
             match startup.recv_timeout(Duration::from_millis(5)) {
@@ -391,6 +409,31 @@ impl IoOwner {
                 }
             }
         }
+    }
+    /// Test only: abandon one generated unary future on the original authenticated
+    /// connection, without changing the production queue's fatal RPC-error policy.
+    /// The caller must drop this future before normal finish; the stored weak
+    /// observer itself cannot extend the client's or connection's lifetime.
+    #[cfg(test)]
+    pub(super) fn departing_exchange(
+        &self,
+        request: p::Request,
+    ) -> Result<impl Future<Output = Result<p::Response, WorkerError>> + Send + 'static, WorkerError>
+    {
+        let request = pb::Request::try_from(request)?;
+        let client = self
+            .client_observer
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .upgrade()
+            .ok_or_else(|| infrastructure("scientific worker test client already departed"))?;
+        Ok(async move {
+            client
+                .exchange_with_options(request, call_options(None))
+                .await
+                .map_err(WorkerError::Exchange)
+                .and_then(|response| p::Response::try_from(response.into_owned()))
+        })
     }
     #[cfg(test)]
     pub(super) fn delay_cleanup(
@@ -974,6 +1017,16 @@ pub(super) fn serve_with_preparation(
                     result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
                 #[cfg(test)]
                 let response = perturb_response_for_test(response);
+                #[cfg(test)]
+                if let Err(error) = observe_prepare_departure_for_test(
+                    &job.completion,
+                    &response,
+                    &sessions,
+                    &native_controls,
+                ) {
+                    failures.push(error);
+                    break;
+                }
                 if let Err(error) = job.completion.finish(response, preparation, |handle| {
                     let mut failures = Vec::new();
                     if let Some(mut owner) = sessions.remove(&handle.generation)
@@ -987,7 +1040,12 @@ pub(super) fn serve_with_preparation(
                         }
                         Err(error) => failures.push(error),
                     }
-                    super::retirement_result(failures)
+                    let result = super::retirement_result(failures);
+                    #[cfg(test)]
+                    if result.is_ok() {
+                        observe_orphan_retirement_for_test(&handle, &sessions, &native_controls)?;
+                    }
+                    result
                 }) {
                     failures.push(error);
                     break;
@@ -1077,6 +1135,88 @@ pub(super) fn serve_with_preparation(
     let native = join_native(runtime, native).and_then(std::convert::identity);
     let failures = result.err().into_iter().chain(native.err()).collect();
     super::retirement_result(failures)
+}
+
+#[cfg(test)]
+fn departing_preparation_marker_for_test(handle: &p::Handle) -> Option<PathBuf> {
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("prepare-departure") {
+        return None;
+    }
+    let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER")?);
+    (std::fs::read_to_string(marker.with_extension("prepare-built"))
+        .ok()
+        .as_deref()
+        == Some(handle.generation.to_string().as_str()))
+    .then_some(marker)
+}
+
+#[cfg(test)]
+fn observe_prepare_departure_for_test(
+    completion: &NativeCompletion,
+    response: &p::Response,
+    sessions: &BTreeMap<SemanticId, PreparedSession>,
+    controls: &SharedControls,
+) -> Result<(), WorkerError> {
+    let p::Response::Prepared(prepared) = response else {
+        return Ok(());
+    };
+    let Some(marker) = departing_preparation_marker_for_test(&prepared.handle) else {
+        return Ok(());
+    };
+    if !sessions.contains_key(&prepared.handle.generation) {
+        return Err(infrastructure(
+            "departing preparation has no actual native owner",
+        ));
+    }
+    controls_lock(controls)?.control(&prepared.handle)?;
+    std::fs::write(
+        marker.with_extension("prepare-claimed"),
+        prepared.handle.generation.to_string(),
+    )
+    .map_err(infrastructure)?;
+    // Tokio 1.53.3 oneshot::Sender::is_closed guarantees send failure after
+    // receiver departure. Wait for that actual server-method fact, never infer
+    // it from dropping the client future or from a delay. This test-only wait
+    // does not introduce a protocol or scientific-operation deadline.
+    let end = std::time::Instant::now() + Duration::from_secs(10);
+    while !completion.response.is_closed() {
+        if std::time::Instant::now() >= end {
+            return Err(infrastructure(
+                "actual generated method did not depart before late Prepared delivery",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    std::fs::write(
+        marker.with_extension("prepare-departed"),
+        prepared.handle.generation.to_string(),
+    )
+    .map_err(infrastructure)
+}
+
+#[cfg(test)]
+fn observe_orphan_retirement_for_test(
+    handle: &p::Handle,
+    sessions: &BTreeMap<SemanticId, PreparedSession>,
+    controls: &SharedControls,
+) -> Result<(), WorkerError> {
+    let Some(marker) = departing_preparation_marker_for_test(handle) else {
+        return Ok(());
+    };
+    if sessions.contains_key(&handle.generation)
+        || controls_lock(controls)?
+            .handles
+            .contains_key(&handle.generation)
+    {
+        return Err(infrastructure(
+            "abandoned preparation retained native or control ownership",
+        ));
+    }
+    std::fs::write(
+        marker.with_extension("prepare-retired"),
+        handle.generation.to_string(),
+    )
+    .map_err(infrastructure)
 }
 
 #[cfg(test)]
