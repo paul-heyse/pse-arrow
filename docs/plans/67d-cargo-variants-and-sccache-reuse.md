@@ -249,7 +249,8 @@ selection compile incrementally, so the lane refuses a conflicting `CARGO_INCREM
 Native admission verified the actual Cargo configuration argument. The pinned Cargo
 timings stream starts with a distinct JSON marker, which the compiler observer now
 accepts while still requiring a valid terminal message. The timed non-incremental
-`pse-diagnostics` library check passed with complete compiler capture and settlement.
+`pse-diagnostics` library check and selected process-identity test both passed with
+complete compiler capture and settlement.
 A recurring lane and campaign layout remain subject to the representative measurements in D02.
 
 A pinned Symbolica 3.0.1 library unit used the managed 0.19.0 binary, client-side disk

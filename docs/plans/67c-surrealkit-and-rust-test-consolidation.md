@@ -150,6 +150,13 @@ units in each mode. The consolidation removes a separately selected feature cont
 these cases. The broader borrowed, physical and runtime instrumentation cases still need
 their named replacements.
 
+The ordinary xtask library test selection no longer acquires operations through an
+unconditional development dependency. Its admitted graph fell from 569 to 539 units and
+kept explicit Arrow validation. The evidence selection still reaches operations through its
+existing optional dependency and remains at 788 units. Workspace feature unification still
+selects test support in that wider graph. Both ordinary and evidence-enabled native
+all-target checks passed, and the lockfile was unchanged.
+
 The tooling evidence tests now select the live fixture by their exact test identity under the
 existing `evidence-tools` capability. The `xtask/canonical-tests` feature is removed. The
 remaining test-only fixture descriptor dependency is a dev dependency. It still enters the
@@ -162,6 +169,13 @@ ordinary native dynamics cases capture their one authored physical package in me
 the existing package owner. All four passed with Diffsol and Ipopt, explicit Arrow validation,
 complete settlement and zero prepared fixture requirements. Multi-package and reference
 consumers remain in C03.
+
+The ordinary engineering simulation, fit and horizon cases now share that in-process
+authored package reader with the dynamics tests. Their declared scientific capsule
+prerequisite is gone. The admitted engineering selection still has 1,129 compiler units
+and explicit Arrow validation, with only the engineering endpoint required at runtime.
+The two affected integration targets passed the scoped native compiler check. The
+engineering cases still need runtime qualification.
 
 Explicit runtime preparation serializes selection per checkout. It reopens the exact capsule
 and native lane, checks their current source and build context, and reuses them when the
