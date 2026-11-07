@@ -33,6 +33,7 @@ The Rust server declaration owns application order; this table explains the reta
 | `surrealdb-v4-extension-build.patch` | Locked WASI build and metadata with the caller's explicit feature selection. |
 | `surrealdb-v4-extension-runtime.patch` | Process-wide fail-fast admission through physical Store release and the original deadline through invocation preparation. |
 | `surrealdb-v4-diskann-resolution.patch` and `surrealdb-diskann-0.61.0.patch` | Select the checksum-verified 0.61.0 source and apply the single explicit `Arc::as_ref()` at the batch call rejected by the pinned nightly. |
+| `surrealdb-v4-pinned-compiler.patch` | Erase recursive VM futures and streams before pinning their existing heap allocations. Increase core's recursion limit for trait resolution on the pinned nightly. |
 
 The upstream integration is described by the
 [MX release](https://github.com/surrealdb/surrealmx/releases/tag/v1.1.0) and

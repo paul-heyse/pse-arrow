@@ -1,0 +1,119 @@
+diff --git a/surrealdb/core/src/exec/vm/host.rs b/surrealdb/core/src/exec/vm/host.rs
+index 3ebfa3a..59410b8 100644
+--- a/surrealdb/core/src/exec/vm/host.rs
++++ b/surrealdb/core/src/exec/vm/host.rs
+@@ -165,7 +165,7 @@ impl VmOperator {
+ 		};
+ 		let stream = execute_program_in(&self.program, ctx, None, format)?;
+ 		let stream: ValueBatchStream = match &self.held {
+-			Some(held) => Box::pin(Holding {
++			Some(held) => box_rows(Holding {
+ 				stream,
+ 				_held: Arc::clone(held),
+ 			}),
+@@ -309,7 +309,7 @@ fn execute_tailed(
+ 		// A boundary: what the statement nests runs within this stream's
+ 		// poll, under the timer, rather than on a driver above it.
+ 		let mut input: ValueBatchStream = if tail.timeout.is_some() {
+-			Box::pin(crate::exec::trampoline::boundary(input))
++			box_rows(crate::exec::trampoline::boundary(input))
+ 		} else {
+ 			input
+ 		};
+@@ -356,7 +356,7 @@ fn execute_tailed(
+ 		}
+ 		Ok(())
+ 	});
+-	crate::exec::compiles::sealed_stream(Box::pin(stream))
++	crate::exec::compiles::sealed_stream(box_rows(stream))
+ }
+ 
+ /// Run `program` in `ctx`, its tail not applied: the stream of its rows, on a
+@@ -376,7 +376,7 @@ fn execute_untailed(
+ 		if let Some(spec) = &program.write {
+ 			refuse_unwritable(spec, ctx)?;
+ 			let stream = write::stream(Arc::clone(program), ctx.clone());
+-			return Ok(crate::exec::compiles::while_running(Box::pin(
++			return Ok(crate::exec::compiles::while_running(box_rows(
+ 				crate::exec::trampoline::Trampolined::root(stream),
+ 			)));
+ 		}
+@@ -412,7 +412,7 @@ fn execute_untailed(
+ 		// The statements it nests — subqueries, a block's statements, the
+ 		// bodies they call — run on this stream's frame stack.
+ 		let stream = crate::exec::trampoline::Trampolined::root(Box::pin(stream));
+-		Ok(crate::exec::compiles::while_running(Box::pin(stream)))
++		Ok(crate::exec::compiles::while_running(box_rows(stream)))
+ 	}
+ }
+ 
+@@ -1814,14 +1814,26 @@ pub(crate) fn out_of_line<F: std::future::Future>(make: impl FnOnce() -> F) -> P
+ 	Polled(Box::pin(make()))
+ }
+ 
+-/// `make`'s future, built in a frame of its own and boxed, for a caller that
+-/// coerces the box to a boxed trait object: that box is polled through its
+-/// vtable, so it needs no [`Polled`] wrapper.
++/// Build and erase the future in a separate frame. Establish `Send` before
++/// erasure so the pinned compiler need not revisit recursive caller futures
++/// while validating optimized MIR.
+ #[inline(never)]
+-pub(crate) fn out_of_line_boxed<F: std::future::Future>(
+-	make: impl FnOnce() -> F,
+-) -> std::pin::Pin<Box<F>> {
+-	Box::pin(make())
++pub(crate) fn out_of_line_boxed<'a, T, F>(make: impl FnOnce() -> F) -> crate::exec::BoxFut<'a, T>
++where
++	F: std::future::Future<Output = T> + Send + 'a,
++{
++	let future: Box<dyn std::future::Future<Output = T> + Send + 'a> = Box::new(make());
++	Box::into_pin(future)
++}
++
++/// Erase streams only after the concrete Send bound is established, keeping
++/// the recursive async VM state outside the pinned compiler's MIR coercion.
++#[inline(never)]
++pub(super) fn box_rows(
++	stream: impl futures::Stream<Item = FlowResult<ValueBatch>> + Send + 'static,
++) -> ValueBatchStream {
++	let stream: Box<dyn futures::Stream<Item = FlowResult<ValueBatch>> + Send> = Box::new(stream);
++	Box::into_pin(stream)
+ }
+ 
+ /// A boxed future polled through a call that is never inlined ([`out_of_line`]).
+diff --git a/surrealdb/core/src/exec/vm/write.rs b/surrealdb/core/src/exec/vm/write.rs
+index e9f39e8..dd22d64 100644
+--- a/surrealdb/core/src/exec/vm/write.rs
++++ b/surrealdb/core/src/exec/vm/write.rs
+@@ -15,7 +15,7 @@ use anyhow::Context as _;
+ use common::future::stream::Yielder;
+ use surrealdb_types::ToSql as _;
+ 
+-use super::host::{Out, flush, out_of_line, run_storage_source, run_value_row};
++use super::host::{Out, box_rows, flush, out_of_line, run_storage_source, run_value_row};
+ use super::interp::{PooledState, State};
+ use super::ir_exec::{PendingCandidate, PrefixStop};
+ use super::morsel::Rows as MorselRows;
+@@ -1903,7 +1903,7 @@ fn index_conflict_name(err: &anyhow::Error) -> Option<String> {
+ }
+ 
+ pub(super) fn stream(program: Arc<Program>, ctx: ExecutionContext) -> ValueBatchStream {
+-	Box::pin(common::future::stream::try_async_stream(async move |mut stream: Yielder<_>| {
++	box_rows(common::future::stream::try_async_stream(async move |mut stream: Yielder<_>| {
+ 		let mut yielder = Out::Stream(&mut stream);
+ 		let spec = program.write.as_ref().ok_or_else(|| internal("a write stream for a read"))?;
+ 		// Whether a unique-index conflict must withhold the stored record and
+diff --git a/surrealdb/core/src/lib.rs b/surrealdb/core/src/lib.rs
+index 60da97a..e711c8f 100644
+--- a/surrealdb/core/src/lib.rs
++++ b/surrealdb/core/src/lib.rs
+@@ -16,7 +16,8 @@
+ #![deny(clippy::wildcard_enum_match_arm)]
+ // Increased to support #[instrument] on complex async functions. Those are compiled out in release
+ // builds.
+-#![recursion_limit = "256"]
++// The pinned compiler also needs this headroom to solve recursive VM future bounds.
++#![recursion_limit = "2048"]
+ #![doc(html_favicon_url = "https://surrealdb.s3.amazonaws.com/favicon.png")]
+ #![doc(html_logo_url = "https://surrealdb.s3.amazonaws.com/icon.png")]
+ // TODO: Remove once this crate no longer needs it; see `absolute_paths` in the workspace lints.
