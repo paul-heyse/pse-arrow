@@ -8,6 +8,7 @@ use crate::{
     canonical::{
         CanonicalError, CanonicalStore, MetadataResponse, REQUEST_TIMEOUT, protected_query,
     },
+    canonical_script::{Envelope, GuardedScript},
     generated::surreal as wire,
 };
 use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
@@ -1488,7 +1489,18 @@ mod server_tests {
         let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
         // A false conditional permission would defeat a finite scan cap for record
         // authentication. Both supported root accounts must bypass it in reality.
-        crate::canonical::bounded_query(store.db.query("DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];")).await.unwrap();
+        crate::canonical::bounded_query(
+            store.db.script(
+                GuardedScript::new(Envelope::Installation)
+                    .returning::<Value>(
+                        "DEFINE TABLE graph_auth_probe SCHEMALESS PERMISSIONS FOR select WHERE allowed=true; DEFINE INDEX graph_auth_seek ON graph_auth_probe FIELDS owner,key; INSERT INTO graph_auth_probe [{key:'a',owner:'owner',allowed:false},{key:'b',owner:'owner',allowed:false}];",
+                        "NONE",
+                    )
+                    .unwrap(),
+            ),
+        )
+        .await
+        .unwrap();
         let address = url::Url::parse(&options.endpoint)
             .unwrap()
             .socket_addrs(|| None)
