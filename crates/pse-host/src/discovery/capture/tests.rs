@@ -56,6 +56,7 @@ fn application_capture(directory: &Path) -> BuildCapture {
 #[test]
 fn settled_failed_compiler_group_releases_images_without_inventory() {
     let scratch = tempfile::tempdir().unwrap();
+    fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();
     let build = scratch.path().join("workflow/inventory/group-0/build");
     let original = source(scratch.path());
     let image = artifact_path(&build, 0, &original).unwrap();

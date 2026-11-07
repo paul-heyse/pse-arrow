@@ -856,6 +856,7 @@ mod tests {
         use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _};
 
         let scratch = tempfile::tempdir().unwrap();
+        fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();
         let original = scratch.path().join("original");
         fs::write(&original, b"original").unwrap();
         fs::set_permissions(&original, fs::Permissions::from_mode(0o700)).unwrap();
