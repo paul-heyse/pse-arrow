@@ -17,6 +17,9 @@ use sha2::{Digest, Sha256};
 use std::{io, net::SocketAddr, time::Instant};
 use surrealdb_types::SurrealValue;
 
+mod expiry;
+pub use expiry::RetirementReceipt;
+
 const MAX_FAILURES: usize = 64;
 const MAX_FEATURES: usize = 64;
 const MAX_FILTERS: usize = 32;
@@ -27,7 +30,9 @@ const PILOT_MAX_LIFETIME_MS: i64 = 30 * 24 * 60 * 60 * 1_000;
 const RESPONSE_LIMITS: ResponseLimits = ResponseLimits {
     wire_bytes: 128 * 1024,
     nodes: 12 * 1024,
-    depth: 16,
+    // The protobuf response nests typed objects and their value variants around the
+    // publication, failed cases, and feature lists.
+    depth: 32,
     container_items: 12 * 1024,
     string_bytes: 96 * 1024,
     string_length: MAX_STRING_BYTES,
@@ -64,9 +69,23 @@ pub enum HistoryError {
     /// An invocation identity already means different immutable facts or retention.
     #[error("developer history invocation identity was reused with different content")]
     ReusedIdentity,
-    /// Independent readback could not verify the effect of the original publication.
-    #[error("developer history publication for {invocation} remains unsettled")]
+    /// The original invocation was already retired.
+    #[error("developer history invocation identity was retired")]
+    RetiredIdentity,
+    /// The selected expiry intent no longer matches the original record.
+    #[error("developer history expiry selection is absent or changed")]
+    StaleExpiry,
+    /// An independently owned positive hold protects this history record.
+    #[error("developer history expiry is held by its cohort owner")]
+    ExpiryHeld,
+    /// The selected record has not reached its expiry in database time.
+    #[error("developer history expiry is not due")]
+    ExpiryNotDue,
+    /// Independent readback could not verify the original operation.
+    #[error("developer history {operation} for {invocation} remains unsettled")]
     Unsettled {
+        /// Original operation.
+        operation: &'static str,
         /// Exact original invocation to inspect before retrying.
         invocation: String,
         /// Original acknowledgement failure, or an acknowledged but unverified result.
@@ -472,7 +491,7 @@ impl Scope {
         })
     }
 
-    fn verify(&self, deployment: Option<Deployment>) -> Result<(), HistoryError> {
+    fn verify(&self, deployment: Option<&Deployment>) -> Result<(), HistoryError> {
         if deployment.is_some_and(|marker| {
             marker.issuer == self.issuer && marker.schema_sha256 == self.schema_sha256
         }) {
@@ -503,10 +522,12 @@ pub enum HistoryRead {
     Present(Box<HistoryPublication>),
     /// Expired record retained until its owner settles release.
     Expired(ExpiryCandidate),
+    /// Expired facts were removed and their finite retirement receipt remains.
+    Retired(RetirementReceipt),
 }
 
 /// Indexed lifecycle observation. Carries no release authority.
-#[derive(Debug, PartialEq, Eq, SurrealValue)]
+#[derive(Clone, Debug, PartialEq, Eq, SurrealValue)]
 pub struct ExpiryCandidate {
     /// Exact native invocation.
     pub invocation: String,
@@ -520,6 +541,7 @@ pub struct ExpiryCandidate {
 struct ExactRead {
     deployment: Option<Deployment>,
     publication: Option<HistoryPublication>,
+    retirement: Option<RetirementReceipt>,
 }
 
 #[derive(SurrealValue)]
@@ -552,24 +574,35 @@ const READ_EXACT: &str = "
     RETURN {
         deployment: (SELECT issuer, schema_sha256 FROM ONLY developer_history_deployment:current),
         publication: (SELECT content_sha256, expires_unix_ms, fact
-            FROM ONLY type::record('developer_test_history', $invocation))
+            FROM ONLY type::record('developer_test_history', $invocation)),
+        retirement: (SELECT invocation, content_sha256, expires_unix_ms,
+            retired_at_unix_us, publication_closes_unix_ms
+            FROM ONLY type::record('developer_test_history_retired', $invocation))
     };";
 const READ_EXPIRY: &str = "
     RETURN {
         deployment: (SELECT issuer, schema_sha256 FROM ONLY developer_history_deployment:current),
         candidates: (SELECT fact.invocation AS invocation, content_sha256, expires_unix_ms
             FROM developer_test_history WITH INDEX developer_test_history_expiry
-            WHERE expires_unix_ms <= $cutoff ORDER BY expires_unix_ms ASC LIMIT $limit)
+            WHERE expires_unix_ms <= $cutoff AND hold = NONE ORDER BY expires_unix_ms ASC LIMIT $limit)
     };";
 #[cfg(any(test, feature = "host-contracts"))]
 const CREATE_EXACT: &str = "
     BEGIN;
-    LET $marker = SELECT issuer, schema_sha256 FROM ONLY developer_history_deployment:current;
+    LET $marker = SELECT issuer, schema_sha256, closed_through_unix_ms
+        FROM ONLY developer_history_deployment:current;
     IF $marker = NONE OR $marker.issuer != $issuer OR $marker.schema_sha256 != $schema_sha256 {
         THROW 'developer history deployment changed';
     };
-    IF $row.expires_unix_ms <= time::micros() / 1000 {
-        THROW 'developer history publication already expired';
+    IF (SELECT id FROM ONLY type::record('developer_test_history_retired', $invocation)) != NONE {
+        THROW 'developer history invocation was retired';
+    };
+    LET $now = time::micros() / 1000;
+    IF $row.fact.invocation != $invocation OR $row.fact.created_unix_ms <= 0
+        OR $row.fact.created_unix_ms > $now OR $row.expires_unix_ms <= $row.fact.created_unix_ms
+        OR $row.expires_unix_ms - $row.fact.created_unix_ms > $maximum_lifetime_ms
+        OR $row.expires_unix_ms <= $now OR $row.expires_unix_ms <= $marker.closed_through_unix_ms {
+        THROW 'developer history publication is outside its original window';
     };
     CREATE ONLY type::record('developer_test_history', $invocation) CONTENT $row RETURN NONE;
     COMMIT;";
@@ -625,7 +658,7 @@ impl HistoryStore {
                 )
                 .await?;
                 let mut reply = transport::bounded_query(store.query(SELECT_DEPLOYMENT)?).await?;
-                store.scope.verify(reply.take(0)?)
+                store.scope.verify(reply.take::<Option<Deployment>>(0)?.as_ref())
             }
             .await;
             if let Err(error) = authenticated {
@@ -647,7 +680,7 @@ impl HistoryStore {
         ))
     }
 
-    async fn exact(&self, invocation: &str) -> Result<Option<HistoryPublication>, HistoryError> {
+    async fn exact(&self, invocation: &str) -> Result<ExactRead, HistoryError> {
         if !uuid(invocation) {
             return Err(HistoryError::Invalid("native invocation identity"));
         }
@@ -658,11 +691,17 @@ impl HistoryStore {
         let reply = response
             .take::<Option<ExactRead>>(0)?
             .ok_or(CanonicalError::IncompleteResponse)?;
-        self.scope.verify(reply.deployment)?;
+        self.scope.verify(reply.deployment.as_ref())?;
         if let Some(publication) = &reply.publication {
             publication.verify(invocation)?;
         }
-        Ok(reply.publication)
+        if let Some(receipt) = &reply.retirement {
+            receipt.verify(invocation)?;
+            if reply.publication.is_some() {
+                return Err(HistoryError::Invalid("live history and retirement both exist"));
+            }
+        }
+        Ok(reply)
     }
 
     /// Independently read one exact native invocation, using the supplied expiry clock.
@@ -673,7 +712,11 @@ impl HistoryStore {
         deadline: Instant,
     ) -> Result<HistoryRead, HistoryError> {
         transport::operation_scope(deadline, async {
-            Ok(match self.exact(invocation).await? {
+            let exact = self.exact(invocation).await?;
+            if let Some(receipt) = exact.retirement {
+                return Ok(HistoryRead::Retired(receipt));
+            }
+            Ok(match exact.publication {
                 None => HistoryRead::Missing,
                 Some(row) if row.expires_unix_ms <= now_unix_ms => {
                     HistoryRead::Expired(ExpiryCandidate {
@@ -712,16 +755,15 @@ impl HistoryStore {
         publication: &HistoryPublication,
         deadline: Instant,
     ) -> Result<Published, HistoryError> {
-        if self.role != HistoryRole::Writer
-            || reader.role != HistoryRole::Reader
-            || self.scope != reader.scope
-        {
-            return Err(HistoryError::WrongDeployment);
-        }
+        self.require_writer_reader(reader)?;
         let invocation = publication.fact.invocation.as_str();
         publication.verify(invocation)?;
         transport::operation_scope(deadline, async {
-            if let Some(row) = reader.exact(invocation).await? {
+            let before = reader.exact(invocation).await?;
+            if before.retirement.is_some() {
+                return Err(HistoryError::RetiredIdentity);
+            }
+            if let Some(row) = before.publication {
                 return compare(&row, publication, Published::Existing);
             }
             let acknowledgement = transport::protected_query("developer_history::publish", || {
@@ -730,13 +772,23 @@ impl HistoryStore {
                     .bind(("issuer", self.scope.issuer.as_str()))
                     .bind(("schema_sha256", self.scope.schema_sha256.as_str()))
                     .bind(("invocation", invocation))
+                    .bind(("maximum_lifetime_ms", PILOT_MAX_LIFETIME_MS))
                     .bind(("row", publication.clone())))
             })
             .await;
             #[cfg(test)]
             let acknowledgement = self.fault_ack(reader, acknowledgement).await;
-            match reader.exact(invocation).await {
-                Ok(Some(row)) => {
+            let readback = match reader.exact(invocation).await {
+                Ok(observed) if observed.retirement.is_some() => {
+                    return Err(HistoryError::RetiredIdentity);
+                }
+                Ok(observed) => observed.publication,
+                Err(readback) => {
+                    return Err(unsettled("publication", invocation, acknowledgement, Some(readback)));
+                }
+            };
+            match readback {
+                Some(row) => {
                     let status = match acknowledgement {
                         Ok(_) => Published::Created,
                         Err(error) if error.effect_is_unknown() => Published::Reconciled,
@@ -744,11 +796,10 @@ impl HistoryStore {
                     };
                     compare(&row, publication, status)
                 }
-                Ok(None) => match acknowledgement {
+                None => match acknowledgement {
                     Err(error) if !error.effect_is_unknown() => Err(error.into()),
-                    uncertain => Err(unsettled(invocation, uncertain, None)),
+                    uncertain => Err(unsettled("publication", invocation, uncertain, None)),
                 },
-                Err(readback) => Err(unsettled(invocation, acknowledgement, Some(readback))),
             }
         })
         .await
@@ -774,7 +825,7 @@ impl HistoryStore {
             let reply = response
                 .take::<Option<ExpiryRead>>(0)?
                 .ok_or(CanonicalError::IncompleteResponse)?;
-            self.scope.verify(reply.deployment)?;
+            self.scope.verify(reply.deployment.as_ref())?;
             if reply.candidates.len() > limit
                 || reply.candidates.iter().any(|row| {
                     !uuid(&row.invocation)
@@ -787,6 +838,17 @@ impl HistoryStore {
             Ok(reply.candidates)
         })
         .await
+    }
+
+    fn require_writer_reader(&self, reader: &Self) -> Result<(), HistoryError> {
+        if self.role == HistoryRole::Writer
+            && reader.role == HistoryRole::Reader
+            && self.scope == reader.scope
+        {
+            Ok(())
+        } else {
+            Err(HistoryError::WrongDeployment)
+        }
     }
 
     /// Close admission and drain the actual connection through its transport owner.
@@ -812,13 +874,14 @@ fn compare(
     }
 }
 
-#[cfg(any(test, feature = "host-contracts"))]
 fn unsettled(
+    operation: &'static str,
     invocation: &str,
     acknowledgement: Result<transport::client::IndexedResults, CanonicalError>,
     readback: Option<HistoryError>,
 ) -> HistoryError {
     HistoryError::Unsettled {
+        operation,
         invocation: invocation.into(),
         source: Box::new(acknowledgement.err().unwrap_or(CanonicalError::IncompleteResponse)),
         readback: readback.map(Box::new),

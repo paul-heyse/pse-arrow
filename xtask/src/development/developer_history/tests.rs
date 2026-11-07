@@ -75,7 +75,7 @@ fn history_publication_bounds_and_original_commitment() {
 }
 
 impl HistoryStore {
-    async fn fault_ack(
+    pub(super) async fn fault_ack(
         &self,
         reader: &Self,
         acknowledgement: Result<IndexedResults, CanonicalError>,
@@ -181,6 +181,29 @@ async fn history_native_roles_replay_conflict_and_unknown_ack() {
     let writer = HistoryStore::open(&options, HistoryRole::Writer, deadline).await.unwrap();
     let reader = HistoryStore::open(&options, HistoryRole::Reader, deadline).await.unwrap();
     let now = i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_millis()).unwrap();
+    #[cfg(feature = "host-contracts")]
+    if let Ok(invocation) = std::env::var("PSE_DEVELOPER_HISTORY_TEST_ORIGINAL") {
+        use pse_host::{envelope::CliInvocationId, invocation::InvocationStore, paths::CheckoutState};
+
+        let invocation = CliInvocationId::try_from(invocation).unwrap();
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
+        let state = CheckoutState::resolve(root, &std::env::vars_os().collect()).unwrap();
+        let source = InvocationStore::new(state);
+        let facts = pse_host::test_workflow::native_test_history(&source, &invocation).unwrap();
+        let expires = i64::try_from(facts.created_unix_ms).unwrap() + 24 * 60 * 60 * 1_000;
+        assert!(expires > now + 60_000, "choose a recent settled original test");
+        assert_eq!(
+            writer.publish_original(&reader, &source, &invocation, expires, deadline).await.unwrap(),
+            Published::Created
+        );
+        let HistoryRead::Present(row) = reader.read(invocation.as_str(), now, deadline).await.unwrap() else {
+            panic!("the original history publication must be independently readable");
+        };
+        assert_eq!(row.fact.report_sha256, facts.report_sha256);
+        assert_eq!(row.fact.inventory_sha256, facts.inventory_sha256);
+        assert_eq!(row.fact.settlement_sha256, facts.settlement_sha256);
+        assert_eq!(row.fact.failed.len(), facts.failed_cases.len());
+    }
     let expiry = now + 60_000;
     let first = HistoryPublication::new(fact(now), expiry).unwrap();
     let id = &first.fact.invocation;
@@ -245,6 +268,7 @@ async fn history_native_roles_replay_conflict_and_unknown_ack() {
         HistoryRead::Present(Box::new(winner)),
     );
     competitor.disconnect().await.unwrap();
+    exercise_expiry(&options, &writer, &replacement, &first, deadline).await;
     assert!(transport::bounded_query(
         writer.query(&format!(
             "USE NS `{}` DB `{}`; CREATE cross_scope_probe:forbidden;",
@@ -256,4 +280,117 @@ async fn history_native_roles_replay_conflict_and_unknown_ack() {
     assert!(matches!(HistoryStore::open(&options, HistoryRole::Reader, deadline).await, Err(HistoryError::WrongDeployment)));
     writer.disconnect().await.unwrap();
     replacement.disconnect().await.unwrap();
+}
+
+async fn exercise_expiry(
+    options: &HistoryOptions,
+    writer: &HistoryStore,
+    reader: &HistoryStore,
+    future: &HistoryPublication,
+    deadline: Instant,
+) {
+    let future = ExpiryCandidate {
+        invocation: future.fact.invocation.clone(),
+        content_sha256: future.content_sha256.clone(),
+        expires_unix_ms: future.expires_unix_ms,
+    };
+    assert!(matches!(
+        writer.retire(reader, &future, deadline).await,
+        Err(HistoryError::ExpiryNotDue)
+    ));
+    assert!(matches!(
+        reader.retire(reader, &future, deadline).await,
+        Err(HistoryError::WrongDeployment)
+    ));
+
+    // Seed already published history using the test fixture's own database clock.
+    // Ordinary CREATE refuses an expired source and the test need not sleep for expiry.
+    let mut response = transport::bounded_query(writer.query("RETURN time::micros();").unwrap())
+        .await
+        .unwrap();
+    let expired_at = response.take::<Option<i64>>(0).unwrap().unwrap() / 1_000 - 1;
+    let publication = HistoryPublication::new(fact(expired_at - 1_000), expired_at).unwrap();
+    let invocation = publication.fact.invocation.as_str();
+    transport::bounded_query(
+        writer
+            .query("CREATE ONLY type::record('developer_test_history', $id) CONTENT $row;")
+            .unwrap()
+            .bind(("id", invocation))
+            .bind(("row", publication.clone())),
+    )
+    .await
+    .unwrap();
+    let mut candidates = reader.preview_expired(expired_at, 2, deadline).await.unwrap();
+    assert_eq!(candidates.len(), 1);
+    let selected = candidates.pop().unwrap();
+    assert_eq!(selected.invocation, invocation);
+
+    let mut stale = selected.clone();
+    stale.content_sha256 = "f".repeat(64);
+    assert!(matches!(
+        writer.retire(reader, &stale, deadline).await,
+        Err(HistoryError::StaleExpiry)
+    ));
+    transport::bounded_query(
+        writer
+            .query("UPDATE ONLY type::record('developer_test_history', $id) SET hold = rand::uuid::v4();")
+            .unwrap()
+            .bind(("id", invocation)),
+    )
+    .await
+    .unwrap();
+    assert!(matches!(
+        writer.retire(reader, &selected, deadline).await,
+        Err(HistoryError::ExpiryHeld)
+    ));
+    assert!(reader.preview_expired(expired_at, 2, deadline).await.unwrap().is_empty());
+    assert_eq!(
+        reader.read(invocation, expired_at, deadline).await.unwrap(),
+        HistoryRead::Expired(selected.clone())
+    );
+    transport::bounded_query(
+        writer
+            .query("UPDATE ONLY type::record('developer_test_history', $id) SET hold = NONE;")
+            .unwrap()
+            .bind(("id", invocation)),
+    )
+    .await
+    .unwrap();
+
+    writer.ack_fault.store(2, Ordering::SeqCst);
+    assert!(matches!(
+        writer.retire(reader, &selected, deadline).await,
+        Err(HistoryError::Unsettled { operation: "expiry", readback: Some(_), .. })
+    ));
+    let reopened = HistoryStore::open(options, HistoryRole::Reader, deadline).await.unwrap();
+    let receipt = writer.retire(&reopened, &selected, deadline).await.unwrap();
+    assert_eq!(receipt.content_sha256, publication.content_sha256);
+    assert_eq!(
+        receipt.publication_closes_unix_ms,
+        publication.fact.created_unix_ms + PILOT_MAX_LIFETIME_MS
+    );
+    assert_eq!(
+        reopened.read(invocation, expired_at, deadline).await.unwrap(),
+        HistoryRead::Retired(receipt)
+    );
+    let extended = HistoryPublication::new(publication.fact, expired_at + 60_000).unwrap();
+    assert!(matches!(
+        writer.publish(&reopened, &extended, deadline).await,
+        Err(HistoryError::RetiredIdentity)
+    ));
+    // The server transaction fences the key even when the client preflight is bypassed.
+    assert!(transport::bounded_query(
+        writer
+            .query(CREATE_EXACT)
+            .unwrap()
+            .bind(("issuer", writer.scope.issuer.as_str()))
+            .bind(("schema_sha256", writer.scope.schema_sha256.as_str()))
+            .bind(("invocation", extended.fact.invocation.as_str()))
+            .bind(("maximum_lifetime_ms", PILOT_MAX_LIFETIME_MS))
+            .bind(("row", extended.clone())),
+    )
+    .await
+    .is_err());
+    assert!(reopened.preview_expired(expired_at, 2, deadline).await.unwrap().is_empty());
+    reopened.disconnect().await.unwrap();
 }

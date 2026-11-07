@@ -5,11 +5,15 @@
 DEFINE TABLE developer_history_deployment SCHEMAFULL;
 DEFINE FIELD issuer ON developer_history_deployment TYPE string READONLY;
 DEFINE FIELD schema_sha256 ON developer_history_deployment TYPE string READONLY;
+DEFINE FIELD closed_through_unix_ms ON developer_history_deployment TYPE int DEFAULT 0
+    ASSERT $before = NONE OR $value >= $before;
 
 DEFINE TABLE developer_test_history SCHEMAFULL;
 DEFINE FIELD content_sha256 ON developer_test_history TYPE string READONLY;
 DEFINE FIELD expires_unix_ms ON developer_test_history TYPE int READONLY;
 DEFINE FIELD action ON developer_test_history TYPE string VALUE 'test' READONLY;
+-- A cohort owner changes the hold on this exact row so hold and deletion contend.
+DEFINE FIELD hold ON developer_test_history TYPE option<uuid>;
 DEFINE FIELD fact ON developer_test_history TYPE object READONLY;
 DEFINE FIELD fact.invocation ON developer_test_history TYPE string;
 DEFINE FIELD fact.repository_id ON developer_test_history TYPE string;
@@ -50,3 +54,13 @@ DEFINE FIELD fact.ignored_policy ON developer_test_history TYPE string
     ASSERT $value IN ['default', 'only', 'all'];
 
 DEFINE INDEX developer_test_history_expiry ON developer_test_history FIELDS expires_unix_ms;
+
+-- Finite receipt, independent of the removed native test facts.
+DEFINE TABLE developer_test_history_retired SCHEMAFULL;
+DEFINE FIELD invocation ON developer_test_history_retired TYPE string READONLY;
+DEFINE FIELD content_sha256 ON developer_test_history_retired TYPE string READONLY;
+DEFINE FIELD expires_unix_ms ON developer_test_history_retired TYPE int READONLY;
+DEFINE FIELD retired_at_unix_us ON developer_test_history_retired TYPE int READONLY;
+DEFINE FIELD publication_closes_unix_ms ON developer_test_history_retired TYPE int READONLY;
+DEFINE INDEX developer_test_history_receipt_release ON developer_test_history_retired
+    FIELDS publication_closes_unix_ms;

@@ -189,7 +189,9 @@ The initial native unit census examined 498 units for the `pse-operations` libra
 `canonical-tests` and 810 for the `native_service` target with `native-service`. Each
 selection had one matching `arrow-array` dependency unit and native correctness selected
 explicit force validation. This establishes the two source contexts for the comparison.
-Consumer mapping and the post-migration variant census remain open.
+The migrated xtask `evidence-tools` and `host-contracts` selection examined 804 units
+and reached zero `pse-runtime` compiler units after removing its test-only feature.
+The wider consumer mapping and post-migration matrix remain open.
 
 The managed route now verifies the selected 0.19.0 binary and reports actual daemon
 readiness, storage location, mode, and listener multiplicity. It validates a selected frame

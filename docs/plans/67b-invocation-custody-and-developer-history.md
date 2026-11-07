@@ -126,7 +126,7 @@ Keep selected portable cohorts separately from live expiry, and test their actua
 | B01 | in-progress | Current capture, report and Plan66 C/E/F owners | Choose the active custody path per real tool, inventory and test consumer. Specify the minimum native export and rerun facts, the release evidence, and the narrow persistence decision route. Check that A's independently verified native export remains readable by the selected backfill path. |
 | B02 | in-progress | B01 active custody and working settlement interface | Migrate ordinary inventory/launch borrowers and remove their repeat retained copies. Release private images after drain and preserve explicit holds. Verify distinct compiler contexts, mutation/alias/load failures, interrupted publication, and later observation after a target clean. |
 | B03 | in-progress | B01 projection contract and applicable persistence decision | Publish one bounded native test workflow to the selected SurrealDB pilot. Verify an independent reader, scope/credential isolation, duplicate or conflicting publication, unknown acknowledgement and unavailable history. Report actual ingestion and query bounds. |
-| B04 | planned | B03 independent readback and B02 release for selected consumer | Deliver failure triage and named comparison, wire exact eligible rerun facts into Plan66f's current-inventory resolver, then release superseded full payloads. Verify no-match, absent/changed target, incomplete native reconciliation, held or expired raw facts, guarded expiry, repeated physical reclamation and cohort restore. |
+| B04 | in-progress | B03 independent readback and B02 release for selected consumer | Deliver failure triage and named comparison, wire exact eligible rerun facts into Plan66f's current-inventory resolver, then release superseded full payloads. Verify no-match, absent/changed target, incomplete native reconciliation, held or expired raw facts, guarded expiry, repeated physical reclamation and cohort restore. |
 
 A can release owner-approved incident data after a verified narrow export using the existing
 native owner. Backfill from that export only for explicitly named uses. For later ordinary
@@ -153,5 +153,14 @@ The isolated history pilot has a separate schema and database-scoped writer and 
 One immutable row binds the original invocation, selected facts, three original content
 commitments, and finite expiry. The native publication entry acquires the original foreground
 settlement before it reaches the writer. A private pinned-engine control verified schema,
-role isolation, duplicate refusal, exact readback, and expiry index selection. The Rust
-publication, competing writers, and lost-acknowledgement controls remain to be exercised.
+role isolation, duplicate refusal, exact readback, and expiry index selection. The pinned
+native fixture passed the Rust publication, competing writer, uncertain acknowledgement,
+and exact retirement controls. The original native-workflow publication check has a separate
+explicit selection.
+
+Pilot retirement uses a database-clock fence and exact invocation, content and expiry
+comparison. A positive hold blocks release. Successful retirement atomically replaces the
+selected row with a finite receipt. Independent readback reconciles an ambiguous response.
+The receipt remains through the original maximum publication window. Pruning needs an exact
+owner route that advances the deployment watermark before releasing the receipt. The persistent
+profile still needs physical reclamation and restart evidence.
