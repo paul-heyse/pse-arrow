@@ -151,9 +151,9 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 |---|---|---|---|
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | in-progress | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
-| E03 | planned | Existing resource ownership and current use | Purpose-bound scratch, stores and campaigns release through their original owners. Preserve authored selections for regeneration. |
+| E03 | in-progress | Existing resource ownership and current use | Purpose-bound scratch, stores and campaigns release through their original owners. Preserve authored selections for regeneration. |
 | E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
-| E05 | in-progress | E03 release semantics and exact current unit identity | Native fixture teardown remains truthful and owner-proven legacy fragments can retire. Persistent telemetry follows its own owner. |
+| E05 | complete | E03 release semantics and exact current unit identity | Verified legacy fragments and enablement links retired. Native fixture teardown and persistent telemetry keep their separate owners. |
 | E06 | planned | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
 
 ## Acceptance
@@ -222,9 +222,16 @@ The independent post-release observation found the fragment absent and telemetry
 and manager identities consistent with the preview. The remaining candidates are pending their
 individual owner rechecks.
 
-The refreshed preview found 515 Surreal and five compiler-cache candidates after the
-exercise removal. It recorded one orphan enablement link and three unavailable process
-observations. The preview still supplies candidates for exact owner rechecks.
+**Tested.** The exact replay removed the remaining 515 Surreal and five compiler-cache
+definitions, including the 62 original Surreal enablement links. It checked original
+selection, fragment and link identity, manager state, jobs, cgroups and live process
+references before release. The disabled/unloaded batch accounted for 1,875,968 allocated
+bytes. The enabled/inactive batch accounted for 507,904 allocated bytes. Independent
+readback verified all selected files absent and the 62 cached manager records still
+inactive without a reload. It observed 38 protected Surreal, three protected compiler-cache
+and four unchanged telemetry definitions. The one orphan link and three unavailable
+process observations remain unresolved. The exact selections, retry results and post-release
+census are in the incident evidence directory named by [67a](67a-plan66-consolidation-and-incident-cleanup.md).
 
 The incident runtime fixture release verified 19 original completed preparations, each with
 two exact captured executables and a capsule matching the current selection's digest.

@@ -184,7 +184,7 @@ until the relevant toolchain has a real consumer.
 | D01 | in-progress | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
 | D02 | in-progress | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
 | D03 | in-progress | Managed 0.19.0 and stable representative selections. Timing can begin before D02 rollout. | Truthful managed-route configuration and stats, representative metadata and large-entry restoration, changed-input and fallback controls, and recorded timings. |
-| D04 | in-progress | Native owner and representative command context | Demonstrated restore of identified GCC/Clang outputs under existing provider contracts. A direct-mode trial needs separate negative-header evidence. |
+| D04 | complete | Native owner and representative command context | Verified existing provider preparation and native object restoration. Keep direct preprocessing disabled after the negative-header controls. |
 | D05 | complete | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Verified private disk/WebDAV promotion and failure behavior. Defer deployment until a named compatible consumer shows representative transfer and recovery savings. |
 
 ## Execution checkpoint — November 7
@@ -279,6 +279,27 @@ miss with changed object bytes after a header edit. Direct preprocessing stayed 
 and write errors stayed at zero. The private build, cache, and daemon were released. This
 exercises the CMake compiler route and leaves the enclosing native owner's publication
 and readmission to an explicit `native prepare --capabilities compiler,klu` run.
+
+**Tested.** Explicit native preparation published KLU, CoolProp, and PETSc to one
+isolated provider root. A second KLU preparation returned the same immutable path.
+A consumer entered the native boundary with `compiler,klu,petsc,coolprop` and used
+the selected KLU and PETSc headers and libraries and the selected CoolProp dynamic
+library. The three executable controls passed. Cold GCC/G++ requests wrote three
+entries to a private 0.19.0 disk daemon. After removing the outputs, the same
+commands produced three hits and restored all six object and dependency files
+byte-for-byte. Both passes recorded zero cache write errors. The CoolProp control
+used absolute-path dynamic loading, as the Rust binding does.
+
+**Measured.** A separate disposable checkout ran the actual workspace Symbolica
+3.0.1 library compiler command with `integer-gmp` and `float-mpfr`. The trial
+recorded argv and the digests of its 23 extern inputs. Its isolated managed 0.19.0
+daemon used client-side disk cache and a 256 MiB frame. The selected unit took
+108.99 seconds on its miss. Two independent requests with equivalent keys and
+empty output directories completed in 1.15 and 1.23 seconds, each adding one
+Rust hit and zero cache write errors. They restored the 56,889,532-byte rlib and
+27,866,942-byte metadata byte-for-byte and wrote local dep-info matching after
+normalizing the output directory. These timings isolate the selected compiler
+command. The representative verification campaign still governs D02.
 
 An isolated PETSc 3.24.0 configuration used the authenticated archive and repository patch,
 the selected GCC and MKL file digests, and the native owner's configure flags. The actual

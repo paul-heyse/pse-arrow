@@ -116,7 +116,9 @@ control of the enclosing scope. Private fixture helper images follow the same bo
 after their original fixture settlement is verified. The original report and inventory
 stay independently readable. Native controls exercised an unobserved detached run and
 both foreground and detached enclosing owners, including refusal to release while borrowed
-work was live. The assembled SurrealKit fixture run exercises the fixture-helper path.
+work was live. The SurrealKit suite exercised its private database and ordinary inventory
+images. It produced no `workflow/fixtures` helper capture. The separate runner-borrowed
+canonical helper journey remains necessary.
 
 A failed Cargo discovery may publish a valid compiler capture before it can publish a
 complete test inventory. The owner uses the original report commitment and exact compiler
