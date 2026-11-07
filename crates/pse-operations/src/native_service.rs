@@ -29,6 +29,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     net::{Ipv4Addr, SocketAddr, TcpListener},
+    num::NonZeroUsize,
     os::unix::{
         fs::{MetadataExt, OpenOptionsExt, PermissionsExt},
         process::CommandExt,
@@ -126,6 +127,50 @@ impl ModuleServiceCapacity {
             read("SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS")?.as_deref(),
             pool,
         )
+    }
+}
+
+const QUERY_MEMORY_KEYS: [&str; 3] = [
+    "SURREAL_MEMORY_LIMIT",
+    "SURREAL_QUERY_MEMORY_MINIMUM",
+    "SURREAL_QUERY_MEMORY_MAX",
+];
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct QueryMemory {
+    node_limit: Option<NonZeroUsize>,
+    query_minimum: Option<NonZeroUsize>,
+    query_maximum: Option<NonZeroUsize>,
+}
+impl QueryMemory {
+    fn select(
+        mut read: impl FnMut(&str) -> Option<std::ffi::OsString>,
+    ) -> Result<Self, NativeServiceError> {
+        let mut bytes = |key| {
+            read(key)
+                .map(|value| {
+                    value.to_str().and_then(|value| value.parse().ok()).ok_or(
+                        NativeServiceError::Refused(
+                            "query memory settings require positive byte counts",
+                        ),
+                    )
+                })
+                .transpose()
+        };
+        let [node, minimum, maximum] = QUERY_MEMORY_KEYS;
+        Ok(Self {
+            node_limit: bytes(node)?,
+            query_minimum: bytes(minimum)?,
+            query_maximum: bytes(maximum)?,
+        })
+    }
+
+    fn environment(&self) -> impl Iterator<Item = (&'static str, String)> {
+        QUERY_MEMORY_KEYS
+            .into_iter()
+            .zip([self.node_limit, self.query_minimum, self.query_maximum])
+            .filter_map(|(key, bytes)| bytes.map(|bytes| (key, bytes.to_string())))
     }
 }
 
@@ -285,6 +330,8 @@ struct StartupPayload {
     bind: SocketAddr,
     nonce: String,
     module_capacity: ModuleServiceCapacity,
+    #[serde(default)]
+    query_memory: QueryMemory,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     qualification_sha256: Option<String>,
 }
@@ -826,6 +873,7 @@ impl NativeCanonicalService {
             bind,
             nonce: nonce.clone(),
             module_capacity: ModuleServiceCapacity::environment(module.limits.max_pool_size)?,
+            query_memory: QueryMemory::select(|key| std::env::var_os(key))?,
             qualification_sha256: qualification.as_ref().map(|receipt| receipt.sha256.clone()),
         };
         private_write(&run.join("startup.json"), &payload)?;
@@ -1736,6 +1784,12 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
             "systemd invocation identity is invalid",
         ));
     }
+    let scratch = payload.state.join("tmp");
+    private_path(&scratch, true)?;
+    let mut probe = tempfile::NamedTempFile::new_in(&scratch)?;
+    probe.write_all(&[0])?;
+    probe.as_file().sync_all()?;
+    probe.close()?;
     private_write(
         &payload.run.join("started.json"),
         &StartupClaim {
@@ -1769,19 +1823,20 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         ])
         .arg(payload.bind.to_string())
         .arg("--temporary-directory")
-        .arg(payload.state.join("tmp"))
+        .arg(&scratch)
         .arg(datastore)
         .env_clear()
         .env("PATH", "/usr/bin:/bin")
         .env("LANG", "C.UTF-8")
         .env("HOME", payload.state.join("home"))
         .env("XDG_CACHE_HOME", payload.state.join("cache"))
-        .env("TMPDIR", payload.state.join("tmp"))
+        .env("TMPDIR", &scratch)
         .env("SURREAL_USER", credentials.username)
         .env("SURREAL_PASS", credentials.password)
         .env("SURREAL_GRPC_MAX_MESSAGE_SIZE", MESSAGE_BYTES.to_string())
         .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "surrealism")
         .env("SURREAL_BUCKET_FOLDER_ALLOWLIST", &payload.module_root)
+        .envs(payload.query_memory.environment())
         .env(
             "SURREAL_SURREALISM_CACHE_SIZE",
             payload.module_capacity.cached_modules.to_string(),
@@ -2490,5 +2545,31 @@ mod tests {
         )
         .unwrap();
         assert!(owned.verify().is_err());
+    }
+
+    #[test]
+    fn native_service_query_memory_preserves_only_explicit_byte_limits() {
+        let selected = QueryMemory::select(|key| match key {
+            "SURREAL_MEMORY_LIMIT" => Some("16777216".into()),
+            "SURREAL_QUERY_MEMORY_MAX" => Some("8388608".into()),
+            _ => None,
+        })
+        .unwrap();
+        let record = serde_json::to_vec(&selected).unwrap();
+        let restored: QueryMemory = serde_json::from_slice(&record).unwrap();
+        assert_eq!(
+            restored.environment().collect::<Vec<_>>(),
+            [
+                ("SURREAL_MEMORY_LIMIT", "16777216".into()),
+                ("SURREAL_QUERY_MEMORY_MAX", "8388608".into()),
+            ],
+        );
+        assert_eq!(
+            QueryMemory::select(|_| None).unwrap().environment().count(),
+            0
+        );
+        for invalid in ["0", "-1", "8MiB", ""] {
+            assert!(QueryMemory::select(|_| Some(invalid.into())).is_err());
+        }
     }
 }
