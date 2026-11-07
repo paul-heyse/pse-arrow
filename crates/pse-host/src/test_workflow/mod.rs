@@ -356,6 +356,33 @@ pub(crate) fn matches_requirement(
         && requirement.applies_to_test(&identity.test_name)
 }
 
+pub(crate) fn selected_target_owned_fixture(
+    inventory: &Inventory,
+    requirements: &[Requirement],
+) -> Result<bool, WorkflowError> {
+    let candidates: Vec<_> = requirements
+        .iter()
+        .filter(|requirement| requirement.ownership() == fixtures::Ownership::TargetOwned)
+        .collect();
+    if candidates.is_empty() {
+        return Ok(false);
+    }
+    // Unknown selection cannot rule out a target-owned fixture. For a complete
+    // inventory use its recorded correspondence, which survives image release.
+    if !inventory.selected_population_complete() {
+        return Ok(true);
+    }
+    for identity in inventory.selected_tests_iter() {
+        let captured = inventory.test_record(&identity)?;
+        if candidates.iter().any(|requirement| {
+            matches_requirement(requirement, &identity, &captured.artifact.cargo)
+        }) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// Normalized declaration-backed intent. Construction reads only explicit owning inputs.
 #[derive(Debug)]
 pub struct Intent {

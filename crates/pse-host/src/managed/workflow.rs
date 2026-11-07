@@ -160,21 +160,25 @@ fn release_original_images(
             .transpose()?
             .map(|(inventory, _)| inventory)
     };
-    let fixture_settled = if action == Action::Test {
-        #[derive(Deserialize)]
-        struct FixtureRequirements {
-            fixture_requirements: Vec<crate::fixtures::Requirement>,
+    let fixture_settled = match (action, inventory.as_ref()) {
+        (Action::Test, Some(inventory)) => {
+            #[derive(Deserialize)]
+            struct FixtureRequirements {
+                fixture_requirements: Vec<crate::fixtures::Requirement>,
+            }
+            let requirements: FixtureRequirements =
+                serde_json::from_slice(&original.report).map_err(host)?;
+            Some(
+                original.observation.outcome
+                    == crate::test_workflow::execute::Outcome::TestsSucceeded
+                    || !crate::test_workflow::selected_target_owned_fixture(
+                        inventory,
+                        &requirements.fixture_requirements,
+                    )
+                    .map_err(host)?,
+            )
         }
-        let requirements: FixtureRequirements =
-            serde_json::from_slice(&original.report).map_err(host)?;
-        Some(
-            original.observation.outcome == crate::test_workflow::execute::Outcome::TestsSucceeded
-                || requirements.fixture_requirements.iter().all(|requirement| {
-                    requirement.ownership() != crate::fixtures::Ownership::TargetOwned
-                }),
-        )
-    } else {
-        None
+        _ => None,
     };
     let unlisted = if inventory.is_none() && !action.is_compiler() {
         unlisted_builds(&original)?

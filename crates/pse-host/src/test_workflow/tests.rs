@@ -80,6 +80,36 @@ fn inventory_ready_requires_each_original_phase_and_refuses_unsupported_or_missi
     listed.inventory.capture.pop();
     assert!(!listed.inventory.capture_complete());
 }
+
+#[test]
+fn fixture_retirement_uses_the_original_selected_population() {
+    let (_root, intent) = intent();
+    let listed = listed(intent);
+    let group = &listed.inventory.groups[0];
+    let mut candidate = json!({
+        "group": 0,
+        "unit": group.build.resolution.units[0],
+        "declaration": {
+            "id": "physical-owner",
+            "target": "case",
+            "kind": "lib",
+            "scope": {"tests": ["different_test"]},
+            "ownership": "target-owned",
+            "inputs": ["server"]
+        }
+    });
+    fs::remove_file(&group.build.artifacts[0].executable.captured).unwrap();
+    let unselected = serde_json::from_value(candidate.clone()).unwrap();
+    assert!(!selected_target_owned_fixture(&listed.inventory, &[unselected]).unwrap());
+
+    candidate["declaration"]["scope"]["tests"] = json!(["same_name"]);
+    let selected = serde_json::from_value(candidate.clone()).unwrap();
+    assert!(selected_target_owned_fixture(&listed.inventory, &[selected]).unwrap());
+
+    candidate["declaration"]["ownership"] = json!("runner-borrowed");
+    let borrowed = serde_json::from_value(candidate).unwrap();
+    assert!(!selected_target_owned_fixture(&listed.inventory, &[borrowed]).unwrap());
+}
 #[test]
 fn metadata_traversal_authenticates_unique_executables_once_and_refuses_changed_captures() {
     let (_root, intent) = intent();
