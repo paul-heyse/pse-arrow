@@ -289,10 +289,20 @@ interior-initialized cohort passes the unchanged refinement discriminator (2/2 t
 zero failures/warnings, complete capture/settlement). Water's three homogeneous equipment cases
 now preserve complete original native reports through protected typed read and independently
 checked IPC export in the owning checkout. Their typed engineering-client registration seam and
-broader property/application population remain open. A's first native fit-member permission is
-integrated with actual attempt/source/report custody, while standalone trajectory custody and
-the selected protected reader are next. E/F advances original typed prerequisite facts and the
-corresponding finite analytical reader.
+broader property/application population remain open. A's fit and standalone native-member owners
+and selected protected trajectory interpretation are now integrated with actual attempt/source/report
+custody. Main's subsequent 23-control host/runtime receive passes these selected member/reader,
+cache-release, prerequisite-analysis and FeedFlash controls: zero failures/build warnings, complete
+capture/settlement, no pending lifetime (`01a1b371-1d64-75fe-b5f8-29f8588360d3`). Full combined
+generation passes 15 targets. This population overlaps earlier controls and is not an additive
+whole-series total; it excludes Water's separately required CoolProp profile.
+
+The scientific lane now carries the ordinary costed exchanger into K's protected native view and
+independent export, retaining unknown area support, exact pressure extrapolation and original
+currency/index semantics. The lifecycle lane receives actual generated Prepare-method departure
+on the existing authenticated child/connection while preserving independent native handles. A
+continues the narrower steady partial-observation producer investigation. Wider family/input
+closure, point products, per-group developer facts and assembled acceptance remain open.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits
 separate physical data/conventions; the FeedFlash seed and existing ControlledCSTR oracle-input

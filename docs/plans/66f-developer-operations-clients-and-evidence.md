@@ -183,8 +183,11 @@ the original prerequisite parser, authenticated fact consumer and `review_query:
 controls passed 14/14, zero failures/warnings. Actual `pse-project observe` consumed two exported
 original native reports and returned seven prerequisite patterns distinguishing the original
 unprepared StudyModule from explicit empty pending. Original pointers were checked against the
-retained JSON. This source unit is integrated on main; combined generation/receiving remains
-separate. Private per-group verdict facts and full F04/E07 population are still open.
+retained JSON. This source unit is integrated on main; full combined generation passed 15 targets
+and the selected 23-control host/runtime receiving passed with zero failures/build warnings and
+complete capture/settlement. A freshly prepared main CLI's prerequisite-specific journey remains
+separate from those library controls and the prior owning-checkout CLI evidence. Private per-group
+verdict facts and full F04/E07 population are still open.
 
 ## Packages
 

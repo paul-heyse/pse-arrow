@@ -96,7 +96,7 @@ native lifetime. Exact maintained source links and limits are in
 |---|---|---|---|
 | H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
 | H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
-| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly; a separate interior-cohort refinement and strict zero-initial scheme/domain refusal pass two targeted controls. Broader physical families, trajectory-use permission and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
+| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly; interior-cohort refinement and strict zero-initial scheme/domain refusal pass two targeted controls. Original whole-member native and protected trajectory use now passes main receiving. Broader physical families, point products and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
 | H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
@@ -160,9 +160,13 @@ contracts, independently of the canonical row mapper. It drops producing handles
 preparation cache, reads protected canonical rows, exports bounded IPC and checks framing,
 lineage, raw Arrow values/exact bits and dynamic Protobuf context. Foreign revision refuses;
 Proto3 default zero and field presence are checked separately. Current `simulation_samples`
-scientific usability is explicitly **Unknown**: readable original evidence and accepted numerical
-execution do not create the missing trajectory-use grant. A owns that producer/permission gap;
-L02's full scientific-use journey remains open.
+scientific usability was initially **Unknown**. A's original whole-member owner now supplies the
+native grant and protected recorded decision with exact source/attempt/coordinate correspondence.
+Main's 23-control selected receive includes this updated actual journey: complete original rows
+are usable, one-row/inspection selections remain partial, and decoded completion has no live proof.
+Foreign source/physical/preparation/profile/member/run and output/quantity/unit/time controls
+withhold correspondence. This closes the selected original whole-member use gap; point/derivative
+authority, other families and L02's wider failure/assembled population remain open.
 
 D corrected the unrelated full-curvature estimate used for selected affine proof and repeated
 retention charging of actual shared source/snapshot owners. All distinct support-copy and

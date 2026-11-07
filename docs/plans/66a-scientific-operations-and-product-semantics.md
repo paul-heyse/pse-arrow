@@ -22,8 +22,8 @@ Core3.4, heuristics1.0, process-simulator1.5 and test-assessment1.2 apply.
 [`Completion`](../../crates/pse-runtime/src/workflow/completion.rs), dimensional admission,
 authored scientific applicability and exact task/step/point observation. These are prerequisites,
 not new implementation packages. `ProductScope::governing` deliberately refuses a point with
-a member binding; it does not implement permission for every experiment/member. Closing that
-consumer gap and extending actual scientific contracts are the changes here.
+a member binding; that baseline did not implement whole original-member permission. The bounded
+fit and standalone deliveries below extend it; remaining point/product and consumer gaps stay open.
 
 ## Design and consuming behavior
 
@@ -122,8 +122,10 @@ records this bounded contract and the next standalone/protected consumer. Native
 pse-runtime --lib --features solver-diffsol,solver-ipopt,solver-highs,native-study-tests,engineering-service`
 selected fitting, snapshot and actual durable-attempt controls passed 9/9 in the owning checkout, zero failures/build
 warnings, complete capture/settlement (`01a1b349-a547-73c7-b3f3-ef7fbc39728b`); touched all-target
-compilation passed under the same explicit solver/service fixture closure. Integrated receiving
-of this member extension remains separate from the earlier 70-control main population.
+compilation passed under the same explicit solver/service fixture closure. Main subsequently
+received the selected native-member, protected-reader, cache-release, prerequisite and FeedFlash
+population: 23/23, zero failures/build warnings, complete capture/settlement
+(`01a1b371-1d64-75fe-b5f8-29f8588360d3`). This population is separate from the earlier 70 controls.
 
 A whole-member scope can qualify an original trajectory separately from fit optimality;
 a sampled point needs its own retained native coordinate authority. Original physical
@@ -136,15 +138,25 @@ contract is an authored solve with SolveSettings; that request correctly refused
 `SimulationOperation` executes the original fixture and retains its physical controls. Preserve
 these distinct operation owners rather than infer a need for universal dispatch from that caller
 mistake. A01 assesses useful discovery/selection improvements against real consumers. The readable
-`simulation_samples` still retain Unknown usability until the actual trajectory-product owner
-supplies its governing grant; native numerical acceptance alone does not issue that permission.
+The standalone native trajectory now consumes the same member owner, retaining its original
+immutable snapshot, completion, inputs and actual attempt. `qualified_report(&RunResult)` checks
+the real producer/snapshot correspondence. The protected
+[`trajectory reader`](../../crates/pse-runtime/src/workflow/connected_results/trajectory_permission.rs)
+interprets the recorded decision from the same protected completion and `scientific_contexts`;
+it checks original run/attempt/member/source/physical/preparation/profile plus output/quantity/unit
+and exact sample-time correspondence. It shares existing protected metadata/decoder ownership,
+uses generated column references and keeps projected permission roots complete. Full original
+coverage is usable, selected subsets partial and missing/foreign/ambiguous facts unknown.
+Decoded observations retain no native proof. This does not restore providers, inputs or a point
+certificate from historical bytes. The actual aqueous protected/IPC journey passes after producer
+drop, with independent raw wire interpretation and native-coordinate mismatch controls.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment and native fit-member permission are integrated with actual attempt/source/report custody, terminal-cause continuation and borrowed-profile repairs. Standalone native custody and its protected reader are in implementation. Complete remaining point/product authority, steady partial-buffer producer and authentic historical adoption gaps; broader A02 and integrated receiving remain open. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment, fit/standalone native-member permission and selected protected trajectory interpretation are integrated and received on main with exact custody/coordinate controls. Complete remaining point/product authority, wider member consumers, steady partial-buffer producer and authentic historical adoption gaps; the selected 23-control pass does not close broader A02. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
@@ -170,8 +182,10 @@ Independent follow-up found no residual material defects in those two repairs. M
 includes the combined generated world. Its selected fitting/service/result/reader receiving,
 also selecting `product-reader` and the product binary/public-reader targets, passed 70/70 with
 zero failures/build warnings, complete capture/settlement and no pending native lifetime.
-This receives the selected controls, not every A02 consumer or the new member-permission candidate.
+That original population did not include the member extension; the subsequent 23-control main
+receive above includes its selected producers, protected reader and lifetime controls. Neither
+population receives every A02 consumer.
 
-**Outcome:** implementation is active with the bounded assessment delivery above. Shared operation
-selection, native member/trajectory use, remaining physical contracts and full consumer population
-remain open. No full A or Plan66 qualification is claimed.
+**Outcome:** implementation is active with the bounded assessment/member/trajectory deliveries
+above. Shared operation discovery, remaining point/product and physical contracts, wider member
+consumers and authentic historical adoption remain open. No full A or Plan66 qualification is claimed.

@@ -313,6 +313,24 @@ original developer reports with exact member attribution and recorded settlement
 was refused with exit2 and native structured diagnostics without blocking. Actual canonical
 cancellation/drain, independent-client departure and the wider C05 population remain open.
 
+Selected retained-result receiving also exposed two distinct lifetime boundaries. Escaped
+`SnapshotAllocator` values legitimately retain the original `Pressure`/pool with a weak math-service
+reference. Optional projection caches must nevertheless end with the final `MathService` owner:
+[`MathService::drop`](../../crates/pse-runtime/src/math/artifacts.rs) now calls the existing cache
+fence/clear only. It introduces no native shutdown, cancellation or join in `Drop`. Escaped checked
+buffers keep their own leases, and the escaped allocator still reserves after service death.
+The revealing control verifies both obligations independently of RSS.
+
+Separately, [`Published::receive`](../../crates/pse-runtime/src/math/jobs.rs) returns the delivered
+value before its publisher next polls original settlement and drops its service owner. The actual
+trajectory release control now joins existing `shutdown_native_lanes()` before asserting final
+service/snapshot death; it keeps the original positive-with-buffer and exact-zero-after-drop
+checks. No sleep, manual cache reset or weakened baseline substitutes for that join. Nine selected
+owner-local controls and all-target compilation pass with zero failures/warnings, and main's
+selected 23-control receive includes both new cache lifetime and actual transport-release controls
+with complete capture/settlement (`01a1b371-1d64-75fe-b5f8-29f8588360d3`). This is the selected
+cache/publisher boundary, not all lifecycle or worker-departure acceptance.
+
 Complete slow/abandoned upload and download, partial progress with terminal stream error,
 deadline-before-admission/after-handoff, observer departure with continued work, lost ACK,
 reconnect, child crash, task panic, listener error and independent native shutdown refusal.

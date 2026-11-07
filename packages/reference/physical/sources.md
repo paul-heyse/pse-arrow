@@ -10,8 +10,11 @@ checks use the sources below independently of regeneration equality.
 The seven SI base dimensions and coherent products follow the
 [BIPM SI definitions](https://www.bipm.org/en/measurement-units) and
 [base-unit table](https://www.bipm.org/en/measurement-units/si-base-units). Currency
-is an optional eighth model axis; this physical package assigns it no unit or
-conversion. The separate fixture-currency package is synthetic test data.
+is an optional eighth model axis. This package's
+[physical declarations](materials/physical.yaml) provide the CEPCI-indexed
+`USD_CE500` and `USD_2018` units and their conversion scales. Typed quantity
+conversion preserves that declared cost-index basis; equipment applicability is a
+separate scientific claim. The fixture-currency package remains synthetic test data.
 
 Temperature coordinates follow [NIST SP 811, Appendix B.8](https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8).
 Kelvin and Celsius increments have equal size; a Celsius point has a 273.15 K

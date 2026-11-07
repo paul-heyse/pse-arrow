@@ -1,6 +1,6 @@
 ---
 title: "Plan66k: Engineering assessments and native views"
-status: planned
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
@@ -110,12 +110,12 @@ useful library. Avoid building plotting/layout machinery merely to avoid a depen
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| K01 | planned | 66l selected methods/callables/consumer and input roles; existing costing/inspection source | Remaining cost/environment/utility/view outcomes, factor provenance and scientific qualification distinctions are concretely selected without recreating delivered arithmetic |
-| K02 | planned | Selected working 66g/66i physical consumer; K01 ordinary coefficients and 66a product slice | Missing equipment/process costing and integrated accounting deliver scoped original contributions, applicability and period/currency semantics through protected reading |
+| K01 | in-progress | 66l selected methods/callables/consumer and input roles; existing costing/inspection source | First ordinary costed-exchanger consumer selects original contributions, unknown area support, exact pressure extrapolation and admitted cost-index units. Remaining assessment/view population stays open without recreating delivered arithmetic. |
+| K02 | in-progress | Selected working 66g/66i physical consumer; K01 ordinary coefficients and 66a product slice | Ordinary exchanger protected read/view/export receiving is in implementation, preserving original applicability and period/currency semantics. Other equipment/process costing and integrated accounting remain open. |
 | K03 | planned | Selected K01 environmental/utility methods and factor closure; required physical products | Selected environmental and utility assessments deliver declared boundary/allocation/time/heat-level interpretation and independent expectations, starting with one contrasting complete case |
 | K04 | planned | Existing protected inspection plus actual K01 table/plot/graph requirements; 66b/66f client slice | Native stream/flowsheet/result and trajectory/uncertainty views preserve source/physical identity, partiality, time and scope without rerun or permission escalation |
 | K05 | planned | Selected K02–K04 native producers and 66e protected/export path | Assessment/view clients and independent readers consume the same original products; typed edits use admitted operations; replaced aggregation/presentation interpretation and fixtures are deleted |
-| K06 | planned | Complete selected consumer journeys and 66l independent expectations | Costed physical and contrasting assessment consumers complete native assessment, exact read, useful native view and independent export acceptance with truthful support and provenance |
+| K06 | in-progress | Complete selected consumer journeys and 66l independent expectations | First ordinary costed-exchanger native assessment/read/view/export control is receiving; no completed K acceptance claim yet. Contrasting and wider selected assessment populations remain open with truthful support and provenance. |
 
 K01 is a bounded scientific-method and actual-view selection, not a reason to defer
 mandatory outcomes indefinitely. Start K02 from the delivered costed exchanger to close
