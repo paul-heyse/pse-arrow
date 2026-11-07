@@ -9,6 +9,7 @@ use crate::{
 use clap::Args;
 use schemars::JsonSchema;
 use serde::Serialize;
+use serde_json::value::RawValue;
 use std::{
     path::Path,
     time::{Duration, Instant},
@@ -34,7 +35,7 @@ pub(super) struct ControlView {
     service_gone: bool,
     /// Original immutable owner result, retaining scientific and resource outcome separation.
     #[schemars(with = "Option<Envelope<serde_json::Value>>")]
-    result: Option<Envelope<Box<serde_json::value::RawValue>>>,
+    result: Option<Envelope<Box<RawValue>>>,
 }
 pub(super) fn dispatch(
     args: Selection,
@@ -54,6 +55,45 @@ pub(super) fn dispatch(
         .ok_or_else(|| {
             HostError::Ownership("control deadline exceeds supported monotonic horizon".into())
         })?;
+
+    let directory = store.directory(&id)?;
+    if directory.evidence_bytes(crate::invocation::InvocationEvidence::Launch)?.is_none()
+        && let Some(result) = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?
+        && crate::test_workflow::execute::Action::from_command(&result.command).is_some()
+        && serde_json::from_str::<crate::managed::result::ManagedSummary>(result.payload.get())
+            .is_ok_and(|summary| summary.borrowed_reservation)
+    {
+        if cancel {
+            return Err(HostError::Ownership("a borrowed foreground invocation cannot stop its enclosing workload".into()));
+        }
+        let runtime_base = crate::paths::HostPaths::new(&environment).runtime()?;
+        let released = runtime()?.block_on(async {
+            tokio::time::timeout_at(
+                deadline.into(),
+                crate::managed::workflow::borrowed::reconcile_one(&store, &directory, &runtime_base),
+            ).await
+        }).map_err(|_| HostError::Deadline("borrowed workflow release observation".into()))??;
+        let mut response = Envelope::response(
+            "wait",
+            if released { "original enclosing workload drained and executable release reconciled" }
+            else { "original enclosing workload remains live and executable release is pending" },
+            ControlView {
+                original_invocation: id,
+                service: None,
+                service_gone: false,
+                result: Some(result),
+            },
+        );
+        response.observation.scope = "original_borrowed_foreground_workload_and_retained_result".into();
+        if released {
+            project_terminal_owner(&mut response, false);
+        } else {
+            response.settlement = envelope::Settlement::Unknown;
+            response.subject_state = envelope::SubjectState::Unknown;
+            response.observation.required = false;
+        }
+        return Ok(output.emit(response)?);
+    }
 
     let (observed, interrupted) = runtime()?.block_on(async {
         let mut original = supervisor::recorded(&root, &id, &environment).await?;
@@ -88,7 +128,6 @@ pub(super) fn dispatch(
             && let Err(error) = crate::managed::workflow::release_reconciled_images(
                 &store,
                 &response.payload.original_invocation,
-                original,
             )
         {
             response.observation.limitations.push(format!(
@@ -100,7 +139,7 @@ pub(super) fn dispatch(
     // This observer executed no protected image and delegated no descendants. The original
     // performing invocation retains its own independent resources and generation claims.
 
-    let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&id)?;
+    let result = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?;
     let command = if cancel { "cancel" } else { "wait" };
     let mut response = Envelope::response(
         command,
@@ -180,7 +219,7 @@ pub(super) fn settled_response(
         RecordedObservation::Observed { service } => (Some(service), false),
         RecordedObservation::Gone => (None, true),
     };
-    let result = store.result::<serde::de::IgnoredAny, Box<serde_json::value::RawValue>>(&id)?;
+    let result = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?;
     let mut response = Envelope::response(
         command,
         summary,

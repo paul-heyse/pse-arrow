@@ -1352,6 +1352,13 @@ fn launch_managed_finalize(
             Path::new(program),
             &command[1..],
         )?;
+        let required = crate::test_workflow::execute::Action::from_command(verb).is_some();
+        let release_route = if required {
+            let base = crate::paths::HostPaths::new(&environment).base(crate::paths::UserDirectory::State)?;
+            Some(crate::managed::workflow::borrowed::Route::new(&root, &base))
+        } else {
+            None
+        };
         let mut report = runtime.block_on(crate::foreground::run_captured(
             crate::foreground::ForegroundRequest {
                 command,
@@ -1366,6 +1373,7 @@ fn launch_managed_finalize(
             directory.clone(),
             observer,
             Duration::from_secs(5),
+            release_route,
         ));
         let child_exit = report.child.as_ref().map(|status| {
             use std::os::unix::process::ExitStatusExt as _;
@@ -1373,7 +1381,6 @@ fn launch_managed_finalize(
                 .code()
                 .unwrap_or_else(|| 128 + status.signal().unwrap_or(0))
         });
-        let required = crate::test_workflow::execute::Action::from_command(verb).is_some();
         let validation = runtime.block_on(crate::managed::workflow::finish_capture(
             directory.clone(),
             &mut report.capture,

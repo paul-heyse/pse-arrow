@@ -4,7 +4,7 @@
 use super::{payload::PayloadCommand, supervisor};
 use crate::{
     HostError, HostManager,
-    envelope::CliInvocationId,
+    envelope::{CliInvocationId, Completeness, Envelope, Settlement},
     generation::{HostTool, PreparedGeneration},
     invocation::{InvocationDirectory, InvocationEvidence},
     stream_records::{Frame, RecordFramer},
@@ -25,6 +25,8 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+pub(crate) mod borrowed;
 
 /// The original fixed helper or its required transport failed.
 #[derive(Debug, thiserror::Error)]
@@ -71,8 +73,6 @@ pub(crate) fn release_foreground_images(
     directory: &InvocationDirectory,
     terminal: &super::result::TerminalResult<super::result::ManagedSummary>,
 ) -> Result<(), HostError> {
-    use crate::envelope::Settlement;
-
     let result = terminal.response();
     let Some(workflow) = &result.payload.workflow else {
         return Ok(());
@@ -87,30 +87,46 @@ pub(crate) fn release_foreground_images(
     release_original_images(store, directory, workflow.terminal.action)
 }
 
-/// The original invocation control calls this after separately reconciling the detached
-/// service and capacity. The performing owner's paired records remain immutable.
+/// After the finalizer or recorded control proves native worker drain, authenticate
+/// original completion independently. The paired records remain immutable.
+pub(crate) fn release_detached_images(
+    store: &crate::invocation::InvocationStore,
+    directory: &InvocationDirectory,
+    result: &Envelope<super::result::ManagedSummary>,
+) -> Result<bool, HostError> {
+    let Some(workflow) = &result.payload.workflow else {
+        return Ok(false);
+    };
+    if &result.invocation_id != directory.id()
+        || result.settlement != Settlement::Unknown
+        || result.payload.native_lifetime_pending != Some(true)
+        || result.payload.borrowed_reservation
+        || !complete_capture(result)
+        || !workflow.terminal.required_capture_complete
+    {
+        return Ok(false);
+    }
+    release_original_images(store, directory, workflow.terminal.action)?;
+    Ok(true)
+}
+
 pub(crate) fn release_reconciled_images(
     store: &crate::invocation::InvocationStore,
     id: &CliInvocationId,
-    result: &crate::envelope::Envelope<Box<RawValue>>,
 ) -> Result<(), HostError> {
-    if result.invocation_id != *id || result.settlement != crate::envelope::Settlement::Unknown {
-        return Ok(());
-    }
-    let summary: super::result::ManagedSummary =
-        serde_json::from_str(result.payload.get()).map_err(host)?;
-    let Some(workflow) = summary.workflow else {
-        return Ok(());
-    };
-    if summary.native_lifetime_pending != Some(true)
-        || summary.borrowed_reservation
-        || !workflow.terminal.required_capture_complete
-    {
-        return Ok(());
-    }
     let directory = store.directory(id)?;
-    directory.require_paired_settlement()?;
-    release_original_images(store, &directory, workflow.terminal.action)
+    if let Some(result) = store.result::<serde::de::IgnoredAny, super::result::ManagedSummary>(id)? {
+        release_detached_images(store, &directory, &result)?;
+    }
+    Ok(())
+}
+
+fn complete_capture(result: &Envelope<super::result::ManagedSummary>) -> bool {
+    result.payload.child_exit.is_some()
+        && result.observation.completeness == Completeness::Complete
+        && [&result.payload.stdout, &result.payload.stderr]
+            .into_iter()
+            .all(|stream| stream.as_ref().is_some_and(|stream| stream.complete && !stream.io_unresolved))
 }
 
 fn release_original_images(
@@ -118,16 +134,18 @@ fn release_original_images(
     directory: &InvocationDirectory,
     action: Action,
 ) -> Result<(), HostError> {
+    directory.require_paired_settlement()?;
+    let maximum = Some(crate::developer_evidence::MAX_INPUT_BYTES);
+    let original = crate::test_inventory::captured_report_at_limit(
+        store,
+        directory.id().as_str(),
+        None,
+        maximum,
+    )?;
     let inventory = if action.is_compiler() {
         None
     } else {
-        let maximum = Some(crate::developer_evidence::MAX_INPUT_BYTES);
-        let original = crate::test_inventory::captured_report_at_limit(
-            store,
-            directory.id().as_str(),
-            None,
-            maximum,
-        )?;
+        require_fixture_settlement(&original)?;
         original
             .observation
             .inventory
@@ -136,15 +154,50 @@ fn release_original_images(
             .transpose()?
             .map(|(inventory, _)| inventory)
     };
-    release_images(directory.path(), action, inventory.as_ref())
+    let fixture_settled = if action == Action::Test {
+        #[derive(Deserialize)]
+        struct FixtureRequirements {
+            fixture_requirements: Vec<crate::fixtures::Requirement>,
+        }
+        let requirements: FixtureRequirements = serde_json::from_slice(&original.report).map_err(host)?;
+        Some(original.observation.outcome == crate::test_workflow::execute::Outcome::TestsSucceeded
+            || requirements.fixture_requirements.iter().all(|requirement| requirement.ownership() != crate::fixtures::Ownership::TargetOwned))
+    } else {
+        None
+    };
+    release_images(directory.path(), action, inventory.as_ref(), fixture_settled)
+}
+
+fn require_fixture_settlement(original: &crate::test_inventory::CapturedReport) -> Result<(), HostError> {
+    use crate::test_workflow::execute::{EvidenceRole, evidence};
+
+    if original.observation.action != Action::Test {
+        return Ok(());
+    }
+    let files = original.observation.evidence.as_deref().ok_or_else(|| host(invalid(
+        "original test has no fixture settlement evidence account",
+    )))?;
+    let fixtures: Vec<_> = files.iter().filter(|file| file.role == EvidenceRole::FixtureOutcome).cloned().collect();
+    let captured = evidence::capture(&original.parent, &fixtures, 1024 * 1024)?;
+    if captured.len() != fixtures.len() {
+        return Err(host(invalid("original borrowed fixture settlement is unobserved")));
+    }
+    for captured in captured {
+        let outcome: crate::fixtures::CanonicalRunReport = serde_json::from_slice(&captured.original).map_err(host)?;
+        if outcome.version != 1 || outcome.runner_exit.is_none() || !outcome.fixture_settled {
+            return Err(host(invalid("original borrowed fixture did not settle")));
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn release_images(
     invocation: &Path,
     action: Action,
     inventory: Option<&crate::discovery::Inventory>,
+    fixture_settled: Option<bool>,
 ) -> Result<(), HostError> {
-    use rustix::fs::{Mode, OFlags, openat};
+    use rustix::fs::{FlockOperation, Mode, OFlags, flock, openat};
 
     let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
     let open = |parent: &File, name: &str| -> Result<Option<File>, HostError> {
@@ -170,6 +223,13 @@ pub(crate) fn release_images(
     let invocation_root: File = rustix::fs::open(invocation, flags, Mode::empty())
         .map_err(io::Error::from)?
         .into();
+    // All release routes serialize against the same stable directory inode. No
+    // additional lock file survives an otherwise complete invocation release.
+    let metadata = invocation_root.metadata()?;
+    if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
+        return Err(host(invalid("original invocation directory lacks private custody")));
+    }
+    flock(&invocation_root, FlockOperation::NonBlockingLockExclusive).map_err(io::Error::from)?;
     let Some(workflow) = open(&invocation_root, "workflow")? else {
         return Ok(());
     };
@@ -192,10 +252,55 @@ pub(crate) fn release_images(
             let build = open(&group_root, "build")?
                 .ok_or_else(|| host(invalid("original compiler capture directory is absent")))?;
             let build_path = path.join(&group_name).join("build");
-            for (ordinal, artifact) in listed.build.artifacts.iter().enumerate() {
+            release_artifacts(&build, &build_path, &listed.build.artifacts, &open)?;
+        }
+        if let Some(fixture_settled) = fixture_settled
+            && let Some(fixtures) = open(&workflow, "fixtures")?
+        {
+            if !fixture_settled {
+                return Err(host(invalid("target-owned fixture helper release awaits verified settlement")));
+            }
+            let fixtures_path = invocation.join("workflow/fixtures");
+            let release = |name: &str, targets: &[&str]| -> Result<(), HostError> {
+                let Some(build) = open(&fixtures, name)? else { return Ok(()) };
+                let path = fixtures_path.join(name);
+                let receipt = crate::discovery::BuildCapture::read(&path.join("build.json"))?;
+                let opened = build.metadata()?;
+                let selected = path.symlink_metadata()?;
+                if (opened.dev(), opened.ino()) != (selected.dev(), selected.ino())
+                    || receipt.version != 1
+                    || receipt.cargo_exit != 0
+                    || !receipt.incomplete.is_empty()
+                    || receipt.artifacts.is_empty()
+                    || receipt.artifacts.iter().any(|artifact| {
+                        artifact.cargo.profile.test || !targets.contains(&artifact.cargo.target.name.as_str())
+                    })
+                {
+                    return Err(host(invalid("fixture helper capture does not match its original build position")));
+                }
+                release_artifacts(&build, &path, &receipt.artifacts, &open)
+            };
+            release("canonical-tools", &["pse-canonical-service", "pse-canonical-test"])?;
+            release("observation-helper", &["pse-observation-fixture"])?;
+            for group in 0..inventory.groups.len() {
+                release(&format!("worker-{group}"), &["pse-worker"])?;
+                release(&format!("scientific-worker-{group}"), &["pse-scientific-worker"])?;
+            }
+        }
+    }
+    Ok(())
+}
+
+fn release_artifacts(
+    directory: &File,
+    path: &Path,
+    artifacts: &[crate::discovery::capture::BuiltArtifact],
+    open: &impl Fn(&File, &str) -> Result<Option<File>, HostError>,
+) -> Result<(), HostError> {
+    for (ordinal, artifact) in artifacts.iter().enumerate() {
                 let executable = &artifact.executable;
                 let expected = crate::discovery::capture::artifact_path(
-                    &build_path,
+                    path,
                     ordinal,
                     &executable.original,
                 )?;
@@ -204,15 +309,13 @@ pub(crate) fn release_images(
                         "captured test image differs from its compiler position",
                     )));
                 }
-                let member_root = open(&build, &format!("artifact-{ordinal}"))?
+                let member_root = open(directory, &format!("artifact-{ordinal}"))?
                     .ok_or_else(|| host(invalid("original executable directory is absent")))?;
                 crate::discovery::capture::release_executable(
                     &member_root,
                     &expected,
                     Some(executable),
                 )?;
-            }
-        }
     }
     Ok(())
 }
@@ -714,11 +817,16 @@ mod tests {
         fs::write(&nextest, b"mutation").unwrap();
         fs::set_permissions(&nextest, fs::Permissions::from_mode(0o500)).unwrap();
 
-        assert!(release_images(scratch.path(), Action::Test, None).is_err());
+        let competing = File::open(scratch.path()).unwrap();
+        rustix::fs::flock(&competing, rustix::fs::FlockOperation::LockExclusive).unwrap();
+        assert!(matches!(release_images(scratch.path(), Action::Test, None, None),
+            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::WouldBlock));
+        drop(competing);
+        assert!(release_images(scratch.path(), Action::Test, None, None).is_err());
         assert!(nextest.is_file() && association.is_file() && correctness.is_file());
         fs::remove_file(&nextest).unwrap(); // Interruption between image and sidecar unlink.
-        release_images(scratch.path(), Action::Test, None).unwrap();
-        release_images(scratch.path(), Action::Test, None).unwrap();
+        release_images(scratch.path(), Action::Test, None, None).unwrap();
+        release_images(scratch.path(), Action::Test, None, None).unwrap();
         assert!(!association.exists() && !correctness.exists());
         assert_eq!(fs::read(report).unwrap(), b"retained inventory");
     }
@@ -769,6 +877,7 @@ mod tests {
                 },
                 platform: None,
                 filters: crate::selection::Filters::default(),
+                non_incremental: false,
                 ignored: crate::selection::IgnoredPolicy::Default,
             },
             profile: "alpha".into(),
@@ -1043,6 +1152,7 @@ mod tests {
                 },
                 platform: None,
                 filters: Filters::default(),
+                non_incremental: false,
                 ignored: IgnoredPolicy::Default,
             },
             profile: "local".into(),

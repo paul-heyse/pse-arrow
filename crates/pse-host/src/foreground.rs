@@ -3,6 +3,7 @@
 //! Foreground process ownership through private native scopes and an exec gate.
 use crate::admission::{Coordinator, Permit, Selection};
 use crate::managed::streams::{self, ChunkObserver, TeeHandle, TeeReport};
+use crate::managed::workflow::borrowed;
 use crate::{HostError, HostManager, LaunchIntent, OwnedUnit, environment::Environment};
 use command_fds::{CommandFdExt, FdMapping};
 use std::{
@@ -312,6 +313,7 @@ impl<O: ChunkObserver> std::fmt::Debug for CapturedForeground<O> {
 struct OutputCapture<O: ChunkObserver> {
     directory: PathBuf,
     custody: Option<std::sync::Arc<crate::invocation::InvocationDirectory>>,
+    release_route: Option<borrowed::Route>,
     observer: Option<O>,
     write: Duration,
     tee: Option<TeeHandle<tokio::fs::File, tokio::fs::File, O>>,
@@ -327,6 +329,7 @@ impl<O: ChunkObserver> OutputCapture<O> {
         unit: String,
         root: crate::manager::UnitBinding,
         child_pid: u32,
+        runtime: &Path,
     ) -> Result<(), HostError> {
         let Some(directory) = &self.custody else {
             return Ok(());
@@ -340,16 +343,18 @@ impl<O: ChunkObserver> OutputCapture<O> {
                     ));
                 }
             };
-        directory.publish_evidence(
-            crate::invocation::InvocationEvidence::Custody,
-            &ForegroundCustody {
-                version: 4,
-                manager: manager.identity_key(),
-                unit,
-                root,
-                child,
-            },
-        )
+        let custody = ForegroundCustody {
+            version: 4,
+            manager: manager.identity_key(),
+            unit,
+            root,
+            child,
+        };
+        directory.publish_evidence(crate::invocation::InvocationEvidence::Custody, &custody)?;
+        if self.borrowed && let Some(route) = &self.release_route {
+            borrowed::register(runtime, directory, route, &custody)?;
+        }
+        Ok(())
     }
     async fn spawn(&mut self, mut command: Command, startup: Instant) -> Result<Child, HostError> {
         use std::os::unix::fs::OpenOptionsExt as _;
@@ -397,11 +402,13 @@ pub(crate) async fn run_captured<O: ChunkObserver>(
     directory: std::sync::Arc<crate::invocation::InvocationDirectory>,
     observer: O,
     write: Duration,
+    release_route: Option<borrowed::Route>,
 ) -> CapturedForeground<O> {
     let drain = request.drain_timeout;
     let mut state = OutputCapture {
         directory: directory.path().to_owned(),
         custody: Some(directory),
+        release_route,
         observer: Some(observer),
         write,
         tee: None,
@@ -438,6 +445,7 @@ async fn run_owned<O: ChunkObserver>(
     if request.command.is_empty() {
         return Err(HostError::Ownership("empty foreground command".into()));
     }
+    let release_runtime = crate::paths::HostPaths::new(&request.environment).runtime()?;
     let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     let manager = tokio::time::timeout_at(
@@ -509,7 +517,7 @@ async fn run_owned<O: ChunkObserver>(
             let outcome = async {
                 let membership = tokio::time::timeout_at(request.startup_deadline.into(), manager.current_membership())
                     .await.map_err(|_| HostError::Deadline("borrowed foreground entry authentication".into()))??;
-                capture.bind(&manager, membership.root().unit.clone(), membership.root_binding(), child.id().ok_or_else(|| HostError::Ownership("foreground child identity unavailable".into()))?)?;
+                capture.bind(&manager, membership.root().unit.clone(), membership.root_binding(), child.id().ok_or_else(|| HostError::Ownership("foreground child identity unavailable".into()))?, &release_runtime)?;
                 gate_write.write_all(&[1])?;
                 tokio::select! {
                     result = child.wait() => result.map(|exit| { capture.child = Some(exit); status(exit) }).map_err(HostError::from),
@@ -624,6 +632,7 @@ async fn run_owned<O: ChunkObserver>(
     let mut operation_group: Option<OwnedUnit> = None;
     let mut permit: Option<Permit> = None;
     let mut cancellation = None;
+    let mut workload_binding = None;
     let operation = async {
         let caller_fd = pidfd(std::process::id())?;
         let workload_fd = pidfd(child_pid)?;
@@ -676,10 +685,12 @@ async fn run_owned<O: ChunkObserver>(
         }
         if let Some(code) = cancellation { return Ok(code); }
         if child.try_wait()?.is_some() { return Err(HostError::Ownership("gated workload exited before release".into())); }
+        let unit = workload.as_ref().ok_or_else(|| HostError::Ownership("foreground workload missing".into()))?;
+        let binding = unit.binding().await?;
         if let Some(capture) = capture.as_deref_mut() {
-            let unit = workload.as_ref().ok_or_else(|| HostError::Ownership("foreground workload missing".into()))?;
-            capture.bind(&manager, unit.intent().unit().to_owned(), unit.binding().await?, child_pid)?;
+            capture.bind(&manager, unit.intent().unit().to_owned(), binding.clone(), child_pid, &release_runtime)?;
         }
+        workload_binding = Some(binding);
         gate_write.write_all(&[1])?;
         tokio::select! {
             exit = child.wait() => {
@@ -721,6 +732,19 @@ async fn run_owned<O: ChunkObserver>(
             Ok::<(), HostError>(())
         },
     );
+    if workload_drained.is_ok()
+        && let Some(binding) = workload_binding
+        && let Err(error) = borrowed::reconcile_enclosing(
+            &release_runtime,
+            &manager.identity_key(),
+            workload_intent.unit(),
+            &binding,
+            drain_deadline,
+        )
+    {
+        // Private image release is retryable independently of the original command.
+        eprintln!("pse-host: borrowed workflow executable release remains pending: {error}");
+    }
     // Settle independent resources even when a previous settlement failed.
     let killed = match child.try_wait() {
         Ok(None) => child.start_kill().map_err(HostError::from),
@@ -780,6 +804,7 @@ mod tests {
         let mut capture = OutputCapture {
             directory: directory.path().to_owned(),
             custody: None,
+            release_route: None,
             observer: Some(crate::managed::result::GenericObserver),
             write: Duration::from_secs(5),
             tee: None,

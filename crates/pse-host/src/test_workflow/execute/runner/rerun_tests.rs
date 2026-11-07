@@ -383,6 +383,7 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
         destination.parent().unwrap(),
         Action::Test,
         Some(&captured.inventory),
+        None,
     )
     .unwrap();
     assert!(!old_executable.exists());

@@ -22,6 +22,7 @@ use std::{path::PathBuf, sync::Arc, time::Instant};
 use tokio_util::sync::CancellationToken;
 
 const STATE_BASE: &str = "PSE_MANAGED_STATE_BASE_BYTES";
+pub(super) const RUNTIME_BASE: &str = "PSE_MANAGED_RUNTIME_BASE_BYTES";
 pub(super) const CHECKOUT: &str = "PSE_MANAGED_CHECKOUT_BYTES";
 mod leader;
 pub(crate) use leader::{PayloadLeader, current_payload};
@@ -636,7 +637,9 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
         ),
         None => None,
     };
-    let base = HostPaths::new(&command.environment).base(UserDirectory::State)?;
+    let paths = HostPaths::new(&command.environment);
+    let base = paths.base(UserDirectory::State)?;
+    let runtime = paths.runtime()?;
     if !base.is_absolute() {
         return Err(invalid("managed state base must be absolute"));
     }
@@ -671,7 +674,10 @@ pub async fn launch_generic(request: ManagedRequest) -> Result<Launched, HostErr
     arguments.extend(common.clone());
     let mut finalizer_arguments = vec!["__finalize".into()];
     finalizer_arguments.extend(common);
-    let mut environment = vec![format!("{STATE_BASE}={}", request::encode_path(&base))];
+    let mut environment = vec![
+        format!("{STATE_BASE}={}", request::encode_path(&base)),
+        format!("{RUNTIME_BASE}={}", request::encode_path(&runtime)),
+    ];
     if let Ok(address) = std::env::var("DBUS_SESSION_BUS_ADDRESS") {
         environment.push(format!("DBUS_SESSION_BUS_ADDRESS={address}"));
     }

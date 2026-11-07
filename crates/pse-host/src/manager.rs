@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::File,
     io::{self, Read, Seek, SeekFrom},
-    os::unix::fs::MetadataExt,
+    os::unix::{ffi::OsStrExt, fs::MetadataExt},
     path::{Component, Path, PathBuf},
     sync::atomic::{AtomicU64, Ordering},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -893,6 +893,40 @@ impl HostManager {
             ));
         }
         Ok(original.clone())
+    }
+    /// An original stop-post controller can retire its worker's files while it is
+    /// still alive. This proves worker drain only, never whole-service settlement.
+    pub(crate) async fn finalizer_alone(
+        &self,
+        intent: &LaunchIntent,
+        binding: &UnitBinding,
+        process: &ProcessIdentity,
+    ) -> Result<bool, HostError> {
+        self.validate_binding(intent, binding).await?;
+        let group = Group::open(&binding.group, false)?;
+        if (group.device, group.inode) != (binding.device, binding.inode)
+            || process.pid != std::process::id()
+        {
+            return Err(HostError::Ownership(
+                "original finalizer cgroup or process identity differs".into(),
+            ));
+        }
+        if !group.sole_process(process.pid)? {
+            return Ok(false);
+        }
+        let observed = self.authenticate_service_finalizer(intent).await?;
+        if observed.main_pid != 0
+            || observed.invocation != binding.invocation
+            || observed.control_group != binding.group
+            || !matches!(ProcessReader::default().process(process.pid),
+                ProcessRead::Present(actual) if actual.identity == *process)
+        {
+            return Err(HostError::Ownership(
+                "original finalizer changed or service main has not exited".into(),
+            ));
+        }
+        group.require_present()?;
+        group.sole_process(process.pid)
     }
     /// Resolve explicit workload-only placement without starting, configuring or
     /// stopping another unit. Existing target limits are intentionally inherited.
@@ -3565,6 +3599,64 @@ impl Group {
         let mut contents = String::new();
         File::from(fd).read_to_string(&mut contents)?;
         parse_population(&contents)
+    }
+
+    fn sole_process(&self, pid: u32) -> Result<bool, HostError> {
+        use rustix::fs::{Dir, FileType, Mode, OFlags, openat, statat};
+
+        let directory = self
+            .directory
+            .as_ref()
+            .ok_or_else(|| HostError::Ownership("finalizer cgroup descriptor is absent".into()))?;
+        let root_matches = || -> Result<bool, HostError> {
+            let fd = openat(
+                directory,
+                "cgroup.procs",
+                OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )
+            .map_err(io::Error::from)?;
+            let mut contents = String::new();
+            File::from(fd).take(64).read_to_string(&mut contents)?;
+            Ok(contents == format!("{pid}\n"))
+        };
+        if !root_matches()? {
+            return Ok(false);
+        }
+        // Each immediate child's cgroup.events covers its entire subtree. Open
+        // from the original group descriptor and refuse uncertainty or excess.
+        for (index, entry) in Dir::read_from(directory).map_err(io::Error::from)?.enumerate() {
+            if index >= 4096 {
+                return Err(HostError::Ownership(
+                    "finalizer cgroup population exceeds the observation bound".into(),
+                ));
+            }
+            let entry = entry.map_err(io::Error::from)?;
+            let name = entry.file_name();
+            if matches!(name.to_bytes(), b"." | b"..") {
+                continue;
+            }
+            let metadata = statat(directory, name, rustix::fs::AtFlags::SYMLINK_NOFOLLOW)
+                .map_err(io::Error::from)?;
+            if FileType::from_raw_mode(metadata.st_mode) != FileType::Directory {
+                continue;
+            }
+            let fd = openat(
+                directory,
+                name,
+                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC | OFlags::NOFOLLOW,
+                Mode::empty(),
+            )
+            .map_err(io::Error::from)?;
+            let group = Self::from_directory(
+                File::from(fd),
+                self.path.join(std::ffi::OsStr::from_bytes(name.to_bytes())),
+            )?;
+            if !group.empty()? {
+                return Ok(false);
+            }
+        }
+        root_matches()
     }
 }
 #[derive(Debug)]
