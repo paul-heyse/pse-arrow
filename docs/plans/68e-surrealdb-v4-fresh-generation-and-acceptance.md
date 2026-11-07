@@ -152,6 +152,12 @@ the frozen v3 source and receipt, then reselected the same v4 generation.
 The workstation has no default catalog and no active SurrealDB service.
 The historical catalogs and v3 rollback release remain in isolated custody.
 
+[ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md) landed
+on GitHub `main` in `3613af55c`. The merged tree matched the reviewed
+candidate. The workstation `main` checkout has separate local commits
+and active edits. Its default tool selection still matches its v3 source.
+The verified v4 rehearsal release remains ready for the local handoff.
+
 Freeze the admitted v3 selection, close old write admission and verify
 physical settlement, including outstanding readers, native operations and
 independent release failures. Verify the closed-state selection and named
