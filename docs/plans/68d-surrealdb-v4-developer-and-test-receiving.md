@@ -1,6 +1,6 @@
 ---
 title: "Plan68d: Developer and test receiving on SurrealDB v4"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -123,7 +123,50 @@ durability, and physical reuse. O03's current receiving work is D03.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | Planned | Completed 67c/d preparation owner, A exact release tuple | Exact source-built tool and locked gRPC SDK receipt select on v4, with stale and foreign selections refused. |
-| D02 | Planned | D01 and B's usable generated declarations and activation witness | Native fixture exercises sync and rollout parity, named actor and database outcomes, report/refusal distinctions, and actual disposal. |
-| D03 | Planned | Completed Plan67, v3 baseline before cutover, D02 and the scoped v4 evidence route | Current working-report rerun, fresh evidence regeneration, exact native settlement and matched build/retention observations reach E. |
+| D01 | In progress | Completed 67c/d preparation owner, A exact release tuple | Exact source-built tool and locked gRPC SDK receipt select on v4, with stale and foreign selections refused. |
+| D02 | In progress | D01 and B's usable generated declarations and activation witness | Native fixture exercises sync and rollout parity, named actor and database outcomes, report/refusal distinctions, and actual disposal. |
+| D03 | In progress | Completed Plan67, v3 baseline before cutover, D02 and the scoped v4 evidence route | Current working-report rerun, fresh evidence regeneration, exact native settlement and matched build/retention observations reach E. |
 | D04 | Deferred | Named persistent consumer and separate retention decision | Reassess the recorded v4 held-prefix evidence only when the owner and lifetime justify persistent history. |
+
+## Private candidate checkpoint — November 7
+
+**Tested, standalone tool.** The native `pse diagnostic-tools install
+surrealkit` built the exact RC.1 source with the locked remote gRPC closure
+in a private tool root. The build reported zero errors and warnings against
+the zero target. `verify` accepted its upstream and patched lock identities,
+repeat installation reused the same executable, and stale and foreign
+selections were refused. The live suite remains gated by the 68a server.
+
+**Implemented, D02 fixture.** The selected suite has separate authored setup
+and seed failures and interruption controls. The force-validated native
+`pse check pse-operations:native_service --target-kind test -F
+pse-operations/native-service` completed with zero failures. A live B
+definition witness requires the canonical maintenance owner and Study
+extension. The suite's logical test database supplies its own sync and
+rollout parity observations. The assembled receiving run still needs the
+B witness on its canonical catalog.
+
+**Tested, v3 baseline.** The scoped native `scripts/pse test pse-host --lib`
+selection `rerun_controlled_failure_probe` produced one intentional failure.
+The original report was inspected and exported using `pse inspect
+developer-evidence --scope report`. The exact `pse test --rerun-failed`
+selection ran under a new invocation and finished with zero failures against
+the zero target. Both invocations settled completely.
+
+**Interface-checked.** Matched `pse inspect dependency-units arrow-array xtask
+--all-targets -F xtask/evidence-tools,xtask/host-contracts` runs examined 810
+units on main and 844 on the v4 candidate. Each had one force-validated
+`arrow-array` unit. Matched cache and allocation observations remain open.
+
+**Implemented.** The scoped evidence fixture can consume an explicitly
+exported original report selected with `PSE_PLAN68_ORIGINAL_REPORT` and the
+existing `host-contracts` feature. The projection includes the original
+invocation outcome, exact digest and provenance. Coverage stays partial
+because individual test rows and dependency observations are omitted. The
+live import, readback and finite-query parity require the private v4 server.
+
+**Tested, offline projection.** With the actual v3 original report selected,
+`pse test xtask --lib -F xtask/evidence-tools,xtask/host-contracts --ignored
+only -E 'test(=development::evidence::tests::evidence_project_original_failed_report)'`
+passed one test with zero failures against the zero target and complete
+settlement.
