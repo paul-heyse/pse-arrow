@@ -64,11 +64,12 @@ the corresponding integration lands.
 
 The maintainer selected structural prevention, SurrealKit for database contracts, and
 consolidation of the three frozen worktrees. On November 7 the maintainer chose to delete
-historical incident results, including cited results, and regenerate evidence for future use.
+prior ledgers directly, including cited results, without migration or required regeneration.
 Use read-only footprint evidence to verify growth reduction. Keep normal checkout-local
-Cargo targets and the managed 100 GiB compiler cache. Prior citations identify what to exercise
-again. While a working report is still available, failed rerun resolves its exact failed
-identity against the current admitted inventory and produces a new result.
+Cargo targets and the managed 100 GiB compiler cache. Prior citations can identify a new
+selection when a current decision needs evidence. While a working report is still available,
+failed rerun resolves its exact failed identity against the current admitted inventory and
+produces a new result.
 
 Keep published-data release owner-issued under ADR-0168 and ADR-0234. The incident uses
 ordinary Git retirement and existing owners. E evaluates the deferred R-56 boundary for a
@@ -101,7 +102,7 @@ reclamation have separate evidence.
 | 1. Checkout removal and orphan GC | A performs the bounded consolidation. E plans explicit state identity and retirement and assesses R-56. |
 | 2. Stop copying binaries | B releases working captures at settlement. |
 | 3. Retention eligibility and collection | E uses explicit release and class budgets. Automatic published collection stays behind a separate decision. |
-| 4. Pin cited evidence | The maintainer releases incident citations as holds. Regenerate evidence from the named case or campaign. |
+| 4. Pin cited evidence | Prior ledger citations carry no hold. Run the named case or campaign when a current decision needs evidence. |
 | 5. Release plan stores | E ties release to closeout and native ownership. |
 | 6. Route and clean scratch | E releases owned session scratch after promotion and actual settlement. |
 | 7. Bound tool and native generations | E separates useful warm state, selected generations, rollback, legacy import and retired intermediates. |

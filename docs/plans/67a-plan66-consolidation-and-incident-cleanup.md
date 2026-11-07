@@ -196,3 +196,14 @@ three worktrees and the prior image and export releases. Filesystem availability
 **Interface-checked.** Ten incident test/check records have incomplete settlement and six lack a terminal record.
 They remain with their native owners. The fixed window has zero complete test/check trees
 remaining. Separate preparation and generic run records retain their own operating purposes.
+
+**Measured.** The maintainer subsequently directed direct deletion of prior ledgers without
+migration or regeneration. The selected repository's ledgers created before 03:20 Eastern
+on November 7 were rechecked by original checkout, repository and directory identity, backing
+mount, active unit and job inventory, and process references. The release removed 436 trees
+across seven checkout state roots and 146,203,639,808 allocated bytes. It also removed prior
+records with incomplete or unavailable terminal evidence under this explicit disposition.
+All selected paths were absent at readback. The 34 working records for this implementation
+were outside the release selection. Filesystem availability measured independently was
+916,193,566,720 bytes after release. The incident evidence directory has the compact release
+receipt. This one-time action does not change the target ownership and settlement behavior.
