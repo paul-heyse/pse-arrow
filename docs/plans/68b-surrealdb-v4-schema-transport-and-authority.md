@@ -284,10 +284,16 @@ schema/codec identifiers and the archived v3 declaration bytes still
 identify the original contracts. The exact v4 gRPC server committed each
 replay into a disposable catalog. The complete recovery test also checks
 checkpoint settlement, restart and activation.
+The v4 checkpoint uses named `MIGRATE EXISTING ROWS` clauses to add the
+required version, epoch and closed admission fields to the existing marker.
+The epoch comes from the validated original migration request. The three
+literal conversions and a marker update passed in one transaction on the
+exact endpoint.
 [Catalog information](https://surrealdb.com/docs/reference/query-language/statements/info) ·
 [Transaction isolation](https://surrealdb.com/docs/reference/query-language/statements/begin#isolation-level) ·
 [Transactional index definitions](https://surrealdb.com/docs/reference/query-language/statements/define/indexes#defining-an-index-inside-a-transaction) ·
-[Reserved local variables and extension syntax](https://surrealdb.com/docs/build/migrating/from-old-surrealdb-versions/3x-to-4x#parameters-that-surrealdb-binds-itself-are-protected)
+[Reserved local variables and extension syntax](https://surrealdb.com/docs/build/migrating/from-old-surrealdb-versions/3x-to-4x#parameters-that-surrealdb-binds-itself-are-protected) ·
+[Named field migration](https://surrealdb.com/docs/reference/query-language/statements/define/field#migrating-existing-records)
 
 The targeted wire, value, API comparator and generator tests passed.
 The native operations compile check included the service and maintenance

@@ -15,7 +15,7 @@ use std::{
     future::Future,
     sync::{Arc, OnceLock},
 };
-use surrealdb_types::{Decimal, Number, Object, SurrealValue, Value};
+use surrealdb_types::{Decimal, Number, Object, SurrealValue, ToSql, Value};
 
 /// Pinned v4 replay declaration for a pre-epoch disposable database.
 pub const PRE_EPOCH_DECLARATION: &str = include_str!("migrations/substrate-v10-pre-epoch.surql");
@@ -1075,15 +1075,38 @@ fn verify_frozen_declarations() -> Result<(), CanonicalError> {
 fn migration_declarations(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
     verify_frozen_declarations()?;
-    Ok(overwrite_declarations(
-        if request.target_version == V2_VERSION {
-            SCHEMA_V2_DECLARATION
-        } else if request.target_version == V3_VERSION {
-            SCHEMA_V3_DECLARATION
-        } else {
-            wire::SCHEMA
-        },
-    ))
+    Ok(match request.target_version {
+        V2_VERSION => v2_declarations(request),
+        V3_VERSION => overwrite_declarations(SCHEMA_V3_DECLARATION),
+        _ => overwrite_declarations(wire::SCHEMA),
+    })
+}
+
+fn v2_declarations(request: &SchemaMigrationRequest) -> String {
+    let declarations = overwrite_declarations(SCHEMA_V2_DECLARATION);
+    if !request.predecessor.legacy() {
+        return declarations;
+    }
+    // Level-4 catalogs require an explicit value for each required field added
+    // to an existing row. The epoch belongs to the validated original request.
+    let epoch = Value::String(request.successor_epoch.clone()).to_sql();
+    declarations
+        .split_inclusive('\n')
+        .map(|line| {
+            let field = line
+                .strip_prefix("DEFINE FIELD OVERWRITE ")
+                .and_then(|line| line.split_once(" ON canonical_interpretations "))
+                .map(|(name, _)| name);
+            let (name, value) = match field {
+                Some("schema_version") => ("pse_v2_schema_version", "2dec"),
+                Some("schema_epoch") => ("pse_v2_schema_epoch", epoch.as_str()),
+                Some("admission_open") => ("pse_v2_admission_closed", "false"),
+                _ => return line.to_owned(),
+            };
+            let definition = line.trim_end().trim_end_matches(';');
+            format!("{definition} MIGRATE EXISTING ROWS AS {name} USING {value};\n")
+        })
+        .collect()
 }
 fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
     request.validate()?;
@@ -1093,7 +1116,7 @@ fn v2_checkpoint_body(request: &SchemaMigrationRequest) -> Result<String, Canoni
     }
     Ok(format!(
         "{APPLY_PREDECESSOR}\n{}\n{PUBLISH_V2_CHECKPOINT}",
-        overwrite_declarations(SCHEMA_V2_DECLARATION)
+        v2_declarations(request)
     ))
 }
 fn final_application_body(request: &SchemaMigrationRequest) -> Result<String, CanonicalError> {
@@ -1623,7 +1646,13 @@ mod tests {
         let migration = request(&legacy_marker());
         let first = v2_checkpoint_body(&migration).unwrap();
         assert!(first.starts_with(APPLY_PREDECESSOR));
-        assert!(first.contains(&overwrite_declarations(SCHEMA_V2_DECLARATION)));
+        assert!(first.contains(&v2_declarations(&migration)));
+        assert!(first.contains("MIGRATE EXISTING ROWS AS pse_v2_schema_version USING 2dec;"));
+        assert!(first.contains(&format!(
+            "MIGRATE EXISTING ROWS AS pse_v2_schema_epoch USING {};",
+            Value::String(migration.successor_epoch.clone()).to_sql()
+        )));
+        assert!(first.contains("MIGRATE EXISTING ROWS AS pse_v2_admission_closed USING false;"));
         assert!(first.ends_with(PUBLISH_V2_CHECKPOINT));
         assert!(PUBLISH_V2_CHECKPOINT.contains("admission_open=false"));
         assert!(!PUBLISH_V2_CHECKPOINT.contains("canonical_maintenance_activations"));
@@ -1781,8 +1810,7 @@ mod tests {
         assert_eq!(bytes(settled.request()).unwrap(), recorded);
         assert!(require_current_target(&decoded).is_err());
         let declarations = migration_declarations(&decoded).unwrap();
-        assert!(declarations.starts_with(&overwrite_declarations(SCHEMA_V2_DECLARATION)));
-        assert_eq!(declarations, overwrite_declarations(SCHEMA_V2_DECLARATION));
+        assert_eq!(declarations, v2_declarations(&decoded));
         let mut retargeted = decoded.clone();
         retargeted.target_version = VERSION;
         retargeted.target_digest = wire::SCHEMA_DIGEST.into();
