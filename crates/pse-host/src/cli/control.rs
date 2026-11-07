@@ -74,14 +74,28 @@ pub(super) fn dispatch(
         }
     })?;
     if let Some(observed) = observed {
-        return Ok(output.emit(settled_response(
+        let mut response = settled_response(
             &store,
             id,
             observed,
             if cancel { "cancel" } else { "wait" },
             "original native service settled; owner evidence inspected separately",
             cancel,
-        )?)?);
+        )?;
+        if response.settlement == envelope::Settlement::Complete
+            && let Some(original) = &response.payload.result
+            && crate::test_workflow::execute::Action::from_command(&original.command).is_some()
+            && let Err(error) = crate::managed::workflow::release_reconciled_images(
+                &store,
+                &response.payload.original_invocation,
+                original,
+            )
+        {
+            response.observation.limitations.push(format!(
+                "settled workflow executable release did not complete: {error}"
+            ));
+        }
+        return Ok(output.emit(response)?);
     }
     // This observer executed no protected image and delegated no descendants. The original
     // performing invocation retains its own independent resources and generation claims.

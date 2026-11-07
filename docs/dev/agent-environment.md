@@ -335,6 +335,10 @@ builds and captures the actual selected population. Test/check/list can use `--d
 test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
 fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
 
+For an owned detached workflow, `wait` releases private test and compiler images once it
+authenticates service drain, capacity settlement and the original paired terminal records.
+The original working report and inventory remain available to the current invocation reader.
+
 Use an original working report while it is available. After cleanup, select the named test
 or campaign from source and run it again under current admission. Record the resulting
 revision, selection and outcome for the decision that requested it. Routine test results

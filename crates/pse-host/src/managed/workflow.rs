@@ -84,7 +84,40 @@ pub(crate) fn release_foreground_images(
     {
         return Ok(());
     }
-    let action = workflow.terminal.action;
+    release_original_images(store, directory, workflow.terminal.action)
+}
+
+/// The original invocation control calls this after separately reconciling the detached
+/// service and capacity. The performing owner's paired records remain immutable.
+pub(crate) fn release_reconciled_images(
+    store: &crate::invocation::InvocationStore,
+    id: &CliInvocationId,
+    result: &crate::envelope::Envelope<Box<RawValue>>,
+) -> Result<(), HostError> {
+    if result.invocation_id != *id || result.settlement != crate::envelope::Settlement::Unknown {
+        return Ok(());
+    }
+    let summary: super::result::ManagedSummary = serde_json::from_str(result.payload.get())
+        .map_err(host)?;
+    let Some(workflow) = summary.workflow else {
+        return Ok(());
+    };
+    if summary.native_lifetime_pending != Some(true)
+        || summary.borrowed_reservation
+        || !workflow.terminal.required_capture_complete
+    {
+        return Ok(());
+    }
+    let directory = store.directory(id)?;
+    directory.require_paired_settlement()?;
+    release_original_images(store, &directory, workflow.terminal.action)
+}
+
+fn release_original_images(
+    store: &crate::invocation::InvocationStore,
+    directory: &InvocationDirectory,
+    action: Action,
+) -> Result<(), HostError> {
     let inventory = if action.is_compiler() {
         None
     } else {

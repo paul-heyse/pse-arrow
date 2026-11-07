@@ -103,8 +103,10 @@ were released. Its selected evidence passed independent descriptor readback. The
 batch retained 6.7 MiB in its inventory directory after image release. It exercised refusal of
 changed bytes, interrupted-release reconciliation, and failed rerun from a fresh inventory
 after old executable disposal. A separate native rerun resolved one real original failure
-against the current build and passed with complete settlement. Detached work and borrowed
-scopes require their own integration.
+against the current build and passed with complete settlement. An explicitly waited detached
+test passed with complete owner settlement and released every private control and compiler
+image. Its original report, inventory and pending-state result remained readable. Unobserved
+detached work and borrowed scopes still need owner integration.
 
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its

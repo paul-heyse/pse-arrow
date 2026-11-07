@@ -739,6 +739,15 @@ impl InvocationDirectory {
     ) -> Result<Option<Vec<u8>>, HostError> {
         self.read_record_bytes(record.filename())
     }
+    pub(crate) fn require_paired_settlement(&self) -> Result<(), HostError> {
+        let settlement = self
+            .evidence_bytes(InvocationEvidence::Settlement)?
+            .ok_or_else(|| invalid("original settlement evidence is absent"))?;
+        if self.read_record_bytes("result.json")?.as_deref() != Some(settlement.as_slice()) {
+            return Err(invalid("original result and settlement evidence differ"));
+        }
+        Ok(())
+    }
     fn read_record_bytes(&self, name: &str) -> Result<Option<Vec<u8>>, HostError> {
         directory(&self.path, false)?;
         let file = match evidence_file(&self.path.join(name)) {
