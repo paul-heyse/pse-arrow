@@ -144,24 +144,111 @@ impl Outcome {
     }
 }
 /// A typed unfulfilled native owner, never an implicit prepare/skip.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Pending {
     /// Actual reached native capabilities could not be selected.
     Native {
         /// Required capabilities from admitted compiler units.
+        #[serde(deserialize_with = "observed_capabilities")]
         capabilities: std::collections::BTreeSet<String>,
     },
     /// Exact selected fixture still requires its original lifecycle owner.
     Fixture(Box<FixturePending>),
 }
 /// Original fixture declaration and its passive readiness form one pending-owner account.
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct FixturePending {
     /// Original applied declaration.
     pub requirement: crate::fixtures::Requirement,
     /// Passive original input-owner account.
     pub readiness: crate::fixtures::Readiness,
+}
+
+/// Finite passive prerequisite projection allowance, not a native preparation limit.
+pub const MAX_PREREQUISITE_FACT_ROWS: usize = 4096;
+
+fn observed_capabilities<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<std::collections::BTreeSet<String>, D::Error> {
+    struct Capabilities;
+    impl<'de> serde::de::Visitor<'de> for Capabilities {
+        type Value = std::collections::BTreeSet<String>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a finite original native capability set")
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut values = std::collections::BTreeSet::new();
+            let mut count = 0usize;
+            while let Some(value) = seq.next_element::<String>()? {
+                if count == MAX_PREREQUISITE_FACT_ROWS {
+                    return Err(serde::de::Error::custom(
+                        "original prerequisite capability limit exceeded",
+                    ));
+                }
+                count += 1;
+                if values.last().is_some_and(|previous| previous >= &value) {
+                    return Err(serde::de::Error::custom(
+                        "original native capabilities must retain their unique source order",
+                    ));
+                }
+                values.insert(value);
+            }
+            Ok(values)
+        }
+    }
+    deserializer.deserialize_seq(Capabilities)
+}
+
+fn observed_pending<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<Pending>>, D::Error> {
+    struct Entries;
+    impl<'de> serde::de::Visitor<'de> for Entries {
+        type Value = Option<Vec<Pending>>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("a finite original pending prerequisite list")
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut values = Vec::new();
+            let mut rows = 0usize;
+            while let Some(value) = seq.next_element::<Pending>()? {
+                let count = match &value {
+                    Pending::Native { capabilities } => capabilities.len().max(1),
+                    Pending::Fixture(fixture) => fixture.readiness.inputs.len().max(1),
+                };
+                rows = rows
+                    .checked_add(count)
+                    .filter(|n| *n <= MAX_PREREQUISITE_FACT_ROWS)
+                    .ok_or_else(|| {
+                        serde::de::Error::custom("original prerequisite entry/row limit exceeded")
+                    })?;
+                values.push(value);
+            }
+            Ok(Some(values))
+        }
+    }
+    // A present null is invalid; only an absent field means unavailable history.
+    deserializer.deserialize_seq(Entries)
+}
+
+/// Read only the source-owned optional prerequisite account. Callers independently
+/// authenticate these original bytes; this constructs no readiness or native verdict.
+pub(crate) fn original_prerequisites(
+    bytes: &[u8],
+) -> Result<Option<Vec<Pending>>, serde_json::Error> {
+    #[derive(Deserialize)]
+    struct Projection {
+        #[serde(default, deserialize_with = "observed_pending")]
+        pending: Option<Vec<Pending>>,
+    }
+    serde_json::from_slice::<Projection>(bytes).map(|projection| projection.pending)
 }
 /// Native phase, with no second process/native-budget owner.
 #[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
@@ -982,6 +1069,40 @@ impl TerminalRecord {
 #[cfg(test)]
 mod observation_tests {
     use super::*;
+
+    #[test]
+    fn original_prerequisite_projection_preserves_absent_empty_and_refuses_invalid_presence() {
+        assert!(original_prerequisites(br#"{}"#).unwrap().is_none());
+        assert!(
+            original_prerequisites(br#"{"pending":[]}"#)
+                .unwrap()
+                .unwrap()
+                .is_empty()
+        );
+        for source in [
+            r#"{"pending":null}"#,
+            r#"{"pending":[],"pending":[]}"#,
+            r#"{"pending":[{"kind":"future-owner"}]}"#,
+            r#"{"pending":[{"kind":"native","capabilities":["compiler","compiler"]}]}"#,
+            r#"{"pending":[{"kind":"native","capabilities":["klu","compiler"]}]}"#,
+        ] {
+            assert!(
+                original_prerequisites(source.as_bytes()).is_err(),
+                "{source}"
+            );
+        }
+        let too_many = serde_json::to_vec(&serde_json::json!({"pending":
+            (0..=MAX_PREREQUISITE_FACT_ROWS).map(|_| serde_json::json!({"kind":"native","capabilities":[]})).collect::<Vec<_>>()
+        })).unwrap();
+        assert!(original_prerequisites(&too_many).is_err());
+        let too_many = serde_json::to_vec(
+            &serde_json::json!({"pending":[{"kind":"native", "capabilities":
+            (0..=MAX_PREREQUISITE_FACT_ROWS).map(|n| format!("native-{n:08}")).collect::<Vec<_>>()
+            }]}),
+        )
+        .unwrap();
+        assert!(original_prerequisites(&too_many).is_err());
+    }
 
     fn current_report() -> Report {
         Report {

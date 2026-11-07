@@ -50,13 +50,25 @@ DataFusion joins/grouping through the existing observer client.
 
 ## Outcome
 
-Declare distinct derived `runtime.developer_invocation_facts` and
-`runtime.developer_diagnostic_causes` relations. Join on exact invocation identity plus original
+Declare distinct derived `runtime.developer_invocation_facts`,
+`runtime.developer_diagnostic_causes` and `runtime.developer_prerequisite_facts` relations.
+Join on exact invocation identity plus original
 report SHA-256. Invocation rows retain original action/outcome, interpretation, nullable selected
 count, required capture coverage and recorded-at-read settlement/pending state. Cause rows
 retain a projection row ordinal, typed diagnostic code/class and the exact original field/ordinal
 pointer; their projection order is not a source clock or causal order. Every answer retains
 supplied-member attribution, including invocations with empty cause populations.
+
+The optional prerequisite projection reads only the existing typed `pending` field from the
+same authenticated original JSON bytes. Missing is unknown; a present empty list is known empty.
+Present null, duplicate fields, unsupported native states and populations exceeding the finite
+projection allowance refuse. Reuse passive `Pending` and fixture input observations without
+deserializing `Report`, private group verdicts, current readiness or native permissions. Native
+capability and fixture-input rows retain exact original pointers, input state and diagnostic code;
+native capability arrays retain the source serializer's unique sorted order rather than
+normalizing a different array and changing its original index attribution.
+Empty capability/input collections retain their original pending entry. No embedded path or
+recorded preparation argv is followed.
 
 The existing host report-adoption owner supplies passive facts after descriptor/interpretation,
 original report/terminal and selected inventory checks. Reuse its generated
@@ -69,7 +81,10 @@ substitute blank identifiers, zero, reader time or current generation.
 Use Arrow 59.3.0 and DataFusion 55.1.0 `MemTable::try_new`,
 `SessionContext::new_with_config_rt`, `register_table` and `sql`. The maintained initial query
 left-joins original causes and groups/orders action/outcome/cause/capture/settlement patterns,
-with explicit original member references. Query selection is finite and maintained; callers
+with explicit original member references. A separate maintained prerequisite query preserves
+known-empty and unknown coverage and groups original pending inputs/capabilities. It does not
+cross-product causes with prerequisites or change the first question. Query selection is finite
+and maintained; callers
 cannot submit arbitrary SQL or discover external tables. Small semantic folds and numerical
 history/comparability policy remain native. No answer grants preparation, rerun, cancellation,
 current physical control, producer authenticity or scientific permission.
@@ -79,7 +94,10 @@ current physical control, producer authenticity or scientific permission.
 The registry declares columns/nullability once and normal generation publishes its artifacts.
 Reuse the existing Arrow projection and observer allocation ownership, retaining leases through
 escaped buffers. A query-local session uses that same pool through
-`RuntimeEnvBuilder::with_memory_pool`, with temporary disk disabled. Input/row/response limits
+`RuntimeEnvBuilder::with_memory_pool`, with temporary disk disabled. Bound new parsed entries
+at their source projection and reserve known live Arrow/string and answer populations before
+construction through those existing owners. These admission accounts are not allocator/RSS
+bounds or a canonical reconstruction guarantee. Input/row/response limits
 bound this observer operation without imposing host workload caps. Release session/tables with
 acquired evidence; add no persistent analytics or verdict cache.
 
@@ -101,7 +119,7 @@ acceptance. This decision precedes that implementation and claims no measured be
 
 ## Pros and cons
 
-Typed tables reuse the query engine without duplicating native meaning. Two explicit schemas
+Typed tables reuse the query engine without duplicating native meaning. Three explicit schemas
 and an observer-only reader route add integration work. Separate developer/scientific inputs
 require explicit caller selection when a review needs both, preserving their actual identities.
 

@@ -362,7 +362,7 @@ pub fn requirements(
 }
 
 /// Observation of one input; none of these states is an execution or disposal grant.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "state", rename_all = "kebab-case")]
 pub enum InputState {
     /// The original preparation owner refused this exact selection; native causes remain
@@ -371,6 +371,7 @@ pub enum InputState {
         /// Typed original cause, for passive presentation only.
         code: Option<String>,
         /// Existing explicit preparation route, where one is available.
+        #[serde(deserialize_with = "original_preparation_arguments")]
         next: Vec<String>,
     },
     /// Original immutable owner successfully reselected its own exact artifact.
@@ -385,6 +386,7 @@ pub enum InputState {
         /// Typed diagnostic identity for callers constructing their envelope.
         code: String,
         /// Exact preparation argv when an existing route is known.
+        #[serde(deserialize_with = "original_preparation_arguments")]
         next: Vec<String>,
     },
     /// A path alone is not sufficient to interpret a capsule, old state or evidence destination.
@@ -395,12 +397,67 @@ pub enum InputState {
 }
 
 /// Passive prerequisite account, retaining the original service ownership distinction.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Readiness {
     /// Owner that must still source-build/start/lend/settle; no live fixture is asserted.
     pub ownership: Ownership,
     /// One observation per authored input, with no implicit preparation.
+    #[serde(deserialize_with = "original_input_states")]
     pub inputs: BTreeMap<Input, InputState>,
+}
+
+fn original_preparation_arguments<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Vec<String>, D::Error> {
+    struct Arguments;
+    impl<'de> serde::de::Visitor<'de> for Arguments {
+        type Value = Vec<String>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("at most 64 passive original preparation arguments")
+        }
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(
+            self,
+            mut seq: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut args = Vec::new();
+            while let Some(argument) = seq.next_element::<String>()? {
+                if args.len() == 64 {
+                    return Err(serde::de::Error::custom(
+                        "original preparation argument limit exceeded",
+                    ));
+                }
+                args.push(argument);
+            }
+            Ok(args)
+        }
+    }
+    deserializer.deserialize_seq(Arguments)
+}
+
+fn original_input_states<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<Input, InputState>, D::Error> {
+    struct Inputs;
+    impl<'de> serde::de::Visitor<'de> for Inputs {
+        type Value = BTreeMap<Input, InputState>;
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            formatter.write_str("unique source-owned original fixture input states")
+        }
+        fn visit_map<A: serde::de::MapAccess<'de>>(
+            self,
+            mut map: A,
+        ) -> Result<Self::Value, A::Error> {
+            let mut inputs = BTreeMap::new();
+            while let Some(input) = map.next_key::<Input>()? {
+                if inputs.contains_key(&input) {
+                    return Err(serde::de::Error::custom("duplicate original fixture input"));
+                }
+                inputs.insert(input, map.next_value::<InputState>()?);
+            }
+            Ok(inputs)
+        }
+    }
+    deserializer.deserialize_map(Inputs)
 }
 
 fn prepare(input: Input) -> Vec<String> {

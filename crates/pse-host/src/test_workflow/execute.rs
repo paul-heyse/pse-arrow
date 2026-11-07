@@ -8,8 +8,9 @@ mod runner;
 pub use evidence::{
     CapturedFile, EvidenceFile, EvidenceOmission, EvidenceRole, EvidenceRoot, EvidenceScope,
 };
+pub(crate) use report::original_prerequisites;
 pub use report::{
-    Action, Bounds, ContentIdentity, FixturePending, Input, Outcome, Pending, Phase, PhaseKind,
-    Report, ReportObservation, ReportReference, TerminalRecord,
+    Action, Bounds, ContentIdentity, FixturePending, Input, MAX_PREREQUISITE_FACT_ROWS, Outcome,
+    Pending, Phase, PhaseKind, Report, ReportObservation, ReportReference, TerminalRecord,
 };
 pub use runner::run;

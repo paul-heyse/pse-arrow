@@ -3,6 +3,8 @@
 //! Typed derived views over host-verified original observations, never native verdicts.
 use super::*;
 use pse_host::{developer_evidence::InvocationFacts, envelope::ErrorRecord};
+mod prerequisites;
+pub use prerequisites::project as prerequisites;
 
 fn name(value: &impl serde::Serialize) -> Result<String, CaptureError> {
     match serde_json::to_value(value).map_err(invalid)? {

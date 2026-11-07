@@ -127,12 +127,48 @@ pub struct Pattern {
     /// Exact paired member and original diagnostic pointer; absence preserves an empty cause.
     pub references: Vec<Reference>,
 }
+/// Original pending-input/capability pattern, independent of the cause question.
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct PrerequisitePattern {
+    /// Original native action and recorded reconciliation.
+    pub action: String,
+    /// Original outcome, never a newly constructed verdict.
+    pub outcome: String,
+    /// Whether the original report actually supplied its pending account.
+    pub pending_known: bool,
+    /// Original pending variant; absent for unknown/known-empty populations.
+    pub prerequisite_kind: Option<String>,
+    /// Literal required native capability, where recorded.
+    pub capability: Option<String>,
+    /// Original fixture declaration identity.
+    pub fixture: Option<String>,
+    /// Original fixture ownership distinction.
+    pub ownership: Option<String>,
+    /// Original source-owned input role.
+    pub input: Option<String>,
+    /// Original passive input state, never current readiness.
+    pub state: Option<String>,
+    /// Original input diagnostic identity, unavailable when not recorded.
+    pub code: Option<String>,
+    /// Original required capture coverage.
+    pub required_capture_complete: bool,
+    /// Distinct original invocations contributing to this literal pattern.
+    pub invocations: u64,
+    /// Exact original pending-entry range; unknown stays null, known empty is zero.
+    pub pending_entries_min: Option<u64>,
+    /// Exact upper bound of the recorded pending-entry population.
+    pub pending_entries_max: Option<u64>,
+    /// Explicit original members.
+    pub members: Vec<u64>,
+    /// Exact paired original member/pending pointer; unknown has no pointer.
+    pub references: Vec<Reference>,
+}
 /// Literal source attribution within the exact committed original report.
 #[derive(Debug, Serialize, schemars::JsonSchema, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Reference {
     /// Explicit supplied member ordinal, resolving through Document.sources.
     pub member: u64,
-    /// Exact original JSON pointer; absent when no supplied /failures entry exists.
+    /// Exact original JSON pointer; absent when the corresponding original fact is unavailable.
     pub pointer: Option<String>,
 }
 /// Answer to the maintained cause/capture/recorded-settlement pattern question.
@@ -146,6 +182,10 @@ pub struct Document {
     pub sources: Vec<Source>,
     /// Ordered generic relational summaries; original native outcomes remain authoritative.
     pub patterns: Vec<Pattern>,
+    /// Independent maintained query over original passive prerequisite accounts.
+    pub prerequisite_query: &'static str,
+    /// Known, known-empty and unavailable original prerequisite patterns.
+    pub prerequisite_patterns: Vec<PrerequisitePattern>,
     /// Unavailable clocks/generations/associations stay unavailable.
     pub limitations: Vec<String>,
 }
@@ -163,6 +203,8 @@ impl Analysis {
 }
 /// Maintained left join preserves empty supplied failure trees and all unknown groups.
 pub const SQL: &str = "SELECT i.action, i.outcome, c.kind AS diagnostic_kind, c.code, c.class, i.required_capture_complete, i.recorded_manager_settlement, i.recorded_native_lifetime_pending, COUNT(DISTINCT i.invocation) AS invocations, MIN(i.selected_tests) AS selected_tests_min, MAX(i.selected_tests) AS selected_tests_max, ARRAY_AGG(DISTINCT i.member) AS members, ARRAY_AGG(DISTINCT named_struct('member', i.member, 'pointer', c.pointer)) AS original_references FROM selected_invocations i LEFT JOIN selected_causes c ON i.invocation = c.invocation AND i.report_sha256 = c.report_sha256 GROUP BY i.action, i.outcome, c.kind, c.code, c.class, i.required_capture_complete, i.recorded_manager_settlement, i.recorded_native_lifetime_pending ORDER BY i.action, i.outcome, c.kind NULLS FIRST, c.code NULLS FIRST, c.class NULLS FIRST, i.required_capture_complete, i.recorded_manager_settlement NULLS FIRST, i.recorded_native_lifetime_pending NULLS FIRST";
+/// A separate join avoids multiplying diagnostic causes by prerequisite inputs.
+pub const PREREQUISITE_SQL: &str = "SELECT i.action, i.outcome, p.pending_known, p.kind AS prerequisite_kind, p.capability, p.fixture, p.ownership, p.input, p.state, p.code, i.required_capture_complete, COUNT(DISTINCT i.invocation) AS invocations, MIN(p.pending_entries) AS pending_entries_min, MAX(p.pending_entries) AS pending_entries_max, ARRAY_AGG(DISTINCT i.member) AS members, ARRAY_AGG(DISTINCT named_struct('member', i.member, 'pointer', p.pointer)) AS original_references FROM selected_invocations i LEFT JOIN selected_prerequisites p ON i.invocation = p.invocation AND i.report_sha256 = p.report_sha256 GROUP BY i.action, i.outcome, p.pending_known, p.kind, p.capability, p.fixture, p.ownership, p.input, p.state, p.code, i.required_capture_complete ORDER BY i.action, i.outcome, p.pending_known, p.kind NULLS FIRST, p.capability NULLS FIRST, p.fixture NULLS FIRST, p.ownership NULLS FIRST, p.input NULLS FIRST, p.state NULLS FIRST, p.code NULLS FIRST, i.required_capture_complete";
 fn invalid(error: impl std::fmt::Display) -> Error {
     Error::Invalid(error.to_string())
 }
@@ -278,9 +320,11 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
     }
     let invocations = tables::invocations(&facts, &pool, cancel)?;
     let causes = tables::causes(&facts, &pool, cancel)?;
+    let prerequisites = tables::prerequisites(&facts, &pool, cancel)?;
     let output_extent = invocations
         .get_array_memory_size()
         .checked_add(causes.get_array_memory_size())
+        .and_then(|n| n.checked_add(prerequisites.get_array_memory_size()))
         .and_then(|n| n.checked_mul(8))
         .and_then(|n| n.checked_add(65536))
         .ok_or_else(|| invalid("developer query response extent overflow"))?;
@@ -296,6 +340,7 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
     for (name, batch) in [
         ("selected_invocations", invocations),
         ("selected_causes", causes),
+        ("selected_prerequisites", prerequisites),
     ] {
         context
             .register_table(
@@ -310,14 +355,20 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
     let query = cancel.until_cancelled(context.sql(SQL)).await??;
     let stream = cancel.until_cancelled(query.execute_stream()).await??;
     let patterns = read_patterns(stream, cancel).await?;
+    let query = cancel
+        .until_cancelled(context.sql(PREREQUISITE_SQL))
+        .await??;
+    let stream = cancel.until_cancelled(query.execute_stream()).await??;
+    let prerequisite_patterns = read_rows(stream, cancel, prerequisite_pattern).await?;
     cancel.checkpoint()?;
     Ok(Analysis { document: Document {
         version: Version, query: SQL, sources, patterns,
+        prerequisite_query: PREREQUISITE_SQL, prerequisite_patterns,
         limitations: vec![
             "This finite query summarizes supplied original observations; portable agreement does not authenticate producers or issue native verdicts or action permission.".into(),
             "These original portable roots do not record producer generation or source-clock coordinates. No duration, causal order or scientific run/attempt association is inferred.".into(),
             "Recorded manager settlement and pending state describe the original recorded-at-read observation, never present physical control or current readiness.".into(),
-            "This query projects the original failures tree. Pending prerequisite declarations and per-group test/compiler outcomes are outside this observation; an empty diagnostic join does not prove that the original report had no other recorded causes.".into(),
+            "The independent prerequisite question reads only the original pending account. Missing is unknown; a present empty list is known empty, not current readiness. Recorded paths/argv are not followed. Per-group private test/compiler outcomes remain outside this observation.".into(),
         ],
     }, _owners: owners })
 }
@@ -326,9 +377,16 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
 // aborts query execution and frees its resources. This is no external/native
 // lifetime settlement claim. Cancellation retains its original CanonError.
 async fn read_patterns(
-    mut stream: SendableRecordBatchStream,
+    stream: SendableRecordBatchStream,
     cancel: &CancellationToken,
 ) -> Result<Vec<Pattern>, Error> {
+    read_rows(stream, cancel, pattern).await
+}
+async fn read_rows<T>(
+    mut stream: SendableRecordBatchStream,
+    cancel: &CancellationToken,
+    decode: impl Fn(&RecordBatch, usize) -> Result<T, Error>,
+) -> Result<Vec<T>, Error> {
     let mut patterns = Vec::new();
     loop {
         cancel.checkpoint()?;
@@ -339,7 +397,7 @@ async fn read_patterns(
         let batch = batch?;
         for row in 0..batch.num_rows() {
             cancel.checkpoint()?;
-            patterns.push(pattern(&batch, row)?);
+            patterns.push(decode(&batch, row)?);
         }
     }
     // An empty batch/EOF can cancel in the same poll that completes the stream.
@@ -371,7 +429,7 @@ fn count(batch: &RecordBatch, name: &str, row: usize) -> Result<Option<u64>, Err
     }
     Err(invalid("developer query count is not an exact integer"))
 }
-fn pattern(batch: &RecordBatch, row: usize) -> Result<Pattern, Error> {
+fn attribution(batch: &RecordBatch, row: usize) -> Result<(Vec<u64>, Vec<Reference>), Error> {
     let values = array::<ListArray>(batch, "members")?.value(row);
     let values = values
         .as_any()
@@ -404,6 +462,10 @@ fn pattern(batch: &RecordBatch, row: usize) -> Result<Pattern, Error> {
         })
         .collect::<Result<Vec<_>, Error>>()?;
     references.sort();
+    Ok((members, references))
+}
+fn pattern(batch: &RecordBatch, row: usize) -> Result<Pattern, Error> {
+    let (members, references) = attribution(batch, row)?;
     let pending = array::<BooleanArray>(batch, "recorded_native_lifetime_pending")?;
     Ok(Pattern {
         action: text(batch, "action", row)?.ok_or_else(|| invalid("missing original action"))?,
@@ -419,6 +481,34 @@ fn pattern(batch: &RecordBatch, row: usize) -> Result<Pattern, Error> {
             .ok_or_else(|| invalid("missing original invocation population"))?,
         selected_tests_min: count(batch, "selected_tests_min", row)?,
         selected_tests_max: count(batch, "selected_tests_max", row)?,
+        members,
+        references,
+    })
+}
+
+fn prerequisite_pattern(batch: &RecordBatch, row: usize) -> Result<PrerequisitePattern, Error> {
+    let (members, references) = attribution(batch, row)?;
+    let known = array::<BooleanArray>(batch, "pending_known")?;
+    if known.is_null(row) {
+        return Err(invalid("original prerequisite coverage is missing"));
+    }
+    Ok(PrerequisitePattern {
+        action: text(batch, "action", row)?.ok_or_else(|| invalid("missing original action"))?,
+        outcome: text(batch, "outcome", row)?.ok_or_else(|| invalid("missing original outcome"))?,
+        pending_known: known.value(row),
+        prerequisite_kind: text(batch, "prerequisite_kind", row)?,
+        capability: text(batch, "capability", row)?,
+        fixture: text(batch, "fixture", row)?,
+        ownership: text(batch, "ownership", row)?,
+        input: text(batch, "input", row)?,
+        state: text(batch, "state", row)?,
+        code: text(batch, "code", row)?,
+        required_capture_complete: array::<BooleanArray>(batch, "required_capture_complete")?
+            .value(row),
+        invocations: count(batch, "invocations", row)?
+            .ok_or_else(|| invalid("missing original invocation population"))?,
+        pending_entries_min: count(batch, "pending_entries_min", row)?,
+        pending_entries_max: count(batch, "pending_entries_max", row)?,
         members,
         references,
     })

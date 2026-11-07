@@ -1695,6 +1695,18 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
+            59u8, 72u8, 207u8, 115u8, 163u8, 149u8, 227u8, 119u8, 217u8, 69u8, 153u8,
+            234u8, 230u8, 88u8, 215u8, 203u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeDeveloperPrerequisiteFacts(
+                super::r#runtime::r#developer_prerequisite_facts::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
             123u8, 164u8, 53u8, 112u8, 101u8, 168u8, 159u8, 56u8, 210u8, 126u8, 153u8,
             68u8, 22u8, 150u8, 161u8, 252u8,
         ])
@@ -2882,6 +2894,9 @@ pub fn encode(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeDeveloperInvocationFacts(
+            rows,
+        ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
+        pse_model::generated::facts::FactBatch::r#RuntimeDeveloperPrerequisiteFacts(
             rows,
         ) => crate::columnar::encode_rows(rows, registry, context, pool, cancel),
         pse_model::generated::facts::FactBatch::r#RuntimeDiagnosticCaptures(rows) => {

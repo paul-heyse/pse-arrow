@@ -195,6 +195,8 @@ pub mod r#developer_diagnostic_causes;
 ///Generated relation contract.
 pub mod r#developer_invocation_facts;
 ///Generated relation contract.
+pub mod r#developer_prerequisite_facts;
+///Generated relation contract.
 pub mod r#diagnostic_captures;
 ///Generated relation contract.
 pub mod r#diagnostic_engine_observations;

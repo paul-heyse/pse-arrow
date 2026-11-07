@@ -222,6 +222,9 @@ pub struct InvocationFacts {
     pub report: ReportObservation,
     /// Acquisition/interpretation scope and recorded-at-read manager observations.
     pub readback: Readback,
+    /// Exact original passive prerequisite account. Missing historical field is
+    /// unknown; a present empty list is known empty, never current readiness.
+    pub prerequisites: Option<Vec<crate::test_workflow::execute::Pending>>,
 }
 
 /// The existing captured-evidence family's maximum binary decode allowances.
@@ -242,7 +245,7 @@ pub fn inspect(
     bytes: &[u8],
     requested: &buffa::DecodeOptions,
 ) -> Result<Readback, EvidenceError> {
-    inspect_facts(descriptors, message, bytes, requested).map(|facts| facts.readback)
+    inspect_original(descriptors, message, bytes, requested).map(|facts| facts.readback)
 }
 
 /// Acquire source-owned passive facts through the original reader's checks.
@@ -253,6 +256,21 @@ pub fn inspect_facts(
     bytes: &[u8],
     requested: &buffa::DecodeOptions,
 ) -> Result<InvocationFacts, EvidenceError> {
+    let verified = inspect_original(descriptors, message, bytes, requested)?;
+    let prerequisites = crate::test_workflow::execute::original_prerequisites(&verified.original)?;
+    Ok(InvocationFacts {
+        report: verified.observation,
+        readback: verified.readback,
+        prerequisites,
+    })
+}
+
+fn inspect_original(
+    descriptors: &buffa_descriptor::generated::descriptor::FileDescriptorSet,
+    message: &str,
+    bytes: &[u8],
+    requested: &buffa::DecodeOptions,
+) -> Result<VerifiedReport, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
     let options = admitted_options(descriptors, bytes.len(), requested)?;
     if message == <pb::CapturedWorkflowReport as buffa::MessageName>::FULL_NAME {
@@ -260,10 +278,7 @@ pub fn inspect_facts(
         if verified.readback.scope == EvidenceScope::Full {
             adopt_inline_members(&mut verified)?;
         }
-        return Ok(InvocationFacts {
-            report: verified.observation,
-            readback: verified.readback,
-        });
+        return Ok(verified);
     }
     inspect_selection(message, bytes, &options)
 }
@@ -317,7 +332,7 @@ fn inspect_selection(
     message: &str,
     bytes: &[u8],
     options: &buffa::DecodeOptions,
-) -> Result<InvocationFacts, EvidenceError> {
+) -> Result<VerifiedReport, EvidenceError> {
     use contracts::pb::pse::developer::evidence::v1 as pb;
     let (
         invocation,
@@ -411,9 +426,11 @@ fn inspect_selection(
         result.selected_tests = Some(expected.len());
         result.selected_population_complete = complete;
     }
-    Ok(InvocationFacts {
-        report: parsed,
+    Ok(VerifiedReport {
+        observation: parsed,
         readback: result,
+        original,
+        files: vec![],
     })
 }
 
@@ -460,6 +477,7 @@ struct VerifiedReport {
     observation: ReportObservation,
     readback: Readback,
     files: Vec<CapturedFile>,
+    original: Vec<u8>,
 }
 
 fn adopt_report(
@@ -506,6 +524,7 @@ fn adopt_report(
         ),
         observation: parsed,
         files,
+        original: wire.report_original,
     })
 }
 
@@ -731,6 +750,7 @@ pub(crate) mod tests {
         assert_eq!(facts.report.failures.len(), 1);
         assert_eq!(facts.report.invocation, facts.readback.invocation);
         assert!(facts.report.selected_tests.is_none());
+        assert!(facts.prerequisites.is_none());
         assert_eq!(
             facts.readback.recorded_manager_settlement,
             Some(crate::envelope::Settlement::NotRequired),
@@ -744,6 +764,82 @@ pub(crate) mod tests {
                 "pse.developer.evidence.v1.CapturedWorkflowReport",
                 &changed.encode_to_vec(),
                 &binary_options(),
+            )
+            .is_err()
+        );
+    }
+
+    fn with_original_pending(
+        mut wire: pb::CapturedWorkflowReport,
+        field: &str,
+    ) -> pb::CapturedWorkflowReport {
+        let mut report = String::from_utf8(wire.report_original).unwrap();
+        assert_eq!(report.pop(), Some('}'));
+        report.push(',');
+        report.push_str(field);
+        report.push('}');
+        let parsed: ReportObservation = serde_json::from_str(&report).unwrap();
+        let terminal = TerminalRecord {
+            protocol: "pse.test-workflow".into(),
+            version: 1,
+            invocation: parsed.invocation.clone(),
+            action: parsed.action,
+            outcome: parsed.outcome,
+            report: ReportReference {
+                path: "report.json".into(),
+                sha256: digest(report.as_bytes()),
+                byte_length: report.len() as u64,
+            },
+            required_capture_complete: parsed.required_capture_complete,
+        };
+        wire.report_original = report.into_bytes();
+        wire.terminal = pse_contract_proto::support::native_into(terminal, "terminal")
+            .unwrap()
+            .into();
+        wire
+    }
+
+    #[test]
+    fn verified_original_prerequisites_are_optional_passive_facts_not_a_decoder_world_change() {
+        let wire = with_original_pending(
+            original(),
+            r#""pending":[{"kind":"native","capabilities":["compiler","klu"]}]"#,
+        );
+        let facts = inspect_facts(
+            &descriptors(),
+            "pse.developer.evidence.v1.CapturedWorkflowReport",
+            &wire.encode_to_vec(),
+            &binary_options(),
+        )
+        .unwrap();
+        assert!(
+            matches!(&facts.prerequisites.as_ref().unwrap()[0], crate::test_workflow::execute::Pending::Native { capabilities } if capabilities.iter().map(String::as_str).collect::<Vec<_>>() == ["compiler", "klu"])
+        );
+        assert_eq!(facts.readback.report_sha256, digest(&wire.report_original));
+        for field in [r#""pending":null"#, r#""pending":[],"pending":[]"#] {
+            let wire = with_original_pending(original(), field);
+            assert!(
+                read(&wire).is_ok(),
+                "the existing original report readback does not adopt additional fields"
+            );
+            assert!(matches!(
+                inspect_facts(
+                    &descriptors(),
+                    "pse.developer.evidence.v1.CapturedWorkflowReport",
+                    &wire.encode_to_vec(),
+                    &binary_options()
+                ),
+                Err(EvidenceError::Json(_))
+            ));
+        }
+        let mut changed = wire;
+        changed.report_original.push(b' ');
+        assert!(
+            inspect_facts(
+                &descriptors(),
+                "pse.developer.evidence.v1.CapturedWorkflowReport",
+                &changed.encode_to_vec(),
+                &binary_options()
             )
             .is_err()
         );

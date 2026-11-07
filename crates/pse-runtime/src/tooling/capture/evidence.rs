@@ -32,7 +32,9 @@ fn schema(name: &str) -> Result<datafusion::arrow::datatypes::SchemaRef, Capture
 }
 fn reserve(pool: &Arc<dyn MemoryPool>, bytes: usize) -> Result<Arc<AllocationLease>, CaptureError> {
     let reservation = MemoryConsumer::new("diagnostic:evidence-view").register(pool);
-    reservation.try_grow(bytes).map_err(invalid)?;
+    reservation
+        .try_grow(bytes)
+        .map_err(pse_columnar::CanonError::from)?;
     Ok(AllocationLease::new(reservation))
 }
 fn publish(

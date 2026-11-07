@@ -18,6 +18,16 @@ fn member(
     complete: bool,
     settled: bool,
 ) -> Member {
+    member_pending(root, selected, failure, complete, settled, None)
+}
+fn member_pending(
+    root: &std::path::Path,
+    selected: Option<usize>,
+    failure: bool,
+    complete: bool,
+    settled: bool,
+    pending: Option<&str>,
+) -> Member {
     let id = CliInvocationId::new();
     let failures = if failure {
         let mut error = ErrorRecord::from_host(
@@ -42,7 +52,13 @@ fn member(
         inventory_content: None,
         evidence: None,
     };
-    let bytes = serde_json::to_vec(&report).unwrap();
+    let mut bytes = serde_json::to_vec(&report).unwrap();
+    if let Some(pending) = pending {
+        assert_eq!(bytes.pop(), Some(b'}'));
+        bytes.extend_from_slice(b",\"pending\":");
+        bytes.extend_from_slice(pending.as_bytes());
+        bytes.push(b'}');
+    }
     let identity = ContentIdentity::of(&bytes);
     let terminal = TerminalRecord {
         protocol: "pse.test-workflow".into(),
@@ -83,6 +99,355 @@ fn request(members: Vec<Member>) -> Request {
         members,
         memory_bytes: NonZeroUsize::new(64 << 20).unwrap(),
     }
+}
+
+const ORIGINAL_PENDING: &str = r#"[
+ {"kind":"native","capabilities":["compiler","klu"]},
+ {"kind":"native","capabilities":[]},
+ {"kind":"fixture","requirement":{"group":2,"unit":{"package_id":"original-package","package_name":"example","target_name":"original","target_kinds":["lib"],"source_path":"/original/lib.rs","features":[],"platform":null,"mode":"test","root":true},"declaration":{"id":"selected-original","target":"original","kind":"lib","ownership":"target-owned","scope":{"tests":["selected_case"]},"inputs":["study-module","server","worker","engineering-endpoint","scientific-inputs"]}},"readiness":{"ownership":"target-owned","inputs":{
+  "study-module":{"state":"unprepared","code":"original.study-module.unprepared","next":["scripts/pse","fixture","prepare","study-module"]},
+  "server":{"state":"selected","path":"/must-not-follow/original-server","identity":"original-owner"},
+  "worker":{"state":"refused","code":"original.worker.refused","next":[]},
+  "scientific-inputs":{"state":"refused","code":null,"next":[]},
+  "engineering-endpoint":{"state":"owner-admission-required","path":"/must-not-follow/endpoint"}
+ }}},
+ {"kind":"fixture","requirement":{"group":3,"unit":{"package_id":"original-package","package_name":"example","target_name":"original","target_kinds":["lib"],"source_path":"/original/lib.rs","features":[],"platform":null,"mode":"test","root":true},"declaration":{"id":"empty-original-inputs","target":"original","kind":"lib","ownership":"preparation-only","scope":{"tests":["selected_case"]},"inputs":[]}},"readiness":{"ownership":"preparation-only","inputs":{}}}
+]"#;
+
+#[tokio::test]
+async fn original_pending_query_preserves_unknown_empty_and_each_recorded_input_without_cause_product()
+ {
+    let root = tempfile::tempdir().unwrap();
+    let original = member_pending(
+        root.path(),
+        Some(0),
+        true,
+        false,
+        false,
+        Some(ORIGINAL_PENDING),
+    );
+    let empty = member_pending(root.path(), Some(0), false, false, false, Some("[]"));
+    let unknown = member(root.path(), Some(0), false, false, false);
+    let analysis = analyze(
+        request(vec![original, empty, unknown]),
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap();
+    let doc = analysis.document();
+    assert_eq!(doc.query, SQL);
+    assert_eq!(doc.prerequisite_query, PREREQUISITE_SQL);
+    assert_eq!(
+        doc.patterns.len(),
+        3,
+        "the first cause question is independent of nine pending rows"
+    );
+    assert_eq!(doc.prerequisite_patterns.len(), 11);
+    let known_empty = doc
+        .prerequisite_patterns
+        .iter()
+        .find(|p| p.pending_known && p.prerequisite_kind.is_none())
+        .unwrap();
+    assert_eq!(known_empty.pending_entries_min, Some(0));
+    assert_eq!(known_empty.pending_entries_max, Some(0));
+    assert_eq!(
+        known_empty.references,
+        [Reference {
+            member: 1,
+            pointer: Some("/pending".into())
+        }]
+    );
+    let missing = doc
+        .prerequisite_patterns
+        .iter()
+        .find(|p| !p.pending_known)
+        .unwrap();
+    assert_eq!(missing.pending_entries_min, None);
+    assert_eq!(
+        missing.references,
+        [Reference {
+            member: 2,
+            pointer: None
+        }]
+    );
+    for capability in ["compiler", "klu"] {
+        let pattern = doc
+            .prerequisite_patterns
+            .iter()
+            .find(|p| p.capability.as_deref() == Some(capability))
+            .unwrap();
+        assert_eq!(pattern.invocations, 1);
+        assert_eq!(pattern.pending_entries_min, Some(4));
+        assert_eq!(pattern.members, [0]);
+    }
+    for (input, state, code) in [
+        (
+            "study-module",
+            "unprepared",
+            Some("original.study-module.unprepared"),
+        ),
+        ("server", "selected", None),
+        ("worker", "refused", Some("original.worker.refused")),
+        ("scientific-inputs", "refused", None),
+        ("engineering-endpoint", "owner-admission-required", None),
+    ] {
+        let pattern = doc
+            .prerequisite_patterns
+            .iter()
+            .find(|p| p.input.as_deref() == Some(input))
+            .unwrap();
+        assert_eq!(pattern.state.as_deref(), Some(state));
+        assert_eq!(pattern.code.as_deref(), code);
+        assert_eq!(pattern.ownership.as_deref(), Some("target-owned"));
+        assert_eq!(
+            pattern.references,
+            [Reference {
+                member: 0,
+                pointer: Some(format!("/pending/2/readiness/inputs/{input}"))
+            }]
+        );
+        assert_eq!(pattern.invocations, 1);
+    }
+    assert!(
+        doc.prerequisite_patterns
+            .iter()
+            .any(|p| p.prerequisite_kind.as_deref() == Some("native")
+                && p.capability.is_none()
+                && p.references[0].pointer.as_deref() == Some("/pending/1"))
+    );
+    assert!(
+        doc.prerequisite_patterns
+            .iter()
+            .any(|p| p.fixture.as_deref() == Some("empty-original-inputs")
+                && p.input.is_none()
+                && p.references[0].pointer.as_deref() == Some("/pending/3"))
+    );
+}
+
+#[tokio::test]
+async fn original_pending_projection_retains_typed_low_pool_cancel_and_escaped_buffer_owner() {
+    let root = tempfile::tempdir().unwrap();
+    let input = member_pending(
+        root.path(),
+        None,
+        false,
+        false,
+        false,
+        Some(ORIGINAL_PENDING),
+    );
+    let descriptors =
+        buffa_descriptor::generated::descriptor::FileDescriptorSet::decode_from_slice(
+            &std::fs::read(&input.descriptors).unwrap(),
+        )
+        .unwrap();
+    let facts = developer_evidence::inspect_facts(
+        &descriptors,
+        "pse.developer.evidence.v1.CapturedWorkflowReport",
+        &std::fs::read(&input.payload).unwrap(),
+        &developer_evidence::binary_options(),
+    )
+    .unwrap();
+    let tiny: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(1));
+    let error = tables::prerequisites(
+        std::slice::from_ref(&facts),
+        &tiny,
+        &CancellationToken::new(),
+    )
+    .unwrap_err();
+    assert!(matches!(
+        &error,
+        crate::observation_detail::CaptureError::Columnar(
+            pse_columnar::CanonError::NativeResource(_)
+        )
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+    let root_error = Error::Projection(error);
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&root_error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+    assert_eq!(tiny.reserved(), 0);
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(4 << 20));
+    let batch = tables::prerequisites(
+        std::slice::from_ref(&facts),
+        &pool,
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    let escaped = batch.column(0).clone();
+    assert_eq!(batch.num_rows(), 9);
+    drop(batch);
+    assert!(pool.reserved() > 0);
+    drop(escaped);
+    assert_eq!(pool.reserved(), 0);
+    let mut input_owners = Vec::new();
+    let descriptor_bytes = acquire(&input.descriptors, &pool, &mut input_owners).unwrap();
+    let payload_bytes = acquire(&input.payload, &pool, &mut input_owners).unwrap();
+    let invocations = tables::invocations(
+        std::slice::from_ref(&facts),
+        &pool,
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    let causes = tables::causes(
+        std::slice::from_ref(&facts),
+        &pool,
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    let prior = pool.reserved();
+    let prerequisites = tables::prerequisites(
+        std::slice::from_ref(&facts),
+        &pool,
+        &CancellationToken::new(),
+    )
+    .unwrap();
+    let projection_bytes = pool.reserved() - prior;
+    let query_budget = prior + projection_bytes / 2;
+    drop((
+        prerequisites,
+        causes,
+        invocations,
+        input_owners,
+        payload_bytes,
+        descriptor_bytes,
+    ));
+    assert_eq!(pool.reserved(), 0);
+    // The same actual acquisition/table owners determine a budget that admits
+    // the existing first-question tables but refuses the new prerequisite view.
+    let error = analyze(
+        Request {
+            members: vec![input.clone()],
+            memory_bytes: NonZeroUsize::new(query_budget).unwrap(),
+        },
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(
+        &error,
+        Error::Projection(crate::observation_detail::CaptureError::Columnar(
+            pse_columnar::CanonError::NativeResource(_)
+        ))
+    ));
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+    let protocol_input = input.clone();
+    let response = tokio::task::spawn_blocking(move || {
+        use crate::tooling::reader::{self, Access, InvestigationRequest, Protocol, ReaderRequest};
+        let request = ReaderRequest {
+            protocol: Protocol::ProductReader,
+            version: Version,
+            correlation: "original-prerequisite-allocation-refusal".into(),
+            access: Access::Passive,
+            request: reader::Request::Investigate {
+                request: InvestigationRequest::DeveloperAnalyze {
+                    request: Request {
+                        members: vec![protocol_input],
+                        memory_bytes: NonZeroUsize::new(query_budget).unwrap(),
+                    },
+                },
+            },
+        };
+        let encoded = reader::encode(
+            &serde_json::to_vec(&request).unwrap(),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+        assert_ne!(encoded.exit_code(), 0);
+        serde_json::from_slice::<serde_json::Value>(encoded.bytes()).unwrap()
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        response["payload"]["failure"]["native"]["code"],
+        pse_diagnostics::DiagnosticCode::RuntimeResourceLimit.as_str()
+    );
+    let cancel = CancellationToken::new();
+    cancel.cancel();
+    let error = tables::prerequisites(&[facts], &pool, &cancel).unwrap_err();
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
+    );
+    assert_eq!(pool.reserved(), 0);
+    let error = analyze(
+        Request {
+            members: vec![input],
+            memory_bytes: NonZeroUsize::new(1).unwrap(),
+        },
+        &CancellationToken::new(),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(
+        pse_diagnostics::TypedDiagnostic::diagnostic_code(&error),
+        Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit)
+    );
+}
+
+#[tokio::test]
+async fn original_pending_null_and_duplicate_input_refuse_without_changing_readback() {
+    let root = tempfile::tempdir().unwrap();
+    for pending in [
+        "null",
+        "[{\"kind\":\"native\",\"capabilities\":[\"compiler\",\"compiler\"]}]",
+    ] {
+        let input = member_pending(root.path(), None, false, false, false, Some(pending));
+        assert!(
+            analyze(request(vec![input]), &CancellationToken::new())
+                .await
+                .is_err()
+        );
+    }
+    let duplicate = ORIGINAL_PENDING.replace("\"server\":{", "\"worker\":{\"state\":\"selected\",\"path\":\"/never/read\",\"identity\":\"original\"},\"server\":{");
+    let input = member_pending(root.path(), None, false, false, false, Some(&duplicate));
+    assert!(
+        analyze(request(vec![input]), &CancellationToken::new())
+            .await
+            .is_err()
+    );
+}
+
+#[test]
+fn original_pending_combined_population_refuses_before_retaining_projection_buffers() {
+    let root = tempfile::tempdir().unwrap();
+    let pending = serde_json::to_string(&serde_json::json!([{"kind":"native","capabilities":
+        (0..2500).map(|n| format!("native-{n:08}")).collect::<Vec<_>>()
+    }]))
+    .unwrap();
+    let inputs = (0..2)
+        .map(|_| member_pending(root.path(), None, false, false, false, Some(&pending)))
+        .collect::<Vec<_>>();
+    let facts = inputs
+        .iter()
+        .map(|input| {
+            let descriptors =
+                buffa_descriptor::generated::descriptor::FileDescriptorSet::decode_from_slice(
+                    &std::fs::read(&input.descriptors).unwrap(),
+                )
+                .unwrap();
+            developer_evidence::inspect_facts(
+                &descriptors,
+                "pse.developer.evidence.v1.CapturedWorkflowReport",
+                &std::fs::read(&input.payload).unwrap(),
+                &developer_evidence::binary_options(),
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(64 << 20));
+    let error = tables::prerequisites(&facts, &pool, &CancellationToken::new()).unwrap_err();
+    assert!(matches!(
+        error,
+        crate::observation_detail::CaptureError::Invalid(_)
+    ));
+    assert_eq!(pool.reserved(), 0);
 }
 
 #[tokio::test]

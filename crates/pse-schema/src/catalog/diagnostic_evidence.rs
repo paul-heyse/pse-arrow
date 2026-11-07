@@ -53,6 +53,32 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
     relation(
         b,
         N::Runtime,
+        "developer_prerequisite_facts",
+        S::Derived,
+        &["invocation", "report_sha256", "ordinal"],
+        vec![
+            column("member", count()),
+            column("invocation", text()),
+            column("report_sha256", text()),
+            column("ordinal", count()),
+            column("pointer", text()).optional(),
+            column("pending_known", T::native(D::Boolean)),
+            column("pending_entries", count()).optional(),
+            column("pending_ordinal", count()).optional(),
+            column("kind", text()).optional(),
+            column("capability", text()).optional(),
+            column("group", count()).optional(),
+            column("fixture", text()).optional(),
+            column("ownership", text()).optional(),
+            column("input", text()).optional(),
+            column("state", text()).optional(),
+            column("code", text()).optional(),
+        ],
+        "Ephemeral original pending prerequisites parsed from the exact authenticated report bytes through their passive source types. Missing pending is unknown (null count/pointer); an explicit empty population has count zero and /pending. Native capability and fixture input rows retain exact original pointers. Empty capability/input collections retain their pending entry. Projection ordinal is not a source clock or a native identity; no path, preparation argv or recorded state grants current readiness or action. ADR-0252.",
+    );
+    relation(
+        b,
+        N::Runtime,
         "diagnostic_evidence_fields",
         S::Derived,
         &[
