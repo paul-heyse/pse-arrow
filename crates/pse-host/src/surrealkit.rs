@@ -75,7 +75,9 @@ fn release_member(path: &Path, mode: u32) -> Result<File, HostError> {
     let file = crate::test_inventory::open_private(path)?;
     let metadata = file.metadata()?;
     if metadata.permissions().mode() & 0o7777 != mode || metadata.nlink() != 1 {
-        return Err(invalid("SurrealKit release requires protected, singly linked files"));
+        return Err(invalid(
+            "SurrealKit release requires protected, singly linked files",
+        ));
     }
     Ok(file)
 }
@@ -90,7 +92,11 @@ fn opened_digest(mut file: File) -> Result<String, HostError> {
         }
         hash.update(&bytes[..count]);
     }
-    Ok(hash.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+    Ok(hash
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect())
 }
 
 impl Selection {
@@ -162,7 +168,9 @@ impl Selection {
         let record = binary.with_file_name(RECEIPT);
         let record = release_member(&record, 0o400)?;
         if record.metadata()?.len() > MAX_RECEIPT {
-            return Err(invalid("SurrealKit release receipt exceeds its admitted extent"));
+            return Err(invalid(
+                "SurrealKit release receipt exceeds its admitted extent",
+            ));
         }
         let receipt: Receipt = serde_json::from_reader(record.take(MAX_RECEIPT + 1))
             .map_err(|_| invalid("invalid SurrealKit release receipt"))?;
@@ -298,7 +306,9 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
         || source_commit != selected.pin.source_revision
         || digest(&lock)? != selected.pin.original_lock_sha256
     {
-        return Err(invalid("SurrealKit checkout or original lock differs from the pinned source"));
+        return Err(invalid(
+            "SurrealKit checkout or original lock differs from the pinned source",
+        ));
     }
     run(
         git().args(["apply", "--check"]).arg(root.join(LOCK_PATCH)),

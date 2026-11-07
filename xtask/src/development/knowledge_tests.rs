@@ -406,10 +406,7 @@ fn knowledge_read_only_snapshot_requires_current_typed_status_and_terminal_compl
     let mut snapshot = Object::new();
     snapshot.insert("position", Value::None);
     snapshot.insert("stale", Value::Bool(false));
-    snapshot.insert(
-        "age",
-        Value::Duration(surrealdb_types::Duration::ZERO),
-    );
+    snapshot.insert("age", Value::Duration(surrealdb_types::Duration::ZERO));
     assert!(validate_read_only_snapshot(Value::Object(snapshot.clone())).is_ok());
     assert!(validate_read_only_terminal(Value::None).is_ok());
     assert!(validate_read_only_terminal(Value::Bool(true)).is_err());
@@ -723,7 +720,9 @@ pub(crate) async fn exercise_native(
         .map_err(|_| invalid("evidence membership count overflow"))?;
     assert_eq!(
         active_rows[0].get("n"),
-        Some(&Value::Number(surrealdb_types::Number::Int(expected_evidence_count)))
+        Some(&Value::Number(surrealdb_types::Number::Int(
+            expected_evidence_count
+        )))
     );
     let mut empty_count = transport::bounded_query(
         importer
@@ -753,12 +752,10 @@ pub(crate) async fn exercise_native(
         assert!(!plan.clone().into_json_value().is_null());
         eprintln!("evidence membership {explain} {plan:?}");
     }
-    let mut membership_index = transport::bounded_query(
-        importer.query_with_limits(
-            "INFO FOR INDEX evidence_fact_membership ON evidence_facts;",
-            canonical::MetadataResponse::DiagnosticPlan.limits(),
-        )?,
-    )
+    let mut membership_index = transport::bounded_query(importer.query_with_limits(
+        "INFO FOR INDEX evidence_fact_membership ON evidence_facts;",
+        canonical::MetadataResponse::DiagnosticPlan.limits(),
+    )?)
     .await?;
     let membership_index: Value = membership_index.take(0)?;
     assert!(!membership_index.into_json_value().is_null());
@@ -812,14 +809,16 @@ pub(crate) async fn exercise_native(
     let graph_analyze = format!(
         "LET $selected=$generation; {graph_prefix} EXPLAIN ANALYZE FORMAT JSON {graph_items};"
     );
-    let mut graph_plan = transport::bounded_query(bind_request(
-        reader.query_with_limits(
-            graph_analyze,
-            canonical::MetadataResponse::DiagnosticPlan.limits(),
-        )?,
-        &graph_request,
+    let mut graph_plan = transport::bounded_query(
+        bind_request(
+            reader.query_with_limits(
+                graph_analyze,
+                canonical::MetadataResponse::DiagnosticPlan.limits(),
+            )?,
+            &graph_request,
+        )
+        .bind(("generation", first.generation.clone())),
     )
-    .bind(("generation", first.generation.clone())))
     .await?;
     let graph_plan_index = graph_plan
         .num_statements()

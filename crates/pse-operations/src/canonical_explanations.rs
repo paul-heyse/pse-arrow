@@ -1000,10 +1000,7 @@ mod tests {
     #[test]
     fn graph_plan_preserves_explicit_record_scope_and_absence() {
         for (scope, expected) in [
-            (
-                Some("record"),
-                "predicate requires edge record evaluation",
-            ),
+            (Some("record"), "predicate requires edge record evaluation"),
             (None, "no native predicate placement observation"),
         ] {
             let mut attrs = Object::new();

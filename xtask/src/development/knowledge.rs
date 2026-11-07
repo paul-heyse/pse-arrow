@@ -39,8 +39,10 @@ fn validate_read_only_snapshot(value: Value) -> Result<(), EvidenceError> {
     let Value::Object(snapshot) = value else {
         return Err(invalid("read-only snapshot status is not an object"));
     };
-    if !matches!(snapshot.get("position"), Some(Value::None | Value::Bytes(_)))
-        || !matches!(snapshot.get("stale"), Some(Value::Bool(false)))
+    if !matches!(
+        snapshot.get("position"),
+        Some(Value::None | Value::Bytes(_))
+    ) || !matches!(snapshot.get("stale"), Some(Value::Bool(false)))
         || !matches!(snapshot.get("age"), Some(Value::Duration(_)))
     {
         return Err(invalid("read-only snapshot status is malformed or stale"));
