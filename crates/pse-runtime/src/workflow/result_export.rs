@@ -1965,6 +1965,39 @@ mod tests {
     }
 
     #[test]
+    fn result_projection_cache_ends_with_service_while_escaped_allocator_and_buffers_survive() {
+        let source = Source::retained(8 << 20, 4 << 20);
+        let service = &source.retention.as_ref().unwrap().0;
+        let retired = Arc::downgrade(service);
+        let snapshots = service.dynamic_snapshots();
+        let pool = source.pool.clone();
+        let mut cursor = source
+            .cursor(fit_parameters::RELATION_ID, 2, 4, None)
+            .unwrap();
+        let escaped = cursor.next_chunk().unwrap().unwrap();
+        drop(cursor);
+        assert!(pool.reserved() > 0);
+        drop(source);
+        assert!(
+            retired.upgrade().is_none(),
+            "the actual mathematical service has ended"
+        );
+        assert_eq!(fit_parameters::Row::rows(&escaped).unwrap().len(), 2);
+        drop(escaped);
+        assert_eq!(
+            pool.reserved(),
+            0,
+            "service-scoped cache cannot be retained by escaped allocation authority"
+        );
+        // The original allocation scope remains useful independently of optional
+        // service cache entries; retiring the cache does not revoke this owner.
+        let allocation = snapshots.reserve(128).unwrap();
+        assert_eq!(pool.reserved(), 128);
+        drop(allocation);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
     fn result_retention_pressure_and_clear_preserve_borrowers_and_fence_late_fills() {
         let capacity = 8 << 20;
         let source = Source::retained(capacity, 4 << 20);

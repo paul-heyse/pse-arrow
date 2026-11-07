@@ -62,6 +62,16 @@ impl CacheValue for Value {
         }
     }
 }
+impl Drop for MathService {
+    fn drop(&mut self) {
+        // Escaped snapshot allocators retain their original pressure/allocation
+        // authority. Optional cache entries belong to this service, so they must
+        // retire when its final owner ends rather than following those allocators.
+        // Live payload aliases retain their own allocation leases independently.
+        self.pressure.clear();
+    }
+}
+
 impl MathService {
     /// Clear retained programs without cancelling live owners or permitting late reinsertion.
     pub fn clear_program_cache(&self) {
