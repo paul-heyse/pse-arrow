@@ -14,6 +14,9 @@ use std::{
     process::{Command, Stdio},
 };
 
+#[path = "diagnostic_tools_source.rs"]
+mod source;
+
 /// A declared optional tool, without arbitrary source URL or installation-path input.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tool {
@@ -82,6 +85,7 @@ pub struct ToolSpec {
     pub prefix: Option<String>,
     max_archive_bytes: Option<String>,
     max_binary_bytes: Option<String>,
+    source_build: Option<source::Spec>,
 }
 #[derive(Deserialize, Serialize)]
 struct BundleReceipt {
@@ -219,6 +223,14 @@ pub fn tool_spec(root: &Path, tool: Tool) -> Result<ToolSpec, HostError> {
         .try_into()
         .map_err(|_| invalid("invalid diagnostic tool declaration"))?;
     spec.validate()?;
+    if let Some(build) = &spec.source_build {
+        if tool != Tool::Sccache || spec.archive.as_deref() != Some("tar.gz") {
+            return Err(invalid(
+                "only the managed sccache tarball supports a source build",
+            ));
+        }
+        build.validate()?;
+    }
     Ok(spec)
 }
 /// Format requested Cargo install selections from the existing exact tool declarations.
@@ -261,17 +273,26 @@ pub fn binary_path(
     environment: &Environment,
 ) -> Result<PathBuf, HostError> {
     let spec = tool_spec(root, tool)?;
-    let result = crate::paths::HostPaths::new(environment)
+    let mut installation = crate::paths::HostPaths::new(environment)
         .tools()?
         .join(if tool == Tool::TraceProcessor {
             "perfetto"
         } else {
             tool.name()
         })
-        .join(&spec.version)
-        .join(&spec.member);
+        .join(&spec.version);
+    if let Some(build) = &spec.source_build {
+        installation.push(source_generation(&build.patch_sha256)?);
+    }
+    let result = installation.join(&spec.member);
     no_symlinks(&result)?;
     Ok(result)
+}
+pub(crate) fn source_generation(patch_sha256: &str) -> Result<String, HostError> {
+    if !hash_valid(patch_sha256) {
+        return Err(invalid("invalid diagnostic source patch digest"));
+    }
+    Ok(format!("patch-{patch_sha256}"))
 }
 fn verify_bundle(root: &Path, spec: &ToolSpec) -> Result<(), HostError> {
     no_symlinks(root)?;
@@ -328,7 +349,9 @@ fn verify_plain_binary(target: &Path, spec: &ToolSpec) -> Result<(), HostError> 
 }
 fn verify_at(target: &Path, spec: &ToolSpec) -> Result<(), HostError> {
     verify_plain_binary(target, spec)?;
-    if spec.archive.as_deref() == Some("portable-tar") {
+    if let Some(build) = &spec.source_build {
+        source::verify(target, spec, build)?;
+    } else if spec.archive.as_deref() == Some("portable-tar") {
         let root = target
             .ancestors()
             .nth(Path::new(&spec.member).components().count())
@@ -577,6 +600,9 @@ fn publish_provenance(
 /// Verify an installed tool without installation or execution.
 pub fn verify(root: &Path, tool: Tool, environment: &Environment) -> Result<PathBuf, HostError> {
     let spec = tool_spec(root, tool)?;
+    if let Some(build) = &spec.source_build {
+        source::patch(root, build)?;
+    }
     let target = binary_path(root, tool, environment)?;
     verify_at(&target, &spec)?;
     Ok(target)
@@ -789,11 +815,20 @@ fn publish(
 pub fn install(root: &Path, tool: Tool, environment: &Environment) -> Result<PathBuf, HostError> {
     let spec = tool_spec(root, tool)?;
     let target = binary_path(root, tool, environment)?;
+    let patch = spec
+        .source_build
+        .as_ref()
+        .map(|build| source::patch(root, build))
+        .transpose()?;
     if fs::symlink_metadata(&target).is_ok() {
         verify_at(&target, &spec)?;
         return Ok(target);
     }
-    let selected = if spec.archive.as_deref() == Some("portable-tar") {
+    let selected = if spec.source_build.is_some() {
+        target
+            .parent()
+            .ok_or_else(|| invalid("tool generation missing"))?
+    } else if spec.archive.as_deref() == Some("portable-tar") {
         target
             .ancestors()
             .nth(Path::new(&spec.member).components().count())
@@ -807,6 +842,18 @@ pub fn install(root: &Path, tool: Tool, environment: &Environment) -> Result<Pat
     no_symlinks(parent)?;
     fs::create_dir_all(parent)?;
     no_symlinks(parent)?;
+    let _source_owner = if spec.source_build.is_some() {
+        let directory = File::open(parent)?;
+        rustix::fs::flock(&directory, rustix::fs::FlockOperation::LockExclusive)
+            .map_err(std::io::Error::from)?;
+        if target.try_exists()? {
+            verify_at(&target, &spec)?;
+            return Ok(target);
+        }
+        Some(directory)
+    } else {
+        None
+    };
     let scratch = tempfile::Builder::new()
         .prefix(".install-")
         .tempdir_in(parent)?;
@@ -842,7 +889,19 @@ pub fn install(root: &Path, tool: Tool, environment: &Environment) -> Result<Pat
             "diagnostic tool HTTPS download failed; verify network and curl availability",
         ));
     }
-    publish(&archive, &target, &spec, scratch.path())?;
+    if let Some(patch) = patch {
+        source::publish(
+            root,
+            &archive,
+            &target,
+            &spec,
+            &patch,
+            scratch.path(),
+            environment,
+        )?;
+    } else {
+        publish(&archive, &target, &spec, scratch.path())?;
+    }
     Ok(target)
 }
 

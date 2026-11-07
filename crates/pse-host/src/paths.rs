@@ -117,12 +117,20 @@ impl<'a> HostPaths<'a> {
         }
     }
 
+    pub(crate) fn default_compiler_cache_pair(
+        &self,
+    ) -> Result<(PathBuf, PathBuf), EnvironmentError> {
+        Ok((
+            self.base(UserDirectory::Cache)?.join("pse-arrow/sccache"),
+            self.default_compiler_cache_socket()?,
+        ))
+    }
+
     /// Select the default pair together or an explicitly isolated pair.
     pub(crate) fn compiler_cache_pair(&self) -> Result<(PathBuf, PathBuf), EnvironmentError> {
         let directory = self.compiler_cache()?;
         let endpoint = self.compiler_cache_socket()?;
-        let default_directory = self.base(UserDirectory::Cache)?.join("pse-arrow/sccache");
-        let default_endpoint = self.default_compiler_cache_socket()?;
+        let (default_directory, default_endpoint) = self.default_compiler_cache_pair()?;
         if (directory == default_directory) != (endpoint == default_endpoint) {
             return Err(EnvironmentError(
                 "select a distinct SCCACHE_DIR and SCCACHE_SERVER_UDS together".into(),

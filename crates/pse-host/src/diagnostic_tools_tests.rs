@@ -16,6 +16,7 @@ fn spec() -> ToolSpec {
         prefix: None,
         max_archive_bytes: None,
         max_binary_bytes: None,
+        source_build: None,
     }
 }
 fn tar_file(directory: &Path, entries: &[(&str, &[u8])], link: bool) -> PathBuf {

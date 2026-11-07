@@ -96,6 +96,15 @@ SPDX-FileCopyrightText = [
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
+path = ["scripts/sccache-source/managed-disk.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2016 Mozilla Foundation",
+  "2026 Paul Heyse (managed cache integration additions)",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
+[[annotations]]
 path = ["docker/solvers/uno-pse.patch"]
 precedence = "override"
 SPDX-FileCopyrightText = [

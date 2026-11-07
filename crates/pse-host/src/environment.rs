@@ -160,6 +160,29 @@ fn lexical_path(path: &Path) -> PathBuf {
     result
 }
 
+fn same_cache_path(left: &Path, right: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt as _;
+    if left == right {
+        return true;
+    }
+    if !left.is_absolute() || !right.is_absolute() {
+        return false;
+    }
+    if let (Ok(left), Ok(right)) = (left.metadata(), right.metadata()) {
+        return (left.dev(), left.ino()) == (right.dev(), right.ino());
+    }
+    fn prospective_path(path: &Path) -> Option<PathBuf> {
+        for ancestor in path.ancestors() {
+            if let Ok(parent) = ancestor.canonicalize() {
+                let suffix = path.strip_prefix(ancestor).ok()?;
+                return Some(lexical_path(&parent.join(suffix)));
+            }
+        }
+        None
+    }
+    prospective_path(left).is_some_and(|left| prospective_path(right) == Some(left))
+}
+
 impl EnvironmentSettings {
     /// Read declared defaults/availability only; never source shell, start a service or install tools.
     pub fn load(root: &Path, inputs: &Environment) -> Result<Self, EnvironmentError> {
@@ -184,16 +207,26 @@ impl EnvironmentSettings {
         };
         let version = string_field(&tools, &["sccache", "version"])?;
         let member = string_field(&tools, &["sccache", "member"])?;
-        let installed = crate::paths::HostPaths::new(inputs)
+        let mut installation = crate::paths::HostPaths::new(inputs)
             .tools()?
             .join("sccache")
-            .join(version)
-            .join(member);
+            .join(version);
+        let source = tools
+            .get("sccache")
+            .and_then(|tool| tool.get("source_build"));
+        if let Some(source) = source {
+            let patch_sha256 = string_field(source, &["patch_sha256"])?;
+            installation.push(
+                crate::diagnostic_tools::source_generation(&patch_sha256)
+                    .map_err(|error| failure(error.to_string()))?,
+            );
+        }
+        let installed = installation.join(member);
         let explicit = get(inputs, "PSE_SCCACHE_BINARY");
         if explicit.is_some_and(OsStr::is_empty) {
             return Err(failure("PSE_SCCACHE_BINARY cannot be empty"));
         }
-        let selected = explicit.map(PathBuf::from).unwrap_or(installed);
+        let selected = explicit.map(Path::new).unwrap_or(&installed);
         if let Some(wrapper) = get(inputs, "RUSTC_WRAPPER")
             && explicit.is_some()
             && !wrapper.is_empty()
@@ -221,7 +254,7 @@ impl EnvironmentSettings {
                 ));
             }
             let mut magic = [0u8; 4];
-            std::fs::File::open(&selected)
+            std::fs::File::open(selected)
                 .and_then(|mut file| file.read_exact(&mut magic))
                 .map_err(|error| failure(error.to_string()))?;
             if magic != *b"\x7fELF" {
@@ -229,7 +262,7 @@ impl EnvironmentSettings {
                     "selected compiler cache must be a native ELF executable",
                 ));
             }
-            Some(selected)
+            Some(selected.to_owned())
         } else if explicit.is_some() {
             return Err(failure("selected compiler cache executable is missing"));
         } else {
@@ -249,6 +282,28 @@ impl EnvironmentSettings {
                 .get("dist")
                 .and_then(|value| value.get("scheduler_url"))
                 .is_none();
+        if source.is_some() && cache_compatible {
+            let explicit_wrapper = match get(inputs, "RUSTC_WRAPPER").map(Path::new) {
+                Some(path) if path != root.join("scripts/sccache") => {
+                    (path.file_name() == Some(OsStr::new("sccache"))).then_some(path)
+                }
+                _ => explicit.map(Path::new),
+            };
+            if let Some(wrapper) = explicit_wrapper
+                && !same_cache_path(wrapper, &installed)
+            {
+                let paths = crate::paths::HostPaths::new(inputs);
+                let (directory, endpoint) = paths.compiler_cache_pair()?;
+                let (default_directory, default_endpoint) = paths.default_compiler_cache_pair()?;
+                if same_cache_path(&directory, &default_directory)
+                    || same_cache_path(&endpoint, &default_endpoint)
+                {
+                    return Err(failure(
+                        "the managed compiler-cache pair requires the declared executable; refresh activation or select a separate cache directory and endpoint",
+                    ));
+                }
+            }
+        }
         let llvm = get(inputs, "PSE_LLVM_PREFIX")
             .map(PathBuf::from)
             .or_else(|| {
@@ -1269,6 +1324,77 @@ mod tests {
         )
         .unwrap();
         root
+    }
+    #[test]
+    fn source_built_cache_reserves_its_default_pair_from_stock_wrappers() {
+        use std::os::unix::fs::{PermissionsExt as _, symlink};
+
+        let fixture = declaration_fixture();
+        let root = fixture.path();
+        let patch = "f".repeat(64);
+        std::fs::write(
+            root.join(".config/diagnostic-tools.toml"),
+            format!(
+                "[sccache]\nversion='0.19.0'\nmember='sccache'\n[sccache.source_build]\npatch_sha256='{patch}'\n"
+            ),
+        )
+        .unwrap();
+        let prepared = root.join(format!(
+            ".local/share/pse/tools/sccache/0.19.0/patch-{patch}/sccache"
+        ));
+        std::fs::create_dir_all(prepared.parent().unwrap()).unwrap();
+        std::fs::write(&prepared, b"\x7fELF").unwrap();
+        std::fs::set_permissions(&prepared, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let mut caller = map(&[("HOME", root.to_str().unwrap())]);
+        let compose = |caller: &Environment, mode| {
+            resolve_with_options(root, caller, None, &Environment::new(), mode, false)
+        };
+        let managed = compose(&caller, CacheMode::On).unwrap();
+        assert_eq!(
+            get(&managed.values, "RUSTC_WRAPPER"),
+            Some(prepared.as_os_str())
+        );
+        insert(&mut caller, "RUSTC_WRAPPER", "/usr/bin/sccache");
+        let error = compose(&caller, CacheMode::Auto).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires the declared executable")
+        );
+        assert_eq!(
+            get(
+                &compose(&caller, CacheMode::Off).unwrap().values,
+                "RUSTC_WRAPPER"
+            ),
+            Some(OsStr::new(""))
+        );
+        let cache_parent = root.join(".cache/pse-arrow");
+        std::fs::create_dir_all(&cache_parent).unwrap();
+        let alias = root.join("alias");
+        symlink(&cache_parent, &alias).unwrap();
+        insert(&mut caller, "SCCACHE_DIR", alias.join("sccache"));
+        insert(
+            &mut caller,
+            "SCCACHE_SERVER_UDS",
+            alias.join("sccache.sock"),
+        );
+        let error = compose(&caller, CacheMode::Auto).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires the declared executable")
+        );
+        insert(&mut caller, "SCCACHE_DIR", root.join("isolated-cache"));
+        insert(
+            &mut caller,
+            "SCCACHE_SERVER_UDS",
+            root.join("isolated.sock"),
+        );
+        let isolated = compose(&caller, CacheMode::On).unwrap();
+        assert_eq!(
+            get(&isolated.values, "RUSTC_WRAPPER"),
+            Some(OsStr::new("/usr/bin/sccache"))
+        );
     }
     #[test]
     fn explicit_cache_selection_rejects_empty_conflicting_missing_and_non_native_files() {

@@ -97,14 +97,34 @@ The automatic local cache has a 100 GiB budget under
 `${XDG_CACHE_HOME:-$HOME/.cache}/pse-arrow/sccache`. The endpoint is
 `$XDG_RUNTIME_DIR/pse-sccache.sock` when the runtime directory is set, with a cache-directory
 sibling as the fallback. A custom cache experiment must select both a distinct `SCCACHE_DIR`
-and a distinct `SCCACHE_SERVER_UDS`. Each disk directory needs a single writer.
-The upstream filesystem-socket startup unlinks the pathname before it binds. Concurrent cold
-starts can leave two listeners claiming that name. Doctor reports a duplicate listener as
-unhealthy, even if the reachable daemon responds to the statistics query.
+and a distinct `SCCACHE_SERVER_UDS`. The managed sccache 0.19.0 build takes an exclusive
+lock on the local cache directory before initializing storage. A separate endpoint lock
+protects filesystem and abstract Unix addresses. Clients authenticate the listener and check
+its directory and storage configuration before using it. Daemon locks remain held for
+the service lifetime, and compiler processes still run concurrently. A statistics query
+without a daemon leaves the cache untouched.
 Compiler-cache eligibility, successful artifact restoration and end-to-end feedback latency
 are separate observations; a hit counter alone establishes no workflow speedup.
 [sccache local storage](https://github.com/mozilla/sccache/blob/v0.19.0/docs/Local.md) ·
-[sccache 0.19.0 listener](https://github.com/mozilla/sccache/blob/v0.19.0/src/server.rs)
+[Upstream listener](https://github.com/mozilla/sccache/blob/v0.19.0/src/server.rs) ·
+[Managed source patch](../../scripts/sccache-source/managed-disk.patch)
+
+The 100 GiB size is the current comparison baseline. sccache 0.19 reports occupancy and
+lookup outcomes, with no counter that attributes a miss to local LRU eviction. Before
+increasing the size, verify that a previously published, still-needed key disappears
+under capacity pressure and that a larger isolated cache restores it in a matched workflow.
+[Tagged statistics](https://github.com/mozilla/sccache/blob/v0.19.0/src/server.rs) ·
+[Tagged eviction implementation](https://github.com/mozilla/sccache/blob/v0.19.0/src/lru_disk_cache/mod.rs)
+
+Prepare the managed build explicitly with `scripts/pse-host diagnostic-tools install sccache`
+inside a supervised scope. Installation verifies the pinned upstream archive and patch,
+builds with the checkout's pinned toolchain and the upstream lockfile, and publishes a
+private executable and build receipt. An external sccache selected through the checkout
+environment needs a physically separate cache directory and endpoint. To switch a live
+checkout from the previous managed executable, let its builds settle,
+verify the old listener's executable and cache directory, and stop it through that exact
+executable at its original endpoint. Check that the listener has drained before the
+first managed request. Refresh existing direnv shells with `direnv reload`.
 
 The shared environment requires sccache client-side compilation, keeping compiler
 children inside the invoking operation's supervision. It disables the C/C++ direct
@@ -122,10 +142,10 @@ by default. The cache remains a trusted build input.
 Client-side cache publication sends a complete compressed entry over daemon IPC.
 `.config/build.toml` declares a 256 MiB message ceiling; `SCCACHE_MAX_FRAME_LENGTH`
 can select another positive decimal byte limit, up to the protocol's four-byte bound.
-The environment passes it to the direct sccache executable. Upstream sccache starts the
-daemon with its launching environment and reuses the listener already present at the selected
-endpoint. A live daemon can therefore retain a previous frame or backend setting. The host
-does not provision a separate service generation or a resident daemon memory allowance.
+The environment passes it to the direct sccache executable. The managed listener checks
+the selected backend and frame setting when another request joins. An explicit setting
+change needs a separate cache and endpoint pair or a verified stop and restart of the current
+pair.
 The client and daemon frame ceilings limit messages. Actual large transfers consume buffers.
 The 100 GiB disk budget and default compression remain unchanged.
 Raising the frame ceiling does not enlarge existing entries. Newly accepted large entries
