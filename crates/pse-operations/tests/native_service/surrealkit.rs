@@ -530,7 +530,11 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     let passed = verify_report(&passing.join("result.json"), status, None)?;
 
     let assertion_failure = root.join("assertion-failure");
-    stage_project(&assertion_failure, SCHEMA, Some(&SEED.replace("42dec", "43dec")))?;
+    stage_project(
+        &assertion_failure,
+        SCHEMA,
+        Some(&SEED.replace("42dec", "43dec")),
+    )?;
     let status = tool
         .run(&assertion_failure, SuiteSelection::CurrentSchema, None)
         .await?;
@@ -552,7 +556,11 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     verify_pre_report_refusal(&setup_failure, status, SETUP_REFUSAL)?;
 
     let seed_failure = root.join("seed-failure");
-    stage_project(&seed_failure, ROLLOUT_SCHEMA, Some(&format!("THROW '{SEED_REFUSAL}';")))?;
+    stage_project(
+        &seed_failure,
+        ROLLOUT_SCHEMA,
+        Some(&format!("THROW '{SEED_REFUSAL}';")),
+    )?;
     let status = tool
         .run(&seed_failure, SuiteSelection::CurrentSchema, None)
         .await?;

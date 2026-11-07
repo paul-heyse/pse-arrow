@@ -131,8 +131,15 @@ complete unrelated Plan66 scientific packages.
 The first live current-schema runs pass fresh startup, maintenance and
 ingress reconstruction, connection-bound session ownership, and HTTP actor
 grants. The [68b checkpoint](68b-surrealdb-v4-schema-transport-and-authority.md#private-candidate-checkpoint)
-records the catalog and index changes that cleared startup. The selected
-scientific, recovery, query and developer suites still determine acceptance.
+records the catalog and index changes that cleared startup. The targeted
+native recovery rerun passed the original checkpoint, process restart,
+activation and exact receipt readback. The serializable-isolation and Study
+lost-acknowledgement cases passed. Query controls passed after the graph
+fixture separated its installation from the permission and read assertions.
+The live SurrealKit and scoped evidence controls passed in [68d](68d-surrealdb-v4-developer-and-test-receiving.md#private-candidate-checkpoint--november-7).
+The selected native fit journey passed. The aqueous protected-export run
+reached fixture teardown and exceeded its drain deadline. The exact rerun
+uses the existing async fixture settlement owner after portable assertions.
 
 ### E03 — Select, open writes and release
 

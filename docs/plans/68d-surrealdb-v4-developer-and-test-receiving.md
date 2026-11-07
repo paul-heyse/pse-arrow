@@ -123,8 +123,8 @@ durability, and physical reuse. O03's current receiving work is D03.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | In progress | Completed 67c/d preparation owner, A exact release tuple | Exact source-built tool and locked gRPC SDK receipt select on v4, with stale and foreign selections refused. |
-| D02 | In progress | D01 and B's usable generated declarations and activation witness | Native fixture exercises sync and rollout parity, named actor and database outcomes, report/refusal distinctions, and actual disposal. |
+| D01 | Complete privately | Completed 67c/d preparation owner, A exact release tuple | Exact source-built tool and locked gRPC SDK receipt select on v4, with stale and foreign selections refused. |
+| D02 | Complete privately | D01 and B's usable generated declarations and activation witness | Native fixture exercises sync and rollout parity, named actor and database outcomes, report/refusal distinctions, and actual disposal. |
 | D03 | In progress | Completed Plan67, v3 baseline before cutover, D02 and the scoped v4 evidence route | Current working-report rerun, fresh evidence regeneration, exact native settlement and matched build/retention observations reach E. |
 | D04 | Deferred | Named persistent consumer and separate retention decision | Reassess the recorded v4 held-prefix evidence only when the owner and lifetime justify persistent history. |
 
@@ -154,7 +154,9 @@ full generated schema was installed again. Setup and seed probes now use
 a small authored schema, and the RC.1 `rollout plan` owner froze its v4
 rollout input. The two full generated-schema cases still exercise sync,
 and the separate `both` cases compare the pinned rollout and intentional
-drift. The full managed suite is being rerun with those inputs.
+drift. The full managed `scripts/pse test pse-operations:native_service`
+SurrealKit selection passed with zero failures and complete original
+endpoint disposal on the private release.
 
 **Tested, v3 baseline.** The scoped native `scripts/pse test pse-host --lib`
 selection `rerun_controlled_failure_probe` produced one intentional failure.
