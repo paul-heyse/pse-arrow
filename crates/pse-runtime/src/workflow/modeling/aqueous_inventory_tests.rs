@@ -1049,6 +1049,14 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
     let crate::workflow::RunReport::Simulation(trajectory) = run.report().unwrap() else {
         panic!("the authored integrate procedure must produce its original native simulation");
     };
+    let native_permission = trajectory.governing_permission(&run).unwrap();
+    assert!(native_permission.permits_result() && native_permission.has_native_proof());
+    assert_eq!(native_permission.run_id(), run.run_id);
+    assert!(native_permission.attempt_id().is_some());
+    assert!(std::ptr::eq(
+        trajectory.qualified_report(&run).unwrap(),
+        trajectory.report()
+    ));
     assert!(trajectory.accepted() && trajectory.checks_complete());
     assert_eq!(trajectory.prepared().profile().method, Method::Diffsol);
     let times = [5., 5.25, 6., 7., 10.];
@@ -1114,6 +1122,96 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         times.len() * prepared.contract().outputs.len()
     );
     assert!(!expected.is_empty());
+    // Challenge the receiving comparator with actual independently captured
+    // native coordinates. None of these readable rows supplies live permission.
+    let output_coordinates = expected
+        .iter()
+        .map(|((symbol, _), (_, quantity, unit, _, _))| {
+            (
+                pse_modeling::derived::Relationship::MemberOutput { symbol: *symbol }.identity(),
+                (*quantity, *unit),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let ((symbol, sample), (run_id, quantity, unit, time, value)) =
+        expected.first_key_value().unwrap();
+    let original_row = pse_relations::generated::runtime::simulation_samples::Row {
+        run_id: *run_id,
+        sample: *sample,
+        time: f64::from_bits(*time),
+        symbol_id: *symbol,
+        quantity_id: *quantity,
+        unit_id: *unit,
+        value: f64::from_bits(*value),
+    };
+    let matches = |row: &pse_relations::generated::runtime::simulation_samples::Row, observed| {
+        crate::workflow::connected_results::trajectory_permission::sample_matches(
+            row,
+            *run_id,
+            &times,
+            observed,
+            &output_coordinates,
+        )
+    };
+    assert!(matches(&original_row, times.len()));
+    for change in 0..7 {
+        let mut foreign = original_row.clone();
+        match change {
+            0 => foreign.run_id = pse_operations::mint_id(),
+            1 => foreign.symbol_id = pse_ids::named_id(*symbol, "foreign-original-output"),
+            2 => foreign.quantity_id = pse_ids::named_id(*quantity, "foreign-original-quantity"),
+            3 => foreign.unit_id = pse_ids::named_id(*unit, "foreign-original-unit"),
+            4 => foreign.time += 0.125,
+            5 => foreign.sample += 1,
+            _ => foreign.value = f64::NAN,
+        }
+        assert!(
+            !matches(&foreign, times.len()),
+            "foreign coordinate {change}"
+        );
+    }
+    assert!(!matches(&original_row, 0));
+    let completion = run.completion().unwrap();
+    let header = completion.computation.as_ref().unwrap();
+    let context = prepared
+        .scientific_context(run.run_id, header.profile_identity)
+        .unwrap();
+    let context_matches = |row| {
+        use pse_relations::generated::runtime::scientific_contexts;
+        let mut builder = scientific_contexts::Builder::with_registry(
+            runtime.registry(),
+            1,
+            &runtime.validation_context(),
+        )
+        .unwrap();
+        builder.push(row).unwrap();
+        let checked = builder.finish().unwrap();
+        let view = scientific_contexts::View::from_checked(&checked).unwrap();
+        crate::workflow::connected_results::trajectory_permission::context_matches(
+            &view,
+            header,
+            &completion.lineage[0],
+        )
+        .unwrap()
+    };
+    assert!(context_matches(context.clone()));
+    for change in 0..11 {
+        let mut foreign = context.clone();
+        match change {
+            0 => foreign.run_id = pse_operations::mint_id(),
+            1 => foreign.step = 1,
+            2 => foreign.instance_id = Some(pse_operations::mint_id()),
+            3 => foreign.source_identity = pse_ids::ContentHash::from_bytes([11; 32]),
+            4 => foreign.physical_identity = pse_ids::ContentHash::from_bytes([12; 32]),
+            5 => foreign.preparation_identity = pse_ids::ContentHash::from_bytes([13; 32]),
+            6 => foreign.profile_identity = pse_ids::ContentHash::from_bytes([14; 32]),
+            7 => foreign.model_id = Some(pse_operations::mint_id()),
+            8 => foreign.fit_id = Some(pse_operations::mint_id()),
+            9 => foreign.case_id = Some(pse_operations::mint_id()),
+            _ => foreign.time = None,
+        }
+        assert!(!context_matches(foreign), "foreign context {change}");
+    }
     let row_count = expected.len() as u64;
     drop((run, handle, operation, original, package));
     runtime.clear_program_cache();
@@ -1134,12 +1232,60 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         .unwrap();
     let selection = reader.pack_selection().await.unwrap();
     assert_eq!((selection.row_start, selection.row_end), (0, row_count));
-    // The accepted native trajectory is readable even though this selected
-    // relation currently retains no scientific-use grant. Copying cannot add it.
+    // This is the original producer's whole-member decision, resolved against
+    // the same protected attempt/context/coordinates after all live handles drop.
     assert_eq!(
         selection.usability,
-        crate::workflow::PackScientificState::Unknown
+        crate::workflow::PackScientificState::Usable
     );
+    let stored = crate::workflow::durable::result_scientific_completion(
+        runtime.canonical_store().unwrap(),
+        &runtime.shared.pool(),
+        reader.selection(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    let [original_permission] = stored
+        .completion
+        .as_ref()
+        .unwrap()
+        .member_permissions
+        .as_slice()
+    else {
+        panic!("one original root trajectory member required");
+    };
+    assert_eq!(original_permission.attempt_id(), Some(stored.attempt_id));
+    assert!(original_permission.recorded_permission().permits_result());
+    assert!(!original_permission.has_native_proof() && !original_permission.permits_result());
+    drop(stored);
+    let partial = runtime
+        .results(
+            &run_key,
+            &attempt_key,
+            "runtime.simulation_samples",
+            0,
+            1,
+            pse_columnar::CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        partial.pack_selection().await.unwrap().usability,
+        crate::workflow::PackScientificState::Partial
+    );
+    let projection = partial
+        .inspection_projection(&[partial.schema().index_of("value").unwrap()])
+        .unwrap();
+    assert_eq!(
+        partial
+            .inspection_pack_selection(&projection)
+            .await
+            .unwrap()
+            .usability,
+        crate::workflow::PackScientificState::Partial
+    );
+    drop(partial);
     let context = selection.context.as_ref().unwrap();
     assert_eq!(context.problem, "aqueous-lifecycle-problem");
     assert_eq!(context.revision, original_revision);
@@ -1208,13 +1354,13 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         panic!("original passive usability absent");
     };
     assert!(
-        matches!(usability.field_by_number(1), Some(WireValue::Message(_))),
-        "the original Unknown oneof alternative must survive copying"
+        matches!(usability.field_by_number(2), Some(WireValue::Message(_))),
+        "the original recorded Usable oneof alternative must survive copying"
     );
-    for alternate in 2..=5 {
+    for alternate in [1, 3, 4, 5] {
         assert!(
             usability.field_by_number(alternate).is_none(),
-            "portable delivery cannot introduce a scientific-use alternative"
+            "portable delivery must preserve exactly the original decision"
         );
     }
     let Some(WireValue::Message(observed_context)) = observed.field_by_number(11) else {

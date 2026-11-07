@@ -19,6 +19,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+pub(in crate::workflow) mod trajectory_permission;
 
 /// Keep the exact read/release owner and its prepaid response grants through
 /// independent transport drain, without treating a guard as an allocation.
@@ -326,6 +327,17 @@ impl CanonicalResultReader {
         for name in PERMISSION_CONTEXT_ROOTS.iter().chain(DUAL_VALUE_ROOTS) {
             if let Ok(index) = self.reader.schema.index_of(name) {
                 requested.push(index);
+            }
+        }
+        if self.reader.relation
+            == pse_relations::generated::runtime::simulation_samples::RELATION_ID
+        {
+            for name in trajectory_permission::SAMPLE_ROOTS {
+                requested.push(
+                    self.reader.schema.index_of(name).map_err(|_| {
+                        contract("original trajectory permission coordinate absent")
+                    })?,
+                );
             }
         }
         self.reader.decode.inspection_projection(&requested)
@@ -660,6 +672,42 @@ fn propagation_product_state(
     }
 }
 impl ResultReader {
+    /// Replay the exact protected selection without consuming its public cursor.
+    /// Immutable protection and decoder grants are shared; cursor storage is prepaid.
+    fn fresh_selection(&self, name: &'static str) -> Result<Self, WorkflowError> {
+        let owner = MemoryConsumer::new(name).register(&self.services.pool());
+        owner
+            .try_grow(self.set.capacity())
+            .map_err(pse_engine::EngineError::from)?;
+        Ok(Self {
+            observation: None,
+            services: self.services.clone(),
+            read: self.read.clone(),
+            snapshot: self.snapshot.clone(),
+            decode: self.decode.clone(),
+            read_owner: self.read_owner.clone(),
+            relation: self.relation,
+            set: self.set.clone(),
+            schema: self.schema.clone(),
+            start: self.start,
+            end: self.end,
+            after: None,
+            snapshot_position: 0,
+            pending: VecDeque::new(),
+            exhausted: self.start == self.end,
+            consumed: false,
+            cancel: self.cancel.clone(),
+            output: self.output.clone(),
+            native_selection: self.native_selection.clone(),
+            page_pruning: None,
+            pruning_position: 0,
+            indexes: BTreeMap::new(),
+            descriptors: BTreeMap::new(),
+            selected_batch: None,
+            metadata_owner: None,
+            _selection_owner: owner,
+        })
+    }
     /// Exact registry schema of the selected scientific relation.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -747,9 +795,12 @@ impl ResultReader {
         use pse_model::generated::enums::DerivedQuantity;
         use pse_relations::generated::runtime::{
             modeling_reports, parameter_covariances, parameter_intervals, parametric_sensitivities,
-            profile_points, propagated_covariances, reduced_hessians, solve_constraints,
-            solve_variables,
+            profile_points, propagated_covariances, reduced_hessians, simulation_samples,
+            solve_constraints, solve_variables,
         };
+        if self.relation == simulation_samples::RELATION_ID {
+            return self.recorded_trajectory_usability(projection).await;
+        }
         if [
             solve_variables::RELATION_ID,
             solve_constraints::RELATION_ID,
@@ -856,39 +907,7 @@ impl ResultReader {
                 super::PackScientificState::Usable
             });
         }
-        let owner =
-            MemoryConsumer::new("result:product-scope-read").register(&self.services.pool());
-        owner
-            .try_grow(self.set.capacity())
-            .map_err(pse_engine::EngineError::from)?;
-        let mut rows = ResultReader {
-            observation: None,
-            services: self.services.clone(),
-            read: self.read.clone(),
-            snapshot: self.snapshot.clone(),
-            decode: self.decode.clone(),
-            read_owner: self.read_owner.clone(),
-            relation: self.relation,
-            set: self.set.clone(),
-            schema: self.schema.clone(),
-            start: self.start,
-            end: self.end,
-            after: None,
-            snapshot_position: 0,
-            pending: VecDeque::new(),
-            exhausted: self.start == self.end,
-            consumed: false,
-            cancel: self.cancel.clone(),
-            output: self.output.clone(),
-            native_selection: self.native_selection.clone(),
-            page_pruning: None,
-            pruning_position: 0,
-            indexes: BTreeMap::new(),
-            descriptors: BTreeMap::new(),
-            selected_batch: None,
-            metadata_owner: None,
-            _selection_owner: owner,
-        };
+        let mut rows = self.fresh_selection("result:product-scope-read")?;
         let mut seen = false;
         let mut unknown = false;
         let mut selected_rows = 0u64;

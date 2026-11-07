@@ -29,8 +29,12 @@ point identity for each sample. A time hash, row ordinal or quantity cannot supp
 
 The first consuming scope is one complete original transient fit experiment, evaluated at
 its actual retained candidate inputs. Its local trajectory qualification is independent
-of fit-estimate optimality and other experiments. It does not qualify fitted parameters,
-arbitrary member points, partial intervals, or general simulation trajectory consumers.
+of fit-estimate optimality and other experiments. The next consuming scope is the original
+root instance of a standalone `ModelingTrajectory`, using its already retained completion,
+report, checks and preparation. Both use the same whole-member observation and private
+custody owner. Neither qualifies fitted parameters, arbitrary member points or independent
+partial-interval integration. Reading a selected subset of an originally permitted member
+is descriptive partial coverage, not a new interval or point capability.
 
 ## Drivers
 
@@ -74,6 +78,13 @@ cannot manufacture it. Historical member populations default unavailable, with t
 completion's enclosing attempt remaining the historical binding authority.
 The historical snapshot retains source/preparation references and the recorded decision;
 it does not independently restore actual applied parameters/configuration or live proof.
+The protected result reader may characterize that original recorded decision only with the
+same protected completion/attempt and `scientific_contexts` membership: original run/member,
+source/physical/preparation/profile, sample time and output/quantity/unit correspondence.
+It shares the existing protected read and decoder owners. Missing, foreign, duplicate or
+ambiguous facts remain unknown; native failure remains unusable. Selected subsets cannot
+become complete-population claims. Historical interpretation never restores live custody,
+providers, numerical execution or derivative permission.
 Required and observed counts retain the existing original trajectory sample-population
 meaning (`profile.samples.len()` and native coverage), rather than counting assessment objects.
 
@@ -92,7 +103,8 @@ remain accounted. Broader A02 steady partial-buffer and member-point work stays 
 ### Compensating controls
 
 The native trajectory gate checks exact run/attempt/member/source/preparation and both
-report and local assessment custody. Missing, ambiguous or decoded proof refuses use;
+report and local assessment custody. For standalone simulation it retains and matches the
+actual immutable `ModelingTrajectory` owner and original request instead. Missing, ambiguous or decoded proof refuses use;
 the raw report remains readable. Whole-member permission cannot grant point derivatives.
 
 ### Confirmation
@@ -120,3 +132,5 @@ still require their own original correspondence.
 ## Status history
 
 - 2026-11-06 — Proposed before the authorized original-member permission declaration.
+- 2026-11-06 — Extended the same proposed contract to the standalone original-root consumer
+  and descriptive protected trajectory reader before those consuming paths were integrated.
