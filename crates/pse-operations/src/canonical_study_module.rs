@@ -456,9 +456,7 @@ impl StudyModuleReceipt {
 pub(crate) const CATALOG_VALIDATION_BODY: &str = "LET $info=INFO FOR DB STRUCTURE; LET $b=$info.buckets.filter(|$row|$row.name=$bucket); LET $m=$info.extensions.filter(|$row|$row.name='pse');";
 pub(crate) const CATALOG_VALIDATION_PREDICATE: &str = "array::len($b)=1 AND array::len($m)=1 AND $b[0].readonly=true AND $b[0].backend=$backend AND $m[0].unsigned=true AND $m[0].digest=$study_module_manifest_digest AND $m[0].signer=NONE AND $m[0].bindings=NONE AND $m[0].permissions=true AND $m[0].executable.type='surrealism' AND $m[0].executable.bucket=$bucket AND $m[0].executable.key='/study.surli' AND $m[0].capabilities={net:false,functions:false,queries:false,scripting:false,write:false,memory:$study_module_memory,timeout:$study_module_timeout,strict_timeout:true} AND array::len($m[0].exports)=1 AND $m[0].exports[0].name='study::readiness' AND $m[0].exports[0].writeable=false";
 pub(crate) fn capability_validation_predicate() -> String {
-    format!(
-        "$pse_catalog_matches=true AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start"
-    )
+    "$pse_catalog_matches=true AND $pse_prepare_probe.accepted=true AND array::len($pse_prepare_probe.decisions)=1 AND $pse_prepare_probe.decisions[0].disposition='prepare' AND $pse_prepare_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.accepted=true AND array::len($pse_claim_probe.decisions)=1 AND $pse_claim_probe.decisions[0].disposition='start' AND $pse_claim_probe.decisions[0].action=$pse_probe_action AND $pse_claim_probe.decisions[0].start=$pse_probe_start".to_owned()
 }
 
 /// Prove both new progression modes at the exact immutable-module admission

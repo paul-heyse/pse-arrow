@@ -8,7 +8,6 @@ use crate::{
     canonical::{
         CanonicalError, CanonicalStore, MetadataResponse, REQUEST_TIMEOUT, protected_query,
     },
-    canonical_script::{Envelope, GuardedScript},
     generated::surreal as wire,
 };
 use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
@@ -1477,6 +1476,7 @@ mod server_tests {
     use crate::canonical::CanonicalOptions;
     use crate::canonical_analyses::{AnalysisEdge, AnalysisNode, seal_analysis_request};
     use crate::canonical_artifacts::{artifact_block, seal_artifact_request};
+    use crate::canonical_script::{Envelope, GuardedScript};
 
     #[tokio::test]
     async fn canonical_graph_explanation_root_readers_bypass_conditional_row_permissions() {

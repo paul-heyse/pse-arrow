@@ -252,7 +252,7 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
     let parent = selected
         .release
         .parent()
-        .expect("release has a generation parent");
+        .ok_or_else(|| invalid("SurrealKit release has no generation parent"))?;
     no_symlinks(parent)?;
     fs::create_dir_all(parent)?;
     no_symlinks(parent)?;
