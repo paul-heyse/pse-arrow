@@ -227,3 +227,10 @@ After the campaign settles, use the [worktree closeout](agent-environment.md#wor
 its checkout and exact externally placed state. Keep any current published results under
 their own owner. The split `build.build-dir` control produced extra intermediates without
 an observed ordinary-loop advantage. The checkout-local target remains the usual layout.
+
+The checkout's Cargo configuration sends nightly compiler crash reports to its `target/`
+directory. Cargo clean removes those reports with the build output. For a separate campaign,
+set `RUSTC_ICE` to its existing owned output directory when the report needs to follow that
+campaign's lifetime. Preserve any report selected for a compiler investigation before cleanup.
+[Cargo configuration environment](https://doc.rust-lang.org/cargo/reference/config.html#env) ·
+[Pinned rustc crash-report implementation](https://github.com/rust-lang/rust/blob/c1070d69382b8d2f2eb65119c738a77d9e324c9e/compiler/rustc_driver_impl/src/lib.rs)

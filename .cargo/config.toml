@@ -31,6 +31,10 @@ jobs = 32
 # Cargo's rerun-if-changed mtime behavior.
 fingerprint = "content"
 
+[env]
+# Put nightly compiler crash reports under the checkout's Cargo cleanup boundary.
+RUSTC_ICE = { value = "target", relative = true }
+
 [unstable]
 checksum-freshness = true
 # Resolve dependency features for the whole workspace whatever `-p` selects, so each
