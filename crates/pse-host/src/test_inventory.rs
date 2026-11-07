@@ -699,7 +699,12 @@ pub(crate) fn captured_inventory(
     original: &CapturedReport,
     maximum: Option<usize>,
 ) -> Result<(Inventory, Vec<u8>), HostError> {
-    let CapturedReport { observation, parent, report, .. } = original;
+    let CapturedReport {
+        observation,
+        parent,
+        report,
+        ..
+    } = original;
     if observation.inventory.as_deref() != Some("inventory/inventory.json") {
         return Err(invalid(
             "original report has no supported inventory association",

@@ -106,10 +106,18 @@ mod tests {
             .collect();
         assert_eq!(
             requirements_from_backend_features(&metadata(), &full).expect("all"),
-            ["compiler", "solver", "klu", "isolation", "uno", "petsc", "coolprop"]
-                .into_iter()
-                .map(str::to_owned)
-                .collect()
+            [
+                "compiler",
+                "solver",
+                "klu",
+                "isolation",
+                "uno",
+                "petsc",
+                "coolprop"
+            ]
+            .into_iter()
+            .map(str::to_owned)
+            .collect()
         );
     }
 

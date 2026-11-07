@@ -1958,11 +1958,19 @@ mod tests {
             &mut checks,
             &mut reports,
         );
-        assert!(failed.unwrap_err().to_string().contains("report target absent"));
+        assert!(
+            failed
+                .unwrap_err()
+                .to_string()
+                .contains("report target absent")
+        );
         assert_eq!(checks.len(), 1);
         assert!(checks[0].satisfied);
         assert_eq!(reports.len(), 1);
-        assert_eq!((reports[0].label.as_str(), reports[0].value), (*first_label, 1.));
+        assert_eq!(
+            (reports[0].label.as_str(), reports[0].value),
+            (*first_label, 1.)
+        );
         observed.insert(ModelingOutput::Member(*later).row_id(), 2.);
         checks.clear();
         reports.clear();
@@ -1982,7 +1990,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(reports.len(), 2);
-        assert_eq!((reports[1].label.as_str(), reports[1].value), (*later_label, 2.));
+        assert_eq!(
+            (reports[1].label.as_str(), reports[1].value),
+            (*later_label, 2.)
+        );
     }
     #[tokio::test]
     async fn report_transfer_context_retains_actual_owner_order_and_direction() {

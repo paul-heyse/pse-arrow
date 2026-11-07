@@ -49,8 +49,8 @@ fn failed_cases(
     if !evidence.observation.required_capture_complete {
         return Err(WorkflowError::Invalid("original failed selection has incomplete required capture; inspect its evidence and select current tests explicitly".into()));
     }
-    let historical: HistoricalReport = serde_json::from_slice(&evidence.report)
-        .map_err(crate::discovery::DiscoveryError::from)?;
+    let historical: HistoricalReport =
+        serde_json::from_slice(&evidence.report).map_err(crate::discovery::DiscoveryError::from)?;
     let mut cases = Vec::new();
     for group in historical.observations {
         let HistoricalGroup::Test { observation } = group else {
@@ -66,7 +66,12 @@ fn failed_cases(
                 .selection
                 .groups()
                 .get(failure.group)
-                .and_then(|group| group.roots().iter().find(|root| root.package_id() == failure.package_id))
+                .and_then(|group| {
+                    group
+                        .roots()
+                        .iter()
+                        .find(|root| root.package_id() == failure.package_id)
+                })
                 .ok_or_else(|| {
                     WorkflowError::Invalid("failed identity has no original compiler root".into())
                 })?;
@@ -76,7 +81,9 @@ fn failed_cases(
                 .target
                 .kind
                 .first()
-                .ok_or_else(|| WorkflowError::Invalid("failed identity has no native target kind".into()))?
+                .ok_or_else(|| {
+                    WorkflowError::Invalid("failed identity has no native target kind".into())
+                })?
                 .to_string();
             let case = RerunCase {
                 package: root.package_name().into(),

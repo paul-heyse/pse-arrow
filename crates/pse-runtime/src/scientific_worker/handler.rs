@@ -141,7 +141,9 @@ impl FailureBudget {
         Ok(values)
     }
     fn diagnostic_children(&mut self, length: usize) -> Result<Vec<BoundaryDiagnostic>, ()> {
-        let bytes = length.checked_mul(size_of::<BoundaryDiagnostic>()).ok_or(())?;
+        let bytes = length
+            .checked_mul(size_of::<BoundaryDiagnostic>())
+            .ok_or(())?;
         self.charge(bytes)?;
         self.vector(length)
     }
@@ -184,7 +186,11 @@ fn capture_worker_diagnostic(
     budget.node(depth)?;
     match error {
         WorkerError::Provider(error) => capture_provider_diagnostic(error, depth, budget),
-        WorkerError::Lifecycle { action, handle, cause } => {
+        WorkerError::Lifecycle {
+            action,
+            handle,
+            cause,
+        } => {
             if action.len() > budget.text {
                 return Err(());
             }
@@ -203,7 +209,9 @@ fn capture_worker_diagnostic(
                 FAILURE_STAGE,
             ))?;
             value.causes = budget.diagnostic_children(1)?;
-            value.causes.push(capture_worker_diagnostic(cause, depth + 1, budget)?);
+            value
+                .causes
+                .push(capture_worker_diagnostic(cause, depth + 1, budget)?);
             Ok(value)
         }
         WorkerError::Retirement { causes } => {
@@ -217,7 +225,9 @@ fn capture_worker_diagnostic(
             ))?;
             value.causes = budget.diagnostic_children(causes.len())?;
             for cause in causes {
-                value.causes.push(capture_worker_diagnostic(cause, depth + 1, budget)?);
+                value
+                    .causes
+                    .push(capture_worker_diagnostic(cause, depth + 1, budget)?);
             }
             Ok(value)
         }
@@ -228,7 +238,9 @@ fn capture_worker_diagnostic(
                 FAILURE_STAGE,
             ))?;
             value.causes = budget.diagnostic_children(1)?;
-            value.causes.push(clone_passive(diagnostic, depth + 1, budget)?);
+            value
+                .causes
+                .push(clone_passive(diagnostic, depth + 1, budget)?);
             Ok(value)
         }
         WorkerError::Acknowledgement { action, .. } if action.len() > budget.text => Err(()),
@@ -275,7 +287,11 @@ fn capture_leaf_diagnostic(
     budget: &mut FailureBudget,
 ) -> Result<BoundaryDiagnostic, ()> {
     use std::fmt::Write as _;
-    let mut value = project_facts(error.diagnostic_code(), error.diagnostic_facts(), FAILURE_STAGE);
+    let mut value = project_facts(
+        error.diagnostic_code(),
+        error.diagnostic_facts(),
+        FAILURE_STAGE,
+    );
     let mut detail = DiagnosticDetail {
         text: String::new(),
         limit: budget.text.checked_sub(value.heap_bytes()).ok_or(())?,
@@ -345,7 +361,9 @@ fn capture_provider_diagnostic(
             ))?;
             value.causes = budget.diagnostic_children(2)?;
             for cause in [operation, cleanup] {
-                value.causes.push(capture_provider_diagnostic(cause, depth + 1, budget)?);
+                value
+                    .causes
+                    .push(capture_provider_diagnostic(cause, depth + 1, budget)?);
             }
             Ok(value)
         }

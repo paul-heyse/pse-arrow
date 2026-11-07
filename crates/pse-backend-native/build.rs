@@ -21,13 +21,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+#[path = "build-coolprop.rs"]
+mod build_coolprop;
 #[path = "build-link.rs"]
 mod build_link;
 mod build_receipt;
 #[path = "build-source.rs"]
 mod build_source;
-#[path = "build-coolprop.rs"]
-mod build_coolprop;
 
 const MKL: &str = "mkl-dynamic-lp64-gomp";
 

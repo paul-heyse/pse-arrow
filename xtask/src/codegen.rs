@@ -28,9 +28,9 @@ mod proto_projection;
 mod recorded_result;
 
 #[cfg(feature = "native-abi")]
-mod ipopt;
-#[cfg(feature = "native-abi")]
 mod coolprop;
+#[cfg(feature = "native-abi")]
+mod ipopt;
 #[cfg(feature = "product-schemas")]
 mod private_documents;
 #[cfg(feature = "product-schemas")]

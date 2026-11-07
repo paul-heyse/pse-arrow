@@ -381,7 +381,10 @@ impl WaterFactory {
             .str(COOLPROP_REVISION)
             .str(WATER_JSON_SHA256)
             .str(coolprop_sys::COOLPROP_IMAGE_SHA256)
-            .str(include_str!(concat!(env!("OUT_DIR"), "/coolprop-profile.json")));
+            .str(include_str!(concat!(
+                env!("OUT_DIR"),
+                "/coolprop-profile.json"
+            )));
         for value in [
             reference.temperature,
             reference.pressure,

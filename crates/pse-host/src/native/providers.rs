@@ -44,7 +44,15 @@ const PETSC: &[&str] = &[
 ];
 // KLU also selects the compiler context; dependent providers consume that
 // completed context rather than exporting a prior checkout's bridge first.
-const ORDER: &[&str] = &["compiler", "klu", "solver", "isolation", "uno", "petsc", "coolprop"];
+const ORDER: &[&str] = &[
+    "compiler",
+    "klu",
+    "solver",
+    "isolation",
+    "uno",
+    "petsc",
+    "coolprop",
+];
 /// Parser-owned capability atoms, without inspecting sources or installed providers.
 pub fn capability_names() -> &'static [&'static str] {
     ORDER
@@ -56,7 +64,11 @@ fn required(kind: &str) -> &'static [&'static str] {
         "isolation" => ISOLATION,
         "uno" => UNO,
         "petsc" => PETSC,
-        "coolprop" => &["lib/libCoolProp.so", "include/CoolProp/CoolPropLib.h", "share/pse-coolprop/inputs.json"],
+        "coolprop" => &[
+            "lib/libCoolProp.so",
+            "include/CoolProp/CoolPropLib.h",
+            "share/pse-coolprop/inputs.json",
+        ],
         _ => &[],
     }
 }
@@ -1043,7 +1055,10 @@ fn petsc_make_build_arguments(
             if program.contains(['\0', '\n', '\r']) {
                 return Err(invalid("invalid PETSc compiler launcher path"));
             }
-            Ok(format!("'{}'", program.replace('$', "$$").replace('\'', "'\\''")))
+            Ok(format!(
+                "'{}'",
+                program.replace('$', "$$").replace('\'', "'\\''")
+            ))
         };
         let launcher = quote(launcher)?;
         for compiler in ["CC", "CXX"] {
@@ -2110,7 +2125,10 @@ fi
             petsc_make_build_arguments(&environment, "32").unwrap(),
             ["-j32", "all"].map(OsString::from),
         );
-        environment.insert("PSE_NATIVE_COMPILER_CACHE".into(), "/cache/$slot/sccache".into());
+        environment.insert(
+            "PSE_NATIVE_COMPILER_CACHE".into(),
+            "/cache/$slot/sccache".into(),
+        );
         assert_eq!(
             petsc_make_build_arguments(&environment, "32").unwrap(),
             [
@@ -2121,7 +2139,10 @@ fi
             ]
             .map(OsString::from),
         );
-        environment.insert("PSE_NATIVE_COMPILER_CACHE".into(), "/cache\n/sccache".into());
+        environment.insert(
+            "PSE_NATIVE_COMPILER_CACHE".into(),
+            "/cache\n/sccache".into(),
+        );
         assert!(petsc_make_build_arguments(&environment, "32").is_err());
     }
     #[test]

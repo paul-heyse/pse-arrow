@@ -136,9 +136,25 @@ pub(super) fn generate(root: &Path, trees: &[(String, GeneratedTree)]) -> Result
     });
     owners.push(GeneratorOwner {
         producer: "coolprop-native-abi".into(),
-        outputs: vec![scope(Path::new(provenance::protocol::COOLPROP_BINDINGS), ScopeKind::File)?],
-        regenerate: vec!["just".into(), "codegen".into(), "--only".into(), "bindgen".into()],
-        inputs: ["Cargo.toml", "xtask/src/codegen/coolprop.rs", "vendor/coolprop-sys/CoolPropLib.h", "vendor/patches/coolprop-saturation-second.patch"].into_iter().map(|path| scope(Path::new(path), ScopeKind::File)).collect::<Result<_>>()?,
+        outputs: vec![scope(
+            Path::new(provenance::protocol::COOLPROP_BINDINGS),
+            ScopeKind::File,
+        )?],
+        regenerate: vec![
+            "just".into(),
+            "codegen".into(),
+            "--only".into(),
+            "bindgen".into(),
+        ],
+        inputs: [
+            "Cargo.toml",
+            "xtask/src/codegen/coolprop.rs",
+            "vendor/coolprop-sys/CoolPropLib.h",
+            "vendor/patches/coolprop-saturation-second.patch",
+        ]
+        .into_iter()
+        .map(|path| scope(Path::new(path), ScopeKind::File))
+        .collect::<Result<_>>()?,
         contributors: None,
     });
     let mut map_owner = owner(root, MAP_PRODUCER, &map_tree)?;

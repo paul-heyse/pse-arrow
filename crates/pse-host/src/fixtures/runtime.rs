@@ -141,7 +141,9 @@ pub fn prepare_runtime(
     let demand = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
     if pointer(&state).try_exists().map_err(HostError::from)?
         && let Ok(selected) = open(&state, &root, &demand)
-        && selected.validate_current(&root, &environment, &demand).is_ok()
+        && selected
+            .validate_current(&root, &environment, &demand)
+            .is_ok()
     {
         return selected.view();
     }

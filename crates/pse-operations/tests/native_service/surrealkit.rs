@@ -69,7 +69,9 @@ fn prepared_tool() -> Result<PathBuf, NativeServiceError> {
             .join("surrealkit"),
     };
     let invalid = || {
-        NativeServiceError::Refused("SurrealKit requires its prepared pinned binary and release receipt")
+        NativeServiceError::Refused(
+            "SurrealKit requires its prepared pinned binary and release receipt",
+        )
     };
     let receipt = binary.with_file_name("release.json");
     if !binary.is_absolute()
@@ -128,11 +130,15 @@ async fn provision_namespace(
         )
         .await?;
         // Both generated passwords are simple UUIDs, containing only hexadecimal digits.
-        bounded_query(client.query(format!(
-            "DEFINE NAMESPACE {NAMESPACE}; USE NS {NAMESPACE}; \
+        bounded_query(
+            client
+                .query(format!(
+                    "DEFINE NAMESPACE {NAMESPACE}; USE NS {NAMESPACE}; \
              DEFINE USER {SETUP_USER} ON NAMESPACE PASSWORD '{setup_password}' ROLES OWNER; \
              DEFINE USER {INSPECTOR} ON NAMESPACE PASSWORD '{inspection_password}' ROLES VIEWER;"
-        )).request_context(RequestContext::control(deadline)))
+                ))
+                .request_context(RequestContext::control(deadline)),
+        )
         .await
     }
     .await;
@@ -140,8 +146,12 @@ async fn provision_namespace(
     let drained = client.disconnect().await;
     match (outcome.is_ok(), drained.is_ok()) {
         (true, true) => Ok(()),
-        (false, true) => Err(NativeServiceError::Refused("SurrealKit namespace setup failed")),
-        (true, false) => Err(NativeServiceError::Refused("SurrealKit namespace control drain failed")),
+        (false, true) => Err(NativeServiceError::Refused(
+            "SurrealKit namespace setup failed",
+        )),
+        (true, false) => Err(NativeServiceError::Refused(
+            "SurrealKit namespace control drain failed",
+        )),
         (false, false) => Err(NativeServiceError::Refused(
             "SurrealKit namespace setup and control drain failed",
         )),
@@ -166,8 +176,14 @@ fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeSer
         .map_err(std::io::Error::from)?;
     }
     // SurrealKit begins with empty local snapshots for this fresh project.
-    fs::write(folder.join("snapshots/schema_snapshot.json"), r#"{"version":1,"files":[]}"#)?;
-    fs::write(folder.join("snapshots/catalog_snapshot.json"), r#"{"version":2,"entities":[]}"#)?;
+    fs::write(
+        folder.join("snapshots/schema_snapshot.json"),
+        r#"{"version":1,"files":[]}"#,
+    )?;
+    fs::write(
+        folder.join("snapshots/catalog_snapshot.json"),
+        r#"{"version":2,"entities":[]}"#,
+    )?;
     Ok(seed_path)
 }
 
@@ -193,7 +209,14 @@ impl SuiteTool<'_> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .args(["test", "--schema-from", "sync", "--suite", SUITE_NAME])
-            .args(["--host", self.endpoint, "--ns", NAMESPACE, "--db", DATABASE_PREFIX])
+            .args([
+                "--host",
+                self.endpoint,
+                "--ns",
+                NAMESPACE,
+                "--db",
+                DATABASE_PREFIX,
+            ])
             .args(["--auth-level", "namespace", "--connect-timeout-secs", "10"])
             .arg("--folder")
             .arg(folder)
@@ -202,7 +225,10 @@ impl SuiteTool<'_> {
             .env("SURREALDB_USER", SETUP_USER)
             .env("SURREALDB_PASSWORD", self.setup_password)
             .env("PSE_SURREALKIT_INSPECTION_USER", INSPECTOR)
-            .env("PSE_SURREALKIT_INSPECTION_PASSWORD", self.inspection_password);
+            .env(
+                "PSE_SURREALKIT_INSPECTION_PASSWORD",
+                self.inspection_password,
+            );
         tokio::task::spawn_blocking(move || {
             let mut child = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None)
                 .map_err(|_| NativeServiceError::Refused("SurrealKit child admission failed"))?;
@@ -215,9 +241,9 @@ impl SuiteTool<'_> {
                     .map_err(|_| NativeServiceError::Refused("SurrealKit child observation failed"))
                     .map(|()| None)
             };
-            let status = child.cancel().map_err(|_| {
-                NativeServiceError::Refused("SurrealKit child settlement failed")
-            })?;
+            let status = child
+                .cancel()
+                .map_err(|_| NativeServiceError::Refused("SurrealKit child settlement failed"))?;
             // Hold the test FIFO writer open until the child is physically drained.
             drop(observed?);
             Ok(status)
@@ -243,12 +269,18 @@ fn wait_for_seed_reader(
             Err(error) if error.raw_os_error() == Some(libc::ENXIO) => {}
             Err(error) => return Err(error.into()),
         }
-        if child.try_wait().map_err(|_| NativeServiceError::Refused("SurrealKit child observation failed"))?.is_some() {
+        if child
+            .try_wait()
+            .map_err(|_| NativeServiceError::Refused("SurrealKit child observation failed"))?
+            .is_some()
+        {
             break;
         }
         std::thread::sleep(Duration::from_millis(15));
     }
-    Err(NativeServiceError::Refused("SurrealKit did not reach the interrupted seed"))
+    Err(NativeServiceError::Refused(
+        "SurrealKit did not reach the interrupted seed",
+    ))
 }
 
 #[derive(Deserialize)]
@@ -298,7 +330,9 @@ fn verify_report(
     })?)
     .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))?;
     let Some(suite) = report.suites.first() else {
-        return Err(NativeServiceError::Refused("missing SurrealKit suite result"));
+        return Err(NativeServiceError::Refused(
+            "missing SurrealKit suite result",
+        ));
     };
     let names: BTreeSet<_> = source.cases.iter().map(|case| case.name.as_str()).collect();
     let observed: BTreeSet<_> = suite.cases.iter().map(|case| case.name.as_str()).collect();
@@ -306,12 +340,16 @@ fn verify_report(
         || report.suites.len() != 1
         || suite.suite_name != source.name
         || suite.namespace != NAMESPACE
-        || !suite.database.starts_with(&format!("{DATABASE_PREFIX}_sk_test_"))
+        || !suite
+            .database
+            .starts_with(&format!("{DATABASE_PREFIX}_sk_test_"))
         || report.cases_total != source.cases.len()
         || suite.cases.len() != names.len()
         || observed != names
     {
-        return Err(NativeServiceError::Refused("partial or unexpected SurrealKit suite report"));
+        return Err(NativeServiceError::Refused(
+            "partial or unexpected SurrealKit suite report",
+        ));
     }
     let failures: Vec<_> = suite
         .cases
@@ -326,15 +364,15 @@ fn verify_report(
         || failures.iter().copied().ne(expected_failure)
     {
         eprintln!("Unexpected SurrealKit assertion failures: {failures:?}");
-        return Err(NativeServiceError::Command { stage: "SurrealKit suite assertions", status });
+        return Err(NativeServiceError::Command {
+            stage: "SurrealKit suite assertions",
+            status,
+        });
     }
     Ok(report.cases_passed)
 }
 
-async fn exercise_suite(
-    tool: &SuiteTool<'_>,
-    root: &Path,
-) -> Result<usize, NativeServiceError> {
+async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, NativeServiceError> {
     let passing = root.join("passing");
     stage_project(&passing, Some(SEED))?;
     let status = tool.run(&passing, None).await?;
@@ -350,17 +388,24 @@ async fn exercise_suite(
     )?;
 
     let setup_failure = root.join("setup-failure");
-    stage_project(&setup_failure, Some("THROW 'fixture seed deliberately failed';"))?;
+    stage_project(
+        &setup_failure,
+        Some("THROW 'fixture seed deliberately failed';"),
+    )?;
     let status = tool.run(&setup_failure, None).await?;
     if status.code() != Some(1) || setup_failure.join("result.json").try_exists()? {
-        return Err(NativeServiceError::Refused("SurrealKit setup control had unexpected finality"));
+        return Err(NativeServiceError::Refused(
+            "SurrealKit setup control had unexpected finality",
+        ));
     }
 
     let interrupted = root.join("interrupted");
     let seed = stage_project(&interrupted, None)?;
     let status = tool.run(&interrupted, Some(seed)).await?;
     if status.signal().is_none() || interrupted.join("result.json").try_exists()? {
-        return Err(NativeServiceError::Refused("SurrealKit interruption control had unexpected finality"));
+        return Err(NativeServiceError::Refused(
+            "SurrealKit interruption control had unexpected finality",
+        ));
     }
     Ok(passed)
 }
@@ -372,32 +417,48 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
     let mut service = fixture_with_schema(false).unwrap();
     let state = service.state().to_path_buf();
     let deadline = Instant::now() + Duration::from_secs(240);
-    let outcome = service.run(deadline, |service| {
-        Box::pin(async move {
-            service.launch(Instant::now() + Duration::from_secs(90)).await?;
-            let options = CanonicalOptions::from_state(service.state())?;
-            let live_endpoint = service.ready()?.store().endpoint();
-            if owned_address("grpc://127.0.0.1:1", live_endpoint).is_ok() {
-                return Err(NativeServiceError::Refused("SurrealKit accepted a foreign endpoint"));
-            }
-            let address = owned_address(&options.endpoint, live_endpoint)?;
-            let setup_password = uuid::Uuid::new_v4().simple().to_string();
-            let inspection_password = uuid::Uuid::new_v4().simple().to_string();
-            provision_namespace(address, &options, &setup_password, &inspection_password, deadline)
+    let outcome = service
+        .run(deadline, |service| {
+            Box::pin(async move {
+                service
+                    .launch(Instant::now() + Duration::from_secs(90))
+                    .await?;
+                let options = CanonicalOptions::from_state(service.state())?;
+                let live_endpoint = service.ready()?.store().endpoint();
+                if owned_address("grpc://127.0.0.1:1", live_endpoint).is_ok() {
+                    return Err(NativeServiceError::Refused(
+                        "SurrealKit accepted a foreign endpoint",
+                    ));
+                }
+                let address = owned_address(&options.endpoint, live_endpoint)?;
+                let setup_password = uuid::Uuid::new_v4().simple().to_string();
+                let inspection_password = uuid::Uuid::new_v4().simple().to_string();
+                provision_namespace(
+                    address,
+                    &options,
+                    &setup_password,
+                    &inspection_password,
+                    deadline,
+                )
                 .await?;
-            let tool = SuiteTool {
-                binary: &binary,
-                endpoint: &options.endpoint,
-                setup_password: &setup_password,
-                inspection_password: &inspection_password,
-            };
-            exercise_suite(&tool, &service.state().join("surrealkit")).await
+                let tool = SuiteTool {
+                    binary: &binary,
+                    endpoint: &options.endpoint,
+                    setup_password: &setup_password,
+                    inspection_password: &inspection_password,
+                };
+                exercise_suite(&tool, &service.state().join("surrealkit")).await
+            })
         })
-    }).await;
+        .await;
     let disposal = service.dispose();
     let (Ok(cases), Ok(())) = (&outcome, &disposal) else {
-        panic!("SurrealKit suite or its original endpoint failed: suite={outcome:?}, disposal={disposal:?}");
+        panic!(
+            "SurrealKit suite or its original endpoint failed: suite={outcome:?}, disposal={disposal:?}"
+        );
     };
     assert!(!state.try_exists().unwrap());
-    eprintln!("SurrealKit generated schema {SCHEMA_DIGEST}: {cases} cases passed; owned endpoint disposed");
+    eprintln!(
+        "SurrealKit generated schema {SCHEMA_DIGEST}: {cases} cases passed; owned endpoint disposed"
+    );
 }

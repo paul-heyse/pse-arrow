@@ -131,9 +131,9 @@ impl<'a> HostPaths<'a> {
         if !directory.is_absolute() {
             return Err(EnvironmentError("SCCACHE_DIR must be absolute".into()));
         }
-        let address = endpoint.to_str().ok_or_else(|| {
-            EnvironmentError("SCCACHE_SERVER_UDS must be UTF-8".into())
-        })?;
+        let address = endpoint
+            .to_str()
+            .ok_or_else(|| EnvironmentError("SCCACHE_SERVER_UDS must be UTF-8".into()))?;
         if !endpoint.is_absolute() && !address.starts_with("\\x00") {
             return Err(EnvironmentError(
                 "SCCACHE_SERVER_UDS must be absolute or a Linux abstract address".into(),

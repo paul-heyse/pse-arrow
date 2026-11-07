@@ -448,8 +448,8 @@ async fn fitting_steady_partial_observations_survive_typed_retirement_failure_an
     use crate::workflow::{
         FitExperimentAssessmentState as State, RunOutcome, RunReport, RunResult,
     };
-    use pse_kernels::{Provider, ProviderBinding, ProviderError, ProviderFactory, ProviderSpec};
     use pse_diagnostics::DiagnosticCode;
+    use pse_kernels::{Provider, ProviderBinding, ProviderError, ProviderFactory, ProviderSpec};
     use pse_model::diagnostic::BoundaryDiagnostic;
     use pse_relations::{
         columnar::RelationRow,
@@ -610,7 +610,10 @@ async fn fitting_steady_partial_observations_survive_typed_retirement_failure_an
             observed_failure,
             pse_model::generated::enums::NumericalAttemptObservation::OperationalFailure
         );
-        assert_eq!(has_code(failure, DiagnosticCode::RuntimeCancelled), fault > 1);
+        assert_eq!(
+            has_code(failure, DiagnosticCode::RuntimeCancelled),
+            fault > 1
+        );
         assert_eq!(has_code(failure, DiagnosticCode::MathProvider), fault == 3);
         assert!(
             !failure.causes.is_empty(),

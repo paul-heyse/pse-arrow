@@ -74,10 +74,14 @@ fn package<'a>(
 ) -> BoxFuture<'a, Result<ModelingPackage>> {
     async move {
         let physical = {
-            let root = support::root().canonicalize()?.join("packages/reference/physical");
+            let root = support::root()
+                .canonicalize()?
+                .join("packages/reference/physical");
             let capture = || -> Result<_> {
                 if root.canonicalize()? != root {
-                    return Err(std::io::Error::other("physical fixture path traverses a symlink").into());
+                    return Err(
+                        std::io::Error::other("physical fixture path traverses a symlink").into(),
+                    );
                 }
                 Ok(capture_package(
                     &root,

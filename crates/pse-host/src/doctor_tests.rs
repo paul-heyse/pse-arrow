@@ -65,7 +65,11 @@ fn compiler_cache_stats_distinguish_live_daemon_from_configured_defaults() -> Re
     }
 
     stats["cache_location"] = serde_json::json!("Local disk: \"/another/cache\"");
-    assert!(assess(&stats).unwrap_err().contains("different local cache directory"));
+    assert!(
+        assess(&stats)
+            .unwrap_err()
+            .contains("different local cache directory")
+    );
     stats["version"] = serde_json::json!("0.18.0");
     assert!(assess(&stats).unwrap_err().contains("expected 0.19.0"));
     Ok(())
@@ -78,8 +82,14 @@ fn compiler_cache_listener_census_keeps_duplicate_bindings_visible() {
         00: 02 00000000 00010000 0001 01 11 /cache/space endpoint\n\
         00: 03 00000000 00000000 0001 03 12 /cache/space endpoint\n\
         00: 03 00000000 00010000 0001 01 13 @private-endpoint\n";
-    assert_eq!(unix_listener_count(table, OsStr::new("/cache/space endpoint")), 2);
-    assert_eq!(unix_listener_count(table, OsStr::new("\\x00private-endpoint")), 1);
+    assert_eq!(
+        unix_listener_count(table, OsStr::new("/cache/space endpoint")),
+        2
+    );
+    assert_eq!(
+        unix_listener_count(table, OsStr::new("\\x00private-endpoint")),
+        1
+    );
     assert_eq!(unix_listener_count(table, OsStr::new("/cache/space")), 0);
 }
 

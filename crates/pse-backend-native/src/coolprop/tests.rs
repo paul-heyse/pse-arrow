@@ -6,14 +6,35 @@ use pse_kernels::{ProviderBuffer, ProviderRequest, ProviderValues};
 use pse_quantity::PhysicalName;
 use std::sync::atomic::AtomicBool;
 
-fn saturation_partial(api: &CoolProp, state: &NativeState, of: c_long, pressure: c_long, second: bool) -> Result<f64, ProviderError> {
+fn saturation_partial(
+    api: &CoolProp,
+    state: &NativeState,
+    of: c_long,
+    pressure: c_long,
+    second: bool,
+) -> Result<f64, ProviderError> {
     let mut error = ErrorBuffer::default();
     // SAFETY: the original live handle and selected keys are retained; destinations are bounded.
     let value = unsafe {
         if second {
-            api.AbstractState_second_saturation_deriv(state.handle, of, pressure, pressure, &raw mut error.code, error.message.as_mut_ptr().cast(), ERROR_CAPACITY as c_long)
+            api.AbstractState_second_saturation_deriv(
+                state.handle,
+                of,
+                pressure,
+                pressure,
+                &raw mut error.code,
+                error.message.as_mut_ptr().cast(),
+                ERROR_CAPACITY as c_long,
+            )
         } else {
-            api.AbstractState_first_saturation_deriv(state.handle, of, pressure, &raw mut error.code, error.message.as_mut_ptr().cast(), ERROR_CAPACITY as c_long)
+            api.AbstractState_first_saturation_deriv(
+                state.handle,
+                of,
+                pressure,
+                &raw mut error.code,
+                error.message.as_mut_ptr().cast(),
+                ERROR_CAPACITY as c_long,
+            )
         }
     };
     error.check("saturation derivative", true)?;
@@ -34,31 +55,57 @@ fn prepared_water_saturation_c_abi_preserves_both_endpoint_values_first_and_seco
     for quality in [0.0, 1.0] {
         state.update(&api, pair, 140_000.0, quality).unwrap();
         // Released third turbine expectation; independent rounded source, not a new reference run.
-        near(state.output(&api, keys.temperature).unwrap(), 382.442, 0.01, 0.0);
+        near(
+            state.output(&api, keys.temperature).unwrap(),
+            382.442,
+            0.01,
+            0.0,
+        );
         let values = fields.map(|key| state.output(&api, key).unwrap());
         near(values[2] - values[4], 140_000.0 / values[1], 1e-6, 1e-10);
-        let first = fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
-        let second = fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, true).unwrap());
+        let first =
+            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
+        let second =
+            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, true).unwrap());
         // Independent numerical comparisons are test-only, not a production derivative path.
         let step = 10.0;
         state.update(&api, pair, 140_000.0 + step, quality).unwrap();
         let plus = fields.map(|key| state.output(&api, key).unwrap());
-        let dplus = fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
+        let dplus =
+            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
         state.update(&api, pair, 140_000.0 - step, quality).unwrap();
         let minus = fields.map(|key| state.output(&api, key).unwrap());
-        let dminus = fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
+        let dminus =
+            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
         for index in 0..fields.len() {
-            near(first[index], (plus[index] - minus[index]) / (2.0 * step), 1e-10, 5e-6);
-            near(second[index], (dplus[index] - dminus[index]) / (2.0 * step), 1e-12, 3e-5);
+            near(
+                first[index],
+                (plus[index] - minus[index]) / (2.0 * step),
+                1e-10,
+                5e-6,
+            );
+            near(
+                second[index],
+                (dplus[index] - dminus[index]) / (2.0 * step),
+                1e-12,
+                3e-5,
+            );
         }
         endpoints.push(values);
     }
-    let [liquid, vapor] = endpoints.as_slice() else { panic!("both original endpoints") };
+    let [liquid, vapor] = endpoints.as_slice() else {
+        panic!("both original endpoints")
+    };
     assert!(liquid[1] > vapor[1]);
     assert!(vapor[2] > liquid[2] && vapor[3] > liquid[3]);
     state.update(&api, pair, 140_000.0, 0.0).unwrap();
     // Clapeyron correspondence independently composes original endpoint values.
-    near(saturation_partial(&api, &state, keys.temperature, keys.pressure, false).unwrap(), liquid[0] * (1.0 / vapor[1] - 1.0 / liquid[1]) / (vapor[2] - liquid[2]), 1e-12, 1e-9);
+    near(
+        saturation_partial(&api, &state, keys.temperature, keys.pressure, false).unwrap(),
+        liquid[0] * (1.0 / vapor[1] - 1.0 / liquid[1]) / (vapor[2] - liquid[2]),
+        1e-12,
+        1e-9,
+    );
 }
 
 #[test]
@@ -69,11 +116,25 @@ fn prepared_saturation_c_abi_preserves_native_handle_key_and_bounded_error_refus
     let mut state = NativeState::new(&api).unwrap();
     let pair = unsafe { api.get_input_pair_index(c"PQ_INPUTS".as_ptr()) };
     state.update(&api, pair, 140_000.0, 1.0).unwrap();
-    for (handle, of, wrt) in [(-1, keys.h, keys.pressure), (state.handle, -1, keys.pressure), (state.handle, keys.h, keys.temperature)] {
+    for (handle, of, wrt) in [
+        (-1, keys.h, keys.pressure),
+        (state.handle, -1, keys.pressure),
+        (state.handle, keys.h, keys.temperature),
+    ] {
         let mut code = 0;
         let mut guarded = [0xa5_u8; 18];
         // SAFETY: only the middle bounded writable region is offered; invalid inputs test the C exception boundary.
-        unsafe { api.AbstractState_second_saturation_deriv(handle, of, wrt, wrt, &raw mut code, guarded[1..17].as_mut_ptr().cast(), 16); }
+        unsafe {
+            api.AbstractState_second_saturation_deriv(
+                handle,
+                of,
+                wrt,
+                wrt,
+                &raw mut code,
+                guarded[1..17].as_mut_ptr().cast(),
+                16,
+            );
+        }
         assert_ne!(code, 0);
         assert_eq!(guarded[0], 0xa5);
         assert_eq!(guarded[17], 0xa5);

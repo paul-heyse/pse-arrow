@@ -97,8 +97,8 @@ pub(crate) fn release_reconciled_images(
     if result.invocation_id != *id || result.settlement != crate::envelope::Settlement::Unknown {
         return Ok(());
     }
-    let summary: super::result::ManagedSummary = serde_json::from_str(result.payload.get())
-        .map_err(host)?;
+    let summary: super::result::ManagedSummary =
+        serde_json::from_str(result.payload.get()).map_err(host)?;
     let Some(workflow) = summary.workflow else {
         return Ok(());
     };
@@ -154,8 +154,11 @@ pub(crate) fn release_images(
             Err(error) => return Err(io::Error::from(error).into()),
         };
         let metadata = file.metadata()?;
-        if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
-            return Err(host(invalid("workflow control directory lacks private custody")));
+        if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700
+        {
+            return Err(host(invalid(
+                "workflow control directory lacks private custody",
+            )));
         }
         Ok(Some(file))
     };
@@ -197,7 +200,9 @@ pub(crate) fn release_images(
                     &executable.original,
                 )?;
                 if executable.captured != expected {
-                    return Err(host(invalid("captured test image differs from its compiler position")));
+                    return Err(host(invalid(
+                        "captured test image differs from its compiler position",
+                    )));
                 }
                 let member_root = open(&build, &format!("artifact-{ordinal}"))?
                     .ok_or_else(|| host(invalid("original executable directory is absent")))?;

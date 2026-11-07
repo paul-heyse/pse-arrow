@@ -138,11 +138,15 @@ impl Probe {
         if let Some(environment) = &self.cache_environment {
             let endpoint = cache_endpoint(environment)?;
             if observed_cache_listeners(endpoint)? == 0 {
-                return Err(format!("no live daemon observed at {}", endpoint.to_string_lossy()));
+                return Err(format!(
+                    "no live daemon observed at {}",
+                    endpoint.to_string_lossy()
+                ));
             }
             command.env_clear().envs(environment);
         }
-        let mut child = command.args(&self.arguments)
+        let mut child = command
+            .args(&self.arguments)
             .current_dir(root)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -194,7 +198,9 @@ impl Probe {
             return match observed_cache_listeners(cache_endpoint(environment)?)? {
                 1 => Ok(observed),
                 0 => Err(format!("{observed}; listener no longer observed")),
-                count => Err(format!("{observed}; {count} listening sockets claim this endpoint")),
+                count => Err(format!(
+                    "{observed}; {count} listening sockets claim this endpoint"
+                )),
             };
         }
         let mut text = stdout;
@@ -230,12 +236,12 @@ fn unix_listener_count(table: &[u8], endpoint: &OsStr) -> usize {
             // Procfs labels live AF_UNIX stream listeners with SO_ACCEPTCON
             // and prints an abstract address with '@' in place of its first NUL.
             let mut fields = line.splitn(8, |byte| *byte == b' ');
-            if fields.nth(3) != Some(&b"00010000"[..])
-                || fields.next() != Some(&b"0001"[..])
-            {
+            if fields.nth(3) != Some(&b"00010000"[..]) || fields.next() != Some(&b"0001"[..]) {
                 return false;
             }
-            let Some(path) = fields.nth(2) else { return false };
+            let Some(path) = fields.nth(2) else {
+                return false;
+            };
             match abstract_name {
                 Some(name) => path.strip_prefix(b"@") == Some(name),
                 None => path == endpoint,
@@ -262,7 +268,10 @@ fn assess_cache_daemon(
     let stats: CacheDaemonStats = serde_json::from_slice(output)
         .map_err(|_| "sccache daemon statistics did not match the 0.19 format".to_owned())?;
     let selected = |name: &str| {
-        environment.get(OsStr::new(name)).and_then(|value| value.to_str()).unwrap_or("unselected")
+        environment
+            .get(OsStr::new(name))
+            .and_then(|value| value.to_str())
+            .unwrap_or("unselected")
     };
     let endpoint = selected("SCCACHE_SERVER_UDS");
     let mode = stats.effective_cache_mode.as_deref().ok_or_else(|| {
@@ -271,22 +280,31 @@ fn assess_cache_daemon(
     if let Some(expected) = expected
         && stats.version != expected
     {
-        return Err(format!("daemon at {endpoint} has version {}; expected {expected}", stats.version));
+        return Err(format!(
+            "daemon at {endpoint} has version {}; expected {expected}",
+            stats.version
+        ));
     }
     // Remote location metadata can contain endpoint details. Report the backend
     // name only. The local path is checked against the selected directory.
     let backend = if stats.cache_location.starts_with("Local disk: ") {
         let directory = Path::new(selected("SCCACHE_DIR"));
         if stats.cache_location != format!("Local disk: {directory:?}") {
-            return Err(format!("daemon at {endpoint} uses a different local cache directory"));
+            return Err(format!(
+                "daemon at {endpoint} uses a different local cache directory"
+            ));
         }
         "disk"
     } else if stats.cache_location.starts_with("Multi-level (") {
         "multi-level"
     } else {
-        stats.cache_location.split_once(',').map_or("unknown", |(name, _)| name)
+        stats
+            .cache_location
+            .split_once(',')
+            .map_or("unknown", |(name, _)| name)
     };
-    let extent = |bytes: Option<u64>| bytes.map_or_else(|| "unreported".into(), |bytes| bytes.to_string());
+    let extent =
+        |bytes: Option<u64>| bytes.map_or_else(|| "unreported".into(), |bytes| bytes.to_string());
     let request = if environment.contains_key(OsStr::new("SCCACHE_NO_CACHE")) {
         "bypass"
     } else if environment.contains_key(OsStr::new("SCCACHE_RECACHE")) {
@@ -349,13 +367,17 @@ fn compiler_cache_probes(root: &Path, values: Environment) -> Result<[Probe; 2],
     };
     let binary = PathBuf::from(wrapper);
     if binary.file_name() != Some(OsStr::new("sccache")) {
-        return Err(format!("effective compiler wrapper is {}", binary.display()));
+        return Err(format!(
+            "effective compiler wrapper is {}",
+            binary.display()
+        ));
     }
     let expected = diagnostic_tools::tool_spec(root, Tool::Sccache)
         .map_err(|error| error.to_string())?
         .version;
-    if binary == diagnostic_tools::binary_path(root, Tool::Sccache, &values)
-        .map_err(|error| error.to_string())?
+    if binary
+        == diagnostic_tools::binary_path(root, Tool::Sccache, &values)
+            .map_err(|error| error.to_string())?
     {
         diagnostic_tools::verify(root, Tool::Sccache, &values)
             .map_err(|error| error.to_string())?;
@@ -365,7 +387,13 @@ fn compiler_cache_probes(root: &Path, values: Environment) -> Result<[Probe; 2],
     } else {
         binary
     };
-    let version = Probe::version("compiler-cache", binary.clone(), Some(expected.clone()), false, CACHE_FIX);
+    let version = Probe::version(
+        "compiler-cache",
+        binary.clone(),
+        Some(expected.clone()),
+        false,
+        CACHE_FIX,
+    );
     let mut daemon = Probe::version(
         "compiler-cache-daemon",
         binary,
@@ -373,7 +401,9 @@ fn compiler_cache_probes(root: &Path, values: Environment) -> Result<[Probe; 2],
         false,
         "use the effective compiler-cache endpoint and inspect its existing daemon",
     );
-    daemon.arguments = ["--show-stats", "--stats-format=json"].map(OsString::from).to_vec();
+    daemon.arguments = ["--show-stats", "--stats-format=json"]
+        .map(OsString::from)
+        .to_vec();
     daemon.cache_environment = Some(values);
     Ok([version, daemon])
 }
@@ -403,7 +433,9 @@ fn declarations(root: &Path, environment: &Environment) -> (Vec<Check>, Vec<Prob
             ));
             match compiler_cache_probes(root, plan.values) {
                 Ok(cache) => probes.extend(cache),
-                Err(reason) => checks.push(Check::new("compiler-cache", false, Err(reason), CACHE_FIX)),
+                Err(reason) => {
+                    checks.push(Check::new("compiler-cache", false, Err(reason), CACHE_FIX))
+                }
             }
         }
         Err(error) => checks.push(Check::new(

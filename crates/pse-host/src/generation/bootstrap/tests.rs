@@ -200,7 +200,10 @@ fn builder_environment_is_explicit_and_private_values_are_digest_only() {
     let selected = build_environment(&inputs).unwrap();
     assert_eq!(selected.len(), 5);
     for wrapper in ["RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER"] {
-        assert_eq!(selected.get(OsStr::new(wrapper)).map(OsString::as_os_str), Some(OsStr::new("")));
+        assert_eq!(
+            selected.get(OsStr::new(wrapper)).map(OsString::as_os_str),
+            Some(OsStr::new(""))
+        );
     }
     assert_eq!(
         selected.get(OsStr::new("SCCACHE_DIR")),

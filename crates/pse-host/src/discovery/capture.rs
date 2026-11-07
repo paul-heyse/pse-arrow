@@ -273,7 +273,9 @@ pub(crate) fn release_executable(
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             return match open(name) {
                 Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-                _ => Err(invalid("captured executable lacks its original association")),
+                _ => Err(invalid(
+                    "captured executable lacks its original association",
+                )),
             };
         }
         Err(error) => return Err(error.into()),
@@ -294,14 +296,18 @@ pub(crate) fn release_executable(
     let mut bytes = Vec::new();
     (&record).take(65_537).read_to_end(&mut bytes)?;
     if bytes.len() > 65_536 || bytes.len() as u64 != before.bytes {
-        return Err(invalid("executable association exceeds its expected extent"));
+        return Err(invalid(
+            "executable association exceeds its expected extent",
+        ));
     }
     let executable: Executable = serde_json::from_slice(&bytes)?;
     if executable.captured != path
         || !executable.original.is_absolute()
         || expected.is_some_and(|expected| &executable != expected)
     {
-        return Err(invalid("executable association differs from the release member"));
+        return Err(invalid(
+            "executable association differs from the release member",
+        ));
     }
     let mut image = match open(name) {
         Ok(image) => image,
