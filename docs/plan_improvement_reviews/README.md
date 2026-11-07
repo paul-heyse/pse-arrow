@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan 69 CLI library leverage review](plan69-cli-library-leverage-2026-11-07.md)
+assesses the complete clap, Figment, thiserror/miette and indicatif guides, including
+their uncommitted addenda. Eight proposed amendments address parser construction and
+discovery, settings acquisition and provenance, typed recovery, and terminal behavior.
+It includes pinned-release controls and a reproduced machine-output progress issue.
+
 The [combined Plan64/65 target and library-leverage review](plan64-65-integrated-target-and-library-leverage-2026-11-06.md)
 assesses the remaining scientific, contract, runtime, data and developer-workflow scope at
 `604516811`. Eleven proposed amendments recommend an integrated outcome-oriented plan series.
