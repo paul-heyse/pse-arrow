@@ -1,6 +1,6 @@
 ---
 title: "Plan68e: Fresh SurrealDB v4 generation and assembled acceptance"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -152,7 +152,7 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| E01 | Planned | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
+| E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
 | E02 | Planned | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Assembled v4 scientific, developer, transport, recovery and physical settlement evidence with matched v3 observations. |
 | E03 | Planned | E02 and governing decision route complete | Verified pre-write rollback and authoritative v4 selection, post-write forward recovery, owner-issued v3 release and removal of replaced paths. |
 
