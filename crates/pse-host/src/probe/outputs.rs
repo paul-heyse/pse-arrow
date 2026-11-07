@@ -107,7 +107,9 @@ pub(crate) fn target_output(
     };
     let selected = identity(&target)?;
     if owned_identity.is_some_and(|expected| expected != selected) {
-        return Err(io::Error::other("Cargo output identity changed after selection"));
+        return Err(io::Error::other(
+            "Cargo output identity changed after selection",
+        ));
     }
     let metadata = target.metadata()?;
     let mut seen = BTreeSet::from([(metadata.dev(), metadata.ino())]);
@@ -118,11 +120,15 @@ pub(crate) fn target_output(
     result.identity = Some(selected.clone());
     if release {
         if owned_identity.is_none() || identity(&directory(parent, c"target")?)? != selected {
-            return Err(io::Error::other("Cargo output identity is unverified during release"));
+            return Err(io::Error::other(
+                "Cargo output identity is unverified during release",
+            ));
         }
         walk(&target, &mut BTreeSet::new(), true)?;
         if identity(&directory(parent, c"target")?)? != selected {
-            return Err(io::Error::other("Cargo output identity changed during release"));
+            return Err(io::Error::other(
+                "Cargo output identity changed during release",
+            ));
         }
         unix::unlinkat(parent, c"target", AtFlags::REMOVEDIR).map_err(io::Error::from)?;
         result.released = true;

@@ -10,7 +10,8 @@ use crate::{
 };
 
 #[tokio::test]
-async fn native_control_browse_and_original_refused_command_require_no_math() -> Result<(), crate::canonical::CanonicalError> {
+async fn native_control_browse_and_original_refused_command_require_no_math()
+-> Result<(), crate::canonical::CanonicalError> {
     let store = crate::native_fixture::canonical_fixture_store()?;
     let filter = StudyWorkbenchFilter::default();
     let page = store
@@ -50,11 +51,9 @@ async fn native_control_browse_and_original_refused_command_require_no_math() ->
         store.issuing_store()?.to_owned(),
         "opaque:absent-0001".into(),
     );
-    let original = crate::testing::lose_control_cancel_ack(
-        false,
-        store.cancel_study_command(&request),
-    )
-    .await?;
+    let original =
+        crate::testing::lose_control_cancel_ack(false, store.cancel_study_command(&request))
+            .await?;
     assert_eq!(original.status, ControlCommandStatus::Refused);
     let repeated = store.cancel_study_command(&request).await?;
     assert_eq!(
@@ -90,12 +89,10 @@ async fn native_control_browse_and_original_refused_command_require_no_math() ->
         request.issuing_store.clone(),
         "unobserved-original-target".into(),
     );
-    let error = crate::testing::lose_control_cancel_ack(
-        true,
-        store.cancel_study_command(&uncertain),
-    )
-    .await
-    .unwrap_err();
+    let error =
+        crate::testing::lose_control_cancel_ack(true, store.cancel_study_command(&uncertain))
+            .await
+            .unwrap_err();
     assert!(error.effect_is_unknown());
     match error {
         crate::canonical::CanonicalError::SettlementUnresolved {

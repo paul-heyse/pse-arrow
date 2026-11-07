@@ -346,20 +346,23 @@ impl ExecutionInputs {
             // All other build inputs are fixed by this invocation: checkout, environment
             // (including compiler/native selection), package, binary and host target.
             // Coalesce actual helper build requests, not the independent fixture groups.
-            selected.scientific_workers = capture_scientific_worker_groups(groups, |group, features| {
-                let artifacts = build(
-                    root,
-                    environment,
-                    &destination.join(format!("scientific-worker-{group}")),
-                    "pse-runtime",
-                    features,
-                    &["pse-scientific-worker"],
-                )?;
-                artifacts
-                    .into_iter()
-                    .find_map(|(name, executable)| (name == "pse-scientific-worker").then_some(executable))
-                    .ok_or_else(|| invalid("source-built scientific worker is absent"))
-            })?;
+            selected.scientific_workers =
+                capture_scientific_worker_groups(groups, |group, features| {
+                    let artifacts = build(
+                        root,
+                        environment,
+                        &destination.join(format!("scientific-worker-{group}")),
+                        "pse-runtime",
+                        features,
+                        &["pse-scientific-worker"],
+                    )?;
+                    artifacts
+                        .into_iter()
+                        .find_map(|(name, executable)| {
+                            (name == "pse-scientific-worker").then_some(executable)
+                        })
+                        .ok_or_else(|| invalid("source-built scientific worker is absent"))
+                })?;
         }
         if demand.contains(&Input::ProductReader) {
             selected.reader = Some(
@@ -462,7 +465,9 @@ impl PreparedExecution {
             ),
         ] {
             if demand.contains(&input) {
-                let executable = self.tools.get(&input)
+                let executable = self
+                    .tools
+                    .get(&input)
                     .ok_or_else(|| invalid("required source-built fixture helper is absent"))?;
                 executable.verify()?;
                 command
@@ -471,7 +476,9 @@ impl PreparedExecution {
             }
         }
         if demand.contains(&Input::ScientificWorker) {
-            let executable = self.scientific_workers.get(&command.group)
+            let executable = self
+                .scientific_workers
+                .get(&command.group)
                 .ok_or_else(|| invalid("required source-built scientific worker is absent"))?;
             executable.verify()?;
             command.environment.insert(

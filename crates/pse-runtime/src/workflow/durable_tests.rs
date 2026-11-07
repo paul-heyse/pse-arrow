@@ -496,13 +496,10 @@ async fn canonical_registration_refuses_foreign_source_issuer_before_physical_or
     assert!(package.physical.sources.is_empty());
     let physical_problem = format!("physical:context:{}", package.physical.identity());
     assert!(
-        fixture_controls::source_problem_head(
-            target.canonical_store().unwrap(),
-            &physical_problem
-        )
-        .await
-        .unwrap()
-        .is_none()
+        fixture_controls::source_problem_head(target.canonical_store().unwrap(), &physical_problem)
+            .await
+            .unwrap()
+            .is_none()
     );
     let prepared = package
         .prepare_analysis(
@@ -537,13 +534,10 @@ async fn canonical_registration_refuses_foreign_source_issuer_before_physical_or
             .is_none()
     );
     assert!(
-        fixture_controls::source_problem_head(
-            target.canonical_store().unwrap(),
-            &physical_problem
-        )
-        .await
-        .unwrap()
-        .is_none()
+        fixture_controls::source_problem_head(target.canonical_store().unwrap(), &physical_problem)
+            .await
+            .unwrap()
+            .is_none()
     );
     assert!(
         target

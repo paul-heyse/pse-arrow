@@ -27,7 +27,6 @@ fn holder_kind(value: &str) -> Result<CanonicalArtifactHolderKind, CanonicalErro
 }
 use surrealdb_types::{Object, Value};
 
-
 #[cfg(test)]
 tokio::task_local! {
     static ARTIFACT_APPEND_REPLY_LOSS: bool;
@@ -1111,7 +1110,10 @@ mod canonical_artifact_tests {
         )
         .await
         .unwrap();
-        assert_eq!(staged.take::<Vec<String>>(0).unwrap(), vec![blocks[0].key.clone()]);
+        assert_eq!(
+            staged.take::<Vec<String>>(0).unwrap(),
+            vec![blocks[0].key.clone()]
+        );
         store
             .release_artifact_intent(&intent, "audit", "cancelled-group")
             .await

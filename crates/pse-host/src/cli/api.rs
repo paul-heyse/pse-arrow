@@ -95,7 +95,12 @@ pub(in crate::cli) struct InspectArgs {
 }
 impl Arguments {
     pub(super) fn intent(&self) -> GenerationIntent {
-        if self.prepare || self.compatibility || self.check_docs || self.extract_examples || self.release.is_some() {
+        if self.prepare
+            || self.compatibility
+            || self.check_docs
+            || self.extract_examples
+            || self.release.is_some()
+        {
             GenerationIntent::NewWork
         } else {
             GenerationIntent::Passive
@@ -429,9 +434,8 @@ fn perform(
                     return Ok(vec![artifact]);
                 }
                 let artifact = api::finish(&acquisition, &snapshot).map_err(error)?;
-                super::runtime()?.block_on(
-                    build_target.release_if_drained(root, &acquisition.environment),
-                )?;
+                super::runtime()?
+                    .block_on(build_target.release_if_drained(root, &acquisition.environment))?;
                 Ok(vec![envelope::ArtifactReference {
                     kind: "rustdoc_json".into(),
                     location: artifact.path.display().to_string(),

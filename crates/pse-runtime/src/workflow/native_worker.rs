@@ -422,18 +422,30 @@ impl NativeStudyWorker {
         controller: &Path,
     ) -> Result<Self, WorkflowError> {
         if spec.executable != std::env::current_exe().map_err(infrastructure)? {
-            return Err(contract("native study test receiver requires the current test image"));
+            return Err(contract(
+                "native study test receiver requires the current test image",
+            ));
         }
-        Self::new_receiver(spec, Receiver::Test { entry, controller: controller.to_owned() })
+        Self::new_receiver(
+            spec,
+            Receiver::Test {
+                entry,
+                controller: controller.to_owned(),
+            },
+        )
     }
 
-    fn new_receiver(spec: NativeStudyWorkerSpec<'_>, receiver: Receiver) -> Result<Self, WorkflowError> {
+    fn new_receiver(
+        spec: NativeStudyWorkerSpec<'_>,
+        receiver: Receiver,
+    ) -> Result<Self, WorkflowError> {
         spec.allocation.validate()?;
         let store = spec.ready.store();
         let executable_path = spec.executable.canonicalize().map_err(infrastructure)?;
-        if matches!(receiver, Receiver::Product) && executable_path
-            .file_name()
-            .is_none_or(|name| name != "pse-worker")
+        if matches!(receiver, Receiver::Product)
+            && executable_path
+                .file_name()
+                .is_none_or(|name| name != "pse-worker")
         {
             return Err(contract(
                 "native study requires the scientific pse-worker executable",
@@ -506,10 +518,17 @@ impl NativeStudyWorker {
                 let controller = controller
                     .to_str()
                     .filter(|_| controller.is_absolute())
-                    .ok_or_else(|| contract("native test controller path must be absolute UTF-8"))?;
+                    .ok_or_else(|| {
+                        contract("native test controller path must be absolute UTF-8")
+                    })?;
                 selected_environment.insert(TEST_WORKER_INPUT.into(), path);
                 selected_environment.insert(TEST_WORKER_CONTROLLER.into(), controller.into());
-                vec!["--exact".into(), entry.into(), "--ignored".into(), "--nocapture".into()]
+                vec![
+                    "--exact".into(),
+                    entry.into(),
+                    "--ignored".into(),
+                    "--nocapture".into(),
+                ]
             }
         };
         let environment = selected_environment

@@ -185,9 +185,7 @@ async fn pruning_fixture(name: &'static str, body: PruningCase) {
                 .catch_unwind()
                 .await;
                 data.close();
-                let releases =
-                    data.canonical_store().unwrap().join_result_releases()
-                        .await;
+                let releases = data.canonical_store().unwrap().join_result_releases().await;
                 if let Err(error) = &releases {
                     eprintln!(
                         "result-pruning read cleanup failed: {error}; state={}",
@@ -395,7 +393,10 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
                 snapshot,
                 reader,
             ));
-            runtime.canonical_store().unwrap().join_result_releases()
+            runtime
+                .canonical_store()
+                .unwrap()
+                .join_result_releases()
                 .await
                 .unwrap();
         })
@@ -484,7 +485,10 @@ async fn canonical_selection_reuses_one_physical_plan_for_pages_unknown_facts_an
                 pse_diagnostics::observation::Value::Count(1)
             );
             drop((snapshot, reader));
-            runtime.canonical_store().unwrap().join_result_releases()
+            runtime
+                .canonical_store()
+                .unwrap()
+                .join_result_releases()
                 .await
                 .unwrap();
         })
@@ -664,7 +668,10 @@ async fn canonical_pruned_provider_validates_protected_schema_and_skips_native_b
                 "the statistics premise cannot expand exact protected file membership"
             );
             drop((wrong, decode, batches, context, snapshot, reader));
-            runtime.canonical_store().unwrap().join_result_releases()
+            runtime
+                .canonical_store()
+                .unwrap()
+                .join_result_releases()
                 .await
                 .unwrap();
         })

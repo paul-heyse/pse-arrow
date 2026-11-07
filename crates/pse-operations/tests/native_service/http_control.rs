@@ -81,7 +81,9 @@ async fn disable_control_actor(
         ("key", key.to_owned()),
     ).await?;
     let verified = (|| {
-        let mut row = response.take::<Option<_>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
+        let mut row = response
+            .take::<Option<_>>(0)?
+            .ok_or(CanonicalError::IncompleteResponse)?;
         if decode_string(required(&mut row, "key")?)? != key
             || decode_boolean(required(&mut row, "enabled")?)?
         {

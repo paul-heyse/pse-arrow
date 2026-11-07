@@ -46,7 +46,13 @@ pub(crate) use staged::NativeSession;
 #[cfg(all(test, feature = "solver-ipopt"))]
 pub(crate) use staged::observed_native_task_entry;
 pub(crate) use staged::{SessionDisposition, StepRetention};
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 pub(crate) use staged::{install_qualified_native_entry, observed_native_entry};
 use std::{
     collections::BTreeMap,

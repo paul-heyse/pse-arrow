@@ -18,7 +18,9 @@ use std::{
 mod execution;
 pub use execution::{ExecutionInputs, PreparedExecution, prepare_module, selected_module};
 mod native_lane;
-pub use native_lane::{NativeLaneArtifact, NativeLaneSelection, prepare_native_lane, selected_native_lane};
+pub use native_lane::{
+    NativeLaneArtifact, NativeLaneSelection, prepare_native_lane, selected_native_lane,
+};
 
 /// Explicit preparation scope, distinct from an assertion that a live fixture is ready.
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
@@ -472,9 +474,7 @@ fn prepare(input: Input) -> Vec<String> {
     let args: &[&str] = match input {
         Input::Server => &["scripts/pse-host", "server", "prepare"],
         Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
-        Input::NativeLane => {
-            &["scripts/pse-host", "fixture", "prepare", "native-lane"]
-        }
+        Input::NativeLane => &["scripts/pse-host", "fixture", "prepare", "native-lane"],
         _ => &[],
     };
     args.iter()

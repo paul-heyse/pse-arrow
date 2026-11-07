@@ -775,7 +775,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
-        "tools retire-host" => envelope::schema::<crate::generation::retirement::Retirement>(command, view),
+        "tools retire-host" => {
+            envelope::schema::<crate::generation::retirement::Retirement>(command, view)
+        }
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),

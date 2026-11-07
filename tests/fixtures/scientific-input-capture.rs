@@ -217,9 +217,9 @@ pub(super) fn capture(root: &Path, catalog_path: &Path) -> Result<Capsule> {
             }
             let package = &packages[&path];
             for dependency in &package.header.dependencies {
-                let target = identities
-                    .get(&dependency.package_id)
-                    .wrap_err_with(|| format!("{path}: missing dependency {}", dependency.package_id))?;
+                let target = identities.get(&dependency.package_id).wrap_err_with(|| {
+                    format!("{path}: missing dependency {}", dependency.package_id)
+                })?;
                 pending.push(target.clone());
             }
         }
@@ -573,7 +573,10 @@ fn checked_path(root: &Path, relative: &str) -> Result<PathBuf> {
     for component in Path::new(&relative).components() {
         path.push(component);
         ensure!(
-            !std::fs::symlink_metadata(&path).into_diagnostic()?.file_type().is_symlink(),
+            !std::fs::symlink_metadata(&path)
+                .into_diagnostic()?
+                .file_type()
+                .is_symlink(),
             "scientific input traverses a symlink: {}",
             path.display()
         );
@@ -583,13 +586,18 @@ fn checked_path(root: &Path, relative: &str) -> Result<PathBuf> {
 
 fn read_file(path: &Path) -> Result<Vec<u8>> {
     ensure!(
-        std::fs::symlink_metadata(path).into_diagnostic()?.file_type().is_file(),
+        std::fs::symlink_metadata(path)
+            .into_diagnostic()?
+            .file_type()
+            .is_file(),
         "scientific input must be a regular file"
     );
     let mut bytes = Vec::new();
-    std::fs::File::open(path).into_diagnostic()?
+    std::fs::File::open(path)
+        .into_diagnostic()?
         .take(ParseBudget::DEFAULT_MAX_BYTES + 1)
-        .read_to_end(&mut bytes).into_diagnostic()?;
+        .read_to_end(&mut bytes)
+        .into_diagnostic()?;
     ensure!(
         bytes.len() as u64 <= ParseBudget::DEFAULT_MAX_BYTES,
         "scientific input exceeds source byte bound"

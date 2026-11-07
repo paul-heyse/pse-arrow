@@ -5,7 +5,10 @@
 
 /// Lose the local cancellation ACK after an actual commit, optionally failing
 /// its original receipt readback. The command itself still uses the real owner.
-pub(crate) async fn lose_control_cancel_ack<F: Future>(fail_readback: bool, future: F) -> F::Output {
+pub(crate) async fn lose_control_cancel_ack<F: Future>(
+    fail_readback: bool,
+    future: F,
+) -> F::Output {
     crate::canonical_control::CONTROL_ACK_LOST
         .scope(
             true,

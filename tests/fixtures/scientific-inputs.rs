@@ -10,7 +10,10 @@ use std::{collections::BTreeMap, sync::OnceLock};
 #[path = "scientific-input-data.rs"]
 mod data;
 use data::Capsule;
-#[allow(unused_imports, reason = "transport-only consumers do not parse declarations")]
+#[allow(
+    unused_imports,
+    reason = "transport-only consumers do not parse declarations"
+)]
 pub(crate) use data::parse_sources;
 
 fn capsule() -> &'static Capsule {

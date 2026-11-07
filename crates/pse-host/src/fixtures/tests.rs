@@ -105,7 +105,10 @@ fn retired_inputs_decode_original_observations_and_refuse_new_declarations() {
     ] {
         assert_eq!(serde_json::from_value::<Input>(json!(name)).unwrap(), role);
         let mut declaration = owned();
-        declaration["inputs"].as_array_mut().unwrap().push(json!(name));
+        declaration["inputs"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!(name));
         let data = metadata(json!([declaration]));
         let error = requirements(&data, &resolved(&data, &[], Operation::Test)).unwrap_err();
         assert!(error.to_string().contains("declares a retired input role"));
@@ -167,10 +170,7 @@ fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
-    requirement
-        .declaration
-        .inputs
-        .insert(Input::TraceProcessor);
+    requirement.declaration.inputs.insert(Input::TraceProcessor);
     let error = ExecutionInputs::assess(directory.path(), &BTreeMap::new(), &[requirement])
         .prepare(&destination)
         .unwrap_err();
@@ -290,10 +290,8 @@ fn explicit_native_lane_input_remains_with_its_original_owner_without_helper_bui
     let mut requirement = requirement();
     requirement.declaration.ownership = Ownership::PreparationOnly;
     requirement.declaration.inputs = BTreeSet::from([Input::NativeLane]);
-    let environment = BTreeMap::from([(
-        native_lane::VARIABLE.into(),
-        "/original/native-lane".into(),
-    )]);
+    let environment =
+        BTreeMap::from([(native_lane::VARIABLE.into(), "/original/native-lane".into())]);
     ExecutionInputs::assess(directory.path(), &environment, &[requirement])
         .prepare(&destination)
         .unwrap();
@@ -496,15 +494,16 @@ fn real_manifest_declarations_cover_both_ownership_modes_without_a_parallel_regi
             "{target}"
         );
     }
-    assert!(
-        runtime
-            .iter()
-            .any(|declaration| declaration.target == "pse_runtime"
-                && declaration.kind == "lib"
-                && declaration.ownership == Ownership::TargetOwned
-                && declaration.scope.modules.contains("workflow::native_study_tests")
-                && declaration.inputs.contains(&Input::StudyModule))
-    );
+    assert!(runtime.iter().any(|declaration| {
+        declaration.target == "pse_runtime"
+            && declaration.kind == "lib"
+            && declaration.ownership == Ownership::TargetOwned
+            && declaration
+                .scope
+                .modules
+                .contains("workflow::native_study_tests")
+            && declaration.inputs.contains(&Input::StudyModule)
+    }));
 }
 
 #[test]

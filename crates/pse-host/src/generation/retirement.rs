@@ -51,8 +51,11 @@ pub(super) fn borrow(path: &Path) -> Result<File, HostError> {
 }
 
 fn lock_exclusive(file: &File) -> Result<(), HostError> {
-    flock(file, FlockOperation::NonBlockingLockExclusive)
-        .map_err(|error| invalid(format!("host generation has a borrower or unavailable lock: {error}")))
+    flock(file, FlockOperation::NonBlockingLockExclusive).map_err(|error| {
+        invalid(format!(
+            "host generation has a borrower or unavailable lock: {error}"
+        ))
+    })
 }
 
 fn instance(file: &File) -> Result<String, HostError> {
@@ -61,12 +64,19 @@ fn instance(file: &File) -> Result<String, HostError> {
         .created()?
         .duration_since(UNIX_EPOCH)
         .map_err(|_| invalid("host generation directory birth time is unavailable"))?;
-    Ok(format!("{:x}-{:x}-{:x}", meta.dev(), meta.ino(), birth.as_nanos()))
+    Ok(format!(
+        "{:x}-{:x}-{:x}",
+        meta.dev(),
+        meta.ino(),
+        birth.as_nanos()
+    ))
 }
 
 fn state_context(root: &Path, env: &Environment) -> Result<String, HostError> {
     let selected = CheckoutState::resolve(root, env)?.root;
-    let namespace = selected.parent().ok_or_else(|| invalid("invalid invocation namespace"))?;
+    let namespace = selected
+        .parent()
+        .ok_or_else(|| invalid("invalid invocation namespace"))?;
     // Require the same actual state namespace at preview and release. An unmounted or
     // redirected state path cannot turn an unseen invocation into a clearance.
     let directory = open_directory(namespace)?;
@@ -89,14 +99,20 @@ fn members(path: &Path) -> Result<BTreeMap<OsString, fs::Metadata>, HostError> {
             || metadata.mode() & 0o022 != 0
             || metadata.nlink() != 1
         {
-            return Err(invalid("prepared directory contains an unknown or shared member"));
+            return Err(invalid(
+                "prepared directory contains an unknown or shared member",
+            ));
         }
         found.insert(name, metadata);
     }
     Ok(found)
 }
 
-fn generation_holds(root: &Path, generation: &str, env: &Environment) -> Result<Vec<String>, HostError> {
+fn generation_holds(
+    root: &Path,
+    generation: &str,
+    env: &Environment,
+) -> Result<Vec<String>, HostError> {
     let mut blockers = Vec::new();
     let tools = root.join("target/host-tools");
     let selected = bootstrap::selected(root)?
@@ -126,14 +142,20 @@ fn generation_holds(root: &Path, generation: &str, env: &Environment) -> Result<
         Err(error) => return Err(error.into()),
     }
     let state = CheckoutState::resolve(root, env)?;
-    blockers.extend(InvocationStore::retained_host_controls(&state, generation)?.into_iter()
-        .map(|id| format!("original invocation {id}")));
+    blockers.extend(
+        InvocationStore::retained_host_controls(&state, generation)?
+            .into_iter()
+            .map(|id| format!("original invocation {id}")),
+    );
     Ok(blockers)
 }
 
 fn running_image(members: &BTreeMap<OsString, fs::Metadata>) -> Result<bool, HostError> {
-    let images = members.iter().filter(|(name, _)| *name != MANIFEST)
-        .map(|(_, metadata)| identity(metadata)).collect::<BTreeSet<_>>();
+    let images = members
+        .iter()
+        .filter(|(name, _)| *name != MANIFEST)
+        .map(|(_, metadata)| identity(metadata))
+        .collect::<BTreeSet<_>>();
     for entry in fs::read_dir("/proc")? {
         let entry = entry?;
         let name = entry.file_name();
@@ -155,10 +177,14 @@ fn running_image(members: &BTreeMap<OsString, fs::Metadata>) -> Result<bool, Hos
                     Ok(_) => {}
                 }
                 match fs::read(process.join("comm")) {
-                    Ok(comm) if bootstrap::TOOLS.iter().any(|tool| {
-                        let comm = comm.strip_suffix(b"\n").unwrap_or(&comm);
-                        tool.as_bytes().starts_with(comm)
-                    }) => return Ok(true),
+                    Ok(comm)
+                        if bootstrap::TOOLS.iter().any(|tool| {
+                            let comm = comm.strip_suffix(b"\n").unwrap_or(&comm);
+                            tool.as_bytes().starts_with(comm)
+                        }) =>
+                    {
+                        return Ok(true);
+                    }
                     Ok(_) => {}
                     Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error.into()),
@@ -208,14 +234,18 @@ pub(crate) fn retire(
     let tools = root.join("target/host-tools");
     private_directory(&tools, false)?;
     let path = tools.join(generation);
-    let publication = release.map(|_| owned_file(&tools.join(".update.lock"), false)).transpose()?;
+    let publication = release
+        .map(|_| owned_file(&tools.join(".update.lock"), false))
+        .transpose()?;
     if let Some(lock) = publication.as_ref() {
         lock_exclusive(lock)?;
     }
     let context = state_context(&root, env)?;
     let mut blockers = generation_holds(&root, generation, env)?;
     if state_context(&root, env)? != context {
-        return Err(invalid("invocation state namespace changed during observation"));
+        return Err(invalid(
+            "invocation state namespace changed during observation",
+        ));
     }
     if let Some(token) = release {
         return remove(&tools, &path, generation, token, &context, blockers);
@@ -227,7 +257,13 @@ pub(crate) fn retire(
         blockers.push("running or borrowed host image".into());
     }
     let eligible = blockers.is_empty();
-    Ok(report(generation, &members, blockers, eligible.then_some(token), "preview"))
+    Ok(report(
+        generation,
+        &members,
+        blockers,
+        eligible.then_some(token),
+        "preview",
+    ))
 }
 
 fn full_token(
@@ -238,12 +274,20 @@ fn full_token(
 ) -> Result<String, HostError> {
     let manifest = GenerationManifest::load(path)?;
     if manifest.binaries.len() != bootstrap::TOOLS.len()
-        || !bootstrap::TOOLS.iter().all(|tool| manifest.binaries.contains_key(*tool))
+        || !bootstrap::TOOLS
+            .iter()
+            .all(|tool| manifest.binaries.contains_key(*tool))
         || members.len() != bootstrap::TOOLS.len() + 1
     {
-        return Err(invalid("retirement requires the complete fixed host tool set"));
+        return Err(invalid(
+            "retirement requires the complete fixed host tool set",
+        ));
     }
-    Ok(format!("{}-{}-{context}", instance(opened)?, hash_file(&path.join(MANIFEST))?))
+    Ok(format!(
+        "{}-{}-{context}",
+        instance(opened)?,
+        hash_file(&path.join(MANIFEST))?
+    ))
 }
 
 fn remove(
@@ -255,31 +299,60 @@ fn remove(
     blockers: Vec<String>,
 ) -> Result<Retirement, HostError> {
     if !blockers.is_empty() {
-        return Ok(report(generation, &BTreeMap::new(), blockers, None, "protected"));
+        return Ok(report(
+            generation,
+            &BTreeMap::new(),
+            blockers,
+            None,
+            "protected",
+        ));
     }
-    let coordinates = token.strip_suffix(context).and_then(|value| value.strip_suffix('-'))
+    let coordinates = token
+        .strip_suffix(context)
+        .and_then(|value| value.strip_suffix('-'))
         .ok_or_else(|| invalid("release does not bind the current invocation namespace"))?;
-    let (original_instance, manifest_hash) = coordinates.rsplit_once('-')
+    let (original_instance, manifest_hash) = coordinates
+        .rsplit_once('-')
         .filter(|(id, hash)| {
-            coordinates.len() <= 120 && hash.len() == 64
+            coordinates.len() <= 120
+                && hash.len() == 64
                 && hash.bytes().all(|b| b.is_ascii_hexdigit())
                 && id.split('-').count() == 3
-                && id.split('-').all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_hexdigit()))
+                && id
+                    .split('-')
+                    .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_hexdigit()))
         })
         .ok_or_else(|| invalid("invalid release selection"))?;
-    let tomb = tools.join(format!(".retired-{generation}-{}", digest(token.as_bytes())));
+    let tomb = tools.join(format!(
+        ".retired-{generation}-{}",
+        digest(token.as_bytes())
+    ));
     let original_present = !absent(path)?;
     let tomb_present = !absent(&tomb)?;
     let selected = match (original_present, tomb_present) {
-        (false, false) => return Ok(report(generation, &BTreeMap::new(), blockers, None, "already_absent")),
-        (true, true) => return Err(invalid("generation path was reused during interrupted retirement")),
+        (false, false) => {
+            return Ok(report(
+                generation,
+                &BTreeMap::new(),
+                blockers,
+                None,
+                "already_absent",
+            ));
+        }
+        (true, true) => {
+            return Err(invalid(
+                "generation path was reused during interrupted retirement",
+            ));
+        }
         (true, false) => path,
         (false, true) => &tomb,
     };
     let opened = open_directory(selected)?;
     lock_exclusive(&opened)?;
     if instance(&opened)? != original_instance {
-        return Err(invalid("release names a different host generation instance"));
+        return Err(invalid(
+            "release names a different host generation instance",
+        ));
     }
     let remaining = members(selected)?;
     if running_image(&remaining)? {
@@ -306,7 +379,9 @@ fn remove(
         }
         let manifest: GenerationManifest = serde_json::from_reader(File::open(&manifest_path)?)
             .map_err(|_| invalid("retired host manifest is invalid"))?;
-        let binaries = bootstrap::TOOLS.iter().filter(|tool| remaining.contains_key(OsStr::new(tool)));
+        let binaries = bootstrap::TOOLS
+            .iter()
+            .filter(|tool| remaining.contains_key(OsStr::new(tool)));
         for tool in binaries.clone() {
             if manifest.binaries.get(*tool) != Some(&hash_file(&tomb.join(tool))?) {
                 return Err(invalid("retired host member differs from its manifest"));
@@ -383,8 +458,14 @@ mod tests {
         let released = retire(&root, &env, OLD, Some(&old)).unwrap();
         assert_eq!(released.outcome, "released");
         assert!(released.allocated_bytes > 0);
-        assert_eq!(retire(&root, &env, OLD, Some(&old)).unwrap().outcome, "already_absent");
-        assert_eq!(fs::read_link(tools.join("current")).unwrap(), Path::new(CURRENT));
+        assert_eq!(
+            retire(&root, &env, OLD, Some(&old)).unwrap().outcome,
+            "already_absent"
+        );
+        assert_eq!(
+            fs::read_link(tools.join("current")).unwrap(),
+            Path::new(CURRENT)
+        );
         GenerationManifest::load(&tools.join(CURRENT)).unwrap();
     }
 
@@ -402,7 +483,10 @@ mod tests {
         let tomb = tools.join(format!(".retired-{OLD}-{}", digest(old.as_bytes())));
         fs::rename(replacement, &tomb).unwrap();
         fs::remove_file(tomb.join("pse")).unwrap();
-        assert_eq!(retire(&root, &env, OLD, Some(&old)).unwrap().outcome, "released");
+        assert_eq!(
+            retire(&root, &env, OLD, Some(&old)).unwrap().outcome,
+            "released"
+        );
         assert!(!tomb.exists());
     }
 
@@ -415,20 +499,22 @@ mod tests {
         let ledger = InvocationStore::new(state);
         let id = crate::envelope::CliInvocationId::new();
         let manifest = GenerationManifest::load(&tools.join(OLD)).unwrap();
-        ledger.begin(crate::invocation::InvocationSpec {
-            invocation_id: id.clone(),
-            command: "run".into(),
-            session: None,
-            parent: None,
-            operation: (),
-            control: PreparedGeneration {
-                generation: OLD.into(),
-                protocol: manifest.control_protocol(),
-                manifest_digest: manifest.digest().unwrap(),
-            },
-            environment_digest: "0".repeat(64),
-            scientific: Vec::new(),
-        }).unwrap();
+        ledger
+            .begin(crate::invocation::InvocationSpec {
+                invocation_id: id.clone(),
+                command: "run".into(),
+                session: None,
+                parent: None,
+                operation: (),
+                control: PreparedGeneration {
+                    generation: OLD.into(),
+                    protocol: manifest.control_protocol(),
+                    manifest_digest: manifest.digest().unwrap(),
+                },
+                environment_digest: "0".repeat(64),
+                scientific: Vec::new(),
+            })
+            .unwrap();
         let preview = retire(&root, &env, OLD, None).unwrap();
         assert_eq!(preview.blockers, [format!("original invocation {id}")]);
         assert!(retire(&root, &env, OLD, Some(&token)).unwrap().refused());

@@ -3989,9 +3989,7 @@ mod canonical_connected_results_server_unit {
                         .await
                         .is_err()
                 );
-                store.join_result_releases()
-                    .await
-                    .unwrap();
+                store.join_result_releases().await.unwrap();
                 drop(cleanup);
                 drop(store);
                 drop(runtime);
@@ -4639,9 +4637,7 @@ mod canonical_connected_results_server_unit {
                 drop(late);
                 drop(none);
                 drop(read);
-                store.join_result_releases()
-                    .await
-                    .unwrap();
+                store.join_result_releases().await.unwrap();
             })
         })
         .await;

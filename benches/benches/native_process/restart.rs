@@ -244,7 +244,8 @@ async fn native_warmup(phases: &phases::Phases, build: ContentHash) -> Value {
         pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
     );
     // The registered fixture lifetime spans observers.
-    let fixture = pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
+    let fixture =
+        pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let store = CanonicalStore::connect(&options).await.unwrap();
     store.open().await.unwrap();
     let sources = k4_support::sources(k4_support::SOURCE);
@@ -330,7 +331,8 @@ async fn iteration(phases: &phases::Phases, build: ContentHash) -> (Duration, Va
         pse_operations::mint_id::<pse_ids::SemanticId>().to_hex()
     );
     // The registered fixture lifetime spans observers.
-    let fixture = pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
+    let fixture =
+        pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let store = CanonicalStore::connect(&options).await.unwrap();
     store.open().await.unwrap();
     let sources = k4_support::sources(k4_support::SOURCE);

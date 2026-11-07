@@ -72,7 +72,9 @@ impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
             Self::Prepare { .. } | Self::Run { .. } => GenerationIntent::NewWork,
-            Self::RetireHost { release: Some(_), .. } => GenerationIntent::ExistingControl,
+            Self::RetireHost {
+                release: Some(_), ..
+            } => GenerationIntent::ExistingControl,
             _ => GenerationIntent::Passive,
         }
     }
@@ -153,7 +155,10 @@ pub(super) fn dispatch(
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     match action {
-        Action::RetireHost { generation, release } => {
+        Action::RetireHost {
+            generation,
+            release,
+        } => {
             let report = crate::generation::retirement::retire(
                 &root,
                 &environment,

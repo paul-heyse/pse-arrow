@@ -7,8 +7,10 @@ use std::{collections::BTreeMap, path::PathBuf};
 use pse_operations::{
     canonical::{CanonicalError, CanonicalStore, Revision},
     canonical_codec as codec,
-    canonical_execution::{AttemptFence, PayloadLocator, result_batch_key, result_payload_locator,
-        result_set_key, validate_result_batch},
+    canonical_execution::{
+        AttemptFence, PayloadLocator, result_batch_key, result_payload_locator, result_set_key,
+        validate_result_batch,
+    },
     generated::surreal as wire,
     native_fixture::FixtureSelection,
     transport::client::IndexedResults,
@@ -22,11 +24,18 @@ pub(crate) async fn source_problem_head(
     store: &CanonicalStore,
     problem: &str,
 ) -> Result<Option<pse_model::generated::runtime::canonical_problems::Row>, CanonicalError> {
-    let mut response = FixtureSelection::selected()?.query(store,
-        "SELECT * FROM ONLY type::record('canonical_problems',$problem);",
-        ("problem", problem.to_owned()),
-    ).await?;
-    response.take::<Option<_>>(0)?.map(wire::decode_canonical_problems).transpose().map_err(Into::into)
+    let mut response = FixtureSelection::selected()?
+        .query(
+            store,
+            "SELECT * FROM ONLY type::record('canonical_problems',$problem);",
+            ("problem", problem.to_owned()),
+        )
+        .await?;
+    response
+        .take::<Option<_>>(0)?
+        .map(wire::decode_canonical_problems)
+        .transpose()
+        .map_err(Into::into)
 }
 
 const PENDING_BATCH: &str = "RETURN SELECT * FROM ONLY type::record('canonical_result_batches',$key) WHERE attempt=$attempt AND result_set=$set;";
@@ -48,7 +57,11 @@ fn pending_batch_bindings(
 fn decode_pending_batch(
     mut response: IndexedResults,
 ) -> Result<Option<pse_operations::canonical_execution::ResultBatch>, CanonicalError> {
-    response.take::<Option<_>>(0)?.map(wire::decode_canonical_result_batches).transpose().map_err(Into::into)
+    response
+        .take::<Option<_>>(0)?
+        .map(wire::decode_canonical_result_batches)
+        .transpose()
+        .map_err(Into::into)
 }
 
 async fn pending_batch(
@@ -57,9 +70,15 @@ async fn pending_batch(
     output: &str,
     ordinal: u64,
 ) -> Result<Option<pse_operations::canonical_execution::ResultBatch>, CanonicalError> {
-    decode_pending_batch(FixtureSelection::selected()?.query(store, PENDING_BATCH,
-        pending_batch_bindings(fence, output, ordinal),
-    ).await?)
+    decode_pending_batch(
+        FixtureSelection::selected()?
+            .query(
+                store,
+                PENDING_BATCH,
+                pending_batch_bindings(fence, output, ordinal),
+            )
+            .await?,
+    )
 }
 
 #[cfg(feature = "native-service")]
@@ -69,9 +88,12 @@ pub(crate) async fn pending_owned_result_batch_rows(
     output: &str,
     ordinal: u64,
 ) -> Result<Option<u64>, pse_operations::native_service::NativeServiceError> {
-    let response = service.fixture_query(PENDING_BATCH,
-        pending_batch_bindings(fence, output, ordinal),
-    ).await?;
+    let response = service
+        .fixture_query(
+            PENDING_BATCH,
+            pending_batch_bindings(fence, output, ordinal),
+        )
+        .await?;
     Ok(decode_pending_batch(response)?.map(|batch| batch.row_count))
 }
 
@@ -81,7 +103,9 @@ pub(crate) async fn pending_result_batch_rows(
     output: &str,
     ordinal: u64,
 ) -> Result<Option<u64>, CanonicalError> {
-    Ok(pending_batch(store, fence, output, ordinal).await?.map(|batch| batch.row_count))
+    Ok(pending_batch(store, fence, output, ordinal)
+        .await?
+        .map(|batch| batch.row_count))
 }
 
 pub(crate) async fn pending_result_payload_coordinates(
@@ -90,10 +114,13 @@ pub(crate) async fn pending_result_payload_coordinates(
     output: &str,
     ordinal: u64,
 ) -> Result<Option<(PayloadLocator, String)>, CanonicalError> {
-    pending_batch(store, fence, output, ordinal).await?.map(|batch| {
-        validate_result_batch(&batch)?;
-        Ok((result_payload_locator(&batch)?, batch.schema))
-    }).transpose()
+    pending_batch(store, fence, output, ordinal)
+        .await?
+        .map(|batch| {
+            validate_result_batch(&batch)?;
+            Ok((result_payload_locator(&batch)?, batch.schema))
+        })
+        .transpose()
 }
 
 pub(crate) async fn result_payload_counts(
@@ -104,16 +131,22 @@ pub(crate) async fn result_payload_counts(
         "RETURN {inline:<decimal>array::len((SELECT key FROM canonical_inline_payloads WHERE attempt=$attempt)),sealed:<decimal>array::len((SELECT key FROM canonical_file_instances WHERE owner_kind='result' AND selection=$attempt))};",
         ("attempt", fence.attempt().to_owned()),
     ).await?;
-    let mut row = response.take::<Option<_>>(0)?.ok_or(CanonicalError::IncompleteResponse)?;
-    Ok((codec::decode_uint(codec::required(&mut row, "inline")?)?,
-        codec::decode_uint(codec::required(&mut row, "sealed")?)?))
+    let mut row = response
+        .take::<Option<_>>(0)?
+        .ok_or(CanonicalError::IncompleteResponse)?;
+    Ok((
+        codec::decode_uint(codec::required(&mut row, "inline")?)?,
+        codec::decode_uint(codec::required(&mut row, "sealed")?)?,
+    ))
 }
 
 pub(crate) async fn expire_acknowledged_attempt(
     store: &CanonicalStore,
     fence: &AttemptFence,
 ) -> Result<(), CanonicalError> {
-    FixtureSelection::selected()?.expire_acknowledged_attempt(store, fence).await
+    FixtureSelection::selected()?
+        .expire_acknowledged_attempt(store, fence)
+        .await
 }
 
 pub(crate) async fn invalidate_terminal_study_outcome(
@@ -161,10 +194,20 @@ pub(crate) async fn with_unavailable_fixture_payloads<F: Future>(
     future: F,
 ) -> Result<F::Output, CanonicalError> {
     let original = FixtureSelection::selected()?.payload_instances(store)?;
-    if !std::fs::symlink_metadata(&original).map_err(invalid)?.file_type().is_dir()
-        || std::fs::read_dir(&original).map_err(invalid)?.next().transpose().map_err(invalid)?.is_none()
+    if !std::fs::symlink_metadata(&original)
+        .map_err(invalid)?
+        .file_type()
+        .is_dir()
+        || std::fs::read_dir(&original)
+            .map_err(invalid)?
+            .next()
+            .transpose()
+            .map_err(invalid)?
+            .is_none()
     {
-        return Err(invalid("fixture requires nonempty published file instances"));
+        return Err(invalid(
+            "fixture requires nonempty published file instances",
+        ));
     }
     struct Restore {
         original: PathBuf,
@@ -192,7 +235,11 @@ pub(crate) async fn with_unavailable_fixture_payloads<F: Future>(
     }
     let withheld = original.with_file_name(format!(".withheld-{}", uuid::Uuid::new_v4()));
     std::fs::rename(&original, &withheld).map_err(invalid)?;
-    let mut restore = Restore { original, withheld, restored: false };
+    let mut restore = Restore {
+        original,
+        withheld,
+        restored: false,
+    };
     std::fs::create_dir(&restore.original).map_err(invalid)?;
     let outcome = future.await;
     restore.restore()?;

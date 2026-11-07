@@ -97,7 +97,10 @@ impl Target {
         let receipt = Receipt {
             version: 1,
             invocation: invocation.clone(),
-            context: acquisition.context.key().map_err(|error| HostError::Api(Box::new(error)))?,
+            context: acquisition
+                .context
+                .key()
+                .map_err(|error| HostError::Api(Box::new(error)))?,
             selection: acquisition.query.clone(),
             target_identity: outputs::identity(&target)?,
         };
@@ -136,7 +139,9 @@ impl Target {
 
     fn output(&self, release: Option<&str>) -> Result<OutputRelease, HostError> {
         if release.is_some_and(|expected| expected != self.receipt.target_identity) {
-            return Err(refusal("API build output identity differs from the selected release"));
+            return Err(refusal(
+                "API build output identity differs from the selected release",
+            ));
         }
         Ok(outputs::target_output(
             &self.acquisition,
@@ -153,19 +158,33 @@ fn original_target(
     state: &CheckoutState,
 ) -> Result<PathBuf, HostError> {
     let original = &operation.selection.operation;
-    if !matches!(operation.selection.command.as_str(), "api prepare" | "api extract-examples")
-        || Path::new(&original.cwd) != root
+    if !matches!(
+        operation.selection.command.as_str(),
+        "api prepare" | "api extract-examples"
+    ) || Path::new(&original.cwd) != root
         || original.detached
     {
-        return Err(refusal("invocation is not an original foreground API acquisition"));
+        return Err(refusal(
+            "invocation is not an original foreground API acquisition",
+        ));
     }
-    let argv = original.command.split(|argument| argument == OsStr::new("--")).next().unwrap_or(&[]);
-    let mut paths = argv.windows(2).filter(|pair| pair[0] == OsStr::new("--target-dir"));
+    let argv = original
+        .command
+        .split(|argument| argument == OsStr::new("--"))
+        .next()
+        .unwrap_or(&[]);
+    let mut paths = argv
+        .windows(2)
+        .filter(|pair| pair[0] == OsStr::new("--target-dir"));
     let Some(path) = paths.next().map(|pair| PathBuf::from(&pair[1])) else {
-        return Err(refusal("original API acquisition does not name a Cargo target"));
+        return Err(refusal(
+            "original API acquisition does not name a Cargo target",
+        ));
     };
     if paths.next().is_some() || path.strip_prefix(state.api()).is_err() {
-        return Err(refusal("original API acquisition target is outside its checkout owner"));
+        return Err(refusal(
+            "original API acquisition target is outside its checkout owner",
+        ));
     }
     Ok(path)
 }
@@ -182,7 +201,9 @@ pub(crate) async fn inspect_or_release(
     let store = InvocationStore::new(state.clone());
     let operation = store.metadata(invocation)?;
     let path = original_target(&operation, &root, &state)?;
-    let relative = path.strip_prefix(&state.root).map_err(|_| refusal("unknown API target"))?;
+    let relative = path
+        .strip_prefix(&state.root)
+        .map_err(|_| refusal("unknown API target"))?;
     let parts: Vec<_> = relative.components().map(|part| part.as_os_str()).collect();
     let [api, context, acquisition, target] = parts.as_slice() else {
         return Err(refusal("invalid API acquisition path"));
@@ -191,7 +212,10 @@ pub(crate) async fn inspect_or_release(
         || *target != "target"
         || context.as_encoded_bytes().len() != 64
         || !context.as_encoded_bytes().iter().all(u8::is_ascii_hexdigit)
-        || acquisition.to_str().and_then(|value| uuid::Uuid::parse_str(value).ok()).is_none()
+        || acquisition
+            .to_str()
+            .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            .is_none()
     {
         return Err(refusal("invalid API acquisition identity"));
     }
@@ -214,14 +238,26 @@ pub(crate) async fn inspect_or_release(
         || receipt.selection != selection
         || OsStr::new(&receipt.context) != *context
         || recorded.source_root != root
-        || recorded.key().map_err(|error| HostError::Api(Box::new(error)))? != receipt.context
+        || recorded
+            .key()
+            .map_err(|error| HostError::Api(Box::new(error)))?
+            != receipt.context
     {
-        return Err(refusal("API Cargo output differs from its original acquisition receipt"));
+        return Err(refusal(
+            "API Cargo output differs from its original acquisition receipt",
+        ));
     }
     if !crate::foreground::observe_recorded_drain(&root, invocation, environment).await? {
-        return Err(refusal("original API native root remains live or unsettled"));
+        return Err(refusal(
+            "original API native root remains live or unsettled",
+        ));
     }
-    Target { acquisition: directory, receipt, path }.output(release)
+    Target {
+        acquisition: directory,
+        receipt,
+        path,
+    }
+    .output(release)
 }
 
 #[cfg(test)]
@@ -233,10 +269,7 @@ mod tests {
     fn target_retirement_holds_its_lease_and_rejects_a_recreated_target() {
         let temporary = tempfile::tempdir().unwrap();
         let parent = temporary.path().join("acquisition");
-        fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&parent)
-            .unwrap();
+        fs::DirBuilder::new().mode(0o700).create(&parent).unwrap();
         let path = parent.join("target");
         fs::create_dir(&path).unwrap();
         fs::write(path.join("artifact"), b"compiled output").unwrap();
@@ -266,6 +299,9 @@ mod tests {
         fs::rename(&moved, &path).unwrap();
         assert!(selected.output(identity).unwrap().released);
         assert!(!selected.output(identity).unwrap().released);
-        assert_eq!(fs::read(parent.join("document.json")).unwrap(), b"published document");
+        assert_eq!(
+            fs::read(parent.join("document.json")).unwrap(),
+            b"published document"
+        );
     }
 }

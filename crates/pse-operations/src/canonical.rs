@@ -2492,7 +2492,10 @@ impl CanonicalStore {
     pub async fn join_result_releases(&self) -> Result<(), CanonicalError> {
         self.result_read_drain.join_pending_releases().await
     }
-    fn seal_final_fixture_owner(&self, lifetime: &Arc<crate::native_fixture::FixtureLifetime>) -> bool {
+    fn seal_final_fixture_owner(
+        &self,
+        lifetime: &Arc<crate::native_fixture::FixtureLifetime>,
+    ) -> bool {
         self.db
             .access
             .physical

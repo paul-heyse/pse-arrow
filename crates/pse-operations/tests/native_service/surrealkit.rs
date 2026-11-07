@@ -114,7 +114,13 @@ async fn provision_namespace(
 }
 
 fn stage_project(folder: &Path, seed: Option<&str>) -> Result<PathBuf, NativeServiceError> {
-    for directory in ["schema", "tests/suites", "tests/fixtures", "seed", "snapshots"] {
+    for directory in [
+        "schema",
+        "tests/suites",
+        "tests/fixtures",
+        "seed",
+        "snapshots",
+    ] {
         fs::create_dir_all(folder.join(directory))?;
     }
     fs::write(folder.join("schema/canonical.surql"), SCHEMA)?;

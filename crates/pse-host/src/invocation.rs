@@ -579,16 +579,23 @@ impl InvocationStore {
     ) -> Result<Vec<CliInvocationId>, HostError> {
         fn digest(value: &str) -> bool {
             value.len() == 64
-                && value.bytes().all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
+                && value
+                    .bytes()
+                    .all(|byte| byte.is_ascii_hexdigit() && !byte.is_ascii_uppercase())
         }
-        let namespace = state.root.parent().ok_or_else(|| invalid("state root has no parent"))?;
+        let namespace = state
+            .root
+            .parent()
+            .ok_or_else(|| invalid("state root has no parent"))?;
         directory(namespace, false)?;
         let mut holders = Vec::new();
         let mut failures = Vec::new();
         for entry in fs::read_dir(namespace)? {
             let entry = entry?;
             let name = entry.file_name();
-            let Some(checkout) = name.to_str().filter(|name| digest(name)) else { continue };
+            let Some(checkout) = name.to_str().filter(|name| digest(name)) else {
+                continue;
+            };
             let path = entry.path();
             directory(&path, false)?;
             let history = Self::history_at::<serde::de::IgnoredAny>(&path, |id, metadata| {

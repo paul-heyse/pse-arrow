@@ -491,9 +491,7 @@ async fn selected_hydration_refuses_keys_and_predicates_outside_returned_window(
         );
         drop(full);
         let store = runtime.canonical_store().unwrap();
-        store.join_result_releases()
-            .await
-            .unwrap();
+        store.join_result_releases().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 }
@@ -562,9 +560,7 @@ async fn selected_hydration_reports_omitted_local_values_unchecked_and_full_read
         drop(full);
     }
     let store = runtime.canonical_store().unwrap();
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
@@ -619,9 +615,7 @@ async fn selected_hydration_keeps_prefix_then_terminal_failure_and_cancellation(
     assert!(reader.next_inspection_batch(&projection).await.is_err());
     drop(reader);
     let store = runtime.canonical_store().unwrap();
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
@@ -749,9 +743,7 @@ async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and
         }
     ));
     drop((first, second));
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
@@ -790,9 +782,7 @@ async fn canonical_result_missing_physical_closure_stays_unavailable_while_raw_v
         ResultPhysicalContext::Unavailable { .. }
     ));
     drop(result);
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
 
@@ -852,9 +842,7 @@ async fn canonical_result_physical_context_requires_the_original_receipt_payload
             matches!(&values, ResultInspectionDocument::Values { rows, .. } if rows.len() == 1)
         );
         drop((page, values));
-        store.join_result_releases()
-            .await
-            .unwrap();
+        store.join_result_releases().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
 }
@@ -1075,9 +1063,7 @@ async fn canonical_nested_result_paths_retain_context_and_continuation() {
         );
     }
     let store = runtime.canonical_store().unwrap();
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.forget_run_results("readable-fixture").await.unwrap();
     store.remove_isolated_fixture().await.unwrap();
 }
@@ -1551,9 +1537,7 @@ async fn canonical_readable_wide_result_retains_physical_context_protection_and_
         ));
         drop((discovered, continued, values, last));
     }
-    store.join_result_releases()
-        .await
-        .unwrap();
+    store.join_result_releases().await.unwrap();
     store.forget_run_results("readable-fixture").await.unwrap();
     assert!(
         runtime

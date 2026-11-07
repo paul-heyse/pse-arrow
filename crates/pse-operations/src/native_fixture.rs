@@ -10,13 +10,13 @@ use crate::{
     transport::client::IndexedResults,
 };
 use serde::{Deserialize, Serialize};
-use surrealdb_types::SurrealValue;
 use std::{
     fs::{self, OpenOptions},
     io::Read,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
+use surrealdb_types::SurrealValue;
 
 #[cfg(feature = "native-service")]
 use std::io::Write;
@@ -212,7 +212,9 @@ impl FixtureSelection {
             || options.endpoint != store.endpoint()
             || options.namespace != store.namespace()
         {
-            return Err(refused("the store is not a registered borrower of this fixture"));
+            return Err(refused(
+                "the store is not a registered borrower of this fixture",
+            ));
         }
         Ok(())
     }
@@ -264,10 +266,7 @@ impl FixtureSelection {
     /// Resolve the real payload instance directory for a registered fixture borrower.
     /// # Errors
     /// The store is not a registered borrower of this authenticated disposable service.
-    pub fn payload_instances(
-        &self,
-        store: &CanonicalStore,
-    ) -> Result<PathBuf, CanonicalError> {
+    pub fn payload_instances(&self, store: &CanonicalStore) -> Result<PathBuf, CanonicalError> {
         self.require_borrower(store)?;
         Ok(store.files.fixture_instances())
     }
@@ -299,7 +298,9 @@ pub(crate) async fn fixture_query(
     bindings: impl SurrealValue,
 ) -> Result<IndexedResults, CanonicalError> {
     let activity = store.admit_activity()?;
-    activity.scope(async { bounded_query(store.db.query(sql).bind(bindings)).await }).await
+    activity
+        .scope(async { bounded_query(store.db.query(sql).bind(bindings)).await })
+        .await
 }
 
 #[cfg(feature = "native-service")]

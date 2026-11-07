@@ -24,22 +24,46 @@ use std::sync::{
     mpsc,
 };
 
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 type NativeEntry = Arc<dyn Fn(&AtomicBool) + Send + Sync>;
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 tokio::task_local! { static NATIVE_ENTRY: NativeEntry; }
 #[cfg(all(test, feature = "solver-ipopt"))]
 type NativeTaskEntry = Arc<dyn Fn(&Arc<AtomicBool>) + Send + Sync>;
 #[cfg(all(test, feature = "solver-ipopt"))]
 tokio::task_local! { static NATIVE_TASK_ENTRY: NativeTaskEntry; }
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 static RECEIVER_ENTRY: std::sync::OnceLock<NativeEntry> = std::sync::OnceLock::new();
 /// Install one qualified receiver observer before any scientific work is issued.
 /// The process association spans spawned run owners; local controls take precedence.
 ///
 /// # Errors
 /// An existing installation belongs to the process's original qualification controller.
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 pub(crate) fn install_qualified_native_entry(
     observer: Arc<dyn Fn(&AtomicBool) + Send + Sync>,
 ) -> Result<(), MathRuntimeError> {
@@ -49,7 +73,13 @@ pub(crate) fn install_qualified_native_entry(
 }
 /// Observe actual admitted native session entries for composition controls. The
 /// callback crosses into the owner thread; it must cooperate with the stop flag.
-#[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+#[cfg(all(
+    test,
+    any(
+        feature = "solver-ipopt",
+        all(feature = "native-service", feature = "solver-kinsol")
+    )
+))]
 pub(crate) async fn observed_native_entry<T>(
     observer: NativeEntry,
     work: impl Future<Output = T>,
@@ -1653,7 +1683,13 @@ impl NativeSession {
             permits,
             tokio::runtime::Handle::current(),
         );
-        #[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+        #[cfg(all(
+            test,
+            any(
+                feature = "solver-ipopt",
+                all(feature = "native-service", feature = "solver-kinsol")
+            )
+        ))]
         let entry = NATIVE_ENTRY
             .try_with(Arc::clone)
             .ok()
@@ -1690,7 +1726,13 @@ impl NativeSession {
                 let outcome = execution::compute_scoped(Box::new(compute), || match retained {
                     Ok(retained) => {
                         match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                            #[cfg(all(test, any(feature = "solver-ipopt", all(feature = "native-service", feature = "solver-kinsol"))))]
+                            #[cfg(all(
+                                test,
+                                any(
+                                    feature = "solver-ipopt",
+                                    all(feature = "native-service", feature = "solver-kinsol")
+                                )
+                            ))]
                             if let Some(entry) = entry {
                                 entry(&flag);
                             }

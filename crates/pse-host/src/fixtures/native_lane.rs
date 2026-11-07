@@ -193,7 +193,10 @@ fn capture_lane(
     environment: &Environment,
     destination: &Path,
 ) -> Result<generation::SourceFingerprint, FixtureError> {
-    let features = FEATURES.iter().map(|feature| (*feature).into()).collect::<Vec<_>>();
+    let features = FEATURES
+        .iter()
+        .map(|feature| (*feature).into())
+        .collect::<Vec<_>>();
     let (capture, before) = execution::build_capture_with(
         root,
         environment,
@@ -465,17 +468,15 @@ impl SelectedNativeLane {
         }
     }
 
-    fn validate_current(
-        &self,
-        root: &Path,
-        environment: &Environment,
-    ) -> Result<(), FixtureError> {
+    fn validate_current(&self, root: &Path, environment: &Environment) -> Result<(), FixtureError> {
         let environment = construction_environment(root, environment)?;
-        let features = FEATURES.iter().map(|feature| (*feature).into()).collect::<Vec<_>>();
-        self.record.source.require_current_sources(
-            root,
-            &current_context(root, &environment, &features)?,
-        )?;
+        let features = FEATURES
+            .iter()
+            .map(|feature| (*feature).into())
+            .collect::<Vec<_>>();
+        self.record
+            .source
+            .require_current_sources(root, &current_context(root, &environment, &features)?)?;
         Ok(())
     }
 
@@ -548,7 +549,11 @@ mod tests {
     fn explicit_native_lane_path_does_not_inspect_or_prepare_a_checkout() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("not-a-checkout");
-        assert!(selected_for_run(&root, &Environment::new()).unwrap().is_none());
+        assert!(
+            selected_for_run(&root, &Environment::new())
+                .unwrap()
+                .is_none()
+        );
         for original in ["", "/invalid/original"] {
             let environment = Environment::from([(VARIABLE.into(), original.into())]);
             assert!(selected_for_run(&root, &environment).unwrap().is_none());

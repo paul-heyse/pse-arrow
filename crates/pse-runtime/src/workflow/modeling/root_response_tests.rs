@@ -461,13 +461,8 @@ async fn retained_root_action_screens_target_then_original_corrector_qualifies()
     // Run the screened proposal through the actual joined workflow owner. The
     // original scientific corrector assertions below still qualify acceptance.
     let corrected_run = async { target.start(&services)?.wait().await }.await;
-    let corrected_run = WorkflowError::settle(
-        corrected_run,
-        handle
-            .finish()
-            .map_err(WorkflowError::from),
-    )
-    .unwrap();
+    let corrected_run =
+        WorkflowError::settle(corrected_run, handle.finish().map_err(WorkflowError::from)).unwrap();
     review_qualification_tests::assert_review_transport(
         &corrected_run,
         &[

@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Read and verify authored scientific inputs once per test process.
-#![allow(dead_code, reason = "each test target consumes its own scientific projection")]
+#![allow(
+    dead_code,
+    reason = "each test target consumes its own scientific projection"
+)]
 
 use std::{collections::BTreeMap, path::Path, sync::OnceLock};
 
 #[path = "scientific-input-capture.rs"]
 mod owner;
 use owner::data::Capsule;
-#[allow(unused_imports, reason = "the PID exchange consumes package transport only")]
+#[allow(
+    unused_imports,
+    reason = "the PID exchange consumes package transport only"
+)]
 pub(crate) use owner::data::parse_sources;
 
 fn inputs() -> &'static Capsule {

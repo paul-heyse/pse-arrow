@@ -1101,7 +1101,9 @@ impl Runtime {
                     // once for admission and once for attachment. The final
                     // verification pass begins only after every group ACK.
                     if loaded == blocks.len() * 3
-                        && CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION.try_with(|_| ()).is_ok()
+                        && CANCEL_BEFORE_FINAL_ARTIFACT_VERIFICATION
+                            .try_with(|_| ())
+                            .is_ok()
                     {
                         final_verification.store(true, Ordering::Relaxed);
                         cancel.cancel();

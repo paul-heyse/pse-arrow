@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Immutable scientific fixture projections shared by the authored capture and capsule reader.
-#![allow(dead_code, reason = "each test target consumes its own scientific projection")]
+#![allow(
+    dead_code,
+    reason = "each test target consumes its own scientific projection"
+)]
 
 use pse_authoring::language::{Declaration, IdentityPolicy, parse};
 use pse_ids::SemanticId;
@@ -78,10 +81,7 @@ impl Capsule {
     }
 
     pub(crate) fn family_documents(&self, name: &str) -> Vec<(String, String)> {
-        let family = self
-            .families
-            .get(name)
-            .expect("declared scientific family");
+        let family = self.families.get(name).expect("declared scientific family");
         family
             .documents
             .iter()

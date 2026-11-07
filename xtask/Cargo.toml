@@ -43,7 +43,11 @@ force-validate = [
   "pse-schema/force-validate",
 ]
 solver-kinsol = ["dep:pse-runtime", "pse-runtime/solver-kinsol"]
-native-solvers = ["package-fixtures", "solver-kinsol", "pse-runtime/native-solvers"]
+native-solvers = [
+  "package-fixtures",
+  "solver-kinsol",
+  "pse-runtime/native-solvers",
+]
 default = []
 native-abi = ["dep:bindgen"]
 full-codegen = [

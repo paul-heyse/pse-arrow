@@ -1398,21 +1398,29 @@ async fn killed_worker_preserves_native_observations_and_refuses_unknown_effect_
         assert_eq!(ready["pid"], observed.main_pid);
         assert_eq!(
             ready["invocation"].as_str().unwrap(),
-            observed.invocation.iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+            observed
+                .invocation
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
         );
         use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
         let reader = ProcessReader::default();
         let ProcessRead::Present(before) = reader.process(observed.main_pid) else {
             panic!("original worker process identity unavailable")
         };
-        let pid = rustix::process::Pid::from_raw(i32::try_from(observed.main_pid).unwrap()).unwrap();
-        let leader = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).unwrap();
+        let pid =
+            rustix::process::Pid::from_raw(i32::try_from(observed.main_pid).unwrap()).unwrap();
+        let leader =
+            rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).unwrap();
         let confirmed = manager.observe(original.intent().unit()).await.unwrap();
         assert_eq!(confirmed.invocation, observed.invocation);
         assert_eq!(confirmed.main_pid, observed.main_pid);
         assert_eq!(confirmed.control_group, observed.control_group);
-        assert!(matches!(reader.process(observed.main_pid), ProcessRead::Present(after)
-            if after.identity == before.identity));
+        assert!(
+            matches!(reader.process(observed.main_pid), ProcessRead::Present(after)
+            if after.identity == before.identity)
+        );
         rustix::process::pidfd_send_signal(&leader, rustix::process::Signal::KILL).unwrap();
         let killed = original
             .shutdown(Instant::now() + Duration::from_secs(45))

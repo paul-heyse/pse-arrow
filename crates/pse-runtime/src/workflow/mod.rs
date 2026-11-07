@@ -128,9 +128,9 @@ mod progress;
 pub use progress::ProgressStream;
 mod bindings;
 mod native_deployment;
-mod native_worker;
 #[cfg(all(test, feature = "native-service", feature = "solver-kinsol"))]
 mod native_study_tests;
+mod native_worker;
 mod physical_cache;
 pub mod sampling;
 mod worker;

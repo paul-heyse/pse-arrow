@@ -518,9 +518,7 @@ async fn native_abandoned_reader_and_publisher_close_keep_independent_output_cus
                     .unwrap();
                 drop(abandoned);
                 publisher.close();
-                publisher.result_read_drain.drain()
-                    .await
-                    .unwrap();
+                publisher.result_read_drain.drain().await.unwrap();
                 assert!(publisher.canonical_run(fence.run()).await.is_err());
                 assert!(
                     reader_store.forget_run_results(fence.run()).await.is_err(),
@@ -557,9 +555,7 @@ async fn native_abandoned_reader_and_publisher_close_keep_independent_output_cus
                     (0, 1)
                 );
                 drop(retained);
-                reader_store.result_read_drain.drain()
-                    .await
-                    .unwrap();
+                reader_store.result_read_drain.drain().await.unwrap();
                 reader_store.forget_run_results(fence.run()).await.unwrap();
                 let mut reclaimed = false;
                 for _ in 0..32 {

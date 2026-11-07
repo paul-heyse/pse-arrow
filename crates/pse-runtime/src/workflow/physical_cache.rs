@@ -684,9 +684,7 @@ mod physical_admission_cache_unit {
             "actual protected owner retains its exact metadata/release grant"
         );
         drop(pin);
-        operations.store().join_result_releases()
-            .await
-            .unwrap();
+        operations.store().join_result_releases().await.unwrap();
         assert!(
             held.upgrade().is_none(),
             "final native release drain relinquishes the attached grant"
@@ -783,9 +781,7 @@ mod physical_admission_cache_unit {
         runtime.clear_program_cache();
         assert!(escaped.upgrade().is_none());
         drop(physical);
-        operations.store().join_result_releases()
-            .await
-            .unwrap();
+        operations.store().join_result_releases().await.unwrap();
         assert!(
             operations.pool.reserved() <= before,
             "row and source grants release after their final owners drain"

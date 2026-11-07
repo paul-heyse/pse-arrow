@@ -237,7 +237,10 @@ async fn canonical_acknowledged_analysis_facts_match_independent_artifact_after_
         .scientific_artifact(response.evidence_artifact.as_deref().unwrap())
         .await
         .unwrap();
-    runtime.canonical_store().unwrap().join_result_releases()
+    runtime
+        .canonical_store()
+        .unwrap()
+        .join_result_releases()
         .await
         .unwrap();
     runtime
@@ -418,11 +421,16 @@ async fn canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_o
         })
         .await;
     drop(activity);
-    let acknowledged = reader.snapshot(Duration::from_secs(60)).metrics.into_iter()
+    let acknowledged = reader
+        .snapshot(Duration::from_secs(60))
+        .metrics
+        .into_iter()
         .find(|metric| metric.name == "canonical.artifact.metadata.groups_acknowledged")
         .map(|metric| metric.cumulative);
-    assert!(matches!(acknowledged, Some(Value::Count(1))),
-        "this fixture must cancel after its first and only acknowledged group: {acknowledged:?}");
+    assert!(
+        matches!(acknowledged, Some(Value::Count(1))),
+        "this fixture must cancel after its first and only acknowledged group: {acknowledged:?}"
+    );
     assert!(cancel.is_cancelled());
     let Err(WorkflowError::ArtifactTransferUnsettled {
         analysis: None,
@@ -457,7 +465,10 @@ async fn canonical_member_transfer_cancellation_keeps_unacknowledged_facts_out_o
         "the exact protected producer remains readable after interrupted transfer"
     );
     drop(source);
-    runtime.canonical_store().unwrap().join_result_releases()
+    runtime
+        .canonical_store()
+        .unwrap()
+        .join_result_releases()
         .await
         .unwrap();
     assert!(

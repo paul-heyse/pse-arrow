@@ -1927,24 +1927,26 @@ mod result_projection_unit {
         );
         assert!(queue.appends.is_empty() && queue.complete.is_empty());
         assert!(queue.complete.capacity() > 0);
-        let metrics_payload = crate::workflow::fixture_controls::pending_result_payload_coordinates(
-            store,
-            &fence,
-            &solve_metrics::RELATION_ID.to_string(),
-            0,
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        let parameters_payload = crate::workflow::fixture_controls::pending_result_payload_coordinates(
-            store,
-            &fence,
-            &fit_parameters::RELATION_ID.to_string(),
-            0,
-        )
-        .await
-        .unwrap()
-        .unwrap();
+        let metrics_payload =
+            crate::workflow::fixture_controls::pending_result_payload_coordinates(
+                store,
+                &fence,
+                &solve_metrics::RELATION_ID.to_string(),
+                0,
+            )
+            .await
+            .unwrap()
+            .unwrap();
+        let parameters_payload =
+            crate::workflow::fixture_controls::pending_result_payload_coordinates(
+                store,
+                &fence,
+                &fit_parameters::RELATION_ID.to_string(),
+                0,
+            )
+            .await
+            .unwrap()
+            .unwrap();
         assert!(matches!(
             metrics_payload.0,
             pse_operations::canonical_execution::PayloadLocator::Inline { index: 0, .. }

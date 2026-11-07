@@ -4746,7 +4746,10 @@ async fn managed_primary_sixteen_survive_caller_disconnect_until_explicit_cancel
             // Preparation retention owns source protections on this physical client.
             // Evict its idle cache and join the registered releases before disconnecting.
             runtime.clear_program_cache();
-            runtime.canonical_store().unwrap().join_result_releases()
+            runtime
+                .canonical_store()
+                .unwrap()
+                .join_result_releases()
                 .await
                 .unwrap();
             runtime.close();

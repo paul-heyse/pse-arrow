@@ -39,7 +39,11 @@ pub(super) fn run() {
     std::thread::Builder::new()
         .name("pse-study-test-worker-root".into())
         .stack_size(stack)
-        .spawn(move || native_stack::runtime(stack).unwrap().block_on(receive(cli, directory)))
+        .spawn(move || {
+            native_stack::runtime(stack)
+                .unwrap()
+                .block_on(receive(cli, directory))
+        })
         .unwrap()
         .join()
         .unwrap()
@@ -48,14 +52,16 @@ pub(super) fn run() {
 
 async fn receive(cli: worker::Cli, directory: PathBuf) -> Result<(), WorkflowError> {
     let stop = CancelSource::new();
-    let interrupt = signals::ProcessInterrupt::new(stop.clone())
-        .map_err(|error| WorkflowError::Internal(format!("native worker stop listener: {error}")))?;
+    let interrupt = signals::ProcessInterrupt::new(stop.clone()).map_err(|error| {
+        WorkflowError::Internal(format!("native worker stop listener: {error}"))
+    })?;
     let (runtime, selected) = worker::runtime(&cli, &stop)
         .await
         .map_err(WorkflowError::Internal)?;
     let diagnostics = runtime.observations().clone();
     let result = async {
-        let controller = Controller::open(&directory, &selected).map_err(WorkflowError::Internal)?;
+        let controller =
+            Controller::open(&directory, &selected).map_err(WorkflowError::Internal)?;
         let observer = controller.clone();
         crate::math::install_qualified_native_entry(Arc::new(move |flag| observer.enter(flag)))?;
         selected.publish_ready(&runtime)?;
@@ -114,8 +120,7 @@ fn private_metadata(path: &Path, directory: bool) -> Result<std::fs::Metadata, S
         }
     {
         return Err(
-            "qualification control must be private, bounded and owned by the receiver user"
-                .into(),
+            "qualification control must be private, bounded and owned by the receiver user".into(),
         );
     }
     Ok(metadata)
@@ -156,14 +161,11 @@ impl Controller {
         directory: &Path,
         selected: &pse_runtime::workflow::NativeStudyWorkerInputs,
     ) -> Result<Arc<Self>, String> {
-        let state =
-            std::fs::canonicalize(selected.state()).map_err(|error| error.to_string())?;
+        let state = std::fs::canonicalize(selected.state()).map_err(|error| error.to_string())?;
         private_metadata(directory, true)?;
         let directory = std::fs::canonicalize(directory).map_err(|error| error.to_string())?;
         if directory.parent() != Some(state.as_path()) {
-            return Err(
-                "qualification control must be beneath the selected private state".into(),
-            );
+            return Err("qualification control must be beneath the selected private state".into());
         }
         let profile = selected
             .allocation()
@@ -174,9 +176,7 @@ impl Controller {
             || profile.case_lanes != 16
             || profile.math_jobs != 32
         {
-            return Err(
-                "qualification requires the original 128 GiB sixteen-lane profile".into(),
-            );
+            return Err("qualification requires the original 128 GiB sixteen-lane profile".into());
         }
         let request: Request =
             serde_json::from_slice(&bounded_json(&directory.join("request.json"))?)
@@ -189,8 +189,7 @@ impl Controller {
             || request.entry_timeout_ms > 90_000
         {
             return Err(
-                "qualification extent, original database association or deadline differs"
-                    .into(),
+                "qualification extent, original database association or deadline differs".into(),
             );
         }
         let startup = Duration::from_secs(45);
@@ -255,7 +254,9 @@ impl Controller {
             }
             entries.owners.insert(thread.clone());
             let ordinal = entries.observations.len();
-            entries.observations.push(serde_json::json!({ "thread": thread, "released": false, "stop_observed": false }));
+            entries.observations.push(
+                serde_json::json!({ "thread": thread, "released": false, "stop_observed": false }),
+            );
             entries.active += 1;
             entries.maximum = entries.maximum.max(entries.active);
             self.snapshot(&entries)?;
