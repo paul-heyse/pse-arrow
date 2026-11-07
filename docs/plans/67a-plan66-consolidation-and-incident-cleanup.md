@@ -124,7 +124,7 @@ including bytes released and any exact unresolved ownership or settlement except
 |---|---|---|---|
 | A01 | complete | Refreshed frozen checkout and Plan66 ownership evidence | Recovered source integrated and targeted receiving checked. Checkout identities and source recovery refs retained. |
 | A02 | complete | Fixed incident interval and identified native producers and consumers | Exact preview with releasable and unresolved scope, including named original results and interim copies. |
-| A03 | in-progress | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield, verified absence and precise exceptions. |
+| A03 | complete | A01 for each checkout and A02 for the selected release population | Three worktrees and settled incident test and check results retired. The receipt records actual yield and remaining owner exceptions. |
 
 ## Execution checkpoint — November 6
 
@@ -180,3 +180,17 @@ eligible invocations lacked independent fixture-settlement confirmation at that 
 the subsequent decision to retire historical results. The incident total is
 586,092,539,904 allocated bytes (545.84 GiB). Filesystem availability measured separately was
 836,589,912,064 bytes at readback. Exact receipts are in the private incident state directory.
+
+After the maintainer chose regeneration, all 27 cited invocation trees and all 40 interim export,
+raw and copy-receipt files were released. The final census found 43 more complete test or check
+trees in the same window. Each passed fresh checkout, original settlement, fixture and process
+checks before release. Two previously unmatched checkout identities were recovered from original
+operation metadata and verified against the repository's checkout identity formula. All 70
+additional roots and 40 intermediate files were absent at readback. The incident released
+675,770,789,888 allocated bytes (629.36 GiB) across 215 invocation trees, 19 fixture generations,
+three worktrees and the prior image and export releases. Filesystem availability was
+890,951,434,240 bytes at the final incident readback.
+
+Ten incident test/check records have incomplete settlement and six lack a terminal record.
+They remain with their native owners. The fixed window has zero complete test/check trees
+remaining. Separate preparation and generic run records retain their own operating purposes.
