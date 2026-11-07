@@ -6,7 +6,9 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/69-intent-first-cli-and-codex-workflows.md
 doc_topics: [current-work, design, libraries, storage, validation]
-review_sources: [docs/functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md]
+review_sources:
+  - docs/functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md
+  - docs/plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md
 ---
 
 # Intent-first CLI and Codex workflows
@@ -43,6 +45,17 @@ discovery and selection, clearer preparation and recovery, and compact native-ow
 Assess affected fixtures and evidence under the test-assessment companion when specifying tests.
 [Selected design standard](../design_review/design_principles/standard.toml)
 
+The library review inspected `ed8e3fce2`. The plan revision rechecked the owner
+seams against `2fdaf1ab6`. **Interface-checked** baseline evidence includes the
+eager format-prefix tree build and the existing typed catalog extensions.
+**Tested** baseline evidence includes progress on PTY stderr during successful
+machine-format search and isolated contracts for deferral, file acquisition,
+provenance, diagnostic conversion and progress lifetime. The review records
+versions, conditions and corrected probe controls. These observations motivate
+the scheduled packages. The target acceptance below remains **Proposed**.
+[CLI library review](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md) ·
+[Baseline evidence](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#evidence-and-limits)
+
 ## Shared decisions and boundaries
 
 - Classify each action as read, prepare, apply or recover. Passive discovery and inspection
@@ -74,42 +87,74 @@ before dependent work. [Plan67 retirement](67e-resource-retirement-and-storage-v
 
 | Owner | Scope and handoff |
 |---|---|
-| [69a](69a-cli-contracts-configuration-and-presentation.md) | Establish catalog, context and structured recovery first. Integrate progress as each performing owner supplies real events. |
+| [69a](69a-cli-contracts-configuration-and-presentation.md) | Own catalog metadata and typed syntax, resolved context and provenance, and the original diagnostic projection. |
 | [69b](69b-codex-workstation-and-preparation.md) | Inspect and settle placement and bootstrap design alongside 69a. Use 69a’s action and recovery contract for live handoffs. The missing-host launcher remains a separate bootstrap boundary. |
 | [69c](69c-ordinary-testing-and-managed-results.md) | Reconcile ordinary selection against existing fixture and validation contracts. Deliver test and result entry points using 69a’s catalog and recovery. Exercise cold end-to-end use once 69b’s handoff works. |
 | [69d](69d-routine-product-and-data-operations.md) | Receive existing typed product operations through 69a’s context and 69b’s prepared route. Add a consumer only when its exact typed operation and acknowledgement are available. |
 | [69e](69e-source-model-and-live-schema-operations.md) | Investigate source changes independently. Apply shared preview/recovery rules and 69d’s target-selection contract to live maintenance. Receive exact version-specific changes through Plan68. |
+| [69f](69f-parser-startup-and-argument-forwarding.md) | Parse strictly before recovering usage format and preserve OS-native argv. Compare selective construction only after F01 and A01's discovery contracts are ready. |
+| [69g](69g-output-policy-and-owner-driven-progress.md) | Own A04. Fix machine-format search output first, then apply one presentation policy as owner events and A03 projections become available. |
 
 Land each producer, affected callers and removed path together. A shared design can unblock
 consumer authoring before the working contract is ready for integration. Avoid repeating raw
 logs, full exports, broad environment staging or test campaigns in the handoffs.
 
+Start A04's machine-output fix and A03's typed projection early. A04's first
+deliverable can use the existing format and renderer. F01 uses the current usage
+envelope and can proceed alongside A01. F02 depends on both F01 and the scoped
+and full A01 discovery contracts. In A02, resolve acquisition before specifying
+attribution. B–E receive those shared contracts as needed. Additional progress
+presentation uses each receiver's existing owner events. Conditional experiments
+do not gate receiving work that already has the required contract.
+
 ## Opportunity dispositions
 
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
-| [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01) | Scheduled | 69a A01. Parser-owned front door and discovery. Conditional completion and deferred construction have explicit triggers. |
+| [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01) | Scheduled | 69a A01 and 69f F01–F02. Parser-owned front door, discovery and exact forwarding. Completion and deferral have explicit triggers. |
 | [O02](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O02) | Scheduled | 69a A02. Resolve defaults once with identity, provenance and effect controls. |
 | [O03](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O03) | Scheduled | 69c C01–C02. Bare ordinary tests, population evidence, explicit specialist lanes and original failed rerun. |
 | [O04](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O04) | Scheduled | 69c C03–C04. Identity-based bounded results, owner release and expiry decision. Durable cross-run history remains conditional. |
 | [O05](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O05) | Scheduled | 69d D01–D03. Typed product routes with original effect identity and supported data operations. |
 | [O06](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O06) | Scheduled | 69e E01–E03. Two source cases and guarded live schema maintenance. |
 | [O07](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O07) | Scheduled | 69b B01–B03. Workstation launch, readiness, placement and recurring operational sequences. |
-| [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Scheduled | 69a A03–A04. Typed diagnostics, redacted recovery and owner-driven progress. |
+| [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Scheduled | 69a A03 and 69g A04. Typed diagnostics, redacted recovery and owner-driven progress. |
+
+## Improvement dispositions
+
+| Review reference | Disposition | Owning intervention |
+|---|---|---|
+| [I01](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I01) | Scheduled | 69f F01 strict parse and usage fallback. F02 evaluates deferral after F01 and A01. Forwarding grammar changes are conditional. |
+| [I02](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I02) | Scheduled | 69a A01 extends typed catalog associations, checks the package candidate domain, and evaluates optional completion and help controls on demand. |
+| [I03](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I03) | Scheduled | 69a A02 acquires and resolves once. B02, D01 and E03 carry or revalidate the selection across owners. |
+| [I04](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I04) | Scheduled | 69a A02 projects effective provenance. C03 exposes trustworthy captured detail. Mixed-origin arrays remain conditional. |
+| [I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) | Scheduled | 69a A03 defines the typed projection and B–E verify their receiving adapters. |
+| [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Scheduled | 69g A04 begins with format-gated search and its PTY regression, then shares local presentation policy. |
+| [I07](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I07) | Scheduled | 69g A04 defines display lifetime from owner events. D03 can receive truthful transfer progress. Richer modes and features require a named consumer. |
+| [I08](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I08) | Scheduled | Coordinator owns the assembled journeys below. The producing packages own isolated checks and B–E own their receiving evidence. |
+
+Carry the review appendix as the source of other feature dispositions. Revisit a
+deferred capability only on its recorded condition. The integrated recommendations
+preserve existing binding decisions. If an investigation reveals a proposed change to
+a governed decision, record its consequences and use the existing decision route
+before any package relies on it.
+[Guide coverage and dispositions](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#appendix--guide-coverage-and-dispositions)
 
 ## Verification and completion
 
 **Proposed.** Run focused parser, owner and terminal checks with each package. At scope end,
 select one assembled journey per row and run the applicable repository qualification. Report
 command, mode, population, result and zero-failure baseline. Existing scientific verdicts
-belong to their owning plan. Use comparable cold and prepared conditions or retained-byte
-observations when making a time or storage claim.
+belong to their owning plan. Use isolated fixtures for parser, configuration, and
+terminal controls. Reuse owner evidence when the premise matches, and add a
+receiving check where a boundary can lose meaning. Use comparable cold and prepared
+conditions or retained-byte observations when making a time or storage claim.
 
 | Journey | Completion evidence |
 |---|---|
-| Bare ordinary tests and exact rerun | Complete ordinary population including integration tests, explicit nonpass for a missing ordinary prerequisite, and a separate original rerun verdict for an exact current identity. |
-| Retrieve and expire a result | Returned ID opens a compact result and selected detail. A hold blocks release. The owner releases a settled disposable record under the enabled policy, and a known retired reference differs from an unknown one within the witness lifetime. |
-| Ambiguous product target | Typed choices appear before mutation. A uniquely selected authenticated target returns its original operation reference. |
-| Source model change | A supported field change produces a coherent preview, generated consumers and affected checks. Stale inputs refuse before edits and partial publication has an exact recovery path. |
-| Stale schema preview | Changed predecessor, target or module refuses activation. The same operation reference can reconcile interrupted application without resubmission. |
-| Cold Codex checkout | Passive help stays available. An explicit preparation action establishes the supported scope and only the needed prerequisites. Continuation reuses the selected operation and a warm repeat reuses verified preparation. |
+| Bare ordinary tests and exact rerun | Catalog syntax and effective selection are distinct. Owner reports the complete admitted ordinary population, including integration tests, and a nonpass for a missing prerequisite. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
+| Retrieve and expire a result | A returned ID opens a compact result and bounded detail with diagnostic relationships and provenance where captured. Holds block release. The owner releases settled disposable records under the enabled policy. Retired and unknown differ within the witness lifetime. |
+| Ambiguous product target | Typed choices appear before mutation. The authenticated selection and original acknowledgement survive dispatch. Any export counter describes only its observed stage. |
+| Source model change | Supported change yields coherent preview, generated consumers, affected checks and findings with exact file and byte coordinates. Stale inputs refuse before edits and partial publication retains exact recovery. |
+| Stale schema preview | Changed predecessor, target or module refuses activation. Uncertain application differs from completed activation in human and machine output. Reconcile the same operation reference without resubmission. |
+| Cold Codex checkout | Help and catalog stay passive. Explicit preparation establishes scope and prerequisites. Continuation and warm reuse preserve the selected operation and mode despite child arguments or configuration preferences. |

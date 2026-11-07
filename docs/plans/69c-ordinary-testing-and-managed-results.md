@@ -40,6 +40,12 @@ remains pure. Success requires complete selected coverage and the original test 
 [Selection](../../crates/pse-host/src/cli/selection.rs) · [Nextest profiles](../../.config/nextest.toml) ·
 [Blueprint §24.1](../authoritative_design/sections/operations-and-validation.md#section-24-1)
 
+Use A01's typed syntax and candidate association for the passive catalog. If the
+existing package provider covers only a subset of accepted selector forms, label
+that coverage and its freshness. A candidate is advisory. Keep grammar discovery,
+effective test selection, admitted population, and verdict as separate facts.
+[Catalog contract](69a-cli-contracts-configuration-and-presentation.md#a01--one-parser-tree-for-intent-and-discovery)
+
 ## C02 — Test outcome and exact failed rerun
 
 Return a separate verdict and settlement state and the original invocation reference. Use
@@ -49,6 +55,11 @@ refusal. Preserve the current policy for features, mode and test-owner context. 
 its own identity and outcome. Exercise an ordinary integration member, an explicit specialist
 exclusion, a missing ordinary prerequisite, a known failure and an absent current identity.
 Use current fixture lifecycle evidence where it already establishes the required boundary.
+Check that any applicable original forwarded filters cross F01's argument boundary
+with their token meaning intact and do not replace the exact failed identities.
+Check the receiving A03 record for original identity, refusal or verdict, and settlement.
+[Argument boundary](69f-parser-startup-and-argument-forwarding.md) ·
+[Diagnostic projection](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery)
 
 ## C03 — Results addressed by identity
 
@@ -60,6 +71,12 @@ owner-managed logs. Add no generic JSON-path language. Export to stdout or a del
 destination for a deliverable. Update docs and receiving consumers to use result IDs and typed
 views in place of discovering paths and parsing raw output. Verify exact, latest, unavailable,
 known retired and unknown references, along with read-only behavior.
+
+At the receiving boundary, assert that selected details preserve A03's diagnostic
+relationships and redacted A02 provenance where originally captured. Report unavailable
+detail explicitly. Use the owner reference and bounded projection rather than copying
+raw logs, source content, or a settings dump into retained results. Exercise a held,
+retired and unknown reference with this view using C04's owner policy.
 
 ## C04 — Retention and authenticated release
 
@@ -94,6 +111,6 @@ would establish the query, real-role selection, durability, exact retirement and
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | planned | A01 and current Cargo, Nextest and fixture contracts | Bare selection and admitted coverage agree with the independently mapped ordinary population, including integration and missing-prerequisite controls. |
-| C02 | planned | C01, A03 and Plan67 exact custody | Original and rerun verdicts, settlement and exact identity refusal are exercised. |
-| C03 | planned | A01 and A03, existing inspection and history | Compact lookup, bounded details and explicit export over native references. |
+| C02 | planned | C01, F01, A03 and Plan67 exact custody | Original and rerun verdicts, settlement, forwarded filter and exact identity controls. |
+| C03 | planned | A01–A03, existing inspection and history | Compact lookup, bounded diagnostics and provenance, and explicit export over native references. |
 | C04 | planned | C03 and Plan67 release owner | Class lifetimes, authenticated release, held and expired behavior, and separate automation decision. |

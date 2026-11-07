@@ -40,14 +40,17 @@ and its outstanding acceptance.
 [Plan69: Intent-first CLI and Codex workflows](69-intent-first-cli-and-codex-workflows.md)
 proposes one routine CLI front door with resolved context, typed recovery and managed results.
 Its companions own CLI contracts, workstation preparation, ordinary tests and results, product
-operations, and model and schema changes. The coordinator owns opportunity dispositions and
-assembled acceptance. Plan66 and Plan68 retain their scientific and database cutover scope.
+operations, model and schema changes, parser startup, and terminal presentation. The coordinator
+owns opportunity and improvement dispositions and assembled acceptance. Plan66 and Plan68 retain
+their scientific and database cutover scope.
 
-- [69a · CLI contracts, configuration, and presentation](69a-cli-contracts-configuration-and-presentation.md)
+- [69a · CLI catalog, configuration, and diagnostics](69a-cli-contracts-configuration-and-presentation.md)
 - [69b · Codex workstation and preparation](69b-codex-workstation-and-preparation.md)
 - [69c · Ordinary testing and managed results](69c-ordinary-testing-and-managed-results.md)
 - [69d · Routine product and data operations](69d-routine-product-and-data-operations.md)
 - [69e · Source model and live schema operations](69e-source-model-and-live-schema-operations.md)
+- [69f · Parser startup and argument forwarding](69f-parser-startup-and-argument-forwarding.md)
+- [69g · Output policy and owner-driven progress](69g-output-policy-and-owner-driven-progress.md)
 
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.

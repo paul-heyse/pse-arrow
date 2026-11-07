@@ -7489,3 +7489,36 @@ id_column = 0
 id_pattern = '^(E[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/69-intent-first-cli-and-codex-workflows.md"
+name = "improvement-dispositions"
+heading = "Improvement dispositions"
+headers = ["Review reference", "Disposition", "Owning intervention"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/69f-parser-startup-and-argument-forwarding.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/69g-output-policy-and-owner-driven-progress.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A04)\b'
+status_profile = "packet"
+status_column = 1

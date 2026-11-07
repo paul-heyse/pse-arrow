@@ -1,5 +1,5 @@
 ---
-title: "Plan69a: CLI contracts, configuration, and presentation"
+title: "Plan69a: CLI catalog, configuration, and diagnostics"
 status: planned
 date: 2026-11-07
 adrs: []
@@ -8,15 +8,16 @@ doc_owner: docs/plans/69a-cli-contracts-configuration-and-presentation.md
 doc_topics: [current-work, design, libraries]
 ---
 
-# CLI contracts, configuration, and presentation
+# CLI catalog, configuration, and diagnostics
 
 This companion owns [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01),
 [O02](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O02), and
 [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08). The
 [coordinator](69-intent-first-cli-and-codex-workflows.md) owns shared decisions and assembled
-verification. The current parser-derived catalog, investigation configuration, native envelope,
-and investigation progress renderers are the foundations. Extend each where multiple receiving
-commands have the same responsibility.
+verification. Extend the parser-derived catalog, investigation configuration and native
+envelope where multiple receiving commands share the responsibility.
+[69f](69f-parser-startup-and-argument-forwarding.md) owns parser startup and forwarding.
+[69g](69g-output-policy-and-owner-driven-progress.md) owns A04, including local rendering.
 
 ## A01 — One parser tree for intent and discovery
 
@@ -27,6 +28,29 @@ for identifiers, limits and OS-native paths. Treat parse success as syntax valid
 owner verifies the selected identity, authorization and current state. Keep static help,
 `pse commands`, machine schema and any generated completion derived from that same tree.
 
+[I02](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I02) extends
+the current catalog. Clap's enabled `unstable-ext` feature lets `Command::add` and
+`Arg::add` attach typed `CommandExt` and `ArgExt` metadata. The catalog retrieves it
+with `get`. Reuse the existing adapters for examples, response schema, invocation
+routes, candidate providers and secret defaults. Project static intent and preparation
+from the performing command's typed declaration. Expose conditional or unknown intent
+where parsed values matter, and verify representative cases against `generation_intent`.
+The runtime keeps admission authority. Preserve the catalog's outward contract if the
+experimental extension API changes.
+
+For C01, D01–D03 and E01–E03, use derived groups and local clap requirements where they
+replace existing syntax checks. Use `TypedValueParser` for local typed values, and
+`ArgMatches::get_occurrences` or consuming equivalents where grouped values must
+remain separate. Expose finite `ValueEnum` candidates with `PossibleValue` metadata.
+For the passive package query on `inspect test-selection`, compare actual accepted
+package forms with the existing provider's workspace or dependency coverage.
+Attach that provider only for a useful subset with explicit scope and freshness.
+Preserve unknown or unavailable coverage where the provider cannot answer.
+[Catalog adapter](../../scripts/cli-catalog.rs) ·
+[Command metadata](https://docs.rs/clap/4.6.7/clap/struct.Command.html#method.add) ·
+[Argument metadata](https://docs.rs/clap/4.6.7/clap/struct.Arg.html#method.add) ·
+[Occurrences](https://docs.rs/clap/4.6.7/clap/struct.ArgMatches.html#method.get_occurrences)
+
 Start with the existing `pse inspect invocation` and `pse inspect log` entry points and correct
 the environment guide's `pse result` spelling. Add focused detail through C03. Verify published
 examples against parser acceptance and assert that discovery performs no preparation. Existing
@@ -34,13 +58,20 @@ Cargo, just and product helpers retain their owner roles. Remove obsolete advert
 any duplicate first-party intent when its callers have moved. An arbitrary shell dispatcher
 cannot supply the typed effect guarantees.
 
-If a named human workflow benefits, generate static completion. Consider dynamic candidates
-only when an actual discovery use case remains and the candidate path can stay passive.
-Use `#[command(defer = true)]` only if a measured startup problem is attributable to tree
-construction and eager and deferred forms yield equivalent help, schema, catalog and completion.
-Keep eager construction if either condition fails. [Catalog](../../crates/pse-host/src/catalog.rs) ·
+Keep example parsing and scoped versus full discovery controls. Use `help_expected`
+with `debug_assert` as a targeted development check where a subtree can support it.
+Keep the existing catalog for agent discovery. For a named shell or documentation
+consumer, evaluate `clap_complete::generate_to` for static scripts or
+`clap_mangen::Man::render` for man pages from a fully built tree. Consider
+`clap_complete::engine::complete` or `CompleteEnv::try_complete` only if a real
+selection remains cumbersome and can reuse authorized, passive, bounded candidates.
+Those dynamic APIs require the companion crate's `unstable-dynamic` feature. Check
+actual shell behavior and compatibility before proposing a companion pin. F02 owns
+the deferred-construction experiment. [Catalog](../../crates/pse-host/src/catalog.rs) ·
 [clap guide](../libraries/cli/clap.md) · [clap 4.6.7 derive](https://docs.rs/clap/4.6.7/clap/_derive/index.html) ·
-[Typed value parser](https://docs.rs/clap/4.6.7/clap/builder/trait.TypedValueParser.html)
+[Typed value parser](https://docs.rs/clap/4.6.7/clap/builder/trait.TypedValueParser.html) ·
+[Completion](https://docs.rs/clap_complete/4.6.11/clap_complete/) ·
+[Manual generation](https://docs.rs/clap_mangen/0.3.3/clap_mangen/)
 
 ## A02 — Resolved context with provenance
 
@@ -49,51 +80,86 @@ use a uniquely configured, authenticated target. Ambiguity returns valid authori
 before admission. Configuration can select a context or supply preferences. The typed action
 and owner guards establish consent and permission for the effect.
 
-For a shared, genuinely layered configuration, compose `Serialized::defaults`, approved
-checkout settings, the selected profile, and an explicit CLI overlay. Determine explicitness
-with clap `ArgMatches::value_source`. Keep highest precedence for explicit values. Use
-`Toml::file_exact` for exact discovered settings or a source-tagged provider when the existing
-owner needs its own discovery. Figment global values take precedence over selected profiles,
-so avoid putting lower-priority settings there. Arrays replace wholesale and changed tagged
-alternatives reset as a whole before merging. Extract strictly. Use `find_metadata` for origin,
-and `Tagged<T>` or `RelativePathBuf` only where source context affects interpretation. Reuse the
-investigation owner's reset logic where it fits. Single-source settings and byte-exact native
-environment and tool paths stay with their current owners.
+[I03](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I03) adds
+acquisition to the merge contract. The selected checkout owner discovers optional
+settings under its approved root. Anchor a caller-selected path to that owner context
+before the exact read. In Figment 0.10.19 with `toml` and `json`, `Format::file` locates
+a file when constructing the provider and reads it during composition. Absent discovery
+contributes no data. `Format::file_exact` retains the supplied path and reports a read
+error during composition if it is unavailable. Use exact, absolute inputs for
+caller-selected files, and use the existing tagged provider where the owner has already
+acquired the source. Avoid doing a second read for explanation.
+
+For a genuinely layered case compose `Serialized::defaults`, approved settings, the
+selected profile and explicit CLI values. Use clap `ArgMatches::value_source` to
+distinguish `CommandLine` from environment and parser defaults. Preserve the explicit
+overlay as highest precedence. Reserve Figment Global for deliberately high-priority
+values because it overrides the selected profile. `merge` recursively combines
+dictionaries and replaces arrays. Reuse the investigation owner's pre-merge reset of
+changed tagged alternatives, then use strict `extract` and owner validation. Keep
+single-source settings and byte-exact environment and paths with their current owners.
+Consider Figment `Env` only for a named allowlisted structured preference with defined
+key collisions, provenance and redaction. A later process receives the validated
+selection with its identity or revalidates the premise at the owner.
+
+[I04](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I04) makes
+the effective explanation a redacted projection of the same resolved values.
+`find_value` returns a result, so use it to distinguish an absent key from invalid
+composition before interpreting missing `find_metadata`. Report the tag of an effective
+leaf or a whole replacement value. Container tags and provider inventory cannot
+establish every child's origin. Preserve the selected profile separately. The pinned
+`Tag::profile` distinguishes Default and Global but cannot name custom profiles.
+Record originating profile at the provider if a receiver needs it. Use typed segments
+or traverse actual values for literal dotted keys and arrays. Use `Tagged<T>` or
+`RelativePathBuf` only when downstream meaning depends on origin or source-relative
+paths. If a consumer justifies concatenated arrays, report element origins or a mixed
+container. Report provider and key for errors that lack reliable source spans.
 
 Provide a passive effective-settings view with value source, redaction and selector ambiguity.
-Verify missing versus explicit input, whole-value changes, paths relative to their source,
-non-UTF-8 inputs where supported, and ambiguity before effects. Migrate duplicated defaulting
-and environment assembly in receiving commands to the shared context at their cutover.
+Verify wrong cwd, missing explicit file, malformed optional file, mixed profiles,
+explicit versus parser-default input, dotted keys, nested and array provenance,
+changed preview premise, and secrets in explanation and recovery. Use pure provider
+tests and existing isolated subprocesses for cwd and environment. Consider Figment
+`Jail` only for a concrete gap that warrants process-global test state. Migrate
+duplicated defaulting and environment assembly with their receiving commands.
 [Current configuration](../../crates/pse-host/src/investigation/config.rs) ·
-[Figment guide](../libraries/cli/figment.md) · [Figment 0.10.19](https://docs.rs/figment/0.10.19/figment/struct.Figment.html) ·
-[clap value sources](https://docs.rs/clap/4.6.7/clap/parser/enum.ValueSource.html)
+[Figment 0.10.19 file provider source](https://docs.rs/crate/figment/0.10.19/source/src/providers/data.rs) ·
+[Composition and metadata](https://docs.rs/figment/0.10.19/figment/struct.Figment.html) ·
+[Profile source](https://docs.rs/crate/figment/0.10.19/source/src/profile.rs) ·
+[clap value sources](https://docs.rs/clap/4.6.7/clap/struct.ArgMatches.html#method.value_source)
 
 ## A03 — Original outcomes and safe recovery
 
-Extend the versioned `Envelope`, `ErrorRecord`, `RecoveryRecord` and `NextAction` projection
-across receiving workflows. Use thiserror 2.0.21 typed variants and miette 7.6.0 source labels,
-`related` and `diagnostic_source` where these relationships carry meaning. Retain structured clap
-usage context, owner code, failed stage, verdict, settlement and original invocation or product
-identity. Emit exact safe argv or a typed reference. Omit recovery operands when they cannot be
-disclosed safely. Machine consumers use the native envelope. Use miette renderers for human
-presentation and focused diagnostic checks. Migrate string-only wrappers with their callers.
+[I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) extends
+the versioned `Envelope`, `ErrorRecord`, `RecoveryRecord` and `NextAction` projection.
+For each B–E receiver specify the original owner code, typed facts, effect identity,
+retry unit, verdict, settlement and redacted source reference or bounded excerpt.
+Keep clap usage context. Emit exact safe argv or a typed reference and omit operands
+that cannot be disclosed. Migrate string-only wrappers with their callers.
+
+Use thiserror 2.0.21 contextual variants when a crossing adds typed facts. Use
+`#[from]` and transparent forwarding where the source already supplies the
+necessary meaning. Keep ordinary causes, miette `diagnostic_source`, and
+independent `related` findings distinct. For miette 7.6.0, `Report::new` accepts
+an owned `Diagnostic + Send + Sync + 'static` and `new_boxed` accepts its boxed
+trait-object form. Prefer the
+existing typed projection when no report boundary is needed. `IntoDiagnostic`
+projects through the ordinary error interface and can discard an existing diagnostic
+code. `WrapErr` adds narrative context without replacing structured facts.
+
+Use optional help and primary or secondary labels for one source. Give related
+findings for distinct files their own source identity and byte coordinates.
+`NamedSource` can attach a name to known source content. Bound retention and omit
+content where exact redacted rendering is unavailable. Reserve heterogeneous
+`Vec<Report>` for a genuine aggregation. Machine consumers use the native envelope,
+with miette JSON rendering or serde limited to focused diagnostic uses. A04 owns
+local human rendering. Test the projection with a Unicode span, a child without
+source, independent warnings, unsafe recovery operands, and a delegated cause.
 [Native diagnostic projection](../../crates/pse-host/src/envelope/diagnostic.rs) ·
-[Diagnostic guide](../libraries/cli/thiserror_and_miette.md) ·
-[thiserror 2.0.21](https://docs.rs/thiserror/2.0.21/thiserror/) ·
-[miette 7.6.0 Diagnostic](https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html)
-
-## A04 — Quiet progress from owner events
-
-Use indicatif 0.18.6 `ProgressDrawTarget::stderr` for attended human output and `hidden` for
-JSON and NDJSON. Compare occasional phase lines for unattended human observers. Use a spinner
-while the total is unknown. Use a determinate total only when the owner can account for it.
-Add `MultiProgress` only for useful concurrent states, register bars before drawing and retire
-them on settlement. Keep logs independent of hidden rendering. Use the current terminal
-harness first and enable `InMemoryTerm` only if it adds a material assertion. Test machine
-output purity, cancellation, unknown totals, and preservation of owner verdict and settlement.
-[Existing renderer](../../crates/pse-host/src/cli/investigation.rs) · [Indicatif guide](../libraries/cli/indicateif.md) ·
-[Draw target](https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressDrawTarget.html) ·
-[MultiProgress](https://docs.rs/indicatif/0.18.6/indicatif/struct.MultiProgress.html)
+[thiserror 2.0.21 derive](https://docs.rs/thiserror/2.0.21/thiserror/#details) ·
+[miette 7.6.0 Report](https://docs.rs/miette/7.6.0/miette/struct.Report.html) ·
+[Diagnostic relationships](https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html) ·
+[NamedSource](https://docs.rs/miette/7.6.0/miette/struct.NamedSource.html)
 
 ## Packages
 
@@ -102,4 +168,3 @@ output purity, cancellation, unknown totals, and preservation of owner verdict a
 | A01 | planned | Existing parser and catalog | Complete discovery and accurate examples, with parser parity and passive behavior checked. |
 | A02 | planned | Current identity and configuration owners | Shared redacted resolution used by receiving routes, with explicit precedence and ambiguity controls. |
 | A03 | planned | Native envelope and original owner receipts | Structured recovery across receiving routes, including usage refusal and unresolved effects. |
-| A04 | planned | A03 and actual owner events | Terminal and machine output controls, with no change to original verdict or settlement. |

@@ -53,6 +53,15 @@ cross-generated preview and apply, a stale preview with zero writes, and recover
 generation failure. Move supported manual multi-stage sequences to the composed route once
 checks pass. [Generator recipes](../../justfile) · [Process-simulator design profile](../design_review/design_principles/profiles/process-simulator/principles.md)
 
+Use A01's local typed input and A03's diagnostic projection. With miette 7.6.0,
+primary and secondary labels refer to byte ranges in a single source. Use separate
+`related` findings with their own source identity for multiple files. Verify a
+Unicode byte span and independently expected file coordinates in the receiving
+preview. Preserve bounded content and the exact partial-publication recovery unit.
+[Diagnostic contract](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) ·
+[Miette source spans](https://docs.rs/miette/7.6.0/miette/struct.SourceSpan.html) ·
+[Related findings](https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html#method.related)
+
 ## E03 — Inspect, preview, apply and recover live schema
 
 Use D01’s authenticated target selection. Inspect installed definitions passively. A rollout
@@ -63,6 +72,13 @@ that identity before further writes. Reuse `SchemaMaintenance::validate_definiti
 an observed target witness and `activate_definitions` to recheck the actual definitions at
 activation. Require a settled rollout and a generated-target witness. A staged source preview,
 phase-only witness, or drained process alone cannot establish activation eligibility.
+
+When dispatch crosses a process boundary, carry A02's validated selection and
+identity or revalidate the preview premise at the owner. The receiving check
+preserves the A03 operation identity, failure code, settlement and recovery unit.
+Assert that stale refusal and uncertain application remain distinguishable from
+completed activation in human output and the machine envelope. Retry reconciliation
+with the original operation ID and owner facts.
 
 Use the current owned SurrealKit route to evaluate preview and replay. The pinned 1.0.0-beta.6
 suite runner can prepare isolated logical databases and compare sync with rollout replay under

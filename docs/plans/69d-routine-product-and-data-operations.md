@@ -35,6 +35,12 @@ uses a prepared connection-only client. Discovery, help and read cannot start th
 database. Preserve generation-fenced cursors and refusals. Test offline operation, stale cursor,
 unique target and ambiguous target, including an assertion that neither read path starts a service.
 
+Where selection crosses a process boundary, receive A02's validated target and
+its identity or revalidate the same premise at the owner. Use A01 typed syntax
+for arguments and local alternatives. The owning transport retains target authority.
+Check that dispatch preserves the resolved selection and its original acknowledgement.
+[Catalog and resolved context](69a-cli-contracts-configuration-and-presentation.md)
+
 ## D02 — Typed writes and original acknowledgement
 
 Expose project creation and supported navigation or branch/draft effects through the typed
@@ -51,6 +57,9 @@ explicit unresolved outcome. It cannot silently allocate a new ID or retry under
 inputs. If an owner requires a supplied identity to guarantee recovery, keep that required
 until the handoff can guarantee the same behavior. Exercise ambiguous selection with zero
 writes, wrong identity, a duplicate with changed input, and interruption after submission.
+Assert that the receiving A03 envelope retains owner code, typed target and operation
+facts, settlement, and an exact safe retry or reference. Distinguish an unresolved
+acknowledgement from refusal before mutation.
 
 ## D03 — Supported queries and exchange
 
@@ -67,6 +76,14 @@ checkpoint boundary, including completed steps and the exact safe continuation. 
 or shell escape cannot establish those guarantees for these actions. Compare the receiving
 CLI with the original product action on bounded data, no-effect refusal and partial completion.
 Replace recurring helper-file and wrapper sequences once the receiving controls pass.
+
+If an export gains a useful progress display, receive A04's policy. Consider
+indicatif 0.18.6 `ProgressBar::wrap_write` only for a real writer boundary where it
+replaces a counter. Report its unit as accepted bytes. Flush, publication and
+settlement remain owner facts. Verify that a full count can coexist with an
+incomplete or failed publication.
+[Presentation and adapter policy](69g-output-policy-and-owner-driven-progress.md) ·
+[Pinned writer adapter source](https://docs.rs/indicatif/0.18.6/src/indicatif/iter.rs.html)
 
 ## Packages
 

@@ -50,10 +50,20 @@ actual source and exact prerequisite that failed. On failure preserve the previo
 selection and return a deliberate retry. Recheck generation and intended placement when
 continuing the selected operation. Repeat preparation reuses verified state.
 
+If a prepared continuation uses layered settings, consume A02's validated selection
+and its identity or revalidate the premise under the preparation owner. Keep native
+environment and path inputs byte-exact. Receive A03's prerequisite code and exact
+retry action. Before the native parser is available, the cold launcher supplies its
+fixed handoff. After preparation, F01 keeps child options out of the outer format
+and execution-mode selection.
+[Resolved context and diagnostics](69a-cli-contracts-configuration-and-presentation.md) ·
+[Argument boundary](69f-parser-startup-and-argument-forwarding.md#f01--strict-parse-before-usage-format-recovery)
+
 Exercise cold linked checkout and warm main, missing provider, stale host, incompatible seed,
 and two explicit requests that encounter the same prepared selection. Assert that help and
 inspection do not prepare state, selection and mode survive continuation, and a warm command
-does not restage the tool. Measure cold and warm only if claiming improvement beyond the
+does not restage the tool. Use a child format option and an inherited preference in the
+receiving check. Measure cold and warm only if claiming improvement beyond the
 eliminated manual steps. Reuse Plan67’s captured tool and compiler cache paths.
 [Preparation and custody](67b-invocation-custody-and-developer-history.md) ·
 [Build reuse](67d-cargo-variants-and-sccache-reuse.md)
@@ -83,5 +93,5 @@ authenticate and settle its owners reliably, bring the combined mutation to R-56
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | B01 | planned | Existing Codex shell, bridge and native admission | Cold and warm launch evidence, with authenticated scope, selected mode and passive discovery. |
-| B02 | planned | B01 placement and A03 for prepared-host recovery | Absent, stale and mismatched cases, seed and local preparation, continuation and warm reuse. |
+| B02 | planned | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Absent, stale and mismatched cases, seed and local preparation, and exact continuation and warm reuse. |
 | B03 | planned | B01, A03, and existing scratch and retirement owners | Early socket refusal and actual release, bounded recovery, and fixed compositions with demonstrated consumers. |
