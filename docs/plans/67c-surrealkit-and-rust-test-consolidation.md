@@ -212,8 +212,17 @@ migrations and the real HTTP actor checks. The original fixture report verified
 complete settlement with no retained executable captures. The reviewed runtime
 artifact control retains response custody at its cancellation boundary. A separate
 operations unit case exercises dropping the original canonical publication after
-its acknowledged group. The linked runtime and new exact artifact cases still
-need execution evidence.
+its acknowledged group. The exact `pse test pse-operations --lib` selection with
+`native-service,canonical-maintenance` passed the publication-drop case. It verified
+the original staged row, no activation and complete fixture disposal after cancellation.
+
+**Tested.** Two `pse test pse-runtime --lib` runs with native service, product operators,
+KINSOL, Ipopt, HiGHS, SCIP and CoolProp selected passed all 11 ordinary cases with
+zero failures, complete settlement and explicit Arrow validation. Both ran with no
+scientific capsule or native-lane executable supplied. Neither retained an executable
+copy or created a physical fixture database. The GDP fixture admits and executes its
+scientific package through the same original runtime. Prepared and target-owned
+runtime cases qualify separately.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

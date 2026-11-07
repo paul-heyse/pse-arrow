@@ -308,3 +308,14 @@ superseded generations with 4,391,522,304 allocated bytes. The current generatio
 verified afterward, and all five release tokens returned already absent on retry.
 The current provider and deployment inventories preserve their independently
 protected or unresolved material.
+
+**Measured.** Retired five unpublished staging copies from the selected legacy Plan49
+store, releasing 4,992,720,896 allocated bytes. The original version-one publisher
+returned only the immutable generation path and preserved a staging copy after a
+concurrent publication collision. Under its original supervisor lock, each staging
+manifest and all declared file digests matched one of two published generations.
+The release checked the original server process, local process file use, store
+records, service fragments, mount and directory identities. Both published manifests
+and the database and payload directory identities verified after release. The remaining
+published worker generations occupy 10,043,052,032 allocated bytes and need their own
+selection and rollback disposition.
