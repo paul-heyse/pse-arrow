@@ -1,6 +1,6 @@
 ---
 title: "Plan67a: Plan66 consolidation and incident cleanup"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -181,7 +181,9 @@ the subsequent decision to retire historical results. The incident total is
 586,092,539,904 allocated bytes (545.84 GiB). Filesystem availability measured separately was
 836,589,912,064 bytes at readback. Exact receipts are in the private incident state directory.
 
-After the maintainer chose regeneration, all 27 cited invocation trees and all 40 interim export,
+## Verification and outcome
+
+**Measured.** After the maintainer chose regeneration, all 27 cited invocation trees and all 40 interim export,
 raw and copy-receipt files were released. The final census found 43 more complete test or check
 trees in the same window. Each passed fresh checkout, original settlement, fixture and process
 checks before release. Two previously unmatched checkout identities were recovered from original
@@ -191,6 +193,6 @@ additional roots and 40 intermediate files were absent at readback. The incident
 three worktrees and the prior image and export releases. Filesystem availability was
 890,951,434,240 bytes at the final incident readback.
 
-Ten incident test/check records have incomplete settlement and six lack a terminal record.
+**Interface-checked.** Ten incident test/check records have incomplete settlement and six lack a terminal record.
 They remain with their native owners. The fixed window has zero complete test/check trees
 remaining. Separate preparation and generic run records retain their own operating purposes.
