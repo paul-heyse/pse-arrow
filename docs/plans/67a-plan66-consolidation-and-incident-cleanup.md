@@ -141,8 +141,8 @@ The receipt carries the result of this operation and does not grant future clean
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A01 | in-progress | Refreshed frozen checkout and Plan66 ownership evidence | Relevant changes received and targeted checks recorded. Other authored work has a recoverable owner. Checkout identities and necessary pre-release observations retained. |
-| A02 | in-progress | Fixed incident interval and identified native producers and consumers | Exact preview with held, releasable and unresolved scope. Named exports independently read back. |
+| A01 | complete | Refreshed frozen checkout and Plan66 ownership evidence | Recovered source integrated and targeted receiving checked. Checkout identities and source recovery refs retained. |
+| A02 | complete | Fixed incident interval and identified native producers and consumers | Exact preview with held, releasable and unresolved scope. Named exports independently read back. The unmatched checkout stays protected. |
 | A03 | in-progress | A01 for each checkout and A02 for the selected release population | Three worktrees and owner-released state retired. Before/after measurements and one receipt record actual yield and precise exceptions. Named evidence and rerun checked. |
 
 ## Execution checkpoint — November 6
@@ -158,9 +158,9 @@ The three dirty source sets have verified recovery refs. The science candidate i
 `refs/plan67/recovery/p65-contracts` at `9529508cb`, and the assessment set is at
 `refs/plan67/recovery/p66-assessment-partials` at `8706166ea`.
 The 62 changed file blobs of fitting commit `d0bd02aca` match main's `583fc73cb`.
-The outstanding worker diagnostic bound and the partial-assessment receiver require targeted
-verification. The science candidate has a pinned, verified source set and still needs native
-provider preparation and qualification before retirement.
+The worker diagnostic bound and partial-assessment receiver passed targeted verification.
+The pinned CoolProp candidate passed its native endpoint and bounded-refusal controls on main.
+The original wet equipment and actual-child integration scope remains in Plan66.
 
 **Measured.** Two release batches removed 127 unreferenced, independently rechecked invocation
 trees. The first removed 24 main-checkout trees with 35.91 GiB of allocated members. The second
@@ -182,10 +182,12 @@ readers. The seven required raw members have separately verified portable files.
 receipt records the original consumers, and the selected raw directory records transfer.
 
 The assessment source is on main in `4f264eab0` and `3a9f93c9a`. The targeted compiler,
-modeling and default runtime checks passed. The fitting retirement control still needs its
-native feature selection. Ordinary Git worktree removal released the assessment checkout
-and target, with 44,861,931,520 allocated bytes in the pre-release checkout. Both external
-invocations had drained native scopes and absent terminal records. Their 629,936,128 allocated
-bytes stay with the original state owner. An independent incident fixture batch released 19
-superseded runtime generations with 29,886,689,280 allocated bytes. Its currently selected
-capsule and lane passed native readback. The other two checkouts still need retirement work.
+modeling, runtime and native fitting checks passed. Main received the prepared science artifact
+in `9e26b3215` and the bounded worker diagnostic receiver in `9d80d9836`.
+
+Ordinary Git worktree removal deleted all three checkouts and targets, releasing 300,007,862,272
+allocated bytes. External state with missing, unsettled or independently held evidence remains
+with its original owner. An independent incident fixture batch released 19 superseded runtime
+generations with 29,886,689,280 allocated bytes. Its selected capsule and lane passed native
+readback. The combined release recorded 522.95 GiB of allocated data, with filesystem availability
+measured separately. Exact operation receipts are in the private incident state directory.
