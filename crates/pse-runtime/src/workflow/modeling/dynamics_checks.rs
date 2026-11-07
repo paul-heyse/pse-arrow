@@ -397,81 +397,86 @@ impl SampleCheckWorker<'_> {
             }
             _ => BTreeMap::new(),
         };
-        let (mut sample_checks, reports) = results::assess_observations(
-            run_id,
-            product,
-            point,
-            &observed,
-            &applicability,
-            &mode.numerics,
-            &simulation.quantities,
-            terminal,
-            if terminal {
-                None
-            } else {
-                mode.sample_scope.as_ref()
-            },
-            // An integrated sample has no certified objective bound.
-            None,
-        )?;
-        result.reports.extend(reports);
-        for target in mode
-            .numerics
-            .targets
-            .iter()
-            .filter(|t| t.kind == NumericalTarget::Row)
-        {
-            let value = observed
-                .get(&target.id)
-                .copied()
-                .ok_or_else(|| contract("trajectory algebraic residual absent"))?;
-            let row = product
-                .model
-                .equations
-                .iter()
-                .find(|r| r.id == target.id)
-                .ok_or_else(|| contract("trajectory algebraic source absent"))?;
-            sample_checks.push(ModelingCheck {
-                step: 0,
+        let check_start = result.rows.len();
+        let assessed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            results::assess_observations(
                 run_id,
-                sample_index: 0,
-                time: None,
-                target_id: target.id,
-                source_id: row.lineage.declaration,
-                kind: pse_model::generated::enums::ModelingCheckKind::OriginalEquation,
-                value: value.abs(),
-                tolerance: Some(target.budget),
-                satisfied: value.abs() <= target.budget,
-                within_validity: None,
-                extrapolation_allowed: None,
-                basis: pse_model::generated::enums::ModelingCheckBasis::Point,
-                layer: None,
-                claim_id: None,
-                claim_owner: None,
-                claim_owner_lineage: Vec::new(),
-                coverage_id: None,
-                evidence_id: None,
-                form_id: None,
-                call_id: None,
-                selected_records: Vec::new(),
-                dependencies: Vec::new(),
-                input_values: Vec::new(),
-                applicability_outcome: None,
-                applicability_basis: None,
-                permission_ids: Vec::new(),
-                unknown_allowed: None,
-                observation_instance: None,
-                applicability_required: None,
-                applicability_reason: None,
-                applicability_permissions: Vec::new(),
-            });
-        }
-        for check in &mut sample_checks {
+                product,
+                point,
+                &observed,
+                &applicability,
+                &mode.numerics,
+                &simulation.quantities,
+                terminal,
+                if terminal {
+                    None
+                } else {
+                    mode.sample_scope.as_ref()
+                },
+                // An integrated sample has no certified objective bound.
+                None,
+                &mut result.rows,
+                &mut result.reports,
+            )?;
+            for target in mode
+                .numerics
+                .targets
+                .iter()
+                .filter(|t| t.kind == NumericalTarget::Row)
+            {
+                let value = observed
+                    .get(&target.id)
+                    .copied()
+                    .ok_or_else(|| contract("trajectory algebraic residual absent"))?;
+                let row = product
+                    .model
+                    .equations
+                    .iter()
+                    .find(|r| r.id == target.id)
+                    .ok_or_else(|| contract("trajectory algebraic source absent"))?;
+                result.rows.push(ModelingCheck {
+                    step: 0,
+                    run_id,
+                    sample_index: 0,
+                    time: None,
+                    target_id: target.id,
+                    source_id: row.lineage.declaration,
+                    kind: pse_model::generated::enums::ModelingCheckKind::OriginalEquation,
+                    value: value.abs(),
+                    tolerance: Some(target.budget),
+                    satisfied: value.abs() <= target.budget,
+                    within_validity: None,
+                    extrapolation_allowed: None,
+                    basis: pse_model::generated::enums::ModelingCheckBasis::Point,
+                    layer: None,
+                    claim_id: None,
+                    claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
+                });
+            }
+            Ok(())
+        }))
+        .unwrap_or_else(|payload| Err(WorkflowError::Math(check_panic(payload))));
+        for check in &mut result.rows[check_start..] {
             check.sample_index = index as i64;
             check.time = Some(sample.time);
         }
-        result.rows.extend(sample_checks);
-        Ok(())
+        assessed
     }
 }
 impl Drop for SampleCheckWorker<'_> {

@@ -1698,8 +1698,7 @@ impl PreparedFit {
                             for (id, col) in &s.coordinates {
                                 values.scalars.insert(*id, candidate[col.get()]);
                             }
-                            let mut applicability = Vec::new();
-                            let observed = if let Some(program) = program {
+                            if let Some(program) = program {
                                 let providers = crate::math::attempt_providers(&s.providers, scope)
                                     .map_err(|e| {
                                         WorkflowError::from(crate::math::MathRuntimeError::from(
@@ -1719,7 +1718,20 @@ impl PreparedFit {
                                             .map(|r| r.id)
                                             .zip(outputs.iter().copied())
                                             .collect();
-                                        Ok((observed, worker.applicability_observations()))
+                                        checks::assess_observations(
+                                            run_id,
+                                            model.compiled(),
+                                            &values,
+                                            &observed,
+                                            &worker.applicability_observations(),
+                                            numerics,
+                                            &self.problem.quantities,
+                                            true,
+                                            None,
+                                            None,
+                                            &mut rows,
+                                            &mut reports,
+                                        )
                                     }))
                                     .unwrap_or_else(
                                         |payload| {
@@ -1733,27 +1745,23 @@ impl PreparedFit {
                                             ))
                                         },
                                     );
-                                let (observed, observations) =
-                                    WorkflowError::settle(assessed, worker.finish().map_err(math))?;
-                                applicability = observations;
-                                observed
+                                WorkflowError::settle(assessed, worker.finish().map_err(math))?;
                             } else {
-                                BTreeMap::new()
-                            };
-                            let (checks, observations) = checks::assess_observations(
-                                run_id,
-                                model.compiled(),
-                                &values,
-                                &observed,
-                                &applicability,
-                                numerics,
-                                &self.problem.quantities,
-                                true,
-                                None,
-                                None,
-                            )?;
-                            rows.extend(checks);
-                            reports.extend(observations);
+                                checks::assess_observations(
+                                    run_id,
+                                    model.compiled(),
+                                    &values,
+                                    &BTreeMap::new(),
+                                    &[],
+                                    numerics,
+                                    &self.problem.quantities,
+                                    true,
+                                    None,
+                                    None,
+                                    &mut rows,
+                                    &mut reports,
+                                )?;
+                            }
                         }
                         (Assessment::Transient(simulation), Experiment::Transient(s)) => {
                             let mut parameters = s.parameters.clone();

@@ -388,6 +388,280 @@ async fn source_case_on_with_physical(
         .insert(InstanceId::from(id(74)), simulation.profile().clone());
     (package, profile)
 }
+async fn steady_observation_fixture(runtime: &crate::workflow::Runtime) -> PreparedFit {
+    let services = runtime.execution_services();
+    let (_, mut profile) = source(&runtime, false, 73.).await;
+    profile.simulations.clear();
+    let mut rows = pse_authoring::language::parse(
+        "package p {def Good {param p:Scalar=0; let y:Scalar=p; annotation check p(p>=0); annotation report y(\"value\");} def Other {param p:Scalar=0; let y:Scalar=p; annotation check p(p>=0); annotation report y(\"value\");}}",
+        id(20), pse_authoring::language::IdentityPolicy::Named, pse_authoring::ParseBudget::default()).unwrap();
+    let good = rows
+        .iter()
+        .find(|row| row.name == "Good")
+        .unwrap()
+        .declaration_id;
+    let bad = rows
+        .iter()
+        .find(|row| row.name == "Other")
+        .unwrap()
+        .declaration_id;
+    rows.extend(measured_rows(&[
+        (id(71), "Scalar", Some(2.), Some(1.)),
+        (id(72), "Scalar", Some(2.), Some(1.)),
+        (id(78), "Scalar", Some(2.), Some(1.)),
+    ]));
+    let declaration: FitDeclaration = serde_json::from_value(serde_json::json!({
+        "fit_id":id(73), "parameters":[{"symbol_id":id(3),"fixed":true,"value":2.,"lower":0.,"upper":3.,"scale":1.}],
+        "experiments":[
+            {"experiment_id":id(74),"case_id":good,"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]},
+            {"experiment_id":id(75),"case_id":bad,"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]},
+            {"experiment_id":id(76),"case_id":good,"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]}],
+        "observations":[
+            {"observation_id":id(71),"experiment_id":id(74),"output_path":"y","value_attribute":"value","standard_deviation_attribute":"sigma","time":null,"included":true,"importance":1.},
+            {"observation_id":id(72),"experiment_id":id(75),"output_path":"y","value_attribute":"value","standard_deviation_attribute":"sigma","time":null,"included":true,"importance":1.},
+            {"observation_id":id(78),"experiment_id":id(76),"output_path":"y","value_attribute":"value","standard_deviation_attribute":"sigma","time":null,"included":true,"importance":1.}]
+    })).unwrap();
+    let mut declarations = FitDeclarations::default();
+    declarations.fits.push(declaration);
+    let package = runtime
+        .modeling_package(rows, crate::workflow::tests::physical())
+        .await
+        .unwrap()
+        .with_fit_declarations(&runtime.source_services(), declarations)
+        .await
+        .unwrap();
+    package
+        .prepare_fit(
+            services.preparation(),
+            id(73).into(),
+            profile,
+            compiler_profile(),
+            Default::default(),
+            &crate::CancelSource::new(),
+        )
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn fitting_steady_partial_observations_survive_typed_retirement_failure_and_export() {
+    use crate::workflow::{
+        FitExperimentAssessmentState as State, RunOutcome, RunReport, RunResult,
+    };
+    use pse_kernels::{Provider, ProviderBinding, ProviderError, ProviderFactory, ProviderSpec};
+    use pse_relations::{
+        columnar::RelationRow,
+        generated::runtime::{fit_experiment_assessments, modeling_checks, modeling_reports},
+    };
+    use std::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+
+    #[derive(Debug)]
+    struct Factory {
+        spec: ProviderSpec,
+        fault: Arc<AtomicU8>,
+        finishes: Arc<AtomicUsize>,
+        fills: Arc<AtomicUsize>,
+    }
+    #[derive(Debug)]
+    struct RetirementProbe {
+        fault: Arc<AtomicU8>,
+        finishes: Arc<AtomicUsize>,
+        fills: Arc<AtomicUsize>,
+    }
+    impl Provider for RetirementProbe {
+        fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+            self.finishes.fetch_add(1, Ordering::SeqCst);
+            match self.fault.load(Ordering::SeqCst) {
+                0 => Ok(()),
+                1 => Err(ProviderError::Terminal(
+                    "original assessment retirement".into(),
+                )),
+                2 => Err(ProviderError::Cancelled),
+                _ => Err(ProviderError::Settlement {
+                    operation: Box::new(ProviderError::Trial(
+                        "original retirement operation".into(),
+                    )),
+                    cleanup: Box::new(ProviderError::Cancelled),
+                }),
+            }
+        }
+        fn fill(
+            &mut self,
+            _: &[f64],
+            _: &pse_kernels::PreparedProviderRequest,
+            _: pse_kernels::ProviderRuntime<'_>,
+            _: pse_kernels::ProviderOutput<'_>,
+            _: &pse_kernels::EvaluationContext<'_>,
+        ) -> Result<(), ProviderError> {
+            self.fills.fetch_add(1, Ordering::SeqCst);
+            Err(ProviderError::Contract(
+                "retirement-only probe cannot supply numerical values".into(),
+            ))
+        }
+    }
+    impl ProviderFactory for Factory {
+        fn spec(&self) -> &ProviderSpec {
+            &self.spec
+        }
+        fn create(&self) -> Result<ProviderBinding, ProviderError> {
+            Ok(ProviderBinding::new(
+                self.spec.clone(),
+                Box::new(RetirementProbe {
+                    fault: self.fault.clone(),
+                    finishes: self.finishes.clone(),
+                    fills: self.fills.clone(),
+                }),
+            ))
+        }
+    }
+    let runtime = crate::workflow::tests::runtime_with_workspace(64 << 20);
+    let services = runtime.execution_services();
+    let mut prepared = steady_observation_fixture(&runtime).await;
+    let quantity = prepared.problem.quantities.neutral_dimensionless().unwrap();
+    let spec = ProviderSpec {
+        id: id(181),
+        revision: ContentHash::from_bytes([182; 32]),
+        data: ContentHash::from_bytes([183; 32]),
+        inputs: vec![],
+        outputs: vec![Port {
+            id: id(184),
+            quantity,
+            unit: prepared
+                .problem
+                .quantities
+                .quantity_type(quantity)
+                .unwrap()
+                .canonical_unit,
+        }],
+        derivatives: DerivativeOrder::Value,
+        smoothness: DerivativeOrder::Value,
+        derivative_source: pse_kernels::DerivativeSource::Analytic,
+        shapes: Default::default(),
+    };
+    let factory = Arc::new(Factory {
+        spec: spec.clone(),
+        fault: Arc::new(AtomicU8::new(0)),
+        finishes: Arc::new(AtomicUsize::new(0)),
+        fills: Arc::new(AtomicUsize::new(0)),
+    });
+    let registration = pse_kernels::Registration::bind(
+        pse_kernels::AdmittedProvider::new(spec.clone(), &prepared.problem.quantities).unwrap(),
+        factory.clone(),
+    )
+    .unwrap();
+    let Experiment::Steady(middle) = &mut Arc::get_mut(&mut prepared.problem)
+        .expect("sole original fit problem before start")
+        .experiments[1]
+    else {
+        panic!("steady original experiment")
+    };
+    middle.providers.insert(spec.key(), registration);
+    for fault in 1..=3 {
+        factory.fault.store(0, Ordering::SeqCst);
+        let original = prepared.start(&services).unwrap().wait().await.unwrap();
+        let RunReport::Fit(report) = original.report().unwrap() else {
+            panic!("original fit absent")
+        };
+        assert!(report.assessment.complete());
+        assert!(
+            report
+                .assessment
+                .experiments()
+                .all(|member| member.state() == State::Completed)
+        );
+        // The probe never supplies a numerical value. Arm only after the native
+        // fit has returned; challenge retirement of its original reassessment.
+        factory.fault.store(fault, Ordering::SeqCst);
+        let before = factory.finishes.load(Ordering::SeqCst);
+        let original = Arc::try_unwrap(original).expect("sole joined steady fit result");
+        let run_id = original.run_id;
+        let owner = original._owner.clone();
+        drop(original.completion);
+        let RunOutcome::Fit {
+            request,
+            result: Ok(mut report),
+        } = original.outcome
+        else {
+            panic!("owned fit absent")
+        };
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+        report.assessment = prepared.assess_candidate(
+            run_id,
+            report.candidate.as_deref().unwrap(),
+            &report.trajectories,
+            &scope,
+        );
+        assert_eq!(factory.finishes.load(Ordering::SeqCst), before + 1);
+        assert_eq!(factory.fills.load(Ordering::SeqCst), 0);
+        let failed_member = report.assessment.experiment(id(75).into()).unwrap();
+        let failure = failed_member.failure().unwrap();
+        let observed_failure = crate::math::strategy::diagnostic_failure(failure);
+        assert!(!crate::math::strategy::permits_numerical_continuation(
+            observed_failure
+        ));
+        assert_eq!(
+            observed_failure,
+            if fault == 1 {
+                pse_model::generated::enums::NumericalAttemptObservation::OperationalFailure
+            } else {
+                pse_model::generated::enums::NumericalAttemptObservation::Cancelled
+            }
+        );
+        assert!(
+            !failure.causes.is_empty(),
+            "original keyed retirement causes retained"
+        );
+        report.completion = Some(prepared.assess_completion(&report));
+        let result = RunResult::joined(
+            run_id,
+            services.clone(),
+            RunOutcome::Fit {
+                request,
+                result: Ok(report),
+            },
+            owner,
+        )
+        .completed(None);
+        let RunReport::Fit(report) = result.report().unwrap() else {
+            panic!("original fit absent")
+        };
+        let members =
+            [74, 75, 76].map(|value| report.assessment.experiment(id(value).into()).unwrap());
+        assert_eq!(
+            members.map(|member| member.state()),
+            [State::Completed, State::Failed, State::Unattempted]
+        );
+        assert!(members[0].checks().iter().all(|row| row.satisfied));
+        assert!(members[1].checks().iter().any(|row| row.kind
+            == pse_model::generated::enums::ModelingCheckKind::Check
+            && row.satisfied));
+        assert_eq!(members[1].reports().len(), 1);
+        assert_eq!(members[1].reports()[0].value, 2.);
+        assert!(members[1].failure().is_some());
+        assert!(members[2].checks().is_empty() && members[2].reports().is_empty());
+        assert!(!report.assessment.complete() && !result.usable());
+        assert_eq!(
+            modeling_checks::Row::rows(&result.table("runtime.modeling_checks").unwrap()).unwrap(),
+            report.assessment.checks()
+        );
+        assert_eq!(
+            modeling_reports::Row::rows(&result.table("runtime.modeling_reports").unwrap())
+                .unwrap(),
+            report.assessment.reports()
+        );
+        let recorded = fit_experiment_assessments::Row::rows(
+            &result.table("runtime.fit_experiment_assessments").unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            recorded.iter().map(|row| row.state).collect::<Vec<_>>(),
+            [State::Completed, State::Failed, State::Unattempted]
+        );
+        assert!(recorded[1].report_end > recorded[1].report_start);
+    }
+}
+
 #[tokio::test]
 async fn mixed_shared_parameter_gradient_uses_inline_forward_sensitivities() {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);

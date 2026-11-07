@@ -344,11 +344,10 @@ impl Assessment {
             execution,
             budget,
             &mut evaluations,
+            &mut point.checks,
+            &mut point.reports,
         ) {
-            Ok((checks, reports)) => {
-                point.checks = checks;
-                point.reports = reports;
-            }
+            Ok(()) => {}
             Err(error) => point.error = Some(error.boundary_diagnostic()),
         }
         let policy = &prepared.solve.numerics().policy;
@@ -424,7 +423,9 @@ impl Assessment {
         execution: &pse_kernels::ExecutionScope,
         budget: &Arc<WorkerBudget>,
         evaluations: &mut u64,
-    ) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
+        checks: &mut Vec<ModelingCheck>,
+        reports: &mut Vec<ModelingReport>,
+    ) -> Result<(), WorkflowError> {
         let checkpoint = || {
             execution.check().map_err(|error| {
                 crate::math::MathRuntimeError::from(pse_backend_native::ProblemError::Provider(
@@ -433,14 +434,23 @@ impl Assessment {
             })
         };
         checkpoint()?;
+        let mut evaluator = self
+            .program
+            .as_ref()
+            .map(|program| {
+                self.math.worker(
+                    program.clone(),
+                    &prepared.providers,
+                    execution.clone(),
+                    budget,
+                )
+            })
+            .transpose()?;
+        let check_start = checks.len();
+        let report_start = reports.len();
+        let assessed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut applicability = Vec::new();
-        let observed = if let Some(program) = &self.program {
-            let mut evaluator = self.math.worker(
-                program.clone(),
-                &prepared.providers,
-                execution.clone(),
-                budget,
-            )?;
+        let observed = if let Some(evaluator) = evaluator.as_mut() {
             let observed = budget.evaluate(|| {
                 *evaluations =
                     evaluations
@@ -464,7 +474,7 @@ impl Assessment {
         } else {
             BTreeMap::new()
         };
-        let (mut checks, mut reports) = assess_observations(
+        assess_observations(
             run_id,
             prepared.model.model.compiled(),
             values,
@@ -475,6 +485,8 @@ impl Assessment {
             true,
             Some(&self.scope),
             certified,
+            checks,
+            reports,
         )?;
         // The frozen exposure is a bound, not a solved flow. Check the actual
         // original candidate variable at the same acceptance owner that settles
@@ -497,14 +509,23 @@ impl Assessment {
                 });
             checks.push(check);
         }
-        for row in &mut checks {
-            row.step = attempt as i64;
-        }
-        for row in &mut reports {
-            row.step = attempt as i64;
-        }
         checkpoint()?;
-        Ok((checks, reports))
+        Ok(())
+        })).unwrap_or_else(|payload| Err(WorkflowError::from(crate::math::MathRuntimeError::Panic(
+            pse_diagnostics::panic::settle_payload(payload, "original assessment panic with opaque payload"),
+        ))));
+        for row in &mut checks[check_start..] {
+            row.step = attempt as i64;
+        }
+        for row in &mut reports[report_start..] {
+            row.step = attempt as i64;
+        }
+        WorkflowError::settle(
+            assessed,
+            evaluator.map_or(Ok(()), |worker| {
+                worker.finish().map_err(WorkflowError::from)
+            }),
+        )
     }
 }
 

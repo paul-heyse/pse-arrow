@@ -1234,8 +1234,9 @@ pub(in crate::workflow) fn observation_rows(
 ) -> Result<BTreeSet<SemanticId>, WorkflowError> {
     Ok(assessment_units(product).into_values().flatten().collect())
 }
-/// Assess the observed point. An objective-bound check reads `certified`, the step's
-/// certified dual bound, when the step has one (ADR-0119 Outcome 5).
+/// Append complete original obligations to the caller's buffers, retaining their
+/// prefix when a later obligation fails. An objective-bound check reads the step's
+/// certified dual bound when available (ADR-0119 Outcome 5).
 #[expect(
     clippy::too_many_arguments,
     reason = "assessment reads the run, product, values and observations under the numerical policy, registry, report selection, scope and the step's certified bound"
@@ -1251,54 +1252,58 @@ pub(in crate::workflow) fn assess_observations(
     include_reports: bool,
     scope: Option<&AssessmentScope>,
     certified: Option<CertifiedBound>,
-) -> Result<(Vec<ModelingCheck>, Vec<ModelingReport>), WorkflowError> {
+    checks: &mut Vec<ModelingCheck>,
+    reports: &mut Vec<ModelingReport>,
+) -> Result<(), WorkflowError> {
     let selected = |target, source| scope.is_none_or(|ids| ids.contains(&(target, source)));
-    let expected = product
+    for expected in product
         .model
         .expectations
         .values()
         .filter(|t| selected(t.id, t.lineage.declaration))
         .map(|t| t.id)
-        .collect();
-    let mut checks = product
-        .assess_expectations_for(observed, &expected)
-        .map_err(|e| contract(e.to_string()))?
-        .into_iter()
-        .map(|t| ModelingCheck {
-            step: 0,
-            run_id,
-            sample_index: 0,
-            time: None,
-            target_id: t.id,
-            source_id: t.declaration,
-            kind: CheckKind::Expectation,
-            value: (t.actual - t.expected).abs(),
-            tolerance: Some(t.tolerance),
-            satisfied: t.passed,
-            within_validity: None,
-            extrapolation_allowed: None,
-            basis: Basis::Point,
-            layer: None,
-            claim_id: None,
-            claim_owner: None,
-            claim_owner_lineage: Vec::new(),
-            coverage_id: None,
-            evidence_id: None,
-            form_id: None,
-            call_id: None,
-            selected_records: Vec::new(),
-            dependencies: Vec::new(),
-            input_values: Vec::new(),
-            applicability_outcome: None,
-            applicability_basis: None,
-            permission_ids: Vec::new(),
-            unknown_allowed: None,
-            observation_instance: None,
-            applicability_required: None,
-            applicability_reason: None,
-            applicability_permissions: Vec::new(),
-        })
-        .collect::<Vec<_>>();
+    {
+        checks.extend(
+            product
+                .assess_expectations_for(observed, &BTreeSet::from([expected]))
+                .map_err(|e| contract(e.to_string()))?
+                .into_iter()
+                .map(|t| ModelingCheck {
+                    step: 0,
+                    run_id,
+                    sample_index: 0,
+                    time: None,
+                    target_id: t.id,
+                    source_id: t.declaration,
+                    kind: CheckKind::Expectation,
+                    value: (t.actual - t.expected).abs(),
+                    tolerance: Some(t.tolerance),
+                    satisfied: t.passed,
+                    within_validity: None,
+                    extrapolation_allowed: None,
+                    basis: Basis::Point,
+                    layer: None,
+                    claim_id: None,
+                    claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
+                }),
+        );
+    }
     // The compiler's typed classification of objective-bound checks, with the compared
     // side observed at this point (it depends on no decision).
     let objective_bounds = product
@@ -1328,7 +1333,9 @@ pub(in crate::workflow) fn assess_observations(
                 kind: ModelingHint::Check,
             } if selected(*target, *declaration) => {
                 let (value, basis) = check_value(
-                    observed[&output.row_id()],
+                    *observed
+                        .get(&output.row_id())
+                        .ok_or_else(|| contract("model check observation absent"))?,
                     objective_bounds.get(&(*target, *declaration)).copied(),
                     certified,
                 );
@@ -1375,7 +1382,12 @@ pub(in crate::workflow) fn assess_observations(
                 product.model.closures[accumulator].lineage.declaration,
             ) =>
             {
-                magnitudes.insert(*contribution, observed[&output.row_id()]);
+                magnitudes.insert(
+                    *contribution,
+                    *observed
+                        .get(&output.row_id())
+                        .ok_or_else(|| contract("closure contribution observation absent"))?,
+                );
             }
             ModelingOutput::OriginalEquation(id)
                 if selected(*id, product.model.elastic[id].original.lineage.declaration) =>
@@ -1386,7 +1398,9 @@ pub(in crate::workflow) fn assess_observations(
                 else {
                     return Err(contract("original elastic equation shape"));
                 };
-                let value = observed[&output.row_id()];
+                let value = *observed
+                    .get(&output.row_id())
+                    .ok_or_else(|| contract("original equation observation absent"))?;
                 let residual = match sense {
                     pse_authoring::dsl::EquationSense::Eq => value.abs(),
                     pse_authoring::dsl::EquationSense::Le => value.max(0.),
@@ -1438,55 +1452,61 @@ pub(in crate::workflow) fn assess_observations(
             _ => {}
         }
     }
-    let closures = product
+    let allowances = cases::closure_budgets(numerics);
+    for selected_closure in product
         .model
         .closures
         .values()
         .filter(|c| selected(c.id, c.lineage.declaration))
         .map(|c| c.id)
-        .collect();
-    for closure in product
-        .model
-        .assess_closures(&magnitudes, &closures, &cases::closure_budgets(numerics))
-        .map_err(|e| contract(e.to_string()))?
     {
-        if let Some(satisfied) = closure.satisfied {
-            checks.push(ModelingCheck {
-                step: 0,
-                run_id,
-                sample_index: 0,
-                time: None,
-                target_id: closure.accumulator,
-                source_id: product.model.closures[&closure.accumulator]
-                    .lineage
-                    .declaration,
-                kind: CheckKind::Closure,
-                value: closure.net,
-                tolerance: Some(closure.tolerance),
-                satisfied,
-                within_validity: None,
-                extrapolation_allowed: None,
-                basis: Basis::Point,
-                layer: None,
-                claim_id: None,
-                claim_owner: None,
-                claim_owner_lineage: Vec::new(),
-                coverage_id: None,
-                evidence_id: None,
-                form_id: None,
-                call_id: None,
-                selected_records: Vec::new(),
-                dependencies: Vec::new(),
-                input_values: Vec::new(),
-                applicability_outcome: None,
-                applicability_basis: None,
-                permission_ids: Vec::new(),
-                unknown_allowed: None,
-                observation_instance: None,
-                applicability_required: None,
-                applicability_reason: None,
-                applicability_permissions: Vec::new(),
-            });
+        for closure in product
+            .model
+            .assess_closures(
+                &magnitudes,
+                &BTreeSet::from([selected_closure]),
+                &allowances,
+            )
+            .map_err(|e| contract(e.to_string()))?
+        {
+            if let Some(satisfied) = closure.satisfied {
+                checks.push(ModelingCheck {
+                    step: 0,
+                    run_id,
+                    sample_index: 0,
+                    time: None,
+                    target_id: closure.accumulator,
+                    source_id: product.model.closures[&closure.accumulator]
+                        .lineage
+                        .declaration,
+                    kind: CheckKind::Closure,
+                    value: closure.net,
+                    tolerance: Some(closure.tolerance),
+                    satisfied,
+                    within_validity: None,
+                    extrapolation_allowed: None,
+                    basis: Basis::Point,
+                    layer: None,
+                    claim_id: None,
+                    claim_owner: None,
+                    claim_owner_lineage: Vec::new(),
+                    coverage_id: None,
+                    evidence_id: None,
+                    form_id: None,
+                    call_id: None,
+                    selected_records: Vec::new(),
+                    dependencies: Vec::new(),
+                    input_values: Vec::new(),
+                    applicability_outcome: None,
+                    applicability_basis: None,
+                    permission_ids: Vec::new(),
+                    unknown_allowed: None,
+                    observation_instance: None,
+                    applicability_required: None,
+                    applicability_reason: None,
+                    applicability_permissions: Vec::new(),
+                });
+            }
         }
     }
     let value = |target: SemanticId| -> Result<f64, WorkflowError> {
@@ -1505,7 +1525,6 @@ pub(in crate::workflow) fn assess_observations(
             .ok_or_else(|| contract("model check/report target absent"))
     };
     checks.extend(applicability_checks(run_id, applicability));
-    let mut reports = Vec::new();
     let mut reported = BTreeSet::new();
     for a in &product.model.annotations {
         if !selected(a.target, a.lineage.declaration) {
@@ -1598,7 +1617,7 @@ pub(in crate::workflow) fn assess_observations(
             _ => {}
         }
     }
-    Ok((checks, reports))
+    Ok(())
 }
 
 impl ModelingResult {
@@ -1856,6 +1875,116 @@ mod tests {
     use pse_compiler::workspace::ModelingCaseBindings;
     use pse_relations::columnar::RelationRow;
     #[tokio::test]
+    async fn original_observation_prefix_survives_missing_later_report() {
+        use super::super::super::tests as fixture;
+        let runtime = fixture::runtime();
+        let source = "package p {def Root {param p:Scalar=1; let one:Scalar=p+1; let two:Scalar=p+2; annotation check p(p>0); annotation report one(\"one\"); annotation report two(\"two\");}}";
+        let rows = pse_authoring::language::parse(
+            source,
+            SemanticId::from_bytes([191; 16]),
+            pse_authoring::language::IdentityPolicy::Named,
+            pse_authoring::ParseBudget::default(),
+        )
+        .unwrap();
+        let root = rows
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(rows, fixture::physical())
+            .await
+            .unwrap();
+        let prepared = package
+            .prepare_solve(
+                &runtime.preparation_services(),
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings::default(),
+                Limits::default(),
+                ModelingCaseBindings::default(),
+                pse_kernels::DerivativeOrder::First,
+                fixture::compiler_profile(),
+                fixture::profile(),
+                Default::default(),
+                &crate::CancelSource::new(),
+            )
+            .await
+            .unwrap();
+        let product = prepared.model.model.compiled();
+        let mut observed = product
+            .admitted
+            .outputs
+            .iter()
+            .filter_map(|output| {
+                matches!(
+                    output,
+                    ModelingOutput::Hint {
+                        kind: ModelingHint::Check,
+                        ..
+                    }
+                )
+                .then_some((output.row_id(), 1.))
+            })
+            .collect::<BTreeMap<_, _>>();
+        let ordered_reports = product
+            .model
+            .annotations
+            .iter()
+            .filter_map(|annotation| match &annotation.value {
+                AnnotationValue::Report(label) => Some((annotation.target, label.as_str())),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let [(first, first_label), (later, later_label)] = ordered_reports.as_slice() else {
+            panic!("the admitted fixture must have two report members");
+        };
+        assert!(!prepared.model.values.scalars.contains_key(later));
+        observed.insert(ModelingOutput::Member(*first).row_id(), 1.);
+        let run = RunId::from_bytes([192; 16]);
+        let mut checks = Vec::new();
+        let mut reports = Vec::new();
+        let failed = assess_observations(
+            run,
+            product,
+            &prepared.model.values,
+            &observed,
+            &[],
+            prepared.solve.numerics(),
+            &prepared.source.quantities,
+            true,
+            None,
+            None,
+            &mut checks,
+            &mut reports,
+        );
+        assert!(failed.unwrap_err().to_string().contains("report target absent"));
+        assert_eq!(checks.len(), 1);
+        assert!(checks[0].satisfied);
+        assert_eq!(reports.len(), 1);
+        assert_eq!((reports[0].label.as_str(), reports[0].value), (*first_label, 1.));
+        observed.insert(ModelingOutput::Member(*later).row_id(), 2.);
+        checks.clear();
+        reports.clear();
+        assess_observations(
+            run,
+            product,
+            &prepared.model.values,
+            &observed,
+            &[],
+            prepared.solve.numerics(),
+            &prepared.source.quantities,
+            true,
+            None,
+            None,
+            &mut checks,
+            &mut reports,
+        )
+        .unwrap();
+        assert_eq!(reports.len(), 2);
+        assert_eq!((reports[1].label.as_str(), reports[1].value), (*later_label, 2.));
+    }
+    #[tokio::test]
     async fn report_transfer_context_retains_actual_owner_order_and_direction() {
         use pse_modeling::specialize::Value;
         use pse_modeling::{BoundaryRef, PhysicalRefinement, TransferDirection, Type};
@@ -2025,7 +2154,8 @@ mod tests {
         // would report them.
         let assess = |point: f64, outcome: &Outcome| {
             let observed = BTreeMap::from([(check, point), (side, -0.5)]);
-            let (checks, _) = assess_observations(
+            let mut checks = Vec::new();
+            assess_observations(
                 RunId::from_bytes([7; 16]),
                 product,
                 &prepared.model.values,
@@ -2036,6 +2166,8 @@ mod tests {
                 false,
                 None,
                 CertifiedBound::of(outcome),
+                &mut checks,
+                &mut Vec::new(),
             )
             .unwrap();
             let [check] = checks.as_slice() else {
