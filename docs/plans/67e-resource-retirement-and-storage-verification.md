@@ -1,6 +1,6 @@
 ---
 title: "Plan67e: Resource retirement and storage verification"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -149,7 +149,7 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| E01 | planned | Read access to selected state and owners | Read-only census with allocated bytes, coverage, and held, releasable, or unknown classes. Supply the repeat baseline. |
+| E01 | in-progress | Read access to selected state and owners | Read-only census with allocated bytes, coverage, and held, releasable, or unknown classes. Supply the repeat baseline. |
 | E02 | planned | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal plus explicit state release, and the R-56 disposition. |
 | E03 | planned | Existing resource ownership and named hold contract from history companion | Purpose-bound scratch, stores and campaigns release through their original owners. Verify selected evidence before release. |
 | E04 | planned | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
@@ -175,3 +175,14 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
   ordinary tests. Attribute selected compact results, useful build state, authored data, and
   protected science separately. Count observed retained bytes and physical reclamation
   independently of logical deletion and record unresolved exceptions by owner.
+
+## Execution checkpoint — November 7
+
+The incident census combines the native worktree observation and one physical allocation scan
+of the actual checkout targets and state roots. It observed four registered worktrees on the
+backing filesystem. The linked targets held 276.84 GiB, the main invocation ledger held
+196.83 GiB, and main fixture captures held 42.46 GiB at this post-release observation. The
+native view disclosed unresolved historical identities. Those rows do not establish either
+active use or release eligibility. The exact per-root observations and separately measured
+filesystem capacity are in the incident evidence directory named by [67a](67a-plan66-consolidation-and-incident-cleanup.md).
+The census still needs unavailable-root and shared-inode controls before E01 closes.

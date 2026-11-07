@@ -1,6 +1,6 @@
 ---
 title: "Plan67d: Cargo variants and sccache reuse"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -177,11 +177,19 @@ until the relevant toolchain has a real consumer.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| D01 | planned | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
+| D01 | in-progress | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
 | D02 | planned | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
-| D03 | planned | Managed 0.19.0 and stable representative selections. Timing can begin before D02 rollout. | Truthful managed-route configuration and stats, representative metadata and large-entry restoration, changed-input and fallback controls, and recorded timings. |
+| D03 | in-progress | Managed 0.19.0 and stable representative selections. Timing can begin before D02 rollout. | Truthful managed-route configuration and stats, representative metadata and large-entry restoration, changed-input and fallback controls, and recorded timings. |
 | D04 | planned | Native owner and representative command context | Demonstrated restore of identified GCC/Clang outputs under existing provider contracts. A direct-mode trial needs separate negative-header evidence. |
 | D05 | planned | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Read-only remote promotion and outage evidence with a proceed or defer outcome for an optional real backend. |
+
+## Execution checkpoint — November 7
+
+The initial native unit census examined 498 units for the `pse-operations` library with
+`canonical-tests` and 810 for the `native_service` target with `native-service`. Each
+selection had one matching `arrow-array` dependency unit and native correctness selected
+explicit force validation. This establishes the two source contexts for the comparison.
+Consumer mapping and the post-migration variant census remain open.
 
 ## Acceptance
 

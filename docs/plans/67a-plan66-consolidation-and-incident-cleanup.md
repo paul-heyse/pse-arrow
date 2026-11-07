@@ -168,6 +168,15 @@ removed 103 linked-checkout trees with 166.65 GiB of allocated members. Availabl
 backing filesystem measured 362,030,686,208 before the first batch and 572,617,322,496 after the
 second. Concurrent operations also used that filesystem. The incident evidence directory under
 the project state root contains the exact previews and release results. Both batches retained
-named, live and unresolved objects. One 1.39 MiB named selection export passed the independent
-descriptor reader. Named consumer transfer, Git and external checkout retirement, and integrated
-rerun evidence stay open.
+named, live and unresolved objects. A third batch released 18 main-checkout borrowed test and
+check trees with 13.15 GiB of allocated members. It also checked the bound original report,
+absence of the enclosing cgroup, and separate fixture settlement where required. No remaining
+metadata referenced the previously released invocation IDs. The three batches released 145
+trees and 215.71 GiB in total.
+
+Of 27 named incident invocations, 26 were exported and independently decoded. Twenty carry
+selection evidence and six carry report evidence. The exports total 24,607,930 bytes.
+One invocation is on an unmatched checkout and was preserved. Three named consumers still
+need original members, including the Plan64 JUnit comparison and two Plan65 compiler diagnostic
+readers. The incident receipt records those exact files and readback. Named consumer transfer,
+Git and external checkout retirement, and integrated rerun evidence stay open.
