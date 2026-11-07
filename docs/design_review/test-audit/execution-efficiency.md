@@ -1,5 +1,107 @@
 # Efficiency-oriented design principles in the test system
 
+## Current diagnosis and revalidation
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.**
+
+**DTA-039 · AP-07/G9, DP-09, DP-10 · H18, H19, H26.** Each selected managed execution group
+calls `Listed::command`, which re-verifies every captured executable, including images of other
+groups. A retained inventory page looks up each row with `Inventory::test`, which can reread
+the same binary for multiple rows. `verified_tests` already deduplicates verification over one
+traversal. The borrowed runner checks the capture again across a separate authority boundary,
+including executable images outside the selected group. Authentication guards reuse against
+drift. The structural question is how much immutable material a selection must reauthenticate
+within one operation. No elapsed impact was measured. [Managed group execution](../../../crates/pse-host/src/test_workflow/execute/runner.rs) ·
+[Group commands and pages](../../../crates/pse-host/src/test_workflow/mod.rs) ·
+[Inventory verification](../../../crates/pse-host/src/discovery.rs) ·
+[Borrowed runner](../../../crates/pse-operations/src/native_fixture.rs)
+
+**DTA-030 · AP-07/G9, DP-10 · H5, H12, H14.** Ordinary runtime/PID no longer builds and stages
+a separate capsule in the selected Plan67 path. The source-built replacement initializes an
+in-process `OnceLock` with all catalog packages and families before a caller projects one family.
+Independent test processes repeat the capture. Compiler/modeling still have external capsule
+consumers. Production parsing and source identity checks are valuable. The issue is the union of
+unrequested inputs and the lifetime over which capture can be reused. [Authored input owner](../../../tests/fixtures/authored-scientific-inputs.rs) ·
+[Capture](../../../tests/fixtures/scientific-input-capture.rs) · [Plan67c evidence](../../plans/67c-surrealkit-and-rust-test-consolidation.md)
+
+| Finding | Current disposition and limits |
+|---|---|
+| [DTA-018](#dta-018) | Narrowed. SurrealKit and native borrowing remove blanket per-case server/schema reconstruction. Target-owned repeated-analysis and conic cases still compose broad runtimes. The repeated-analysis service deadline is 600 seconds, longer than the default nextest termination allowance. Local profile behavior differs. |
+| [DTA-029](#dta-029), [DTA-032](#dta-032) | Scenario-only variants retired and compatible compiler-graph reuse has scoped Plan67d evidence. Actual native/maintenance compatibility choices and remaining focused compilation belong to DTA-053. |
+| [DTA-030](#dta-030) | Live in narrowed form above. |
+| [DTA-031](#dta-031), [DTA-033](#dta-033), [DTA-038](#dta-038), [DTA-042](#dta-042), [DTA-044](#dta-044), [DTA-047](#dta-047), [DTA-048](#dta-048) | The original Python extension, assessment, registry, admission and cleanup mechanisms retired. Their old workload and claims retain their original scope. |
+| [DTA-034](#dta-034) | The managed route builds/lists once per context and reuses the captured population. Repeated executable verification is DTA-039. |
+| [DTA-035](#dta-035) | Scoped closure retained. Sampled science readers use authored or captured inputs; generated protocol descriptors have a different assurance role. |
+| [DTA-036](#dta-036) | Partial. Affected preview conservatively widens scope for unowned fixture paths and delegates actual feature/admission decisions. It does not establish exact scientific fixture correspondence. |
+| [DTA-037](#dta-037) | Grouped codegen comparison runs the aggregate once. Separate focused recipes remain available. |
+| [DTA-039](#dta-039) | Recurs in authenticated native execution and retained selection as described above. |
+| [DTA-040](#dta-040), [DTA-041](#dta-041) | Preserve the earlier rejected blanket reuse claim and withdrawn recovery claim. |
+| [DTA-043](#dta-043) | Earlier shared Python service premise retired. The private borrowed endpoint is scoped to a native invocation and shares isolated logical databases within that scope. |
+| [DTA-045](#dta-045) | Earlier narrowed closure remains historical. The inspected backend regex now changes timeouts. Selected runtime names receive group tokens. |
+| [DTA-046](#dta-046) | Partial. Scientific-group exclusion covers matching cases within its invocation. Other pool owners and independent workflows remain outside it. Aggregate interference was not measured. |
+| [DTA-052](#dta-052) | Earlier accumulators retired. Plan67b/e establish named executable custody and owner-issued generation release. Target-owned fixture retention has a separate boundary under DTA-060. |
+| [DTA-053](#dta-053) | Narrowed. Scenario feature variants retired. A lib filter still compiles a crate/feature context, and separate provider and lifecycle targets retain distinct build inputs. Current build reuse retains its Plan67d workload conditions. |
+
+[Nextest configuration](../../../.config/nextest.toml) ·
+[Runtime manifest](../../../crates/pse-runtime/Cargo.toml) ·
+[Repeated-analysis control](../../../crates/pse-runtime/tests/native_repeated_analysis.rs) ·
+[Plan67b invocation custody](../../plans/67b-invocation-custody-and-developer-history.md) ·
+[Plan67d compiler reuse](../../plans/67d-cargo-variants-and-sccache-reuse.md) ·
+[Plan67e release](../../plans/67e-resource-retirement-and-storage-verification.md)
+
+## <a id="dta-071"></a>DTA-071 — Workspace membership controls repeatedly request full dependency metadata
+
+**Interface-checked · 2026-11-07 · `3419aca2a` · AP-03, AP-06, AP-07/G9, DP-10, DP-23 · H5, H20, H26.**
+
+`dev-native-boundaries` includes the `every_crate_registered` target. Three independent cases in
+that target call `cargo_member_dirs`, which starts `cargo metadata --locked` through
+`common::metadata`. The helper reads `workspace_members` and the member manifest locations. Even
+the negative control for a stray directory rebuilds that input from the live workspace, although
+the function it challenges accepts its membership set as an argument. The `dependency_floors`
+target and the separate `native_engine_boundaries` control genuinely use dependency metadata.
+Giving the membership and resolved-graph consumers the same acquisition path makes the former
+request the latter's scope, and reruns the acquisition for each membership assertion.
+
+Cargo remains the authority for actual workspace membership. The real-checkout comparisons catch
+drift between declarations, crate directories and Cargo's interpretation. The stray control guards
+against an insensitive comparison. Separate test processes give each result its own identity.
+The repeated acquisition and the broader input it requests are visible in source. Cargo's internal
+reuse, lock contention and latency remain unmeasured.
+
+[Selected recipe](../../../justfile) ·
+[Membership cases](../../../tests/governance/tests/every_crate_registered.rs) ·
+[Metadata acquisition](../../../tests/governance/tests/common/mod.rs) ·
+[Dependency floor](../../../tests/governance/tests/dependency_floors.rs) ·
+[Resolved ownership boundary](../../../tests/governance/tests/native_engine_boundaries.rs)
+
+## <a id="dta-072"></a>DTA-072 — Reference subprocess output can grow before its readback limit applies
+
+**Interface-checked · 2026-11-07 · `3419aca2a` · AP-05, AP-07/G9, DP-19–DP-21 · H17, H26.**
+
+The ordinary scientific exchange redirects the oracle's stdout and stderr to a regular scratch
+file. The parent uses the original process owner and settles the child before examining the
+diagnostics. Its 1 MiB limit bounds the diagnostic prefix read and optionally retained after
+settlement. The redirection itself supplies no corresponding byte limit while the child runs.
+The oversized-log control challenges the reader after creating an oversized file. It cannot
+distinguish a bounded writer from a writer that fills scratch storage before readback.
+
+The ordinary exchange bounds its binary response in the Python encoder and again on Rust
+readback. The four older JSON exchanges read complete response files on success and complete
+diagnostic logs on failure.
+A noisy or malfunctioning reference process can amplify temporary storage or readback memory
+within the allowed execution window. The ordinary read limits, explicit deadlines, and original
+child drain address distinct failure modes. The audit observed no runaway process or storage
+exhaustion.
+
+[Ordinary reference execution and diagnostics](../../../crates/pse-runtime/src/workflow/modeling/ordinary_reference.rs) ·
+[Ordinary response encoder](../../../tests/reference/proto_exchange.py) ·
+[Legacy covariance exchange](../../../crates/pse-runtime/tests/reference_covariance_exchange.rs) ·
+[Legacy sensitivity exchange](../../../crates/pse-runtime/tests/reference_sensitivity_exchange.rs) ·
+[Legacy PID exchange](../../../crates/pse-runtime/tests/reference_pid_exchange.rs) ·
+[Legacy degeneracy exchange](../../../crates/pse-runtime/tests/reference_degeneracy_exchange.rs)
+
+## Historical record
+
 **Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
 the working tree.** This page holds the primary findings on preparation, build structure, artifact and
 evidence lifetimes, scheduling and recovery, judged against AP-07/G9, the relevant DP refinements and

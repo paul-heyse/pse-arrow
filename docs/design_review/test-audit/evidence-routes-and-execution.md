@@ -1,5 +1,75 @@
 # Evidence routes, activation and outcomes
 
+## Current diagnosis and revalidation
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.**
+
+**DTA-050 · AP-02, AP-05, AP-06, DP-15, DP-21, DP-23.** Inventory and admission now govern
+managed selection. They can only admit requirements actually associated with the selected cases.
+The four `just parity` test targets still consume individual `PSE_*_REFERENCE_PYTHON` variables.
+The recipe syncs `.venv-parity` and selects the binaries, but the correctness adapter and
+nextest setup script supply no mapping from that environment to the four variables. The original
+Plan58f exchanges explicitly set inputs and solver placement. The ordinary compiler and modeling
+reference consumers likewise require a scientific capsule with no supplier in their managed
+fixture declarations. The reader documents a manual capture route. The local
+`scientific-replay-miri` recipe passes an unsupported command to the correctness adapter.
+Scheduled CI has a separate explicit Miri route. These are concrete correspondence gaps in
+named entry points, alongside working scoped routes. The feature-gated authoring round-trip is
+selectable with `arbitrary`. Its execution was not established by the ordinary recipes sampled.
+[Recipes](../../../justfile) · [Reference example](../../../crates/pse-runtime/tests/reference_covariance_exchange.rs) ·
+[Nextest setup](../../../scripts/nextest-test-env) · [Original Plan58f evidence](../../plans/58f-development-and-assurance.md) ·
+[Manual reference routes](../../dev/native-workflow.md) · [Capsule reader](../../../tests/fixtures/scientific-inputs.rs) ·
+[Scheduled Miri](../../../.github/workflows/rust-scheduled.yml)
+
+`just reference-unit` runs the scientific reference helper tests in `scripts/tests`. It does not
+collect the five `tests/reference/test_*.py` modules, including ordinary exchange controls that
+reject changed correspondence before calculation and inconsistent failure verdicts. Plan64h
+records selected manual execution. A successful run of the named recipe gives a smaller assurance
+population. [Ordinary exchange controls](../../../tests/reference/test_ordinary_exchange.py) ·
+[Plan64h evidence](../../plans/64h-reference-coverage-and-qualification.md)
+
+The ordinary `canonical_studies_server_unit` borrowed selection has a similar role mismatch.
+Its nested qualification cases ask for a qualification-mode module receipt, while the host
+ordinary borrower selects production-mode preparation. This bounds what a successful ordinary
+fixture setup can establish about qualification readiness. [Fixture declaration](../../../crates/pse-operations/Cargo.toml) ·
+[Qualification case](../../../crates/pse-operations/src/canonical_studies.rs) · [Host preparation](../../../crates/pse-host/src/fixtures/execution.rs)
+
+**DTA-060 · AP-05, AP-07, DP-19, DP-20.** Borrowed execution now gives readiness, run,
+settlement and disposal to a fixture owner. The target-owned SurrealKit test passes a 300-second
+absolute deadline to the service. Its separate child runs each create their own deadlines, with
+four 30-second and two 120-second allowances. Their serial allowances can outlive the outer
+deadline before startup and settlement are counted. The RPC operation scope does not propagate
+that clock to these child waits. This can leave settlement with an expired deadline. The original
+selected positive run and explicit process drain are useful counterevidence. No such overrun
+was observed here. The outer dispose attempt requires original settlement and retains state when
+it is incomplete. Other target-owned tests differ in disposal after panic. The finding applies to
+named target-owned compositions. [SurrealKit test](../../../crates/pse-operations/tests/native_service/surrealkit.rs) ·
+[Service run and disposal](../../../crates/pse-operations/src/native_service.rs) ·
+[Native fixture owner](../../../crates/pse-operations/src/native_fixture.rs) ·
+[Plan67c evidence](../../plans/67c-surrealkit-and-rust-test-consolidation.md)
+
+| Finding | Current disposition and limits |
+|---|---|
+| [DTA-012](#dta-012) | Original Python verdict owner retired. Native workflow records phase, nextest result and settlement separately and can refuse incomplete execution. |
+| [DTA-013](#dta-013), [DTA-014](#dta-014) | Historical closures. The old Python population and optional CLI role retired. Current native operator-evidence cases have explicit fixture declarations. Remaining activation gaps belong to DTA-050. |
+| [DTA-015](#dta-015), [DTA-016](#dta-016) | Narrowed. Static nextest policy assigns selected runtime cases to the scientific group. The managed runner coordinates matching contexts inside one invocation. Exact names and module patterns still mediate group/fixture correspondence. Cross-invocation and pool scope is assessed under DTA-046. |
+| [DTA-017](#dta-017) | Original bare Python capture premise retired. The remaining capsule reader gives a correctness-adapter route, and the adapter checks admitted Arrow-consuming units. Actual doctest graph behavior is inherited where it was not exercised. |
+| [DTA-018](#dta-018) | Primary home remains [execution efficiency](execution-efficiency.md#dta-018). |
+| [DTA-019](#dta-019) | Inherited scoped closure for earlier unused helpers. Current sampled `pse-testkit` consumers are real and the dependency governance protects their dev-only boundary. |
+| [DTA-025](#dta-025) | Narrowed. Managed named fixture inputs can produce typed readiness outcomes. Opaque or target-owned prerequisites can still surface as in-test errors, including missing worker environment inputs. |
+| [DTA-050](#dta-050) | Live in the selected routes above. The supervisor's park helper also exits successfully when collected without its marker. Its explicitly launched parent supplies the behavioral evidence. |
+| [DTA-057](#dta-057) | Partial. Plan67c retained exact child death and settlement evidence for named cases. The worker death test still waits 5 seconds after a fence before signalling, and the lease test still waits 31 seconds. The park parent observes PIDFD exit and a 10 ms custody window without a positive acknowledgement of entry into the park branch. |
+| [DTA-060](#dta-060) | Narrowed to target-owned callers. The shared borrowed runner is a counterexample to the old blanket diagnosis. |
+
+[Current nextest configuration](../../../.config/nextest.toml) ·
+[Managed execution](../../../crates/pse-host/src/test_workflow/execute/runner.rs) ·
+[Managed reports](../../../crates/pse-host/src/test_workflow/execute/report.rs) ·
+[Original supervisor controls](../../../crates/pse-diagnostics/src/supervised_child/tests.rs) ·
+[Worker controls](../../../crates/pse-runtime/tests/worker.rs) ·
+[Native ownership governance](../../../tests/governance/tests/native_engine_boundaries.rs)
+
+## Historical record
+
 **Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
 the working tree.** This page holds the primary findings on whether declared tests actually execute,
 under the prerequisites and scheduling they need, whether outcomes are truthful, and whether

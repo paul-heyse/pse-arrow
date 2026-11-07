@@ -1,5 +1,41 @@
 # Support ownership, doubles and coupling
 
+## Current diagnosis and revalidation
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.**
+
+| Finding | Current disposition and limits |
+|---|---|
+| [DTA-008](#dta-008) | Withdrawn. Static routing controls and actual contextual execution answer complementary questions. |
+| [DTA-009](#dta-009) | Live. Salsa observation code matches private query names in formatted events. The relocation control can compare equal zero `EffectiveMembers` counts, although a dedicated cold control gives a positive check for parsing. |
+| [DTA-010](#dta-010) | Residual. Math and backend-native still independently derive axes and derivative order and build default residual/source bodies for tests. No effective default disagreement was established. Their hand-built inputs serve different roles from the production native compilation route. |
+| [DTA-011](#dta-011) | Recurs for native logical borrowing. The fixture installs its own cleanup executor, which `CanonicalStore::protect_revision` selects instead of the caller executor. Target-owned service cases exercise the complementary path. A passing borrowed case therefore establishes the fixture-owned cleanup behavior. |
+| [DTA-027](#dta-027) | Narrowed. The authored catalog now supplies ordinary runtime and PID inputs in process. Compiler, modeling and Plan14 still consume the capsule reader, and reference-source construction still applies string rewrites. [DTA-050](evidence-routes-and-execution.md#dta-050) owns readiness correspondence and [DTA-030](execution-efficiency.md#dta-030) owns repeated capture work. |
+| [DTA-028](#dta-028) | Partial. Native preparation and admission retain `HostError::Ownership(String)`. Modeling retains an unclassified input-error constructor and compiler form tests still match rendered detail. Structured owner errors elsewhere bound the footprint. |
+| [DTA-051](#dta-051) | Earlier Python orphaning retired. `tests/support/plan14.rs` still has active conformance/benchmark consumers and the Plan14 reference route. Its historical name alone gives no evidence of orphaning. |
+| [DTA-055](#dta-055) | Narrowed. Scenario-only features and the shared `test-support` feature retired. Remaining exposed fixture lifetime and cleanup APIs, migration acknowledgement injection and the runtime finish-export gate retain test choreography in product owners. DTA-011 assesses path representativeness separately. |
+| [DTA-059](#dta-059) | Live in target-owned consumers that independently construct service specs from environment values, and in authored package setup that rewrites dependency literals. `owned_test_service_spec` centralizes selected operations unit cases. |
+| [DTA-068](#dta-068) | Live at the preparation boundary. The host cancellation lock control self-execs a synthetic lock holder without running the recipe lock/build/publication owner. A real failed-publication control independently checks pointer retention, and Plan58b records actual compiler/KLU preparation and repeat selection. The correctness restoration marker test returns successfully when its marker is absent. |
+| [DTA-069](#dta-069) | Live at the scoped real-effect host tests. The finite-scope and SIGKILL reclamation controls use the actual journal and cgroups, including a fixed finite allocation. Physical integration needs real ownership. Concurrent operator interference was not established. |
+| [DTA-070](#dta-070) | Retired. The Python product orchestration tests, launch owners and their route shims were removed. Retained Python setup and scientific reference controls have different responsibilities. |
+
+[Logical fixture](../../../crates/pse-operations/src/native_fixture/logical.rs) ·
+[Canonical protection](../../../crates/pse-operations/src/canonical.rs) ·
+[Native service cases](../../../crates/pse-operations/tests/native_service.rs) ·
+[Host native preparation cases](../../../crates/pse-host/tests/native.rs) ·
+[Finite-scope controls](../../../crates/pse-host/tests/foreground.rs) ·
+[Correctness controls](../../../crates/pse-host/tests/correctness.rs) ·
+[Query observations](../../../crates/pse-compiler/src/workspace/modeling/test_observation.rs) ·
+[Memo controls](../../../crates/pse-compiler/src/workspace/modeling/granular_tests.rs) ·
+[Compiler refusal controls](../../../crates/pse-compiler/src/workspace/modeling/forms_tests.rs) ·
+[Math residual fixture](../../../crates/pse-math/src/implicit.rs) ·
+[Backend residual fixture](../../../crates/pse-backend-native/src/implicit.rs) ·
+[Reference setup](../../../crates/pse-runtime/tests/reference_support/mod.rs) ·
+[Plan58b preparation evidence](../../plans/58b-bootstrap-and-host-control.md#verification-and-outcome-for-the-selected-compilerklu-slice) ·
+[Plan67c evidence](../../plans/67c-surrealkit-and-rust-test-consolidation.md)
+
+## Historical record
+
 **Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
 the working tree.** This page holds the primary findings on where test support and evidence live, how
 tests couple to production, and the seams production carries for tests. See the

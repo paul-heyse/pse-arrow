@@ -1,5 +1,26 @@
 # Study execution and database boundary
 
+## Current applicability
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.** The scoped October evidence below retains
+its original baseline. The current architecture supplies prepared inputs, target-owned private
+services and runner-borrowed logical databases with distinct ownership. The sampled
+SurrealKit lane uses a generated-schema input, private endpoint, scoped actors and controlled
+bad seed, setup, interruption and rollout drift. The original selected Plan67c report records
+19 suite cases, a 13-case Rust operations run and six target-owned runtime cases. Actual Rust
+physical migration, reopen, typed caller and child drain remain separate assurance. Compare
+that evidence to the selected case and owner before applying it to another lane.
+
+The borrowed fixture uses an explicit cleanup executor, which scopes the protection evidence
+to that ownership path. Target-owned deadlines still warrant separate judgment. The actual
+scientific-worker product case keeps the prepared standalone lane. Other selected ordinary
+runtime/PID cases now build authored inputs in process. The current diagnoses live with
+[DTA-011](doubles-and-coupling.md#dta-011), [DTA-060](evidence-routes-and-execution.md#dta-060)
+and [DTA-030](execution-efficiency.md#dta-030). [Plan67c original conditions](../../plans/67c-surrealkit-and-rust-test-consolidation.md) ·
+[SurrealKit test](../../../crates/pse-operations/tests/native_service/surrealkit.rs)
+
+## Historical record
+
 ## Scoped baseline
 
 Inspected 2026-10-28 at `64a217de2`, including uncommitted inline-child corrections and

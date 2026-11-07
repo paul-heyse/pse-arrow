@@ -1,5 +1,30 @@
 # Test execution system
 
+## Current diagnosis and revalidation
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.**
+
+The managed host owns source-build capture, fixture binding and scoped results. In discovery it
+captures nextest, verifies the local pinned version and reuses the authenticated executable.
+The generic correctness adapter admits actual Cargo units but launches `cargo-nextest` through
+PATH. Its distinct fixture-free contract is explicit. This difference still matters for a claim
+that generic and managed results used the same runner identity. The previous three-family
+Python/native policy duplication is gone. [Managed discovery](../../../crates/pse-host/src/discovery.rs) ·
+[Generic adapter](../../../crates/pse-host/src/correctness.rs) · [Validation guide](../../dev/validation-assessment.md)
+
+| Finding | Current disposition and limits |
+|---|---|
+| [DTA-022](#dta-022) | Earlier Python config authority retired. The managed path uses one captured nextest policy and passes it to borrowed execution. DTA-063 owns the remaining scoped generic difference. |
+| [DTA-023](#dta-023) | Earlier dead filters retired. The binding still names removed `unit-package` and `check-package` recipes, while the validation guide uses current native commands. Current selection correspondence gaps are recorded under [DTA-050](evidence-routes-and-execution.md#dta-050) and [DTA-016](evidence-routes-and-execution.md#dta-016). |
+| [DTA-024](#dta-024) | Partial. The managed path verifies captured runner identity. The generic path does not apply that same check. The earlier generation-input claims remain historical. |
+| [DTA-026](#dta-026) | Former reciprocal Python mechanism retired. Its broad identity [DA-037](../audit/development-tooling.md#da-037) was merged into DA-057. |
+| [DTA-063](#dta-063) | Narrowed to the managed/generic distinction above and named specialist activation gaps. |
+| [DTA-064](#dta-064) | Earlier composition retired. `setup-test`, `docs-test` and governance now use native routes. `reference-unit` explicitly uses the isolated reference tool environment. Replacement assertion coverage is assessed on its own evidence. |
+
+[Current recipes](../../../justfile) · [Fixture execution](../../../crates/pse-host/src/fixtures/execution.rs)
+
+## Historical record
+
 **Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
 the working tree.** Primary home for the coexistence of route families during the Plan58 cutover
 ([DTA-063](#dta-063), [DTA-064](#dta-064)) and closure records for requirement interpretation and composition. Other route

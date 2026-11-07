@@ -1,5 +1,52 @@
 # Oracles, acceptance and assertions
 
+## Current diagnosis and revalidation
+
+**Interface-checked · 2026-11-07 · `3419aca2a`.**
+
+The ordinary Proto exchange passes scoped descriptors to an isolated reference and checks complete
+finite values in their declared physical context. The overheated-tear case distinguishes a named
+trial rejection from a setup failure. Its comparison budget still uses original native
+engineering context, with separate controls for units, authored scale and stopping tolerance.
+This evidence bounds the legacy findings below. The conformance native outcome controls also
+distinguish original feasible quality, stationary solutions and typed unsuccessful outcomes.
+Plan65h records the later five-case ordinary independent comparison under its named selection.
+[Ordinary exchange](../../../crates/pse-runtime/src/workflow/modeling/ordinary_reference.rs) ·
+[Ordinary delivery controls](../../../crates/pse-runtime/src/workflow/modeling/ordinary_delivery_tests.rs) ·
+[Native outcome controls](../../../tests/conformance/src/acceptance/native_outcomes.rs) ·
+[Plan65h evidence](../../plans/65h-integration-and-qualification.md)
+
+| Finding | Current disposition and limits |
+|---|---|
+| [DTA-001](#dta-001) | Withdrawn in its original scope. Its residual premise is recorded under DTA-061. |
+| [DTA-002](#dta-002) | Scoped closure retained. Independent phase brackets and wrong interior/missing slack controls remain in the complementarity flash evidence. |
+| [DTA-003](#dta-003) | Regeneration closure retained for the PFR, decay and controller sources. Separate simultaneous-controller acceptance remains with Plan53a's A04. |
+| [DTA-004](#dta-004)–[007](#dta-007) | Scoped closures retained. The inspected controls cover the HiGHS status vocabulary, an independent PR jet check, mixture input refusal, and finite, time and extent distinctions. |
+| [DTA-020](#dta-020), [DTA-021](#dta-021) | Scoped closures retained for named nonlinear curvature and reopened covariance cases, and countercurrent/unequal-pressure variants. They now have native fixture routes. |
+| [DTA-049](#dta-049) | Missing native route corrected. `just seed-conformance` invokes the reference manifest owner. Required population and assembled acceptance remain with Plan66l. |
+| [DTA-054](#dta-054) | Live for selected legacy references. Hardcoded generator inputs and the shared 368 K attribution used on separate 358 K/378 K cases leave the evidence association too coarse. The ordinary typed exchange is counterevidence to a blanket provenance claim. |
+| [DTA-056](#dta-056) | Narrowed. Native pruning controls now exercise malformed stats, limit order, protected schemas and skipped decode. They remain curated two-block cases; the independent engine comparison covers its fixed queries and batch. Other identity controls retain their sampled scope. |
+| [DTA-058](#dta-058) | Narrowed. The parity recipe selects four real native targets, replacing the old preflight. Interpreter wiring remains [DTA-050](evidence-routes-and-execution.md#dta-050). The sampled taxonomy governance checks implementation presence, which does not establish the declared diagnostic-code obligation. |
+| [DTA-061](#dta-061) | Live for legacy covariance estimate and sensitivity allowances derived from candidate output. The covariance estimate allowance is copied from the native report. The sensitivity allowance also governs the comparison of sIPOPT against the analytic result. Fixed covariance-matrix tolerances, independent expected values and rejection controls constrain the claim. |
+| [DTA-062](#dta-062) | Live in legacy oracle setup. Some probes accept any executable version, PID checks presence, and degeneracy enforces the 3.14 line. The ordinary driver checks the environment's selected package pins; the solver executable identity is absent from its response. |
+| [DTA-065](#dta-065) | Live for historical request/receipt assertions constructed with current serialization. Independently frozen predecessor DDL and real legacy capture data narrow the claim. The v3 overlay cleanup control does not exercise full physical migration. |
+| [DTA-066](#dta-066) | Live for the final apply write-error/readback paths. Normal apply followed by explicit reconciliation checks a different transition. The original pre-epoch lost-acknowledgement/restart case supplies meaningful fault coverage at its own stage. |
+| [DTA-067](#dta-067) | Live in named controls. The host unsupported-profile test asserts unsuccessful status, and sampled readiness/promotion checks accept any error. The SurrealKit setup-failure control stages a seed `THROW`, discards child diagnostics, and accepts any exit 1 without a result file. It checks report finality but cannot attribute the cause to that seed. The adjacent named assertion failure, typed schema refusal and overheated-stage controls discriminate their intended boundaries. |
+
+[Selected recipes](../../../justfile) · [Plan53a](../../plans/53a-scientific-assurance-and-references.md) ·
+[Plan66l](../../plans/66l-required-population-and-assembled-acceptance.md) ·
+[Legacy oracles](../../../tests/reference/oracles) ·
+[Covariance comparison](../../../crates/pse-runtime/tests/reference_covariance_exchange.rs) ·
+[Sensitivity oracle](../../../tests/reference/oracles/sensitivity.py) ·
+[Migration request/receipt tests](../../../crates/pse-operations/src/canonical_migration.rs) ·
+[Predecessor capture cleanup](../../../crates/pse-operations/src/canonical_capture_legacy_tests.rs) ·
+[Lost-acknowledgement controls](../../../crates/pse-operations/src/native_fixture/migration_tests.rs) ·
+[Pruning controls](../../../crates/pse-runtime/src/workflow/result_pruning_tests.rs) ·
+[SurrealKit outcome controls](../../../crates/pse-operations/tests/native_service/surrealkit.rs) ·
+[Taxonomy check](../../../tests/governance/tests/error_taxonomy.rs)
+
+## Historical record
+
 **Interface-checked · refreshed 2026-10-29 · source `7bd341f0bd4a27ad629008abdff56ee2bcf7e9f3` plus
 the working tree.** This page holds the primary findings on scientific expectations, references,
 assertions and test technique. The [collection baseline](README.md#baseline-and-method) states the
