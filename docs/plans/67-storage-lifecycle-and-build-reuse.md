@@ -1,6 +1,6 @@
 ---
 title: "Plan67: Storage lifecycle and build reuse"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -85,13 +85,13 @@ reclamation have separate evidence.
 
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
-| O01 | Planned | E verifies allocated footprint and release after repeat workflows. A records the incident's actual result. |
-| O02 | Planned | B replaces per-run retained executable copies with active custody and selected evidence. |
+| O01 | Resolved | E measured allocated footprint after repeat workflows and release. A records incident reclamation. |
+| O02 | Resolved | B verified active executable custody, settlement, working report and exact failed rerun. |
 | O03 | Resolved | E verified checkout and store identity, exact release, and retry. A consolidated the existing worktrees. E06 owns the assembled allocation comparison. |
-| O04 | Planned | E applies owner-issued release and reports active, eligible and unresolved holdings. |
-| O05 | Planned | C migrates database contract suites and application test constructs. |
-| O06 | Planned | E retires selected generations, redundant intermediates and proven unused service fragments. |
-| O07 | Planned | D reconciled the changed compilation contexts and selected checkout-owned campaign layout. C retains test-scenario qualification. |
+| O04 | Resolved | E verified exact owner-issued release and separates active, eligible and unresolved holdings. |
+| O05 | Resolved | C migrated the database contract suites and application test constructs. |
+| O06 | Resolved | E verified exact generation, intermediate and service retirement and recorded selected or unresolved holds. |
+| O07 | Resolved | D reconciled the changed compilation contexts and selected checkout-owned campaign layout. C verified the storage-relevant test replacements. |
 | O08 | Resolved | D qualified eligible Rust and C/C++ recovery on managed 0.19.0. A deployed second tier needs a named compatible consumer with measured transfer benefit. |
 | O09 | Deferred | Regenerate selected evidence when needed. B uses existing working-report and current-inventory rerun routes. |
 
@@ -124,23 +124,18 @@ and cache dispositions, including managed 0.19.0 restoration and the 100 GiB cap
 choice. [67e](67e-resource-retirement-and-storage-verification.md)
 records the ordinary Git retirement journey, owner-issued release and footprint observations.
 
-The remaining work includes the standalone native-lane, independent PID oracle and engineering
-verification in C, current published-generation disposition and assembled scope-end
-qualification. Keep each open obligation in its companion.
+## Outcome
 
-## Completion
+**Implemented.** Invocation custody, database fixtures and compiler cache use their
+native owners. The recurring operator routes are in the [environment guide](../dev/agent-environment.md),
+[Surreal substrate guide](../dev/surreal-substrate.md) and [build guide](../dev/build-performance.md).
 
-Record the incident cleanup, functional cutovers, and performance evidence independently.
-Complete A when the three checkouts and their retired external state are gone, or identify
-the exact unresolved owner for any preserved exception. Confirm incident result deletion and
-exercise a current-listing rerun while its working report is available. Complete the recurring scope when repeated ordinary
-test and preparation workflows add zero retained executable or physical database copies,
-released checkout and campaign roots return to their declared state, and deliberate holds
-remain readable. C must show equivalent named assertions and failure distinctions. D must
-record effective compiled units and cache behavior against a comparable baseline and support
-each claimed latency gain with measurements. Keep targeted checks during execution and run
-the selected assembled, documentation and hygiene scope after functional integration.
+**Tested.** The companion results establish the selected fixture, executable settlement,
+fresh rerun and checkout retirement boundaries. **Measured.** The repeat and release
+observations in C–E separate actual allocated bytes, selected reports and cache behavior
+from filesystem availability and end-to-end latency.
 
-At closeout, transfer enduring commands and contracts to their existing owners. Retire the
-series and resolved review through the repository's documentation lifecycle once current
-consumers have moved. [Documentation lifecycle](../dev/documentation.md#metadata-and-aggregate-scope)
+The maintainer accepted the targeted evidence for closure and waived the additional
+assembled Plan67 campaign. Engineering scientific acceptance belongs to Plan66. Keep
+these completed documents while Plan68 consumes their decisions and closeout evidence.
+[Documentation lifecycle](../dev/documentation.md#metadata-and-aggregate-scope)

@@ -20,12 +20,10 @@ Plans64/65 and their old native
 bindings remain only for separately assigned final-state reconciliation and cleanup; they
 assign no go-forward work. Retired plans likewise supply no obligations.
 
-[Plan67: Storage lifecycle and build reuse](67-storage-lifecycle-and-build-reuse.md)
-records the completed Plan66 worktree consolidation, incident cleanup, and direct deletion
-of prior ledgers. Main contains the settled executable custody, SurrealKit and Rust fixture
-cutover, and completed build compatibility and managed sccache 0.19.0 work. The coordinator
-links remaining test verification, retirement and assembled qualification to their owning
-companions. Plan66 retains the scientific and evidence contracts they consume.
+[Plan67: Storage lifecycle and build reuse](67-storage-lifecycle-and-build-reuse.md) is
+complete. Its retained closeout records the incident cleanup, native executable custody,
+SurrealKit and Rust fixture cutover, compiler reuse and owner-issued retirement. Plan68
+consumes its decisions and evidence.
 
 [Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) proposes one exact v4 release
 across the active database routes after Plan67 completes. Its companions own supplier and

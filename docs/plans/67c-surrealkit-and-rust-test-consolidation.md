@@ -1,6 +1,6 @@
 ---
 title: "Plan67c: SurrealKit and Rust test consolidation"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -124,7 +124,7 @@ and protocol settlement, preserving explicit holds or unresolved evidence for th
 | --- | --- | --- | --- |
 | C01 | complete | Existing SurrealKit pin, generated schema and native fixture selection | Explicit locked tool preparation and the owned sync, rollout parity and deliberate drift controls passed with original endpoint disposal. |
 | C02 | complete | C01 database assertions and complete owned case map | Database-only cases migrated. Rust cases retain their original owners and named assertions without the replaced scenario variants. Targeted native and force-validated controls passed. |
-| C03 | in-progress | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
+| C03 | complete | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Ordinary consumers use authored test inputs. The standalone consumer, independent PID oracle and repeat ordinary retention controls passed. Plan66 owns engineering scientific qualification. |
 
 ## Execution checkpoint — November 7
 
@@ -175,7 +175,7 @@ authored package reader with the dynamics tests. Their declared scientific capsu
 prerequisite is gone. The admitted engineering selection still has 1,129 compiler units
 and explicit Arrow validation, with only the engineering endpoint required at runtime.
 The two affected integration targets passed the scoped native compiler check. The
-engineering cases still need runtime qualification.
+engineering simulation, fit and horizon acceptance belongs to Plan66.
 
 Explicit runtime preparation serializes selection per checkout. It reopens the exact capsule
 and native lane, checks their current source and build context, and reuses them when the
@@ -247,7 +247,6 @@ retained executable copies after settlement.
 The exact `pse test xtask --target-kind bin -F physical-admission` scientific-input
 selection passed all seven cases with complete settlement and no retained executables.
 Standalone native-lane readiness and the absent preparation refusal were checked.
-Scope-end qualification still covers the full consumer population.
 
 **Measured.** The dedicated standalone checkout ran the native `fixture prepare native-lane`
 and `fixture show native-lane` twice under the same compiler, KLU, solver and isolation
@@ -273,6 +272,13 @@ in-process Rust input. Arrow validation was active. The original selected test e
 the PETSc and exact-response comparisons and the invalid-population assertions. Its
 settled working report and inventory occupied 8,204,288 allocated bytes and retained
 zero executable captures or physical database copies.
+
+## Outcome
+
+**Implemented.** The suite uses SurrealKit for the migrated database contracts and Rust
+for the native, scientific and lifecycle assertions. Ordinary tests read authored inputs
+in process. The standalone lane and independent oracle retain their actual external
+prerequisites. Plan66 owns engineering scientific qualification.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

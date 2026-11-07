@@ -1,6 +1,6 @@
 ---
 title: "Plan67b: Invocation custody and fresh rerun"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -163,3 +163,10 @@ and retry of an interrupted release.
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its
 source was withdrawn from the active checkout.
+
+## Outcome
+
+**Implemented.** Active invocations own their executable captures through original settlement.
+Current working reports and exact failed rerun use the existing native owners. The maintainer's
+regeneration decision closes B03 and B04 as deferred. A concrete history consumer would need
+its own decision and scope.

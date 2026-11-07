@@ -1,6 +1,6 @@
 ---
 title: "Plan67e: Resource retirement and storage verification"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -152,9 +152,9 @@ replaced between preview and release. [Native manager](../../crates/pse-host/src
 | E01 | complete | Read access to selected state and owners | Reproducible read-only census with allocation and ownership coverage. Supplies the baseline for E06. |
 | E02 | complete | E01 ownership view and existing Git and native settlement | Recorded checkout association, ordinary Git removal, exact external release and retry, and R-56 deferred. |
 | E03 | complete | Existing resource ownership and current use | Scratch and named-store dispositions use their original owners. Current controls cover live borrowers, locks, interrupted publication and disposal retry. E06 records final campaign allocation. |
-| E04 | in-progress | E03 release and hold semantics, existing selection/readiness receipts | Owner-specific retirement of superseded generations and legacy intermediates, with usable live and rollback selections. |
+| E04 | complete | E03 release and hold semantics, existing selection/readiness receipts | Retired exact generations and intermediates through their owners. Verified current selections and recorded holds on separately keyed provider generations. |
 | E05 | complete | E03 release semantics and exact current unit identity | Verified legacy fragments and enablement links retired. Native fixture teardown and persistent telemetry keep their separate owners. |
-| E06 | in-progress | E01–E05, invocation custody and test/campaign producers migrated | Repeated settled workflows and a complete retirement journey establish structural storage behavior. |
+| E06 | complete | E01–E05, invocation custody and test/campaign producers migrated | Repeat ordinary workflows, stable preparation and a settled compatibility checkout establish the structural storage outcome. |
 
 ## Acceptance
 
@@ -423,3 +423,20 @@ records. The fixture and checkout state were absent at readback.
 The external fixture state occupied 1,135,935,488 bytes and the other external state
 occupied 16,756,736 bytes. A separate filesystem sample showed availability rose by
 54,541,463,552 bytes during this closeout.
+
+**Measured.** Closing the final disposable verification checkout removed 58,763,022,336
+allocated bytes from its Cargo target and 6,326,915,072 allocated bytes from its two
+private external roots. The original native users and private fixture owners had drained.
+Git and filesystem readback verified the checkout and its external roots were gone.
+
+## Outcome
+
+**Tested.** Repeated ordinary runtime and SurrealKit tests kept zero additional executable
+or physical database copies. The native-lane preparation reused the same receipt and
+allocation. The compatibility checkout verified ordinary Git removal and exact external
+release after settlement, including an interrupted release and retry.
+
+**Implemented.** The operator workflows use read-only allocation observations and release
+resources through their original owners. Active selections, distinct native recipes and
+unresolved ownership remain protected under their existing rules. Broader automatic
+published-generation collection remains a separate decision.
