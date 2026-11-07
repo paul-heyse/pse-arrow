@@ -1551,15 +1551,16 @@ impl HostManager {
         if current.unit != selected.unit
             || current.invocation != selected.invocation
             || current.control_group != selected.control_group
-            || !current.unit.ends_with(".scope")
             || current.active_state != "active"
             || !self.native_workload(&current).await?
         {
             return Err(HostError::Ownership(
-                "bound service requires this process's original native workload scope".into(),
+                "bound service requires this process's original native workload unit".into(),
             ));
         }
-        let (slice, parent_group, _) = self.foreground_placement(&current).await?;
+        // The authenticated workload can be a foreground scope or the original
+        // detached notify service. Both bind children to the same actual slice.
+        let (slice, parent_group, _) = self.entry_slice(&current).await?;
         let parent = self.observe(&slice).await?;
         let original = Group::open(&current.control_group, false)?;
         let parent_group = Group::open(&parent_group, false)?;

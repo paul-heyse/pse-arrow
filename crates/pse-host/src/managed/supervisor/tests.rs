@@ -308,6 +308,23 @@ async fn detached_case(finite: bool, case: LifetimeCase) {
             let passive = observe_recorded(&root, &id, &environment).await?;
             assert!(passive.native_drained, "original kernel population must be empty after native wait");
             assert!(authenticate_payload_peer(&root, &id, custody.child.pid, &environment).await.is_err(), "drained original child cannot authenticate a stale peer");
+            if !cancel && !crash {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    loop {
+                        let passive = observe_recorded(&root, &id, &environment).await?;
+                        if matches!(passive.observation, RecordedObservation::Gone) {
+                            return Ok::<_, HostError>(());
+                        }
+                        tokio::time::sleep(Duration::from_millis(20)).await;
+                    }
+                }).await.map_err(|_| HostError::Deadline("original detached unit collection".into()))??;
+                let executable = control.executable(&root, HostTool::Host)?;
+                let retired = executable.with_extension("retired");
+                std::fs::rename(&executable, &retired)?;
+                let historical = observe_recorded(&root, &id, &environment).await;
+                std::fs::rename(&retired, &executable)?;
+                assert!(historical?.native_drained, "collected original drain must survive image retirement");
+            }
             let result = store
                 .result::<String, ManagedSummary>(&id)?
                 .ok_or_else(|| {

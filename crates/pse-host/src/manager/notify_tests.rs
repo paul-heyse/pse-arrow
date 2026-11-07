@@ -70,11 +70,52 @@ async fn notify_service_main_entry() {
         .unwrap();
     tokio::time::timeout(Duration::from_secs(15), async {
         while !root.join("exit").exists() {
+            if root.join("bind").exists() && !root.join("bound").exists() {
+                prove_bound_service(&manager, &intent).await.unwrap();
+                std::fs::write(root.join("bound"), b"original bound service drained").unwrap();
+            }
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
     })
     .await
     .unwrap();
+}
+
+async fn prove_bound_service(
+    manager: &HostManager,
+    enclosing: &LaunchIntent,
+) -> Result<(), HostError> {
+    let intent = LaunchIntent::fresh()?;
+    let spec = ServiceSpec {
+        intent: intent.clone(),
+        executable: "/usr/bin/sleep".into(),
+        arguments: vec!["30".into()],
+        environment: Vec::new(),
+    };
+    let parent = manager.borrow(enclosing.unit());
+    let mut owner = None;
+    let checked = async {
+        owner = Some(
+            manager
+                .start_service_bound(
+                    &spec,
+                    &parent,
+                    &ResourceControls::default(),
+                    Instant::now() + Duration::from_secs(5),
+                )
+                .await?,
+        );
+        let unit = manager.unit(intent.unit()).await?;
+        if !unit.binds_to().await?.contains(&enclosing.unit)
+            || !unit.after().await?.contains(&enclosing.unit)
+        {
+            return Err(failure("bound service lost its original detached owner"));
+        }
+        Ok(())
+    }
+    .await;
+    let settled = cleanup(manager, &intent, &mut owner).await;
+    checked.and(settled)
 }
 
 #[tokio::test]
@@ -314,6 +355,12 @@ async fn native_notify_case(ready: bool) {
             if recorded.wait(Some(Instant::now() + Duration::from_millis(10))).await?.is_some() {
                 return Err(failure("recorded bounded observation promoted ongoing work"));
             }
+            std::fs::write(scratch.path().join("bind"), b"main may launch its bound service")?;
+            tokio::time::timeout(Duration::from_secs(6), async {
+                while !scratch.path().join("bound").exists() {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+            }).await.map_err(|_| HostError::Deadline("detached fixture child did not settle".into()))?;
             std::fs::write(scratch.path().join("exit"), b"main may finish")?;
             // Natural main exit must run stop-post without a later StopUnit trigger.
             tokio::time::timeout(Duration::from_secs(5), async {

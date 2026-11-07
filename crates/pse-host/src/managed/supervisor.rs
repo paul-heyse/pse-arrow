@@ -375,7 +375,6 @@ async fn checked_recorded(
     {
         return Err(invalid("actual original controller record is invalid"));
     }
-    launch.verified_executable(&root)?;
     let manager = HostManager::connect_user(None).await?;
     let unit = manager
         .recorded_original(
@@ -386,6 +385,9 @@ async fn checked_recorded(
         )
         .await?;
     if let Some(unit) = &unit {
+        // Live unit observation and control still bind the original executable.
+        // A collected unit's recorded kernel drain survives retirement of that image.
+        launch.verified_executable(&root)?;
         unit.observe().await?;
     }
     Ok(CheckedRecorded {
