@@ -25,6 +25,7 @@ mod ownership;
 mod private_store;
 mod proto_dispatch;
 mod proto_projection;
+mod publication;
 #[cfg(feature = "recorded-result-contracts")]
 mod recorded_result;
 
@@ -46,6 +47,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 use pse_codegen::codegen::{GeneratedTree, Language, documents, provenance};
+use publication::write_tree;
 
 use crate::Target;
 
@@ -745,39 +747,6 @@ fn collect_files(root: &Path, relative: &Path, files: &mut BTreeSet<PathBuf>) ->
         }
     } else {
         bail!("generated tree contains a non-file: {}", path.display());
-    }
-    Ok(())
-}
-
-fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
-    validate_tree(tree)?;
-    let existing = inventory(root, tree)?;
-    for path in tree.files.keys() {
-        reject_symlinks(root, path)?;
-    }
-    for (path, bytes) in &tree.files {
-        let destination = root.join(path);
-        let parent = destination
-            .parent()
-            .context("generated file has no parent")?;
-        fs::create_dir_all(parent)?;
-        match fs::read(&destination) {
-            Ok(previous) if previous == *bytes => continue,
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(error).with_context(|| format!("reading {}", destination.display()));
-            }
-        }
-        fs::write(&destination, bytes)
-            .with_context(|| format!("writing {}", destination.display()))?;
-    }
-    for stale in existing
-        .iter()
-        .filter(|path| !tree.files.contains_key(*path))
-    {
-        fs::remove_file(root.join(stale))
-            .with_context(|| format!("removing stale generated file {}", stale.display()))?;
     }
     Ok(())
 }
