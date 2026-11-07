@@ -155,7 +155,7 @@ fn private_directory(path: &Path, create: bool) -> Result<(), HostError> {
     }
     Ok(())
 }
-fn owned_file(path: &Path, create: bool) -> Result<File, HostError> {
+pub(super) fn owned_file(path: &Path, create: bool) -> Result<File, HostError> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)

@@ -123,7 +123,7 @@ fn pointer(state: &CheckoutState) -> PathBuf {
     state.fixtures().join("runtime.json")
 }
 
-/// Build and capture only the scientific capsule builder and private native lane.
+/// Reuse the current capsule and lane or build and capture their source owners.
 /// # Errors
 /// Source, compiler, native admission, capture, child execution or publication refuses.
 pub fn prepare_runtime(
@@ -133,6 +133,18 @@ pub fn prepare_runtime(
     let root = root.canonicalize().map_err(HostError::from)?;
     let state = CheckoutState::resolve(&root, environment).map_err(HostError::from)?;
     let environment = construction_environment(&root, environment)?;
+    private_directory(&state.fixtures(), true)?;
+    let lock = generation::owned_file(&state.fixtures().join(".runtime-prepare.lock"), true)?;
+    rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
+        .map_err(std::io::Error::from)
+        .map_err(HostError::from)?;
+    let demand = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
+    if pointer(&state).try_exists().map_err(HostError::from)?
+        && let Ok(selected) = open(&state, &root, &demand)
+        && selected.validate_current(&root, &environment, &demand).is_ok()
+    {
+        return selected.view();
+    }
     prepare_with(
         &state,
         |directory, selection| {
@@ -189,7 +201,6 @@ pub fn prepare_runtime(
             })
         },
         |directory, selection| {
-            let demand = BTreeSet::from([Input::ScientificInputs, Input::NativeLane]);
             let selected = open_directory(&state, &root, directory, selection, &demand)?;
             selected.validate_current(&root, &environment, &demand)?;
             selected.view()

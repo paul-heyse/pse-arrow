@@ -150,6 +150,12 @@ the existing package owner. All four passed with Diffsol and Ipopt, explicit Arr
 complete settlement and zero prepared fixture requirements. Multi-package and reference
 consumers remain in C03.
 
+Explicit runtime preparation serializes selection per checkout. It reopens the exact capsule
+and native lane, checks their current source and build context, and reuses them when the
+original input owner confirms correspondence. Two explicit preparations under the same four
+native profiles returned the same selection and original bytes. The second added no generation
+and left the physical allocation unchanged.
+
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and
 the changed unit count. Preserve independent scientific/reference assertions when a case moves.
