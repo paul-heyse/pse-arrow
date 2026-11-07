@@ -2681,6 +2681,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     // A distinct canonical database is a fresh receiving authority, never the
     // original run/research receipt owner merely because those bytes were copied.
     let receiver = crate::workflow::tests::durable_runtime();
+    let receiving_services = receiver.execution_services();
     let receiving_store = receiver.canonical_store().unwrap();
     assert_ne!(
         receiving_store.issuing_store().unwrap(),
@@ -2785,7 +2786,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
     // A normal exact-parent typed edit is newly admitted locally. It creates a
     // new receiving study and result; the copied terminal does not seed it.
     let declarations = imported_source
-        .declarations(services.preparation())
+        .declarations(receiving_services.preparation())
         .await
         .unwrap();
     let mut intercept = declarations
@@ -2847,7 +2848,7 @@ async fn research_calibrated_fit_reopens_and_publishes_original_cells() {
         imported_source.revision.identity()
     );
     let edited_local = Box::pin(edited.admit_study(
-        &services,
+        &receiving_services,
         &crate::workflow::StudyInputs::Explicit(vec![point]),
         &crate::workflow::StudyOutputDemand::Full {},
         &cancel,
