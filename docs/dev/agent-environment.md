@@ -344,6 +344,24 @@ of the census unknown. Use original settlement and current reader, hold, and sel
 to classify release candidates. Compare measured allocations and filesystem availability
 separately after release.
 
+### Closing ad hoc scratch
+
+Put regenerable output for an ad hoc campaign in a private directory below the selected
+checkout's `scratch` state root. Give the directory a single producing invocation. Record
+its purpose, exact path and directory identity, original invocation, and the source revision
+and arguments needed to run it again. Keep authored inputs outside this directory. Use a
+managed `pse run` invocation when the command starts subprocesses or needs a durable
+settlement observation.
+
+At closeout, retain the selected finding and its rerun selection. Transfer any needed
+published result through its own owner. Use `pse result` or `pse wait` on the original
+invocation and check its payload settlement. A successful observation that times out
+still leaves the original completion unknown. Preview allocated bytes and recheck the
+directory identity, backing mount, readers and holds before releasing the exact private
+directory. If an acknowledgement, drain or transfer is unresolved, record that fact with
+the original owner and leave the material available for recovery. Treat old `/tmp` output
+and unclassified developer roots as a separate inventory until their ownership is established.
+
 An authored scratch probe has a narrower output-only release. Use
 `scripts/pse probe clean NAME` to preview the allocated Cargo target bytes and exact
 directory identity. Pass that identity to `scripts/pse probe clean NAME --release IDENTITY`

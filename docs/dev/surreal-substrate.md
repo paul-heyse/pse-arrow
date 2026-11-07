@@ -100,6 +100,22 @@ used to investigate selected evidence has its own input selection and disposal b
 Retain published scientific results and their authored provenance through the canonical
 owner and use its explicit release and recovery operations.
 
+Before creating a named development database, record the question it supports, the
+selected sources or rerun inputs, the application that owns it, and its closeout condition.
+Use an isolated logical database in an owned fixture for database contract and caller tests.
+Keep fresh physical state for tests whose assertions include restart or recovery. Use a
+separately owned derived index when a development question needs repeated queries over a
+selected source set. Canonical projects and protected scientific results carry their own
+publication, recovery and release requirements.
+
+At closeout, retain the selected result and the authored inputs needed to reproduce it.
+Close admission and settle readers and in-flight writes through the database's owner.
+Use the original service owner for private fixture disposal and the canonical owner for
+published results. Account for database bytes, payload files, and worker executable
+generations separately. Recheck physical allocation after logical release. If a legacy
+store lacks the original owner or a verifiable handoff, record its unresolved scope before
+any release is considered.
+
 ### Selected-service diagnostics
 
 Read native canonical client/store observations and original diagnostic checkpoints with

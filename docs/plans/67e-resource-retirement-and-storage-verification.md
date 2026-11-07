@@ -231,6 +231,26 @@ at recheck, left the artifact readable, and a repeated preview found the
 target absent. The same release keeps authored probe inputs under their
 existing owner.
 
+A checkout-local census found 79 older API targets last modified October 30 through
+November 2. Fifty-seven have independently verified publications. The original
+native invocation lookup matched none of those build targets, so they remain
+outside the new acquisition-receipt release route.
+
+**Tested.** The [ad hoc scratch closeout](../dev/agent-environment.md#closing-ad-hoc-scratch)
+used the selected checkout's private scratch root and one detached `pse run` producer.
+`pse wait --timeout 1` returned an observation with unknown original completion. The
+derived file remained in place. After the same producer completed and `pse wait` confirmed
+payload settlement, the owner rechecked the mount and directory incarnation and removed
+8,392,704 allocated bytes. The compact digest and exact rerun selection were available
+without the output directory. Automatic adoption of prior diagnostic or compiler scratch
+and the retirement path for named legacy stores remain open.
+
+The bound fixture launch now distinguishes a definite refusal before native
+dispatch from an uncertain acknowledgement. The fixture reports successful
+disposal independently of the test result and preserves custody when dispatch
+or the child drain is uncertain. The targeted operations receipt control
+passed with an explicit absent runner and settled fixture.
+
 The exact owned SurrealKit test ran twice under the same selection. Both passed with
 complete settlement. Both original report and inventory pairs remained readable,
 each private database directory was absent, and each workflow retained zero executable
