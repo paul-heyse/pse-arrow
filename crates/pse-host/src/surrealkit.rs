@@ -13,7 +13,7 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read as _, Write as _},
-    os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _},
+    os::unix::fs::{MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -24,11 +24,12 @@ const BINARY: &str = "surrealkit";
 const RECEIPT: &str = "release.json";
 const MAX_RECEIPT: u64 = 16 << 10;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 struct Pin {
     version: String,
     repository: String,
     source_revision: String,
+    original_lock_sha256: String,
 }
 
 #[derive(Deserialize)]
@@ -62,6 +63,36 @@ fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(message.into())
 }
 
+fn hexadecimal(value: &str, length: usize) -> bool {
+    value.len() == length
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn release_member(path: &Path, mode: u32) -> Result<File, HostError> {
+    no_symlinks(path)?;
+    let file = crate::test_inventory::open_private(path)?;
+    let metadata = file.metadata()?;
+    if metadata.permissions().mode() & 0o7777 != mode || metadata.nlink() != 1 {
+        return Err(invalid("SurrealKit release requires protected, singly linked files"));
+    }
+    Ok(file)
+}
+
+fn opened_digest(mut file: File) -> Result<String, HostError> {
+    let mut hash = Sha256::new();
+    let mut bytes = [0_u8; 65536];
+    loop {
+        let count = file.read(&mut bytes)?;
+        if count == 0 {
+            break;
+        }
+        hash.update(&bytes[..count]);
+    }
+    Ok(hash.finalize().iter().map(|byte| format!("{byte:02x}")).collect())
+}
+
 impl Selection {
     fn read(root: &Path, environment: &Environment) -> Result<Self, HostError> {
         let pin: Pin = toml::from_str(&fs::read_to_string(root.join(PIN))?)
@@ -72,8 +103,8 @@ impl Selection {
             .all(|b| b.is_ascii_alphanumeric() || b".-".contains(&b))
             || pin.version.is_empty()
             || pin.repository != "surrealdb/surrealkit"
-            || pin.source_revision.len() != 40
-            || !pin.source_revision.bytes().all(|b| b.is_ascii_hexdigit())
+            || !hexadecimal(&pin.source_revision, 40)
+            || !hexadecimal(&pin.original_lock_sha256, 64)
         {
             return Err(invalid("invalid SurrealKit source identity"));
         }
@@ -91,10 +122,7 @@ impl Selection {
             .map_err(|_| invalid("invalid standalone SDK pin"))?;
         if sdk.default_features
             || !sdk.version.starts_with('=')
-            || !sdk
-                .features
-                .iter()
-                .any(|feature| feature == "protocol-grpc")
+            || sdk.features != ["protocol-grpc", "rustls"]
         {
             return Err(invalid("SurrealKit requires the pinned remote gRPC SDK"));
         }
@@ -109,7 +137,7 @@ impl Selection {
             identity.update(feature.as_bytes());
             identity.update([0]);
         }
-        identity.update(b"surrealkit-grpc-locked-v1");
+        identity.update(b"surrealkit-grpc-locked-v2");
         let inputs = identity
             .finalize()
             .iter()
@@ -132,26 +160,20 @@ impl Selection {
 
     fn verify_at(&self, binary: &Path) -> Result<(), HostError> {
         let record = binary.with_file_name(RECEIPT);
-        no_symlinks(&record)?;
-        let record = crate::test_inventory::open_private(&record)?;
-        let metadata = record.metadata()?;
-        if metadata.permissions().mode() & 0o777 != 0o400 || metadata.len() > MAX_RECEIPT {
-            return Err(invalid(
-                "SurrealKit release receipt requires bounded protected bytes",
-            ));
+        let record = release_member(&record, 0o400)?;
+        if record.metadata()?.len() > MAX_RECEIPT {
+            return Err(invalid("SurrealKit release receipt exceeds its admitted extent"));
         }
         let receipt: Receipt = serde_json::from_reader(record.take(MAX_RECEIPT + 1))
             .map_err(|_| invalid("invalid SurrealKit release receipt"))?;
-        if receipt.pin.version != self.pin.version
-            || receipt.pin.repository != self.pin.repository
-            || receipt.pin.source_revision != self.pin.source_revision
+        if receipt.pin != self.pin
             || receipt.source_commit != self.pin.source_revision
             || !receipt.source_build
             || !receipt.release_build_locked
             || receipt.input_sha256 != self.inputs
-            || receipt.lock_sha256 != digest(&binary.with_file_name("Cargo.lock"))?
-            || receipt.binary_sha256 != digest(binary)?
-            || fs::metadata(binary)?.permissions().mode() & 0o777 != 0o500
+            || receipt.lock_sha256
+                != opened_digest(release_member(&binary.with_file_name("Cargo.lock"), 0o400)?)?
+            || receipt.binary_sha256 != opened_digest(release_member(binary, 0o500)?)?
         {
             return Err(invalid(
                 "SurrealKit release does not match prepared source and executable",
@@ -191,7 +213,7 @@ fn build_sources(source: &Path, sdk: &Sdk) -> Result<(), HostError> {
         serde_json::to_string(&sdk.features).map_err(|_| invalid("invalid SDK features"))?;
     replace_once(
         &manifest,
-        "surrealdb = { version = '3.3.0', features = ['protocol-http', 'jwks'] }",
+        "surrealdb = { version = '4.0.0', features = ['protocol-http', 'jwks'] }",
         &format!(
             "surrealdb = {{ version = {:?}, default-features = false, features = {features} }}",
             sdk.version
@@ -199,22 +221,10 @@ fn build_sources(source: &Path, sdk: &Sdk) -> Result<(), HostError> {
     )?;
     replace_once(
         &manifest,
-        "surrealdb-types = { version = '3.3.0' }",
+        "surrealdb-types = { version = '4.0.0' }",
         &format!("surrealdb-types = {{ version = {:?} }}", sdk.version),
     )?;
     replace_once(&manifest, "panic = 'abort'", "panic = 'unwind'")?;
-    replace_once(
-        &manifest,
-        "homepage = 'https://github.com/surrealdb/surrealkit'\n",
-        "",
-    )?;
-    for name in ["surrealkit", "surrealkit-macros"] {
-        replace_once(
-            &source.join("crates").join(name).join("Cargo.toml"),
-            "homepage.workspace = true\n",
-            "",
-        )?;
-    }
     Ok(())
 }
 
@@ -279,12 +289,26 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
         ]),
         "source checkout",
     )?;
+    let revision = git().args(["rev-parse", "HEAD"]).output()?;
+    let source_commit = std::str::from_utf8(&revision.stdout)
+        .map_err(|_| invalid("SurrealKit checkout revision is not UTF-8"))?
+        .trim();
+    let lock = source.join("Cargo.lock");
+    if !revision.status.success()
+        || source_commit != selected.pin.source_revision
+        || digest(&lock)? != selected.pin.original_lock_sha256
+    {
+        return Err(invalid("SurrealKit checkout or original lock differs from the pinned source"));
+    }
+    run(
+        git().args(["apply", "--check"]).arg(root.join(LOCK_PATCH)),
+        "locked SDK integration preflight",
+    )?;
     run(
         git().arg("apply").arg(root.join(LOCK_PATCH)),
         "locked SDK integration",
     )?;
     build_sources(&source, &selected.sdk)?;
-    let lock = source.join("Cargo.lock");
     let lock_sha256 = digest(&lock)?;
     let mut cargo = Command::new("cargo");
     cargo.current_dir(root).env_clear().envs(environment);
@@ -336,11 +360,11 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
         .mode(0o400)
         .open(pending.join(RECEIPT))?;
     let receipt = Receipt {
-        source_commit: selected.pin.source_revision.clone(),
-        pin: selected.pin,
+        source_commit: source_commit.to_owned(),
+        pin: selected.pin.clone(),
         source_build: true,
         release_build_locked: true,
-        input_sha256: selected.inputs,
+        input_sha256: selected.inputs.clone(),
         lock_sha256,
         binary_sha256: digest(&image)?,
     };
@@ -348,6 +372,7 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
         .map_err(|_| invalid("invalid SurrealKit publication receipt"))?;
     record.write_all(b"\n")?;
     record.sync_all()?;
+    selected.verify_at(&image)?;
     File::open(&pending)?.sync_all()?;
     rustix::fs::renameat_with(
         rustix::fs::CWD,
