@@ -206,7 +206,7 @@ records with incomplete or unavailable terminal evidence under this explicit dis
 All selected paths were absent at readback. The 34 working records for this implementation
 were outside the release selection. Filesystem availability measured independently was
 916,193,566,720 bytes after release. The incident evidence directory has the compact release
-receipt. This one-time action does not change the target ownership and settlement behavior.
+receipt. The target ownership and settlement rules govern future invocations.
 
 The retired Python test-resource invocation ledger was also removed directly. Its 3,535 files
 occupied 2,066,976,768 allocated bytes, including copies of the old initializer executable.

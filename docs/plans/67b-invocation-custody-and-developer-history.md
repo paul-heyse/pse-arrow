@@ -150,6 +150,12 @@ failed report retained three fixture images occupying 1,840,377,856 allocated by
 Use the retained exact test identities for that hold decision and recheck release
 against this original result.
 
+**Tested.** With the revised original-selection check, `pse wait` released all three
+fixture executables and their three sidecars from that same failed run. The original
+failed outcome, result, report, and inventory digests matched at readback. The original
+fixture settlement and native drain gates were still required. A selected target-owned
+case or incomplete selection with such a candidate still keeps the hold.
+
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its
 source was withdrawn from the active checkout.

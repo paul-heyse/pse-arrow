@@ -280,6 +280,11 @@ state. The filesystem separately reported 736.49 GiB available. The sample inclu
 retained legacy and live qualification state. The selected repeat measurements isolate
 the new ordinary behavior from these existing holdings.
 
+After the explicit prior-ledger release, the main invocation tree measured
+2,839,961,600 allocated bytes while current qualification was active. That measurement
+still included the three failed-run helper images recorded in [67b](67b-invocation-custody-and-developer-history.md).
+The prior ledger cleanup has its own result in [67a](67a-plan66-consolidation-and-incident-cleanup.md).
+
 The service preview found 516 legacy Surreal and five compiler-cache definition candidates
 and separated them from selected, rollback, referenced, and unresolved definitions. One
 disabled, unloaded Surreal definition passed the exact pre-release checks and was removed.
@@ -321,6 +326,12 @@ verified afterward, and all five release tokens returned already absent on retry
 The current provider and deployment inventories preserve their independently
 protected or unresolved material.
 
+The native owner repeated this preview after the direct prior-ledger release. It
+identified 23 additional superseded host-tool generations with no surviving use
+or selection holds. Exact release rechecked and removed all 23, accounting for
+20,220,166,144 allocated bytes. The current selection and working invocation
+holds remained visible.
+
 **Measured.** Retired five unpublished staging copies from the selected legacy Plan49
 store, releasing 4,992,720,896 allocated bytes. The original version-one publisher
 returned only the immutable generation path and preserved a staging copy after a
@@ -331,3 +342,9 @@ records, service fragments, mount and directory identities. Both published manif
 and the database and payload directory identities verified after release. The remaining
 published worker generations occupy 10,043,052,032 allocated bytes and need their own
 selection and rollback disposition.
+
+The remaining worker-generation census found one small generation referenced by the
+current config or launch, seven generations with older receiver or profile references,
+and nine with unresolved references. The native provider census also found separately
+published generations outside the current pointer. Their distinct recipe identities and
+compiled consumer references need owner reconciliation before retirement.
