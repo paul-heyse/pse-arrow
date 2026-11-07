@@ -5,14 +5,16 @@ use super::{GenerationIntent, HostError, OutputOptions, checkout_root};
 use crate::{
     envelope::{self, Envelope},
     environment::Environment,
+    investigation::NativePath,
     product_reader::{self, Contract, ProductReaderSelection},
 };
-use clap::{Subcommand, ValueEnum};
+use clap::{Args, Subcommand, ValueEnum};
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::value::RawValue;
 use std::{
     io::{self, Read, Write},
+    num::{NonZeroU64, NonZeroUsize},
     path::{Path, PathBuf},
     sync::Arc,
     time::{Duration, Instant},
@@ -67,6 +69,140 @@ pub(super) enum Action {
         #[arg(long, default_value_t = 30, value_parser = clap::value_parser!(u64).range(1..))]
         timeout: u64,
     },
+}
+#[derive(Debug, Subcommand)]
+pub(super) enum ProjectAction {
+    /// Verify and inspect an existing project pack offline.
+    InspectPack {
+        /// Exact reader identifier returned by `pse observe prepare`.
+        #[arg(long)]
+        reader: String,
+        /// Directory containing the logical project pack.
+        input: PathBuf,
+        /// Optional bound on bytes in an individual manifest or document.
+        #[arg(long)]
+        maximum_document_bytes: Option<NonZeroUsize>,
+    },
+    /// Read one bounded metadata page from an existing canonical deployment.
+    Metadata {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Original continuation JSON from the selected metadata page.
+        #[arg(long)]
+        cursor: Option<ProjectCursor>,
+        #[command(subcommand)]
+        collection: ProjectCollection,
+    },
+    /// Read an exact project header.
+    Show {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Canonical project key.
+        project: String,
+    },
+    /// Read one generation-fenced branch page for an exact project.
+    Branches {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Canonical project key.
+        project: String,
+        /// Original continuation JSON from the selected branch page.
+        #[arg(long)]
+        cursor: Option<ProjectCursor>,
+    },
+    /// Read an exact branch header.
+    Branch {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Canonical branch key.
+        branch: String,
+    },
+    /// Read an exact draft head and version descriptor.
+    DraftShow {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Canonical draft key.
+        key: String,
+    },
+}
+#[derive(Debug, Args)]
+pub(super) struct ProjectSource {
+    /// Exact reader identifier returned by `pse observe prepare`.
+    #[arg(long)]
+    reader: String,
+    /// Exact existing private canonical deployment state directory.
+    #[arg(long)]
+    state: PathBuf,
+    /// Exact existing database; defaults to the database configured by the deployment.
+    #[arg(long)]
+    database: Option<String>,
+    /// Total reader allowance in milliseconds, from 1 through 25000.
+    #[arg(long)]
+    timeout_ms: Option<NonZeroU64>,
+}
+#[derive(Debug, Subcommand)]
+pub(super) enum ProjectCollection {
+    /// Discover available project headers.
+    Projects,
+    /// Read draft headers by branch key.
+    Drafts { branch: String },
+    /// Read bookmark headers by project key.
+    Bookmarks { project: String },
+    /// Read savepoint headers by draft key.
+    Savepoints { draft: String },
+    /// Read admission diagnostics by draft-version key.
+    Diagnostics { version: String },
+}
+#[derive(Clone, Debug, Serialize)]
+#[serde(transparent)]
+pub(super) struct ProjectCursor(Box<RawValue>);
+impl std::str::FromStr for ProjectCursor {
+    type Err = serde_json::Error;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        serde_json::from_str(value).map(Self)
+    }
+}
+
+#[derive(Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ProjectQuery {
+    Metadata {
+        request: ProjectMetadataQuery,
+    },
+    Show {
+        project: String,
+    },
+    Branches {
+        project: String,
+        cursor: Option<ProjectCursor>,
+    },
+    Branch {
+        branch: String,
+    },
+    DraftShow {
+        key: String,
+    },
+}
+#[derive(Serialize)]
+struct ProjectMetadataQuery {
+    kind: &'static str,
+    owner: String,
+    cursor: Option<ProjectCursor>,
+}
+impl ProjectCollection {
+    fn query(self, cursor: Option<ProjectCursor>) -> ProjectQuery {
+        let (kind, owner) = match self {
+            Self::Projects => ("projects", String::new()),
+            Self::Drafts { branch } => ("drafts", branch),
+            Self::Bookmarks { project } => ("bookmarks", project),
+            Self::Savepoints { draft } => ("savepoints", draft),
+            Self::Diagnostics { version } => ("diagnostics", version),
+        };
+        ProjectQuery::Metadata {
+            request: ProjectMetadataQuery { kind, owner, cursor },
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum Direction {
@@ -136,6 +272,127 @@ fn request_file(path: &Path) -> Result<Box<RawValue>, HostError> {
             error.column()
         ))
     })
+}
+fn project_pack_request(
+    input: PathBuf,
+    maximum_document_bytes: Option<NonZeroUsize>,
+) -> Result<Box<RawValue>, HostError> {
+    #[derive(Serialize)]
+    #[serde(tag = "operation", rename_all = "snake_case")]
+    enum Request {
+        InspectProjectPack {
+            input: NativePath,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            maximum_document_bytes: Option<NonZeroUsize>,
+        },
+    }
+    serde_json::value::to_raw_value(&Request::InspectProjectPack {
+        input: NativePath::from(input),
+        maximum_document_bytes,
+    })
+    .map_err(|error| io::Error::other(error).into())
+}
+fn online_project_request(
+    state: PathBuf,
+    database: Option<String>,
+    timeout_ms: Option<NonZeroU64>,
+    query: ProjectQuery,
+) -> Result<Box<RawValue>, HostError> {
+    #[derive(Serialize)]
+    struct Target {
+        state: NativePath,
+        database: Option<String>,
+        timeout_ms: Option<NonZeroU64>,
+    }
+    #[derive(Serialize)]
+    struct Request {
+        operation: &'static str,
+        canonical: Target,
+        query: ProjectQuery,
+    }
+    serde_json::value::to_raw_value(&Request {
+        operation: "project",
+        canonical: Target {
+            state: NativePath::from(state),
+            database,
+            timeout_ms,
+        },
+        query,
+    })
+    .map_err(|error| io::Error::other(error).into())
+}
+impl ProjectAction {
+    fn request(
+        self,
+        selected: Option<&Path>,
+    ) -> Result<(&'static str, String, Box<RawValue>), HostError> {
+        let resolve = |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
+        let (command, source, query) = match self {
+            Self::InspectPack {
+                reader,
+                input,
+                maximum_document_bytes,
+            } => return Ok((
+                "project inspect-pack",
+                reader,
+                project_pack_request(resolve(input)?, maximum_document_bytes)?,
+            )),
+            Self::Metadata { source, cursor, collection } => {
+                ("project metadata", source, collection.query(cursor))
+            }
+            Self::Show { source, project } => ("project show", source, ProjectQuery::Show { project }),
+            Self::Branches { source, project, cursor } => ("project branches", source, ProjectQuery::Branches { project, cursor }),
+            Self::Branch { source, branch } => ("project branch", source, ProjectQuery::Branch { branch }),
+            Self::DraftShow { source, key } => ("project draft-show", source, ProjectQuery::DraftShow { key }),
+        };
+        Ok((
+            command,
+            source.reader,
+            online_project_request(resolve(source.state)?, source.database, source.timeout_ms, query)?,
+        ))
+    }
+}
+pub(super) fn project_dispatch(
+    action: ProjectAction,
+    selected: Option<&Path>,
+    output: &OutputOptions,
+) -> Result<i32, HostError> {
+    let root = checkout_root(selected)?;
+    let environment: Environment = std::env::vars_os().collect();
+    let (command, reader, request) = action.request(selected)?;
+    let reader = ProductReaderSelection::open(&root, &environment, &reader).map_err(product_error)?;
+    let reply = reader
+        .read(&request, output.invocation_id.as_str(), &environment)
+        .map_err(product_error)?;
+    if !reply.stderr().is_empty() {
+        io::stderr().lock().write_all(reply.stderr())?;
+    }
+    let (category, text) = match (reply.category(), command == "project inspect-pack") {
+        (product_reader::Category::Success, true) => ("success", "offline project pack verified"),
+        (product_reader::Category::Refused, true) => ("refused", "offline project pack inspection refused"),
+        (product_reader::Category::Success, false) => ("success", "canonical project data observed"),
+        (product_reader::Category::Refused, false) => ("refused", "canonical project read refused"),
+    };
+    let mut response = Envelope::response(
+        command,
+        text,
+        ProductView {
+            reader: reader.id(),
+            category,
+            product: reply.payload(),
+            next_request: None,
+            native: product_reader::native::Association::Absent,
+        },
+    );
+    response.observation.scope = if command == "project inspect-pack" {
+        "offline_project_pack"
+    } else {
+        "canonical_project_metadata"
+    }.into();
+    if category == "refused" {
+        response.outcome = envelope::CommandOutcome::Usage;
+    }
+    Ok(output.emit(response)?)
 }
 pub(super) fn dispatch(
     action: Action,
@@ -410,6 +667,51 @@ fn follow(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::Parser as _;
+
+    #[derive(clap::Parser)]
+    struct ProjectCli {
+        #[command(subcommand)]
+        action: ProjectAction,
+    }
+
+    #[test]
+    fn project_online_read_requires_one_exact_state_and_preserves_owner_cursor() {
+        assert!(ProjectCli::try_parse_from(["project", "show", "--reader", "capture", "p"]).is_err());
+        assert!(ProjectCli::try_parse_from([
+            "project", "show", "--reader", "capture", "--state", "/one", "--state", "/two", "p",
+        ]).is_err());
+        let original = r#"{"issuing_store":"a","kind":"drafts","owner":"b","after":"c"}"#;
+        let parsed = ProjectCli::try_parse_from([
+            "project", "metadata", "--reader", "capture", "--state", "/one", "--cursor", original,
+            "drafts", "b",
+        ]).unwrap();
+        let (command, reader, request) = parsed.action.request(None).unwrap();
+        assert_eq!(command, "project metadata");
+        assert_eq!(reader, "capture");
+        assert!(request.get().contains(original));
+        let value: serde_json::Value = serde_json::from_str(request.get()).unwrap();
+        assert_eq!(value["canonical"]["state"], "/one");
+        assert!(value["canonical"]["database"].is_null());
+        assert_eq!(value["query"]["request"]["kind"], "drafts");
+        assert_eq!(value["query"]["request"]["owner"], "b");
+    }
+
+    #[test]
+    fn project_pack_request_keeps_native_input_and_defers_the_default_to_product() {
+        use std::os::unix::ffi::OsStringExt as _;
+        let input = PathBuf::from(std::ffi::OsString::from_vec(b"/pack-\xff".to_vec()));
+        let raw = project_pack_request(input.clone(), None).unwrap();
+        let request: serde_json::Value = serde_json::from_str(raw.get()).unwrap();
+        assert_eq!(request["operation"], "inspect_project_pack");
+        let path: NativePath = serde_json::from_value(request["input"].clone()).unwrap();
+        assert_eq!(path.to_path_buf(), input);
+        assert!(request.get("maximum_document_bytes").is_none());
+        let raw = project_pack_request(input, NonZeroUsize::new(64)).unwrap();
+        let request: serde_json::Value = serde_json::from_str(raw.get()).unwrap();
+        assert_eq!(request["maximum_document_bytes"], 64);
+    }
+
     #[test]
     fn request_transport_retains_lexical_numbers_and_duplicate_keys() {
         let directory = tempfile::tempdir().unwrap();

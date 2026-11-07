@@ -162,8 +162,18 @@ impl Context<'_> {
                     }).collect();
                     return Ok(suggestions(source, if metadata.resolve.is_some() { Exhaustiveness::Exhaustive } else { Exhaustiveness::Unknown }, values, vec!["captured metadata context only; absent resolve graph cannot certify a full dependency domain".into()]));
                 }
+                if domain == Domain::Packages {
+                    let values = metadata.workspace_packages().into_iter().map(|package| Candidate {
+                        value: package.name.to_string(),
+                        aliases: vec![package.id.repr.clone()],
+                        help: Some("workspace member in the supplied metadata snapshot".into()),
+                        hidden: false,
+                    }).collect();
+                    return Ok(suggestions(source, Exhaustiveness::Open, values, vec![
+                        "workspace candidates are a subset of accepted Cargo package selectors; snapshot membership does not establish readiness".into(),
+                    ]));
+                }
                 let values=metadata.workspace_packages().into_iter().flat_map(|package| {
-                    if domain==Domain::Packages {return vec![Candidate{value:package.name.to_string(),aliases:vec![package.id.repr.clone()],help:Some("workspace member in the supplied metadata snapshot".into()),hidden:false}];}
                     package.targets.iter().filter_map(|target| {
                         let request=selection::Request{operation:selection::Operation::Test,scope:selection::Scope::Packages(vec![selection::PackageIntent{package:package.id.repr.clone(),target:Some(selection::TargetIntent{name:target.name.clone(),kind:None}),features:selection::Features::default()}]),platform:None,non_incremental:false,filters:selection::Filters::default(),ignored:selection::IgnoredPolicy::Default};
                         // Reuse execution's pure target/feature owner. This establishes neither
@@ -258,6 +268,9 @@ pub fn command_tree() -> Command {
             });
         }
         command
+            .mut_subcommand("test-selection", |command| {
+                command.mut_arg("package", |arg| arg.add(Domain::Packages.association()))
+            })
             .mut_subcommand("dependency", |command| {
                 command.mut_arg("package", |arg| arg.add(Domain::Dependencies.association()))
             })

@@ -543,6 +543,10 @@ impl ProjectBundleReader {
     pub fn digest(&self) -> &str {
         &self.digest
     }
+    /// Return the verified manifest and its checksum, releasing the selected directory.
+    pub(crate) fn into_inspection(self) -> (ProjectManifest, String) {
+        (self.manifest, self.digest)
+    }
     /// Read a bounded member and verify the bytes actually consumed, including changes after open().
     pub fn member_bytes(&self, id: &str, maximum_bytes: usize) -> Result<Vec<u8>, WorkflowError> {
         let member = self

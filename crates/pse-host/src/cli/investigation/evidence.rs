@@ -211,12 +211,17 @@ pub(super) enum Action {
         full: bool,
     },
     /// Read the original managed result without waiting, cancellation or resubmission.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Invocation {
         invocation: String,
         #[arg(long)]
         session: Option<String>,
+        /// Inspect a bounded detail retained by the original owner.
+        #[arg(long, value_enum)]
+        detail: Option<crate::invocation_view::ResultDetail>,
     },
     /// Read original retained stdout/stderr byte ranges.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Log {
         invocation: String,
         #[arg(long)]
@@ -829,13 +834,18 @@ pub(super) fn inspect(
         Action::Invocation {
             invocation,
             session,
+            detail,
         } => {
             let store = super::super::invocation_store(selected)?;
             let session =
                 crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            let mut response =
-                crate::invocation_view::result(&store, &invocation, session.as_deref())?;
-            response.command = "inspect invocation".into();
+            let response = crate::invocation_view::inspect(
+                &store,
+                &invocation,
+                session.as_deref(),
+                detail,
+                &RedactionPolicy::from_environment(),
+            )?;
             Ok(output.emit(response)?)
         }
         Action::Log {

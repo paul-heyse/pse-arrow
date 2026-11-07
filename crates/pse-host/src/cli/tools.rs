@@ -28,6 +28,35 @@ pub(super) enum Action {
         #[arg(long)]
         release: Option<String>,
     },
+    /// Preview or release one settled compact developer result.
+    RetireResult {
+        #[arg(value_parser = super::parse_invocation_id)]
+        invocation: crate::envelope::CliInvocationId,
+        /// Exact token returned by the current owner preview.
+        #[arg(long)]
+        release: Option<String>,
+    },
+    /// Set a named compact-result hold or clear it by omitting the condition.
+    HoldResult {
+        #[arg(value_parser = super::parse_invocation_id)]
+        invocation: crate::envelope::CliInvocationId,
+        #[arg(long)]
+        consumer: String,
+        #[arg(long)]
+        condition: Option<String>,
+    },
+    /// Sweep eligible compact results under the selected checkout's owner guards.
+    SweepResults {
+        /// Sweep the authenticated registered worktrees of this repository.
+        #[arg(long)]
+        registered: bool,
+    },
+    /// Prepare the fixed checkout-scoped compact-result expiry timer.
+    PrepareResultExpiry {
+        /// Also enable the prepared user timer.
+        #[arg(long)]
+        enable: bool,
+    },
     /// Build/capture the declared native tool; passive queries never invoke this operation.
     Prepare {
         #[arg(value_enum)]
@@ -74,7 +103,11 @@ impl Action {
             Self::Prepare { .. } | Self::Run { .. } => GenerationIntent::NewWork,
             Self::RetireHost {
                 release: Some(_), ..
-            } => GenerationIntent::ExistingControl,
+            }
+            | Self::RetireResult { release: Some(_), .. }
+            | Self::HoldResult { .. }
+            | Self::SweepResults { .. }
+            | Self::PrepareResultExpiry { .. } => GenerationIntent::ExistingControl,
             _ => GenerationIntent::Passive,
         }
     }
@@ -175,6 +208,50 @@ pub(super) fn dispatch(
                 envelope.outcome = crate::envelope::CommandOutcome::Failure;
             }
             Ok(output.emit(envelope)?)
+        }
+        Action::RetireResult { invocation, release } => {
+            let store = super::invocation_store(selected)?;
+            let report = store.retire_compact_result(&invocation, release.as_deref())?;
+            Ok(output.emit(Envelope::response(
+                "tools retire-result",
+                "checkout-local compact result retirement",
+                report,
+            ))?)
+        }
+        Action::HoldResult { invocation, consumer, condition } => {
+            let store = super::invocation_store(selected)?;
+            let policy = crate::envelope::RedactionPolicy::from_environment();
+            if policy.redact(&consumer) != consumer
+                || condition.as_ref().is_some_and(|value| policy.redact(value) != *value)
+            {
+                return Err(HostError::Ownership("compact result hold contains a protected value".into()));
+            }
+            store.hold_compact_result(&invocation, &consumer, condition.as_deref())?;
+            Ok(output.emit(Envelope::response(
+                "tools hold-result",
+                "compact result hold updated",
+                (),
+            ))?)
+        }
+        Action::SweepResults { registered } => {
+            let report = if registered {
+                crate::invocation::sweep_registered_compact_results(&root, &environment)?
+            } else {
+                super::invocation_store(selected)?.sweep_compact_results()?
+            };
+            Ok(output.emit(Envelope::response(
+                "tools sweep-results",
+                "compact result sweep",
+                report,
+            ))?)
+        }
+        Action::PrepareResultExpiry { enable } => {
+            let report = crate::invocation::prepare_compact_timer(&root, &environment, enable)?;
+            Ok(output.emit(Envelope::response(
+                "tools prepare-result-expiry",
+                "compact result expiry timer preparation",
+                report,
+            ))?)
         }
         Action::Prepare { tool: target } => {
             let tool =

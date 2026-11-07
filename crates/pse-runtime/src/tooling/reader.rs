@@ -15,17 +15,20 @@ use crate::{
     },
 };
 pub use canonical::CanonicalReadSelection;
+pub use canonical::project::{ProjectRead, ProjectReadSelection, ProjectReadView, ProjectTarget};
 pub use follow::{Continuity as FollowContinuity, FollowCursor, FollowSample, ProducerPosition};
 pub use investigation::{Request as InvestigationRequest, ResultView as InvestigationResult};
 use pse_diagnostics::observation::{
     ChildSnapshot, CoherentRecord, Coverage, OperationId, Outcome, ProducerId,
 };
+use pse_host::investigation::NativePath;
 use pse_model::document::Version;
 use schemars::{JsonSchema, Schema, generate::SchemaSettings};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     io::Read,
+    num::NonZeroUsize,
     os::unix::fs::MetadataExt as _,
     path::{Path, PathBuf},
 };
@@ -136,6 +139,20 @@ pub enum Request {
     Schema {
         /// Input or output direction to publish.
         contract: Contract,
+    },
+    /// Independently verify an existing project pack without a service connection.
+    InspectProjectPack {
+        /// Explicit absolute directory containing the project pack.
+        input: NativePath,
+        /// Optional bound on bytes in an individual manifest or document.
+        maximum_document_bytes: Option<NonZeroUsize>,
+    },
+    /// Read bounded project metadata from an exact existing canonical deployment.
+    Project {
+        /// Existing private deployment and its exact selected database.
+        canonical: ProjectReadSelection,
+        /// Original typed project metadata, branch or draft query.
+        query: ProjectRead,
     },
     /// Existing checkpoint catalogue; only selected process images are decoded.
     Processes {
@@ -389,6 +406,20 @@ pub enum Payload {
         #[schemars(with = "serde_json::Value")]
         document: Schema,
     },
+    /// Offline verification over the product owner's exact pack membership.
+    ProjectPack {
+        /// Independently validated logical manifest.
+        manifest: Box<crate::workflow::ProjectManifest>,
+        /// Encoding checksum of the exact manifest bytes the reader verified.
+        manifest_digest: String,
+    },
+    /// Bounded original canonical project read over the authenticated target.
+    Project {
+        /// Namespace, database and persistent issuing-store identity.
+        target: ProjectTarget,
+        /// Original typed metadata page or header.
+        result: Box<ProjectReadView>,
+    },
     /// Existing native catalogue and explicit cursor/source boundaries.
     Processes {
         /// Native bounded catalogue, including independent unreadable rows.
@@ -560,6 +591,8 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
     }
     match &request.request {
         Request::Discover | Request::Schema { .. } => {}
+        Request::InspectProjectPack { input, .. } => absolute(&input.to_path_buf())?,
+        Request::Project { canonical, .. } => canonical.validate()?,
         Request::Processes {
             directory,
             limit: requested,
@@ -784,6 +817,26 @@ fn handle(
             },
             document: schema(contract),
         }),
+        Request::InspectProjectPack {
+            input,
+            maximum_document_bytes,
+        } => {
+            let maximum_document_bytes = maximum_document_bytes.map_or(
+                crate::host_operations::project::PROJECT_DOCUMENT_BYTES,
+                NonZeroUsize::get,
+            );
+            let bundle = crate::workflow::ProjectBundleReader::open(
+                &input.to_path_buf(),
+                maximum_document_bytes,
+            )
+            .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
+            cancel.checkpoint()?;
+            let (manifest, manifest_digest) = bundle.into_inspection();
+            Ok(Payload::ProjectPack {
+                manifest: Box::new(manifest),
+                manifest_digest,
+            })
+        }
         Request::Follow {
             source,
             request,
@@ -1024,7 +1077,7 @@ fn handle(
                 },
             })
         }
-        Request::Study { .. } | Request::Attempt { .. } => Err(invalid(
+        Request::Study { .. } | Request::Attempt { .. } | Request::Project { .. } => Err(invalid(
             "canonical requests require their owned encoding boundary",
         )),
     }
@@ -1230,6 +1283,11 @@ pub fn encode(
             canonical::Read::Attempt { request },
             cancel,
         ),
+        Ok(ReaderRequest {
+            correlation,
+            request: Request::Project { canonical, query },
+            ..
+        }) => canonical::project::encode(correlation, canonical, query, cancel),
         Ok(ReaderRequest {
             correlation,
             request,

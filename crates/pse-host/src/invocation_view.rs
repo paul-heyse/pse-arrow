@@ -5,11 +5,12 @@ use crate::{
     HostError,
     artifacts::Content,
     envelope::{
-        CliInvocationId, Completeness, Envelope, ErrorRecord, RedactionPolicy, SubjectState,
+        ArtifactReference, CliInvocationId, CommandOutcome, Completeness, Envelope, ErrorRecord,
+        ProviderContext, RedactionPolicy, ScientificReference, Settlement, SubjectState,
     },
     extraction::OutputStream,
     generation::PreparedGeneration,
-    invocation::InvocationStore,
+    invocation::{CompactObservation, InvocationStore},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use schemars::JsonSchema;
@@ -150,6 +151,196 @@ pub fn result(
     };
     response.observation.scope = "original_invocation_terminal_evidence".into();
     Ok(response)
+}
+
+/// Optional owner detail selected separately from the compact result.
+#[derive(Clone, Copy, Debug, clap::ValueEnum, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ResultDetail {
+    /// Bounded original diagnostic trees.
+    Failures,
+    /// Originally captured environment and provider provenance.
+    Provenance,
+    /// References to owner-managed artifacts and scientific outputs.
+    Outputs,
+}
+
+/// Original outcome and settlement, without the owner's opaque payload.
+#[derive(Debug, Serialize, serde::Deserialize, JsonSchema)]
+pub struct ResultSummary {
+    invocation_id: CliInvocationId,
+    command: String,
+    summary: String,
+    outcome: CommandOutcome,
+    subject_state: SubjectState,
+    child_exit: Option<i32>,
+    settlement: Settlement,
+    failure_count: usize,
+}
+
+impl ResultSummary {
+    pub(crate) fn from_terminal<T>(terminal: &Envelope<T>, policy: &RedactionPolicy) -> Self {
+        Self {
+            invocation_id: terminal.invocation_id.clone(),
+            command: terminal.command.clone(),
+            summary: policy.redact(&terminal.summary),
+            outcome: terminal.outcome,
+            subject_state: terminal.subject_state,
+            child_exit: terminal.child_exit,
+            settlement: terminal.settlement,
+            failure_count: terminal.failures.len(),
+        }
+    }
+}
+
+/// Bounded selected result detail. Omitted entries remain distinguishable from absent evidence.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct DetailPage<T> {
+    records: Vec<T>,
+    omitted: usize,
+}
+
+impl<T: Serialize> DetailPage<T> {
+    fn from_original(entries: Vec<T>) -> Result<Self, HostError> {
+        const MAX_RECORDS: usize = 16;
+        const MAX_BYTES: usize = 32 * 1024;
+        let count = entries.len();
+        let mut records = Vec::new();
+        let mut remaining = MAX_BYTES;
+        for entry in entries.into_iter().take(MAX_RECORDS) {
+            let bytes = serde_json::to_vec(&entry)
+                .map_err(|error| HostError::Ownership(format!("result detail encoding: {error}")))?;
+            // Preserve complete diagnostic relationships within each selected record.
+            let Some(rest) = remaining.checked_sub(bytes.len()) else {
+                break;
+            };
+            remaining = rest;
+            records.push(entry);
+        }
+        Ok(Self {
+            omitted: count - records.len(),
+            records,
+        })
+    }
+}
+
+/// One typed subset of the original evidence.
+#[derive(Debug, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum InspectionDetail {
+    /// Terminal diagnostics have their original relationships and producer redaction.
+    Failures {
+        /// Bounded diagnostic page.
+        failures: DetailPage<ErrorRecord>,
+    },
+    /// Original selection provenance. Provider observations do not establish settings origins.
+    Provenance {
+        /// Original redacted environment identity, independent of actual values.
+        environment_digest: String,
+        /// Retained original provider observations.
+        providers: Option<DetailPage<ProviderContext>>,
+    },
+    /// Observed product and artifact links do not grant an active lease.
+    Outputs {
+        /// Original artifact references.
+        artifacts: DetailPage<ArtifactReference>,
+        /// Original scientific references.
+        scientific: DetailPage<ScientificReference>,
+    },
+    /// Required original evidence is absent for the selected detail.
+    Unavailable {
+        /// Detail requested by the caller.
+        detail: ResultDetail,
+    },
+}
+
+/// Compact public inspection, retaining the original identity and verdict separately.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct InvocationInspection {
+    /// Authenticated original identity, if resolved.
+    pub original_invocation: Option<CliInvocationId>,
+    /// Terminal summary if observed. Operation payloads are never returned here.
+    pub response: Option<ResultSummary>,
+    /// The owner released this compact presentation and its minimal witness is still retained.
+    pub retired: bool,
+    /// The selected detail, if requested.
+    pub detail: Option<InspectionDetail>,
+}
+
+/// Observe only the selected invocation's compact summary or bounded owner detail.
+pub fn inspect(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+    detail: Option<ResultDetail>,
+    policy: &RedactionPolicy,
+) -> Result<Envelope<InvocationInspection>, HostError> {
+    let mut original_invocation = store.resolve(selector, session)?;
+    let (compact, _borrower) = match &original_invocation {
+        Some(id) => store.observe_compact(id)?,
+        None => (CompactObservation::Original, None),
+    };
+    let retired = matches!(compact, CompactObservation::Retired);
+    if matches!(compact, CompactObservation::Expired) {
+        original_invocation = None;
+    }
+    let terminal = if !retired && (detail.is_some() || matches!(compact, CompactObservation::Original)) {
+        original_invocation
+            .as_ref()
+            .map(|id| store.result::<serde::de::IgnoredAny, serde::de::IgnoredAny>(id))
+            .transpose()?
+            .flatten()
+    } else {
+        None
+    };
+    let response = match compact {
+        CompactObservation::Available(summary) => Some(summary),
+        _ => terminal
+            .as_ref()
+            .map(|terminal| ResultSummary::from_terminal(terminal, policy)),
+    };
+    let detail = match (detail, terminal, original_invocation.as_ref()) {
+        (Some(ResultDetail::Failures), Some(terminal), _) => Some(InspectionDetail::Failures {
+            failures: DetailPage::from_original(terminal.failures)?,
+        }),
+        (Some(ResultDetail::Provenance), terminal, Some(id)) if !retired => {
+            let metadata = store.metadata::<serde::de::IgnoredAny>(id)?;
+            Some(InspectionDetail::Provenance {
+                environment_digest: metadata.selection.environment_digest,
+                providers: terminal
+                    .map(|terminal| DetailPage::from_original(terminal.providers))
+                    .transpose()?,
+            })
+        }
+        (Some(ResultDetail::Outputs), Some(terminal), _) => Some(InspectionDetail::Outputs {
+            artifacts: DetailPage::from_original(terminal.artifacts)?,
+            scientific: DetailPage::from_original(terminal.scientific)?,
+        }),
+        (Some(detail), _, _) => Some(InspectionDetail::Unavailable { detail }),
+        (None, _, _) => None,
+    };
+    let (summary, state) = match (&original_invocation, &response) {
+        (None, _) => ("no matching invocation", SubjectState::NoMatch),
+        (Some(_), None) if retired => ("compact result retired", SubjectState::Unavailable),
+        (Some(_), None) => (
+            "no terminal result observed; completion is unknown",
+            SubjectState::Unknown,
+        ),
+        (Some(_), Some(_)) => ("original terminal evidence observed", SubjectState::Available),
+    };
+    let mut observed = Envelope::response(
+        "inspect invocation",
+        summary,
+        InvocationInspection {
+            original_invocation,
+            response,
+            retired,
+            detail,
+        },
+    );
+    observed.subject_state = state;
+    observed.observation.scope = "original_invocation_terminal_evidence".into();
+    Ok(observed)
 }
 
 /// One live raw-stream extent with exact original byte coordinates.

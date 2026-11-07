@@ -7,19 +7,26 @@ focused passing control does not qualify the whole native system or the H campai
 
 ## Preparing and activating a checkout
 
-Construct/update the independent native host explicitly with `scripts/bootstrap-host`.
-It builds locked host executables, validates the completed pair and atomically selects an
-immutable generation under `target/host-tools/current`. Failed publication preserves the
-previous selection. Help, activation and reads never rebuild. A missing host requires explicit
-preparation; an effectful new-work command refreshes an existing stale host before admission.
+Prepare the independent native host with `scripts/pse prepare host`. Pass `--from CHECKOUT`
+to try an equivalent prepared source generation. The bootstrap owner verifies reuse or builds
+the locked host tools locally, then atomically selects a completed immutable generation under
+`target/host-tools/current`. Failed publication preserves the previous selection. In a cold
+checkout `scripts/pse --help` exposes the preparation command without building. After
+preparation the same launcher exposes the native catalog and the preparation command
+returns an owner receipt identifying reuse, a matched source, or a local seed.
+For a prepared generation that predates the `prepare` verb, run `scripts/bootstrap-host`
+once to publish the current command set. Help, activation and reads never rebuild.
+An effectful new-work command refreshes an existing stale host before admission.
 Existing invocation wait/cancel uses its recorded identities without a current-source rebuild.
 
-If a tool session is outside a unit known to the user manager, foreground admission can
-refuse with `NoUnitForPID`. Launch through an ordinary transient user scope with a real
-parent shell that waits for the command:
+Before prepared new work, the native entry authenticates its application membership. On the
+user manager's `NoUnitForPID` response it enters an ordinary transient scope with a parent
+shell waiting for the exact original command. A re-entry authenticates real membership
+before proceeding. Explicit `--no-scope` still requires an enclosing native workload.
+For a direct diagnostic reproduction of the scope handoff, run:
 
 ```bash
-systemd-run --user --scope --quiet bash -c '"$@" & child=$!; wait "$child"' pse-launch scripts/pse check pse-host --all-targets
+systemd-run --user --scope --quiet --collect /bin/sh -c '"$@"; result=$?; exit "$result"' pse-launch scripts/pse check pse-host --all-targets
 ```
 
 The waiting parent preserves the original scope while the native boundary moves its controller
@@ -31,7 +38,7 @@ When an intentional host dependency edit requires a lockfile change, the stale h
 rebuild with `--locked` before that change exists. Refresh only the named workspace packages
 with pinned-toolchain Cargo directly, for example `cargo update -p pse-host -p xtask`, under
 the selected user scope. Inspect the lock diff for the intended dependency edges and version
-moves, then run `scripts/bootstrap-host` explicitly and resume ordinary native routes. This
+moves, then run `scripts/pse prepare host` and resume ordinary native routes. This
 source-lock operation needs no prepared host; it does not execute a product workload or replace
 native workload custody. Keep locked host construction and avoid a wholesale re-resolution.
 
@@ -362,13 +369,13 @@ directory. If an acknowledgement, drain or transfer is unresolved, record that f
 the original owner and leave the material available for recovery. Treat old `/tmp` output
 and unclassified developer roots as a separate inventory until their ownership is established.
 
-For `pse qualify-study`, use a fresh child of a short private directory, such as one
-created by `mktemp -d /tmp/pse-study.XXXXXXXX`. The coordinator appends
-`frontend-one.sock` and `frontend-two.sock` to its work directory. On Linux each full
-pathname must fit within the Unix socket address. Record the temporary directory's
-identity and link it to the original coordinator. Launch from the original application
-scope so the coordinator can admit its own native work, and wait for its keeper,
-frontends and selected phases to settle before releasing scratch.
+For `pse qualify-study`, select a fresh absolute work directory for diagnostics. The
+coordinator allocates separate private frontend socket scratch below the user runtime
+directory, or the system temporary directory when the runtime directory is unset. It
+checks both complete Unix socket pathnames before any service launches. The coordinator
+reports the scratch location and releases it after the original managed owners settle.
+If drain is unresolved, retain the scratch and recover the original owners. Release the
+separate diagnostics directory through the ad hoc closeout above.
 
 An authored scratch probe has a narrower output-only release. Use
 `scripts/pse probe clean NAME` to preview the allocated Cargo target bytes and exact

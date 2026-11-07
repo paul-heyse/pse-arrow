@@ -222,6 +222,16 @@ pub struct CommandMetadata {
     pub features: Vec<String>,
 }
 impl clap::builder::CommandExt for CommandMetadata {}
+/// A static effect described by the typed command declaration. Absence means unknown.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandEffect {
+    /// Observe an existing resource without preparing or applying work.
+    Read,
+    /// Explicitly prepare an identified prerequisite.
+    Prepare,
+}
+impl clap::builder::CommandExt for CommandEffect {}
 /// Association with a lazy domain provider; it does not alter the argument's parser.
 #[derive(Clone, Debug)]
 pub struct CandidateProvider {
@@ -302,6 +312,9 @@ pub struct Description {
     pub name: String,
     /// Owner-provided description, if present.
     pub about: Option<String>,
+    /// A static effect associated with this command, when one is known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<CommandEffect>,
     /// Native short help/usage, hiding captured environment values and sensitive defaults.
     pub short_help: String,
     /// Native long help with the same explicit sensitivity policy.
@@ -330,6 +343,9 @@ pub struct Summary {
     pub path: Vec<String>,
     /// Owner-provided description.
     pub about: Option<String>,
+    /// A static effect associated with this command, when one is known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub effect: Option<CommandEffect>,
     /// Actual accepted command aliases.
     pub aliases: Vec<String>,
     /// Ready argument vector for full parser metadata.
@@ -341,6 +357,7 @@ fn summarize(command: Command, path: Vec<String>) -> Summary {
     Summary {
         path,
         about: command.get_about().map(ToString::to_string),
+        effect: command.get::<CommandEffect>().copied(),
         aliases: command.get_all_aliases().map(str::to_owned).collect(),
         detail,
     }
@@ -438,7 +455,7 @@ fn describe(mut command: Command, path: Vec<String>) -> Description {
         .get::<CommandMetadata>()
         .cloned()
         .unwrap_or_default();
-    Description{path,name:command.get_name().into(),about:command.get_about().map(ToString::to_string),short_help,long_help,arguments:command.get_arguments().filter(|arg|!arg.is_hide_set()).map(|arg|describe_argument(&command,arg)).collect(),groups:command.get_groups().map(|group|Group{id:group.get_id().to_string(),members:group.get_args().map(ToString::to_string).collect(),required:group.is_required_set(),multiple:group.clone().is_multiple(),relationships:unavailable("group requires/conflicts have no public introspection getter in clap 4.6.7")}).collect(),subcommands:command.get_subcommands().filter(|child|!child.is_hide_set()).map(|child|child.get_name().into()).collect(),examples:metadata.examples,output_schemas:if metadata.output_schemas.is_empty(){unavailable("response owner did not declare a serialization-schema association")}else{Information::Available(metadata.output_schemas)},invocation_route:if metadata.invocation_route.is_empty(){unavailable("prepared owner invocation route is not attached to this parser")}else{Information::Available(metadata.invocation_route)},features:metadata.features,limitations:vec!["public descriptions do not reconstruct opaque typed parsers or private conditional validation".into()]}
+    Description{path,name:command.get_name().into(),about:command.get_about().map(ToString::to_string),effect:command.get::<CommandEffect>().copied(),short_help,long_help,arguments:command.get_arguments().filter(|arg|!arg.is_hide_set()).map(|arg|describe_argument(&command,arg)).collect(),groups:command.get_groups().map(|group|Group{id:group.get_id().to_string(),members:group.get_args().map(ToString::to_string).collect(),required:group.is_required_set(),multiple:group.clone().is_multiple(),relationships:unavailable("group requires/conflicts have no public introspection getter in clap 4.6.7")}).collect(),subcommands:command.get_subcommands().filter(|child|!child.is_hide_set()).map(|child|child.get_name().into()).collect(),examples:metadata.examples,output_schemas:if metadata.output_schemas.is_empty(){unavailable("response owner did not declare a serialization-schema association")}else{Information::Available(metadata.output_schemas)},invocation_route:if metadata.invocation_route.is_empty(){unavailable("prepared owner invocation route is not attached to this parser")}else{Information::Available(metadata.invocation_route)},features:metadata.features,limitations:vec!["public descriptions do not reconstruct opaque typed parsers or private conditional validation".into()]}
 }
 fn scoped(mut root: Command, path: &[String]) -> Option<(Command, Vec<String>)> {
     let mut canonical = Vec::new();

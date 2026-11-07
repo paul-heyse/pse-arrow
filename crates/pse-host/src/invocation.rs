@@ -21,10 +21,23 @@ const VERSION: u32 = 1;
 const META_LIMIT: u64 = 4 * 1024 * 1024;
 
 mod session;
+mod compact;
+pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
+pub(crate) use compact::CompactObservation;
+mod compact_timer;
+pub use compact_timer::{CompactTimer, prepare_compact_timer};
 pub use session::select_session;
 
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("invocation evidence: {}", message.into()))
+}
+
+fn unix_millis(time: SystemTime) -> Result<u64, HostError> {
+    let elapsed = time
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| invalid("system clock precedes the Unix epoch"))?;
+    u64::try_from(elapsed.as_millis())
+        .map_err(|_| invalid("timestamp exceeds the ledger representation"))
 }
 
 /// Inputs captured before the first launch effect. Operation details retain their owning type.
@@ -438,13 +451,7 @@ impl InvocationStore {
     ) -> Result<InvocationDirectory, HostError> {
         self.register()?;
         let invocations = self.state.invocations();
-        let created_unix_ms = u64::try_from(
-            SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| invalid("system clock precedes the Unix epoch"))?
-                .as_millis(),
-        )
-        .map_err(|_| invalid("creation timestamp exceeds the ledger representation"))?;
+        let created_unix_ms = unix_millis(SystemTime::now())?;
         let metadata = InvocationMetadata {
             version: VERSION,
             checkout_id: self.state.checkout_id.as_str().to_owned(),
@@ -801,13 +808,16 @@ impl InvocationDirectory {
         self.read_record_bytes(record.filename())
     }
     pub(crate) fn require_paired_settlement(&self) -> Result<(), HostError> {
+        self.paired_settlement_bytes().map(|_| ())
+    }
+    fn paired_settlement_bytes(&self) -> Result<Vec<u8>, HostError> {
         let settlement = self
             .evidence_bytes(InvocationEvidence::Settlement)?
             .ok_or_else(|| invalid("original settlement evidence is absent"))?;
         if self.read_record_bytes("result.json")?.as_deref() != Some(settlement.as_slice()) {
             return Err(invalid("original result and settlement evidence differ"));
         }
-        Ok(())
+        Ok(settlement)
     }
     fn read_record_bytes(&self, name: &str) -> Result<Option<Vec<u8>>, HostError> {
         directory(&self.path, false)?;

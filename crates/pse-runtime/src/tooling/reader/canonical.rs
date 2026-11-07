@@ -20,6 +20,9 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+pub(super) mod project;
+
+const MAXIMUM_READ_MILLIS: u64 = 25_000;
 
 /// Explicit existing canonical deployment and this observer's finite read allocation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -36,7 +39,7 @@ pub struct CanonicalReadSelection {
 }
 impl CanonicalReadSelection {
     pub(super) fn validate(&self) -> Result<(), ReaderError> {
-        if !self.state.is_absolute() || !(1..=25_000).contains(&self.timeout_ms) {
+        if !self.state.is_absolute() || !(1..=MAXIMUM_READ_MILLIS).contains(&self.timeout_ms) {
             return Err(super::invalid(
                 "canonical read requires absolute existing state and a 1..=25000ms observer allowance",
             ));
@@ -102,78 +105,83 @@ pub(super) fn encode(
         )
         .map_err(canonical)?;
         let model = model(selection.memory_bytes)?;
-        let executor = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()?;
-        executor.block_on(pse_operations::canonical::operation_scope(
-            deadline,
-            async {
+        connected(&options, deadline, cancel, async |store| {
+            let services = RetainedDataServices::new(store.clone(), model).map_err(workflow)?;
+            let output = async {
                 cancel.checkpoint()?;
-                // Connection acquisition retains its native clock and partial-acquisition
-                // owner. Only race reads once an acquired store can be explicitly drained.
-                let store = CanonicalStore::connect(&options).await.map_err(canonical)?;
-                let operation = async {
-                    cancel.checkpoint()?;
-                    store.open().await.map_err(canonical)?;
-                    let services =
-                        RetainedDataServices::new(store.clone(), model).map_err(workflow)?;
-                    let output = async {
-                        cancel.checkpoint()?;
-                        let payload = match read {
-                            Read::Study { request, cursor } => {
-                                let mut observer = cancel
-                                    .until_cancelled(services.observe_study(request, cursor))
-                                    .await?
-                                    .map_err(workflow)?;
-                                let observed = cancel
-                                    .until_cancelled(observer.poll())
-                                    .await
-                                    .map_err(ReaderError::from)
-                                    .and_then(|result| result.map_err(workflow));
-                                observer.close();
-                                Payload::Study {
-                                    page: Box::new(observed?),
-                                }
-                            }
-                            Read::Attempt { request } => Payload::Attempt {
-                                page: Box::new(
-                                    cancel
-                                        .until_cancelled(services.observe_attempt(request))
-                                        .await?
-                                        .map_err(workflow)?,
-                                ),
-                            },
-                        };
-                        cancel.checkpoint()?;
-                        let owned = response(correlation.clone(), Ok(payload));
-                        // The original page's protected read/capture/allocation is live here.
-                        // No detached generic JSON copy replaces that custody boundary.
-                        encode_response(owned)
+                let payload = match read {
+                    Read::Study { request, cursor } => {
+                        let mut observer = cancel
+                            .until_cancelled(services.observe_study(request, cursor))
+                            .await?
+                            .map_err(workflow)?;
+                        let observed = cancel
+                            .until_cancelled(observer.poll())
+                            .await
+                            .map_err(ReaderError::from)
+                            .and_then(|result| result.map_err(workflow));
+                        observer.close();
+                        Payload::Study {
+                            page: Box::new(observed?),
+                        }
                     }
-                    .await;
-                    // The typed page was encoded and dropped before closing admission.
-                    services.close();
-                    drop(services);
-                    output
-                }
-                .await;
-                let cleanup = store
-                    .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
-                    .await
-                    .map_err(canonical);
-                match (operation, cleanup) {
-                    (result, Ok(())) => result,
-                    (Ok(output), Err(error)) => Err(output.settlement_failed(error)),
-                    (Err(operation), Err(cleanup)) => Err(ReaderError::Settlement {
-                        operation: Box::new(operation),
-                        cleanup: Box::new(cleanup),
-                    }),
-                }
-            },
-        ))
+                    Read::Attempt { request } => Payload::Attempt {
+                        page: Box::new(
+                            cancel
+                                .until_cancelled(services.observe_attempt(request))
+                                .await?
+                                .map_err(workflow)?,
+                        ),
+                    },
+                };
+                cancel.checkpoint()?;
+                // The original page's protected read/capture/allocation is live here.
+                encode_response(response(correlation.clone(), Ok(payload)))
+            }
+            .await;
+            // The typed page was encoded and dropped before closing admission.
+            services.close();
+            drop(services);
+            output
+        })
     })();
     match result {
         Ok(output) => Ok(output),
         Err(error) => encode_response(response(correlation, Err(error))),
     }
+}
+
+fn connected(
+    options: &CanonicalOptions,
+    deadline: Instant,
+    cancel: &pse_columnar::CancellationToken,
+    read: impl AsyncFnOnce(&CanonicalStore) -> Result<EncodedResponse, ReaderError>,
+) -> Result<EncodedResponse, ReaderError> {
+    let executor = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    executor.block_on(pse_operations::canonical::operation_scope(deadline, async {
+        cancel.checkpoint()?;
+        // Connect only to the already selected deployment. Acquisition retains its
+        // native clock and partial-acquisition owner until a store can be drained.
+        let store = CanonicalStore::connect(options).await.map_err(canonical)?;
+        let operation = async {
+            cancel.checkpoint()?;
+            store.open().await.map_err(canonical)?;
+            read(&store).await
+        }
+        .await;
+        let cleanup = store
+            .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
+            .await
+            .map_err(canonical);
+        match (operation, cleanup) {
+            (result, Ok(())) => result,
+            (Ok(output), Err(error)) => Err(output.settlement_failed(error)),
+            (Err(operation), Err(cleanup)) => Err(ReaderError::Settlement {
+                operation: Box::new(operation),
+                cleanup: Box::new(cleanup),
+            }),
+        }
+    }))
 }

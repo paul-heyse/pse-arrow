@@ -5,8 +5,35 @@
 set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 tool="$root/target/host-tools/current/pse"
-if [ ! -x "$tool" ]; then
-    echo "pse: native tools are not prepared; run scripts/bootstrap-host explicitly" >&2
-    exit 125
+if [ -x "$tool" ]; then
+    exec "$tool" "$@"
 fi
-exec "$tool" "$@"
+
+cold_help() {
+    printf '%s\n' \
+        'Usage: pse prepare host [--from CHECKOUT]' \
+        'Prepare native tools, or copy a matching prepared source generation.' \
+        'The full command catalog is available after explicit preparation.'
+}
+if [ "$#" -eq 0 ] || { [ "$#" -eq 1 ] && { [ "$1" = --help ] || [ "$1" = -h ]; }; }; then
+    cold_help
+    exit 0
+fi
+if [ "$#" -ge 2 ] && [ "$1" = prepare ]; then
+    case "$2" in
+        host)
+            shift 2
+            if [ "$#" -eq 1 ] && { [ "$1" = --help ] || [ "$1" = -h ]; }; then
+                cold_help
+                exit 0
+            fi
+            exec "$root/scripts/bootstrap-host" "$@" ;;
+        --help|-h)
+            if [ "$#" -eq 2 ]; then
+                cold_help
+                exit 0
+            fi ;;
+    esac
+fi
+printf '%s\n' 'pse: native tools are not prepared; run pse prepare host' >&2
+exit 125

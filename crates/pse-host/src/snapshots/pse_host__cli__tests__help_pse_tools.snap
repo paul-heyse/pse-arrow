@@ -8,12 +8,16 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
-  retire-host   Preview or release one completed checkout-local host tool generation
-  prepare       Build/capture the declared native tool; passive queries never invoke this operation
-  catalog       Read the selected native parser's retained catalogue, with captured-source limits
-  owner-schema  Read the actual retained native document-owner response schema
-  run           Run exact arguments through the selected native parser under managed ownership
-  protocol      Read the original fixed semantic protocol schemas from a captured helper
+  retire-host            Preview or release one completed checkout-local host tool generation
+  retire-result          Preview or release one settled compact developer result
+  hold-result            Set a named compact-result hold or clear it by omitting the condition
+  sweep-results          Sweep eligible compact results under the selected checkout's owner guards
+  prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
+  prepare                Build/capture the declared native tool; passive queries never invoke this operation
+  catalog                Read the selected native parser's retained catalogue, with captured-source limits
+  owner-schema           Read the actual retained native document-owner response schema
+  run                    Run exact arguments through the selected native parser under managed ownership
+  protocol               Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>
@@ -27,12 +31,16 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
-  retire-host   Preview or release one completed checkout-local host tool generation
-  prepare       Build/capture the declared native tool; passive queries never invoke this operation
-  catalog       Read the selected native parser's retained catalogue, with captured-source limits
-  owner-schema  Read the actual retained native document-owner response schema
-  run           Run exact arguments through the selected native parser under managed ownership
-  protocol      Read the original fixed semantic protocol schemas from a captured helper
+  retire-host            Preview or release one completed checkout-local host tool generation
+  retire-result          Preview or release one settled compact developer result
+  hold-result            Set a named compact-result hold or clear it by omitting the condition
+  sweep-results          Sweep eligible compact results under the selected checkout's owner guards
+  prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
+  prepare                Build/capture the declared native tool; passive queries never invoke this operation
+  catalog                Read the selected native parser's retained catalogue, with captured-source limits
+  owner-schema           Read the actual retained native document-owner response schema
+  run                    Run exact arguments through the selected native parser under managed ownership
+  protocol               Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>

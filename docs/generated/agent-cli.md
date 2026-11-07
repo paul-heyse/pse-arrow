@@ -12,6 +12,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  prepare            Explicitly prepare the independent native host
+  project            Read project data through a prepared product owner
   qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation
@@ -71,6 +73,611 @@ Options:
 
       --version
 
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse prepare`
+
+~~~~text
+Explicitly prepare the independent native host
+
+Usage: pse prepare [OPTIONS] <COMMAND>
+
+Commands:
+  host  Prepare native tools, or copy a matching prepared source generation
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse prepare host`
+
+~~~~text
+Prepare native tools, or copy a matching prepared source generation
+
+Usage: pse prepare host [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --from <CHECKOUT>
+          Checkout with an explicitly prepared, equivalent source generation
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project`
+
+~~~~text
+Read project data through a prepared product owner
+
+Usage: pse project [OPTIONS] <COMMAND>
+
+Commands:
+  inspect-pack  Verify and inspect an existing project pack offline
+  metadata      Read one bounded metadata page from an existing canonical deployment
+  show          Read an exact project header
+  branches      Read one generation-fenced branch page for an exact project
+  branch        Read an exact branch header
+  draft-show    Read an exact draft head and version descriptor
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project inspect-pack`
+
+~~~~text
+Verify and inspect an existing project pack offline
+
+Usage: pse project inspect-pack [OPTIONS] --reader <READER> <INPUT>
+
+Arguments:
+  <INPUT>
+          Directory containing the logical project pack
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --maximum-document-bytes <MAXIMUM_DOCUMENT_BYTES>
+          Optional bound on bytes in an individual manifest or document
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata`
+
+~~~~text
+Read one bounded metadata page from an existing canonical deployment
+
+Usage: pse project metadata [OPTIONS] --reader <READER> --state <STATE> <COMMAND>
+
+Commands:
+  projects     Discover available project headers
+  drafts       Read draft headers by branch key
+  bookmarks    Read bookmark headers by project key
+  savepoints   Read savepoint headers by draft key
+  diagnostics  Read admission diagnostics by draft-version key
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --cursor <CURSOR>
+          Original continuation JSON from the selected metadata page
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata projects`
+
+~~~~text
+Discover available project headers
+
+Usage: pse project metadata --reader <READER> --state <STATE> projects [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata drafts`
+
+~~~~text
+Read draft headers by branch key
+
+Usage: pse project metadata --reader <READER> --state <STATE> drafts [OPTIONS] <BRANCH>
+
+Arguments:
+  <BRANCH>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata bookmarks`
+
+~~~~text
+Read bookmark headers by project key
+
+Usage: pse project metadata --reader <READER> --state <STATE> bookmarks [OPTIONS] <PROJECT>
+
+Arguments:
+  <PROJECT>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata savepoints`
+
+~~~~text
+Read savepoint headers by draft key
+
+Usage: pse project metadata --reader <READER> --state <STATE> savepoints [OPTIONS] <DRAFT>
+
+Arguments:
+  <DRAFT>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project metadata diagnostics`
+
+~~~~text
+Read admission diagnostics by draft-version key
+
+Usage: pse project metadata --reader <READER> --state <STATE> diagnostics [OPTIONS] <VERSION>
+
+Arguments:
+  <VERSION>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project show`
+
+~~~~text
+Read an exact project header
+
+Usage: pse project show [OPTIONS] --reader <READER> --state <STATE> <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Canonical project key
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project branches`
+
+~~~~text
+Read one generation-fenced branch page for an exact project
+
+Usage: pse project branches [OPTIONS] --reader <READER> --state <STATE> <PROJECT>
+
+Arguments:
+  <PROJECT>
+          Canonical project key
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --cursor <CURSOR>
+          Original continuation JSON from the selected branch page
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project branch`
+
+~~~~text
+Read an exact branch header
+
+Usage: pse project branch [OPTIONS] --reader <READER> --state <STATE> <BRANCH>
+
+Arguments:
+  <BRANCH>
+          Canonical branch key
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project draft-show`
+
+~~~~text
+Read an exact draft head and version descriptor
+
+Usage: pse project draft-show [OPTIONS] --reader <READER> --state <STATE> <KEY>
+
+Arguments:
+  <KEY>
+          Canonical draft key
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
 
   -h, --help
           Print help (see a summary with '-h')
@@ -2499,7 +3106,9 @@ Options:
           [default: default]
 
       --profile <PROFILE>
-          Selected nextest policy profile, without running its setup during explain
+          Selected nextest policy profile, without running its setup during explain.
+
+          Use default for ordinary tests. The managed-primary profile selects the explicitly placed managed study tests with their required native features.
 
           [default: default]
 
@@ -2621,7 +3230,9 @@ Options:
           [default: default]
 
       --profile <PROFILE>
-          Selected nextest policy profile, without running its setup during explain
+          Selected nextest policy profile, without running its setup during explain.
+
+          Use default for ordinary tests. The managed-primary profile selects the explicitly placed managed study tests with their required native features.
 
           [default: default]
 
@@ -2858,12 +3469,16 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
-  retire-host   Preview or release one completed checkout-local host tool generation
-  prepare       Build/capture the declared native tool; passive queries never invoke this operation
-  catalog       Read the selected native parser's retained catalogue, with captured-source limits
-  owner-schema  Read the actual retained native document-owner response schema
-  run           Run exact arguments through the selected native parser under managed ownership
-  protocol      Read the original fixed semantic protocol schemas from a captured helper
+  retire-host            Preview or release one completed checkout-local host tool generation
+  retire-result          Preview or release one settled compact developer result
+  hold-result            Set a named compact-result hold or clear it by omitting the condition
+  sweep-results          Sweep eligible compact results under the selected checkout's owner guards
+  prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
+  prepare                Build/capture the declared native tool; passive queries never invoke this operation
+  catalog                Read the selected native parser's retained catalogue, with captured-source limits
+  owner-schema           Read the actual retained native document-owner response schema
+  run                    Run exact arguments through the selected native parser under managed ownership
+  protocol               Read the original fixed semantic protocol schemas from a captured helper
 
 Options:
   -C <checkout>
@@ -2909,6 +3524,165 @@ Options:
 
       --release <RELEASE>
           Exact release token returned by the current generation preview
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools retire-result`
+
+~~~~text
+Preview or release one settled compact developer result
+
+Usage: pse tools retire-result [OPTIONS] <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --release <RELEASE>
+          Exact token returned by the current owner preview
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools hold-result`
+
+~~~~text
+Set a named compact-result hold or clear it by omitting the condition
+
+Usage: pse tools hold-result [OPTIONS] --consumer <CONSUMER> <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+
+
+Options:
+  -C <checkout>
+
+
+      --consumer <CONSUMER>
+
+
+      --condition <CONDITION>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools sweep-results`
+
+~~~~text
+Sweep eligible compact results under the selected checkout's owner guards
+
+Usage: pse tools sweep-results [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --registered
+          Sweep the authenticated registered worktrees of this repository
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools prepare-result-expiry`
+
+~~~~text
+Prepare the fixed checkout-scoped compact-result expiry timer
+
+Usage: pse tools prepare-result-expiry [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --enable
+          Also enable the prepared user timer
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -6485,128 +7259,6 @@ Options:
 
 ~~~~
 
-## `pse inspect test-selection`
-
-~~~~text
-Explain real native test selection; no binary listing or test execution occurs
-
-Usage: pse inspect test-selection [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
-
-Arguments:
-  [PACKAGE[:TARGET]]...
-          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
-
-  [WORDS]...
-          Bare test-name filters after --; these are not package or target names
-
-Options:
-  -C <checkout>
-
-
-      --rerun-failed <INVOCATION>
-          Rebuild current source for exact failed identities and original compiler policy
-
-      --changed
-          Conservatively select changed source owners and reverse dependencies
-
-      --format <FORMAT>
-          Human output on terminals, JSON on pipes, or compact NDJSON observations
-
-          Possible values:
-          - auto:   Human for a terminal, JSON for pipes
-          - human:  Concise summary and pretty structured detail
-          - json:   One JSON envelope
-          - ndjson: Compact normalized records followed by an observation summary
-
-          [env: PSE_FORMAT]
-          [default: auto]
-
-      --base <BASE>
-          Git base for --changed, including observed index/worktree/untracked changes
-
-          [default: HEAD]
-
-      --fields <FIELDS>
-          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
-
-      --budget <BUDGET>
-          Limit whole payload records; producer pages retain their omission and continuation facts
-
-  -p, --package <SPEC>
-          Package to process (see `cargo help pkgid`)
-
-      --workspace
-          Process all packages in the workspace
-
-      --exclude <SPEC>
-          Exclude packages from being processed
-
-      --all-features
-          Activate all available features
-
-      --no-default-features
-          Do not activate the `default` feature
-
-  -F, --features <FEATURES>
-          Space-separated list of features to activate
-
-      --lib
-          Select actual library declarations, without guessing their names
-
-      --all-targets
-          Preserve native Cargo all-targets selection without enabling all features
-
-      --test <TEST_TARGET>
-          Select one integration-test target
-
-      --bin <BIN_TARGET>
-          Select one binary target
-
-      --without-feature <ABSENT>
-          Features that the actual selected compiler roots must keep absent
-
-      --target <PLATFORM>
-          Explicit Cargo target platform; host dependency contexts remain independent
-
-      --non-incremental
-          Disable incremental compilation for the selected Cargo build
-
-      --target-kind <TARGET_KIND>
-          Disambiguate duplicate target names by their Cargo kind, for example test or bin
-
-      --ignore-default-filter
-          Bypass the selected nextest profile's default filter
-
-  -E, --filterset <EXPRESSIONS>
-          Native nextest filtersets; nextest owns their grammar
-
-      --ignored <IGNORED>
-          Possible values:
-          - default: Run ordinary tests only
-          - only:    Run ignored tests only
-          - all:     Run ordinary and ignored tests
-
-          [default: default]
-
-      --profile <PROFILE>
-          Selected nextest policy profile, without running its setup during explain
-
-          [default: default]
-
-      --from-result <FROM_RESULT>
-          Validate a source witness, then select its current containing package as a test candidate
-
-      --admitted
-
-
-      --full
-
-
-  -h, --help
-          Print help (see a summary with '-h')
-
-~~~~
-
 ## `pse inspect check-selection`
 
 ~~~~text
@@ -6802,6 +7454,14 @@ Options:
 
       --session <SESSION>
 
+
+      --detail <DETAIL>
+          Inspect a bounded detail retained by the original owner
+
+          Possible values:
+          - failures:   Bounded original diagnostic trees
+          - provenance: Originally captured environment and provider provenance
+          - outputs:    References to owner-managed artifacts and scientific outputs
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -7070,6 +7730,130 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse inspect test-selection`
+
+~~~~text
+Explain real native test selection; no binary listing or test execution occurs
+
+Usage: pse inspect test-selection [OPTIONS] [PACKAGE[:TARGET]]... [-- <WORDS>...]
+
+Arguments:
+  [PACKAGE[:TARGET]]...
+          Workspace package names, optionally followed by :TARGET. Use -p for opaque package IDs
+
+  [WORDS]...
+          Bare test-name filters after --; these are not package or target names
+
+Options:
+  -C <checkout>
+
+
+      --rerun-failed <INVOCATION>
+          Rebuild current source for exact failed identities and original compiler policy
+
+      --changed
+          Conservatively select changed source owners and reverse dependencies
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --base <BASE>
+          Git base for --changed, including observed index/worktree/untracked changes
+
+          [default: HEAD]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -p, --package <SPEC>
+          Package to process (see `cargo help pkgid`)
+
+      --workspace
+          Process all packages in the workspace
+
+      --exclude <SPEC>
+          Exclude packages from being processed
+
+      --all-features
+          Activate all available features
+
+      --no-default-features
+          Do not activate the `default` feature
+
+  -F, --features <FEATURES>
+          Space-separated list of features to activate
+
+      --lib
+          Select actual library declarations, without guessing their names
+
+      --all-targets
+          Preserve native Cargo all-targets selection without enabling all features
+
+      --test <TEST_TARGET>
+          Select one integration-test target
+
+      --bin <BIN_TARGET>
+          Select one binary target
+
+      --without-feature <ABSENT>
+          Features that the actual selected compiler roots must keep absent
+
+      --target <PLATFORM>
+          Explicit Cargo target platform; host dependency contexts remain independent
+
+      --non-incremental
+          Disable incremental compilation for the selected Cargo build
+
+      --target-kind <TARGET_KIND>
+          Disambiguate duplicate target names by their Cargo kind, for example test or bin
+
+      --ignore-default-filter
+          Bypass the selected nextest profile's default filter
+
+  -E, --filterset <EXPRESSIONS>
+          Native nextest filtersets; nextest owns their grammar
+
+      --ignored <IGNORED>
+          Possible values:
+          - default: Run ordinary tests only
+          - only:    Run ignored tests only
+          - all:     Run ordinary and ignored tests
+
+          [default: default]
+
+      --profile <PROFILE>
+          Selected nextest policy profile, without running its setup during explain.
+
+          Use default for ordinary tests. The managed-primary profile selects the explicitly placed managed study tests with their required native features.
+
+          [default: default]
+
+      --from-result <FROM_RESULT>
+          Validate a source witness, then select its current containing package as a test candidate
+
+      --admitted
+
+
+      --full
+
 
   -h, --help
           Print help (see a summary with '-h')

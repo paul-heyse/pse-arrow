@@ -284,6 +284,54 @@ async fn project_portability_offline_reader_uses_only_contained_bytes_and_detect
 }
 
 #[tokio::test]
+async fn project_pack_product_reader_uses_offline_owner_and_retains_original_failure() {
+    use crate::tooling::reader::{ReaderError, encode};
+    use std::io;
+    let (root, manifest) = bundle().await;
+    let input = pse_host::investigation::NativePath::from(root.path().to_owned());
+    let cancel = pse_columnar::CancellationToken::new();
+    let read = |maximum: Option<usize>| {
+        let mut request = serde_json::json!({
+            "protocol": "pse.product-reader",
+            "version": 1,
+            "correlation": "offline-project",
+            "access": "passive",
+            "request": { "operation": "inspect_project_pack", "input": input }
+        });
+        if let Some(maximum) = maximum {
+            request["request"]["maximum_document_bytes"] = maximum.into();
+        }
+        encode(&serde_json::to_vec(&request).unwrap(), &cancel).unwrap()
+    };
+    let verified = read(None);
+    assert_eq!(verified.exit_code(), 0);
+    let value: serde_json::Value = serde_json::from_slice(verified.bytes()).unwrap();
+    let owner = ProjectBundleReader::open(
+        root.path(),
+        crate::host_operations::project::PROJECT_DOCUMENT_BYTES,
+    )
+    .unwrap();
+    assert_eq!(value["correlation"], "offline-project");
+    assert_eq!(value["payload"]["kind"], "project_pack");
+    assert_eq!(value["payload"]["manifest_digest"], owner.digest());
+    assert_eq!(
+        value["payload"]["manifest"],
+        serde_json::to_value(manifest).unwrap()
+    );
+    assert!(value["managed_invocation"].is_null());
+    assert!(value["next_request"].is_null());
+
+    let refused = read(Some(1));
+    assert_ne!(refused.exit_code(), 0);
+    let value: serde_json::Value = serde_json::from_slice(refused.bytes()).unwrap();
+    assert_eq!(value["payload"]["kind"], "refusal");
+    assert!(matches!(
+        refused.delivery_failed(ReaderError::Io(io::Error::other("fixture delivery failed"))),
+        ReaderError::Delivery { response, .. } if matches!(*response, ReaderError::Workflow(_))
+    ));
+}
+
+#[tokio::test]
 async fn project_portability_member_copy_verifies_actual_transfer_and_keeps_failed_prefix() {
     use std::io::{ErrorKind, Write};
     let (root, mut manifest) = bundle().await;

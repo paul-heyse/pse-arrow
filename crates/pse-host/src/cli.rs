@@ -25,6 +25,8 @@ mod control;
 mod dependency;
 mod docs;
 mod investigation;
+mod placement;
+mod prepare;
 mod probe;
 mod product;
 mod selection;
@@ -76,9 +78,19 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Explicitly prepare the independent native host.
+    #[command(add(crate::catalog::description::CommandEffect::Prepare))]
+    Prepare(prepare::PrepareArgs),
+    /// Read project data through a prepared product owner.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Project {
+        #[command(subcommand)]
+        action: product::ProjectAction,
+    },
     /// Run the fixed original Study coordinator in this application scope using prepared images.
     QualifyStudy(crate::study_qualification::LaunchArgs),
     /// Find source, text, Rust entities and relationships through one typed query.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Search(investigation::Search),
     /// Inspect a known source or an addressed search result without preparation.
     Inspect(Box<investigation::Inspect>),
@@ -278,7 +290,8 @@ impl Command {
             Self::Api(args) => args.intent(),
             Self::Docs(args) => args.intent(),
             Self::Code { action } => action.intent(),
-            Self::HostGenerationBootstrap { .. }
+            Self::Prepare(_)
+            | Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
             | Self::Finalize(_)
             | Self::Workflow(_)
@@ -291,6 +304,7 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
+            | Self::Project { .. }
             | Self::Search(_)
             | Self::Inspect(_)
             | Self::Propose(_)
@@ -767,7 +781,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<crate::test_inventory::FailurePage>(command, view)
         }
         "inspect invocation" => {
-            envelope::schema::<crate::invocation_view::ResultView>(command, view)
+            envelope::schema::<crate::invocation_view::InvocationInspection>(command, view)
         }
         "inspect log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
         "propose" => envelope::schema::<investigation::Preview>(command, view),
@@ -775,9 +789,14 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
             envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
+        "prepare host" => envelope::schema::<prepare::HostPreparation>(command, view),
         "tools retire-host" => {
             envelope::schema::<crate::generation::retirement::Retirement>(command, view)
         }
+        "tools retire-result" => envelope::schema::<crate::invocation::CompactRetirement>(command, view),
+        "tools hold-result" => envelope::schema::<()>(command, view),
+        "tools sweep-results" => envelope::schema::<crate::invocation::CompactSweep>(command, view),
+        "tools prepare-result-expiry" => envelope::schema::<crate::invocation::CompactTimer>(command, view),
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -785,6 +804,13 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "observe prepare" => envelope::schema::<product::PreparedReader>(command, view),
         "observe query" | "observe discover" | "observe investigate" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
+        }
+        "project inspect-pack" | "project show" | "project branches" | "project branch"
+        | "project draft-show" => envelope::schema::<product::ProductView<'static>>(command, view),
+        "project metadata" | "project metadata projects" | "project metadata drafts"
+        | "project metadata bookmarks" | "project metadata savepoints"
+        | "project metadata diagnostics" => {
+            envelope::schema::<product::ProductView<'static>>("project metadata", view)
         }
         "observe follow" => envelope::schema::<product::FollowView<'static>>(command, view),
         "docs" => envelope::schema::<ManagedReply>(command, view),
@@ -920,6 +946,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 receipt,
             ))?)
         }
+        Command::Prepare(args) => prepare::dispatch(args, selected, presentation),
+        Command::Project { action } => product::project_dispatch(action, selected, presentation),
         Command::RunAll(options) => bundle::start(options, selected, entry, presentation),
         Command::Bundle(args) => bundle::run(args, selected, entry),
         Command::FixturePrepare { fixture } => {
@@ -1442,6 +1470,10 @@ fn launch_managed_finalize(
             response.observation.limitations.push(format!(
                 "settled workflow executable release did not complete: {error}"
             ));
+        } else if let Err(error) = store.publish_compact_test_result(&directory, &terminal, &policy) {
+            response.observation.limitations.push(policy.redact(&format!(
+                "settled compact result was not published: {error}"
+            )));
         }
         return Ok(presentation
             .emit(response.map_payload(|payload| ManagedReply::Completed(Box::new(payload))))?);
@@ -1829,11 +1861,7 @@ pub fn main(kind: BinKind) -> ExitCode {
     }
     let policy = RedactionPolicy::from_environment();
     let mut presentation = OutputOptions {
-        format: OutputFormat::early(
-            presentation_prefix(&arguments),
-            std::env::var("PSE_FORMAT").ok().as_deref(),
-            io::stdout().is_terminal(),
-        ),
+        format: OutputFormat::Auto,
         presentation: Presentation::default(),
         invocation_id: CliInvocationId::new(),
         artifact_directory: None,
@@ -1889,7 +1917,12 @@ pub fn main(kind: BinKind) -> ExitCode {
                     if intent == GenerationIntent::NewWork && entry.prepared().is_some() {
                         let root = checkout_root(cli.root.as_deref())?;
                         let environment = std::env::vars_os().collect();
-                        match runtime()?
+                        let runtime = runtime()?;
+                        if !matches!(cli.command.as_ref(), Some(Command::Boundary(options)) if options.no_scope)
+                        {
+                            placement::ensure(&arguments, &runtime)?;
+                        }
+                        match runtime
                             .block_on(crate::generation::new_work_decision(&root, &environment))?
                         {
                             NewWorkDecision::Current | NewWorkDecision::PreserveNested => {}
@@ -1946,6 +1979,11 @@ pub fn main(kind: BinKind) -> ExitCode {
                     let _ = error.print();
                     Ok(code)
                 } else {
+                    presentation.format = OutputFormat::early(
+                        presentation_prefix(&arguments),
+                        std::env::var("PSE_FORMAT").ok().as_deref(),
+                        io::stdout().is_terminal(),
+                    );
                     Ok(failure(
                         ErrorRecord::from_clap(&error, &policy),
                         CommandOutcome::Usage,
@@ -2102,8 +2140,17 @@ fn failure(
         && let Some(native) = native
     {
         let mut rendered = String::new();
-        let result = if io::stderr().is_terminal() {
-            miette::GraphicalReportHandler::new().render_report(&mut rendered, native)
+        let result = if io::stderr().is_terminal()
+            && std::env::var_os("NO_GRAPHICS").is_none()
+            && !std::env::var_os("TERM").is_some_and(|value| value == "dumb")
+        {
+            let graphical = if std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty()) {
+                miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::unicode_nocolor())
+                    .with_links(false)
+            } else {
+                miette::GraphicalReportHandler::new()
+            };
+            graphical.render_report(&mut rendered, native)
         } else {
             miette::NarratableReportHandler::new().render_report(&mut rendered, native)
         };

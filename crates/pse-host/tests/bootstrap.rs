@@ -40,6 +40,24 @@ fn seed(root: &Path) -> Command {
         .env_remove("CARGO_BUILD_TARGET");
     command
 }
+fn launcher(root: &Path) -> Command {
+    let launcher = root.join("scripts/pse");
+    fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../scripts/pse"),
+        &launcher,
+    )
+    .unwrap();
+    let mut command = Command::new(launcher);
+    command
+        .env(
+            "PATH",
+            format!("{}:/usr/bin:/bin", root.join("bin").display()),
+        )
+        .env_remove("CARGO_TARGET_DIR")
+        .env_remove("CARGO_BUILD_TARGET_DIR")
+        .env_remove("CARGO_BUILD_TARGET");
+    command
+}
 fn unchanged(root: &Path) {
     assert_eq!(
         fs::read_to_string(root.join("target/host-tools/current")).unwrap(),
@@ -238,4 +256,130 @@ fn bootstrap_help_never_enters_copy_or_compilation() {
     assert!(String::from_utf8_lossy(&result.stdout).starts_with("Usage: scripts/bootstrap-host"));
     assert!(!root.path().join("target/host-tools/.update.lock").exists());
     unchanged(root.path());
+}
+
+#[test]
+fn cold_pse_help_and_invalid_preparation_leave_the_checkout_untouched() {
+    let root = checkout();
+    let path = root.path();
+    executable(
+        &path.join("bin/cargo"),
+        "#!/bin/sh\ntouch entered-construction\nexit 98\n",
+    );
+    for arguments in [
+        &[][..],
+        &["--help"][..],
+        &["prepare", "--help"][..],
+        &["prepare", "host", "--help"][..],
+    ] {
+        let result = launcher(path).args(arguments).output().unwrap();
+        assert!(result.status.success());
+        assert!(String::from_utf8_lossy(&result.stdout).contains("pse prepare host [--from CHECKOUT]"));
+    }
+    let unavailable = launcher(path).arg("commands").output().unwrap();
+    assert_eq!(unavailable.status.code(), Some(125));
+    assert!(String::from_utf8_lossy(&unavailable.stderr).contains("run pse prepare host"));
+    for suffix in [&["--unknown"][..], &["--from:unknown", "another-path"][..]] {
+        let rejected = launcher(path)
+            .args(["prepare", "host"])
+            .args(suffix)
+            .output()
+            .unwrap();
+        assert_eq!(rejected.status.code(), Some(2));
+    }
+    assert!(!path.join("entered-construction").exists());
+    assert!(!path.join("target/host-tools/.construction.lock").exists());
+    unchanged(path);
+}
+
+#[test]
+fn cold_pse_hands_explicit_preparation_to_the_fixed_source_owner() {
+    let root = checkout();
+    let path = root.path();
+    let source = source_checkout(
+        "#!/bin/sh\n[ \"$#\" = 5 ] && [ \"$1\" = -C ] && [ \"$3\" = __host-generation-bootstrap ] && [ \"$4\" = --from ] || exit 93\n[ \"$PSE_BOOTSTRAP_SOURCE_HELPER\" = \"$5\" ] || exit 96\nprintf 'source helper called\\n'\n",
+    );
+    executable(&path.join("bin/cargo"), "#!/bin/sh\nexit 98\n");
+    let result = launcher(path)
+        .args(["prepare", "host", "--from"])
+        .arg(source.path())
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(result.stdout, b"source helper called\n");
+    assert!(!path.join("target/host-tools/.construction.lock").exists());
+}
+
+#[test]
+fn preparation_receipt_contains_only_the_owner_route_and_releases_construction_lock() {
+    let root = checkout();
+    let path = root.path();
+    executable(&path.join("bin/cargo"), "#!/bin/sh\nprintf 'cargo diagnostic\\n'\n");
+    executable(
+        &path.join("target/debug/pse-host"),
+        "#!/bin/sh\nflock -n target/host-tools/.construction.lock /bin/true || exit 93\nprintf 'native diagnostic\\n'\n",
+    );
+    let result = seed(path).arg("--report-route").output().unwrap();
+    assert!(result.status.success());
+    assert_eq!(result.stdout, b"local-seed\n");
+    let diagnostics = String::from_utf8_lossy(&result.stderr);
+    assert!(diagnostics.contains("cargo diagnostic"));
+    assert!(diagnostics.contains("native diagnostic"));
+
+    let source = source_checkout("#!/bin/sh\n[ \"$PSE_BOOTSTRAP_SOURCE_HELPER\" = \"$5\" ] || exit 93\nprintf 'source diagnostic\\n'\n");
+    let result = seed(path)
+        .args(["--report-route", "--from"])
+        .arg(source.path())
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    assert_eq!(result.stdout, b"matching-source\n");
+    assert!(String::from_utf8_lossy(&result.stderr).contains("source diagnostic"));
+}
+
+#[test]
+fn preparation_receipt_preserves_original_failure_status() {
+    let root = checkout();
+    let path = root.path();
+    assert!(
+        Command::new("git")
+            .args(["init", "--quiet"])
+            .current_dir(path)
+            .status()
+            .unwrap()
+            .success()
+    );
+    fs::create_dir(path.join(".config")).unwrap();
+    fs::write(path.join(".config/diagnostic-tools.toml"), "").unwrap();
+    let invoke = || {
+        let mut command = Command::new(
+            std::env::var_os("CARGO_BIN_EXE_pse")
+                .expect("Cargo/nextest supplies the selected CLI executable"),
+        );
+        command
+            .arg("-C")
+            .arg(path)
+            .args(["prepare", "host", "--format", "json"]);
+        command
+    };
+    executable(
+        &path.join("scripts/bootstrap-host"),
+        "#!/bin/sh\n[ \"$1\" = --report-route ] || exit 92\nprintf x >> \"$(dirname \"$0\")/invocations\"\nprintf 'verified-current\\n'\n",
+    );
+    let prepared = invoke().output().unwrap();
+    assert!(prepared.status.success());
+    let response: serde_json::Value = serde_json::from_slice(&prepared.stdout).unwrap();
+    assert_eq!(response["payload"]["route"], "verified_current");
+    let unsupported = invoke().args(["--fields", "unsupported"]).output().unwrap();
+    assert!(!unsupported.status.success());
+    assert!(String::from_utf8_lossy(&unsupported.stderr).contains("unknown payload field unsupported"));
+    assert_eq!(fs::read(path.join("scripts/invocations")).unwrap(), b"x");
+
+    executable(&path.join("scripts/bootstrap-host"), "#!/bin/sh\nexit 79\n");
+    let failed = invoke().output().unwrap();
+    assert_eq!(failed.status.code(), Some(79));
+    let response: serde_json::Value = serde_json::from_slice(&failed.stdout).unwrap();
+    assert_eq!(response["outcome"], "boundary_failure");
+    assert_eq!(response["child_exit"], 79);
+    assert_eq!(response["next"][0]["argv"][1], "prepare");
 }

@@ -8,6 +8,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  prepare            Explicitly prepare the independent native host
+  project            Read project data through a prepared product owner
   qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation
@@ -56,6 +58,8 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  prepare            Explicitly prepare the independent native host
+  project            Read project data through a prepared product owner
   qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation

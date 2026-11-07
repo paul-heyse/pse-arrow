@@ -72,17 +72,7 @@ pub fn explain(
     let config_path = config
         .map(|path| absolute(&root, path))
         .unwrap_or_else(|| root.join(".config/pse-search.toml"));
-    let config_exists = config_path.is_file();
-    if config.is_some() && !config_exists {
-        return Err(Error::Io(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            format!(
-                "query configuration does not exist: {}",
-                config_path.display()
-            ),
-        )));
-    }
-    let file_config: Configuration = if config_exists {
+    let file_config: Configuration = if config.is_some() || config_path.try_exists()? {
         files.push(config_path.clone());
         let provider = file_provider(&config_path);
         provider.extract()?
@@ -175,8 +165,12 @@ pub fn explain(
     // controls must not require a second, manually maintained list of explainable fields.
     let mut keys = Vec::new();
     provenance_keys(&serde_json::to_value(&effective)?, "", &mut keys);
+    let effective_values = figment.find_value("")?;
     for key in keys {
-        if let Some(metadata) = figment.find_metadata(&key) {
+        if let Some(metadata) = effective_values
+            .find_ref(&key)
+            .and_then(|value| figment.get_metadata(value.tag()))
+        {
             origins.insert(
                 key,
                 InputOrigin {
@@ -349,9 +343,9 @@ fn file_provider(path: &Path) -> Figment {
         .extension()
         .is_some_and(|extension| extension == "json")
     {
-        Figment::from(Json::file(path))
+        Figment::from(Json::file_exact(path))
     } else {
-        Figment::from(Toml::file(path))
+        Figment::from(Toml::file_exact(path))
     }
 }
 struct Layer {
@@ -744,6 +738,21 @@ mod tests {
             serde_json::json!(["rust"])
         );
     }
+    #[test]
+    fn missing_explicit_request_does_not_supply_empty_defaults() {
+        let root = tempfile::tempdir().unwrap();
+        let overrides = serde_json::json!({"predicate":{"kind":"text","patterns":["needle"]}});
+        assert!(resolve(root.path(), None, None, None, overrides.clone()).is_ok());
+        assert!(matches!(
+            resolve(root.path(), None, None, Some(Path::new("missing.json")), overrides.clone()),
+            Err(Error::Configuration(_))
+        ));
+        assert!(matches!(
+            resolve(root.path(), Some(Path::new("missing.toml")), None, None, overrides),
+            Err(Error::Configuration(_))
+        ));
+    }
+
     #[test]
     fn explicit_overrides_replace_arrays_without_implicit_cli_defaults() {
         let root = tempfile::tempdir().unwrap();

@@ -20,7 +20,10 @@ use std::{
     ffi::OsString,
     fs::{File, OpenOptions},
     io::Read as _,
-    os::unix::fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
+    os::unix::{
+        fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
+        net::SocketAddr,
+    },
     panic::AssertUnwindSafe,
     path::{Path, PathBuf},
     process::Stdio,
@@ -404,6 +407,7 @@ struct Managed {
 }
 struct Native {
     args: Args,
+    socket_directory: PathBuf,
     keeper_image: Executable,
     frontend_image: Executable,
     worker_image: Executable,
@@ -420,6 +424,20 @@ struct Native {
     cleaning: bool,
     completed: bool,
 }
+const ORIGINAL_SOCKET: &str = "frontend-one.sock";
+const REPLACEMENT_SOCKET: &str = "frontend-two.sock";
+
+fn frontend_socket(directory: &Path, replacement: bool) -> Result<PathBuf, Error> {
+    let path = directory.join(if replacement {
+        REPLACEMENT_SOCKET
+    } else {
+        ORIGINAL_SOCKET
+    });
+    SocketAddr::from_pathname(&path)
+        .map_err(|error| format!("cannot use Study frontend socket {path:?}: {error}"))?;
+    Ok(path)
+}
+
 impl Native {
     fn path(&self, name: &str) -> PathBuf {
         self.args.work_directory.join(name)
@@ -638,7 +656,7 @@ impl Driver for Native {
         self.unchanged_keeper(false)?;
         self.frontend_image.verify()?;
         let ordinal = if replacement { "two" } else { "one" };
-        let socket = self.path(&format!("frontend-{ordinal}.sock"));
+        let socket = frontend_socket(&self.socket_directory, replacement)?;
         let ready = self.path(&format!("frontend-{ordinal}.json"));
         let spill = self.path(&format!("spill-{ordinal}"));
         std::fs::create_dir(&spill)?;
@@ -1061,9 +1079,27 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
         .create(&args.work_directory)?;
     let stop = CancelSource::new();
     let signals = signals::ProcessInterrupt::new(stop.clone())?;
+    let store = InvocationStore::new(CheckoutState::resolve(&args.root, &environment)?);
+    let socket_parent = std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|value| !value.is_empty())
+        .map_or_else(std::env::temp_dir, PathBuf::from);
+    let socket_directory = tempfile::Builder::new()
+        .prefix("pse-s-")
+        .tempdir_in(socket_parent.canonicalize()?)?;
+    for replacement in [false, true] {
+        frontend_socket(socket_directory.path(), replacement)?;
+    }
+    // Once a managed frontend may have started, only original-owner drain proves
+    // this scratch is safe to release. Keep its exact location in the diagnostics.
+    let socket_directory = socket_directory.keep();
+    eprintln!(
+        "Study qualification frontend socket directory: {}",
+        socket_directory.display()
+    );
     let mut native = Native {
-        store: InvocationStore::new(CheckoutState::resolve(&args.root, &environment)?),
+        store,
         args,
+        socket_directory,
         keeper_image,
         frontend_image,
         worker_image,
@@ -1081,11 +1117,21 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
     };
     let result = execute(&mut native, &stop).await;
     signals.finish().await;
+    let scratch_release = if native.managed.iter().all(|owner| owner.settled) {
+        std::fs::remove_dir_all(&native.socket_directory)
+    } else {
+        eprintln!("Study qualification retains frontend socket scratch pending original drain");
+        Ok(())
+    };
     eprintln!(
         "Study qualification original command outputs and handoff: {}",
         native.args.work_directory.display()
     );
-    result
+    match (result, scratch_release) {
+        (result, Ok(())) => result,
+        (Ok(()), Err(error)) => Err(error.into()),
+        (Err(primary), Err(error)) => Err(Box::new(Failures(vec![primary, error.into()]))),
+    }
 }
 
 #[cfg(test)]
@@ -1095,6 +1141,19 @@ mod tests {
         reason = "controlled qualification fixtures require valid local setup"
     )]
     use super::*;
+    #[test]
+    fn frontend_paths_are_checked_before_native_launch() {
+        let short = Path::new("/tmp/pse-s-example");
+        assert_eq!(frontend_socket(short, false).unwrap(), short.join(ORIGINAL_SOCKET));
+        assert_eq!(frontend_socket(short, true).unwrap(), short.join(REPLACEMENT_SOCKET));
+        let long = short.join("a".repeat(128));
+        assert!(
+            frontend_socket(&long, false)
+                .unwrap_err()
+                .to_string()
+                .contains("cannot use Study frontend socket")
+        );
+    }
     #[derive(Default)]
     struct Probe {
         calls: Vec<String>,
