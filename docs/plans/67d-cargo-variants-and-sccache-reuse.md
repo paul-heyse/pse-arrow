@@ -1,6 +1,6 @@
 ---
 title: "Plan67d: Cargo variants and sccache reuse"
-status: in-progress
+status: complete
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -43,10 +43,10 @@ reuse, current large-entry recovery, and remote transfer savings need their own 
 
 ### D01 — Product compatibility matrix and unit census
 
-Use current selected compiler units and native correctness closures to count work by package,
-host/build/dev role, target, feature set, profile, and compiler or wrapper context. Record the
-actual consumer of each materially distinct configuration. Keep a named compatibility matrix
-for real product differences and remove units that arose solely from different actors, seeds,
+Inspect the compiler graphs for the changed test routes and record the consumer of each
+materially distinct configuration. Group scenarios with the same compiler inputs. Compare
+before and after within the same Cargo operation and distinguish a change of target from a
+change to the dependency graph. Remove variants that arose solely from different actors, seeds,
 faults, or test scenarios when the test companion migrates them. Preserve explicit Arrow
 force validation in each actual correctness closure, required WASI and native-provider
 distinctions, and observable build-script inputs. Use pinned cargo-shear 1.14.0
@@ -59,13 +59,21 @@ declarations. Keep the existing lockfile and native feature-unification owner.
 
 ### D02 — Stable verification and campaign builds
 
-Use the existing managed correctness entry point for verification. Compare one explicit
-non-incremental configuration with the same route's current default on repeated check and
-test selections, including the no-default and coverage paths where they do distinct work.
-Prefer Cargo's `--config build.incremental=false` when it supplies the intended effective
-mode without adding a separately hashed `CARGO_INCREMENTAL` environment value. Migrate a
-named verification lane after equivalent coverage and an observed improvement in cacheable
-recovery or useful build time. The ordinary edit loop keeps its warm per-checkout target.
+Use the existing managed correctness entry point for verification. Cargo freshness reuses
+available unchanged outputs directly. Incremental compilation can reuse work after an edit
+to a workspace crate. Explicit non-incremental verification enables sccache recovery for
+eligible requests with matching inputs when outputs are absent. Imported libraries already
+compile non-incrementally under the ordinary profile.
+
+Use the existing no-default check/test comparison, source edit, and controlled absent-output
+restores to decide the default. For a named route with recurring cold recovery cost, first
+check that eligible compilation is on its critical path. Compare the two modes on that route
+with matched inputs and output availability. Repeat enough to distinguish a worthwhile
+difference from run-to-run variation before adopting the route. Coverage instrumentation has
+its own compiler inputs and needs a comparison when a named coverage workflow warrants one.
+Prefer Cargo's `--config build.incremental=false` when it supplies the intended effective mode
+without adding a separately hashed `CARGO_INCREMENTAL` value. The ordinary edit loop keeps
+its warm per-checkout target.
 Check that route for accidental explicit host `--target`, profile and build-dependency
 override splits, duplicate wrapper composition, and needless target relocations. Preserve
 needed target and native-link contracts. [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html)
@@ -181,8 +189,8 @@ until the relevant toolchain has a real consumer.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| D01 | in-progress | Current Cargo selection for baseline. C02 migration results for comparison. | Named product compatibility matrix, before/after compilation units, and verified removal of test-driven variants with their replacement. |
-| D02 | in-progress | D01 census and current correctness routes | Verified stable non-incremental lane where justified, explicit campaign layout and release path, and preserved ordinary warm editing. |
+| D01 | complete | Current Cargo selection for baseline. C02 migration results for comparison. | Changed-route compatibility matrix reconciled by Cargo operation. Removed scenario-feature callers are absent. Selected native test closures retain force validation. |
+| D02 | complete | D01 census and current correctness routes | Existing edit and restore controls support ordinary incremental builds, explicit non-incremental recovery, and checkout-owned campaign layout. Adoption of another recurring lane requires a named workload benefit. |
 | D03 | complete | Managed 0.19.0 and stable representative selections. | Metadata recovery, changed-input and fallback controls, and actual large-entry restoration on the selected managed daemon. D02 owns verification-lane adoption. |
 | D04 | complete | Native owner and representative command context | Verified existing provider preparation and native object restoration. Keep direct preprocessing disabled after the negative-header controls. |
 | D05 | complete | D03 confirms compatible requests and an observable daemon. A trial can use private infrastructure. | Verified private disk/WebDAV promotion and failure behavior. Defer deployment until a named compatible consumer shows representative transfer and recovery savings. |
@@ -196,8 +204,8 @@ explicit force validation. This establishes the two source contexts for the comp
 The migrated xtask `evidence-tools` and `host-contracts` selection examined 804 units
 and reached zero `pse-runtime` compiler units after removing its test-only feature.
 The pre-migration recapture reproduced those three contexts and examined 1,082 units with
-one force-validated Arrow leaf for the `pse-runtime` library selection. The wider consumer
-mapping and post-migration matrix remain open.
+one force-validated Arrow leaf for the `pse-runtime` library selection. The bounded
+post-migration matrix and its current consumers are reconciled below.
 
 Two force-validated pinned Cargo check selections exercised `pse-runtime` and `pse-admission`
 as separate roots. Each selected one `arrow-array` and one DataFusion library unit, with
@@ -251,7 +259,7 @@ timings stream starts with a distinct JSON marker, which the compiler observer n
 accepts while still requiring a valid terminal message. The timed non-incremental
 `pse-diagnostics` library check and selected process-identity test both passed with
 complete compiler capture and settlement.
-A recurring lane and campaign layout remain subject to the representative measurements in D02.
+The final D02 disposition below retains the existing default and checkout-owned campaign layout.
 
 A pinned Symbolica 3.0.1 library unit used the managed 0.19.0 binary, client-side disk
 cache and 256 MiB frame. The timed unit used the ordinary MPFR and GMP features and an
@@ -299,7 +307,7 @@ empty output directories completed in 1.15 and 1.23 seconds, each adding one
 Rust hit and zero cache write errors. They restored the 56,889,532-byte rlib and
 27,866,942-byte metadata byte-for-byte and wrote local dep-info matching after
 normalizing the output directory. These timings isolate the selected compiler
-command. The representative verification campaign still governs D02.
+command. These measurements establish that eligible missing library outputs benefit from recovery.
 
 **Measured.** The disposable checkout ran three pairs per mode of
 `pse check pse-diagnostics --lib --no-default-features --timings` and the matching
@@ -309,9 +317,7 @@ the default Cargo check phases took 0.98–2.79 seconds and the non-incremental 
 took 0.91–0.94 seconds. The corresponding test build phases took 1.36–1.64 and
 1.34–1.37 seconds. On the same authored source edit, the check phases took 1.25
 and 2.23 seconds and the test build phases took 1.91 and 4.96 seconds. Concurrent
-work varied during this control. The representative operations selection and the
-full compatibility matrix remain separate. These observations do not justify
-changing the ordinary default.
+work varied during this control. These observations support retaining the ordinary default.
 
 The no-default split-directory control used the same checkout and scoped correctness
 adapter with explicit `build.build-dir`. Its check passed, writing 188,219,392
@@ -324,25 +330,12 @@ its 107,374,182,400-byte limit, `ReadWrite`, and zero reported write errors. Thi
 does not establish capacity-driven eviction. The separate stock listener remains active
 outside the managed socket. Its local cache has independent ownership.
 
-**Interface-checked.** The current admitted test graphs separate these compilation
-contexts. The pinned cargo-shear scan supplied review candidates, including
-generated source links and a direct dependency that needs macro/source confirmation.
-
-| Compiler selection | Units before → current | Actual difference |
-|---|---:|---|
-| Operations ordinary library | 498 → 498 | One default, force-validated context serves the former scenario gate. |
-| Operations native and maintenance targets | 819 → 819 | Native service and maintenance linkage remains explicit. |
-| Runtime native study | 1,129 → 1,120 | The real solver/native-service library test selection replaces the integration target and test-only feature context. |
-| Runtime ordinary scientific and PID cases | 1,099 → 1,099 and 1,084 → 1,084 | The in-process authored input avoids the separate builder stage. The independent PID reference remains. |
-| Standalone native lane | 1,142 → 1,142 | The lane keeps its genuine executable boundary while dropping builder-specific xtask features. |
-
 **Tested.** The runtime all-target check with `--no-default-features` passed with zero
 errors in the 1,099-unit route. It exposed four warning records, and the source moved
 the fixture helpers behind their actual test consumers and removed redundant qualifiers.
 The scoped default `pse check pse-operations --lib --features native-service,canonical-maintenance --timings`
 passed with zero compiler errors or warnings and a 72.74-second Cargo phase after rebuilding
-metadata. It supplies one default-mode operations sample. The matched repeat comparison
-and broader compatibility matrix remain open.
+metadata. It supplies one default-mode operations sample.
 
 An isolated PETSc 3.24.0 configuration used the authenticated archive and repository patch,
 the selected GCC and MKL file digests, and the native owner's configure flags. The actual
@@ -369,9 +362,65 @@ compatible consumer establishes representative savings.
 ## Acceptance
 
 Preserve the actual selected test assertions, provider integrity, and force-validation
-closures. Show smaller unit counts for migrated scenario coverage, useful same-checkout
-recovery on absent outputs, accurate invalidation for changed inputs, and explicit cache
-error and bypass cases. Establish end-to-end speedup only with comparable timed executions.
+closures. Verify removal of redundant compiler configurations for migrated scenarios,
+useful same-checkout recovery on absent outputs, accurate invalidation for changed inputs,
+and explicit cache error and bypass cases. Establish end-to-end speedup only with
+comparable timed executions.
 Keep command, mode, scope, and observed failures against the zero target with each result.
 An isolated cache probe qualifies its own route. Product acceptance remains with Plan66
 and the migrated test owners.
+
+## Outcome
+
+**Interface-checked.** The pinned nightly and lockfile were used for
+`pse inspect dependency-units` and `pse inspect test-selection --admitted` on the changed
+Linux host selections. The following counts describe selected compiler units in their
+indicated operation. The WASI row uses the producer's separate Cargo build operation.
+Every listed native test graph selected one `arrow-array` and one `arrow-data` unit
+with `force_validate`.
+
+| Actual consumer and Cargo selection | Check units | Admitted test units |
+|---|---:|---:|
+| Operations library and canonical scenarios | 498 → 498 | 580 |
+| Operations native service and maintenance | 819 → 819, all targets | 799, `native_service` |
+| Runtime ordinary science, in-process authored input | 1,099, all targets with no defaults | 1,062, library with no defaults |
+| Runtime native Study, service and KINSOL/Ipopt | 1,129 integration → 1,120 library | 1,093 integration → 1,094 library with product operators |
+| Runtime engineering routes, including Diffsol | — | 1,101, `engineering_service` |
+| Independent PID comparison, with Diffsol | — | 1,084, `reference_pid_exchange` |
+| Standalone portable native lane, with KINSOL | — | 1,091, runtime consumer library |
+| xtask ordinary and developer evidence | 551 ordinary and 804 with `evidence-tools,host-contracts` | — |
+| Production Study module, `wasm32-wasip2` release | 300 units from the producer's Cargo build graph | — |
+
+The Operations check counts match within each workload. The scenario flags changed the
+compiler configuration even when the unit count held steady. Live manifests, Rust sources,
+recipes and scripts have zero references to the retired `canonical-tests`, `native-study-tests`
+and `pse-operations/test-support` selections. The Study comparison changes the root and
+records the test selection's product-operator coverage separately from the check count.
+The xtask evidence route reaches zero Runtime units. Native solvers, the executable lane
+producer, and the WASI module remain distinct where their owners need them. The WASI
+production graph contains no Arrow. The module owner's qualification variants preserve
+separate artifact identities and production-admission rules.
+
+The pinned cargo-shear scan reported one error and one warning against a zero target.
+Source inspection confirmed explicit Rust links for generated modules and service files.
+Generated policy files are generator-owned. The preexisting `buffa-types` declaration
+candidate is outside the scenario migration and the dependency remains reachable through
+`pse-host`. The lockfile and workspace feature-unification policy were kept.
+[Study module owner](../../crates/pse-host/src/study_module.rs)
+
+**Measured.** The existing no-default Diagnostics comparison exercised warm reuse and a
+real source edit. The Symbolica and metadata probes exercised recovery with outputs absent.
+The split-directory control exercised a separate intermediate root. The ordinary
+Operations check after rebuilding metadata was a single sample. The initial execution
+proposal would have repeated both modes across the Operations check and test without
+identifying a workflow whose compiler critical path warranted a different policy.
+The final decision uses the existing controls. The Operations sample establishes baseline
+timing for that command.
+
+**Implemented.** Ordinary editing uses Cargo freshness and incremental workspace builds.
+Imported dependencies already use the managed cache when eligible. Explicit
+`--non-incremental` remains available for a named recovery workload. Campaigns use their
+checkout-owned target and the existing settlement and retirement route. The managed
+sccache 0.19.0 budget stays at 100 GiB. A future route change needs a named workflow with
+recurring absent-output cost or an independently measured storage or latency benefit.
+[Build guide](../dev/build-performance.md)

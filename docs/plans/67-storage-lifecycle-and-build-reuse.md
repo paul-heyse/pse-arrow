@@ -91,8 +91,8 @@ reclamation have separate evidence.
 | O04 | Planned | E applies owner-issued release and reports active, eligible and unresolved holdings. |
 | O05 | Planned | C migrates database contract suites and application test constructs. |
 | O06 | Planned | E retires selected generations, redundant intermediates and proven unused service fragments. |
-| O07 | Planned | D reduces build variants and owns campaign layout and Cargo evidence. C owns test-scenario migration. |
-| O08 | Planned | D qualifies eligible Rust and C/C++ reuse and optional tiering. Release-specific limits constrain adoption. |
+| O07 | Planned | D reconciled the changed compilation contexts and selected checkout-owned campaign layout. C retains test-scenario qualification. |
+| O08 | Resolved | D qualified eligible Rust and C/C++ recovery on managed 0.19.0. A deployed second tier needs a named compatible consumer with measured transfer benefit. |
 | O09 | Deferred | Regenerate selected evidence when needed. B uses existing working-report and current-inventory rerun routes. |
 
 ## November 5 recommendation crosswalk
@@ -113,18 +113,19 @@ reclamation have separate evidence.
 
 ## Integration checkpoint — November 7
 
-Main contains the selected Plan66 worktree changes and this storage cutover. Git lists
-only the main checkout. [67a](67a-plan66-consolidation-and-incident-cleanup.md) owns the
+Main contains the selected Plan66 worktree changes and this storage cutover. The integration
+checkout inventory returned to main after consolidation.
+[67a](67a-plan66-consolidation-and-incident-cleanup.md) owns the
 incident release and the later direct deletion of prior ledgers. [67b](67b-invocation-custody-and-developer-history.md)
 owns settled executable custody and exact failed rerun. [67c](67c-surrealkit-and-rust-test-consolidation.md)
 records the SurrealKit suite, consolidated Rust tests and actual native qualification.
-[67d](67d-cargo-variants-and-sccache-reuse.md) records the managed 0.19.0 Rust and C/C++
-restore measurements and the 100 GiB capacity choice. [67e](67e-resource-retirement-and-storage-verification.md)
+[67d](67d-cargo-variants-and-sccache-reuse.md) records the completed build compatibility
+and cache dispositions, including managed 0.19.0 restoration and the 100 GiB capacity
+choice. [67e](67e-resource-retirement-and-storage-verification.md)
 records the ordinary Git retirement journey, owner-issued release and footprint observations.
 
-The remaining work is the real standalone native-lane preparation and consumer journey,
-execution of the independent PID oracle, the remaining compatibility and matched operations
-timing matrix, recurring scratch and named-store retirement, published-generation retirement,
+The remaining work includes the standalone native-lane, independent PID oracle and engineering
+verification in C, recurring scratch and named-store retirement, published-generation retirement,
 and assembled scope-end qualification. Keep each open obligation in its companion.
 
 ## Completion
