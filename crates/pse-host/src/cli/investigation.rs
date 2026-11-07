@@ -946,15 +946,12 @@ fn execute(
     let mut groups = std::collections::BTreeMap::<String, Vec<u64>>::new();
     let mut ordinal = 0u64;
     let observed = std::sync::Mutex::new(query::Summary::default());
-    let progress = indicatif::ProgressBar::with_draw_target(
-        None,
-        if std::io::stderr().is_terminal() {
-            indicatif::ProgressDrawTarget::stderr()
-        } else {
-            indicatif::ProgressDrawTarget::hidden()
-        },
-    );
-    progress.set_message("searching selected sources");
+    let progress = (output.format == OutputFormat::Human && std::io::stderr().is_terminal())
+        .then(|| {
+            let spinner = indicatif::ProgressBar::new_spinner();
+            spinner.set_message("searching selected sources");
+            spinner
+        });
     let mut emit = |mut event: query::Event| -> Result<(), query::Error> {
         recover_diagnostic(&mut event, &resolved);
         if let query::Event::Progress {
@@ -969,10 +966,12 @@ fn execute(
             facts.examined_files = facts.examined_files.max(examined_files);
             facts.examined_bytes = facts.examined_bytes.max(examined_bytes);
             facts.matches = facts.matches.max(matches);
-            progress.set_message(format!(
-                "search: {examined_files} files, {examined_bytes} bytes, {matches} matches"
-            ));
-            progress.tick();
+            if let Some(progress) = &progress {
+                progress.set_message(format!(
+                    "search: {examined_files} files, {examined_bytes} bytes, {matches} matches"
+                ));
+                progress.tick();
+            }
             return Ok(());
         }
         if let query::Event::Result(row) = &mut event {
@@ -989,7 +988,9 @@ fn execute(
         if let query::Event::Terminal(summary) = &mut event {
             summary.groups = groups.clone();
             summary.omitted_fields = query::presentation::omitted(&request.presentation);
-            progress.finish_and_clear();
+            if let Some(progress) = &progress {
+                progress.finish_and_clear();
+            }
         }
         if streaming {
             return writer.emit(&event);

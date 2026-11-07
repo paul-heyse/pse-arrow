@@ -85,4 +85,4 @@ and use `InMemoryTerm` only if layout or removal needs assertions beyond stream 
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A04 | planned | Existing resolved format and search renderer for the first deliverable. A03 projection and actual owner events for later receiving work. | PTY machine-output regression passes first. Receiving controls preserve owner verdict and settlement through success, failure and cancellation. |
+| A04 | in progress | Existing resolved format and search renderer for the first deliverable. A03 projection and actual owner events for later receiving work. | Machine-format search is gated and the isolated PTY control passed. Receiving controls remain for later owner events. |
