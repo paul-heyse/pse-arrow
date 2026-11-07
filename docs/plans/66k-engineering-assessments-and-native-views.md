@@ -111,11 +111,11 @@ useful library. Avoid building plotting/layout machinery merely to avoid a depen
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | K01 | in-progress | 66l selected methods/callables/consumer and input roles; existing costing/inspection source | First ordinary costed-exchanger consumer selects original contributions, unknown area support, exact pressure extrapolation and admitted cost-index units. Remaining assessment/view population stays open without recreating delivered arithmetic. |
-| K02 | in-progress | Selected working 66g/66i physical consumer; K01 ordinary coefficients and 66a product slice | Ordinary exchanger protected read/view/export receiving is in implementation, preserving original applicability and period/currency semantics. Other equipment/process costing and integrated accounting remain open. |
+| K02 | in-progress | Selected working 66g/66i physical consumer; K01 ordinary coefficients and 66a product slice | Ordinary exchanger protected read/view/export is integrated and passes selected main receiving, preserving original applicability and period/currency semantics. Other equipment/process costing and integrated accounting remain open. |
 | K03 | planned | Selected K01 environmental/utility methods and factor closure; required physical products | Selected environmental and utility assessments deliver declared boundary/allocation/time/heat-level interpretation and independent expectations, starting with one contrasting complete case |
 | K04 | planned | Existing protected inspection plus actual K01 table/plot/graph requirements; 66b/66f client slice | Native stream/flowsheet/result and trajectory/uncertainty views preserve source/physical identity, partiality, time and scope without rerun or permission escalation |
 | K05 | planned | Selected K02–K04 native producers and 66e protected/export path | Assessment/view clients and independent readers consume the same original products; typed edits use admitted operations; replaced aggregation/presentation interpretation and fixtures are deleted |
-| K06 | in-progress | Complete selected consumer journeys and 66l independent expectations | First ordinary costed-exchanger native assessment/read/view/export control is receiving; no completed K acceptance claim yet. Contrasting and wider selected assessment populations remain open with truthful support and provenance. |
+| K06 | in-progress | Complete selected consumer journeys and 66l independent expectations | First ordinary costed-exchanger native assessment/read/view/export control passes selected main receiving. This does not complete K acceptance; contrasting and wider assessment populations remain open with truthful support and provenance. |
 
 K01 is a bounded scientific-method and actual-view selection, not a reason to defer
 mandatory outcomes indefinitely. Start K02 from the delivered costed exchanger to close
@@ -128,6 +128,21 @@ ordinary stream/result views from accepted steady products while trajectory/unce
 views consume their respective ready 66h/66j slice; neither waits for all families.
 
 ## Consumer cutover and planned assurance
+
+The first ordinary costed-exchanger consumer now carries its original native point permission,
+independent balance/LMTD/area/cost arithmetic, positive capital contribution and all protected
+reports/checks into native inspection and bounded independent IPC readback. Metadata paging
+preserves the existing reader's incomplete shallow-inspection meaning; no completeness rule was
+weakened. Area support remains unknown, pressure support remains explicitly extrapolated and
+the original USD/index period survives a typed USD_2018 view conversion after producer release.
+Foreign revision and wrong-dimension conversion refuse. No qualified purchase price is inferred.
+
+**Tested, targeted:** `ordinary_costed_exchanger_preserves_support_period_and_protected_view`
+passed in its owning checkout and then in main's selected nine-control Water/costing/worker run
+with `engineering-service,native-study-tests,property-coolprop` and the explicit native solver
+fixture features. Main reported zero failures/compiler warnings and complete capture/settlement
+(`01a1b384-e25f-724f-9ea6-2797dbf9084c`). This is one costing consumer, not the environmental,
+utility, rendered/client, assessment-only recomputation or wider selected K population.
 
 Each delivery includes operation admission, exact selected source/physical context,
 native assessment or observation, scoped diagnostics, protected retained reading,

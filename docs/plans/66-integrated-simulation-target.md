@@ -297,11 +297,25 @@ capture/settlement, no pending lifetime (`01a1b371-1d64-75fe-b5f8-29f8588360d3`)
 generation passes 15 targets. This population overlaps earlier controls and is not an additive
 whole-series total; it excludes Water's separately required CoolProp profile.
 
-The scientific lane now carries the ordinary costed exchanger into K's protected native view and
-independent export, retaining unknown area support, exact pressure extrapolation and original
-currency/index semantics. The lifecycle lane receives actual generated Prepare-method departure
-on the existing authenticated child/connection while preserving independent native handles. A
-continues the narrower steady partial-observation producer investigation. Wider family/input
+Main's subsequent native receiving with the explicit `property-coolprop` profile passed nine
+selected Water/costing/worker controls, zero failures/build warnings, complete capture/settlement
+and no pending lifetime (`01a1b384-e25f-724f-9ea6-2797dbf9084c`). It receives the three homogeneous
+Water consumers, ordinary costed-exchanger protected native view/independent export, and actual
+generated Prepare-method departure/pending-Close controls. Original unknown area support,
+pressure extrapolation and currency/index semantics remain intact. The two recent populations
+overlap and do not establish an additive whole-series total.
+
+Actual schema CLI receiving also verifies the integrated shared semantic comparator: selected
+developer-evidence ownership accepts its own SourceCodeInfo-only pair, while core-only and
+unselected populations remain explicitly unknown. No second comparator is needed.
+
+The lifecycle lane now corrects the original-cause delivery defect exposed by a failed orphan
+retirement, retaining native join, passive diagnostic observation and actual parent process/I/O
+settlement as distinct facts. A implements caller-owned partial-observation buffers through
+steady, fitting and dynamic assessment. The scientific lane extends one explicitly prepared
+Water artifact/binding for library-owned saturated endpoint second derivatives before the held
+wet turbine consumer. These changes remain in isolated worktrees until coherent integration.
+Wider family/input
 closure, point products, per-group developer facts and assembled acceptance remain open.
 
 L01 supplied initial source/input distinctions to the scientific lane: ordinary-BT admits

@@ -197,9 +197,21 @@ Complete metadata for actual native field meanings and local constraints, includ
 correspondence, optionality, ordering, exact integer/IEEE representation and original-world
 identity. Exercise same-world, SourceCodeInfo-only, changed options/imports/features/unknowns,
 foreign pool, stale native owner and unavailable historical normalizer. Unknown coverage remains
-unknown. Add the semantic CLI result through F's existing comparison operation, with stable
-structured facts and human explanation. Parsing immutable compiled descriptors once per generated
+unknown. The semantic result is already integrated in F's existing `pse inspect schema`
+comparison operation; extend its selected native-owner population rather than adding another
+comparator. Structured facts keep semantic disposition and source coverage separate from Buf's
+wire classifications. Parsing immutable compiled descriptors once per generated
 owner may remove repeated work; never reuse them across a merely similar descriptor world.
+
+Actual main CLI receiving compared each generated descriptor with its SourceCodeInfo-bearing
+original. The explicitly selected `developer-evidence` policy reports compatible with native
+coverage for `developer_evidence.proto`; all three Buf categories also report compatible.
+The same structural comparison for `recorded_result.proto` under `core` reports semantic unknown,
+as does an unselected semantic population. Core intentionally supplies no native owner policy;
+neither unchanged bytes nor imports can supply that missing coverage. These read-only journeys
+exercise the shared `pse_contract_proto::compare_descriptors` owner and do not qualify other
+families, scientific meaning or present readiness. No database/compiler/provider preparation
+was performed by those comparisons.
 
 ### B03 — Finish finite source-to-consumer migrations
 

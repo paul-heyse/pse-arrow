@@ -129,11 +129,18 @@ it adds no provider factory, inferred EOS-name restoration or alternate producti
 the declared scientific/provider fixture closure selected the pump consumer (1/1) and both
 vapor consumers (2/2); zero failures/build warnings and complete capture/settlement. Original
 invocations are `01a1b33f-de92-710a-9bc0-7f8669ae8d40` and
-`01a1b345-6dba-74c5-bd8a-4e1cc57bf7de`. The change is integrated on main; assembled main
-receiving remains separate. Static IAPWS/released-case expectations are independent stored
+`01a1b345-6dba-74c5-bd8a-4e1cc57bf7de`. Subsequent main receiving with `property-coolprop`
+passed all three consumers in a selected nine-control Water/costing/worker run, zero failures,
+pending lifetimes and compiler warnings, with complete capture/settlement. This is selected
+main receiving, not assembled G acceptance. Static IAPWS/released-case expectations are independent stored
 expectations, not fresh reference execution. The pump is the selected hydraulic approximation;
 the existing homogeneous phase/datum/derivative limits remain. Wet, saturated, critical and
-mixed-phase equipment are not qualified by these three cases. The typed engineering admission
+mixed-phase equipment are not qualified by these three cases. The next required wet turbine
+uses the library's saturation endpoint values and analytic pressure derivatives through second
+order. Proposed [ADR-0238](../adr/0238-native-water-property-provider.md) is being revised around
+one explicitly prepared, authenticated CoolProp image and its matched minimal C/Rust binding;
+the selected C ABI's missing export does not establish a permanent first-order target.
+The typed engineering admission
 path currently has no explicit prepared scientific-registration input; C/A own that remaining
 custody seam before a client can consume these configurations without name-based restoration.
 
@@ -148,7 +155,10 @@ permission, bound, comparator or production path was replaced. The original 2 mo
 failed legitimate authored component expectations; its failure is retained and the sharper input
 isolates the intended guard. The positive two-mode consumer passed in that mixed selection, and
 the corrected isolated negative passed 1/1 with zero failures/warnings and complete settlement
-(`01a1b35a-f9b1-74b4-b8b7-5b7467b8821e`). Combined main receiving remains separate.
+(`01a1b35a-f9b1-74b4-b8b7-5b7467b8821e`). Main's selected 23-control host/runtime receive
+subsequently passed both ordinary FeedFlash controls with zero failures/compiler warnings and
+complete capture/settlement. It does not supply independent reference execution or the complete
+equipment/client population.
 
 Each increment includes an operation request with exact selected definition,
 specifications, scientific source/data revisions and requested products; its native

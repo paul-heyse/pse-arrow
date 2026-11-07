@@ -182,7 +182,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
-| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child Close during an in-flight fill is now received: no early acknowledgement/retirement, independent surviving handle remains usable, then explicit native/process/I/O/admission finish. Existing prepared-worker mechanisms are retained. Complete actual abandoned-Prepare RPC-method departure and remaining session/batch receiving. |
+| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close and abandoned generated Prepare-method departure pass selected main receiving, preserving independent prepared handles and explicit native/process/I/O/admission finish. A new actual failed orphan-retirement control exposes loss of original child causes; its production correction and remaining session/batch receiving stay open. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token/nonblocking I/O/native-error retention are integrated. Actual prepared main reader succeeds and refuses nonregular input; selected host/product controls pass with corrected expectations and complete settlement. Preserve original interrupted/OOM evidence. Complete canonical cancellation/drain, broader transport/process failures, independent sessions and retained response lifetime. |
 
@@ -215,6 +215,26 @@ method/effect/health mirrors and duplicate polling translations as each family m
 checked edit and parent/membership guards remain.
 
 ### C03 — Close performing owners and worker sessions
+
+Actual authenticated HTTP/2 receiving now drops an in-flight generated Prepare method on the
+original connection, observes its completion receiver close before the late Prepared send,
+retires only that orphan, and continues using both independent prepared handles. The native
+handle/admission survives until actual retirement. The selected main Water/costing/worker run
+passes this control and four related departure/pending-Close controls, with zero failures/build
+warnings and complete capture/settlement. This is the selected preparation-delivery phase,
+not all cancellation, batch or session acceptance.
+
+A separate three-generation retirement-failure control proves that remaining owners are all
+attempted, but exposed an actual composition defect: the native lane's original typed failure
+aggregate stayed child-local while the parent received Unavailable and abrupt exit125. Main
+retains that diagnostic control. The active correction joins the original native owner before
+distinguishing completed from unsettled work, closes admission, and exposes one bounded passive
+failure observation without consuming the original result. Tokio's completion wake is not join
+proof; its watch channel only distributes the once-derived bytes. Connectrpc's Bytes-backed
+`PreEncoded` response retains one encoding across readers. A further actual immediate parent
+failure control governs the existing bounded process-finalization allowance; no remote fact
+can grant native authority or replace local I/O join, reap or admission release. This correction
+is not yet claimed received on main.
 
 Start from the delivered generic admitted-job and unique-surrogate retirement mechanisms.
 Complete the selected preparation abandonment, synchronous fill, provider banks, shared-surrogate,
