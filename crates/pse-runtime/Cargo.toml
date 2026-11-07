@@ -595,22 +595,6 @@ required-features = ["engineering-service", "solver-kinsol"]
 ownership = "preparation-only"
 inputs = ["engineering-endpoint"]
 
-[[package.metadata.pse.test-fixtures]]
-id = "engineering-routes-scientific-inputs"
-target = "engineering_service"
-kind = "test"
-required-features = [
-  "engineering-service",
-  "solver-kinsol",
-  "solver-diffsol",
-  "solver-ipopt",
-]
-ownership = "preparation-only"
-inputs = ["scientific-inputs"]
-scope.tests = [
-  "routes::prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics",
-]
-
 [[bin]]
 name = "pse-observation-fixture"
 path = "src/bin/pse-observation-fixture.rs"

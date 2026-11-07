@@ -26,8 +26,8 @@ use pse_runtime::{
     engineering_projection as codec, host_operations::engineering_contract::*, workflow::*,
 };
 
-#[path = "../../../../tests/fixtures/scientific-inputs.rs"]
-mod scientific_inputs;
+#[path = "../../../../tests/fixtures/authored-package.rs"]
+mod authored_package;
 
 // Native dynamic-workflow ACCUMULATION fixture, with an explicit input-owned Time
 // characteristic added for the client output-error assertion before execution.
@@ -70,7 +70,13 @@ fn identity(byte: u8) -> SemanticId {
 }
 
 fn source_request(operation: &str) -> pb::EngineeringAdmitSource {
-    let physical = scientific_inputs::package_documents("packages/reference/physical");
+    let registry = pse_schema::shared_registry().unwrap();
+    let physical = authored_package::package_documents(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."),
+        "packages/reference/physical",
+        &registry,
+    )
+    .unwrap();
     let header: toml::Value =
         toml::from_str(std::str::from_utf8(&physical["package.toml"]).unwrap()).unwrap();
     let version = header["package"]["version"]
