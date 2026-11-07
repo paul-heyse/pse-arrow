@@ -107,11 +107,17 @@ fn result_retains_original_identity_failures_and_raw_number_fidelity() {
         &RedactionPolicy::default(),
     )
     .unwrap();
-    assert_eq!(compact.payload.original_invocation.as_ref(), Some(directory.id()));
+    assert_eq!(
+        compact.payload.original_invocation.as_ref(),
+        Some(directory.id())
+    );
     let compact = serde_json::to_value(compact).unwrap();
     assert_eq!(compact["payload"]["response"]["child_exit"], 3);
     assert_eq!(compact["payload"]["detail"]["kind"], "provenance");
-    assert_eq!(compact["payload"]["detail"]["environment_digest"], "b".repeat(64));
+    assert_eq!(
+        compact["payload"]["detail"]["environment_digest"],
+        "b".repeat(64)
+    );
     assert!(!compact.to_string().contains("18446744073709551616"));
 }
 
@@ -129,7 +135,9 @@ fn unavailable_detail_and_observed_empty_detail_are_distinct() {
     .unwrap();
     assert!(matches!(
         pending.payload.detail,
-        Some(InspectionDetail::Unavailable { detail: ResultDetail::Failures })
+        Some(InspectionDetail::Unavailable {
+            detail: ResultDetail::Failures
+        })
     ));
     let mut terminal = Envelope::response("run", "original outcome", ());
     terminal.invocation_id = directory.id().clone();

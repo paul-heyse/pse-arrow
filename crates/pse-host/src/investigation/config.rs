@@ -34,8 +34,8 @@ pub struct InputOrigin {
     pub source: Option<NativePath> => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
 }
 }
-/// Explain effective values and the actual contributing configuration sources.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+/// One validated input, used for execution before projecting public detail.
+#[derive(Clone, Debug)]
 pub struct Resolved {
     /// The validated effective request used by execution.
     pub request: Request,
@@ -44,8 +44,40 @@ pub struct Resolved {
     /// Actual files consumed, without claiming they are immutable evidence.
     pub files: Vec<PathBuf>,
     /// Original safe CLI replay, retained only for execution recovery.
-    #[serde(skip)]
     pub explain_action: Option<crate::envelope::NextAction>,
+}
+
+/// Effective settings that can be disclosed without publishing a replayable secret.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct Explanation {
+    /// Original typed input, withheld as a whole when it contains a classified value.
+    pub request: Option<Request>,
+    /// Redacted source provenance for effective keys.
+    pub origins: BTreeMap<String, InputOrigin>,
+    /// Configuration files observed during the same resolution.
+    pub files: Vec<NativePath>,
+}
+
+fn contains_sensitive_value(value: &Value, policy: &crate::envelope::RedactionPolicy) -> bool {
+    let sensitive = |text: &str| policy.redact(text) != text;
+    match value {
+        Value::String(text) => sensitive(text),
+        Value::Array(items) => items
+            .iter()
+            .any(|item| contains_sensitive_value(item, policy)),
+        Value::Object(items) => {
+            if items.len() == 1
+                && items.contains_key("unix")
+                && let Ok(path) = serde_json::from_value::<NativePath>(value.clone())
+            {
+                return policy.redact_path(path.clone()) != path;
+            }
+            items
+                .iter()
+                .any(|(key, item)| sensitive(key) || contains_sensitive_value(item, policy))
+        }
+        _ => false,
+    }
 }
 
 /// Resolve only explicitly supplied CLI values over saved input and typed defaults.
@@ -193,6 +225,35 @@ pub fn explain(
 }
 
 impl Resolved {
+    /// Describe the same resolved input without changing the request used for execution.
+    pub fn into_explanation(
+        self,
+        policy: &crate::envelope::RedactionPolicy,
+    ) -> Result<Explanation, Error> {
+        let request = serde_json::to_value(&self.request)?;
+        Ok(Explanation {
+            request: (!contains_sensitive_value(&request, policy)).then_some(self.request),
+            origins: self
+                .origins
+                .into_iter()
+                .map(|(key, origin)| {
+                    (
+                        policy.redact(&key),
+                        InputOrigin {
+                            provider: policy.redact(&origin.provider),
+                            source: origin.source.map(|path| policy.redact_path(path)),
+                        },
+                    )
+                })
+                .collect(),
+            files: self
+                .files
+                .into_iter()
+                .map(|path| policy.redact_path(path.into()))
+                .collect(),
+        })
+    }
+
     /// Array entries share their whole replacement value's contributing provider.
     pub fn origin(&self, key: &str) -> Option<&InputOrigin> {
         let mut key = key;
@@ -435,6 +496,41 @@ fn resolve_predicate_paths(predicate: &mut Value, root: &Path) -> Result<(), Err
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explanation_withholds_classified_settings_without_changing_execution() {
+        use std::os::unix::ffi::OsStringExt as _;
+
+        let root = tempfile::tempdir().unwrap();
+        let secret = "test-settings-secret-09775";
+        let policy = crate::envelope::RedactionPolicy::new([("TOKEN".into(), secret.into())]);
+        let secret_path = root.path().join(std::ffi::OsString::from_vec(
+            [secret.as_bytes(), &[0xff]].concat(),
+        ));
+        let resolved = explain(
+            root.path(),
+            None,
+            None,
+            None,
+            serde_json::json!({"sources": {"paths": [NativePath::from(secret_path.clone())]}}),
+        )
+        .unwrap();
+        assert_eq!(resolved.request.sources.paths, [secret_path]);
+        let disclosure = resolved.clone().into_explanation(&policy).unwrap();
+        assert!(disclosure.request.is_none());
+        assert_eq!(
+            disclosure.origins["sources.paths"].provider,
+            "explicit CLI values"
+        );
+        assert!(!serde_json::to_string(&disclosure).unwrap().contains(secret));
+        assert!(
+            resolved
+                .into_explanation(&Default::default())
+                .unwrap()
+                .request
+                .is_some()
+        );
+    }
     #[test]
     fn explicit_symlink_preflight_checks_the_effective_target() {
         use std::os::unix::fs::symlink;
@@ -744,11 +840,23 @@ mod tests {
         let overrides = serde_json::json!({"predicate":{"kind":"text","patterns":["needle"]}});
         assert!(resolve(root.path(), None, None, None, overrides.clone()).is_ok());
         assert!(matches!(
-            resolve(root.path(), None, None, Some(Path::new("missing.json")), overrides.clone()),
+            resolve(
+                root.path(),
+                None,
+                None,
+                Some(Path::new("missing.json")),
+                overrides.clone()
+            ),
             Err(Error::Configuration(_))
         ));
         assert!(matches!(
-            resolve(root.path(), Some(Path::new("missing.toml")), None, None, overrides),
+            resolve(
+                root.path(),
+                Some(Path::new("missing.toml")),
+                None,
+                None,
+                overrides
+            ),
             Err(Error::Configuration(_))
         ));
     }

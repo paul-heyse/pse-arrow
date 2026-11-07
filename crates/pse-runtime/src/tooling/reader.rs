@@ -397,6 +397,9 @@ pub enum Payload {
         request_bytes: usize,
         /// Maximum native complete response extent.
         response_bytes: usize,
+        /// Fixed, separately admitted project-effect protocol in this captured executable.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        project_perform: Option<u32>,
     },
     /// Native directional schema document; it validates representation, not scientific meaning.
     Schema {
@@ -809,6 +812,7 @@ fn handle(
             operations: <Request as strum::VariantNames>::VARIANTS.to_vec(),
             request_bytes: REQUEST_BYTES,
             response_bytes: RESPONSE_BYTES,
+            project_perform: cfg!(feature = "product-reader").then_some(1),
         }),
         Request::Schema { contract } => Ok(Payload::Schema {
             identity: match contract {

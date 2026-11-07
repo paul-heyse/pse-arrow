@@ -509,8 +509,15 @@ fn actual_read_verbs_expose_lazy_invocation_and_exact_dependency_candidates() {
     .unwrap();
     assert_eq!(packages.page.exhaustiveness, Exhaustiveness::Open);
     assert_eq!(packages.page.records[0].value, "alpha");
-    let inspection = commands(&["inspect".into(), "invocation".into()], false, &Window::default());
-    assert!(matches!(inspection.records[0].effect, Some(description::CommandEffect::Read)));
+    let inspection = commands(
+        &["inspect".into(), "invocation".into()],
+        false,
+        &Window::default(),
+    );
+    assert!(matches!(
+        inspection.records[0].effect,
+        Some(description::CommandEffect::Read)
+    ));
 }
 #[test]
 fn flags_do_not_advertise_internal_boolean_defaults_as_accepted_value_tokens() {

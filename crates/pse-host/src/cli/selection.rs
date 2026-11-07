@@ -240,13 +240,21 @@ mod tests {
     fn ordinary_tests_default_to_workspace_without_changing_check_defaults() {
         let parsed = Parsed::try_parse_from(["selection"]).unwrap();
         let workspace = Parsed::try_parse_from(["selection", "--workspace"]).unwrap();
-        assert_eq!(parsed.tests.request().unwrap(), workspace.tests.request().unwrap());
+        assert_eq!(
+            parsed.tests.request().unwrap(),
+            workspace.tests.request().unwrap()
+        );
         assert!(matches!(
             parsed.tests.request().unwrap().scope,
             Scope::Workspace { exclude, .. } if exclude.is_empty()
         ));
         assert!(matches!(
-            parsed.tests.selection.request(Operation::Check).unwrap().scope,
+            parsed
+                .tests
+                .selection
+                .request(Operation::Check)
+                .unwrap()
+                .scope,
             Scope::DefaultMembers { .. }
         ));
     }

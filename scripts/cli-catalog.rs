@@ -230,6 +230,10 @@ pub enum CommandEffect {
     Read,
     /// Explicitly prepare an identified prerequisite.
     Prepare,
+    /// Submit a named effect to its performing owner.
+    Apply,
+    /// Reconcile one original operation through its owner.
+    Recover,
 }
 impl clap::builder::CommandExt for CommandEffect {}
 /// Association with a lazy domain provider; it does not alter the argument's parser.

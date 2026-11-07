@@ -163,12 +163,16 @@ impl Context<'_> {
                     return Ok(suggestions(source, if metadata.resolve.is_some() { Exhaustiveness::Exhaustive } else { Exhaustiveness::Unknown }, values, vec!["captured metadata context only; absent resolve graph cannot certify a full dependency domain".into()]));
                 }
                 if domain == Domain::Packages {
-                    let values = metadata.workspace_packages().into_iter().map(|package| Candidate {
-                        value: package.name.to_string(),
-                        aliases: vec![package.id.repr.clone()],
-                        help: Some("workspace member in the supplied metadata snapshot".into()),
-                        hidden: false,
-                    }).collect();
+                    let values = metadata
+                        .workspace_packages()
+                        .into_iter()
+                        .map(|package| Candidate {
+                            value: package.name.to_string(),
+                            aliases: vec![package.id.repr.clone()],
+                            help: Some("workspace member in the supplied metadata snapshot".into()),
+                            hidden: false,
+                        })
+                        .collect();
                     return Ok(suggestions(source, Exhaustiveness::Open, values, vec![
                         "workspace candidates are a subset of accepted Cargo package selectors; snapshot membership does not establish readiness".into(),
                     ]));

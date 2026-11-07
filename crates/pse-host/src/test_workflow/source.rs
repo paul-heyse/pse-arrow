@@ -221,7 +221,9 @@ pub(super) fn verify_rerun(inventory: &crate::discovery::Inventory) -> Result<()
                     .iter()
                     .find(|root| root.package_id() == identity.package_id)
             })
-            .ok_or_else(|| WorkflowError::Invalid("current rerun identity has no compiler root".into()))?;
+            .ok_or_else(|| {
+                WorkflowError::Invalid("current rerun identity has no compiler root".into())
+            })?;
         let features: BTreeSet<_> = captured.artifact.cargo.features.iter().cloned().collect();
         let mut matching = cases.iter().enumerate().filter(|(_, case)| {
             root.package_name() == case.package

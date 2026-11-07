@@ -104,7 +104,9 @@ impl Action {
             Self::RetireHost {
                 release: Some(_), ..
             }
-            | Self::RetireResult { release: Some(_), .. }
+            | Self::RetireResult {
+                release: Some(_), ..
+            }
             | Self::HoldResult { .. }
             | Self::SweepResults { .. }
             | Self::PrepareResultExpiry { .. } => GenerationIntent::ExistingControl,
@@ -209,7 +211,10 @@ pub(super) fn dispatch(
             }
             Ok(output.emit(envelope)?)
         }
-        Action::RetireResult { invocation, release } => {
+        Action::RetireResult {
+            invocation,
+            release,
+        } => {
             let store = super::invocation_store(selected)?;
             let report = store.retire_compact_result(&invocation, release.as_deref())?;
             Ok(output.emit(Envelope::response(
@@ -218,13 +223,21 @@ pub(super) fn dispatch(
                 report,
             ))?)
         }
-        Action::HoldResult { invocation, consumer, condition } => {
+        Action::HoldResult {
+            invocation,
+            consumer,
+            condition,
+        } => {
             let store = super::invocation_store(selected)?;
             let policy = crate::envelope::RedactionPolicy::from_environment();
             if policy.redact(&consumer) != consumer
-                || condition.as_ref().is_some_and(|value| policy.redact(value) != *value)
+                || condition
+                    .as_ref()
+                    .is_some_and(|value| policy.redact(value) != *value)
             {
-                return Err(HostError::Ownership("compact result hold contains a protected value".into()));
+                return Err(HostError::Ownership(
+                    "compact result hold contains a protected value".into(),
+                ));
             }
             store.hold_compact_result(&invocation, &consumer, condition.as_deref())?;
             Ok(output.emit(Envelope::response(

@@ -208,8 +208,9 @@ impl<T: Serialize> DetailPage<T> {
         let mut records = Vec::new();
         let mut remaining = MAX_BYTES;
         for entry in entries.into_iter().take(MAX_RECORDS) {
-            let bytes = serde_json::to_vec(&entry)
-                .map_err(|error| HostError::Ownership(format!("result detail encoding: {error}")))?;
+            let bytes = serde_json::to_vec(&entry).map_err(|error| {
+                HostError::Ownership(format!("result detail encoding: {error}"))
+            })?;
             // Preserve complete diagnostic relationships within each selected record.
             let Some(rest) = remaining.checked_sub(bytes.len()) else {
                 break;
@@ -284,15 +285,16 @@ pub fn inspect(
     if matches!(compact, CompactObservation::Expired) {
         original_invocation = None;
     }
-    let terminal = if !retired && (detail.is_some() || matches!(compact, CompactObservation::Original)) {
-        original_invocation
-            .as_ref()
-            .map(|id| store.result::<serde::de::IgnoredAny, serde::de::IgnoredAny>(id))
-            .transpose()?
-            .flatten()
-    } else {
-        None
-    };
+    let terminal =
+        if !retired && (detail.is_some() || matches!(compact, CompactObservation::Original)) {
+            original_invocation
+                .as_ref()
+                .map(|id| store.result::<serde::de::IgnoredAny, serde::de::IgnoredAny>(id))
+                .transpose()?
+                .flatten()
+        } else {
+            None
+        };
     let response = match compact {
         CompactObservation::Available(summary) => Some(summary),
         _ => terminal
@@ -326,7 +328,10 @@ pub fn inspect(
             "no terminal result observed; completion is unknown",
             SubjectState::Unknown,
         ),
-        (Some(_), Some(_)) => ("original terminal evidence observed", SubjectState::Available),
+        (Some(_), Some(_)) => (
+            "original terminal evidence observed",
+            SubjectState::Available,
+        ),
     };
     let mut observed = Envelope::response(
         "inspect invocation",

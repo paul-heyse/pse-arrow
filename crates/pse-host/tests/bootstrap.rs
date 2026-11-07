@@ -274,7 +274,9 @@ fn cold_pse_help_and_invalid_preparation_leave_the_checkout_untouched() {
     ] {
         let result = launcher(path).args(arguments).output().unwrap();
         assert!(result.status.success());
-        assert!(String::from_utf8_lossy(&result.stdout).contains("pse prepare host [--from CHECKOUT]"));
+        assert!(
+            String::from_utf8_lossy(&result.stdout).contains("pse prepare host [--from CHECKOUT]")
+        );
     }
     let unavailable = launcher(path).arg("commands").output().unwrap();
     assert_eq!(unavailable.status.code(), Some(125));
@@ -314,7 +316,10 @@ fn cold_pse_hands_explicit_preparation_to_the_fixed_source_owner() {
 fn preparation_receipt_contains_only_the_owner_route_and_releases_construction_lock() {
     let root = checkout();
     let path = root.path();
-    executable(&path.join("bin/cargo"), "#!/bin/sh\nprintf 'cargo diagnostic\\n'\n");
+    executable(
+        &path.join("bin/cargo"),
+        "#!/bin/sh\nprintf 'cargo diagnostic\\n'\n",
+    );
     executable(
         &path.join("target/debug/pse-host"),
         "#!/bin/sh\nflock -n target/host-tools/.construction.lock /bin/true || exit 93\nprintf 'native diagnostic\\n'\n",
@@ -326,7 +331,9 @@ fn preparation_receipt_contains_only_the_owner_route_and_releases_construction_l
     assert!(diagnostics.contains("cargo diagnostic"));
     assert!(diagnostics.contains("native diagnostic"));
 
-    let source = source_checkout("#!/bin/sh\n[ \"$PSE_BOOTSTRAP_SOURCE_HELPER\" = \"$5\" ] || exit 93\nprintf 'source diagnostic\\n'\n");
+    let source = source_checkout(
+        "#!/bin/sh\n[ \"$PSE_BOOTSTRAP_SOURCE_HELPER\" = \"$5\" ] || exit 93\nprintf 'source diagnostic\\n'\n",
+    );
     let result = seed(path)
         .args(["--report-route", "--from"])
         .arg(source.path())
@@ -372,7 +379,9 @@ fn preparation_receipt_preserves_original_failure_status() {
     assert_eq!(response["payload"]["route"], "verified_current");
     let unsupported = invoke().args(["--fields", "unsupported"]).output().unwrap();
     assert!(!unsupported.status.success());
-    assert!(String::from_utf8_lossy(&unsupported.stderr).contains("unknown payload field unsupported"));
+    assert!(
+        String::from_utf8_lossy(&unsupported.stderr).contains("unknown payload field unsupported")
+    );
     assert_eq!(fs::read(path.join("scripts/invocations")).unwrap(), b"x");
 
     executable(&path.join("scripts/bootstrap-host"), "#!/bin/sh\nexit 79\n");

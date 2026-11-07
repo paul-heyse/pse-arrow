@@ -81,8 +81,7 @@ enum Command {
     /// Explicitly prepare the independent native host.
     #[command(add(crate::catalog::description::CommandEffect::Prepare))]
     Prepare(prepare::PrepareArgs),
-    /// Read project data through a prepared product owner.
-    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    /// Read or change project data through its prepared product owner.
     Project {
         #[command(subcommand)]
         action: product::ProjectAction,
@@ -290,6 +289,7 @@ impl Command {
             Self::Api(args) => args.intent(),
             Self::Docs(args) => args.intent(),
             Self::Code { action } => action.intent(),
+            Self::Project { action } => action.intent(),
             Self::Prepare(_)
             | Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
@@ -304,7 +304,6 @@ impl Command {
                 GenerationIntent::NewWork
             }
             Self::Boundary(_)
-            | Self::Project { .. }
             | Self::Search(_)
             | Self::Inspect(_)
             | Self::Propose(_)
@@ -678,7 +677,7 @@ struct ServerSelection {
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
     match command {
         "search explain" => {
-            envelope::schema::<crate::investigation::config::Resolved>(command, view)
+            envelope::schema::<crate::investigation::config::Explanation>(command, view)
         }
         "search request" => Ok(crate::investigation::Request::input_schema()),
         "search stream" => Ok(crate::investigation::Event::output_schema()),
@@ -793,10 +792,14 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "tools retire-host" => {
             envelope::schema::<crate::generation::retirement::Retirement>(command, view)
         }
-        "tools retire-result" => envelope::schema::<crate::invocation::CompactRetirement>(command, view),
+        "tools retire-result" => {
+            envelope::schema::<crate::invocation::CompactRetirement>(command, view)
+        }
         "tools hold-result" => envelope::schema::<()>(command, view),
         "tools sweep-results" => envelope::schema::<crate::invocation::CompactSweep>(command, view),
-        "tools prepare-result-expiry" => envelope::schema::<crate::invocation::CompactTimer>(command, view),
+        "tools prepare-result-expiry" => {
+            envelope::schema::<crate::invocation::CompactTimer>(command, view)
+        }
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -805,12 +808,24 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "observe query" | "observe discover" | "observe investigate" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
-        "project inspect-pack" | "project show" | "project branches" | "project branch"
-        | "project draft-show" => envelope::schema::<product::ProductView<'static>>(command, view),
-        "project metadata" | "project metadata projects" | "project metadata drafts"
-        | "project metadata bookmarks" | "project metadata savepoints"
+        "project inspect-pack"
+        | "project show"
+        | "project branches"
+        | "project branch"
+        | "project draft-show"
+        | "project study-workbench" => {
+            envelope::schema::<product::ProductView<'static>>(command, view)
+        }
+        "project metadata"
+        | "project metadata projects"
+        | "project metadata drafts"
+        | "project metadata bookmarks"
+        | "project metadata savepoints"
         | "project metadata diagnostics" => {
             envelope::schema::<product::ProductView<'static>>("project metadata", view)
+        }
+        "project create" | "project navigate" | "project acknowledgement" => {
+            envelope::schema::<product::ProjectEffectView>(command, view)
         }
         "observe follow" => envelope::schema::<product::FollowView<'static>>(command, view),
         "docs" => envelope::schema::<ManagedReply>(command, view),
@@ -1470,10 +1485,14 @@ fn launch_managed_finalize(
             response.observation.limitations.push(format!(
                 "settled workflow executable release did not complete: {error}"
             ));
-        } else if let Err(error) = store.publish_compact_test_result(&directory, &terminal, &policy) {
-            response.observation.limitations.push(policy.redact(&format!(
-                "settled compact result was not published: {error}"
-            )));
+        } else if let Err(error) = store.publish_compact_test_result(&directory, &terminal, &policy)
+        {
+            response
+                .observation
+                .limitations
+                .push(policy.redact(&format!(
+                    "settled compact result was not published: {error}"
+                )));
         }
         return Ok(presentation
             .emit(response.map_payload(|payload| ManagedReply::Completed(Box::new(payload))))?);

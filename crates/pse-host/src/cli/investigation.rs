@@ -728,16 +728,23 @@ pub(super) fn search(
     }
     resolved.request.validate()?;
     if explain {
-        output.validate_for::<query::config::Resolved>("search explain")?;
+        output.validate_for::<query::config::Explanation>("search explain")?;
+        let policy = crate::envelope::RedactionPolicy::from_environment();
+        let explanation = resolved.into_explanation(&policy)?;
+        let withheld = explanation.request.is_none();
+        let mut response = Envelope::response(
+            "search explain",
+            "effective validated query; no providers invoked",
+            explanation,
+        );
+        if withheld {
+            response
+                .observation
+                .limitations
+                .push("the effective request contains a classified value and was withheld".into());
+        }
         return output
-            .emit_page(
-                Envelope::response(
-                    "search explain",
-                    "effective validated query; no providers invoked",
-                    resolved,
-                ),
-                crate::envelope::DetailView::default(),
-            )
+            .emit_page(response, crate::envelope::DetailView::default())
             .map_err(HostError::from);
     }
     output.validate_for::<query::Report>("search")?;
@@ -946,8 +953,8 @@ fn execute(
     let mut groups = std::collections::BTreeMap::<String, Vec<u64>>::new();
     let mut ordinal = 0u64;
     let observed = std::sync::Mutex::new(query::Summary::default());
-    let progress = (output.format == OutputFormat::Human && std::io::stderr().is_terminal())
-        .then(|| {
+    let progress =
+        (output.format == OutputFormat::Human && std::io::stderr().is_terminal()).then(|| {
             let spinner = indicatif::ProgressBar::new_spinner();
             spinner.set_message("searching selected sources");
             spinner

@@ -20,10 +20,10 @@ use std::{
 const VERSION: u32 = 1;
 const META_LIMIT: u64 = 4 * 1024 * 1024;
 
-mod session;
 mod compact;
-pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
+mod session;
 pub(crate) use compact::CompactObservation;
+pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
 mod compact_timer;
 pub use compact_timer::{CompactTimer, prepare_compact_timer};
 pub use session::select_session;

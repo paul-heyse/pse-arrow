@@ -24,7 +24,10 @@ use std::{
     collections::BTreeMap,
     fs::{self, File, OpenOptions},
     io::Read,
-    os::unix::{ffi::OsStringExt, fs::{MetadataExt, OpenOptionsExt}},
+    os::unix::{
+        ffi::OsStringExt,
+        fs::{MetadataExt, OpenOptionsExt},
+    },
     path::{Path, PathBuf},
     time::SystemTime,
 };
@@ -92,7 +95,10 @@ pub fn sweep_registered_compact_results(
 ) -> Result<CompactSweep, HostError> {
     let selected = CheckoutState::resolve(root, environment)?;
     let inventory = crate::repository::observe_worktrees(root)?;
-    let mut result = CompactSweep { unavailable: inventory.failures.len(), ..CompactSweep::default() };
+    let mut result = CompactSweep {
+        unavailable: inventory.failures.len(),
+        ..CompactSweep::default()
+    };
     for checkout in inventory.entries {
         let Some(path) = checkout.worktree else {
             continue;
@@ -181,13 +187,19 @@ fn lock_root(
 fn settled_test(result: &Envelope<ManagedSummary>) -> Option<&ReportReference> {
     let workflow = result.payload.workflow.as_ref()?;
     (workflow.terminal.action == Action::Test
-        && matches!(workflow.terminal.outcome, Outcome::TestsSucceeded | Outcome::Failed)
+        && matches!(
+            workflow.terminal.outcome,
+            Outcome::TestsSucceeded | Outcome::Failed
+        )
         && workflow.terminal.required_capture_complete
         && result.settlement == Settlement::Complete
         && result.payload.native_lifetime_pending == Some(false)
         && !result.payload.borrowed_reservation
-        && matches!(result.subject_state, SubjectState::Succeeded | SubjectState::Failed))
-        .then_some(&workflow.terminal.report)
+        && matches!(
+            result.subject_state,
+            SubjectState::Succeeded | SubjectState::Failed
+        ))
+    .then_some(&workflow.terminal.report)
 }
 
 impl InvocationStore {
@@ -204,12 +216,17 @@ impl InvocationStore {
         if let Some(record) = &record
             && (record.checkout != self.state.checkout_id.as_str() || &record.invocation != id)
         {
-            return Err(invalid("compact record differs from its checkout or original ID"));
+            return Err(invalid(
+                "compact record differs from its checkout or original ID",
+            ));
         }
         Ok(record)
     }
 
-    fn require_compact_class(&self, id: &CliInvocationId) -> Result<InvocationDirectory, HostError> {
+    fn require_compact_class(
+        &self,
+        id: &CliInvocationId,
+    ) -> Result<InvocationDirectory, HostError> {
         let original = self.directory(id)?;
         let classified: Option<CliInvocationId> = read(&original.path.join(CLASSIFICATION))?;
         if classified.as_ref() != Some(id) {
@@ -231,7 +248,9 @@ impl InvocationStore {
             return Ok(());
         };
         if self.directory(original.id())?.path != original.path {
-            return Err(invalid("original directory differs from compact result owner"));
+            return Err(invalid(
+                "original directory differs from compact result owner",
+            ));
         }
         let input: Input = original
             .evidence(InvocationEvidence::WorkflowInput)?
@@ -258,8 +277,9 @@ impl InvocationStore {
         original: &InvocationDirectory,
         report: &ReportReference,
     ) -> Result<(), HostError> {
-        let result: Envelope<ManagedSummary> = serde_json::from_slice(&original.paired_settlement_bytes()?)
-            .map_err(|error| invalid(format!("invalid original settlement: {error}")))?;
+        let result: Envelope<ManagedSummary> =
+            serde_json::from_slice(&original.paired_settlement_bytes()?)
+                .map_err(|error| invalid(format!("invalid original settlement: {error}")))?;
         super::validate_result(original.id(), &original.command, &result)?;
         let observed = settled_test(&result)
             .ok_or_else(|| invalid("original test is no longer a positively settled terminal"))?;
@@ -267,7 +287,9 @@ impl InvocationStore {
             || observed.sha256 != report.sha256
             || observed.byte_length != report.byte_length
         {
-            return Err(invalid("original settled test report differs from compact classification"));
+            return Err(invalid(
+                "original settled test report differs from compact classification",
+            ));
         }
         Ok(())
     }
@@ -288,7 +310,9 @@ impl InvocationStore {
             return Ok(());
         }
         if classified.is_some() {
-            return Err(invalid("compact presentation class is bound to a different original"));
+            return Err(invalid(
+                "compact presentation class is bound to a different original",
+            ));
         }
         if self.read_compact(id)?.is_none() {
             publish(
@@ -321,7 +345,9 @@ impl InvocationStore {
             return Ok((CompactObservation::Original, None));
         }
         if classified.as_ref() != Some(id) {
-            return Err(invalid("compact presentation class is bound to a different original"));
+            return Err(invalid(
+                "compact presentation class is bound to a different original",
+            ));
         }
         let now = unix_millis(SystemTime::now())?;
         let observed = match self.read_compact(id)?.map(|record| record.state) {
@@ -336,11 +362,7 @@ impl InvocationStore {
         Ok((observed, borrower))
     }
 
-    fn preview_record(
-        &self,
-        record: &Record,
-        now: u64,
-    ) -> Result<CompactRetirement, HostError> {
+    fn preview_record(&self, record: &Record, now: u64) -> Result<CompactRetirement, HostError> {
         let mut result = CompactRetirement {
             invocation: record.invocation.clone(),
             disposition: "retired",
@@ -371,7 +393,12 @@ impl InvocationStore {
                 let encoded = serde_json::to_vec(record)
                     .map_err(|error| invalid(format!("compact record encoding failed: {error}")))?;
                 result.disposition = "eligible";
-                result.release = Some(Sha256::digest(encoded).iter().map(|byte| format!("{byte:02x}")).collect());
+                result.release = Some(
+                    Sha256::digest(encoded)
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect(),
+                );
             } else {
                 result.disposition = "held";
             }
@@ -402,7 +429,9 @@ impl InvocationStore {
                 return Ok(preview);
             }
             if preview.release.as_deref() != Some(token) {
-                return Err(invalid("compact release token no longer matches eligible evidence"));
+                return Err(invalid(
+                    "compact release token no longer matches eligible evidence",
+                ));
             }
             self.release_record(&mut record, now)?;
             preview.disposition = "retired";
@@ -434,7 +463,9 @@ impl InvocationStore {
                 value.is_empty() || value.len() > 1024 || value.chars().any(char::is_control)
             })
         {
-            return Err(invalid("compact hold requires a consumer and release condition"));
+            return Err(invalid(
+                "compact hold requires a consumer and release condition",
+            ));
         }
         let _guard = lock_root(&self.compact_root(), FlockOperation::LockExclusive, false)?
             .ok_or_else(|| invalid("compact result store is unavailable"))?;
@@ -462,14 +493,21 @@ impl InvocationStore {
         let root = self.compact_root();
         let lock = match lock_root(&root, FlockOperation::NonBlockingLockExclusive, false) {
             Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                return Ok(CompactSweep { busy: 1, checkouts: 1, ..CompactSweep::default() });
+                return Ok(CompactSweep {
+                    busy: 1,
+                    checkouts: 1,
+                    ..CompactSweep::default()
+                });
             }
             result => result?,
         };
         let Some(_guard) = lock else {
             return Ok(CompactSweep::default());
         };
-        let mut result = CompactSweep { checkouts: 1, ..CompactSweep::default() };
+        let mut result = CompactSweep {
+            checkouts: 1,
+            ..CompactSweep::default()
+        };
         for entry in fs::read_dir(&root)? {
             let path = entry?.path();
             let Some(id) = path
@@ -513,8 +551,7 @@ impl InvocationStore {
 mod tests {
     use super::*;
     use crate::{
-        invocation::InvocationSpec,
-        managed::result::WorkflowSummary,
+        invocation::InvocationSpec, managed::result::WorkflowSummary,
         test_workflow::execute::TerminalRecord,
     };
 
@@ -601,8 +638,14 @@ mod tests {
         let (_temporary, store, directory, settled) = fixture();
         let id = directory.id();
         assert_eq!(store.sweep_at(settled + WEEK_MS - 1).unwrap().released, 0);
-        let token = store.retire_compact_result(id, None).unwrap().release.unwrap();
-        store.hold_compact_result(id, "assessment", Some("until review closes")).unwrap();
+        let token = store
+            .retire_compact_result(id, None)
+            .unwrap()
+            .release
+            .unwrap();
+        store
+            .hold_compact_result(id, "assessment", Some("until review closes"))
+            .unwrap();
         assert!(store.retire_compact_result(id, Some(&token)).is_err());
         assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().released, 0);
         store.hold_compact_result(id, "assessment", None).unwrap();
@@ -612,11 +655,20 @@ mod tests {
         assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().busy, 1);
         drop(borrower);
         assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().released, 1);
-        assert!(matches!(store.observe_compact(id).unwrap().0, CompactObservation::Retired));
+        assert!(matches!(
+            store.observe_compact(id).unwrap().0,
+            CompactObservation::Retired
+        ));
         assert!(directory.path().join("result.json").exists());
-        assert_eq!(store.sweep_at(settled + 2 * WEEK_MS - 1).unwrap().forgotten, 0);
+        assert_eq!(
+            store.sweep_at(settled + 2 * WEEK_MS - 1).unwrap().forgotten,
+            0
+        );
         assert_eq!(store.sweep_at(settled + 2 * WEEK_MS).unwrap().forgotten, 1);
-        assert!(matches!(store.observe_compact(id).unwrap().0, CompactObservation::Expired));
+        assert!(matches!(
+            store.observe_compact(id).unwrap().0,
+            CompactObservation::Expired
+        ));
         assert!(directory.path().join("settlement.json").exists());
     }
 
@@ -624,7 +676,11 @@ mod tests {
     fn changed_settlement_fences_release_and_repeat_keeps_minimal_witness() {
         let (_temporary, store, directory, _settled) = fixture();
         let id = directory.id();
-        let token = store.retire_compact_result(id, None).unwrap().release.unwrap();
+        let token = store
+            .retire_compact_result(id, None)
+            .unwrap()
+            .release
+            .unwrap();
         let original = fs::read(directory.path().join("settlement.json")).unwrap();
         fs::write(directory.path().join("settlement.json"), b"changed").unwrap();
         assert!(store.retire_compact_result(id, Some(&token)).is_err());

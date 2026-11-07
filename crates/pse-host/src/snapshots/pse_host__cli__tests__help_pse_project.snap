@@ -3,17 +3,21 @@ source: crates/pse-host/src/cli.rs
 expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 ---
 -h
-Read project data through a prepared product owner
+Read or change project data through its prepared product owner
 
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
-  inspect-pack  Verify and inspect an existing project pack offline
-  metadata      Read one bounded metadata page from an existing canonical deployment
-  show          Read an exact project header
-  branches      Read one generation-fenced branch page for an exact project
-  branch        Read an exact branch header
-  draft-show    Read an exact draft head and version descriptor
+  inspect-pack     Verify and inspect an existing project pack offline
+  metadata         Read one bounded metadata page from an existing canonical deployment
+  show             Read an exact project header
+  branches         Read one generation-fenced branch page for an exact project
+  branch           Read an exact branch header
+  draft-show       Read an exact draft head and version descriptor
+  study-workbench  Browse one bounded page of compact study headers
+  create           Create a project under an explicit original operation identity
+  navigate         Apply an authored navigation intent, read from stdin by default
+  acknowledgement  Reconcile an original operation identity without submitting another effect
 
 Options:
   -C <checkout>
@@ -22,17 +26,21 @@ Options:
       --budget <BUDGET>  Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help             Print help (see more with '--help')
 --help
-Read project data through a prepared product owner
+Read or change project data through its prepared product owner
 
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
-  inspect-pack  Verify and inspect an existing project pack offline
-  metadata      Read one bounded metadata page from an existing canonical deployment
-  show          Read an exact project header
-  branches      Read one generation-fenced branch page for an exact project
-  branch        Read an exact branch header
-  draft-show    Read an exact draft head and version descriptor
+  inspect-pack     Verify and inspect an existing project pack offline
+  metadata         Read one bounded metadata page from an existing canonical deployment
+  show             Read an exact project header
+  branches         Read one generation-fenced branch page for an exact project
+  branch           Read an exact branch header
+  draft-show       Read an exact draft head and version descriptor
+  study-workbench  Browse one bounded page of compact study headers
+  create           Create a project under an explicit original operation identity
+  navigate         Apply an authored navigation intent, read from stdin by default
+  acknowledgement  Reconcile an original operation identity without submitting another effect
 
 Options:
   -C <checkout>

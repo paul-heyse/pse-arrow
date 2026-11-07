@@ -13,6 +13,8 @@ mod observe;
 #[path = "project/error.rs"]
 #[cfg(feature = "product-operators")]
 mod operator_error;
+#[path = "project/perform.rs"]
+mod perform;
 #[path = "project/runtime.rs"]
 #[cfg(feature = "product-operators")]
 mod project_runtime;
@@ -32,12 +34,15 @@ enum Command {
     Project(Box<project_tools::ProjectArgs>),
     /// Read one bounded versioned passive observation request from stdin.
     Observe,
+    /// Execute or reconcile one exact bounded project operation from stdin.
+    Perform,
 }
 fn main() -> std::process::ExitCode {
     let result: Result<i32, Box<dyn std::error::Error + Send + Sync>> = match Cli::parse().command {
         #[cfg(feature = "product-operators")]
         Command::Project(args) => project_tools::run(*args).map(|()| 0),
         Command::Observe => observe::run(),
+        Command::Perform => perform::run(),
     };
     match result {
         Ok(code) => std::process::ExitCode::from(u8::try_from(code).unwrap_or(125)),

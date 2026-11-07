@@ -90,8 +90,9 @@ pub(super) fn dispatch(
         ))?);
     }
     let policy = RedactionPolicy::from_environment();
-    let error =
-        HostError::Ownership(format!("host preparation refused or failed with status {code}"));
+    let error = HostError::Ownership(format!(
+        "host preparation refused or failed with status {code}"
+    ));
     let mut response = Envelope::response(
         verb,
         "native host preparation did not complete",

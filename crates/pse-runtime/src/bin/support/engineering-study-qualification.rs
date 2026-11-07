@@ -1144,8 +1144,14 @@ mod tests {
     #[test]
     fn frontend_paths_are_checked_before_native_launch() {
         let short = Path::new("/tmp/pse-s-example");
-        assert_eq!(frontend_socket(short, false).unwrap(), short.join(ORIGINAL_SOCKET));
-        assert_eq!(frontend_socket(short, true).unwrap(), short.join(REPLACEMENT_SOCKET));
+        assert_eq!(
+            frontend_socket(short, false).unwrap(),
+            short.join(ORIGINAL_SOCKET)
+        );
+        assert_eq!(
+            frontend_socket(short, true).unwrap(),
+            short.join(REPLACEMENT_SOCKET)
+        );
         let long = short.join("a".repeat(128));
         assert!(
             frontend_socket(&long, false)

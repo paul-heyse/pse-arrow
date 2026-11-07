@@ -303,6 +303,7 @@ scope.modules = [
 ]
 scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
+  "tooling::reader::tests::canonical::project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor",
   "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
   "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
   "workflow::modeling::aqueous_inventory_tests::aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read",
@@ -428,6 +429,7 @@ kind = "bin"
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
+  "perform::tests::project_perform_keeps_original_issuer_operation_and_receipt",
   "project_runtime::tests::project_cli_runtime_import_fork_compare_and_passive_discovery",
 ]
 

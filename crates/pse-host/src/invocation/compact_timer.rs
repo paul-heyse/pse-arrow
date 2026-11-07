@@ -35,12 +35,18 @@ fn word(value: &str) -> Result<String, HostError> {
     }
     Ok(format!(
         "\"{}\"",
-        value.replace('\\', "\\\\").replace('"', "\\\"").replace('%', "%%")
+        value
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"")
+            .replace('%', "%%")
     ))
 }
 
 fn quote_path(path: &Path) -> Result<String, HostError> {
-    word(path.to_str().ok_or_else(|| invalid("systemd unit path is not UTF-8"))?)
+    word(
+        path.to_str()
+            .ok_or_else(|| invalid("systemd unit path is not UTF-8"))?,
+    )
 }
 
 fn unit_bytes(root: &Path, state_home: &Path, name: &str) -> Result<(String, String), HostError> {
@@ -63,9 +69,12 @@ fn unit_matches(path: &Path, content: &str) -> Result<bool, HostError> {
     match evidence_file(path) {
         Ok(file) => {
             let mut existing = Vec::new();
-            file.take((UNIT_LIMIT + 1) as u64).read_to_end(&mut existing)?;
+            file.take((UNIT_LIMIT + 1) as u64)
+                .read_to_end(&mut existing)?;
             if existing != content.as_bytes() {
-                return Err(invalid("compact timer unit differs from its declared owner"));
+                return Err(invalid(
+                    "compact timer unit differs from its declared owner",
+                ));
             }
             Ok(true)
         }
@@ -80,7 +89,8 @@ fn prepare_unit(path: &Path, content: &str) -> Result<(), HostError> {
     }
     match publish_bytes(path, content.as_bytes(), Some(UNIT_LIMIT), 0o600) {
         Err(HostError::Io(error))
-            if error.kind() == std::io::ErrorKind::AlreadyExists && unit_matches(path, content)? =>
+            if error.kind() == std::io::ErrorKind::AlreadyExists
+                && unit_matches(path, content)? =>
         {
             Ok(())
         }
@@ -89,7 +99,10 @@ fn prepare_unit(path: &Path, content: &str) -> Result<(), HostError> {
 }
 
 fn systemctl(arguments: &[&str]) -> Result<Output, HostError> {
-    let response = Command::new("/usr/bin/systemctl").arg("--user").args(arguments).output()?;
+    let response = Command::new("/usr/bin/systemctl")
+        .arg("--user")
+        .args(arguments)
+        .output()?;
     if !response.status.success() {
         return Err(invalid(format!(
             "compact timer systemctl {} failed with {}",
@@ -105,7 +118,9 @@ fn check_fragment(name: &str, path: &Path) -> Result<(), HostError> {
     let selected = std::str::from_utf8(&response.stdout)
         .map_err(|_| invalid("compact timer fragment path is not UTF-8"))?;
     if Path::new(selected.trim_end_matches('\n')) != path {
-        return Err(invalid("user manager selected a different compact timer unit owner"));
+        return Err(invalid(
+            "user manager selected a different compact timer unit owner",
+        ));
     }
     let overrides = systemctl(&["show", "--property=DropInPaths", "--value", name])?;
     if !overrides.stdout.iter().all(u8::is_ascii_whitespace) {
@@ -131,7 +146,9 @@ pub fn prepare_compact_timer(
         .ok_or_else(|| invalid("main checkout for the compact timer is unavailable"))?;
     let main = fs::canonicalize(PathBuf::from(OsString::from_vec(main.as_bytes().to_vec())))?;
     if CheckoutState::resolve(&main, environment)?.repository_id != selected.repository_id {
-        return Err(invalid("main checkout differs from the selected compact timer repository"));
+        return Err(invalid(
+            "main checkout differs from the selected compact timer repository",
+        ));
     }
     let paths = HostPaths::new(environment);
     let units = paths.base(UserDirectory::Config)?.join("systemd/user");
@@ -141,7 +158,10 @@ pub fn prepare_compact_timer(
     let state_home = paths.base(UserDirectory::State)?;
     let name = format!("pse-compact-results-{}", selected.repository_id.as_str());
     let (service, timer) = unit_bytes(&main, &state_home, &name)?;
-    DirBuilder::new().mode(0o700).recursive(true).create(&units)?;
+    DirBuilder::new()
+        .mode(0o700)
+        .recursive(true)
+        .create(&units)?;
     directory(&units, false)?;
     let service_name = format!("{name}.service");
     let timer_name = format!("{name}.timer");
@@ -171,9 +191,12 @@ mod tests {
 
     #[test]
     fn timer_has_fixed_scope_and_literal_paths() {
-        let (service, timer) =
-            unit_bytes(Path::new("/tmp/with \"quotes\" %n $HOME"), Path::new("/tmp/state"), "pse-test")
-                .unwrap();
+        let (service, timer) = unit_bytes(
+            Path::new("/tmp/with \"quotes\" %n $HOME"),
+            Path::new("/tmp/state"),
+            "pse-test",
+        )
+        .unwrap();
         assert!(service.contains("ExecStart=:\"/tmp/with \\\"quotes\\\" %%n $HOME/scripts/pse\""));
         assert!(service.contains("tools sweep-results --registered --format json"));
         assert!(timer.contains("OnCalendar=daily\nPersistent=true\nUnit=pse-test.service"));

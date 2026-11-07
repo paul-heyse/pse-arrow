@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Opaque product delegation; scientific request types remain in the selected product.
+mod effect;
 use super::{GenerationIntent, HostError, OutputOptions, checkout_root};
 use crate::{
     envelope::{self, Envelope},
@@ -9,6 +10,7 @@ use crate::{
     product_reader::{self, Contract, ProductReaderSelection},
 };
 use clap::{Args, Subcommand, ValueEnum};
+pub(super) use effect::ProjectEffectView;
 use schemars::JsonSchema;
 use serde::Serialize;
 use serde_json::value::RawValue;
@@ -124,6 +126,15 @@ pub(super) enum ProjectAction {
         /// Canonical draft key.
         key: String,
     },
+    /// Browse one bounded page of compact study headers.
+    StudyWorkbench {
+        #[command(flatten)]
+        source: ProjectSource,
+        #[command(flatten)]
+        request: StudyWorkbenchQuery,
+    },
+    #[command(flatten)]
+    Effect(effect::Action),
 }
 #[derive(Debug, Args)]
 pub(super) struct ProjectSource {
@@ -139,6 +150,44 @@ pub(super) struct ProjectSource {
     /// Total reader allowance in milliseconds, from 1 through 25000.
     #[arg(long)]
     timeout_ms: Option<NonZeroU64>,
+}
+#[derive(Debug, Args, Serialize)]
+pub(super) struct StudyWorkbenchQuery {
+    #[command(flatten)]
+    filter: StudyWorkbenchFilter,
+    /// Maximum study headers in one page, from 1 through 64.
+    #[arg(long, default_value_t = 64, value_parser = clap::value_parser!(u32).range(1..=64))]
+    maximum: u32,
+    /// Original continuation JSON. Repeat the same filters to continue.
+    #[arg(long)]
+    cursor: Option<ProjectCursor>,
+}
+#[derive(Debug, Args, Serialize)]
+struct StudyWorkbenchFilter {
+    /// Exact study key.
+    #[arg(long)]
+    study: Option<String>,
+    /// Exact owning project key.
+    #[arg(long)]
+    project: Option<String>,
+    /// Exact branch key.
+    #[arg(long)]
+    branch: Option<String>,
+    /// Exact modeling source revision.
+    #[arg(long)]
+    source: Option<String>,
+    /// Exact admitted physical source revision.
+    #[arg(long)]
+    physical_revision: Option<String>,
+    /// Exact immutable engineering context key.
+    #[arg(long)]
+    context: Option<String>,
+    /// Terminal outcome from the selected product's request schema.
+    #[arg(long)]
+    outcome: Option<String>,
+    /// Exact dataset, selection, publication operation or research-reference key.
+    #[arg(long)]
+    research_reference: Option<String>,
 }
 #[derive(Debug, Subcommand)]
 pub(super) enum ProjectCollection {
@@ -183,6 +232,9 @@ enum ProjectQuery {
     DraftShow {
         key: String,
     },
+    StudyWorkbench {
+        request: StudyWorkbenchQuery,
+    },
 }
 #[derive(Serialize)]
 struct ProjectMetadataQuery {
@@ -200,7 +252,11 @@ impl ProjectCollection {
             Self::Diagnostics { version } => ("diagnostics", version),
         };
         ProjectQuery::Metadata {
-            request: ProjectMetadataQuery { kind, owner, cursor },
+            request: ProjectMetadataQuery {
+                kind,
+                owner,
+                cursor,
+            },
         }
     }
 }
@@ -322,33 +378,76 @@ fn online_project_request(
     .map_err(|error| io::Error::other(error).into())
 }
 impl ProjectAction {
+    pub(super) fn intent(&self) -> GenerationIntent {
+        match self {
+            Self::Effect(action) => action.intent(),
+            _ => GenerationIntent::Passive,
+        }
+    }
+
     fn request(
         self,
         selected: Option<&Path>,
     ) -> Result<(&'static str, String, Box<RawValue>), HostError> {
-        let resolve = |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
+        let resolve =
+            |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
         let (command, source, query) = match self {
             Self::InspectPack {
                 reader,
                 input,
                 maximum_document_bytes,
-            } => return Ok((
-                "project inspect-pack",
-                reader,
-                project_pack_request(resolve(input)?, maximum_document_bytes)?,
-            )),
-            Self::Metadata { source, cursor, collection } => {
-                ("project metadata", source, collection.query(cursor))
+            } => {
+                return Ok((
+                    "project inspect-pack",
+                    reader,
+                    project_pack_request(resolve(input)?, maximum_document_bytes)?,
+                ));
             }
-            Self::Show { source, project } => ("project show", source, ProjectQuery::Show { project }),
-            Self::Branches { source, project, cursor } => ("project branches", source, ProjectQuery::Branches { project, cursor }),
-            Self::Branch { source, branch } => ("project branch", source, ProjectQuery::Branch { branch }),
-            Self::DraftShow { source, key } => ("project draft-show", source, ProjectQuery::DraftShow { key }),
+            Self::Metadata {
+                source,
+                cursor,
+                collection,
+            } => ("project metadata", source, collection.query(cursor)),
+            Self::Show { source, project } => {
+                ("project show", source, ProjectQuery::Show { project })
+            }
+            Self::Branches {
+                source,
+                project,
+                cursor,
+            } => (
+                "project branches",
+                source,
+                ProjectQuery::Branches { project, cursor },
+            ),
+            Self::Branch { source, branch } => {
+                ("project branch", source, ProjectQuery::Branch { branch })
+            }
+            Self::DraftShow { source, key } => (
+                "project draft-show",
+                source,
+                ProjectQuery::DraftShow { key },
+            ),
+            Self::StudyWorkbench { source, request } => (
+                "project study-workbench",
+                source,
+                ProjectQuery::StudyWorkbench { request },
+            ),
+            Self::Effect(_) => {
+                return Err(HostError::Ownership(
+                    "project effect requires its performing owner".into(),
+                ));
+            }
         };
         Ok((
             command,
             source.reader,
-            online_project_request(resolve(source.state)?, source.database, source.timeout_ms, query)?,
+            online_project_request(
+                resolve(source.state)?,
+                source.database,
+                source.timeout_ms,
+                query,
+            )?,
         ))
     }
 }
@@ -359,8 +458,12 @@ pub(super) fn project_dispatch(
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?;
     let environment: Environment = std::env::vars_os().collect();
+    if let ProjectAction::Effect(action) = action {
+        return effect::dispatch(action, &root, selected, output, &environment);
+    }
     let (command, reader, request) = action.request(selected)?;
-    let reader = ProductReaderSelection::open(&root, &environment, &reader).map_err(product_error)?;
+    let reader =
+        ProductReaderSelection::open(&root, &environment, &reader).map_err(product_error)?;
     let reply = reader
         .read(&request, output.invocation_id.as_str(), &environment)
         .map_err(product_error)?;
@@ -369,8 +472,12 @@ pub(super) fn project_dispatch(
     }
     let (category, text) = match (reply.category(), command == "project inspect-pack") {
         (product_reader::Category::Success, true) => ("success", "offline project pack verified"),
-        (product_reader::Category::Refused, true) => ("refused", "offline project pack inspection refused"),
-        (product_reader::Category::Success, false) => ("success", "canonical project data observed"),
+        (product_reader::Category::Refused, true) => {
+            ("refused", "offline project pack inspection refused")
+        }
+        (product_reader::Category::Success, false) => {
+            ("success", "canonical project data observed")
+        }
         (product_reader::Category::Refused, false) => ("refused", "canonical project read refused"),
     };
     let mut response = Envelope::response(
@@ -388,7 +495,8 @@ pub(super) fn project_dispatch(
         "offline_project_pack"
     } else {
         "canonical_project_metadata"
-    }.into();
+    }
+    .into();
     if category == "refused" {
         response.outcome = envelope::CommandOutcome::Usage;
     }
@@ -677,15 +785,22 @@ mod tests {
 
     #[test]
     fn project_online_read_requires_one_exact_state_and_preserves_owner_cursor() {
-        assert!(ProjectCli::try_parse_from(["project", "show", "--reader", "capture", "p"]).is_err());
-        assert!(ProjectCli::try_parse_from([
-            "project", "show", "--reader", "capture", "--state", "/one", "--state", "/two", "p",
-        ]).is_err());
+        assert!(
+            ProjectCli::try_parse_from(["project", "show", "--reader", "capture", "p"]).is_err()
+        );
+        assert!(
+            ProjectCli::try_parse_from([
+                "project", "show", "--reader", "capture", "--state", "/one", "--state", "/two",
+                "p",
+            ])
+            .is_err()
+        );
         let original = r#"{"issuing_store":"a","kind":"drafts","owner":"b","after":"c"}"#;
         let parsed = ProjectCli::try_parse_from([
             "project", "metadata", "--reader", "capture", "--state", "/one", "--cursor", original,
             "drafts", "b",
-        ]).unwrap();
+        ])
+        .unwrap();
         let (command, reader, request) = parsed.action.request(None).unwrap();
         assert_eq!(command, "project metadata");
         assert_eq!(reader, "capture");
@@ -695,6 +810,55 @@ mod tests {
         assert!(value["canonical"]["database"].is_null());
         assert_eq!(value["query"]["request"]["kind"], "drafts");
         assert_eq!(value["query"]["request"]["owner"], "b");
+    }
+
+    #[test]
+    fn project_study_workbench_uses_typed_flags_and_preserves_the_owner_cursor() {
+        let arguments = [
+            "project",
+            "study-workbench",
+            "--reader",
+            "capture",
+            "--state",
+            "/one",
+        ];
+        let parsed = ProjectCli::try_parse_from(arguments).unwrap();
+        let (command, reader, request) = parsed.action.request(None).unwrap();
+        assert_eq!(command, "project study-workbench");
+        assert_eq!(reader, "capture");
+        let value: serde_json::Value = serde_json::from_str(request.get()).unwrap();
+        assert_eq!(value["query"]["kind"], "study_workbench");
+        assert_eq!(value["query"]["request"]["maximum"], 64);
+        assert!(value["query"]["request"]["filter"]["project"].is_null());
+        assert!(value["query"]["request"]["cursor"].is_null());
+        for invalid in ["0", "65"] {
+            assert!(
+                ProjectCli::try_parse_from(arguments.into_iter().chain(["--maximum", invalid,]))
+                    .is_err()
+            );
+        }
+        let cursor = r#"{"issuing_store":"store-a", "filter":{"project":"p","outcome":"succeeded"},"after":"s"}"#;
+        let parsed = ProjectCli::try_parse_from(arguments.into_iter().chain([
+            "--database",
+            "existing",
+            "--project",
+            "p",
+            "--outcome",
+            "succeeded",
+            "--maximum",
+            "1",
+            "--cursor",
+            cursor,
+        ]))
+        .unwrap();
+        let (_, _, request) = parsed.action.request(None).unwrap();
+        assert!(request.get().contains(cursor));
+        let value: serde_json::Value = serde_json::from_str(request.get()).unwrap();
+        assert_eq!(value["canonical"]["database"], "existing");
+        let selected = &value["query"]["request"];
+        assert_eq!(selected["maximum"], 1);
+        assert_eq!(selected["filter"]["project"], "p");
+        assert_eq!(selected["filter"]["outcome"], "succeeded");
     }
 
     #[test]

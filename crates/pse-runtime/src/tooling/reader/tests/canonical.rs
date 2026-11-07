@@ -24,7 +24,9 @@ fn project_reader_refuses_invalid_target_before_preparation() {
                     database: None,
                     timeout_ms: timeout,
                 },
-                query: ProjectRead::Show { project: "p".into() },
+                query: ProjectRead::Show {
+                    project: "p".into(),
+                },
             },
         );
         let refusal = encode(&bytes, &cancel).unwrap();
@@ -40,6 +42,62 @@ fn project_reader_refuses_invalid_target_before_preparation() {
         ));
     }
     assert!(!absent.exists());
+}
+
+#[test]
+fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor() {
+    use super::super::{ProjectRead, ProjectReadSelection, Request, encode};
+    use pse_host::investigation::NativePath;
+    use pse_operations::{
+        canonical_control::StudyWorkbenchRequest, native_fixture::canonical_fixture_store,
+    };
+
+    let store = canonical_fixture_store().unwrap();
+    let issuing_store = store.issuing_store().unwrap();
+    let cancel = pse_columnar::CancellationToken::new();
+    let query = |cursor| {
+        let bytes = super::request(
+            "study-workbench-read",
+            Request::Project {
+                canonical: ProjectReadSelection {
+                    state: NativePath::from(store.deployment_state().to_owned()),
+                    database: Some(store.database().into()),
+                    timeout_ms: None,
+                },
+                query: ProjectRead::StudyWorkbench {
+                    request: StudyWorkbenchRequest {
+                        filter: Default::default(),
+                        maximum: 1,
+                        cursor,
+                    },
+                },
+            },
+        );
+        let result = encode(&bytes, &cancel).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(result.bytes()).unwrap();
+        assert_eq!(value["correlation"], "study-workbench-read");
+        (result.exit_code(), value["payload"].clone())
+    };
+    let (exit, payload) = query(None);
+    assert_eq!(exit, 0, "{payload}");
+    assert_eq!(payload["kind"], "project");
+    assert_eq!(payload["target"]["issuing_store"], issuing_store);
+    assert_eq!(payload["target"]["database"], store.database());
+    assert_eq!(payload["target"]["namespace"], store.namespace());
+    assert_eq!(payload["result"]["kind"], "study_workbench");
+    assert_eq!(payload["result"]["page"]["headers"], serde_json::json!([]));
+    assert!(payload["result"]["page"]["next"].is_null());
+
+    let foreign = serde_json::from_value(serde_json::json!({
+        "issuing_store": "different-store",
+        "filter": {},
+        "after": "a",
+    }))
+    .unwrap();
+    let (exit, payload) = query(Some(foreign));
+    assert_eq!(exit, 2, "{payload}");
+    assert_eq!(payload["kind"], "refusal");
+    assert!(payload.to_string().contains("workbench cursor identity"));
 }
 
 #[test]

@@ -30,6 +30,9 @@ const REQUEST_BYTES: usize = 1024 * 1024;
 const RESPONSE_BYTES: usize = 40 * 1024 * 1024;
 const STDERR_BYTES: usize = 65536;
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
+pub(crate) const PROJECT_PERFORM_PROTOCOL: &str = "pse.project-perform";
+pub(crate) const PROJECT_PERFORM_REQUEST_BYTES: usize = REQUEST_BYTES;
+const PROJECT_PERFORM_RESPONSE_BYTES: usize = 256 * 1024;
 
 /// Preparation, original native child ownership, or transport validation failed.
 #[derive(Debug, thiserror::Error)]
@@ -249,6 +252,47 @@ struct Request<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     access: Option<&'static str>,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ProjectEffectReply {
+    protocol: String,
+    version: u32,
+    operation: Option<String>,
+    pub(crate) target: Option<ProjectEffectTarget>,
+    pub(crate) outcome: ProjectEffectOutcome,
+    pub(crate) cleanup: Option<crate::envelope::ErrorRecord>,
+}
+#[derive(Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ProjectEffectTarget {
+    pub(crate) issuing_store: String,
+    pub(crate) namespace: String,
+    pub(crate) database: String,
+}
+#[derive(Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ProjectEffectAcknowledgement {
+    pub(crate) key: String,
+    pub(crate) kind: String,
+    pub(crate) project: String,
+    pub(crate) branch: Option<String>,
+    pub(crate) revision: Option<String>,
+    generation: u64,
+}
+#[derive(Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub(crate) enum ProjectEffectOutcome {
+    Acknowledged {
+        acknowledgement: ProjectEffectAcknowledgement,
+    },
+    Absent,
+    Refused {
+        failure: Box<crate::envelope::ErrorRecord>,
+    },
+    Unresolved {
+        failure: Box<crate::envelope::ErrorRecord>,
+    },
+}
 #[derive(Debug)]
 struct Output {
     status: i32,
@@ -439,6 +483,72 @@ fn decode(output: Output, correlation: &str) -> Result<ProductReply, ProductRead
     })
 }
 
+fn decode_project_effect(
+    output: Output,
+    operation: &str,
+    issuing_store: &str,
+    database: Option<&str>,
+) -> Result<ProjectEffectReply, ProductReaderError> {
+    if output.stdout_bytes > PROJECT_PERFORM_RESPONSE_BYTES as u64 {
+        return Err(transport(
+            "project response exceeds complete-frame extent",
+            output,
+        ));
+    }
+    let reply: ProjectEffectReply = match serde_json::from_slice(&output.stdout) {
+        Ok(reply) => reply,
+        Err(error) => {
+            return Err(transport(
+                format!("invalid project response frame: {error}"),
+                output,
+            ));
+        }
+    };
+    let success = matches!(
+        reply.outcome,
+        ProjectEffectOutcome::Acknowledged { .. } | ProjectEffectOutcome::Absent
+    );
+    let target_matches = match &reply.target {
+        Some(target) => {
+            target.issuing_store == issuing_store
+                && database.is_none_or(|database| database == target.database)
+        }
+        None => !success,
+    };
+    // This is a single-request authenticated subprocess. Only the exact
+    // no-effect refusal can predate decoding the operation identity.
+    let operation_matches = match reply.operation.as_deref() {
+        Some(actual) => actual == operation,
+        None => {
+            matches!(reply.outcome, ProjectEffectOutcome::Refused { .. })
+                && reply.target.is_none()
+                && reply.cleanup.is_none()
+        }
+    };
+    let acknowledgement_matches = match &reply.outcome {
+        ProjectEffectOutcome::Acknowledged { acknowledgement } => acknowledgement.key == operation,
+        _ => true,
+    };
+    if reply.protocol != PROJECT_PERFORM_PROTOCOL
+        || reply.version != 1
+        || !operation_matches
+        || !acknowledgement_matches
+        || !target_matches
+        || output.status
+            != if success && reply.cleanup.is_none() {
+                0
+            } else {
+                2
+            }
+    {
+        return Err(transport(
+            "project response identity, target or status mismatch",
+            output,
+        ));
+    }
+    Ok(reply)
+}
+
 /// Selected immutable product reader; construction authenticates resolver-owned evidence.
 #[derive(Debug)]
 pub struct ProductReaderSelection {
@@ -555,6 +665,39 @@ impl ProductReaderSelection {
     /// Captured complete discovery response from this selected executable.
     pub fn discovery(&self) -> Result<Vec<u8>, ProductReaderError> {
         self.evidence(&self.manifest.discovery, "discovery.json", RESPONSE_BYTES)
+    }
+    pub(crate) fn supports_project_perform(&self) -> Result<bool, ProductReaderError> {
+        #[derive(Deserialize)]
+        struct Capability {
+            project_perform: Option<u32>,
+        }
+        let response: Response = serde_json::from_slice(&self.discovery()?)?;
+        let capability: Capability = serde_json::from_str(response.payload.get())?;
+        Ok(capability.project_perform == Some(1))
+    }
+
+    pub(crate) fn perform_project(
+        &self,
+        request: &RawValue,
+        operation: &str,
+        issuing_store: &str,
+        database: Option<&str>,
+        environment: &Environment,
+    ) -> Result<ProjectEffectReply, ProductReaderError> {
+        self.verify()?;
+        let mut command = Command::new(&self.manifest.executable.captured);
+        command
+            .arg("perform")
+            .current_dir(&self.checkout)
+            .env_clear()
+            .envs(environment);
+        let output = execute(
+            command,
+            request.get().as_bytes().to_vec(),
+            PROJECT_PERFORM_RESPONSE_BYTES,
+            Some(READ_TIMEOUT),
+        )?;
+        decode_project_effect(output, operation, issuing_store, database)
     }
     /// Captured exact schema document; the product owns all domain properties.
     pub fn schema(&self, contract: Contract) -> Result<Box<RawValue>, ProductReaderError> {

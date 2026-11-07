@@ -6,6 +6,7 @@ use crate::tooling::reader::{EncodedResponse, Payload, ReaderError, encode_respo
 use pse_host::investigation::NativePath;
 use pse_operations::{
     canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
+    canonical_control::{StudyWorkbenchPage, StudyWorkbenchRequest},
     canonical_projects::{
         Branch, BranchPage, Draft, Project, ProjectCursor, ProjectMetadataPage,
         ProjectMetadataRequest,
@@ -42,7 +43,7 @@ impl ProjectReadSelection {
     }
 }
 
-/// One canonical project read using the original metadata and branch cursor contracts.
+/// One canonical project read using the original owner request and cursor contracts.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProjectRead {
@@ -72,6 +73,11 @@ pub enum ProjectRead {
     DraftShow {
         /// Canonical draft key.
         key: String,
+    },
+    /// Browse compact live study metadata under indexed native predicates.
+    StudyWorkbench {
+        /// Original predicates, row limit and issuer-bound continuation.
+        request: StudyWorkbenchRequest,
     },
 }
 
@@ -112,9 +118,17 @@ pub enum ProjectReadView {
         /// Original draft metadata if available.
         draft: Option<Draft>,
     },
+    /// One bounded live page of compact study headers.
+    StudyWorkbench {
+        /// Original headers and continuation, with no scientific payloads opened.
+        page: StudyWorkbenchPage,
+    },
 }
 
-async fn read(store: &CanonicalStore, query: ProjectRead) -> Result<ProjectReadView, CanonicalError> {
+async fn read(
+    store: &CanonicalStore,
+    query: ProjectRead,
+) -> Result<ProjectReadView, CanonicalError> {
     Ok(match query {
         ProjectRead::Metadata { request } => ProjectReadView::Metadata {
             page: store
@@ -132,6 +146,9 @@ async fn read(store: &CanonicalStore, query: ProjectRead) -> Result<ProjectReadV
         },
         ProjectRead::DraftShow { key } => ProjectReadView::DraftShow {
             draft: store.project_draft(&key).await?,
+        },
+        ProjectRead::StudyWorkbench { request } => ProjectReadView::StudyWorkbench {
+            page: store.control_study_workbench_page(request).await?,
         },
     })
 }
@@ -156,7 +173,10 @@ pub(in crate::tooling::reader) fn encode(
                 database: store.database().into(),
                 issuing_store: store.issuing_store().map_err(canonical)?.into(),
             };
-            let view = cancel.until_cancelled(read(store, query)).await?.map_err(canonical)?;
+            let view = cancel
+                .until_cancelled(read(store, query))
+                .await?
+                .map_err(canonical)?;
             cancel.checkpoint()?;
             encode_response(response(
                 correlation.clone(),

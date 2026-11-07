@@ -160,28 +160,31 @@ fn connected(
     let executor = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    executor.block_on(pse_operations::canonical::operation_scope(deadline, async {
-        cancel.checkpoint()?;
-        // Connect only to the already selected deployment. Acquisition retains its
-        // native clock and partial-acquisition owner until a store can be drained.
-        let store = CanonicalStore::connect(options).await.map_err(canonical)?;
-        let operation = async {
+    executor.block_on(pse_operations::canonical::operation_scope(
+        deadline,
+        async {
             cancel.checkpoint()?;
-            store.open().await.map_err(canonical)?;
-            read(&store).await
-        }
-        .await;
-        let cleanup = store
-            .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
-            .await
-            .map_err(canonical);
-        match (operation, cleanup) {
-            (result, Ok(())) => result,
-            (Ok(output), Err(error)) => Err(output.settlement_failed(error)),
-            (Err(operation), Err(cleanup)) => Err(ReaderError::Settlement {
-                operation: Box::new(operation),
-                cleanup: Box::new(cleanup),
-            }),
-        }
-    }))
+            // Connect only to the already selected deployment. Acquisition retains its
+            // native clock and partial-acquisition owner until a store can be drained.
+            let store = CanonicalStore::connect(options).await.map_err(canonical)?;
+            let operation = async {
+                cancel.checkpoint()?;
+                store.open().await.map_err(canonical)?;
+                read(&store).await
+            }
+            .await;
+            let cleanup = store
+                .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
+                .await
+                .map_err(canonical);
+            match (operation, cleanup) {
+                (result, Ok(())) => result,
+                (Ok(output), Err(error)) => Err(output.settlement_failed(error)),
+                (Err(operation), Err(cleanup)) => Err(ReaderError::Settlement {
+                    operation: Box::new(operation),
+                    cleanup: Box::new(cleanup),
+                }),
+            }
+        },
+    ))
 }

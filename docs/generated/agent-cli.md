@@ -13,7 +13,7 @@ Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
   prepare            Explicitly prepare the independent native host
-  project            Read project data through a prepared product owner
+  project            Read or change project data through its prepared product owner
   qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation
@@ -156,17 +156,21 @@ Options:
 ## `pse project`
 
 ~~~~text
-Read project data through a prepared product owner
+Read or change project data through its prepared product owner
 
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
-  inspect-pack  Verify and inspect an existing project pack offline
-  metadata      Read one bounded metadata page from an existing canonical deployment
-  show          Read an exact project header
-  branches      Read one generation-fenced branch page for an exact project
-  branch        Read an exact branch header
-  draft-show    Read an exact draft head and version descriptor
+  inspect-pack     Verify and inspect an existing project pack offline
+  metadata         Read one bounded metadata page from an existing canonical deployment
+  show             Read an exact project header
+  branches         Read one generation-fenced branch page for an exact project
+  branch           Read an exact branch header
+  draft-show       Read an exact draft head and version descriptor
+  study-workbench  Browse one bounded page of compact study headers
+  create           Create a project under an explicit original operation identity
+  navigate         Apply an authored navigation intent, read from stdin by default
+  acknowledgement  Reconcile an original operation identity without submitting another effect
 
 Options:
   -C <checkout>
@@ -678,6 +682,250 @@ Options:
 
       --timeout-ms <TIMEOUT_MS>
           Total reader allowance in milliseconds, from 1 through 25000
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project study-workbench`
+
+~~~~text
+Browse one bounded page of compact study headers
+
+Usage: pse project study-workbench [OPTIONS] --reader <READER> --state <STATE>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --study <STUDY>
+          Exact study key
+
+      --project <PROJECT>
+          Exact owning project key
+
+      --branch <BRANCH>
+          Exact branch key
+
+      --source <SOURCE>
+          Exact modeling source revision
+
+      --physical-revision <PHYSICAL_REVISION>
+          Exact admitted physical source revision
+
+      --context <CONTEXT>
+          Exact immutable engineering context key
+
+      --outcome <OUTCOME>
+          Terminal outcome from the selected product's request schema
+
+      --research-reference <RESEARCH_REFERENCE>
+          Exact dataset, selection, publication operation or research-reference key
+
+      --maximum <MAXIMUM>
+          Maximum study headers in one page, from 1 through 64
+
+          [default: 64]
+
+      --cursor <CURSOR>
+          Original continuation JSON. Repeat the same filters to continue
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project create`
+
+~~~~text
+Create a project under an explicit original operation identity
+
+Usage: pse project create [OPTIONS] --reader <READER> --state <STATE> --issuing-store <ISSUING_STORE> --operation <OPERATION> <PROJECT> <TITLE>
+
+Arguments:
+  <PROJECT>
+          Canonical project key
+
+  <TITLE>
+          Human-readable project title
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project navigate`
+
+~~~~text
+Apply an authored navigation intent, read from stdin by default
+
+Usage: pse project navigate [OPTIONS] --reader <READER> --state <STATE> --issuing-store <ISSUING_STORE> --operation <OPERATION>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Authored JSON containing the original project descriptor and typed request
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project acknowledgement`
+
+~~~~text
+Reconcile an original operation identity without submitting another effect
+
+Usage: pse project acknowledgement [OPTIONS] --reader <READER> --state <STATE> --issuing-store <ISSUING_STORE> --operation <OPERATION>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
 
   -h, --help
           Print help (see a summary with '-h')

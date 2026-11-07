@@ -15,6 +15,41 @@ fn output(bytes: Vec<u8>, status: i32) -> Output {
     }
 }
 #[test]
+fn project_effect_decoding_distinguishes_unsubmitted_refusal_from_a_bad_receipt() {
+    let failure = crate::envelope::ErrorRecord::from_host(
+        &crate::HostError::Ownership("bad typed project intent".into()),
+        &Default::default(),
+    );
+    let mut frame = serde_json::json!({
+        "protocol": PROJECT_PERFORM_PROTOCOL, "version": 1,
+        "operation": null, "target": null, "cleanup": null,
+        "outcome": {"kind": "refused", "failure": failure}
+    });
+    let decode = |frame: &serde_json::Value, status| {
+        decode_project_effect(
+            output(serde_json::to_vec(frame).unwrap(), status),
+            "original",
+            "issuer",
+            Some("database"),
+        )
+    };
+    assert!(matches!(
+        decode(&frame, 2).unwrap().outcome,
+        ProjectEffectOutcome::Refused { .. }
+    ));
+    frame["outcome"]["kind"] = "unresolved".into();
+    assert!(decode(&frame, 2).is_err());
+    frame["operation"] = "original".into();
+    frame["target"] = serde_json::json!({"issuing_store": "issuer", "namespace": "namespace", "database": "database"});
+    frame["outcome"] = serde_json::json!({"kind": "acknowledged", "acknowledgement": {
+        "key": "another", "kind": "create", "project": "project", "branch": null,
+        "revision": null, "generation": 0
+    }});
+    assert!(decode(&frame, 0).is_err());
+    frame["outcome"]["acknowledgement"]["key"] = "original".into();
+    assert!(decode(&frame, 0).is_ok());
+}
+#[test]
 fn opaque_forwarding_keeps_duplicate_keys_numeric_lexemes_and_failed_science() {
     let payload = r#"{"original_outcome":"failed","value":1.0000000000000000000001e+7,"value":340282366920938463463374607431768211455,"unknown":[true,null]}"#;
     let original = frame(payload, "reader-a", "success");
