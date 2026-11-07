@@ -184,11 +184,13 @@ busy guest and cold-path timeout.
 
 ## Patch decisions and revealing controls
 
-The preparation owner records the final ordered patch set. Delete an
-old patch with its replaced tests only when the specified v4 control
-establishes equivalent behavior. A failed equivalence control keeps
-the narrow adapted behavior in the v4 source build or blocks private
-qualification when a conforming port is unavailable.
+The preparation owner records the final ordered patch set. Use the
+existing tests on the private v4 candidate first. The table identifies
+the behavior each disposition must preserve. Existing assertions that
+distinguish that behavior satisfy the row. Add a focused case for a
+changed, consumed contract only when current tests miss the regression.
+A failed test keeps the narrow adapted behavior in the v4 source build
+or blocks private qualification when a conforming port is unavailable.
 [Current patch inventory](../../scripts/surrealdb-source/source-build.md)
 
 | Current input | Proposed v4 disposition and acceptance |

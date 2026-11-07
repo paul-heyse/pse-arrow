@@ -247,6 +247,10 @@ unwinds; an unwinding failure cannot cross a foreign ABI.
 
 ### 3.3 Supporting libraries and their boundaries
 
+> Decision: [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+> (proposed). The private Plan68 candidate aligns the source-built server,
+> MX, client, parser and Study extension on the v4 release family.
+
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
 **Implemented:** native browse/cancel/reconcile uses the existing bounded canonical gRPC owner

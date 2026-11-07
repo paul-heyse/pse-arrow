@@ -194,6 +194,13 @@ the investigation with the disqualifying case. B05 is independent of the cutover
 
 ## Packages
 
+Run the existing parser, schema, transport, codec, maintenance and
+control tests on the exact candidate where they need a server. Reuse
+passing assertions for the behaviors they distinguish and fix the
+specific failures observed. Extend a test only when a v4 change or a
+new interface affects a consumed contract that existing tests miss.
+Plan68e owns the assembled receiving and recovery campaigns.
+
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | B01 | planned | Approved release boundary for generation. A's privately prepared v4 server and extension receipt for live attestation | Active parsers, generators and maintenance share the exact v4 release. Actual installed semantics and activation refusal controls pass. |

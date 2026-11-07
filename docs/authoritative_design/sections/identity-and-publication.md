@@ -998,6 +998,10 @@ qualification or policy. Generated contracts remain declarations, never inferred
 
 ### 20.6 Operational store and durable execution
 
+> Decision: [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+> (proposed). Plan68 prepares a private fresh v4 catalog through the existing
+> declaration, custody and activation owners. Plan68e owns selection.
+
 #### 20.6.1 From immutable source to retained result
 
 The lifecycle crosses several owners; none of their identities substitutes for another:
