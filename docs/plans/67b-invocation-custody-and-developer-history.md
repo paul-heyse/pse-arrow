@@ -83,7 +83,7 @@ pilot. Existing scoped SurrealDB fixtures keep their native lifecycle and curren
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | B01 | complete | Current capture, report and Plan66 C/E/F owners | Select active custody per consumer and retain the original working report and rerun boundary. |
-| B02 | in-progress | B01 active custody and working settlement interface | Foreground and detached custody, drain and exact rerun are exercised. Recheck helper retirement after a failed selected run. |
+| B02 | complete | B01 active custody and working settlement interface | Foreground and detached custody, failed-run helper retirement, drain, original readback and exact current rerun verified. |
 | B03 | deferred | A concrete future consumer and separate decision | Structured history pilot withdrawn under the November 7 regeneration decision. |
 | B04 | deferred | A concrete future consumer and separate decision | Persistent history triage and expiry withdrawn. Current-inventory rerun remains in B02. |
 
@@ -155,6 +155,10 @@ fixture executables and their three sidecars from that same failed run. The orig
 failed outcome, result, report, and inventory digests matched at readback. The original
 fixture settlement and native drain gates were still required. A selected target-owned
 case or incomplete selection with such a candidate still keeps the hold.
+
+The exact `pse test pse-host --lib` selection passed both custody regression controls.
+They exercise selected fixture ownership after image removal, changed-image refusal,
+and retry of an interrupted release.
 
 The isolated SurrealDB pilot was exercised on the pinned server. The November 7 maintainer
 decision replaced that path with regeneration. The prototype was never deployed and its

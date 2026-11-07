@@ -123,7 +123,7 @@ and protocol settlement, preserving explicit holds or unresolved evidence for th
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | C01 | complete | Existing SurrealKit pin, generated schema and native fixture selection | Explicit locked tool preparation and the owned sync, rollout parity and deliberate drift controls passed with original endpoint disposal. |
-| C02 | in-progress | C01 database assertions and complete owned case map | Migrate database-only cases, consolidate the Rust cases and remove each replaced test-selection variant and duplicate target. Independently compare named assertions and run representative isolated Rust, native and force-validated controls. Supply the actual variant delta to 67d. |
+| C02 | complete | C01 database assertions and complete owned case map | Database-only cases migrated. Rust cases retain their original owners and named assertions without the replaced scenario variants. Targeted native and force-validated controls passed. |
 | C03 | in-progress | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
 
 ## Execution checkpoint — November 7
@@ -223,6 +223,33 @@ scientific capsule or native-lane executable supplied. Neither retained an execu
 copy or created a physical fixture database. The GDP fixture admits and executes its
 scientific package through the same original runtime. Prepared and target-owned
 runtime cases qualify separately.
+
+**Tested.** The prepared and runner-borrowed selection passed the four scientific-worker
+cases and three Rust caller controls, including staged reads, actual artifact cancellation,
+and guarded expiry. The separately reopened fit was the only failure in that batch. Its
+receiver was using the original producer's validation services. The original borrowed
+fixture still reported complete settlement. The release regression and exact retry are
+recorded in [67b](67b-invocation-custody-and-developer-history.md).
+
+The corrected fit uses the receiver's own scientific validation at both receiving steps.
+Its exact native test passed with complete borrowed-fixture settlement, no retained helper
+images, and a readable original report. The independent producer and receiver assertions
+still distinguish the original and edited predictions.
+
+The six target-owned runtime tests passed with complete settlement. They covered both
+connected-result cases and four KINSOL study cases, including drain of a killed child
+before replacement. The true SCIP product-worker PIDFD death test passed separately.
+The managed self-exec worker death test passed with `--ignore-default-filter`, preserving
+the typed observer pool and authenticating the original child and reap. Its evidence
+covers the typed pool rather than a separate OS observer cap. These selections left no
+retained executable copies after settlement.
+
+The exact `pse test xtask --target-kind bin -F physical-admission` scientific-input
+selection passed all seven cases with complete settlement and no retained executables.
+Standalone native-lane readiness and the absent preparation refusal were checked. The
+standalone real prepare, repeated prepare, and executing consumer remain open on the
+current source. The PID exchange compiled and its independent Python oracle execution
+remains open. Scope-end qualification still covers the full consumer population.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and

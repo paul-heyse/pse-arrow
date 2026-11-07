@@ -336,6 +336,14 @@ generated source links and a direct dependency that needs macro/source confirmat
 | Runtime ordinary scientific and PID cases | 1,099 → 1,099 and 1,084 → 1,084 | The in-process authored input avoids the separate builder stage. The independent PID reference remains. |
 | Standalone native lane | 1,142 → 1,142 | The lane keeps its genuine executable boundary while dropping builder-specific xtask features. |
 
+**Tested.** The runtime all-target check with `--no-default-features` passed with zero
+errors in the 1,099-unit route. It exposed four warning records, and the source moved
+the fixture helpers behind their actual test consumers and removed redundant qualifiers.
+The scoped default `pse check pse-operations --lib --features native-service,canonical-maintenance --timings`
+passed with zero compiler errors or warnings and a 72.74-second Cargo phase after rebuilding
+metadata. It supplies one default-mode operations sample. The matched repeat comparison
+and broader compatibility matrix remain open.
+
 An isolated PETSc 3.24.0 configuration used the authenticated archive and repository patch,
 the selected GCC and MKL file digests, and the native owner's configure flags. The actual
 GNU Make rule for `src/sys/utils/str.c` invoked the installed managed launcher through

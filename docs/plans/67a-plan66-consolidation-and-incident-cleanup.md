@@ -212,3 +212,7 @@ The retired Python test-resource invocation ledger was also removed directly. It
 occupied 2,066,976,768 allocated bytes, including copies of the old initializer executable.
 The directory's original incarnation, mount and process use were rechecked before release.
 The selected directory was absent at readback.
+
+At the November 7 integration closeout, `git worktree list --porcelain` listed only
+main and no unmerged files were present. The three integrated incident checkouts and
+the disposable qualification checkout had already been removed with ordinary Git.

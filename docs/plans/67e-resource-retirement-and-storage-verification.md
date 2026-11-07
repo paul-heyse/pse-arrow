@@ -245,6 +245,11 @@ payload settlement, the owner rechecked the mount and directory incarnation and 
 without the output directory. Automatic adoption of prior diagnostic or compiler scratch
 and the retirement path for named legacy stores remain open.
 
+The pinned compiler's deliberate crash control produced a report in the checkout-local
+Cargo target under the new default. The same control wrote to the explicitly selected
+override directory when supplied. Cargo clean removed the default report with the probe
+target, and the settled owner removed the probe's private scratch.
+
 **Measured.** Retired the exact `.venv-diagnostic-taskdump` checkout environment from the
 removed `just py-sync-taskdump` recipe. Current tooling has no reference to that environment.
 The release rechecked its original directory and mount, acquired the local environment lock,

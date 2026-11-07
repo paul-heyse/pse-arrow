@@ -111,6 +111,22 @@ reclamation have separate evidence.
 | 10. Reduce sccache to about 40 GiB | D retains the 100 GiB baseline. Capacity changes require workload evidence. |
 | 11. Report footprint and guard admission | E delivers read-only measurement. Free-space warnings, reservations and admission gates are declined. |
 
+## Integration checkpoint — November 7
+
+Main contains the selected Plan66 worktree changes and this storage cutover. Git lists
+only the main checkout. [67a](67a-plan66-consolidation-and-incident-cleanup.md) owns the
+incident release and the later direct deletion of prior ledgers. [67b](67b-invocation-custody-and-developer-history.md)
+owns settled executable custody and exact failed rerun. [67c](67c-surrealkit-and-rust-test-consolidation.md)
+records the SurrealKit suite, consolidated Rust tests and actual native qualification.
+[67d](67d-cargo-variants-and-sccache-reuse.md) records the managed 0.19.0 Rust and C/C++
+restore measurements and the 100 GiB capacity choice. [67e](67e-resource-retirement-and-storage-verification.md)
+records the ordinary Git retirement journey, owner-issued release and footprint observations.
+
+The remaining work is the real standalone native-lane preparation and consumer journey,
+execution of the independent PID oracle, the remaining compatibility and matched operations
+timing matrix, recurring scratch and named-store retirement, published-generation retirement,
+and assembled scope-end qualification. Keep each open obligation in its companion.
+
 ## Completion
 
 Record the incident cleanup, functional cutovers, and performance evidence independently.

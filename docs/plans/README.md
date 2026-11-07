@@ -21,10 +21,11 @@ bindings remain only for separately assigned final-state reconciliation and clea
 assign no go-forward work. Retired plans likewise supply no obligations.
 
 [Plan67: Storage lifecycle and build reuse](67-storage-lifecycle-and-build-reuse.md)
-records the completed Plan66 worktree consolidation and incident cleanup. The remaining
-work covers invocation custody and fresh reruns, SurrealKit and Rust test consolidation,
-Cargo and sccache reuse, and recurring owner-issued retirement. Its coordinator owns the storage work
-and links to Plan66 for the scientific and evidence contracts it consumes.
+records the completed Plan66 worktree consolidation, incident cleanup, and direct deletion
+of prior ledgers. Main contains the settled executable custody, SurrealKit and Rust fixture
+cutover, and managed sccache 0.19.0 work. Only main remains registered. The coordinator links
+the open native-lane, build comparison, retirement and assembled qualification obligations
+to their owning companions. Plan66 retains the scientific and evidence contracts they consume.
 
 [Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) proposes one exact v4 release
 across the active database routes after Plan67 completes. Its companions own supplier and
