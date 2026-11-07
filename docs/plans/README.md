@@ -37,5 +37,17 @@ and its outstanding acceptance.
 - [68d · Developer and test receiving](68d-surrealdb-v4-developer-and-test-receiving.md)
 - [68e · Fresh generation and acceptance](68e-surrealdb-v4-fresh-generation-and-acceptance.md)
 
+[Plan69: Intent-first CLI and Codex workflows](69-intent-first-cli-and-codex-workflows.md)
+proposes one routine CLI front door with resolved context, typed recovery and managed results.
+Its companions own CLI contracts, workstation preparation, ordinary tests and results, product
+operations, and model and schema changes. The coordinator owns opportunity dispositions and
+assembled acceptance. Plan66 and Plan68 retain their scientific and database cutover scope.
+
+- [69a · CLI contracts, configuration, and presentation](69a-cli-contracts-configuration-and-presentation.md)
+- [69b · Codex workstation and preparation](69b-codex-workstation-and-preparation.md)
+- [69c · Ordinary testing and managed results](69c-ordinary-testing-and-managed-results.md)
+- [69d · Routine product and data operations](69d-routine-product-and-data-operations.md)
+- [69e · Source model and live schema operations](69e-source-model-and-live-schema-operations.md)
+
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.
