@@ -193,6 +193,12 @@ The migrated xtask `evidence-tools` and `host-contracts` selection examined 804 
 and reached zero `pse-runtime` compiler units after removing its test-only feature.
 The wider consumer mapping and post-migration matrix remain open.
 
+Two force-validated pinned Cargo check selections exercised `pse-runtime` and `pse-admission`
+as separate roots. Each selected one `arrow-array` and one DataFusion library unit, with
+matching features, effective profiles and recursively matched dependency units. Symbolica
+appeared only in the runtime selection. This verifies reuse-compatible planning for those
+shared libraries and preserves the narrower admission build. Build time is measured separately.
+
 The managed route now verifies the selected 0.19.0 binary and reports actual daemon
 readiness, storage location, mode, and listener multiplicity. It validates a selected frame
 size and keeps alternate endpoints paired with alternate storage roots. Cold host preparation
@@ -209,6 +215,17 @@ Rust hit after its selected outputs were removed. Under the 256 MiB frame, a sep
 non-incremental Cargo build restored a 41,947,450-byte library and a 41,945,356-byte metadata
 file byte-for-byte with one write, one hit and zero write errors. The controls establish
 eligibility and output recovery. Repository workload timing still governs lane adoption.
+The raw correctness adapter can carry Cargo's explicit `--config build.incremental=false`.
+The native check and test selection interfaces still need a route that carries the same
+configuration through both unit admission and execution before a recurring lane can adopt it.
+
+A pinned Symbolica 3.0.1 library unit used the managed 0.19.0 binary, client-side disk
+cache and 256 MiB frame. The timed unit used the ordinary MPFR and GMP features and an
+isolated trial marker. The cold compile took 87.22 s and wrote one cache entry. Replaying
+the same Rust request into an empty output directory took 0.58 s and reported one Rust hit
+with zero write errors. The 56,889,532-byte library and 27,864,632-byte metadata matched
+exactly. The recovery produced local dep-info in the alternate directory. These timings cover
+the individual compiler request and leave end-to-end verification latency open.
 
 The native CMake bridge already covers CoolProp and KLU. The pinned `cc` crate uses the
 selected wrapper for its compatible local shims. PETSc
