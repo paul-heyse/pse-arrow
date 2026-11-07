@@ -4279,6 +4279,62 @@ fn kernel_pure_authored_tests_use_existing_math_without_runtime_or_solver() {
 }
 
 #[test]
+fn selected_original_expectations_preserve_order_and_unknown_preflight() {
+    let (mut workspace, rows, _, _) = setup(
+        "package p { def Root {} test selected { expect 1==1 tolerance 0.1; expect 2==2 tolerance 0.1; expect 3==3 tolerance 0.1; } }",
+    );
+    let root = rows
+        .iter()
+        .find(|row| row.name == "selected")
+        .unwrap()
+        .declaration_id;
+    let prepared = workspace
+        .prepare_modeling_cancellable(
+            root,
+            root_instance(root),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let mut observed = BTreeMap::new();
+    for id in prepared.model.expectations.keys() {
+        for (component, value) in [
+            (ModelingTestValue::Actual, 2.),
+            (ModelingTestValue::Expected, 2.),
+            (ModelingTestValue::Tolerance, 0.1),
+            (ModelingTestValue::RelativeTolerance, 0.),
+        ] {
+            observed.insert(ModelingOutput::Test { id: *id, component }.row_id(), value);
+        }
+    }
+    let all = prepared.assess_expectations(&observed).unwrap();
+    assert_eq!(all.len(), 3);
+    let selected = BTreeSet::from([all[2].id, all[0].id]);
+    assert_eq!(
+        prepared
+            .assess_expectations_for(&observed, &selected)
+            .unwrap(),
+        [all[0].clone(), all[2].clone()]
+    );
+    assert!(
+        prepared
+            .assess_expectations_for(&BTreeMap::new(), &BTreeSet::new())
+            .unwrap()
+            .is_empty()
+    );
+    let unknown = BTreeSet::from([all[0].id, SemanticId::NIL]);
+    assert!(
+        matches!(prepared.assess_expectations_for(&BTreeMap::new(), &unknown), Err(CompileError::Missing(reason)) if reason == "unknown selected expectation")
+    );
+    assert!(
+        prepared
+            .assess_expectations_for(&BTreeMap::new(), &selected)
+            .is_err()
+    );
+}
+
+#[test]
 fn kernel_expectations_combine_physical_and_relative_tolerances() {
     let source_text = "package p {def Root {} test values {expect 1001==1000 tolerance 0.25 relative 0.001; expect 1.2==1 tolerance 0.01 relative 0.001; expect 0==0 tolerance 0 relative 0.001;}}";
     let (mut workspace, rows, names, _) = setup(source_text);

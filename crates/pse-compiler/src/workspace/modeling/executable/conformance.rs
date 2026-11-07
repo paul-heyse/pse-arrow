@@ -154,11 +154,13 @@ impl PreparedModeling {
         {
             return Err(CompileError::Missing("unknown selected expectation".into()));
         }
-        self.model
-            .expectations
-            .values()
-            .filter(|test| selected.contains(&test.id))
-            .map(|test| {
+        selected
+            .iter()
+            .map(|id| {
+                let test =
+                    self.model.expectations.get(id).ok_or_else(|| {
+                        CompileError::Missing("unknown selected expectation".into())
+                    })?;
                 let value = |component| {
                     observations
                         .get(

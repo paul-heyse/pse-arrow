@@ -3451,10 +3451,13 @@ impl SpecializedModel {
         if selected.iter().any(|id| !self.closures.contains_key(id)) {
             return Err(invalid(SemanticId::NIL, "unknown selected closure"));
         }
-        self.closures
-            .values()
-            .filter(|closure| selected.contains(&closure.id))
-            .map(|closure| {
+        selected
+            .iter()
+            .map(|id| {
+                let closure = self
+                    .closures
+                    .get(id)
+                    .ok_or_else(|| invalid(SemanticId::NIL, "unknown selected closure"))?;
                 let mut net = 0.0;
                 for term in &closure.terms {
                     let magnitude = magnitudes

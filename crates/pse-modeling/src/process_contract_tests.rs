@@ -941,6 +941,43 @@ fn process_contract_observation_assesses_evaluated_original_delta_terms() {
 }
 
 #[test]
+fn selected_original_closures_preserve_order_and_unknown_preflight() {
+    use std::collections::{BTreeMap, BTreeSet};
+    let model = run("package p {def Root {param x:DeltaTemperature=2{K}; accumulate a:DeltaTemperature observation tolerance 0.1{K}; contribute a role positive=x; accumulate b:DeltaTemperature observation tolerance 0.1{K}; contribute b role positive=x; accumulate c:DeltaTemperature observation tolerance 0.1{K}; contribute c role positive=x;}}").unwrap();
+    let magnitudes = model
+        .closures
+        .values()
+        .flat_map(|closure| closure.terms.iter().map(|term| (term.id, 2.)))
+        .collect();
+    let allowances = explicit_allowances(&model);
+    let all = model.assess_closure(&magnitudes, &allowances).unwrap();
+    assert_eq!(all.len(), 3);
+    let selected = BTreeSet::from([all[2].accumulator, all[0].accumulator]);
+    assert_eq!(
+        model
+            .assess_closures(&magnitudes, &selected, &allowances)
+            .unwrap(),
+        [all[0].clone(), all[2].clone()]
+    );
+    assert!(
+        model
+            .assess_closures(&BTreeMap::new(), &BTreeSet::new(), &BTreeMap::new())
+            .unwrap()
+            .is_empty()
+    );
+    let unknown = BTreeSet::from([all[0].accumulator, pse_ids::SemanticId::NIL]);
+    let error = model
+        .assess_closures(&BTreeMap::new(), &unknown, &BTreeMap::new())
+        .unwrap_err();
+    assert!(error.to_string().contains("unknown selected closure"));
+    assert!(
+        model
+            .assess_closures(&BTreeMap::new(), &selected, &allowances)
+            .is_err()
+    );
+}
+
+#[test]
 fn process_contract_fixed_parameter_coordinates_keep_identity_while_original_energy_agreement_is_assessed()
  {
     for (received, expected) in [(1.95, true), (1.5, false)] {
