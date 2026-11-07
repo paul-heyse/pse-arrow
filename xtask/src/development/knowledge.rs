@@ -32,6 +32,27 @@ use surrealdb_types::{Object, Value};
 fn invalid(message: impl Into<String>) -> EvidenceError {
     EvidenceError::Configuration(message.into())
 }
+/// Refuse a knowledge page unless v4 returned the documented read snapshot
+/// status. Position may be `NONE` on backends without a named snapshot token;
+/// the presence of the field, non-stale flag, and typed age are the contract.
+fn validate_read_only_snapshot(value: Value) -> Result<(), EvidenceError> {
+    let Value::Object(snapshot) = value else {
+        return Err(invalid("read-only snapshot status is not an object"));
+    };
+    if !matches!(snapshot.get("position"), Some(Value::None | Value::Bytes(_)))
+        || !matches!(snapshot.get("stale"), Some(Value::Bool(false)))
+        || !matches!(snapshot.get("age"), Some(Value::Duration(_)))
+    {
+        return Err(invalid("read-only snapshot status is malformed or stale"));
+    }
+    Ok(())
+}
+fn validate_read_only_terminal(value: Value) -> Result<(), EvidenceError> {
+    if value != Value::None {
+        return Err(invalid("read-only snapshot terminal result differs"));
+    }
+    Ok(())
+}
 fn digest(bytes: impl AsRef<[u8]>) -> String {
     Sha256::digest(bytes)
         .iter()
@@ -1125,15 +1146,21 @@ impl EvidenceStore {
             "[]"
         };
         let sql = format!(
-            "BEGIN; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; LET $pointer=SELECT * FROM ONLY knowledge_state:current; LET $selected=IF $generation=NONE {{ $pointer.active_generation }} ELSE {{ $generation }}; LET $header=SELECT * FROM ONLY type::record('knowledge_generations',$selected); {prefix} LET $items={item_query}; LET $keys={keys}; LET $sources=SELECT * FROM knowledge_sources WHERE generation=$selected ORDER BY key LIMIT 257; LET $subjects=SELECT * FROM knowledge_subjects WHERE generation=$selected AND key IN $keys LIMIT 257; LET $contributors=SELECT * FROM knowledge_subject_sources WHERE generation=$selected AND subject_key IN $keys LIMIT 2049; LET $topics=SELECT * FROM knowledge_subject_topics WHERE generation=$selected AND subject_key IN $keys LIMIT 4097; LET $excerpts={excerpt_query}; SELECT VALUE {{marker:$marker,header:$header,sources:$sources,subjects:$subjects,contributors:$contributors,topics:$topics,excerpts:$excerpts,items:$items}} FROM [0]; COMMIT;"
+            "BEGIN READ ONLY; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; LET $pointer=SELECT * FROM ONLY knowledge_state:current; LET $selected=IF $generation=NONE {{ $pointer.active_generation }} ELSE {{ $generation }}; LET $header=SELECT * FROM ONLY type::record('knowledge_generations',$selected); {prefix} LET $items={item_query}; LET $keys={keys}; LET $sources=SELECT * FROM knowledge_sources WHERE generation=$selected ORDER BY key LIMIT 257; LET $subjects=SELECT * FROM knowledge_subjects WHERE generation=$selected AND key IN $keys LIMIT 257; LET $contributors=SELECT * FROM knowledge_subject_sources WHERE generation=$selected AND subject_key IN $keys LIMIT 2049; LET $topics=SELECT * FROM knowledge_subject_topics WHERE generation=$selected AND subject_key IN $keys LIMIT 4097; LET $excerpts={excerpt_query}; SELECT VALUE {{marker:$marker,header:$header,sources:$sources,subjects:$subjects,contributors:$contributors,topics:$topics,excerpts:$excerpts,items:$items}} FROM [0]; COMMIT;"
         );
         let mut response = transport::bounded_query(bind_request(
             self.query_with_limits(sql, limits())?,
             request,
         ))
         .await?;
-        let index = response
-            .num_statements()
+        let statement_count = response.num_statements();
+        if statement_count < 3 {
+            return Err(invalid("native read-only response is incomplete"));
+        }
+        let terminal_index = statement_count - 1;
+        validate_read_only_snapshot(response.take(0)?)?;
+        validate_read_only_terminal(response.take(terminal_index)?)?;
+        let index = statement_count
             .checked_sub(2)
             .ok_or_else(|| invalid("native page response absent"))?;
         let mut records: Vec<Object> = response.take(index)?;

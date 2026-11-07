@@ -400,6 +400,32 @@ fn knowledge_query_refuses_unbounded_or_unstructured_text_and_mixed_modes() {
     request.kind = Some(parsed("generator"));
     assert!(request.validate().is_err());
 }
+
+#[test]
+fn knowledge_read_only_snapshot_requires_current_typed_status_and_terminal_completion() {
+    let mut snapshot = Object::new();
+    snapshot.insert("position", Value::None);
+    snapshot.insert("stale", Value::Bool(false));
+    snapshot.insert(
+        "age",
+        Value::Duration(surrealdb_types::Duration::ZERO),
+    );
+    assert!(validate_read_only_snapshot(Value::Object(snapshot.clone())).is_ok());
+    assert!(validate_read_only_terminal(Value::None).is_ok());
+    assert!(validate_read_only_terminal(Value::Bool(true)).is_err());
+
+    let mut stale = snapshot.clone();
+    stale.insert("stale", Value::Bool(true));
+    assert!(validate_read_only_snapshot(Value::Object(stale)).is_err());
+    let mut malformed_position = snapshot.clone();
+    malformed_position.insert("position", Value::String("not-an-opaque-token".into()));
+    assert!(validate_read_only_snapshot(Value::Object(malformed_position)).is_err());
+    let mut missing_age = snapshot;
+    missing_age.remove("age");
+    assert!(validate_read_only_snapshot(Value::Object(missing_age)).is_err());
+    assert!(validate_read_only_snapshot(Value::String("malformed".into())).is_err());
+}
+
 pub(crate) async fn exercise_native(
     importer: &EvidenceStore,
     reader: &EvidenceStore,
@@ -421,6 +447,16 @@ pub(crate) async fn exercise_native(
             .bind(("row", candidate.clone())),
     )
     .await;
+    assert!(
+        transport::bounded_query(
+            importer
+                .query("BEGIN READ ONLY; CREATE type::record('knowledge_sources',$row.key) CONTENT $row; COMMIT;")?
+                .bind(("row", candidate.clone())),
+        )
+        .await
+        .is_err(),
+        "read-only transaction must refuse a write under the importer role"
+    );
     let mut absence = transport::bounded_query(
         importer
             .query("SELECT * FROM knowledge_sources WHERE key=$row.key;")?
@@ -645,28 +681,87 @@ pub(crate) async fn exercise_native(
     assert_eq!(page.subjects.len(), 1);
     assert_eq!(page.subjects[0].id, "blueprint §23.2");
     assert_eq!(page.sources.len(), 3);
-    let no_hits = reader
-        .knowledge_select(&KnowledgeQuery {
-            text: Some("recycle".into()),
-            ..selected.clone()
-        })
-        .await?;
+    let no_hits_request = KnowledgeQuery {
+        text: Some("recycle".into()),
+        ..selected.clone()
+    };
+    let no_hits = reader.knowledge_select(&no_hits_request).await?;
     assert!(
         no_hits.subjects.is_empty(),
         "other sections in the same file never create subject hits"
     );
     assert_eq!(no_hits.sources.len(), 3);
-    let matched = reader
-        .knowledge_select(&KnowledgeQuery {
-            text: Some("boundary".into()),
-            ..selected.clone()
-        })
-        .await?;
+    let matched_request = KnowledgeQuery {
+        text: Some("boundary".into()),
+        ..selected.clone()
+    };
+    let matched = reader.knowledge_select(&matched_request).await?;
     assert_eq!(matched.subjects.len(), 1);
     assert_eq!(
         matched.excerpts[0].subject_id.as_deref(),
         Some("blueprint §23.2")
     );
+    // Observe the exact activation membership query as an isolated read. The
+    // writer still exercises its original guarded activation path below.
+    let evidence_page = importer
+        .select(&crate::development::evidence::EvidenceQuery::default())
+        .await?;
+    assert!(evidence_page.next.is_none());
+    let count_sql = crate::development::evidence::EVIDENCE_MEMBERSHIP_COUNT_SQL;
+    let mut active_count = transport::bounded_query(
+        importer
+            .query(&format!("{count_sql};"))?
+            .bind(("generation", evidence_page.generation.clone())),
+    )
+    .await?;
+    let active_rows: Vec<Object> = active_count.take(0)?;
+    assert_eq!(active_rows.len(), 1);
+    let expected_evidence_count: i64 = evidence_page
+        .facts
+        .len()
+        .try_into()
+        .map_err(|_| invalid("evidence membership count overflow"))?;
+    assert_eq!(
+        active_rows[0].get("n"),
+        Some(&Value::Number(surrealdb_types::Number::Int(expected_evidence_count)))
+    );
+    let mut empty_count = transport::bounded_query(
+        importer
+            .query(&format!("{count_sql};"))?
+            .bind(("generation", "no-evidence-members".to_owned())),
+    )
+    .await?;
+    let empty_rows: Vec<Object> = empty_count.take(0)?;
+    assert_eq!(empty_rows.len(), 1, "GROUP ALL represents an empty count");
+    assert_eq!(
+        empty_rows[0].get("n"),
+        Some(&Value::Number(surrealdb_types::Number::Int(0)))
+    );
+    for explain in ["EXPLAIN FORMAT JSON", "EXPLAIN ANALYZE FORMAT JSON"] {
+        let sql = format!("{explain} {count_sql};");
+        let mut plan = transport::bounded_query(
+            importer
+                .query_with_limits(sql, canonical::MetadataResponse::DiagnosticPlan.limits())?
+                .bind(("generation", evidence_page.generation.clone())),
+        )
+        .await?;
+        let index = plan
+            .num_statements()
+            .checked_sub(1)
+            .ok_or_else(|| invalid("evidence membership plan absent"))?;
+        let plan: Value = plan.take(index)?;
+        assert!(!plan.clone().into_json_value().is_null());
+        eprintln!("evidence membership {explain} {plan:?}");
+    }
+    let mut membership_index = transport::bounded_query(
+        importer.query_with_limits(
+            "INFO FOR INDEX evidence_fact_membership ON evidence_facts;",
+            canonical::MetadataResponse::DiagnosticPlan.limits(),
+        )?,
+    )
+    .await?;
+    let membership_index: Value = membership_index.take(0)?;
+    assert!(!membership_index.into_json_value().is_null());
     let proposal = reader
         .knowledge_select(&KnowledgeQuery {
             kind: Some(parsed("decision")),
@@ -713,7 +808,33 @@ pub(crate) async fn exercise_native(
         "shared generator never creates a declaration/output cross-product"
     );
     assert_eq!(false_pair.sources.len(), 3);
-    for request in [&selected, &graph_request, &production_request] {
+    let (graph_prefix, graph_items) = selection(&graph_request);
+    let graph_analyze = format!(
+        "LET $selected=$generation; {graph_prefix} EXPLAIN ANALYZE FORMAT JSON {graph_items};"
+    );
+    let mut graph_plan = transport::bounded_query(bind_request(
+        reader.query_with_limits(
+            graph_analyze,
+            canonical::MetadataResponse::DiagnosticPlan.limits(),
+        )?,
+        &graph_request,
+    )
+    .bind(("generation", first.generation.clone())))
+    .await?;
+    let graph_plan_index = graph_plan
+        .num_statements()
+        .checked_sub(1)
+        .ok_or_else(|| invalid("knowledge graph analyzed plan absent"))?;
+    let graph_plan: Value = graph_plan.take(graph_plan_index)?;
+    assert!(!graph_plan.clone().into_json_value().is_null());
+    eprintln!("knowledge graph EXPLAIN ANALYZE {graph_plan:?}");
+    for request in [
+        &selected,
+        &no_hits_request,
+        &matched_request,
+        &graph_request,
+        &production_request,
+    ] {
         let plan = reader.knowledge_explain(request).await?;
         assert!(
             !serde_json::from_str::<serde_json::Value>(&plan.raw_plan_json)
