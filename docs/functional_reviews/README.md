@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [intent-first CLI and Codex operating workflows review](intent-first-cli-and-codex-workflows-2026-11-07.md)
+proposes a routine `pse` front door across development and production. It assesses ordinary
+test defaults, result identity and release, recurring model changes, production operator
+routing, and workstation friction. A deduplicated 48-hour log scan and current parser
+observations ground eight opportunities.
+
 The [storage lifecycle and build reuse review](storage-lifecycle-and-build-reuse-2026-11-06.md)
 accounts for roughly 655 GiB of recently changed, still-present storage after the main checkout
 was cleaned. It prioritizes eliminating repeated executable captures, test-driven Cargo variants,
