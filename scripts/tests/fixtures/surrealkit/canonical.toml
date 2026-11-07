@@ -38,6 +38,15 @@ path = ""
 equals = "18446744073709551615"
 
 [[cases]]
+name = "authored_seed_is_visible"
+kind = "sql_expect"
+sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:seeded);"
+allow = true
+[[cases.assertions]]
+path = ""
+equals = "42"
+
+[[cases]]
 name = "immutable_bytes_exact"
 kind = "sql_expect"
 sql = "RETURN encoding::base64::encode((SELECT VALUE payload FROM ONLY canonical_payload_blocks:exact));"

@@ -1076,3 +1076,6 @@ mod progression;
 
 #[path = "native_service/http_control.rs"]
 mod http_control;
+
+#[path = "native_service/surrealkit.rs"]
+mod surrealkit;

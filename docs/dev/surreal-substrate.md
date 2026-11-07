@@ -266,6 +266,19 @@ module/schema and physical ownership. Existing installations and unrelated servi
 ## Standalone beta tooling fixtures
 
 Pinned native schema tooling and Rust fixture sources retain their producer-specific interfaces.
+The SurrealKit generated-schema suite runs as an explicit selection in the native-service test
+target. It requires the source-built binary and adjacent release receipt selected by
+[`.config/surrealkit.toml`](../../.config/surrealkit.toml). Set `PSE_SURREALKIT_BIN` to
+select an explicit absolute path, or use the versioned release under the project data root.
+The existing server and study-module preparations supply the owned endpoint. The test stages
+the current generated schema and authored seed, runs the suite in scoped logical databases, and
+settles and disposes the endpoint even when a suite assertion or setup fails.
+
+```bash
+scripts/pse test pse-operations:native_service -F pse-operations/native-service \
+  --ignored only -E 'test(=surrealkit::surrealkit_generated_contract_uses_owned_service_and_disposes)'
+```
+
 Historical Python beta lifecycle/persistent-fixture drivers are retired. Do not run their old
 commands or infer a new generic lifecycle adapter. Whole-chain migration qualification needs
 exact ordered producer publications, acknowledgements, initializer reservation and independent

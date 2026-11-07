@@ -1,6 +1,6 @@
 ---
 title: "Plan67c: SurrealKit and Rust test consolidation"
-status: proposed
+status: in-progress
 date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/67-storage-lifecycle-and-build-reuse.md
@@ -123,9 +123,20 @@ and protocol settlement, preserving explicit holds or unresolved evidence for th
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| C01 | planned | Existing SurrealKit pin, generated schema and native fixture selection | Deliver the bounded test-owned endpoint and real TOML lane. Exercise seed and actor isolation, expected refusal, schema or rollout parity where selected, explicit wrong-endpoint refusal, and verified cleanup through success, failure and interruption. |
+| C01 | in-progress | Existing SurrealKit pin, generated schema and native fixture selection | Deliver the bounded test-owned endpoint and real TOML lane. Exercise seed and actor isolation, expected refusal, schema or rollout parity where selected, explicit wrong-endpoint refusal, and verified cleanup through success, failure and interruption. |
 | C02 | planned | C01 database assertions and complete owned case map | Migrate database-only cases, consolidate the Rust cases and remove each replaced test-selection variant and duplicate target. Independently compare named assertions and run representative isolated Rust, native and force-validated controls. Supply the actual variant delta to 67d. |
 | C03 | planned | Current scientific inputs and native lane contracts. B02 active custody for consumers that still need executable borrowing. | Move the ordinary capsule and lane consumers onto the chosen test-owned path and retire superseded preparation/capture. Verify changed input refusal, native worker failure and settlement, and repeated ordinary runs with zero added retained helper copies or physical database copies. |
+
+## Execution checkpoint — November 7
+
+The existing Rust native-service target drives the pinned SurrealKit CLI against the current
+generated schema. One physically owned endpoint hosts separate logical databases for the suite
+controls. The native fixture settles and disposes the endpoint after the passing suite, expected
+assertion failure, setup refusal and interrupted seed reader. The test verifies the original JSON
+case population and refuses a foreign endpoint. The first native run passed all 11 suite cases.
+Selection is explicit while the prepared SurrealKit release is a separate prerequisite.
+The historical rollout's target differs from the current generated schema. Current sync is
+qualified by this lane. Rollout parity and structured suite-history publication are separate work.
 
 Record original test outcomes and coverage separately from settled resource counts. Compare
 repeat runs in the same compatible compiler context, showing retained state after settlement and
