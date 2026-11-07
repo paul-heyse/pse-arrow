@@ -1169,3 +1169,862 @@ cargo-hakari reduces dependency feature-configuration fragmentation. Its princip
 sccache reduces the cost of repeated eligible compilation. Its architecture extends from local caching to shared multi-level stores and, with additional infrastructure, distributed compilation.
 
 Together, these capabilities cover a substantial portion of avoidable Rust build work without requiring a bespoke build engine. Their effectiveness still depends on Cargo's underlying semantics, and the greatest benefits arise when the actual source of repeated work matches the mechanism each tool is designed to eliminate.
+
+# Addendum: Advanced Rust Build Optimization Capabilities
+
+Supplement to Rust Build and Dependency Optimization: cargo-hakari, sccache, and cargo-shear
+
+Research date: November 6, 2026
+
+Verified versions: cargo-hakari 0.9.39, hakari 0.18.0, sccache 0.19.0, cargo-shear 1.14.0.
+
+This addendum extends the original reference with additional capabilities, operational mechanisms, and consequential limitations. It concentrates on functionality not previously covered or requiring more detailed explanation, rather than restating the established conceptual models, command lifecycles, or integration patterns.
+
+The principal version change is sccache 0.19.0, released October 24, 2026, which supersedes the original guide's 0.18.0 reference. The release introduces improvements to Rust artifact correctness and build pipelining, multi-level cache resilience, native compiler caching, diagnostics, and distributed compilation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+## 1. sccache 0.19.0 — Rust compilation correctness and pipelining
+
+### 1.1 Checkout-local dependency information
+
+Rust compiler invocations can produce `.d` dependency-information files, which record source dependencies for build invalidation. These files may contain absolute paths associated with a particular checkout, build directory, or machine.
+
+Earlier sccache versions could restore dependency information originally generated in another environment. Although the compiled artifact might remain reusable, the restored dependency file could reference paths that do not exist in the current environment.
+
+Version 0.19.0 changes this behavior: Rust dependency information is written locally rather than restored from the compiler cache.
+
+This separates two aspects of compilation output that have different portability requirements:
+
+| Output                                      | Relevant identity                                                            |
+| ------------------------------------------- | ---------------------------------------------------------------------------- |
+| Compiled library or other eligible artifact | Equivalent compiler inputs, dependencies, and output-affecting configuration |
+| Dependency-information file                 | Dependencies as represented in the current compilation environment           |
+
+The consequence is that cross-checkout and cross-machine artifact reuse no longer depends on restoring potentially stale dependency-file paths.
+
+This improvement complements `SCCACHE_BASEDIRS`, but addresses a different problem. Base-directory normalization improves cache-key equivalence across directories; locally generated dependency information preserves the current environment's dependency tracking after a cache hit.
+
+It does not make every Rust artifact relocatable. Compiler arguments, embedded paths, build-script results, environment variables, and other compilation inputs can still prevent equivalent caching across different locations.
+
+Sources: sccache 0.19.0 release notes; Cargo build-cache documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+`https://doc.rust-lang.org/cargo/reference/build-cache.html`
+
+### 1.2 Streaming Rust metadata notifications to preserve build pipelining
+
+Rust compilation is not necessarily a completely sequential process at the crate level. Cargo can begin certain dependent compilations once their upstream dependencies have produced sufficient metadata, without requiring the upstream compilation unit to finish all code generation.
+
+This is commonly referred to as build pipelining.
+
+The relevant distinction is between a crate's metadata artifact, often `.rmeta`, and its eventual compiled code artifact.
+
+sccache 0.19.0 introduces the ability to stream `.rmeta` artifact notifications to Cargo before the compilation finishes, including during cache misses and client-side execution.
+
+The mechanism affects compilation scheduling rather than the semantic identity of cached outputs.
+
+Conceptual dependency pipeline
+
+Conceptual illustration, not a measured execution timeline. Downstream compilation still depends on Cargo's dependency constraints and availability of required metadata.
+
+There are several consequential interactions.
+
+Cache misses can still benefit. Even when compilation must actually run, forwarding metadata notifications prevents the wrapper from unnecessarily delaying a downstream compilation until the complete upstream result is available.
+
+Client-side execution retains pipelining. When `SCCACHE_CLIENT_SIDE=1`, the compiler-facing work runs in the wrapper process, with the daemon primarily providing storage coordination. Version 0.19.0 preserves the metadata-notification behavior in this mode as well.
+
+Cache hit rate is not a complete performance measure. Two build executions with identical cache hit rates can have different wall-clock durations if dependent compilation starts at different points.
+
+This capability does not guarantee that all dependent crates can begin immediately after metadata emission. Macro expansion, build scripts, compiler dependencies, and other Cargo scheduling requirements can still impose boundaries.
+
+Sources: sccache 0.19.0 release notes; Cargo build timings documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+`https://doc.rust-lang.org/cargo/reference/timings.html`
+
+### 1.3 Concurrent compiler-output discovery and hashing
+
+sccache 0.19.0 also changes how Rust compilation requests are prepared.
+
+Previously, identifying the outputs expected from a rustc invocation could contribute serial overhead before the remaining cache-key work proceeded. The 0.19.0 implementation computes Rust output information concurrently with other hashing operations.
+
+This introduces another performance dimension distinct from compilation and artifact storage: request preparation latency.
+
+The total duration of an eligible compilation can be decomposed conceptually as:
+
+\\[ T\_{\mathrm{request}} = T\_{\mathrm{preparation}} + T\_{\mathrm{lookup}} + T\_{\mathrm{restore\ or\ compile}} + T\_{\mathrm{finalization}} \\]
+
+Actual phases can overlap, so this is a conceptual decomposition rather than an additive timing guarantee.
+
+The 0.19.0 change targets overlap within preparation work. Its advantage is most relevant when output determination and input hashing are individually expensive enough that performing them concurrently shortens the request's critical path.
+
+It should not be confused with distributed compilation, parallel rustc code generation, or Cargo's parallel scheduling of independent compilation units.
+
+Source: sccache 0.19.0 release notes, PR #2465.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+## 2. sccache — Native compiler capabilities and mixed-language builds
+
+### 2.1 Compiler support beyond rustc
+
+sccache's compiler abstraction supports several compiler families, including GCC, Clang, MSVC, Rust, CUDA through NVIDIA's `nvcc`, AMD ROCm HIP, and supported assembler workflows.
+
+This means a Rust project containing native components can potentially use the same caching infrastructure for both Rust and non-Rust compilation.
+
+However, integration is compiler-specific. Cargo's `RUSTC_WRAPPER` only governs the Rust compiler invocations that Cargo wraps. Native compilation initiated through `build.rs`, CMake, or other build systems must independently invoke sccache.
+
+For CMake-based compilation, for example, the supported compiler-launcher interface is:
+
+```
+set(CMAKE_C_COMPILER_LAUNCHER sccache)
+set(CMAKE_CXX_COMPILER_LAUNCHER sccache)
+```
+
+These settings are illustrative; they do not replace Cargo's Rust wrapper configuration or automatically configure every native compiler launched by a Rust build script.
+
+The distinction has architectural consequences for mixed Rust/C++ or Rust/CUDA systems. Compiler artifacts may share storage infrastructure while retaining independent compiler identities, preprocessing behavior, and cacheability conditions.
+
+Cache-key compatibility should not be assumed between different compiler families or compilation pathways merely because they write to the same backend.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Primary source:
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/README.md`
+
+### 2.2 C/C++ preprocessor caching
+
+sccache provides a preprocessor-cache mechanism inspired by ccache's direct mode.
+
+For eligible GCC/Clang C/C++ compilations, the mechanism can determine cache validity without repeating the entire preprocessing stage. This is significant because preprocessing may involve opening and processing large header graphs before compilation can begin.
+
+The cache tracks included files and relevant external inputs. When its validity conditions are satisfied, a cached result can be retrieved without invoking the compiler's preprocessor again.
+
+This is a different mechanism from Rust incremental compilation and has substantially different correctness requirements.
+
+Availability constraints. The upstream documentation specifies that this optimization requires GCC or Clang, C/C++ compilation, and local storage. It is disabled for certain flags, including `-MP`, `-Xpreprocessor`, and `-Wp,`, as well as for recently modified headers that could introduce race conditions.
+
+The documented controls provide several performance/correctness tradeoffs:
+
+| Setting                       | Behavior and implication                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------------------------- |
+| `use_preprocessor_cache_mode` | Enables the mechanism; documented default is `true`                                          |
+| `SCCACHE_DIRECT`              | Overrides preprocessor-cache mode for an invocation                                          |
+| `file_stat_matches`           | Permits file metadata checks to substitute for content hashing under its validation rules    |
+| `use_ctime_for_stat`          | Includes filesystem change time in metadata validation                                       |
+| `ignore_time_macros`          | Permits caching despite date/time macros, at the risk of stale results                       |
+| `skip_system_headers`         | Omits system-header contents from validation; requires confidence in system-header stability |
+| `hash_working_directory`      | Distinguishes compilation requests according to their working directory                      |
+
+The default behavior favors correctness over maximum reuse: file contents are hashed unless metadata-based validation is explicitly enabled, and time-sensitive macros are treated conservatively.
+
+Two notable correctness limitations remain.
+
+First, if a header would have been included had it existed, a previous compilation may not record that nonexistent file. Creating it later can alter preprocessing behavior without invalidating the stored entry.
+
+Second, time-sensitive macros and other external conditions may change preprocessing results independently of ordinary source-file changes.
+
+The library documentation explicitly acknowledges that these situations can produce stale cached outputs. Preprocessor caching is therefore a conditional optimization, not a proof that a source file's preprocessing result is invariant.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary source:
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/docs/Local.md`
+
+### 2.3 Architecture-aware preprocessing in 0.19.0
+
+The `SCCACHE_CACHE_MULTIARCH` option supports caching certain C/C++ compilations that pass multiple `-arch` values, particularly relevant to universal binaries on Apple platforms.
+
+Such compilations may define different preprocessor macros for different target architectures. A source file guarded by architecture-sensitive conditions can produce different preprocessed code on each target.
+
+Version 0.19.0 corrects a cache-key problem by preprocessing once per architecture rather than relying on an insufficient single-pass representation.
+
+The result is that architecture-dependent conditions contribute to cache identity. Older cache entries produced using the previous multi-architecture method are not reused.
+
+Important limitations: This mode remains opt-in, and the 0.19.0 implementation does not distribute these multi-architecture compilations. It should not be conflated with arbitrary cross-compilation support or with Rust target-triple handling.
+
+The same release fixes an include-validation issue in the C/C++ preprocessor cache. Both changes concern cache correctness rather than the introduction of a general compiler optimization pass.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+### 2.4 MSVC and C++20 module support
+
+Version 0.19.0 introduces caching for supported C++20 named-module compilations performed through `clang-cl`.
+
+The release also improves MSVC-compatible argument and environment handling: it recognizes `CL` and `_CL_` environment-variable inputs, handles `/Tc` and `/Tp` input-file arguments, and fixes a program-database handling failure involving `-Fd` paths that name directories.
+
+These changes expand the set of compiler invocations that sccache can process correctly.
+
+Named modules are consequential because their generated artifacts can participate in dependency relationships distinct from conventional object files and textual headers. However, this release-specific functionality should not be interpreted as universal caching support for all C++20 module systems, module dependency scanners, or compiler implementations.
+
+Source: sccache 0.19.0 release notes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+## 3. sccache — Cache resilience, observability, and configuration
+
+### 3.1 Independent cache-failure domains
+
+Compiler caching introduces multiple operational failure domains. Treating them all as simple cache misses conceals important differences.
+
+| Failure or condition                          | Relevant capability                | Consequence                                                                           |
+| --------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| Local wrapper-to-server communication failure | `SCCACHE_IGNORE_SERVER_IO_ERROR=1` | Allows fallback to ordinary local compilation for supported communication-error paths |
+| Cache storage read failure                    | Improved 0.19.0 error reporting    | Network and authorization errors are no longer silently represented as cache misses   |
+| Cache-level write failure                     | Multi-level `write_error_policy`   | Determines which failures are tolerated                                               |
+| Cache-level startup failure                   | 0.19.0 startup resilience          | Optional unavailable levels need not prevent cache initialization                     |
+| Deliberate cache recaching                    | `SCCACHE_RECACHE`                  | Forces recompilation and replacement of an existing cached result                     |
+
+The server-I/O fallback is especially important. By default, sccache can fail a build if it cannot communicate successfully with its associated server. With `SCCACHE_IGNORE_SERVER_IO_ERROR=1`, supported communication failures cause it to invoke the compiler locally instead.
+
+This does not mean the setting suppresses every storage, compiler, or distributed-execution error. Its documented purpose is wrapper-to-server communication recovery.
+
+Likewise, 0.19.0's improved reporting of remote storage read errors is an observability improvement. It does not imply that every remote cache failure must terminate compilation; the actual outcome depends on the surrounding caching and fallback path.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Source:
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/README.md`
+
+### 3.2 Multi-level cache startup and durability policies
+
+The original guide describes hierarchical reads, writes, promotion, and the available write-error policies. Version 0.19.0 adds an important operational distinction: cache-level availability during startup now respects the durability intent of the configured policy.
+
+| Policy   | Startup requirement                                                       |
+| -------- | ------------------------------------------------------------------------- |
+| `ignore` | Startup can continue despite unavailable levels                           |
+| `l0`     | L0 must pass its startup check; failures in later levels can be tolerated |
+| `all`    | All configured levels must pass their startup checks                      |
+
+A temporarily unavailable level whose startup failure is tolerated is not permanently disabled as writable. It can become useful again if the remote service recovers.
+
+This allows the cache hierarchy to distinguish hard requirements from best-effort storage rather than requiring every configured level to be available at daemon startup.
+
+There is a related read-path improvement. In client-side execution, 0.19.0 corrects backfilling for raw cache hits obtained from deeper tiers and adds per-level statistics for those reads.
+
+Together, these changes improve the behavior of cache hierarchies during partial outages and make their effectiveness more observable.
+
+They do not guarantee durability or eventual replication when a remote storage service remains unavailable.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Primary source:
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/docs/MultiLevel.md`
+
+### 3.3 Environment-based multi-level configuration
+
+Multi-level storage can be configured without relying exclusively on a TOML file.
+
+The principal environment controls are:
+
+```
+SCCACHE_MULTILEVEL_CHAIN="disk,redis,s3"
+SCCACHE_MULTILEVEL_WRITE_ERROR_POLICY="l0"
+```
+
+The configured chain specifies cache levels in fast-to-slow order, and each backend must also have its own connection and storage configuration.
+
+This is useful in environments where configuration is provided through CI variables, container environments, or deployment systems rather than a persistent local configuration file.
+
+An important operational detail is that environment variables override file-based settings, and some changes require restarting the sccache server to take effect.
+
+`SCCACHE_CONF` permits an explicit configuration-file path, while `SCCACHE_SKIP_CACHE_CHECK` suppresses the normal remote cache capability probe. The latter uses the configured access mode without testing it, shifting responsibility for correct permissions and availability to the operator.
+
+A skipped capability check is not proof that the backend is accessible.
+
+Sources: tagged configuration and multi-level documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/docs/Configuration.md`
+
+### 3.4 Backend-specific capabilities
+
+Some storage backends expose additional controls beyond the common cache interface.
+
+| Backend               | Additional functionality                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Local disk            | `SCCACHE_LOCAL_RW_MODE` supports read-only operation over previously populated entries                     |
+| S3-compatible storage | Read-only access, key prefixes, custom endpoints, and server-side encryption                               |
+| Redis                 | Single-node or clustered endpoints, authentication, database selection, entry expiration, and key prefixes |
+| Memcached             | Authentication, expiration controls, key prefixes, and read-only operation                                 |
+| Azure Blob Storage    | Shared-key connection strings or Microsoft Entra ID-based authentication                                   |
+| WebDAV                | Basic or bearer-token authentication and controls for unsupported directory-management requests            |
+
+The S3 configuration supports SSE-S3, AWS-managed KMS keys, and explicitly identified customer-managed KMS keys. The customer-managed key setting takes precedence when provided. This allows the cache's storage-encryption arrangement to align with the storage service's supported security model.
+
+For WebDAV, version 0.19.0 adds `SCCACHE_WEBDAV_DISABLE_CREATE_DIR`, corresponding to the `disable_create_dir` configuration field. It bypasses directory-existence and directory-creation operations that some WebDAV services do not support.
+
+Local disk storage has a separate concurrency limitation: the documented implementation supports a single sccache server accessing a given local cache. Concurrent servers using the same disk cache can race and produce failures. This is different from concurrent compiler requests coordinated through one server.
+
+Read-only mode also has a practical boundary: an empty read-only cache cannot satisfy requests and merely adds lookup overhead.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+3
+
+
+
+Primary references:
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/docs/Configuration.md`
+
+`https://github.com/mozilla/sccache/blob/v0.19.0/docs/Local.md`
+
+### 3.5 Advanced diagnostics and statistical visibility
+
+Beyond the basic statistics described in the original guide, sccache provides interfaces for structured and more detailed diagnostics:
+
+```
+# Detailed cache statistics
+sccache --show-adv-stats
+
+# Machine-readable statistics
+sccache --show-stats --stats-format=json
+
+# Inspect preprocessor-cache entries
+sccache --debug-preprocessor-cache
+```
+
+The advanced output helps distinguish cache-request counts, caching failures, non-cacheable compilations, compiler execution costs, and cache access costs.
+
+Version 0.19.0 adds two useful distinctions: statistics expose the effective cache access mode, and Rust compilations that cannot be cached are categorized by crate type.
+
+It also records per-level statistics for client-side raw cache reads and corrects `--debug-preprocessor-cache` to use the configured cache directory.
+
+The additional visibility can help distinguish four fundamentally different phenomena:
+
+1. A request is eligible but its artifact is not cached.
+2. A request is inherently ineligible under the compiler's current mode.
+3. A reusable artifact exists but storage access is unsuccessful or expensive.
+4. Cargo performs little or no work because its own dependency fingerprints already consider the relevant compilation up to date.
+
+The fourth case is especially important: a low number of sccache requests can indicate that Cargo's local build cache is effective, rather than that the external compiler cache is performing poorly.
+
+Measurement boundary: sccache statistics describe wrapper-observed activity, not the complete elapsed-time critical path of a Cargo build. They are complementary to Cargo's compiler-unit timing report.
+
+Sources: upstream CLI interface and 0.19.0 release notes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+### 3.6 Distributed compilation reliability improvements
+
+Version 0.19.0 contains several improvements to the existing distributed compilation machinery.
+
+| Area                     | Improvement and consequence                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Toolchain packaging      | More selective packaging of Rust toolchain contents; better handling of distribution toolchains using `lib64`        |
+| Toolchain identity       | Rust sysroot incorporated into the weak toolchain key, reducing incorrect equivalence                                |
+| Cache lifecycle          | Evicted toolchain archives can be repackaged instead of leaving later requests unable to reuse that toolchain        |
+| Scheduler lifecycle      | Job IDs are namespaced across restarts, avoiding collisions between old and new scheduler states                     |
+| Package completeness     | Correct handling of certain Rust dependencies without metadata hashes                                                |
+| Sandboxed execution      | Improved path handling for overlay builders operating inside chroot environments                                     |
+| Error reporting          | Remote compilation failures preserve actual exit-code information rather than always appearing as signal termination |
+| Client toolchain storage | `SCCACHE_DIST_CLIENT_CACHE_DIR` is honored as an override for the distributed client's toolchain-cache directory     |
+
+These changes affect correctness, recovery, and interoperability under distributed execution.
+
+One consequential distinction is that a distributed compile requires not only a compiler executable but also a correctly identified and packaged compilation environment. Toolchain identity, sysroot contents, sandbox path interpretation, and archive lifecycle can all affect whether the remote execution is equivalent to local compilation.
+
+The improvements do not eliminate the general security and operational obligations associated with remote build servers, nor do they turn remote caching into distributed compilation.
+
+Source: sccache 0.19.0 release notes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+## 4. cargo-hakari — Advanced graph analysis and configuration semantics
+
+### 4.1 Cargo.lock as part of the feature-unification contract
+
+cargo-hakari explicitly requires committing `Cargo.lock` to version control, including in workspaces containing only library crates.
+
+This is a stronger constraint than merely regenerating the workspace-hack package after a known dependency change.
+
+Cargo's version resolution permits compatible releases to introduce additional features, alter transitive dependencies, or change how existing dependencies are activated.
+
+Hakari's generated dependency declarations are computed from a particular resolved dependency graph. If that graph can change independently of the checked-in workspace-hack manifest, the intended feature-unification properties may no longer hold.
+
+Consequently, `Cargo.lock` acts as part of the reproducible input to Hakari's computation. Lockfile stability is important even when Cargo's conventional recommendations for distributing a library would not otherwise require an accompanying lockfile.
+
+This is a documented requirement of cargo-hakari, rather than a general claim that every Rust library must commit its lockfile.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/cargo-hakari/latest/cargo_hakari/`
+
+### 4.2 Iterative feature-unification computation
+
+The underlying `hakari` library performs a more sophisticated computation than simply gathering every feature named in workspace manifests.
+
+Its algorithm has three conceptual stages.
+
+Build simulation. Using `guppy`, Hakari simulates Cargo builds for workspace packages across the configured platforms and feature configurations. These include builds with no features, default features, and all features. It records the sets of features used for each dependency.
+
+Candidate identification. Dependencies that appear with multiple distinct feature sets are candidates for inclusion in the workspace-hack's generated declarations.
+
+Fixpoint computation. Introducing those candidates into the workspace-hack can itself alter dependency feature activation. Hakari therefore simulates the consequences of the proposed output, identifies additional dependencies that have become fragmented, and repeats until no new candidates emerge.
+
+Conceptually, if \\(H_k\\) denotes the generated unification set at iteration \\(k\\), the computation can be represented as:
+
+\\[ H\_{k+1} = H_k \cup D(H_k) \\]
+
+where \\(D(H_k)\\) represents additional dependencies requiring unification after accounting for the current proposed workspace-hack declarations.
+
+The process terminates when:
+
+\\[ H\_{k+1} = H_k \\]
+
+This is a conceptual description of the documented fixpoint algorithm, not a reproduction of its internal data structures.
+
+The implementation parallelizes parts of the computation using Rayon.
+
+The key architectural implication is that feature unification is an iterative graph operation. A dependency that initially appears to have only one feature configuration can become relevant after other dependencies have been unified.
+
+The generated manifest therefore represents a computed property of the dependency graph, not a direct transcription of its original dependency declarations.
+
+Source: hakari 0.18.0 library documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/hakari/latest/hakari/`
+
+### 4.3 Exclusion behavior affects workspace dependency edges
+
+The original guide distinguishes `traversal-excludes` from `final-excludes`. An additional important distinction is that exclusions affecting workspace members also influence Hakari's management of dependencies on the generated crate.
+
+For a workspace member included in either exclusion category, `cargo hakari manage-deps` can remove its workspace-hack dependency rather than adding or preserving it.
+
+This means exclusions affect two structures: the dependency sets participating in feature analysis, and the workspace members that acquire dependency edges to the generated crate.
+
+The configuration supports more precise package identification than a plain crate-name exclusion.
+
+Third-party exclusions can specify version ranges, Git dependency identities, or path dependencies.
+
+For example:
+
+```
+[traversal-excludes]
+third-party = [
+    { name = "example-backend", version = "1.0" },
+    { name = "custom-parser", git = "https://example.com/parser.git" }
+]
+```
+
+This is illustrative configuration, not a claim that the named packages exist.
+
+Version-scoped exclusions are useful when one dependency version has feature interactions that should not be unified, while other versions do not have the same constraints.
+
+Hakari separately maintains structural excludes: packages whose inclusion would introduce dependency cycles. These are excluded automatically, while their own dependencies may remain eligible for unification.
+
+The distinction matters because explicit exclusions express configuration policy, whereas structural exclusions arise from graph constraints identified by the computation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/cargo-hakari/latest/cargo_hakari/config/`
+
+### 4.4 Dependency output formats affect more than presentation
+
+The `dep-format-version` setting is not merely a formatting preference.
+
+Its versions represent successive changes to the structure and normalization of generated Cargo declarations:
+
+| Format version | Documented behavior                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `1`            | Path-based dependency declarations                                                                               |
+| `2`            | Adds version information needed for the documented publishing configuration                                      |
+| `3`            | Removes private and other non-root features from generated output and elides build metadata from version strings |
+| `4`            | Corrects generated dependency ordering to consistently alphabetical sorting                                      |
+
+Format version `2` is particularly significant because the publishing strategy using a registry stub and root-level patch relies on a versioned dependency declaration.
+
+Later formats improve the generated manifest's normalization and determinism, reducing unnecessary or misleading output.
+
+The distinct `workspace-hack-line-style` setting controls the form of dependency lines managed across workspace manifests.
+
+When changing this setting, upstream documents removing existing managed dependency lines and then regenerating them through `cargo hakari manage-deps`. The reason is that changing the expected representation does not necessarily imply that previously written forms are automatically reconciled in every case.
+
+This is an example of a generated-manifest interface whose textual representation has maintenance implications independent of the underlying feature graph.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/cargo-hakari/latest/cargo_hakari/config/`
+
+### 4.5 Computational capabilities not implemented in hakari 0.18.0
+
+The upstream `hakari` documentation explicitly identifies several missing capabilities.
+
+| Capability                                           | Documented status | Consequence                                                                                     |
+| ---------------------------------------------------- | ----------------- | ----------------------------------------------------------------------------------------------- |
+| Explicit simulation of cross-compilation scenarios   | Not implemented   | Platform simulation does not cover every distinct host/target compilation arrangement           |
+| Platform-specific exclusions                         | Not implemented   | Exclusion policy cannot generally be specialized independently for each target                  |
+| Inclusion-only selection of arbitrary final packages | Not implemented   | There is no general facility to select only a particular subset of dependencies for unification |
+
+The third limitation should be distinguished from `final-excludes`. Excluding unwanted packages from output is not the same API capability as explicitly selecting a closed inclusion set.
+
+Likewise, the `unify-target-host` strategies described in the original guide do not constitute general cross-compilation simulation. They determine how feature-unification computation treats host-side and target-side dependency roles within the supported model.
+
+These are documented limitations of the released library. Upstream identifies them as possible future work, but that does not establish a release commitment or implementation schedule.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/hakari/latest/hakari/`
+
+### 4.6 Generated manifest and platform compatibility details
+
+Two smaller behaviors are worth recording.
+
+Generated-section boundaries. The `hakari` library recognizes marked generated sections inside the workspace-hack manifest. Content outside those sections can be maintained independently, while the generated section is controlled through Hakari's serialization machinery.
+
+The public `HakariCargoToml` representation supports writing generated content to files, constructing in-memory representations, and producing diffs.
+
+Windows line endings. cargo-hakari's generated workspace-hack manifest does not support CRLF line endings. Its initialization command handles the relevant Git configuration in supported setups.
+
+These constraints are useful when embedding Hakari's generation machinery into larger manifest-management tools or working with cross-platform repositories.
+
+Sources: cargo-hakari and hakari documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+`https://docs.rs/cargo-hakari/latest/cargo_hakari/`
+
+## 5. cargo-shear — Test-target configuration reconciliation
+
+### 5.1 Bidirectional test and doctest configuration analysis
+
+cargo-shear's `--check-test-targets` option provides more than detection of disabled tests.
+
+For library targets, it compares source content against the relevant test and doctest settings in `Cargo.toml`.
+
+The analysis detects two different categories of inconsistency:
+
+| Manifest condition                         | Source condition                | Diagnostic meaning                                                          |
+| ------------------------------------------ | ------------------------------- | --------------------------------------------------------------------------- |
+| `test = false`                             | Test content is present         | Tests appear to have been explicitly disabled despite existing source tests |
+| `doctest = false`                          | Documentation tests are present | Doctests appear to have been disabled despite existing doctest content      |
+| Test setting remains enabled by default    | No corresponding tests found    | Target may have unnecessary test execution enabled                          |
+| Doctest setting remains enabled by default | No corresponding doctests found | Target may have unnecessary doctest execution enabled                       |
+
+The checks for default-enabled targets without relevant tests apply within workspaces, as documented by the project.
+
+The capability is opt-in and can be combined with automated remediation:
+
+```
+cargo shear --check-test-targets --fix
+```
+
+This converts source/manifest inconsistencies into directly maintainable Cargo target configuration.
+
+The benefit is not limited to eliminating unnecessary test targets. It can also expose situations in which available tests are unexpectedly excluded from normal Cargo execution.
+
+The analysis is still source-based. It should not be treated as proof that every configuration-specific, macro-generated, or externally generated test has been discovered.
+
+Source: cargo-shear 1.14.0 documentation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+`https://docs.rs/crate/cargo-shear/latest/source/README.md`
+
+## 6. Cargo mechanisms that affect the three tools
+
+The following native Cargo features materially influence the performance and correctness of the surrounding toolchain. They are Cargo capabilities, not functionality implemented by cargo-hakari, sccache, or cargo-shear.
+
+### 6.1 General and workspace-specific Rust compiler wrappers
+
+Cargo exposes two different wrapper configuration mechanisms:
+
+| Configuration                                               | Scope                                 |
+| ----------------------------------------------------------- | ------------------------------------- |
+| `build.rustc-wrapper` / `RUSTC_WRAPPER`                     | General Cargo rustc invocations       |
+| `build.rustc-workspace-wrapper` / `RUSTC_WORKSPACE_WRAPPER` | Rust compilation of workspace members |
+
+When both are configured, Cargo nests the wrappers:
+
+```
+RUSTC_WRAPPER RUSTC_WORKSPACE_WRAPPER RUSTC
+```
+
+The workspace wrapper also affects the artifact filename hash, causing the corresponding compiler outputs to be distinguished from outputs built without that wrapper.
+
+This is important for compiler-cache systems because a wrapper is not necessarily just a transparent execution step. Cargo can make wrapper identity part of its own local artifact separation.
+
+The two mechanisms enable different integration arrangements. A general wrapper can intercept both workspace and external dependency compilation, while the workspace-specific wrapper can apply additional processing selectively to workspace members.
+
+Using both introduces an ordered wrapper composition whose argument forwarding and effects must remain compatible.
+
+Source: Cargo configuration reference.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Cargo Book
+
+
+
+`https://doc.rust-lang.org/cargo/reference/config.html`
+
+### 6.2 Separation of final artifacts and intermediate build storage
+
+Cargo distinguishes its final output directory from the directory containing intermediate compiler artifacts.
+
+The relevant configuration keys are:
+
+- `build.target-dir`, also configurable through `CARGO_TARGET_DIR`, for final build artifacts.
+- `build.build-dir`, also configurable through `CARGO_BUILD_BUILD_DIR`, for intermediate build artifacts.
+
+By default, both refer to the same directory.
+
+The separation is meaningful because intermediate artifacts include compiler-generated dependencies, build-script outputs, and incremental compilation state, whereas final artifacts are the outputs intended for direct consumption.
+
+Cargo's `build.build-dir` configuration supports path templates including `{workspace-root}`, `{cargo-cache-home}`, and `{workspace-path-hash}`.
+
+This allows more explicit management of where build state accumulates, independently of where final products are written.
+
+However, relocating Cargo's intermediate build directory does not automatically establish a content-addressed compiler cache comparable to sccache. Cargo still uses its own artifact validity and dependency-tracking mechanisms.
+
+This is therefore a storage-layout capability, not an implicit cross-project compilation-sharing mechanism.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Cargo Book+1
+
+
+
+`https://doc.rust-lang.org/cargo/reference/build-cache.html`
+
+### 6.3 Target selection changes artifact-sharing behavior
+
+Cargo's behavior differs depending on whether compilation explicitly specifies a target.
+
+Without `--target`, Cargo builds for the host and can share certain compiled dependency artifacts with build scripts and procedural macros. Compiler flags may also apply across both ordinary target dependencies and host-side compilation.
+
+With an explicit target, Cargo separates host-side compilation from target-side outputs and applies certain compiler flags only to the requested target.
+
+Even when the explicit target triple is identical to the host, this distinction can affect compilation partitioning and reuse.
+
+The implications extend across the original guide's three optimization mechanisms.
+
+For cargo-hakari, it changes the context in which host and target dependency feature sets are meaningful.
+
+For sccache, distinct compiler arguments and effective compilation environments can produce different cache identities.
+
+For dependency hygiene, the effective graph used by a particular build can differ from the complete set of dependencies declared across all target conditions.
+
+This is a native Cargo behavior and should not be interpreted as a capability for Hakari to simulate arbitrary cross-compilation scenarios.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Cargo Book+1
+
+
+
+`https://doc.rust-lang.org/cargo/reference/config.html`
+
+### 6.4 Package-specific profiles and build-dependency overrides
+
+Cargo permits compiler-profile settings to vary by package and build role.
+
+For example:
+
+```
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.dev.build-override]
+opt-level = 0
+```
+
+The first configuration applies to non-workspace dependencies, subject to more specific overrides. The second affects build scripts, procedural macros, and their dependencies.
+
+These mechanisms can change both compiler cost and artifact identity without altering package dependency declarations.
+
+A consequential interaction occurs when the same dependency is used in both normal compilation and build-time compilation.
+
+Cargo may otherwise be able to share certain compiled artifacts between those roles. Introducing different effective compiler-profile settings can require separate compilation units.
+
+Thus, an optimization intended to reduce the cost of one compilation role can increase the total number of artifact variants.
+
+This illustrates why dependency feature unification alone cannot eliminate all duplicate compilation. Different feature sets are only one reason equivalent-looking packages may require different artifacts.
+
+Source: Cargo profiles reference.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Cargo Book
+
+
+
+`https://doc.rust-lang.org/cargo/reference/profiles.html`
+
+### 6.5 Compiler-unit timing and dependency critical-path analysis
+
+Cargo's `--timings` interface provides a complementary view of build performance.
+
+```
+cargo build --timings
+```
+
+The generated HTML report includes compilation-unit durations, concurrency, dependency relationships, and code-generation timing where available.
+
+This information can reveal the critical path through a build graph.
+
+For example, reducing the duration of a dependency that blocks many downstream crates can improve overall elapsed time more than reducing equivalent cumulative compiler time in independent compilation units.
+
+The distinction can be expressed using a dependency graph \\(G=(V,E)\\), where each compilation unit \\(v\\) has duration \\(t(v)\\).
+
+Ignoring resource contention, a lower bound on the elapsed build duration is the weighted critical path:
+
+\\[ T\_{\mathrm{critical}} = \max\_{p\in\mathcal{P}(G)} \sum\_{v\in p}t(v) \\]
+
+where \\(\mathcal{P}(G)\\) is the set of dependency paths.
+
+Total compiler work is instead approximately:
+
+\\[ W\_{\mathrm{total}}=\sum\_{v\in V}t(v) \\]
+
+These are different quantities.
+
+sccache primarily reduces execution costs for eligible compiler requests, while Hakari can reduce repeated work caused by feature-configuration fragmentation. Their effects on elapsed time depend on where the avoided work lies in the build's dependency and resource-scheduling structure.
+
+Cargo timing reports therefore complement cache statistics by revealing whether a reduction in compiler work also shortens the build's critical path.
+
+The actual elapsed time also depends on available parallelism, resource contention, linking, and activities outside the compiler units shown in the report.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://doc.rust-lang.org\&sz=32)
+
+The Cargo Book
+
+
+
+Primary source:
+
+`https://doc.rust-lang.org/cargo/reference/timings.html`
+
+## 7. Release boundaries and qualifications
+
+The capabilities in this addendum have been described against the tagged released versions or current published Cargo documentation identified at the beginning.
+
+Several distinctions are important when comparing this addendum with later development-branch documentation.
+
+sccache incremental compilation. The released Rust documentation continues to identify incrementally compiled Rust invocations as non-cacheable. Development-branch material discusses additional controls around allowing incremental builds to proceed, but those should not be assumed to be available in version 0.19.0 without verification against that release's implementation.
+
+sccache execution architecture. Client-side mode is supported in 0.19.0, but its eventual replacement of server-side execution remains a stated upstream direction, not an already completed architectural transition.
+
+Hakari future functionality. Cross-compilation simulation, platform-specific excludes, and inclusion-only package selection are documented as missing from hakari 0.18.0. Their appearance in a future-work section is not evidence that they are released.
+
+Performance claims. The described improvements explain mechanisms that can reduce preparation, compilation, storage, or coordination overhead. They do not establish quantitative speedups for an unspecified project or guarantee that every change reduces total build duration.
+
+Primary release and version references:
+
+`https://github.com/mozilla/sccache/releases/tag/v0.19.0`
+
+`https://docs.rs/cargo-hakari/latest/cargo_hakari/`
+
+`https://docs.rs/hakari/latest/hakari/`
+
+`https://docs.rs/crate/cargo-shear/latest/source/CHANGELOG.md`
+
+The additional capabilities reinforce an important architectural distinction: Rust build performance depends not only on which dependency artifacts are reusable, but also on when metadata becomes available, how compiler requests are prepared, how artifacts are identified and validated, how storage failures are handled, and which compilation units determine the build's critical path. These mechanisms can produce meaningful improvements independently of conventional cache hit rates or reductions in dependency count.

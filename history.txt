@@ -1,8 +1,4 @@
 #V2
-USE NS mx DB controls; CREATE ONLY mx_stats:head SET value=0;
-USE NS mx DB controls; UPDATE ONLY mx_stats:head SET value=1; UPDATE ONLY mx_stats:head SET value=2; UPDATE ONLY mx_stats:head SET value=3; UPDATE ONLY mx_stats:head SET value=4; UPDATE ONLY mx_stats:head SET value=5; UPDATE ONLY mx_stats:head SET value=6; UPDATE ONLY mx_stats:head SET value=7; UPDATE ONLY mx_stats:head SET value=8; RETURN (SELECT VALUE value FROM ONLY mx_stats:head);
-USE NS mx DB controls; UPDATE ONLY mx_stats:head SET value=9; UPDATE ONLY mx_stats:head SET value=10; UPDATE ONLY mx_stats:head SET value=11; UPDATE ONLY mx_stats:head SET value=12; UPDATE ONLY mx_stats:head SET value=13; UPDATE ONLY mx_stats:head SET value=14; UPDATE ONLY mx_stats:head SET value=15; UPDATE ONLY mx_stats:head SET value=16; RETURN (SELECT VALUE value FROM ONLY mx_stats:head);
-USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
 USE NS mx DB controls; BEGIN TRANSACTION; UPDATE ONLY mx_receipts:ack SET value=42; THROW "control rollback"; COMMIT TRANSACTION;
 USE NS mx DB controls; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
 USE NS mx DB controls; UPDATE ONLY mx_receipts:ack SET value=43; RETURN (SELECT VALUE value FROM ONLY mx_receipts:ack);
@@ -99,3 +95,7 @@ BEGIN; LET $p=SELECT * FROM protection WHERE manifest="m1"; IF array::len($p)>0 
 SELECT count() AS n FROM manifest WHERE key="m1" GROUP ALL;
 BEGIN; DELETE protection WHERE capture="active10k"; DELETE captured WHERE capture="active10k"; DELETE capture WHERE key="active10k"; COMMIT;
 SELECT count() AS n FROM protection GROUP ALL; SELECT count() AS n FROM captured GROUP ALL;
+DEFINE NAMESPACE surrealkit_contract; USE NS surrealkit_contract; DEFINE USER suite_owner ON NAMESPACE PASSWORD 'ab9e759bd0ff336ecc3fd515845b5923' ROLES OWNER; DEFINE USER suite_viewer ON NAMESPACE PASSWORD 'a2ce8ec2b6314d0bf1441c88461984df' ROLES VIEWER;
+DEFINE NAMESPACE surrealkit_contract; USE NS surrealkit_contract; DEFINE USER suite_owner ON NAMESPACE PASSWORD 'a9a5e48e7f787199b3917eda5602822c' ROLES OWNER; DEFINE USER suite_viewer ON NAMESPACE PASSWORD 'b7830f7073236652ac89fb2248e2611d' ROLES VIEWER;
+DEFINE NAMESPACE surrealkit_contract; USE NS surrealkit_contract; DEFINE USER suite_owner ON NAMESPACE PASSWORD 'd54f8015a7e91c6025b3b543469ff614' ROLES OWNER; DEFINE USER suite_viewer ON NAMESPACE PASSWORD '66e61e5780b5def662b78dbf449c21eb' ROLES VIEWER;
+DEFINE NAMESPACE surrealkit_contract; USE NS surrealkit_contract; DEFINE USER suite_owner ON NAMESPACE PASSWORD '9e7ee499c5ca750ef2f553748753c871' ROLES OWNER; DEFINE USER suite_viewer ON NAMESPACE PASSWORD 'd392c0322008305df4b6e7e3156354e2' ROLES VIEWER;

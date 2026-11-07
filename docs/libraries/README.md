@@ -3,8 +3,8 @@
 Optional orientation documents introduce upstream capability families, advanced features and
 general problem shapes. They are repository-agnostic; they do not prescribe this project's
 architecture, assume installed versions or carry current priorities. Follow promising features
-into Context7, primary documentation, upstream source/tests or the installed implementation.
-Context7 is the first documentation lookup; an overview is not a prerequisite.
+using sources suited to the question and uncertainty being resolved; see
+[AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources). An overview is not a prerequisite.
 
 For a deliberate leverage inquiry, use the [codebase-first workflow](../library_leverage/README.md).
 Its three collections distinguish concrete opportunities, focused capability applicability with

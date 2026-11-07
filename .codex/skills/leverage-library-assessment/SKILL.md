@@ -53,8 +53,8 @@ Generated API exports provide declarations and relationships, not behavioral gua
 the relevant composition and implementation paths selectively; keep reusable technical depth
 in type pages and link to it from briefings instead of duplicating it.
 
-Use Context7 as the first documentation lookup, then primary documentation, release information,
-tagged source, installed implementation or upstream tests where consequential details remain.
+Choose reference sources according to the repository's library-research guidance and the
+uncertainty being resolved.
 Match the evidence to the release, build, runtime and configuration actually considered. Distinguish
 installed availability from an upgrade-dependent route and released behavior from development work.
 

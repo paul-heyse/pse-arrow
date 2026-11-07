@@ -16,9 +16,9 @@ and storage capabilities. See the [relationship to IDAES](relationship-to-idaes.
 | Explore functional enhancements | `plan-functional-extension-review` (source: `.codex/skills/plan-functional-extension-review/SKILL.md`) → `functional-extension-review` (source: `.codex/skills/functional-extension-review/SKILL.md`) → [opportunity reviews](functional_reviews/README.md), with no diagnostic audit prerequisite |
 | Improve remaining plan scope | `plan-improvement-review` (source: `.codex/skills/plan-improvement-review/SKILL.md`) → [published assessment](plan_improvement_reviews/README.md) of the remaining change footprint; plan revision is separately instructed |
 | Audit claimed plan completion | plan-completion-audit; update the same owning plan/packet checkpoint |
-| Orient library capability research | [Library overviews and authoring guide](libraries/README.md), then Context7 and primary sources |
+| Orient library capability research | [Library overviews and authoring guide](libraries/README.md); [source-selection guidance](../AGENTS.md#library-knowledge-and-reference-sources) |
 | Investigate library leverage | [Codebase-first framework](library_leverage/README.md): opportunities → focused applicability and reusable types → comparative option review |
-| Research a library capability | Optional [overviews](libraries/README.md) → Context7, then primary sources; [capability maps](capability-maps/README.md) supply additional leads |
+| Research a library capability | Optional [overviews](libraries/README.md) and [source-selection guidance](../AGENTS.md#library-knowledge-and-reference-sources); [capability maps](capability-maps/README.md) supply additional leads |
 | Understand a decision | [Decision records](adr/README.md) |
 | Work on documentation | [Publishing documentation](dev/documentation.md) |
 

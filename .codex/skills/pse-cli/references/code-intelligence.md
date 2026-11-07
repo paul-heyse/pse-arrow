@@ -114,9 +114,10 @@ route. Independent detachment directly from an enclosing workload continues to r
 
 ## Locked APIs and dependency context
 
-Consider `pse inspect api` when exact locked signatures, bounds or reexports would resolve an API question.
-Context7 remains the first external library-documentation lookup under repository policy;
-the acquired local API answers a distinct question about the pinned source and extraction context.
+Consider `pse inspect api` when exact locked signatures, bounds or reexports would resolve an API
+question. Choose reference sources according to AGENTS.md's library-research guidance and the
+uncertainty being resolved. The acquired local API answers a question about the pinned source and
+extraction context; documentation can explain intended usage and behavioral contracts.
 
 ```bash
 pse api PACKAGE --prepare

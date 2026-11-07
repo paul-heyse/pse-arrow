@@ -57,7 +57,5 @@ Other central library skills are inactive references listed in .codex/skills/REA
 are not required or discovered here. Use optional docs/libraries/ overviews and the retained
 capability maps for first-pass awareness.
 
-For API and tool documentation, Context7 is the first lookup, followed by primary documentation,
-upstream source/tests or installed sources for consequential details. Resolve the library ID,
-then query the specific concept. An empty search or missing overview
-does not establish that a capability is absent.
+Choose reference sources according to AGENTS.md's library-research guidance and the uncertainty
+being resolved. An empty search or missing overview does not establish that a capability is absent.

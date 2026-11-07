@@ -152,8 +152,9 @@ new proof machinery.
   neutral wrapper must not discard consumed bulk or planning opportunities. Full capability eligibility remains;
   integration cost is assessed independently of whether a consumer already exists.
 
-  Use optional [library overviews](../../../docs/libraries/README.md) for capability awareness,
-  then Context7 and primary sources for consequential details. The selected
+  Use optional [library overviews](../../../docs/libraries/README.md) for capability awareness.
+  Choose reference sources according to the repository's library-research guidance and the
+  uncertainty being resolved for consequential details. The selected
   native solver skill remains active. Capability maps retain their evidence scope; old
   utilization reports are historical references, not a live catalog or required lookup.
 

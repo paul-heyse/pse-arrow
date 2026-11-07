@@ -4,8 +4,9 @@
 dedicated tests have been removed. This page explains retained historical data for existing
 review/plan consumers; it is not an operator guide or a current inventory.
 
-For current research use [library overviews and their authoring guide](libraries/README.md),
-then Context7 and primary sources. Only native-solver-libraries remains an active library skill.
+For current research, choose sources according to
+[AGENTS.md](../AGENTS.md#library-knowledge-and-reference-sources) and the uncertainty being resolved.
+[Library overviews and their authoring guide](libraries/README.md) provide optional orientation. Only native-solver-libraries remains an active library skill.
 The retained JSONL records keep their own dated verification stamps, pins and source identities;
 those observations and old skill profiles do not establish current dependencies, API behavior or
 present usage. No catalog refresh or replacement indexing service is part of the current workflow.

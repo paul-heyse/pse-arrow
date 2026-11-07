@@ -439,12 +439,53 @@ all three stages can discover or refine useful additional framings. Retain usefu
 output patterns after their current matches retire; promotion into base guidance is manual.
 Ordinary implementation and API questions do not initiate this workflow, and its reviews do not
 replace the existing formal review cadence or authorize implementation.
-Context7 is the first documentation lookup, followed by primary sources, upstream
-tests or installed sources for consequential details. Native solver
+Choose reference sources according to the question and uncertainty being resolved, as described
+below. Native solver
 work continues to load native-solver-libraries, the only selected active library skill.
 Other central skills are [inactive references](.codex/skills/README.md#inactive-central-library-skill-references);
 they are no longer discovered or required here. Leave older plan references for deliberate
 revisits. Missing coverage or an empty search does not establish capability absence.
+
+### Library knowledge and reference sources
+
+Use engineering knowledge to frame the problem, identify likely capabilities and develop candidate
+approaches. Consult references where they can resolve uncertainty, reveal useful alternatives or
+establish a consequential library contract. Choose sources to suit the question; there is no
+required lookup sequence.
+
+- **Capability discovery:** `docs/libraries/` provides optional orientation to capability families,
+  advanced features, extension points and architectural possibilities. Use it when asking what a
+  library could contribute or whether custom machinery has an existing alternative. Overviews are
+  selective and may describe versions different from those installed.
+- **Repository integration:** Existing code, tests, configuration and dependency declarations show
+  how this project uses a library and which versions and features it selects. They are useful
+  implementation examples, but may reflect historical choices or a small portion of the library's
+  capabilities.
+- **Focused documentation questions:** Context7 is an available route to documentation and examples
+  for a specific API, configuration, concept or integration. It can help locate relevant material
+  when the documentation location is unfamiliar. Use it when useful; direct primary documentation
+  is equally appropriate. Check version relevance before applying an example.
+- **Contracts and version changes:** Official documentation, API references, release notes and
+  migration guides help establish supported behavior, compatibility and intended usage. Prefer
+  references matching the selected version when the distinction matters.
+- **Exact behavior and edge cases:** Installed sources or upstream source and tests at the relevant
+  tag or commit help resolve implementation details, defaults, feature conditions and behavior that
+  documentation leaves unclear. Distinguish observed implementation behavior from a documented
+  guarantee. Issues and pull requests can explain known problems or upcoming changes; check their
+  status and release applicability.
+
+Follow the uncertainty rather than consulting every source. Familiar, routine usage with adequate
+local examples may need no additional lookup. Investigate further when correctness depends on an
+uncertain detail, when sources conflict, or when a broader capability could materially improve the
+approach.
+
+For design work, look beyond the first API that makes the current approach possible: consider native
+abstractions and related capabilities that could simplify the whole responsibility. For implementation
+work, narrow research to the contracts and integration details that matter.
+
+An empty search or missing overview section does not establish that a capability is absent. Use a
+targeted probe when an unresolved behavioral question materially affects the choice; stop researching
+once the available evidence supports the decision.
 
 ## Agent runtimes
 

@@ -90,9 +90,9 @@ after their matches retire; manual promotion into base guidance is separate main
 Ordinary library use initiates none of these assessments. A comparative recommendation can feed
 planning while the binding continues to own any required formal review and decision route.
 
-Use [library overviews](../../docs/libraries/README.md) for optional first-pass awareness,
-then Context7 and primary documentation, upstream source/tests or installed sources for
-consequential details.
+Use [library overviews](../../docs/libraries/README.md) for optional capability awareness. Choose
+reference sources according to [AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources)
+and the uncertainty being resolved.
 The [native-solver-libraries](native-solver-libraries/SKILL.md) skill remains active and selected
 in .config/library-skills.toml; existing setup/readiness/worktree synchronization keeps that one
 local discovery link. Central sources are unchanged.

@@ -30,8 +30,8 @@ leads separate from resolved observations. Follow promising functionality beyond
 already referenced by the repository: configuration, extension points, composition and
 companion packages can offer the greatest value.
 
-Use Context7 first for documentation lookup, then primary documentation, exact source
-and upstream tests for consequential details. API extraction broadens the candidate set;
+Choose reference sources according to the repository's library-research guidance and the
+uncertainty being resolved for consequential details. API extraction broadens the candidate set;
 it cannot establish semantic capability completeness or behavioral guarantees. An overview
 may describe functionality requiring different features, a platform or an upgrade.
 

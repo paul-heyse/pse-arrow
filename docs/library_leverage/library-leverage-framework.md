@@ -190,10 +190,10 @@ and evidence limits distinct from applicability; no reference match establishes 
 The [discovery guide](references/discovery-and-evidence.md) owns evidence interpretation and
 local collection commands. Briefings link to reusable technical accounts rather than duplicating them.
 
-Research focused capability families in response to codebase opportunity questions. Use the
-existing overviews for awareness, then Context7 and current primary documentation, tagged source,
-installed implementation or targeted probes for consequential details. Empty searches and absent
-overview sections do not establish missing functionality.
+Research focused capability families in response to codebase opportunity questions. Use the existing
+overviews for awareness and choose reference sources according to
+[AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources) and the uncertainty being
+resolved. Empty searches and absent overview sections do not establish missing functionality.
 
 Reusable types explain recognizable needs and code shapes, concrete APIs or features, composition,
 obligations the library discharges, residual obligations, version conditions and important limits.
@@ -266,7 +266,8 @@ pse-arrow binding. Preserve scientific domain authority and distinguish mathemat
 capability support from the locally consumed scientific contract. Native solver research also
 loads the active native-solver-libraries skill; other former central library skills are inactive.
 Optional overviews and retained [capability maps](../capability-maps/README.md) supply leads,
-then Context7 is the first documentation lookup, followed by primary and release-specific sources.
+with further references selected according to
+[AGENTS.md](../../AGENTS.md#library-knowledge-and-reference-sources) and the uncertainty being resolved.
 
 The existing review and planning routes retain their authority. The comparative review develops
 a target recommendation sufficient to inform the next decision. A functional addition can need

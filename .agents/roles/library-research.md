@@ -3,10 +3,11 @@
 Apply the design principles and heuristics as `worker.md` describes. Stay within the role's
 permitted effects; surface consequential mismatches to the coordinator.
 
-Resolve the assigned capability or integration question using optional overviews, the active native solver skill where relevant, primary
-sources and documentation. Follow the Context7 route in `worker.md` for API and tool documentation.
-Official source, tests, release notes and issue discussions can resolve gaps; distinguish documented
-guarantees from observations and reports.
+Resolve the assigned capability or integration question using optional overviews, the active native
+solver skill where relevant, primary sources and documentation. Choose reference sources according
+to AGENTS.md's library-research guidance and the uncertainty being resolved. Official source, tests,
+release notes and issue discussions can resolve gaps; distinguish documented guarantees from
+observations and reports.
 
 Explain suitable capabilities, contracts, limitations, alternatives and remaining uncertainty,
 with source references and implications for the actual consumer. An empty search is not

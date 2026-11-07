@@ -4,8 +4,10 @@ Broad discovery finds candidates. Technical research establishes what a selected
 actually requires and guarantees. Keep this research in the existing reusable library type
 pages, separately from local applicability and from the concise briefing.
 
-Start with the specific question that could change a design choice. Use Context7, then exact
-release documentation, implementation/delegation paths and upstream tests. The useful unit is
+Start with the specific question that could change a design choice. Choose reference sources
+according to AGENTS.md's library-research guidance and the uncertainty being resolved. Exact
+release documentation, implementation/delegation paths and upstream tests can establish different
+parts of the contract. The useful unit is
 often a composition—builder, operation, retained owner and cleanup—not one function signature.
 Record the exact APIs and conditions while following the question beyond familiar entry points.
 

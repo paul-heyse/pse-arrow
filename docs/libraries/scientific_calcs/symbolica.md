@@ -1620,3 +1620,1088 @@ The surrounding ecosystem expands those capabilities considerably. Numerica prov
 For advanced engineering use, the central insight is that the strongest capabilities arise from choosing the appropriate representation at each stage of computation: general expressions for structural reasoning, specialized algebraic domains for exact algorithms, tensor or graph representations for structured mathematical objects, and optimized evaluators for repeated numerical execution.
 
 The most important qualifications are that these transformations have meaningful semantic and computational boundaries, companion packages vary in maturity and API coverage, and the core Symbolica license is materially more restrictive than the licenses of several associated libraries.
+
+# Symbolica 3.0.1 — Rust API Capability Addendum
+
+Research date: November 6, 2026 | Scope: Native Rust functionality and independently usable Rust companion crates
+
+## Scope and relationship to the original reference
+
+This addendum supplements Symbolica 3.0.1 — Comprehensive Rust Library and Ecosystem Reference. It documents additional native Rust functionality, particularly advanced algebraic algorithms, expression-analysis mechanisms, nonlinear numerical solving, evaluator composition, mathematical-domain operations, and extension interfaces.
+
+The reference version is Symbolica 3.0.1, matching the original document. A newer Rust crate, 3.0.2, has been published, but the APIs discussed here are verified against the versioned Rust 3.0.1 documentation unless explicitly stated otherwise.
+
+Every API identifier below refers to a native Rust type, trait, method, or function. Python-only methods and Python Community wrappers are excluded. Companion-crate functionality is identified separately from functionality owned by `symbolica` itself.
+
+Several distinctions from the previous addendum are particularly important:
+
+- The native Rust identity-testing interface is `AtomCore::zero_test()`, not Python's `Expression.check_zero()`. Their documented behavior must not be equated.
+- Native Rust evaluator composition uses `ExpressionEvaluator::merge()`, and evaluator instruction export uses `export_instructions()`. The Python-specific reconstruction and serialization methods should not be presumed to exist as corresponding Rust methods.
+- Rust's specialized polynomial types expose algorithms and constraints that differ from the simplified Python polynomial interface.
+- High-energy-physics functionality belongs to separately maintained Rust components; its presence in the Python Community distribution does not establish that it is part of the `symbolica` Rust crate.
+
+The discussion below is organized around those native capabilities and their mathematical and architectural implications.
+
+## 1. Mathematical property reasoning, zero testing, and nonlinear solving
+
+Supplements original §§2.2, 3.2, 5, and 8.
+
+### 1.1 Native mathematical property queries
+
+The `AtomCore` trait exposes mathematical property queries that return `ConditionResult`, rather than reducing every mathematical condition to a Boolean.
+
+Relevant operations include:
+
+| Rust method        | Mathematical property           |
+| ------------------ | ------------------------------- |
+| `is_real()`        | Expression is real-valued       |
+| `is_integer()`     | Expression takes integer values |
+| `is_scalar()`      | Expression is scalar            |
+| `is_positive()`    | Expression is positive          |
+| `is_nonnegative()` | Expression is nonnegative       |
+
+`ConditionResult` distinguishes `True`, `False`, and `Inconclusive`.
+
+This is an important distinction for algebraic transformations. A symbol whose positivity has not been established must not automatically be treated as nonpositive.
+
+The API also distinguishes expression-level mathematical properties from symbol attributes. For instance, `Symbol::is_real()` tests whether the `Real` attribute is registered on the symbol. `AtomCore::is_real()` instead reasons about the mathematical property of an expression.
+
+The property queries are deliberately inexpensive; they do not attempt exhaustive simplification or general theorem proving. Their guarantees concern the values of expressions where those expressions are defined, not the absence of singularities.
+
+For conditional transformations, `.is_true()` can establish whether a required property has been proved. A result of `Inconclusive` must be handled separately from a proved negation.
+
+### 1.2 Rust `AtomCore::zero_test()`
+
+The relevant native Rust method is:
+
+```
+fn zero_test(
+    &self,
+    iterations: usize,
+    tolerance: f64,
+) -> ConditionResult
+```
+
+It performs a test of whether an expression could be zero, potentially using numerical sampling.
+
+The upstream documentation demonstrates an important limitation:
+
+```
+use symbolica::prelude::*;
+
+let expr = parse!("(x+1)^2 - x^2 - 2x - 1");
+
+let result = expr.zero_test(100, 1e-7);
+
+assert_eq!(result, ConditionResult::Inconclusive);
+```
+
+The expression is algebraically identical to zero, yet `zero_test()` returns `Inconclusive`.
+
+This illustrates why the method must not be characterized as a complete identity verifier.
+
+Its principal value is as a conditional mathematical test or inexpensive filtering mechanism, rather than as a replacement for exact algebraic equivalence procedures.
+
+For exact polynomial identities, a stronger approach is to convert to a suitable polynomial domain and test whether the polynomial difference is zero. For rational expressions, exact normalization and cancellation can be used under their corresponding algebraic semantics.
+
+Even those exact calculations require care when rational-function cancellations can remove information about excluded input values.
+
+Architectural implication: Symbolica provides complementary mechanisms for quick mathematical-property tests, structural comparison, and exact algebraic reasoning. Selecting among them depends on whether the required result is a heuristic indication, a proved property, or an exact identity within a specified algebraic domain.
+
+Primary Rust reference:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/trait.AtomCore.html`
+
+### 1.3 Numerical nonlinear solving in Rust
+
+The original guide explains exact algebraic equation solving but omits the native numerical Newton solvers.
+
+The `AtomCore` trait includes:
+
+```
+fn nsolve<N, V>(
+    &self,
+    x: V,
+    init: N,
+    prec: N,
+    max_iterations: usize,
+) -> Result<N, SolveError>
+```
+
+where the numeric type satisfies the required real, floating-point, and evaluation-domain trait bounds.
+
+It also includes the associated method:
+
+```
+fn nsolve_system<N, T>(
+    system: &[T],
+    vars: &[Indeterminate],
+    init: &[N],
+    prec: N,
+    max_iterations: usize,
+) -> Result<Vec<N>, SolveError>
+```
+
+The second operation addresses systems of nonlinear equations.
+
+Given
+
+\\[ F(x)=0, \\]
+
+Newton iteration requires solving
+
+\\[ J_F(x_k)\Delta x_k=-F(x_k) \\]
+
+and then updating
+
+\\[ x\_{k+1}=x_k+\Delta x_k. \\]
+
+Unlike exact algebraic solving, these methods operate numerically and can address supported transcendental expressions.
+
+The Rust documentation includes the following system-solving example:
+
+```
+use symbolica::prelude::*;
+
+let expr1 = parse!("x^2 + y^2 - 1");
+let expr2 = parse!("x^2 - y");
+
+let system = &[expr1, expr2];
+let vars = &[symbol!("x").into(), symbol!("y").into()];
+let init = &[F64::from(0.5), F64::from(0.5)];
+
+let roots = Atom::nsolve_system(
+    system,
+    vars,
+    init,
+    1e-7.into(),
+    100,
+).unwrap();
+```
+
+The Rust solver is generic over supported numeric domains, rather than being permanently restricted to primitive `f64`.
+
+The important distinction from the exact solver is that Newton methods locate solutions according to the supplied initial conditions. They do not automatically identify every root or provide a complete parameterized solution set.
+
+Convergence can fail because of singular or ill-conditioned Jacobians, inappropriate starting points, domain restrictions, or insufficient numerical precision.
+
+The availability of both exact and numerical solvers over Symbolica's expression representation permits symbolic preprocessing before numerical solution. For example, mathematical transformations can remove redundant factors, generate derivatives, or expose algebraic constraints before the local numerical solve.
+
+However, simplifications must preserve the domain and desired solution set.
+
+Primary Rust references:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/trait.AtomCore.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/solve/index.html`
+
+## 2. Expression inspection and programmable rewriting in Rust
+
+Supplements original §§2–3.
+
+### 2.1 Structural access through `AtomCore`
+
+The original guide explains the `Atom`/`AtomView` representation and basic pattern matching. It does not fully describe how much structural information native Rust callers can access without implementing a separate expression-tree abstraction.
+
+`AtomCore` supplies several complementary interfaces:
+
+| Rust API                                          | Function                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------ |
+| `get_atom_type()`                                 | Identify the expression variant                                    |
+| `as_add_view()`, `as_mul_view()`, `as_fun_view()` | Access specialized borrowed views of sums, products, and functions |
+| `as_num_view()`, `as_var_view()`                  | Access numerical or symbolic variants                              |
+| `children()`                                      | Iterate over immediate expression components                       |
+| `terms()`                                         | Iterate over additive terms                                        |
+| `visitor()`                                       | Visit subexpressions recursively, with control over descent        |
+| `position()`                                      | Locate matching subexpressions                                     |
+| `get_all_symbols()`, `get_all_indeterminates()`   | Discover symbolic dependencies                                     |
+| `to_canonical_string()`                           | Produce a canonical textual representation                         |
+
+These interfaces serve different purposes. `children()` exposes immediate structure, whereas `visitor()` traverses recursively. `terms()` exposes additive structure rather than arbitrary tree nodes.
+
+The visitor callback can decide whether the traversal should descend into a subexpression. This permits selective inspection without materializing a second full expression tree.
+
+The typed views are especially useful because the representation of an addition, multiplication, or function carries mathematical structure that a generic sequence of independently allocated nodes would not necessarily preserve.
+
+Architectural significance: native traversal, typed borrowed views, and symbol discovery can support structural analysis, dependency extraction, expression inspection, and custom transformations while retaining Symbolica's canonical expression representation.
+
+Primary source:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/trait.AtomCore.html`
+
+### 2.2 Callback-based transformations
+
+`AtomCore` provides callback-oriented operations in addition to declarative pattern replacement.
+
+Relevant methods include `replace_map()`, `replace_map_bottom_up()`, `collect_mapped()`, `collect_multiple_mapped()`, and `collect_symbol_mapped()`.
+
+The mapping interfaces receive borrowed expression data and a mutable output target, including `Settable<Atom>` in several APIs.
+
+This gives native Rust callers more control than a simple expression-in/expression-out replacement callback.
+
+For example, `collect_mapped()` can transform both the expression serving as a collection key and its coefficient. Consequently, collection need not consist solely of grouping identical powers into an ordinary polynomial-like representation.
+
+`replace_map_bottom_up()` traverses from deeper subexpressions toward their parents, allowing a transformation to observe or replace already-transformed children.
+
+This is different from pre-order replacement, where replacing an outer expression can prevent some internal subexpressions from being visited.
+
+The choice matters for transformations such as constant folding, eliminating redundant nested functions, and propagating local simplifications through a larger expression.
+
+The native APIs allow these operations to remain integrated with Symbolica's construction and normalization mechanisms. They do not, however, guarantee that arbitrary user callbacks terminate, preserve mathematical equivalence, or avoid substantial intermediate allocations.
+
+### 2.3 Advanced `ReplaceBuilder` controls
+
+The native `symbolica::id::ReplaceBuilder` exposes a broader range of matching and replacement controls than described in the original reference.
+
+| Method                                        | Significance                                                |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `min_level()`, `max_level()`, `level_range()` | Restrict where a pattern may match                          |
+| `level_is_tree_depth()`                       | Distinguish literal tree depth from function nesting        |
+| `partial()`                                   | Control partial-subexpression matching                      |
+| `non_greedy_wildcards()`                      | Prefer smaller sequence-wildcard matches                    |
+| `when()`                                      | Apply mathematical or structural restrictions               |
+| `once()`                                      | Replace one occurrence rather than all eligible occurrences |
+| `bottom_up()`                                 | Prioritize deeper matches                                   |
+| `nested()`                                    | Apply replacements through nested matched structures        |
+| `repeat()`                                    | Repeat rewriting until no further match is available        |
+| `rhs_cache_size()`                            | Bound cached replacement results                            |
+| `with_map()`, `iter_map()`                    | Construct replacements through native Rust callback logic   |
+| `match_iter()`, `iter()`                      | Inspect matches or alternative replacements lazily          |
+
+The distinction between `bottom_up()` and `nested()` is particularly consequential.
+
+For a rule
+
+\\[ f(u)\longrightarrow u^2 \\]
+
+applied to \\(f(f(x))\\), different traversal modes can produce materially different intermediate results.
+
+A bottom-up replacement processes the inner expression first, while nested replacement can continue applying the rule to enclosing matches formed around the transformed result.
+
+`rhs_cache_size()` offers another useful mechanism: repeated wildcard bindings can reuse prepared replacement results rather than recalculating an expensive right-hand-side transformation.
+
+These controls give the matcher a programmable execution strategy. Nevertheless, they do not create a general equality-saturation system or guarantee an optimal expression under a global cost model.
+
+### 2.4 Associativity as a registered symbol attribute
+
+Symbolica's native Rust symbol API exposes the `Flat` attribute:
+
+```
+use symbolica::prelude::*;
+
+let f = symbol!("f"; Flat);
+assert!(f.is_flat());
+```
+
+For a flat function \\(F\\), nested applications are normalized according to associativity:
+
+\\[ F(a,F(b,c))\longrightarrow F(a,b,c). \\]
+
+This is separate from `Symmetric`, `Antisymmetric`, `Cyclesymmetric`, and `Linear` attributes.
+
+In particular, associativity does not imply commutativity. The order of arguments can remain mathematically significant even when nested applications are flattened.
+
+Combining flatness with other function attributes can express mathematical operators whose normalization would otherwise require repeated custom rewriting.
+
+The attribute is appropriate only when the user-defined function genuinely obeys associativity. It should be registered before constructing expressions that depend on that behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Primary sources:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/id/struct.ReplaceBuilder.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/struct.Symbol.html`
+
+## 3. Specialized polynomial algorithms and domain-aware computation
+
+Supplements original §4.
+
+The original reference identifies Symbolica's polynomial kernel, coefficient domains, and Gröbner bases. Several additional native algorithms and representation controls merit substantially more attention.
+
+### 3.1 Three independent polynomial type parameters
+
+The native Rust type is:
+
+```
+MultivariatePolynomial<
+    F: Ring,
+    E: Exponent = u16,
+    O: MonomialOrder = LexOrder,
+>
+```
+
+The third type parameter, `O`, explicitly selects a monomial-ordering implementation. The original overview shows only the coefficient and exponent type parameters.
+
+The representation is also more specific than a generic sparse polynomial:
+
+- Nonzero coefficients are stored in a contiguous vector.
+- Exponents are stored as flattened, dense blocks for each monomial.
+- Terms follow the selected monomial ordering.
+- The variable map is shared through a reference-counted context.
+
+This is a sparse-term representation with dense exponent vectors, rather than a sparse map for every variable exponent.
+
+Direct manipulation of the public `coefficients` or `exponents` vectors must preserve ordering and nonzero-coefficient invariants.
+
+The distinction is consequential because polynomial algorithms depend on monomial order, coefficient-domain arithmetic, and the representation's structural invariants.
+
+### 3.2 Exact division, polynomial congruences, and Bézout identities
+
+Native polynomial methods include:
+
+| Operation                                  | Rust interface              | Purpose                                                                         |
+| ------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------- |
+| Extended Euclidean algorithm               | `eea_univariate()`          | Recover GCD and Bézout coefficients                                             |
+| Multi-factor Diophantine solving           | `diophantine_univariate()`  | Construct coefficients for combinations of pairwise coprime polynomial products |
+| Modular exponentiation                     | `exp_mod_univariate()`      | Compute powers modulo a polynomial                                              |
+| Precomputed-inverse modular exponentiation | `exp_mod_univariate_fast()` | Reuse a prepared reversed-divisor inverse                                       |
+| Exact divisibility                         | `try_div()`                 | Return a quotient only when division is exact                                   |
+| Quotient and remainder                     | `quot_rem()`                | Separate divisible and residual polynomial components                           |
+
+For univariate polynomials over a field, the extended Euclidean method computes
+
+\\[ sf+tg=\gcd(f,g). \\]
+
+When \\(f\\) and \\(g\\) are coprime, this provides a modular inverse:
+
+\\[ sf\equiv1\pmod g. \\]
+
+This is foundational for arithmetic in polynomial quotient fields and for constructing exact algebraic algorithms from smaller modular operations.
+
+`diophantine_univariate()` generalizes the idea to a collection of pairwise coprime factors. Its coprimality precondition is essential; the method should not be interpreted as an unrestricted polynomial-equation solver.
+
+The fast modular division and exponentiation methods also expose an important optimization strategy: prepare and reuse a divisor-related inverse across repeated operations, instead of recomputing the same division machinery for every exponentiation or reduction.
+
+### 3.3 Resultants and algebraic elimination
+
+The native `UnivariatePolynomial` API exposes resultant algorithms, including implementations based on different subresultant and Euclidean techniques.
+
+These include `resultant()`, `resultant_brown()`, `resultant_primitive()`, and, where the coefficient domain supports the necessary field operations, `resultant_euclidean()`.
+
+For univariate polynomials \\(f\\) and \\(g\\), their resultant vanishes when they have a common root over an appropriate algebraic closure, subject to the usual polynomial-degree conventions.
+
+Resultants are useful for eliminating variables from algebraic relationships.
+
+For example, given
+
+\\[ f(x,y)=x^2-y,\qquad g(x,y)=x-1, \\]
+
+eliminating \\(x\\) yields a condition proportional to
+
+\\[ 1-y=0. \\]
+
+One important native representation mechanism is `MultivariatePolynomial::to_univariate()`: it treats one variable as the univariate indeterminate and retains the remaining variables inside the polynomial coefficient ring.
+
+That allows the specialized univariate algorithms to operate on a multivariate problem without naively expanding every coefficient into an unrelated scalar representation.
+
+The tradeoff is that elimination can increase coefficient complexity substantially. A resultant also supplies a necessary algebraic condition that may require checking against the original system, especially under degenerate parameter specializations.
+
+### 3.4 Polynomial reduction modulo algebraic relations
+
+`MultivariatePolynomial::reduce()` reduces a polynomial using a collection of polynomial divisors.
+
+The method is available under the required field and monomial-ordering constraints.
+
+It provides the algebraic operation underlying computations modulo polynomial relations.
+
+For example, with
+
+\\[ x^2-1=0, \\]
+
+a polynomial containing higher powers of \\(x\\) can be reduced to a simpler representative.
+
+However, the uniqueness and ideal-membership interpretation of a remainder depend on the basis and ordering.
+
+An arbitrary list of divisors does not automatically provide a canonical quotient-ring normal form. For general ideal-membership decisions, a Gröbner basis under the corresponding ordering provides the stronger relevant structure.
+
+This is an important distinction between a polynomial reduction operation and a complete algorithm for testing consequences of arbitrary polynomial constraints.
+
+### 3.5 Newton interpolation and rational approximation
+
+The native Rust API includes:
+
+```
+MultivariatePolynomial::newton_interpolation(...)
+```
+
+Its inputs are sample points and polynomial-valued evaluations, together with the variable in which interpolation is performed.
+
+The ability to interpolate with polynomial-valued outputs is particularly significant. It allows one variable's dependence to be reconstructed while retaining the algebraic dependence of coefficients on other variables.
+
+The kernel also provides:
+
+```
+rational_approximant_univariate(
+    &self,
+    deg_n: u32,
+    deg_d: u32,
+)
+```
+
+This computes a Padé-type rational approximant
+
+\\[ \frac{n(x)}{d(x)} \\]
+
+subject to
+
+\\[ d(x)f(x)-n(x)\equiv0 \pmod{x^{\deg_n+\deg_d+1}}, \\]
+
+with the specified numerator and denominator degree bounds.
+
+This operation is not ordinary floating-point curve fitting and is not the same as rational-number reconstruction from modular residues.
+
+It recovers a rational representation agreeing with a given formal expansion through a specified order. This can capture function structure more compactly than a truncated polynomial when the function is genuinely rational or suitably approximated by one.
+
+### 3.6 Modular reconstruction, Chinese remaindering, and Hensel lifting
+
+The specialized integer-polynomial API includes `chinese_remainder()`, which combines polynomial coefficients that satisfy congruences modulo two specified integer moduli.
+
+The associated principle is
+
+\\[ a\equiv a_1\pmod m,\qquad a\equiv a_2\pmod p. \\]
+
+Under the necessary coprimality conditions, these congruences identify a residue modulo \\(mp\\).
+
+This is foundational for computing with several small modular images and reconstructing larger integer coefficients.
+
+The native `hensel_lift()` method instead addresses lifting a polynomial factorization from a prime modulus to a higher prime power.
+
+Conceptually, starting with
+
+\\[ f\equiv uw\pmod p, \\]
+
+it attempts to construct a lifted factorization modulo \\(p^k\\).
+
+Its return type distinguishes an exact recovered integer factorization from an approximate lifted factorization that has not yielded exact factors.
+
+That distinction matters: successful modular lifting does not necessarily mean a nontrivial factorization exists over the integers.
+
+Together, CRT and Hensel lifting help explain how Symbolica's modular-algebra machinery can avoid performing every intermediate calculation using enormous characteristic-zero coefficients.
+
+### 3.7 Sparse multivariate GCD algorithms
+
+Symbolica exposes specialized GCD methods based on Hu–Monagan interpolation:
+
+- `gcd_hu_monagan()`
+- `gcd_hu_monagan_bivariate()`
+
+These can reconstruct a sparse GCD or a smaller cofactor from sampled polynomial images.
+
+The bivariate variant retains two variables while sampling the others along geometric sequences. It can reconstruct whichever of the GCD or cofactor has the smaller sampled support and then attempt to certify the result by exact division.
+
+Its documented preconditions include compatible variable layouts, more than two variables, and suitable degree bounds.
+
+An unlucky specialization or unsuccessful reconstruction returns `None`, rather than implying the true GCD is one.
+
+This is a useful distinction from a generic GCD algorithm: sparse interpolation can exploit the shape of a result that would be expensive to obtain through a large dense intermediate computation.
+
+Its advantage depends on input sparsity, result sparsity, degree bounds, and sampling behavior. It is not uniformly superior to every other GCD algorithm.
+
+### 3.8 Root counting and numerical versus exact polynomial roots
+
+`MultivariatePolynomial::count_positive_real_roots()` uses a Sturm sequence to count distinct roots in
+
+\\[ (0,\infty) \\]
+
+for a supported univariate polynomial over a field with a real embedding.
+
+It returns a result carrying possible root-counting errors, rather than silently producing a count for unsupported inputs.
+
+The method counts distinct positive real roots; it is not a general complex-root isolator or a method for determining every root's multiplicity.
+
+Separate `UnivariatePolynomial` functionality supports numerical root approximation and, for suitable exact coefficient domains, isolated algebraic roots.
+
+These operations answer different questions:
+
+- Root counting establishes how many distinct roots lie in a specified region.
+- Numerical approximation estimates root locations.
+- Root isolation identifies mathematical regions containing individual roots.
+- An exact algebraic-root representation retains the root's defining polynomial and isolating information.
+
+A numerical root solver's convergence tolerance is not automatically a certified bound on the exact root-location error.
+
+### 3.9 Polynomial-context ownership and parallel execution
+
+An easily overlooked performance facility is the management of shared polynomial contexts.
+
+`MultivariatePolynomial` provides:
+
+- `zero_with_new_context()`
+- `clone_with_context_of()`
+- `compact()`
+
+The documentation explains that ordinary polynomial cloning or destruction can update an atomic reference count associated with a shared context.
+
+When many worker threads manipulate polynomials sharing the same context, these updates may cause cache-line contention.
+
+`zero_with_new_context()` creates a mathematically equivalent but independently allocated context. `clone_with_context_of()` permits a polynomial to be cloned onto a selected compatible context instead of updating the reference count of the source context.
+
+This can reduce contention when repeated polynomial operations run independently across threads.
+
+There are important invariants: the target context must have an equal coefficient field and variable map, and `clone_with_context_of()` can panic if they differ.
+
+`compact()` serves a different purpose, shrinking coefficient and exponent buffers for longer-lived stored polynomials. It is not intended to run repeatedly on every temporary because the resulting reallocations can outweigh the space savings.
+
+These are concrete native facilities for managing ownership and memory traffic, not just abstract claims that Rust or Symbolica is efficient.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Primary Rust references:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/poly/polynomial/struct.MultivariatePolynomial.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/poly/univariate/struct.UnivariatePolynomial.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/poly/univariate/struct.IsolatedRoot.html`
+
+## 4. Native numerical evaluator extension points
+
+Supplements original §§7–8.
+
+### 4.1 Composing already-built evaluators
+
+`ExpressionEvaluator<T>` provides:
+
+```
+pub fn merge(
+    &mut self,
+    other: Self,
+    cpe_rounds: Option<usize>,
+) -> Result<(), String>
+```
+
+This combines evaluators that use the same input parameters, concatenating their outputs.
+
+It is distinct from `Atom::evaluator_multiple()`, which constructs a multi-output evaluator from a collection of expressions before optimization.
+
+With `merge()`, independently prepared evaluators can be composed and then subjected to additional common-pair elimination.
+
+A consequential Rust type constraint is that merging requires:
+
+```
+T: Default + Clone + Eq + Hash
+```
+
+Thus, merging exact-rational evaluators before converting coefficients to primitive floating-point values is an important option. Ordinary `f64` does not implement `Eq`, so a floating-point evaluator cannot be assumed to support this method directly.
+
+The optional `cpe_rounds` parameter limits the additional common-pair elimination performed after merging.
+
+This allows computational modules to retain separate mathematical definitions while still exposing shared intermediate calculations during evaluator composition.
+
+### 4.2 Exporting a structured evaluator instruction representation
+
+The native method is:
+
+```
+pub fn export_instructions(&self) -> ExportedInstructions<T>
+```
+
+Its output includes:
+
+| Field                | Significance                                                                            |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `input_count`        | Number of input parameters                                                              |
+| `output_count`       | Number of numerical outputs                                                             |
+| `temporary_count`    | Required temporary slots                                                                |
+| `instructions`       | Optimized instruction stream                                                            |
+| `constants`          | Numerical constants referenced by instructions                                          |
+| `constant_functions` | Registered constants and fixed-argument functions requiring target-precision resolution |
+| `sub_evaluators`     | Retained bodies for functions that were not inlined                                     |
+
+This representation provides a useful boundary between Symbolica's algebraic optimization machinery and a separate numerical execution engine.
+
+For example, a custom runtime could consume the optimized instructions without independently implementing Horner transformation, common-subexpression elimination, and function expansion.
+
+The distinction between embedded sub-evaluators and ordinary external functions is important. An instruction invoking a function without a matching sub-evaluator still requires an external implementation.
+
+Similarly, constants associated with symbolic mathematical functions may require evaluation at the target precision rather than copying a previously rounded literal.
+
+The native Rust API does not document a direct `ExpressionEvaluator::from_instructions()` counterpart to the Python convenience interface. `export_instructions()` establishes access to the optimized representation, but it does not by itself establish a complete Rust save/reload workflow for an arbitrary evaluator.
+
+The `serde` and `bincode` feature flags should not be interpreted as guarantees that every evaluator, associated external callback, and compiled artifact supports lossless independent serialization.
+
+### 4.3 Generic evaluator vectorization
+
+One of the more significant native extension points is:
+
+```
+pub fn vectorize<V: Vectorize<T>>(
+    self,
+    v: &V,
+) -> Result<ExpressionEvaluator<T>, String>
+```
+
+The `Vectorize<T>` trait defines how evaluator coefficients and instructions are lifted from scalar slots to multiple components.
+
+Each original slot can correspond to \\(n\\) component slots, and a scalar instruction can be transformed into a collection of instructions acting on those components.
+
+The trait exposes methods including:
+
+- `get_dimension()`: Number of components.
+- `duplicate_constants()`: Whether constants are replicated across components or confined to the base component.
+- `map_instruction()`: Convert an instruction into its component-wise representation.
+- `vectorize_function()`: Optionally construct a scalar evaluator for the component-level behavior of an external function.
+
+This mechanism is broader than simply applying a SIMD vector type to an evaluator.
+
+The supplied `Vectorize<T>` implementation defines the mathematical semantics of the component expansion.
+
+Symbolica's `Dualizer<T>` is a concrete implementation used for automatic differentiation. It lifts instructions into a dual-number component representation.
+
+However, the trait itself is a lower-level program-transformation interface, potentially supporting other component-based numerical algebras when their operations can be expressed through the available instruction semantics.
+
+An important restriction appears in the native source: the vectorization operation can reject an evaluator containing retained, non-inlined sub-evaluators.
+
+Therefore, evaluator function-inlining policy is not merely a performance concern; it can determine whether later evaluator transformations are available.
+
+The handling of external functions is similarly explicit. Vectorized function registrations or a supported automatic component expansion must be available.
+
+### 4.4 Function-registration policies and scoped numerical programs
+
+`EvaluatorBuilder` supports:
+
+```
+add_function_with_options(...)
+add_tagged_function_with_options(...)
+add_aliases(...)
+```
+
+`FunctionRegistrationOptions` can specify an `InliningPolicy`.
+
+The native enum exposes `Always`, `Never`, and `Auto`.
+
+The precise implementation detail matters:
+
+- `Always` expands a function's body at call sites.
+- `Never` keeps the body in a separate sub-evaluator.
+- `Auto` is documented in version 3.0.1 as currently having the same behavior as `Always`.
+
+The original guide suggests that the automatic policy independently decides whether to inline. That description should be corrected for the targeted release.
+
+Non-inlined functions can reduce duplication when large function bodies are called repeatedly, but they introduce separate sub-evaluator execution and can restrict transformations that require a flattened instruction representation.
+
+Inlining exposes more cross-function common-subexpression opportunities, while potentially increasing the evaluator's instruction count.
+
+Function registration also has a scope dimension. Registered expressions may reference parameters of surrounding evaluator contexts; explicit function arguments must be distinguished from captured outer parameters.
+
+The native implementation includes tests addressing these scope and capture interactions.
+
+### 4.5 Optimization controls and resource constraints
+
+`EvaluatorBuilder` exposes more optimizer configuration than the original reference describes.
+
+Relevant Rust methods include:
+
+| Method                            | Control                                            |
+| --------------------------------- | -------------------------------------------------- |
+| `optimization_settings()`         | Configure optimization settings together           |
+| `horner_iterations()`             | Limit Horner-scheme search                         |
+| `cpe_iterations()`                | Set common-pair elimination rounds                 |
+| `max_horner_scheme_variables()`   | Bound variables considered for Horner optimization |
+| `max_common_pair_cache_entries()` | Bound common-pair cache size                       |
+| `hot_start()`                     | Supply prepared expressions for optimization       |
+| `cores()`                         | Set optimization parallelism                       |
+| `abort_check()`                   | Allow an external abort condition                  |
+| `abort_level()`                   | Configure optimization abort polling               |
+
+These settings recognize that optimization itself can be computationally expensive.
+
+Horner search and common-pair elimination may substantially reduce repeated numerical work, but their exploration costs can grow with expression complexity.
+
+Consequently, the builder's controls support a distinction between mathematical-program preparation time and execution time.
+
+An optimization suitable for millions of evaluations may be unnecessarily expensive for a program executed only a few times.
+
+### 4.6 Temporary storage reuse and operation accounting
+
+After evaluator construction, `optimize_stack()` reduces temporary-storage requirements by reusing slots after their final use.
+
+This is a separate optimization from algebraic common-subexpression elimination.
+
+CSE reduces repeated mathematical work; stack optimization reduces the storage needed to hold the resulting intermediate computations.
+
+The evaluator also exposes `count_operations()`, returning an `OperationCount` covering categories such as arithmetic operations and function calls.
+
+These mechanisms support analysis of both operation count and temporary-storage demand without requiring full native compilation.
+
+Operation counts are not direct performance measurements. They do not independently capture memory access costs, transcendental-function latency, branch behavior, SIMD utilization, or instruction scheduling.
+
+### 4.7 Real-domain specialization and evaluator lifecycle
+
+`ExpressionEvaluator<Complex<T>>::set_real_params()` allows selected evaluator inputs to be declared real.
+
+The method also accepts `ComplexEvaluatorSettings`, which can express assumptions about real-valued behavior of supported operations.
+
+These assumptions can permit more efficient real-arithmetic code generation.
+
+However, real inputs do not guarantee real outputs. For example, \\(\sqrt{x}\\) is not real for negative real \\(x\\) under ordinary principal complex-square-root semantics.
+
+The documented lifecycle requirement is explicit: real-parameter registration must happen after optimization and merging. Earlier registration can be lost when those operations reconstruct or modify the evaluator.
+
+This is an example of an extension point whose use depends on correct ordering of evaluator-construction phases.
+
+### 4.8 Evaluation over alternative rings
+
+`ExpressionEvaluator<Complex<Rational>>` provides `map_to_ring()` for mapping evaluator coefficients into another supported ring.
+
+The evaluator can then be used through `evaluate_in_ring()`.
+
+This is not equivalent to converting every coefficient to `f64`.
+
+For example, an evaluator can be mapped into a finite field such as `Zp`, permitting arithmetic under a specified modulus.
+
+That creates a useful connection between symbolic program optimization and exact modular evaluation.
+
+The generic ring boundary still matters: the target domain must support the operations required by the evaluator. An expression involving transcendental functions cannot automatically be executed in an arbitrary finite field merely because its polynomial arithmetic can be mapped there.
+
+The evaluator also provides `map_coeff_with_prec()`, allowing the coefficient conversion to carry an explicit binary-precision specification.
+
+This is significant when an evaluator is moved between exact, approximate, and arbitrary-precision numerical representations.
+
+Primary Rust references for §4:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+4
+
+
+
+`https://docs.rs/symbolica/3.0.1/symbolica/evaluate/struct.ExpressionEvaluator.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/evaluate/struct.EvaluatorBuilder.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/evaluate/trait.Vectorize.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/evaluate/enum.InliningPolicy.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/evaluate/struct.ExportedInstructions.html`
+
+## 5. Additional exact and structured mathematical facilities
+
+Supplements original §§4, 8, and 10.
+
+### 5.1 Rational reconstruction from modular evaluations
+
+The native `Rational` type exposes two distinct reconstruction mechanisms.
+
+```
+Rational::maximal_quotient_reconstruction(...)
+Rational::rational_reconstruction(...)
+```
+
+`maximal_quotient_reconstruction()` reconstructs a rational number from a residue modulo a prime, using a maximal-quotient reconstruction algorithm.
+
+The underlying problem is to recover
+
+\\[ r=\frac{a}{b} \\]
+
+from modular information satisfying
+
+\\[ ab^{-1}\equiv v\pmod p, \\]
+
+where the denominator is invertible modulo \\(p\\).
+
+The residue alone does not uniquely identify an unrestricted rational number. Successful reconstruction therefore depends on the algorithm's admissibility conditions and sufficient modulus information.
+
+`rational_reconstruction()` provides another important capability: it accepts a function that evaluates over a finite field, together with a sample point and optional starting-prime configuration.
+
+The method attempts to reconstruct the rational result corresponding to the black-box evaluation.
+
+This offers an alternative to computing with large rational numerators and denominators throughout an entire calculation.
+
+An algorithm may instead evaluate over suitable finite fields and reconstruct the exact rational result afterward.
+
+This is particularly relevant to algebraic calculations involving exact rational outputs, where intermediate rational arithmetic can cause substantial coefficient growth.
+
+The operation returns an error when reconstruction fails. The documentation specifically notes unsuccessful or unlucky modular evaluations.
+
+Scope distinction: these are native rational-number reconstruction methods. Their existence does not, by itself, establish a general public API for reconstructing arbitrary multivariate rational functions from black-box evaluations.
+
+Primary source:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/domains/rational/type.Rational.html`
+
+### 5.2 Rationalization of approximate symbolic coefficients
+
+Rust's `AtomCore` also provides:
+
+```
+fn rationalize(
+    &self,
+    relative_error: &Rational,
+) -> Self::Output
+```
+
+It replaces numerical coefficients with simpler rational approximations within a specified relative-error interval.
+
+The Rust documentation includes:
+
+```
+use symbolica::prelude::*;
+
+let expr = parse!("0.333");
+let result = expr.rationalize(&(1, 100).into());
+
+assert_eq!(result, Atom::num((1, 3)));
+```
+
+The resulting transformation changes the coefficient's exact mathematical value. It is not simply an alternative formatting of the same number.
+
+For example, the exact decimal \\(0.333\\) differs from \\(1/3\\), despite their proximity.
+
+This distinction is important when rationalization is followed by exact polynomial arithmetic. An exact computation over the rationalized expression proves properties of the new rational coefficients, not necessarily of the original approximate values.
+
+Rationalization is therefore a model-reconstruction or approximation operation, unlike exact modular rational reconstruction.
+
+### 5.3 Linear systems as exact coefficient-domain matrices
+
+The Rust API exposes:
+
+```
+AtomCore::system_to_matrix(...)
+```
+
+Its return type is a pair of matrices over
+
+```
+RationalPolynomialField<Z, E>
+```
+
+where `E` is a positive exponent type.
+
+The method transforms a supported linear equation system into a coefficient matrix and right-hand-side matrix.
+
+For a system
+
+\\[ \begin{aligned} 2x+y&=1,\\\ x-y&=-1, \end{aligned} \\]
+
+the matrix representation is
+
+\\[ \begin{bmatrix} 2&1\\\ 1&-1 \end{bmatrix} \begin{bmatrix} x\\\y \end{bmatrix} = \begin{bmatrix} 1\\\\-1 \end{bmatrix}. \\]
+
+A particularly useful feature is the rational-polynomial coefficient domain. The original symbolic equations may contain parameters that are not among the unknowns, and their algebraic dependence can be retained in the matrix coefficients.
+
+This creates a native bridge between general symbolic equations and specialized exact linear-algebra algorithms.
+
+It is not an arbitrary symbolic-to-matrix converter: the selected unknowns must enter the supported system linearly, and the method can return `SolveError` when conversion fails.
+
+### 5.4 Tensor-index canonicalization
+
+The native interface is:
+
+```
+fn canonize_tensors<I, T, G>(
+    &self,
+    indices: I,
+) -> Result<CanonicalTensor<T, G>, TensorCanonicalizationError>
+```
+
+where the index expressions implement `AtomCore` and the grouping type supports the required ordering and hashing operations.
+
+This operates on products of tensor-like symbolic functions whose arguments represent indices.
+
+It recognizes equivalent index structures under permitted relabeling of dummy indices and supported symmetry attributes.
+
+For example,
+
+\\[ A\_{ij}B\_{ji} \\]
+
+and
+
+\\[ A\_{kl}B\_{lk} \\]
+
+represent the same formal contraction when the respective indices are interchangeable dummy indices from compatible spaces.
+
+By canonicalizing these indices, Symbolica can bring equivalent terms into a common representation, enabling subsequent collection and cancellation.
+
+The native return type retains more information than just the canonical expression. It also reports external indices and ordered dummy indices.
+
+Index groups prevent renaming across incompatible classes, such as indices belonging to different dimensions or tensor representations.
+
+The method also accounts for relevant tensor symmetries. Antisymmetric tensors can introduce sign changes under permutations, while cyclic symmetries permit selected cyclic reorderings.
+
+This capability is distinct from full tensor-network computation.
+
+It does not automatically construct contraction plans, allocate multidimensional tensor data, or execute numerical contractions. Those responsibilities belong to separate tensor abstractions, including the Spenso ecosystem discussed in the original guide.
+
+The expression-level canonicalizer instead provides a focused mechanism for recognizing equivalence of indexed symbolic expressions.
+
+Primary Rust reference:
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/trait.AtomCore.html`
+
+### 5.5 Subexpression occurrence analysis and alias extraction
+
+Two additional native methods connect structural expression analysis to reuse of repeated mathematical work:
+
+```
+count_subexpressions()
+alias_subexpressions(...)
+```
+
+`count_subexpressions()` identifies repeated nonconstant, nonvariable subexpressions and their occurrence counts.
+
+For example,
+
+\\[ f(x+1)+x f(x+1) \\]
+
+contains repeated occurrences of \\(f(x+1)\\).
+
+Counting these structures can expose reuse opportunities before numerical evaluator optimization.
+
+`alias_subexpressions()` supplies a callback that receives a subexpression, its occurrence count, and its index in the discovered collection.
+
+The callback can select which subexpressions should receive aliases and provide the corresponding replacement expressions.
+
+The result is an `AliasedAtom`.
+
+This allows aliasing decisions to depend on more than whether an expression repeats. A caller could distinguish a trivial repeated addition from an expensive repeated nonlinear subexpression.
+
+The performance consequences depend on how aliases are subsequently interpreted. An alias representation does not automatically guarantee that every consuming algorithm shares the underlying numerical computation.
+
+It does, however, provide a native mechanism for discovering and representing potential reuse without implementing a separate structural hashing and expression extraction system.
+
+### 5.6 Built-in transcendental and special functions in Rust
+
+The native `symbolica::transcendental` module provides built-in function symbols and the `TranscendentalFunctions` trait.
+
+Its documented built-ins include:
+
+| Mathematical family                | Native Rust functions                                |
+| ---------------------------------- | ---------------------------------------------------- |
+| Gamma and related functions        | `gamma`, `polygamma`                                 |
+| Zeta and polylogarithm             | `zeta`, `polylog`                                    |
+| Bessel functions                   | `bessel_i`, `bessel_j`, `bessel_k`, `bessel_y`       |
+| Error function                     | `erf`                                                |
+| Hyperbolic functions               | `sinh`, `cosh`, `tanh`, `sech`, `csch`, `coth`       |
+| Inverse hyperbolic functions       | `asinh`, `acosh`, `atanh`, `asech`, `acsch`, `acoth` |
+| Additional trigonometric functions | `sec`, `csc`, `cot` and their inverses               |
+| Mathematical constants             | `euler_gamma`                                        |
+| Algebraic roots                    | `root`, `root_var`                                   |
+
+These are recognized built-in symbolic functions, rather than arbitrary user-defined function heads.
+
+This distinction can affect normalization, symbolic derivatives, special values, and numerical evaluation, depending on the implemented behavior of each function.
+
+The advanced mathematical consideration is analytic-domain semantics.
+
+Complex logarithms, inverse trigonometric functions, Bessel functions, and polylogarithms can have poles or branch cuts. Consequently, a transformation valid for positive real arguments may not remain valid for arbitrary complex arguments.
+
+Recognizing a function as built-in does not establish that every symbolic identity, high-precision numerical method, series expansion, or compiled evaluator backend supports it.
+
+A numerical backend must support the actual operations appearing in the generated evaluator.
+
+Primary Rust references:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+`https://docs.rs/symbolica/3.0.1/symbolica/atom/trait.AtomCore.html`
+
+`https://docs.rs/symbolica/3.0.1/symbolica/transcendental/`
+
+## 6. Consequential interactions among the native Rust capabilities
+
+The newly documented mechanisms combine in several ways that materially extend Symbolica's functionality.
+
+### 6.1 Exact modular evaluation and reconstruction
+
+A mathematical computation can preserve symbolic structure during construction, perform selected operations through finite-field evaluation, and reconstruct rational outputs afterward.
+
+The relevant mechanisms include:
+
+- Polynomial and rational coefficient domains.
+- Chinese remainder reconstruction.
+- Modular exponentiation and polynomial division.
+- Hensel lifting.
+- `Rational::rational_reconstruction()`.
+- `ExpressionEvaluator::map_to_ring()`.
+
+This composition can avoid maintaining large rational intermediate values at every step.
+
+Its feasibility depends on the operation being defined in the selected modular domain, suitable prime choices, and sufficient information for reconstruction.
+
+### 6.2 Structural transformation followed by specialized algebra
+
+Native expression visitors, callback-based rewriting, coefficient collection, and selective expansion can retain the information needed for structural manipulations.
+
+The resulting expressions can then be converted to specialized polynomial representations for:
+
+- Exact division and modular arithmetic.
+- Resultants and variable elimination.
+- Interpolation and Padé approximation.
+- Sparse GCD reconstruction.
+- Algebraic-system reduction.
+
+This is often more coherent than implementing the entire sequence as unrestricted expression-tree rewriting.
+
+A crucial boundary remains: converting an arbitrary nonlinear subexpression into an independent polynomial indeterminate can obscure mathematical relationships unless they are modeled separately.
+
+### 6.3 Composable mathematical programs and specialized execution
+
+The evaluator architecture can support a sequence in which mathematical expressions are optimized independently, merged through compatible parameter conventions, and then subjected to additional common-pair elimination.
+
+The resulting evaluator can be transformed through `Vectorize<T>`, mapped into a supported numerical domain, inspected through exported instructions, or passed to one of the native code-generation paths.
+
+Not all operations commute.
+
+For example, converting an evaluator to primitive floating-point coefficients before merging may violate `merge()`'s trait bounds. Retaining non-inlined sub-evaluators may prevent vectorization. Setting real-parameter assumptions before merging or optimization can lose those registrations.
+
+These are not incidental API details. They are part of the evaluator's computational lifecycle and determine which combinations of optimization and execution machinery are available.
+
+### 6.4 Parallel exact algebra with controlled representation overhead
+
+Sparse polynomial algorithms can be combined with thread-local polynomial contexts and borrowed general-expression views to reduce unnecessary memory traffic.
+
+In particular, `zero_with_new_context()` and `clone_with_context_of()` address reference-count contention that can otherwise arise when many workers share a polynomial's immutable context.
+
+This illustrates a broader performance distinction: mathematical algorithm selection and representation-level resource management are separate optimization dimensions.
+
+A more efficient GCD algorithm does not eliminate context-sharing overhead, and an optimized context layout does not eliminate the inherent complexity of a difficult polynomial problem.
+
+## 7. Version-specific corrections and scope boundaries
+
+Several earlier descriptions warrant explicit correction in the original reference or should be constrained when this addendum is incorporated.
+
+| Topic                         | Rust-specific clarification                                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mathematical identity testing | `AtomCore::zero_test()` returns `ConditionResult` and is not equivalent to Python's `check_zero()`.                                                                 |
+| Polynomial type               | `MultivariatePolynomial` has three type parameters, including `O: MonomialOrder`.                                                                                   |
+| Automatic inlining            | In the documented 3.0.1 implementation, `InliningPolicy::Auto` behaves like `Always`.                                                                               |
+| Evaluator composition         | `merge()` requires compatible parameters and coefficient types satisfying its Rust trait bounds.                                                                    |
+| Evaluator persistence         | `export_instructions()` is verified; a general Rust equivalent of Python's evaluator reconstruction methods is not established by that API.                         |
+| Evaluator vectorization       | `Vectorize<T>` is a native extension interface, with restrictions for retained sub-evaluators and external functions.                                               |
+| Polynomial root analysis      | Numeric root approximation, Sturm-based root counting, and exact root isolation provide different guarantees.                                                       |
+| Polynomial reduction          | A remainder computed from arbitrary divisors is not necessarily a unique ideal normal form.                                                                         |
+| Rationalization               | `AtomCore::rationalize()` changes coefficients within a specified approximation tolerance; it does not prove their original exact values.                           |
+| Companion ecosystem           | Python Community wrappers do not establish equivalent APIs in the native Rust crate. Only separately verified Rust crates should be described as Rust integrations. |
+
+No Python-only Community functionality has been carried over into this revised Rust addendum.
+
+In particular, the previous addendum's Python `HeldExpression`, `MathMLViewer`, `Evaluator.save/load`, Python-style tensor interfaces, and Community hyperlogarithmic and HEPkit wrappers are not presented as native Rust functionality.
+
+They would require separate Rust-level verification before being included in a reference whose focus is the Rust library.
+
+## Conclusion
+
+The additional native capabilities reinforce an important distinction in Symbolica's architecture: it provides not only a general symbolic-expression system and a numerical compiler, but also specialized computational-algebra algorithms and programmable intermediate representations that can be combined under explicit mathematical and Rust type constraints.
+
+The most consequential additions to the original Rust reference are advanced polynomial algorithms and reconstruction, nonlinear numerical solving, evaluator merging and generic vectorization, structural callback-based transformations, tensor-index canonicalization, and representation-level performance controls.
+
+These mechanisms can reduce the need for bespoke exact-arithmetic algorithms, expression-analysis infrastructure, numerical-program transformation machinery, and selected low-level memory-management optimizations.
+
+Their effectiveness depends on the mathematical domain, the representation used, and the order in which operations are composed. The Rust API makes many of these boundaries explicit through trait bounds, specialized types, error results, and evaluator lifecycle requirements.
+
+The central architectural opportunity is therefore broader than symbolic simplification: Symbolica can serve as a common mathematical representation and transformation engine while exposing specialized exact-algebra and executable numerical forms at the points where those representations provide stronger guarantees or more efficient computation.
