@@ -163,5 +163,5 @@ incomplete or failed publication.
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | D01 | in progress | A01–A03, B02 prepared route, current product read owner | Offline pack and connection-only metadata, branch and draft routes exist. Authorized default selection, ambiguity and live cursor controls remain. |
-| D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. Isolated owner controls and assembled receiving verification remain. |
-| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | The typed passive study workbench uses the prepared project reader. Research metadata and typed exchange remain open. |
+| D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. The live owner control passed for wrong issuer, duplicates, stale navigation and receipt recovery. The assembled captured CLI journey remains. |
+| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | The live study-workbench read and foreign cursor refusal passed. Research metadata and typed exchange remain open. |

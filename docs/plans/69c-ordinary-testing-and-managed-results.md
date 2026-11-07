@@ -117,5 +117,5 @@ would establish the query, real-role selection, durability, exact retirement and
 |---|---|---|---|
 | C01 | in progress | A01 and current Cargo, Nextest and fixture contracts | Bare tests select the workspace ordinary profile and the managed primary has its own profile. The complete admitted workspace journey remains. |
 | C02 | in progress | C01, F01, A03 and Plan67 exact custody | Rerun verification checks an exact one-to-one identity match. The original-to-rerun journey remains. |
-| C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. Receiving checks and deliberate export remain. |
-| C04 | in progress | C03 and Plan67 release owner | The timer is enabled and its fixed service ran successfully. Foreground settled ordinary tests can publish the expiry class. Detached and borrowed custody need their own positive settlement witness before classification. |
+| C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. A prepared CLI recovered both live test results by ID. Remaining receivers and deliberate export stay open. |
+| C04 | in progress | C03 and Plan67 release owner | The timer is enabled and its fixed service ran successfully. The live tests published the foreground expiry class. Detached and borrowed custody need their own positive settlement witness before classification. |
