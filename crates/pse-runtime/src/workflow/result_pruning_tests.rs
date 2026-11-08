@@ -224,7 +224,9 @@ async fn pruning_fixture_rows(name: &'static str, rows: FitRows, body: PruningCa
 
 #[tokio::test]
 async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
-    use datafusion::datasource::MemTable;
+    use datafusion::{
+        catalog::MemoryCatalogProviderList, datasource::MemTable, execution::SessionStateBuilder,
+    };
     const CASE: &str = "res-pruning-differential";
     pruning_fixture_rows(CASE, DIFFERENTIAL_ROWS, |runtime, fence| {
         Box::pin(async move {
@@ -247,7 +249,19 @@ async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
                     .iter()
                     .all(|block| block.statistics.is_some())
             );
-            let actual = SessionContext::new_with_state(snapshot.session_state());
+            let state = snapshot.session_state();
+            let config = state
+                .config()
+                .clone()
+                .with_create_default_catalog_and_schema(true);
+            // The registered provider owns this snapshot. Keep it out of the
+            // snapshot's shared catalog so the original protection can drain.
+            let actual = SessionContext::new_with_state(
+                SessionStateBuilder::new_from_existing(state)
+                    .with_config(config)
+                    .with_catalog_list(Arc::new(MemoryCatalogProviderList::new()))
+                    .build(),
+            );
             actual
                 .register_table("items", snapshot.table_provider())
                 .unwrap();
@@ -292,6 +306,13 @@ async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
                 assert_eq!(expected.len(), expected_count, "{sql}");
                 assert_eq!(arrow_rows::multiset(&observed), expected, "{sql}");
             }
+            drop((actual, snapshot, reader));
+            runtime
+                .canonical_store()
+                .unwrap()
+                .join_result_releases()
+                .await
+                .unwrap();
         })
     })
     .await;
