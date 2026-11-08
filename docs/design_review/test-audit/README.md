@@ -26,6 +26,27 @@ Current judgments are **Interface-checked**. Earlier execution and measurements 
 commands, conditions and limits in their original records. The audit used source and recorded
 results for its diagnoses.
 
+### Selection and result refresh for the 2026-11-08 review
+
+**Interface-checked · scoped source `dab55ccca2dd177792bea5469ce7798f93ad2deb`.** This
+refresh covers the committed Plan69 selection, nextest policy and result-custody delta. Pending
+changes in `pse-host/src/managed/workflow.rs` and `managed/workflow/borrowed.rs` are excluded.
+The November 7 examination remains the source of evidence for the other areas and claims.
+
+- Ordinary selection now excludes workspace packages with no default test, doctest or example
+  target from its intended root set and names packages whose intended root is absent from the
+  admitted graph. Nextest has a dedicated `managed-primary` profile. This narrows the earlier
+  selection diagnosis, while actual selected cases and their fixture readiness remain separate.
+  The scientific grouping and qualification-only prerequisite findings still apply. [Selection](../../../crates/pse-host/src/selection.rs) ·
+  [Nextest profiles](../../../.config/nextest.toml) ·
+  [DTA-015](evidence-routes-and-execution.md#dta-015) · [DTA-050](evidence-routes-and-execution.md#dta-050)
+- Detached and borrowed test-result classification now consumes authenticated original drain
+  and the paired original result before compact expiry begins. Plan69 owns its integrated result
+  acceptance. This further bounds the retired verdict mechanism and prior retention diagnosis.
+  Opaque target-owned setup can still fail inside the test body. [Result custody](../../../crates/pse-host/src/invocation/compact.rs) ·
+  [DTA-012](evidence-routes-and-execution.md#dta-012) · [DTA-025](evidence-routes-and-execution.md#dta-025) ·
+  [DTA-052](execution-efficiency.md#dta-052) · [Plan69c](../../plans/69c-ordinary-testing-and-managed-results.md)
+
 ## Integrated synthesis
 
 - Managed correctness binds an admitted Cargo graph, source-built inventory, fixture selection and
@@ -62,10 +83,10 @@ its original evidence date and scope.
 Each structural cause keeps one primary home. The test account links the broad account's
 [DA-037](../audit/development-tooling.md#da-037) for the historical tooling cycle and does not
 refresh that baseline. [Plan53](../../plans/53-test-architecture-target.md#finding-dispositions)
-holds its recorded dispositions. [Plan66l](../../plans/66l-required-population-and-assembled-acceptance.md)
+preserves historical dispositions. [Plan66l](../../plans/66l-required-population-and-assembled-acceptance.md)
 owns remaining scientific acceptance. [Plan67c](../../plans/67c-surrealkit-and-rust-test-consolidation.md)
-records the selected tested cutover. [Plan68d](../../plans/68d-surrealdb-v4-developer-and-test-receiving.md)
-describes the proposed v4 receiving scope. The audit owns diagnosis.
+records the selected tested cutover. [Plan69c](../../plans/69c-ordinary-testing-and-managed-results.md)
+owns ordinary testing and managed results. The audit owns diagnosis.
 
 [DTA-071](execution-efficiency.md#dta-071) records repeated dependency-graph acquisition by
 workspace membership controls. [DTA-072](execution-efficiency.md#dta-072) records reference
