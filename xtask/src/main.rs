@@ -300,6 +300,7 @@ enum Cmd {
         only: Option<Target>,
     },
     /// Preview or publish an authored source-model change through the original generator.
+    #[cfg(feature = "surrealql-tools")]
     SourceChange(codegen::source_change::Selection),
     /// The full governance gate: governance tests, codegen diff, family check.
     Governance,
@@ -893,6 +894,7 @@ fn main() -> Result<()> {
             }
         }
         Cmd::Codegen { check, only } => codegen(&root, check, only),
+        #[cfg(feature = "surrealql-tools")]
         Cmd::SourceChange(selection) => {
             std::process::exit(codegen::source_change::run(&root, selection)?);
         }

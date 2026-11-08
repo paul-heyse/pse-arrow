@@ -13965,6 +13965,7 @@ dependencies = [
  "tracing",
  "tree-sitter",
  "tree-sitter-proto",
+ "tree-sitter-rust",
  "url",
  "uuid",
 ]

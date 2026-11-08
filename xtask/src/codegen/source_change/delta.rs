@@ -74,6 +74,12 @@ pub(super) struct Change {
     after_sha256: Option<String>,
 }
 
+impl Change {
+    pub(super) fn postimage(&self) -> Option<(&Path, &str)> {
+        Some((&self.path, self.after_sha256.as_deref()?))
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub(super) struct Delta {
     pub(super) scopes: Vec<Scope>,

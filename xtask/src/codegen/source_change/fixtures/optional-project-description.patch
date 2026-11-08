@@ -54,3 +54,130 @@ diff --git a/crates/pse-operations/src/canonical_projects.rs b/crates/pse-operat
  #[cfg(test)]
  mod tests {
      #![allow(
+diff --git a/crates/pse-operations/tests/native_service.rs b/crates/pse-operations/tests/native_service.rs
+--- a/crates/pse-operations/tests/native_service.rs
++++ b/crates/pse-operations/tests/native_service.rs
+@@ -979,2 +979,5 @@
+ #[path = "native_service/surrealkit.rs"]
+ mod surrealkit;
++
++#[path = "native_service/optional_project_description.rs"]
++mod optional_project_description;
+diff --git a/crates/pse-operations/tests/native_service/optional_project_description.rs b/crates/pse-operations/tests/native_service/optional_project_description.rs
+new file mode 100644
+--- /dev/null
++++ b/crates/pse-operations/tests/native_service/optional_project_description.rs
+@@ -0,0 +1,113 @@
++// SPDX-License-Identifier: MIT OR Apache-2.0
++// Copyright (c) 2026 Paul Heyse
++//! Exact generated optional field receiving on the owned v4 service.
++
++use super::{NativeServiceError, fixture_with_schema};
++use pse_operations::{
++    canonical::{CanonicalError, CanonicalOptions, MESSAGE_BYTES},
++    generated::surreal::SCHEMA,
++    transport::{
++        bounded_query,
++        client::{Client, RequestContext, Root},
++        request,
++    },
++};
++use std::time::{Duration, Instant};
++
++#[tokio::test]
++async fn optional_project_description_receives_a_predecessor_row_on_v4() {
++    // Exact canonical_projects table and field statements in the v4 generated preimage.
++    const PREDECESSOR: &str = concat!(
++        "DEFINE TABLE canonical_projects SCHEMAFULL;\n",
++        "DEFINE FIELD key ON canonical_projects TYPE string READONLY ASSERT $value = record::id($this.id);\n",
++        "DEFINE FIELD title ON canonical_projects TYPE string;\n",
++        "DEFINE FIELD deleted ON canonical_projects TYPE bool;\n",
++        "DEFINE FIELD generation ON canonical_projects TYPE decimal ASSERT $value = NONE OR ($value >= 0dec AND $value <= 18446744073709551615dec AND math::floor($value) = $value);",
++    );
++    let statements: Vec<_> = SCHEMA
++        .lines()
++        .filter(|line| {
++            *line == "DEFINE TABLE canonical_projects SCHEMAFULL;"
++                || (line.starts_with("DEFINE FIELD ") && line.contains(" ON canonical_projects TYPE ")
++                    && !line.starts_with("DEFINE FIELD description "))
++        })
++        .collect();
++    assert_eq!(statements.join("\n"), PREDECESSOR);
++    let target: Vec<_> = SCHEMA
++        .lines()
++        .filter(|line| line.starts_with("DEFINE FIELD description ON canonical_projects "))
++        .collect();
++    assert_eq!(target, ["DEFINE FIELD description ON canonical_projects TYPE option<string>;"]);
++    let field = target[0];
++
++    let mut service = fixture_with_schema(false).unwrap();
++    service
++        .run(Instant::now() + Duration::from_secs(180), |service| {
++            Box::pin(async move {
++                service.launch(Instant::now() + Duration::from_secs(90)).await?;
++                let options = CanonicalOptions::from_state(service.state())?;
++                let address = options.endpoint.strip_prefix("grpc://")
++                    .and_then(|address| address.parse().ok())
++                    .ok_or(NativeServiceError::Refused("invalid native fixture endpoint"))?;
++                let client = Client::connect(address, MESSAGE_BYTES).await.map_err(CanonicalError::from)?;
++                let deadline = Instant::now() + Duration::from_secs(30);
++                let context = || RequestContext::control(deadline);
++                let query = |sql: &str| client.query(sql.to_owned()).request_context(context());
++                let outcome = async {
++                    request(client.signin(Root {
++                        username: options.username,
++                        password: options.password,
++                    }).request_context(context())).await?;
++                    bounded_query(query("DEFINE NAMESPACE source_change_fixture;")).await?;
++                    request(client.use_ns("source_change_fixture").request_context(context())).await?;
++                    bounded_query(query("DEFINE DATABASE predecessor;")).await?;
++                    request(client.use_ns("source_change_fixture").use_db("predecessor")
++                        .request_context(context())).await?;
++                    bounded_query(query(PREDECESSOR)).await?;
++                    bounded_query(query("CREATE ONLY canonical_projects:historical CONTENT {
++                        key: 'historical', title: 'Historical', generation: 7dec, deleted: false
++                    };")).await?;
++                    bounded_query(query(field)).await?;
++                    let mut historical = bounded_query(query(
++                        "LET $row = SELECT * FROM ONLY canonical_projects:historical;
++                         RETURN $row.title = 'Historical' AND $row.generation = 7dec
++                            AND $row.description = NONE;"
++                    )).await?;
++                    assert!(historical.take::<bool>(1).map_err(CanonicalError::from)?);
++
++                    bounded_query(query("CREATE ONLY canonical_projects:explicit CONTENT {
++                        key: 'explicit', title: 'Explicit', generation: 0dec, deleted: false,
++                        description: 'independent metadata'
++                    };")).await?;
++                    let mut explicit = bounded_query(query(
++                        "RETURN (SELECT VALUE description FROM ONLY canonical_projects:explicit)
++                            = 'independent metadata';"
++                    )).await?;
++                    assert!(explicit.take::<bool>(0).map_err(CanonicalError::from)?);
++
++                    bounded_query(query(
++                        "UPDATE ONLY canonical_projects:explicit SET description = NONE;"
++                    )).await?;
++                    let mut rejected = request(query(
++                        "UPDATE ONLY canonical_projects:explicit SET description = NULL;"
++                    )).await?;
++                    let errors = rejected.take_errors();
++                    let error = errors.get(&0).expect("option<string> refuses NULL");
++                    assert!(error.message().contains("description") && error.message().contains("`NULL`"), "{error}");
++                    let mut absent = bounded_query(query(
++                        "LET $row = SELECT * FROM ONLY canonical_projects:explicit;
++                         RETURN $row.title = 'Explicit' AND $row.description = NONE;"
++                    )).await?;
++                    assert!(absent.take::<bool>(1).map_err(CanonicalError::from)?);
++                    Ok::<_, CanonicalError>(())
++                }.await;
++                let drained = client.disconnect().await.map_err(CanonicalError::from);
++                outcome?;
++                drained?;
++                Ok(())
++            })
++        })
++        .await
++        .unwrap();
++    service.dispose().unwrap();
++}

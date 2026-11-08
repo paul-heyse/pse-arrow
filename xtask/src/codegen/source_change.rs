@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Authored checkout preview and durable publication of exact generator output.
+mod anchor;
 mod delta;
 #[path = "../../../scripts/source-change-proposal.rs"]
 mod handoff;
@@ -12,7 +13,6 @@ use super::{normal_relative, publication};
 use anyhow::{Context, Result, bail, ensure};
 use clap::{Args, Subcommand, ValueEnum};
 use handoff::{ProposalFile, ProposalHandoff};
-use miette::{NamedSource, SourceCode as _};
 use pse_codegen::codegen::provenance::protocol::Scope;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -85,21 +85,6 @@ impl Case {
             Self::RecordedResultFieldRename => {
                 "crates/pse-runtime/src/workflow/result_selection.rs"
             }
-        }
-    }
-
-    fn anchor(self) -> (&'static str, &'static str, &'static str) {
-        match self {
-            Self::OptionalProjectDescription => (
-                "\"canonical_projects\"",
-                "\"canonical_project_branches\"",
-                "\"description\"",
-            ),
-            Self::RecordedResultFieldRename => (
-                "pub struct PackResultSelection",
-                "pub struct PackResultPredicate",
-                "pub selected_field",
-            ),
         }
     }
 
@@ -189,9 +174,23 @@ struct Status {
     checks: Vec<Vec<String>>,
     completed_stages: Vec<String>,
     affected_packages: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    affected: Option<AffectedEvidence>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    surrealql_validation: Vec<crate::surrealql_tools::FileValidation>,
     generated: Vec<delta::Change>,
     surviving: Vec<delta::SurvivingFile>,
     failure: Option<Failure>,
+}
+
+/// Native affected details, without integration targets or unrelated response content.
+#[derive(Debug, Serialize, Deserialize)]
+struct AffectedEvidence {
+    completeness: String,
+    changed_packages: Vec<String>,
+    graph: serde_json::Value,
+    widening: Vec<serde_json::Value>,
+    generators: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -480,30 +479,6 @@ fn read_proposal(input: impl Read) -> Result<ProposalHandoff> {
     Ok(proposal)
 }
 
-fn locate(case: Case, path: &Path, content: String) -> Result<SourceSpan> {
-    let (opening, closing, field) = case.anchor();
-    let start = content
-        .find(opening)
-        .context("selected declaration was not found")?;
-    let rest = &content[start + opening.len()..];
-    let end = rest
-        .find(closing)
-        .context("selected declaration end was not found")?;
-    let within = rest[..end]
-        .find(field)
-        .context("authored change for this case was not found in the selected declaration")?;
-    let offset = start + opening.len() + within;
-    let source = NamedSource::new(path.display().to_string(), content);
-    let location = source.read_span(&(offset, field.len()).into(), 0, 0)?;
-    Ok(SourceSpan {
-        byte_offset: offset,
-        byte_length: field.len(),
-        line: location.line(),
-        column: location.column(),
-        column_encoding: "miette_source_column".into(),
-    })
-}
-
 fn authored_inputs(
     root: &Path,
     case: Case,
@@ -564,7 +539,7 @@ fn authored_inputs(
                     hex(&Sha256::digest(&bytes)) == working_sha256,
                     "authored declaration changed during observation"
                 );
-                Some(locate(case, &path, String::from_utf8(bytes)?)?)
+                Some(anchor::locate(case, std::str::from_utf8(&bytes)?)?)
             } else {
                 None
             };
@@ -650,6 +625,8 @@ fn preview(
             ],
             completed_stages: Vec::new(),
             affected_packages: Vec::new(),
+            affected: None,
+            surrealql_validation: Vec::new(),
             generated: Vec::new(),
             surviving: Vec::new(),
             failure: None,
@@ -860,24 +837,57 @@ fn observe_affected(record: &mut Record, root: &Path) -> Result<()> {
         output.total == output.bytes.len() as u64,
         "affected selection exceeded the retained byte limit"
     );
-    let report: serde_json::Value = serde_json::from_slice(&output.bytes)?;
-    ensure!(
-        report["observation"]["completeness"] == "complete",
-        "native affected selection is incomplete"
-    );
-    let packages = report["payload"]["selected_packages"]
-        .as_array()
-        .context("affected selection omitted the native package population")?;
-    record.status.affected_packages = packages
-        .iter()
-        .map(|package| {
-            Ok(package["name"]
-                .as_str()
-                .context("affected package name is missing")?
-                .to_owned())
-        })
-        .collect::<Result<_>>()?;
+    let (packages, evidence) = affected_evidence(&output.bytes)?;
+    let complete = evidence.completeness == "complete";
+    record.status.affected_packages = packages;
+    record.status.affected = Some(evidence);
+    ensure!(complete, "native affected selection is incomplete");
     Ok(())
+}
+
+fn affected_evidence(bytes: &[u8]) -> Result<(Vec<String>, AffectedEvidence)> {
+    #[derive(Deserialize)]
+    struct SelectedPackage {
+        name: String,
+    }
+    #[derive(Deserialize)]
+    struct Reach {
+        changed_packages: Vec<String>,
+        selected_packages: Vec<SelectedPackage>,
+        graph: serde_json::Value,
+        widening: Vec<serde_json::Value>,
+        generators: Vec<serde_json::Value>,
+    }
+    #[derive(Deserialize)]
+    struct Observation {
+        completeness: String,
+    }
+    #[derive(Deserialize)]
+    struct Report {
+        observation: Observation,
+        payload: Reach,
+    }
+    let Report {
+        observation,
+        payload,
+    } = serde_json::from_slice(bytes)?;
+    let packages: Vec<_> = payload
+        .selected_packages
+        .into_iter()
+        .map(|package| package.name)
+        .collect();
+    let evidence = AffectedEvidence {
+        completeness: observation.completeness,
+        changed_packages: payload.changed_packages,
+        graph: payload.graph,
+        widening: payload.widening,
+        generators: payload.generators,
+    };
+    ensure!(
+        serde_json::to_vec(&(&packages, &evidence))?.len() <= 512 * 1024,
+        "affected projection exceeds its retained byte limit"
+    );
+    Ok((packages, evidence))
 }
 
 fn run_stage(operation: &Operation, record: &mut Record, stage: &str) -> Result<()> {
@@ -989,6 +999,9 @@ fn generate(operation: &Operation, record: &mut Record) -> Result<i32> {
                 record.status.snapshot_sha256 = None;
                 record.native_sha256 = None;
                 record.status.completed_stages.clear();
+                record.status.affected_packages.clear();
+                record.status.affected = None;
+                record.status.surrealql_validation.clear();
             }
         }
         if record.status.snapshot_sha256.is_none() {
@@ -1053,6 +1066,19 @@ fn generate(operation: &Operation, record: &mut Record) -> Result<i32> {
         );
         operation.remove_custody()?;
         let delta = delta::Delta::stage(&record.checkout, &root, &operation.custody(), scopes)?;
+        active = "surrealql-validation".into();
+        record.status.surrealql_validation =
+            validate_surrealql(&record.status.authored, &delta, &root, &operation.custody())?;
+        ensure!(
+            record
+                .status
+                .surrealql_validation
+                .iter()
+                .all(|file| file.valid),
+            "changed SurrealQL postimages failed parse-only validation"
+        );
+        record.status.completed_stages.push(active.clone());
+        active = "retain-generated-delta".into();
         record.status.generated = delta.changes.clone();
         record.authored_sha256 = Some(authored);
         record.delta = Some(delta);
@@ -1073,6 +1099,49 @@ fn generate(operation: &Operation, record: &mut Record) -> Result<i32> {
             failure(operation, record, &active, &error)
         }
     }
+}
+
+fn validate_surrealql(
+    authored: &[AuthoredInput],
+    delta: &delta::Delta,
+    root: &Path,
+    custody: &Path,
+) -> Result<Vec<crate::surrealql_tools::FileValidation>> {
+    let changed_authored = authored
+        .iter()
+        .filter(|input| input.head_sha256.as_ref() != Some(&input.working_sha256))
+        .map(|input| {
+            (
+                input.path.as_path(),
+                root.join(&input.path),
+                input.working_sha256.as_str(),
+            )
+        });
+    let changed_generated = delta.changes.iter().filter_map(|change| {
+        change
+            .postimage()
+            .map(|(path, sha256)| (path, custody.join(sha256), sha256))
+    });
+    let inputs: Vec<_> = changed_authored
+        .chain(changed_generated)
+        .filter(|(path, _, _)| {
+            path.extension()
+                .is_some_and(|extension| extension == "surql")
+        })
+        .collect();
+    ensure!(
+        inputs.len() <= 32
+            && inputs
+                .iter()
+                .all(|(path, _, _)| path.as_os_str().len() <= 1024),
+        "changed SurrealQL postimages exceed the retained path limit"
+    );
+    Ok(inputs
+        .into_iter()
+        .map(|(path, staged, sha256)| {
+            crate::surrealql_tools::validate_file(path, &staged, Some(sha256))
+        })
+        .collect())
 }
 
 fn apply(operation: &Operation, record: &mut Record, recovery: bool) -> Result<i32> {

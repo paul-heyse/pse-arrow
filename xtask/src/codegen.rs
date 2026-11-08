@@ -28,6 +28,7 @@ mod proto_projection;
 mod publication;
 #[cfg(feature = "recorded-result-contracts")]
 mod recorded_result;
+#[cfg(feature = "surrealql-tools")]
 pub(super) mod source_change;
 
 #[cfg(feature = "native-abi")]

@@ -71,7 +71,7 @@ evidence-tools = [
   "dep:strum",
   "dep:arrow-array",
 ]
-surrealql-tools = ["dep:surrealdb-parser-next"]
+surrealql-tools = ["dep:surrealdb-parser-next", "dep:tree-sitter-rust"]
 canonical-tools = [
   "dep:pse-model",
   "dep:pse-operations",
@@ -187,6 +187,7 @@ quote.workspace = true
 prettyplease.workspace = true
 tree-sitter.workspace = true
 tree-sitter-proto.workspace = true
+tree-sitter-rust = { workspace = true, optional = true }
 miette.workspace = true
 
 [dev-dependencies]

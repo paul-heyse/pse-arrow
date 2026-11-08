@@ -5,8 +5,8 @@ use super::{GenerationIntent, checkout_root, private_state};
 use crate::{
     HostError,
     envelope::{
-        CommandOutcome, Envelope, ErrorRecord, NextAction, OutputOptions, RedactionPolicy,
-        Settlement, SubjectState,
+        CommandOutcome, Envelope, ErrorRecord, LabelRecord, NextAction, ObservationValue,
+        OutputOptions, RedactionPolicy, Settlement, SubjectState,
     },
     environment::Environment,
     paths::CheckoutState,
@@ -126,6 +126,89 @@ struct Status {
     preview_id: String,
     state: State,
     failure: Option<OwnerFailure>,
+    #[serde(default)]
+    surrealql_validation: Vec<StagedValidation>,
+}
+
+#[derive(Deserialize)]
+struct StagedValidation {
+    input: String,
+    sha256: Option<String>,
+    error: Option<ValidationError>,
+}
+
+#[derive(Deserialize)]
+struct ValidationError {
+    kind: String,
+    message: String,
+    #[serde(default)]
+    diagnostics: Vec<ParseDiagnostic>,
+    #[serde(default)]
+    omitted_diagnostics: usize,
+}
+
+#[derive(Deserialize)]
+struct ParseDiagnostic {
+    kind: String,
+    message: String,
+    primary: LabelRecord,
+    secondary: Option<LabelRecord>,
+}
+
+impl StagedValidation {
+    fn finding(self, policy: &RedactionPolicy) -> Option<ErrorRecord> {
+        let error = self.error?;
+        let source = policy.redact(&self.input);
+        let mut record = ErrorRecord::from_diagnostic(
+            &miette::MietteDiagnostic::new(format!("{}: {}", self.input, error.message)),
+            None,
+            policy,
+        );
+        record
+            .parser_context
+            .insert("kind".into(), policy.redact(&error.kind));
+        record
+            .facts
+            .observations
+            .insert("path".into(), ObservationValue::Text(source.clone()));
+        if let Some(digest) = self.sha256 {
+            record.facts.observations.insert(
+                "sha256".into(),
+                ObservationValue::Text(policy.redact(&digest)),
+            );
+        }
+        if error.omitted_diagnostics > 0 {
+            record.parser_context.insert(
+                "omitted_diagnostics".into(),
+                error.omitted_diagnostics.to_string(),
+            );
+        }
+        record.children = error
+            .diagnostics
+            .into_iter()
+            .map(|diagnostic| {
+                let mut record = ErrorRecord::from_diagnostic(
+                    &miette::MietteDiagnostic::new(diagnostic.message),
+                    None,
+                    policy,
+                );
+                record
+                    .parser_context
+                    .insert("kind".into(), policy.redact(&diagnostic.kind));
+                record.labels = std::iter::once(diagnostic.primary)
+                    .chain(diagnostic.secondary)
+                    .map(|mut label| {
+                        label.source = Some(source.clone());
+                        label.label = label.label.map(|text| policy.redact(&text));
+                        label.unavailable = label.unavailable.map(|text| policy.redact(&text));
+                        label
+                    })
+                    .collect();
+                record
+            })
+            .collect();
+        Some(record)
+    }
 }
 
 #[derive(Serialize, JsonSchema)]
@@ -328,6 +411,8 @@ pub(super) fn dispatch(
                 "-p",
                 "xtask",
                 "--no-default-features",
+                "--features",
+                "surrealql-tools",
                 "--locked",
                 "--",
                 "source-change",
@@ -394,9 +479,17 @@ pub(super) fn dispatch(
             "source-change {} failed at {}",
             failure.code, failure.stage
         ));
-        response
-            .failures
-            .push(ErrorRecord::from_host(&error, &policy));
+        let mut error = ErrorRecord::from_host(&error, &policy);
+        error.code = Some(policy.redact(&failure.code));
+        if failure.stage == "surrealql-validation" {
+            error.related.extend(
+                status
+                    .surrealql_validation
+                    .into_iter()
+                    .filter_map(|file| file.finding(&policy)),
+            );
+        }
+        response.failures.push(error);
         if exit.is_some() {
             response.outcome = CommandOutcome::Failure;
         }
@@ -497,6 +590,78 @@ mod tests {
         let mut invalid = projection;
         invalid["files"][0]["path"] = "crates/../outside.rs".into();
         assert!(proposal_input(serde_json::to_vec(&invalid).unwrap().as_slice(), &id).is_err());
+    }
+
+    #[test]
+    fn staged_parser_findings_keep_file_identity_labels_and_disclosure() {
+        let labels = |primary| {
+            serde_json::json!({
+                "label": "secret label",
+                "primary": primary,
+                "byte_offset": if primary {27} else {20},
+                "byte_length": 1,
+                "line": 1,
+                "column": if primary {14} else {7},
+                "column_encoding": "utf8_bytes",
+                "unavailable": null
+            })
+        };
+        let digest = "a".repeat(64);
+        let status = serde_json::json!({
+            "version": 1, "preview_id": "a".repeat(32), "state": "generation_failed",
+            "failure": {
+                "code": "source_change.stage_failed", "stage": "surrealql-validation",
+                "original_log_sha256": null, "recovery": null
+            },
+            "surrealql_validation": [{
+                "input": "generated/secret.surql", "sha256": digest, "error": {
+                    "kind": "syntax", "message": "secret message",
+                    "diagnostics": [{
+                        "kind": "message", "message": "secret delimiter",
+                        "primary": labels(true), "secondary": labels(false)
+                    }]
+                }
+            }, {
+                "input": "generated/absent.surql", "sha256": null, "error": {
+                    "kind": "input", "message": "No such file or directory"
+                }
+            }]
+        });
+        let status: Status = serde_json::from_value(status).unwrap();
+        let policy = RedactionPolicy::new([("TOKEN".into(), "secret".into())]);
+        let findings: Vec<_> = status
+            .surrealql_validation
+            .into_iter()
+            .filter_map(|file| file.finding(&policy))
+            .collect();
+        let [syntax, input] = findings.as_slice() else {
+            panic!("expected separate file findings")
+        };
+        assert_eq!(syntax.parser_context["kind"], "syntax");
+        assert_eq!(input.parser_context["kind"], "input");
+        assert!(input.children.is_empty());
+        assert!(
+            matches!(&syntax.facts.observations["sha256"], ObservationValue::Text(value) if value == &digest)
+        );
+        let [primary, secondary] = syntax.children[0].labels.as_slice() else {
+            panic!("expected parser labels")
+        };
+        assert!(primary.primary);
+        assert!(!secondary.primary);
+        assert_eq!(
+            (primary.byte_offset, primary.line, primary.column),
+            (27, Some(1), Some(14))
+        );
+        assert_eq!(
+            (secondary.byte_offset, secondary.line, secondary.column),
+            (20, Some(1), Some(7))
+        );
+        assert_eq!(
+            primary.source.as_deref(),
+            Some("generated/<redacted:TOKEN>.surql")
+        );
+        assert_eq!(secondary.source, primary.source);
+        assert!(!serde_json::to_string(&findings).unwrap().contains("secret"));
     }
 
     #[test]

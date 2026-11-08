@@ -3,6 +3,18 @@
 use super::*;
 use pse_codegen::codegen::provenance::protocol::{MAP_PATH, ScopeKind};
 
+const AUTHORED_FIXTURE: &str = r#"
+fn declare() {
+    for (name, fields, doc) in [
+        ("canonical_projects", vec![
+            column("title", text()),
+            /* μ */ column("description", text()).optional(),
+        ], "fixture"),
+        ("canonical_project_branches", vec![], "other"),
+    ] {}
+}
+"#;
+
 fn write(root: &Path, path: &str, bytes: &[u8]) {
     let path = root.join(path);
     fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -33,7 +45,9 @@ fn fixture(root: &Path, fail_generation: bool) {
     write(
         root,
         Case::OptionalProjectDescription.declaration(),
-        b"\"canonical_projects\"\n\"canonical_project_branches\"\n",
+        AUTHORED_FIXTURE
+            .replace("/* μ */ column(\"description\", text()).optional(),", "")
+            .as_bytes(),
     );
     write(
         root,
@@ -41,11 +55,7 @@ fn fixture(root: &Path, fail_generation: bool) {
         b"historical project consumer\n",
     );
     write(root, "fixture-generated/original.rs", b"original rust\n");
-    write(
-        root,
-        "fixture-generated/original.surql",
-        b"original surreal\n",
-    );
+    write(root, "fixture-generated/original.surql", b"RETURN 1;\n");
     write(root, MAP_PATH, &serde_json::to_vec(&serde_json::json!({
         "schema_version": 1, "$comment": "fixture", "coverage_limits": [],
         "owners": [{"producer": "fixture", "outputs": [{"path": MAP_PATH, "kind": "file"},
@@ -64,7 +74,7 @@ fn fixture(root: &Path, fail_generation: bool) {
     );
     write(root, "scripts/pse", br#"#!/bin/sh
 case "$1" in
-    inspect) printf '%s\n' '{"observation":{"completeness":"complete"},"payload":{"selected_packages":[{"name":"pse-operations"}]}}' ;;
+    inspect) printf '%s\n' '{"observation":{"completeness":"complete"},"payload":{"changed_packages":["fixture-owner"],"selected_packages":[{"name":"pse-operations"}],"graph":{"status":"available"},"widening":[],"generators":[]}}' ;;
     test) test -f fixture-generated/new.rs ;;
     *) exit 2 ;;
 esac
@@ -86,7 +96,7 @@ case "$1" in
             exit 13
         fi ;;
     recorded-result) rm -f fixture-generated/original.rs ;;
-    surreal) printf 'produced surreal\n' > fixture-generated/original.surql ;;
+    surreal) printf 'RETURN 2;\n' > fixture-generated/original.surql ;;
     full-codegen) test -f fixture-generated/new.rs ;;
     *) exit 2 ;;
 esac
@@ -109,8 +119,7 @@ esac
     write(
         root,
         Case::OptionalProjectDescription.declaration(),
-        "\"canonical_projects\"\n/* μ */ \"description\"\n\"canonical_project_branches\"\n"
-            .as_bytes(),
+        AUTHORED_FIXTURE.as_bytes(),
     );
 }
 
@@ -130,9 +139,9 @@ fn only_operation(state: &Path) -> (String, Operation) {
 #[test]
 fn unicode_declaration_span_keeps_independently_known_byte_coordinates() {
     let case = Case::RecordedResultFieldRename;
-    let content = "// 水\npub struct PackResultSelection {\n  /* μ */ pub selected_field: Option<String>,\n}\npub struct PackResultPredicate {}";
-    let span = locate(case, Path::new(case.declaration()), content.into()).unwrap();
-    assert_eq!(span.byte_offset, 51);
+    let content = "// 水\npse_contract::projection_struct! { pub struct PackResultSelection {\n  /* μ */ pub selected_field: Option<String> => { tag: 7 };\n} }";
+    let span = anchor::locate(case, content).unwrap();
+    assert_eq!(span.byte_offset, 86);
     assert_eq!(span.byte_length, 18);
     assert_eq!(span.line, 2);
     assert_eq!(span.column, 11);
@@ -140,6 +149,145 @@ fn unicode_declaration_span_keeps_independently_known_byte_coordinates() {
         &content.as_bytes()[span.byte_offset..][..span.byte_length],
         b"pub selected_field"
     );
+}
+
+#[test]
+fn structural_anchors_use_the_authored_registry_and_projection_grammar() {
+    let optional = include_str!("../../../../crates/pse-schema/src/catalog/projects.rs");
+    let expression = "column(\"description\", text()).optional()";
+    let optional = if optional.contains(expression) {
+        optional.to_owned()
+    } else {
+        optional.replacen(
+            "column(\"title\", text()),",
+            &format!("column(\"title\", text()), {expression},"),
+            1,
+        )
+    };
+    let span = anchor::locate(Case::OptionalProjectDescription, &optional).unwrap();
+    assert_eq!(
+        &optional[span.byte_offset..][..span.byte_length],
+        expression
+    );
+
+    let projection = include_str!("../../../../crates/pse-model/src/recorded_result.rs");
+    let projection = projection.replacen(
+        "pub field: Option<String>",
+        "pub selected_field: Option<String>",
+        1,
+    );
+    let span = anchor::locate(Case::RecordedResultFieldRename, &projection).unwrap();
+    assert_eq!(
+        &projection[span.byte_offset..][..span.byte_length],
+        "pub selected_field"
+    );
+}
+
+#[test]
+fn structural_anchors_ignore_decoys_and_reject_ambiguous_or_malformed_members() {
+    let decoys = r##"
+// ("canonical_projects", vec![column("description", text()).optional()], "")
+const DECOY: &str = r#"column("description", text()).optional()"#;
+"##;
+    let content = format!("{decoys}{AUTHORED_FIXTURE}");
+    let case = Case::OptionalProjectDescription;
+    let span = anchor::locate(case, &content).unwrap();
+    assert!(span.byte_offset > decoys.len());
+    assert_eq!(span.column, 21);
+    assert!(
+        anchor::locate(case, &format!("{content}{AUTHORED_FIXTURE}"))
+            .unwrap_err()
+            .to_string()
+            .contains("ambiguous")
+    );
+    let expression = "column(\"description\", text()).optional()";
+    for altered in [
+        "column(\"description\", ).optional()",
+        "wrapper(column(\"description\", text()).optional())",
+        "column(\"description\", text()).optional(), column(\"description\", text())",
+        "column(\"description\", text()).optional(",
+    ] {
+        assert!(
+            anchor::locate(case, &content.replace(expression, altered)).is_err(),
+            "{altered}"
+        );
+    }
+
+    let case = Case::RecordedResultFieldRename;
+    let projection = r#"
+        const DECOY: &str = "pub struct PackResultSelection { pub selected_field: String }";
+        other::projection_struct! { pub struct PackResultSelection { pub selected_field: String } }
+        pse_contract::projection_struct! { pub struct PackResultSelection {
+            projection: { pub selected_field: String };
+            // pub selected_field: String
+            pub selected_field: Option<String> => { tag: 7 };
+        } }
+    "#;
+    let span = anchor::locate(case, projection).unwrap();
+    assert_eq!(span.line, 6);
+    assert!(
+        anchor::locate(case, &format!("{projection}{projection}"))
+            .unwrap_err()
+            .to_string()
+            .contains("ambiguous")
+    );
+    for altered in [
+        "pub selected_field: Option< => { tag: 7 };",
+        "pub selected_field: Option<String> => { tag: 7 }",
+        "pub selected_field: Option<String> => { tag: 7 }; pub selected_field: String => { tag: 8 };",
+        "@local { pub selected_field: Option<String> => { tag: 7 }; }",
+    ] {
+        assert!(
+            anchor::locate(
+                case,
+                &projection.replace("pub selected_field: Option<String> => { tag: 7 };", altered)
+            )
+            .is_err(),
+            "{altered}"
+        );
+    }
+}
+
+#[test]
+fn affected_evidence_preserves_direct_owners_and_conservative_widening() {
+    let mut report = serde_json::json!({
+        "observation": {"completeness":"complete"},
+        "payload": {
+            "changed_packages": ["path+file:///fixture#schema@0.0.1"],
+            "selected_packages": [{"name":"schema","integration_targets":[]},{"name":"operations"}],
+            "graph": {"status":"available"},
+            "widening": [],
+            "generators": [{"path":"crates/schema/src/catalog.rs","producer":"surreal","regenerate":["just","codegen-surreal"]}]
+        }
+    });
+    let project = |report: &serde_json::Value| {
+        affected_evidence(&serde_json::to_vec(report).unwrap()).unwrap()
+    };
+    let (packages, direct) = project(&report);
+    assert_eq!(packages, ["schema", "operations"]);
+    assert_eq!(
+        direct.changed_packages,
+        ["path+file:///fixture#schema@0.0.1"]
+    );
+    assert!(direct.widening.is_empty());
+    assert_eq!(
+        direct.generators[0]["regenerate"],
+        serde_json::json!(["just", "codegen-surreal"])
+    );
+    report["payload"]["widening"] = serde_json::json!([{
+        "kind": "unknown_dependency",
+        "package_id": "path+file:///fixture#schema@0.0.1",
+        "dependency": "unresolved"
+    }]);
+    report["payload"]["selected_packages"]
+        .as_array_mut()
+        .unwrap()
+        .push(serde_json::json!({"name":"unrelated"}));
+    let (packages, conservative) = project(&report);
+    assert_eq!(packages, ["schema", "operations", "unrelated"]);
+    assert_eq!(conservative.graph["status"], "available");
+    assert_eq!(conservative.widening[0]["kind"], "unknown_dependency");
+    assert_eq!(conservative.changed_packages, direct.changed_packages);
 }
 
 #[test]
@@ -199,6 +347,13 @@ fn generation_failure_resumes_same_snapshot_and_publishes_cross_generated_delta(
     assert_eq!(snapshot_claim(&state).unwrap(), None);
     assert!(!root.join("fixture-generated/new.rs").exists());
     assert_eq!(record.status.generated.len(), 3);
+    let validation = serde_json::to_value(&record.status.surrealql_validation).unwrap();
+    assert_eq!(validation[0]["input"], "fixture-generated/original.surql");
+    assert_eq!(validation[0]["valid"], true);
+    assert_eq!(
+        validation[0]["sha256"],
+        hex(&Sha256::digest(b"RETURN 2;\n"))
+    );
     assert_eq!(apply(&operation, &mut record, false).unwrap(), 0);
     assert_eq!(record.status.state, State::Applied);
     assert!(!operation.custody().exists());
@@ -208,13 +363,69 @@ fn generation_failure_resumes_same_snapshot_and_publishes_cross_generated_delta(
     );
     assert_eq!(
         fs::read(root.join("fixture-generated/original.surql")).unwrap(),
-        b"produced surreal\n"
+        b"RETURN 2;\n"
     );
     assert!(!root.join("fixture-generated/original.rs").exists());
     assert!(
         fs::read_to_string(root.join(case.declaration()))
             .unwrap()
             .contains('μ')
+    );
+}
+
+#[test]
+fn invalid_surrealql_postimages_remain_separate_and_prevent_publication() {
+    let checkout = tempfile::tempdir().unwrap();
+    let owner = tempfile::tempdir().unwrap();
+    let state = owner.path().join("source-change");
+    let root = checkout.path();
+    fixture(root, false);
+    let generator = root.join("scripts/source-change-codegen");
+    let source = fs::read_to_string(&generator).unwrap();
+    assert_eq!(source.matches("RETURN 2;").count(), 1);
+    fs::write(generator, source.replace("RETURN 2;", "RETURN (2 ;")).unwrap();
+    write(root, "additional.surql", b"RETURN (3 ;");
+    let case = Case::OptionalProjectDescription;
+    assert_eq!(
+        preview(
+            root,
+            &state,
+            case,
+            vec![PathBuf::from("additional.surql")],
+            None,
+            None
+        )
+        .unwrap(),
+        1
+    );
+    let (id, operation) = only_operation(&state);
+    let mut record = operation.read(root, &id).unwrap();
+    assert_eq!(record.status.state, State::GenerationFailed);
+    let failure = record.status.failure.as_ref().unwrap();
+    assert_eq!(failure.stage, "surrealql-validation");
+    let validation = serde_json::to_value(&record.status.surrealql_validation).unwrap();
+    assert_eq!(validation[0]["input"], "additional.surql");
+    assert_eq!(
+        validation[0]["sha256"],
+        hex(&Sha256::digest(b"RETURN (3 ;"))
+    );
+    assert_eq!(validation[1]["input"], "fixture-generated/original.surql");
+    assert_eq!(
+        validation[1]["sha256"],
+        hex(&Sha256::digest(b"RETURN (2 ;\n"))
+    );
+    for file in validation.as_array().unwrap() {
+        assert_eq!(file["error"]["kind"], "syntax");
+        assert_eq!(
+            file["error"]["diagnostics"][0]["secondary"]["byte_offset"],
+            7
+        );
+    }
+    assert!(apply(&operation, &mut record, false).is_err());
+    assert!(!root.join("fixture-generated/new.rs").exists());
+    assert_eq!(
+        fs::read(root.join("fixture-generated/original.surql")).unwrap(),
+        b"RETURN 1;\n"
     );
 }
 
@@ -246,7 +457,7 @@ fn authored_edit_after_preview_refuses_with_zero_output_writes() {
     );
     assert_eq!(
         fs::read(root.join("fixture-generated/original.surql")).unwrap(),
-        b"original surreal\n"
+        b"RETURN 1;\n"
     );
     assert_eq!(
         fs::read(root.join(case.consumer())).unwrap(),
