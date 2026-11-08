@@ -405,25 +405,21 @@ mod canonical_server_unit {
         reason = "fixture lifetime assertions require exact namespace responses and fail on unexpected results"
     )]
     use super::*;
-    use crate::canonical::{CanonicalOptions, CanonicalStore, bounded_query};
-    use surrealdb_types::Value;
+    use crate::canonical::{CanonicalOptions, CanonicalStore};
 
     fn options() -> CanonicalOptions {
         let state = std::env::var_os("PSE_SURREAL_STATE").unwrap();
         CanonicalOptions::from_state(std::path::Path::new(&state)).unwrap()
     }
-    async fn database_exists(observer: &CanonicalStore, database: &str) -> bool {
-        // Namespace inspection does not recreate the selected fixture database.
-        let mut response = bounded_query(observer.db.query("INFO FOR NS;"))
-            .await
-            .unwrap();
-        let Value::Object(info) = response.take::<Value>(0).unwrap() else {
-            panic!("namespace inventory object required");
-        };
-        let Some(Value::Object(databases)) = info.get("databases") else {
-            panic!("namespace database inventory required");
-        };
-        databases.contains_key(database)
+    async fn database_exists(database: &str) -> bool {
+        // Each probe checks the actual catalog on a fresh connection without
+        // creating a missing database or reusing a cached selection.
+        let mut selected = options();
+        selected.database = database.to_owned();
+        let observer = CanonicalStore::connect(&selected).await.unwrap();
+        let exists = observer.db.select_existing().await.unwrap();
+        observer.disconnect().await.unwrap();
+        exists
     }
 
     #[tokio::test]
@@ -431,28 +427,26 @@ mod canonical_server_unit {
         let store = canonical_fixture_store().unwrap();
         assert!(store.owns_fixture());
         let database = store.database().to_owned();
-        let observer = CanonicalStore::connect(&options()).await.unwrap();
         let borrower = store.clone();
         drop(store);
-        assert!(database_exists(&observer, &database).await);
+        assert!(database_exists(&database).await);
         borrower.open().await.unwrap();
         drop(borrower);
-        assert!(database_exists(&observer, &database).await);
+        assert!(database_exists(&database).await);
     }
 
     #[tokio::test]
     async fn fixture_explicit_drain_retains_database_for_runner_disposition() {
         let store = canonical_fixture_store().unwrap();
         let database = store.database().to_owned();
-        let observer = CanonicalStore::connect(&options()).await.unwrap();
         let borrower = store.clone();
         store.remove_isolated_fixture().await.unwrap();
-        assert!(database_exists(&observer, &database).await);
+        assert!(database_exists(&database).await);
         // An outstanding borrower keeps its connection and owns final drain.
         borrower.open().await.unwrap();
         drop(store);
         drop(borrower);
-        assert!(database_exists(&observer, &database).await);
+        assert!(database_exists(&database).await);
     }
 
     #[tokio::test]
@@ -463,13 +457,13 @@ mod canonical_server_unit {
         external.database = fixture.database().to_owned();
         let observer = CanonicalStore::connect(&external).await.unwrap();
         assert!(!observer.owns_fixture());
-        assert!(database_exists(&fixture, &external.database).await);
+        assert!(database_exists(&external.database).await);
         let unowned_borrower = observer.clone();
         assert!(unowned_borrower.remove_isolated_fixture().await.is_err());
         drop(unowned_borrower);
         observer.drain_fixture_connection().await.unwrap();
         drop(observer);
-        assert!(database_exists(&fixture, &external.database).await);
+        assert!(database_exists(&external.database).await);
         fixture.remove_isolated_fixture().await.unwrap();
     }
 }
