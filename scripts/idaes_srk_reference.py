@@ -18,6 +18,10 @@ from pyomo.core.base.var import IndexedVar, VarData
 from pyomo.core.expr.numeric_expr import NumericValue
 from pyomo.environ import ConcreteModel, value
 
+from scripts.frozen_reference import regenerate_selected, table_reference
+
+CAS = {"benzene": "71-43-2", "toluene": "108-88-3"}
+
 
 class SrkState(Protocol):
     """The exact dynamically generated state members consumed by this oracle."""
@@ -55,6 +59,7 @@ class SrkFactory(Protocol):
 
 
 def main() -> None:
+    regenerate = regenerate_selected()
     if idaes.__version__ != "2.13.0":
         raise RuntimeError("the declared oracle requires IDAES 2.13.0")
     settings = deepcopy(configuration)
@@ -100,6 +105,21 @@ def main() -> None:
         Path(__file__).resolve().parents[1]
         / "packages/reference/data/oracles/idaes-2.13/data"
     )
+    critical = {
+        row["subject"]: (row["tc"], row["pc"], row["omega"])
+        for row in pq.read_table(destination / "bt_critical.parquet").to_pylist()
+    }
+    for species, cas in CAS.items():
+        parameters = settings["components"][species]["parameter_data"]
+        actual = (
+            parameters["temperature_crit"][0],
+            parameters["pressure_crit"][0],
+            parameters["omega"],
+        )
+        if critical.get(cas) != actual:
+            raise ValueError(
+                f"stale SRK critical input for {species}: {critical.get(cas)} != {actual}"
+            )
     states = [
         {
             "case": 0,
@@ -117,17 +137,19 @@ def main() -> None:
                 cast("float", value(state.fug_coeff_phase_comp["Vap", species]))
             ),
         }
-        for species, cas in (("benzene", "71-43-2"), ("toluene", "108-88-3"))
+        for species, cas in CAS.items()
     ]
-    pq.write_table(
-        pa.Table.from_pylist(states, schema=state_schema),
+    table_reference(
         destination / "srk_state.parquet",
-        compression="zstd",
+        pa.Table.from_pylist(states, schema=state_schema),
+        regenerate,
+        {"rho": (2e-12, 1e-10), "Z": (2e-12, 1e-12)},
     )
-    pq.write_table(
-        pa.Table.from_pylist(components, schema=component_schema),
+    table_reference(
         destination / "srk_components.parquet",
-        compression="zstd",
+        pa.Table.from_pylist(components, schema=component_schema),
+        regenerate,
+        {"ln_phi": (2e-12, 1e-12)},
     )
 
 

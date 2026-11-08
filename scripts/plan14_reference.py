@@ -7,7 +7,6 @@ from __future__ import annotations
 import hashlib
 import json
 from decimal import Decimal, localcontext
-from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TypedDict, cast
 
 import numpy as np
@@ -17,8 +16,48 @@ import scipy
 import teqp
 from scipy.optimize import least_squares
 
+from scripts.frozen_reference import (
+    json_reference,
+    regenerate_selected,
+    table_reference,
+)
+from scripts.scientific_reference import ROOT, require_input, selected_record
+
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from numpy.typing import NDArray
+
+STATES = (
+    (300.0, 10.0, [0.2, 0.3, 0.5]),
+    (350.0, 34.565566349336066, [0.2, 0.3, 0.5]),
+    (400.0, 1000.0, [0.6, 0.25, 0.15]),
+    (300.0, 14000.0, [0.1, 0.2, 0.7]),
+    (298.15, 10.0, [0.2, 0.3, 0.5]),
+)
+FIXTURE = "packages/reference/seed-data/models/pcsaft-fixtures.pse"
+
+
+def validate_states(root: Path = ROOT) -> None:
+    """The homogeneous reference conditions match the fixtures that consume each row."""
+    authored = (root / FIXTURE).read_text()
+    for index, (temperature, density, fractions) in enumerate(STATES):
+        case = f"homogeneous_{index}"
+        fixture = selected_record(
+            authored,
+            rf"test {case} oracle references\.plan14_thermo_reference fixture ([^\n]+)",
+            FIXTURE,
+        )
+        require_input(fixture, "fix root.T=", "{K};", temperature, case)
+        require_input(fixture, "fix root.rho=", "{mol/m^3};", density, case)
+        for name, amount in zip(
+            ("methane", "ethane", "propane"),
+            (*fractions[:2], 1.0 - sum(fractions[:2])),
+            strict=True,
+        ):
+            require_input(
+                fixture, f"fix root.amount[chem.{name}]=", "{mol};", amount, case
+            )
 
 
 class FlashModel(Protocol):
@@ -136,8 +175,9 @@ class ReferenceCase(TypedDict):
 
 
 def main() -> None:
-
-    root = Path(__file__).resolve().parents[1]
+    regenerate = regenerate_selected()
+    root = ROOT
+    validate_states(root)
     pc_path = (
         root / "packages/reference/data/gross-sadowski-2001/data/parameters.parquet"
     )
@@ -157,13 +197,7 @@ def main() -> None:
     model = teqp.PCSAFTEOS(coeffs, np.zeros((3, 3)))
     cases: list[ReferenceCase] = []
     # Finite homogeneous states, not implicit claims of global phase stability.
-    for temperature, density, composition in [
-        (300.0, 10.0, [0.2, 0.3, 0.5]),
-        (350.0, 34.565566349336066, [0.2, 0.3, 0.5]),
-        (400.0, 1000.0, [0.6, 0.25, 0.15]),
-        (300.0, 14000.0, [0.1, 0.2, 0.7]),
-        (298.15, 10.0, [0.2, 0.3, 0.5]),
-    ]:
+    for temperature, density, composition in STATES:
         x = np.array(composition)
         gas = model.get_R(x)
         ar01 = model.get_Ar01(temperature, density, x)
@@ -190,16 +224,14 @@ def main() -> None:
             {"x": x, "log1px": str((1 + Decimal(x)).ln())}
             for x in [-0.9999, 1e-8, 0.0001, 1.0, 10000.0]
         ]
-    (root / "tests/fixtures/plan14/real-algebra-reference.json").write_text(
-        json.dumps(
-            {
-                "oracle": "Python Decimal with exact binary64 inputs",
-                "precision": 100,
-                "cases": difficult,
-            },
-            indent=2,
-        )
-        + "\n"
+    json_reference(
+        root / "tests/fixtures/plan14/real-algebra-reference.json",
+        {
+            "oracle": "Python Decimal with exact binary64 inputs",
+            "precision": 100,
+            "cases": difficult,
+        },
+        regenerate,
     )
     result = {
         "schema": "plan14-thermodynamic-reference-v1",
@@ -250,6 +282,14 @@ def main() -> None:
         ],
         {"case": pa.int64()},
         result["generator"],
+        regenerate,
+        {
+            "pressure": (2e-12, 1e-6),
+            **{
+                name: (2e-12, 1e-8)
+                for name in ("enthalpy", "ideal_enthalpy", "h_residual")
+            },
+        },
     )
     write_reference(
         destination / "components.parquet",
@@ -260,6 +300,8 @@ def main() -> None:
         ],
         {"case": pa.int64(), "subject": pa.string()},
         result["generator"],
+        regenerate,
+        {"ln_phi": (2e-12, 1e-10)},
     )
     flash = result["flash"]
     write_reference(
@@ -277,6 +319,13 @@ def main() -> None:
         ],
         {"case": pa.int64()},
         result["generator"],
+        regenerate,
+        {
+            "liquid_density": (2e-12, 1e-8),
+            "vapor_density": (2e-12, 1e-8),
+            "beta": (2e-12, 1e-10),
+            "maximum_scaled_residual": (0.0, 1e-10),
+        },
     )
     write_reference(
         destination / "flash_components.parquet",
@@ -291,14 +340,24 @@ def main() -> None:
         ],
         {"subject": pa.string()},
         result["generator"],
+        regenerate,
+        {"liquid": (2e-12, 1e-10), "vapor": (2e-12, 1e-10)},
     )
     print(
-        f"Wrote {len(cases)} independent states and one flash to {destination.relative_to(root)}"
+        f"{'Wrote' if regenerate else 'Compared'} {len(cases)} independent states "
+        f"and one flash in {destination.relative_to(root)}"
     )
 
 
 def write_reference(
-    path: Path, rows: list[dict], types: dict[str, pa.DataType], metadata: dict
+    path: Path,
+    rows: list[dict],
+    types: dict[str, pa.DataType],
+    metadata: dict,
+    regenerate: bool,
+    allowances: dict[str, tuple[float, float]],
+    *,
+    check_metadata: bool = True,
 ) -> None:
     """Explicit schemas: identifiers and integer keys, otherwise SI Float64 observations."""
     schema = pa.schema(
@@ -308,11 +367,12 @@ def write_reference(
         ],
         metadata={b"oracle": json.dumps(metadata).encode()},
     )
-    pq.write_table(
-        pa.Table.from_pylist(rows, schema=schema),
+    table_reference(
         path,
-        compression="zstd",
-        version="2.6",
+        pa.Table.from_pylist(rows, schema=schema),
+        regenerate,
+        allowances,
+        check_metadata=check_metadata,
     )
 
 

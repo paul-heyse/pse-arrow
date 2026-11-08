@@ -16,10 +16,25 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from scripts.pfr_reference import INPUTS as CHEMISTRY
-from scripts.pfr_reference import rate_constant
-from scripts.scientific_reference import NUMBER, comparison, frozen_number, publish
+from scripts.pfr_reference import (
+    CONSTANTS,
+    SAPONIFICATION,
+    rate_constant,
+    validate_chemistry,
+)
+from scripts.scientific_reference import (
+    NUMBER,
+    ROOT,
+    comparison,
+    frozen_number,
+    publish,
+    require_input,
+    selected_record,
+)
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from numpy.typing import NDArray
 
 INPUTS = {
@@ -49,6 +64,126 @@ INPUTS = {
 INITIAL = [20.316088036339764, 304.0858373453369, 0.0, 0.40858373453369]
 TIMES = [0.0, 1.0, 5.0, 20.0]
 FIXTURE = "packages/reference/campaign/models/cstr-dynamics.pse"
+CONTROL = "packages/reference/process/models/control.pse"
+DELTA_T = "packages/reference/process/models/delta-t.pse"
+
+
+def validate_inputs(root: Path = ROOT) -> None:
+    """Bind the reduced ODE to both selected ControlledCSTR fixture routes."""
+    validate_chemistry(root)
+    authored = (root / FIXTURE).read_text()
+    model = selected_record(
+        authored,
+        r"def ControlledCSTR \{([\s\S]+?)\n\}\n@id\([^\n]+test cstr_integrated",
+        FIXTURE,
+    )
+    regulator = selected_record(
+        model, r"child regulator:control\.PID=control\.PID\(([^\n]+)\);", FIXTURE
+    )
+    if (
+        regulator
+        != f"timeline=t,first={TIMES[0]:g}{{s}},initial_filter={INITIAL[3]}{{s}}"
+    ):
+        raise ValueError("stale authored ControlledCSTR regulator binding")
+    for prefix, suffix, expected in (
+        ("param heat_gain:EnergyTransferRate=", "{W};", INPUTS["heat_gain_W"]),
+        ("reactor[i].inlet.T==", "{K};", INPUTS["inlet_temperature_K"]),
+        ("reactor[i].inlet.pressure==", "{Pa};", INPUTS["pressure_Pa"]),
+        ("reactor[i].inlet.volume_flow==", "{m^3/s};", INPUTS["volume_flow_m3_per_s"]),
+        ("reactor[i].volume==", "{m^3};", INPUTS["volume_m3"]),
+        ("reactor[i].delta_pressure==", "{Pa};", INPUTS["pressure_change_Pa"]),
+        (
+            "(reactor[i].outlet.T-",
+            "{K})/temperature_driving_force.kelvin_difference();",
+            INPUTS["measurement_origin_K"],
+        ),
+        ("regulator.setpoint[i]==", ";", INPUTS["setpoint"]),
+        (
+            "saponification.component_enthalpy(",
+            "{K},chemistry.liquid,chem.water)",
+            INITIAL[1],
+        ),
+        ("domain t:Time from", "{s} to", TIMES[0]),
+        ("{s} to", "{s};", TIMES[-1]),
+    ):
+        require_input(model, prefix, suffix, expected, f"{FIXTURE}::ControlledCSTR")
+    # Only first and last time enter the ODE. Bind the interior sampling to
+    # the actual integration route, which consumes the same model's assertions.
+    for name in ("cstr_integrated", "cstr_simultaneous"):
+        fixture = selected_record(
+            authored,
+            rf"test {name} oracle references\.cstr_controller_reference fixture ([^\n]+)",
+            FIXTURE,
+        )
+        if name == "cstr_integrated":
+            sample_times = selected_record(
+                fixture, r"integrate samples\(([^)]+)\)", name
+            )
+            if sample_times != ",".join(f"{time:g}{{s}}" for time in TIMES):
+                raise ValueError(
+                    f"stale authored sample times in {name}: {sample_times}"
+                )
+    for name, expected in (
+        ("feed:initial_feed", INPUTS["inlet_reactant_mol_per_m3"]),
+        ("initial_state:initial_outlet", INITIAL[0]),
+    ):
+        dataset = selected_record(
+            authored,
+            rf"dataset {name} [^\n]+\{{\n([\s\S]+?)\n\}}",
+            FIXTURE,
+        )
+        for species in ("sodium_hydroxide", "ethyl_acetate"):
+            require_input(dataset, f"[chem.{species}]=[", "{mol/m^3}];", expected, name)
+        require_input(
+            dataset,
+            "[chem.water]=[",
+            "{mol/m^3}];",
+            INPUTS["solvent_density_mol_per_m3"],
+            name,
+        )
+        if name == "feed:initial_feed":
+            for species in ("sodium_acetate", "ethanol"):
+                require_input(
+                    dataset,
+                    f"[chem.{species}]=[",
+                    "{mol/m^3}];",
+                    INPUTS["inlet_each_product_mol_per_m3"],
+                    name,
+                )
+    controller = selected_record(
+        (root / CONTROL).read_text(), r"def PID\(([^\n]+)\):Controller", CONTROL
+    )
+    for name in (
+        "Kp",
+        "Ti",
+        "Td",
+        "Tf",
+        "Taw",
+        "bias",
+        "lower",
+        "upper",
+        "eps",
+        "initial_integral",
+    ):
+        if name == "initial_integral":
+            expected = INITIAL[2]
+        else:
+            expected = INPUTS[
+                f"{name}_s" if name in {"Ti", "Td", "Tf", "Taw"} else name
+            ]
+        unit_type, suffix = (
+            ("Time", "{s},")
+            if name in {"Ti", "Td", "Tf", "Taw", "initial_integral"}
+            else ("Scalar", ",")
+        )
+        require_input(controller, f"{name}:{unit_type}=", suffix, expected, CONTROL)
+    require_input(
+        (root / DELTA_T).read_text(),
+        "fn kelvin_difference()->DeltaTemperature=",
+        "{K};",
+        INPUTS["measurement_scale_K"],
+        DELTA_T,
+    )
 
 
 def controller(state: NDArray[np.float64]) -> tuple[float, float, float, float]:
@@ -99,6 +234,7 @@ def rhs(_time: float, state: NDArray[np.float64]) -> list[float]:
 
 
 def main() -> int:
+    validate_inputs()
     checks: dict[str, bool] = {}
     runs: dict[str, object] = {}
     outputs: list[NDArray[np.float64]] = []
@@ -173,10 +309,11 @@ def main() -> int:
         [
             FIXTURE,
             "scripts/pfr_reference.py",
-            "packages/reference/process/models/control.pse",
+            CONTROL,
+            DELTA_T,
             "packages/reference/physical/models/math.pse",
-            "packages/reference/seed-data/models/saponification.pse",
-            "packages/reference/domain/models/constants.pse",
+            SAPONIFICATION,
+            CONSTANTS,
         ],
     )
 

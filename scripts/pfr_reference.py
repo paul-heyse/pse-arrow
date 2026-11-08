@@ -16,9 +16,19 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from scripts.scientific_reference import NUMBER, comparison, frozen_number, publish
+from scripts.scientific_reference import (
+    NUMBER,
+    ROOT,
+    comparison,
+    frozen_number,
+    publish,
+    require_input,
+    selected_record,
+)
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from numpy.typing import NDArray
 
 INPUTS = {
@@ -39,6 +49,113 @@ INPUTS = {
     "pressure_change_Pa": 0.0,
 }
 FIXTURE = "packages/reference/seed-data/models/unit-fixtures.pse"
+SAPONIFICATION = "packages/reference/seed-data/models/saponification.pse"
+CONSTANTS = "packages/reference/domain/models/constants.pse"
+
+
+def validate_chemistry(root: Path) -> None:
+    """Check the independent rate and caloric premises against the authored banks."""
+    reaction = (root / SAPONIFICATION).read_text()
+    record = selected_record(reaction, r"^\[hydrolysis\]=\[([^\n]+)\];", SAPONIFICATION)
+    kinetics = record.split(",")
+    if len(kinetics) != 5 or kinetics[3:] != [
+        "chem.sodium_hydroxide",
+        "chem.ethyl_acetate",
+    ]:
+        raise ValueError("stale saponification reactant order or reaction population")
+    for term, unit, key in zip(
+        kinetics[:3],
+        ("{m^3/(mol*s)}", "{J/mol}", "{J/mol}"),
+        (
+            "pre_exponential_m3_per_mol_s",
+            "activation_energy_J_per_mol",
+            "reaction_heat_J_per_mol",
+        ),
+        strict=True,
+    ):
+        require_input(term, "", unit, INPUTS[key], SAPONIFICATION)
+    for species, coefficient in (
+        ("sodium_hydroxide", -1.0),
+        ("ethyl_acetate", -1.0),
+        ("sodium_acetate", 1.0),
+        ("ethanol", 1.0),
+    ):
+        require_input(
+            reaction,
+            f"[hydrolysis,chem.{species}]=[",
+            "{1}];",
+            coefficient,
+            SAPONIFICATION,
+        )
+    for unit, key in (
+        ("{mol/m^3}];", "solvent_density_mol_per_m3"),
+        ("{J/(mol*K)}];", "solvent_heat_capacity_J_per_mol_K"),
+    ):
+        require_input(
+            reaction,
+            "[chem.water,compatibility.PhaseType.liquidPhase]=[298.15{K},323.15{K},",
+            unit,
+            INPUTS[key],
+            SAPONIFICATION,
+        )
+    require_input(
+        (root / CONSTANTS).read_text(),
+        "constant gas_constant: GasConstant =",
+        "{J/(mol*K)}",
+        INPUTS["gas_constant_J_per_mol_K"],
+        CONSTANTS,
+    )
+
+
+def validate_inputs(root: Path = ROOT) -> None:
+    """Validate the actual Radau case, including premises of the reduced equations."""
+    validate_chemistry(root)
+    case = selected_record(
+        (root / FIXTURE).read_text(),
+        r"test pfr_radau oracle references\.pfr_reference fixture ([^\n]+)",
+        FIXTURE,
+    )
+    for coordinate, unit, key in (
+        ("root.state[0].volume_flow", "m^3/s", "volume_flow_m3_per_s"),
+        ("root.state[0].T", "K", "inlet_temperature_K"),
+        ("root.state[0].pressure", "Pa", "pressure_Pa"),
+        (
+            "root.state[0].concentration[chem.water]",
+            "mol/m^3",
+            "solvent_density_mol_per_m3",
+        ),
+        (
+            "root.state[0].concentration[chem.sodium_hydroxide]",
+            "mol/m^3",
+            "inlet_reactant_mol_per_m3",
+        ),
+        (
+            "root.state[0].concentration[chem.ethyl_acetate]",
+            "mol/m^3",
+            "inlet_reactant_mol_per_m3",
+        ),
+        (
+            "root.state[0].concentration[chem.sodium_acetate]",
+            "mol/m^3",
+            "inlet_each_product_mol_per_m3",
+        ),
+        (
+            "root.state[0].concentration[chem.ethanol]",
+            "mol/m^3",
+            "inlet_each_product_mol_per_m3",
+        ),
+        ("root.length", "m", "length_m"),
+        ("root.area", "m^2", "area_m2"),
+        ("root.heat_duty", "W", "heat_duty_W"),
+        ("root.delta_pressure", "Pa", "pressure_change_Pa"),
+    ):
+        require_input(
+            case,
+            f"fix {coordinate}=",
+            f"{{{unit}}};",
+            INPUTS[key],
+            f"{FIXTURE}::pfr_radau",
+        )
 
 
 def rate_constant(temperature: float) -> float:
@@ -66,6 +183,7 @@ def rhs(_volume: float, state: NDArray[np.float64]) -> list[float]:
 
 
 def main() -> int:
+    validate_inputs()
     frozen = {
         "temperature_K": frozen_number(
             FIXTURE,
@@ -138,8 +256,8 @@ def main() -> int:
         checks,
         [
             FIXTURE,
-            "packages/reference/seed-data/models/saponification.pse",
-            "packages/reference/domain/models/constants.pse",
+            SAPONIFICATION,
+            CONSTANTS,
             "packages/reference/process/sources.md",
         ],
     )

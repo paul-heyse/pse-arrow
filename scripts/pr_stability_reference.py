@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -21,6 +22,9 @@ import pyarrow.parquet as pq
 import scipy
 import teqp
 from scipy.optimize import brentq
+
+from scripts.frozen_reference import json_reference, regenerate_selected
+from scripts.scientific_reference import ROOT, require_input, selected_record
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -135,7 +139,34 @@ def minimum(
 
 
 def main() -> None:
-    root = Path(__file__).resolve().parents[1]
+    regenerate = regenerate_selected()
+    root = ROOT
+    fixture = root / "packages/reference/seed-data/models/phase-stability-fixtures.pse"
+    selected_feed = selected_record(
+        fixture.read_text(),
+        r"dataset equimolar_bt:feeds provenance\(references\.pr_stability_reference, provenance\.Role\.synthetic\) \{\n([\s\S]+?)\n\}",
+        str(fixture),
+    )
+    for species, fraction in zip(("benzene", "toluene"), FEED, strict=True):
+        require_input(
+            selected_feed, f"[chem.{species}]=[", "];", float(fraction), str(fixture)
+        )
+    cubic = root / "packages/reference/methods/models/cubic.pse"
+    family = selected_record(
+        cubic.read_text(),
+        r"entity cubic_family pr provenance[^\n]+?\{([^}]+)\}",
+        str(cubic),
+    )
+    for name, value in zip(("omega_a", "omega_b"), AUTHORED, strict=True):
+        require_input(family, f"{name}=", ",", value, str(cubic))
+    constants = root / "packages/reference/domain/models/constants.pse"
+    require_input(
+        constants.read_text(),
+        "constant gas_constant: GasConstant =",
+        "{J/(mol*K)}",
+        GAS_CONSTANT,
+        str(constants),
+    )
     model = teqp.canonical_PR(
         CRITICAL_TEMPERATURE.tolist(),
         CRITICAL_PRESSURE.tolist(),
@@ -159,42 +190,69 @@ def main() -> None:
         raise ValueError(f"closed-form Peng-Robinson differs from teqp by {deviation}")
     authored = PengRobinson(AUTHORED)
     destination = root / "tests/fixtures/pr-stability-reference.json"
-    destination.write_text(
-        json.dumps(
-            {
-                "schema": "pr-stability-reference-v1",
-                "generator": {
-                    "library": "teqp",
-                    "version": teqp.__version__,
-                    "model": "canonical_PR",
-                    "scipy": scipy.__version__,
-                    "parameter_bank": str(BANK_PATH.relative_to(root)),
-                    "parameter_bank_sha256": hashlib.sha256(
-                        BANK_PATH.read_bytes()
-                    ).hexdigest(),
-                },
-                "components": ["benzene", "toluene"],
-                "critical_temperature": CRITICAL_TEMPERATURE.tolist(),
-                "critical_pressure": CRITICAL_PRESSURE.tolist(),
-                "acentric_factor": ACENTRIC_FACTOR.tolist(),
-                "binary_interactions": "zero",
-                "gas_constant": GAS_CONSTANT,
-                "temperature": TEMPERATURE,
-                "pressure": PRESSURE,
-                "feed": FEED.tolist(),
-                "teqp": asdict(reference),
-                "closed_form_deviation_from_teqp": deviation,
-                "authored_constants": {"omega_a": AUTHORED[0], "omega_b": AUTHORED[1]},
-                "authored": asdict(minimum(authored.pressure, authored.ln_phi)),
-                "scope": "the feed's vapor root against liquid-root trial phases: the stationary minimum of the reduced tangent-plane distance; negative, so the feed is unstable. `teqp` is teqp's canonical Peng-Robinson with the exact constants; `authored` is the closed-form Peng-Robinson above, checked against teqp at the exact constants and evaluated at the authored rounded constants",
-            },
-            indent=2,
-            allow_nan=False,
-        )
-        + "\n"
-    )
+    result = {
+        "schema": "pr-stability-reference-v1",
+        "generator": {
+            "library": "teqp",
+            "version": teqp.__version__,
+            "model": "canonical_PR",
+            "scipy": scipy.__version__,
+            "parameter_bank": str(BANK_PATH.relative_to(root)),
+            "parameter_bank_sha256": hashlib.sha256(BANK_PATH.read_bytes()).hexdigest(),
+        },
+        "components": ["benzene", "toluene"],
+        "critical_temperature": CRITICAL_TEMPERATURE.tolist(),
+        "critical_pressure": CRITICAL_PRESSURE.tolist(),
+        "acentric_factor": ACENTRIC_FACTOR.tolist(),
+        "binary_interactions": "zero",
+        "gas_constant": GAS_CONSTANT,
+        "temperature": TEMPERATURE,
+        "pressure": PRESSURE,
+        "feed": FEED.tolist(),
+        "teqp": asdict(reference),
+        "closed_form_deviation_from_teqp": deviation,
+        "authored_constants": {"omega_a": AUTHORED[0], "omega_b": AUTHORED[1]},
+        "authored": asdict(minimum(authored.pressure, authored.ln_phi)),
+        "scope": "the feed's vapor root against liquid-root trial phases: the stationary minimum of the reduced tangent-plane distance; negative, so the feed is unstable. `teqp` is teqp's canonical Peng-Robinson with the exact constants; `authored` is the closed-form Peng-Robinson above, checked against teqp at the exact constants and evaluated at the authored rounded constants",
+    }
+    if not regenerate:
+        frozen = json.loads(destination.read_text())
+        # The earliest golden recorded the original critical values without
+        # a file digest. Compare those values even for this older evidence.
+        generator = result["generator"]
+        for key in ("parameter_bank", "parameter_bank_sha256"):
+            if key not in frozen["generator"]:
+                generator.pop(key)
+        for branch in ("teqp", "authored"):
+            for coordinate, actual in result[branch].items():
+                expected = frozen[branch][coordinate]
+                pairs = (
+                    zip(actual, expected, strict=True)
+                    if isinstance(actual, list)
+                    else ((actual, expected),)
+                )
+                if not all(
+                    math.isfinite(observed)
+                    and math.isfinite(retained)
+                    and math.isclose(observed, retained, rel_tol=2e-12, abs_tol=1e-10)
+                    for observed, retained in pairs
+                ):
+                    raise ValueError(f"stale PR reference in {branch}.{coordinate}")
+                result[branch][coordinate] = expected
+        if not math.isclose(
+            deviation,
+            frozen["closed_form_deviation_from_teqp"],
+            rel_tol=0.0,
+            abs_tol=1e-10,
+        ):
+            raise ValueError("stale PR reference cross-method deviation")
+        result["closed_form_deviation_from_teqp"] = frozen[
+            "closed_form_deviation_from_teqp"
+        ]
+    json_reference(destination, result, regenerate)
     print(
-        f"Wrote the Peng-Robinson stability reference to {destination.relative_to(root)}"
+        f"{'Wrote' if regenerate else 'Compared'} the Peng-Robinson stability "
+        f"reference in {destination.relative_to(root)}"
     )
 
 

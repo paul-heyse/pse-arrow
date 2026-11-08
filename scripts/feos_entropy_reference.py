@@ -3,6 +3,7 @@
 """Independent homogeneous entropy from teqp residuals and Decimal Cp/T integrals."""
 
 import hashlib
+import json
 import sys
 from decimal import Decimal, localcontext
 from pathlib import Path
@@ -13,6 +14,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import teqp
 
+from scripts.frozen_reference import regenerate_selected
 from scripts.plan14_reference import caloric, saft_coefficients, write_reference
 
 
@@ -28,6 +30,7 @@ class ReferenceCase(TypedDict):
 
 
 def main() -> None:
+    regenerate = regenerate_selected()
     root = Path(__file__).resolve().parents[1]
     paths = [
         root / "packages/reference/data/gross-sadowski-2001/data/parameters.parquet",
@@ -111,6 +114,34 @@ def main() -> None:
         "cases": cases,
     }
     path = root / "packages/reference/data/oracles/teqp-0.23.1/data/entropy.parquet"
+    components_path = path.with_name("entropy_components.parquet")
+    if not regenerate:
+        # The retained artifact records the producing Python patch, while the
+        # route selects 3.12. Exact case coordinates and source identities
+        # remain independently compared. Numeric observations are compared below.
+        for golden in (path, components_path):
+            metadata = pq.read_schema(golden).metadata or {}
+            frozen = json.loads(metadata[b"oracle"])
+            producer = frozen["generator"].pop("python")
+            comparable = dict(output)
+            comparable["generator"] = {
+                name: value
+                for name, value in output["generator"].items()
+                if name != "python"
+            }
+            for record in (frozen, comparable):
+                record["cases"] = [
+                    {name: case[name] for name in ("cas", "fractions", "input")}
+                    for case in record["cases"]
+                ]
+            if (
+                not producer.startswith("3.12.")
+                or sys.version_info[:2] != (3, 12)
+                or frozen != comparable
+            ):
+                raise ValueError(
+                    f"stale entropy case inputs or source provenance in {golden}"
+                )
     write_reference(
         path,
         [
@@ -126,9 +157,15 @@ def main() -> None:
         ],
         {"case": pa.int64()},
         output,
+        regenerate,
+        {
+            name: (2e-12, 1e-10)
+            for name in ("entropy", "ideal_entropy", "residual_entropy")
+        },
+        check_metadata=False,
     )
     write_reference(
-        path.with_name("entropy_components.parquet"),
+        components_path,
         [
             {"case": i, "subject": subject, "fraction": fraction}
             for i, case in enumerate(cases)
@@ -136,9 +173,13 @@ def main() -> None:
         ],
         {"case": pa.int64(), "subject": pa.string()},
         output,
+        regenerate,
+        {},
+        check_metadata=False,
     )
     print(
-        f"Wrote {len(cases)} independent homogeneous entropy states to {path.relative_to(root)}"
+        f"{'Wrote' if regenerate else 'Compared'} {len(cases)} independent homogeneous "
+        f"entropy states in {path.relative_to(root)}"
     )
 
 

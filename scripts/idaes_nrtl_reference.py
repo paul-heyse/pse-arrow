@@ -10,12 +10,13 @@ from typing import Protocol, cast
 
 import idaes
 import pyarrow as pa
-import pyarrow.parquet as pq
 from idaes.models.properties.activity_coeff_models import BTX_activity_coeff_VLE
 from pyomo.core.base.constraint import IndexedConstraint
 from pyomo.core.base.var import IndexedVar
 from pyomo.environ import ConcreteModel, value
 from pyomo.util.calc_var_value import calculate_variable_from_constraint
+
+from scripts.frozen_reference import regenerate_selected, table_reference
 
 
 class NrtlState(Protocol):
@@ -59,6 +60,7 @@ class NrtlFactory(Protocol):
 
 
 def main() -> None:
+    regenerate = regenerate_selected()
     if idaes.__version__ != "2.13.0":
         raise RuntimeError("the declared oracle requires IDAES 2.13.0")
     root = Path(__file__).resolve().parents[1]
@@ -67,8 +69,19 @@ def main() -> None:
     match = re.search(
         r'@id\("([0-9a-f]{32})"\) entity provenance.release_artifact defaults', source
     )
-    if match is None:
+    if match is None or "release=references.idaes_2_13" not in source:
         raise RuntimeError("the NRTL oracle source declaration is absent")
+    members = re.search(r"set members:Set<chemistry\.species>=\{([^}]+)\};", source)
+    compositions = re.search(r"set compositions:Set<Scalar>=\{([^}]+)\};", source)
+    if (
+        members is None
+        or set(members[1].split(",")) != {"chem.benzene", "chem.toluene"}
+        or compositions is None
+    ):
+        raise ValueError("the authored NRTL population differs")
+    selected = tuple(float(number) for number in compositions[1].split(","))
+    if len(selected) != len(set(selected)) or not all(0.0 < x < 1.0 for x in selected):
+        raise ValueError("the authored NRTL compositions must be unique and interior")
     model = ConcreteModel()
     parameter_block = cast(
         "NrtlFactory", vars(BTX_activity_coeff_VLE)["BTXParameterBlock"]
@@ -98,7 +111,7 @@ def main() -> None:
                 }
             )
     observations = []
-    for x in (0.2, 0.5, 0.8):
+    for x in selected:
         for species, fraction in (("benzene", x), ("toluene", 1 - x)):
             state.mole_frac_phase_comp["Liq", species].set_value(fraction)
         # Solve each declared equality in dependency order. This uses no pse
@@ -126,7 +139,7 @@ def main() -> None:
     metadata = {
         b"oracle_release": b"idaes-pse==2.13.0",
         b"generator": b"scripts/idaes_nrtl_reference.py",
-        b"conditions": b"off-diagonal defaults; diagonal tau=0; x=0.2,0.5,0.8",
+        b"conditions": f"off-diagonal defaults; diagonal tau=0; x={','.join(f'{x:g}' for x in selected)}".encode(),
     }
     parameter_schema = pa.schema(
         [
@@ -145,13 +158,19 @@ def main() -> None:
         ],
         metadata=metadata,
     )
-    pq.write_table(
-        pa.Table.from_pylist(rows, schema=parameter_schema),
+    table_reference(
         destination / "data/nrtl_parameters.parquet",
+        pa.Table.from_pylist(rows, schema=parameter_schema),
+        regenerate,
+        {},
+        compression="snappy",
     )
-    pq.write_table(
-        pa.Table.from_pylist(observations, schema=observation_schema),
+    table_reference(
         destination / "data/nrtl_activities.parquet",
+        pa.Table.from_pylist(observations, schema=observation_schema),
+        regenerate,
+        {"value": (2e-12, 1e-12)},
+        compression="snappy",
     )
 
 

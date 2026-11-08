@@ -11,13 +11,74 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
+import pyarrow as pa
 
 from scripts import cstr_controller_reference as cstr
 from scripts import decay_fit_reference as decay
+from scripts import frozen_reference as frozen
+from scripts import pfr_reference as pfr
+from scripts import reference_attribution as attribution
 from scripts import scientific_reference as reference
 
 
 class ScientificReferenceTests(unittest.TestCase):
+    def test_table_compare_keeps_the_golden_and_requires_exact_input_coordinates(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "retained.parquet"
+            original = pa.table({"case": [0], "T": [358.0], "value": [1.0]})
+            allowances = {"value": (0.0, 1e-8)}
+            frozen.table_reference(path, original, True, allowances)
+            retained = path.read_bytes()
+            frozen.table_reference(path, original, False, allowances)
+            altered = pa.table({"case": [0], "T": [358.00000000001], "value": [1.0]})
+            with self.assertRaisesRegex(ValueError, "stale reference.*row 0, T"):
+                frozen.table_reference(path, altered, False, allowances)
+            self.assertEqual(path.read_bytes(), retained)
+
+    def test_authored_reference_inputs_refuse_stale_reaction_parameters(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in (pfr.FIXTURE, pfr.SAPONIFICATION, pfr.CONSTANTS):
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((reference.ROOT / name).read_bytes())
+            pfr.validate_inputs(root)
+            source = root / pfr.SAPONIFICATION
+            original = source.read_text()
+            self.assertEqual(original.count("3132000{m^3/(mol*s)}"), 1)
+            source.write_text(
+                original.replace("3132000{m^3/(mol*s)}", "3132001{m^3/(mol*s)}")
+            )
+            with self.assertRaisesRegex(ValueError, "stale authored input.*3132001"):
+                pfr.validate_inputs(root)
+            self.assertEqual(
+                (root / pfr.FIXTURE).read_bytes(),
+                (reference.ROOT / pfr.FIXTURE).read_bytes(),
+            )
+
+    def test_phase_attribution_refuses_a_different_case_or_historical_source(
+        self,
+    ) -> None:
+        original = (reference.ROOT / attribution.BT_FIXTURES).read_text()
+        bank = reference.ROOT / attribution.PRESSURE_BANK
+        attribution.check(reference.ROOT)
+        wrong_temperature = original.replace(
+            "fix root.T=358{K}", "fix root.T=359{K}", 1
+        )
+        with self.assertRaisesRegex(ValueError, "stale authored input.*nested_liquid"):
+            attribution.check_btideal(wrong_temperature, bank)
+        wrong_attribution = original.replace(
+            "test nested_liquid oracle references.analytic_btideal_liquid_358",
+            "test nested_liquid oracle references.idaes_test_btideal",
+            1,
+        )
+        with self.assertRaisesRegex(
+            ValueError, "nested_liquid: reference attribution differs"
+        ):
+            attribution.check_btideal(wrong_attribution, bank)
+
     def test_frozen_comparison_refuses_wrong_value_and_nonfinite(self) -> None:
         self.assertTrue(reference.comparison(2.0123424, "2.012342")["passed"])
         self.assertFalse(reference.comparison(2.012343, "2.012342")["passed"])

@@ -30,9 +30,34 @@ NUMBER = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?"
 
 def frozen_number(path: str, pattern: str) -> str:
     """Read exactly one expected numeric literal from the consuming authored file."""
-    matches = re.findall(pattern, (ROOT / path).read_text())
+    return selected_number((ROOT / path).read_text(), pattern, path)
+
+
+def selected_number(source: str, pattern: str, owner: str) -> str:
+    """Read a numeric literal from one explicitly selected authored record."""
+    matches = re.findall(pattern, source)
     if len(matches) != 1:
-        raise ValueError(f"expected one frozen value in {path}: {pattern}: {matches}")
+        raise ValueError(f"expected one frozen value in {owner}: {pattern}: {matches}")
+    return matches[0]
+
+
+def require_input(
+    source: str, prefix: str, suffix: str, expected: float, owner: str
+) -> None:
+    """Check an exact physical input, including its declared unit or delimiter."""
+    pattern = rf"{re.escape(prefix)}\s*({NUMBER})\s*{re.escape(suffix)}"
+    observed = selected_number(source, pattern, owner)
+    if float(observed) != expected:
+        raise ValueError(
+            f"stale authored input in {owner}: {prefix}{observed}{suffix}, expected {expected}"
+        )
+
+
+def selected_record(source: str, pattern: str, owner: str) -> str:
+    """Require one authored experiment or dataset, even if it has several values."""
+    matches = re.findall(pattern, source, flags=re.MULTILINE)
+    if len(matches) != 1:
+        raise ValueError(f"expected one authored record in {owner}: {pattern}")
     return matches[0]
 
 

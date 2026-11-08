@@ -14,9 +14,19 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.optimize import least_squares
 
-from scripts.scientific_reference import NUMBER, comparison, frozen_number, publish
+from scripts.scientific_reference import (
+    NUMBER,
+    ROOT,
+    comparison,
+    frozen_number,
+    publish,
+    require_input,
+    selected_record,
+)
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from numpy.typing import NDArray
 
 TIMES = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
@@ -24,6 +34,35 @@ OBSERVATIONS = np.array([2.02, 1.19, 0.75, 0.43, 0.28])
 BOUNDS = ([0.1, 0.01], [10.0, 5.0])
 SEEDS = [(1.0, 1.0), (0.1, 0.01), (0.1, 5.0), (10.0, 0.01), (10.0, 5.0), (2.0, 0.5)]
 FIXTURE = "packages/reference/seed-data/models/regression-fixtures.pse"
+
+
+def validate_inputs(root: Path = ROOT) -> None:
+    """Compare observations, sample times and parameter bounds with the authored fit."""
+    authored = (root / FIXTURE).read_text()
+    selected_record(
+        authored,
+        r"test first_order_decay_certified oracle references\.decay_fit_reference fixture ([^\n]+)",
+        FIXTURE,
+    )
+    sse = selected_record(authored, r"let sse:Scalar=([^\n]+);", FIXTURE)
+    # The authored expression repeats each residual to square it.
+    expected_terms = []
+    for time, y in zip(TIMES, OBSERVATIONS, strict=True):
+        model = (
+            "a" if time == 0 else "a*exp(-k)" if time == 1 else f"a*exp(-{time:g}*k)"
+        )
+        term = f"({y:g}-{model})"
+        expected_terms.append(f"{term}*{term}")
+    if sse != "+".join(expected_terms):
+        raise ValueError(
+            f"stale authored observations or sample coordinates in {FIXTURE}"
+        )
+    for name, lower, upper in zip(("a", "k"), *BOUNDS, strict=True):
+        bounds = selected_record(
+            authored, rf"annotation bounds {name}\(([^\n]+)\);", FIXTURE
+        )
+        require_input(bounds, "", ",", lower, FIXTURE)
+        require_input(bounds + ")", ",", ")", upper, FIXTURE)
 
 
 def residual(parameters: NDArray[np.float64]) -> NDArray[np.float64]:
@@ -38,6 +77,7 @@ def jacobian(parameters: NDArray[np.float64]) -> NDArray[np.float64]:
 
 
 def main() -> int:
+    validate_inputs()
     checks: dict[str, bool] = {}
     runs: list[dict[str, object]] = []
     parameters: list[NDArray[np.float64]] = []

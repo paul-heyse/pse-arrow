@@ -61,6 +61,9 @@
 @id("01a0ef5f693f74888be5966e171e4397") entity provenance.source analytic_hydraulic_work { title = "Incompressible hydraulic work and shaft efficiency on the dilute-liquid saponification state" }
 @id("01a0ef5f693f74888be5966f0e1b9d25") entity provenance.source analytic_temperature_differences { title = "Analytic mean temperature differences in kelvin" }
 @id("01a0ef5f693f74888be596706d57e72d") entity provenance.source analytic_stream_identity { title = "Material stream identity through typed component-flow, temperature and pressure connections" }
+@id("c21ba2c74e52457a858a9088882644b0") entity provenance.source analytic_btideal_liquid_358 { title = "Raoult-law liquid bound and component closure for 1 mol/s equimolar benzene/toluene at 358 K and 101325 Pa with RPP4 saturation inputs from the IDAES 2.13.0 bank" }
+@id("f82f80b8e8264b7ebedc7836d8e4c3dd") entity provenance.source analytic_btideal_vapor_378 { title = "Raoult-law vapor bound and component closure for 1 mol/s equimolar benzene/toluene at 378 K and 101325 Pa with RPP4 saturation inputs from the IDAES 2.13.0 bank" }
+@id("57a02a1428314ec8968bc4c477de85fd") entity provenance.source analytic_mixer_energy_minimum_pressure { title = "Water-only mixer with equal 0.001 m^3/s inlets at 320 and 300 K. Energy closure gives 310 K, the lower inlet pressure is 101325 Pa and total water flow is 110.776 mol/s." }
 @id("01a0ef5f693f74888be59671875b5370") entity provenance.source analytic_partition { title = "Phase-component material partition with an additive caloric identity" }
 @id("01a0ef5f693f74888be59672a6cf6c51") entity provenance.source analytic_single_component_balance { title = "Single-component water material and enthalpy conservation for each balance basis" }
 @id("01a0ef5f693f74888be59673fa9bc7a3") entity provenance.source analytic_ideal_tangent_plane { title = "The tangent-plane distance of an ideal mixture is the Kullback-Leibler divergence of the trial from the feed, zero at the feed" }
