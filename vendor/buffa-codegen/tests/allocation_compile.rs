@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+
 //! Compile and execute real opted-in generated view decoders. This fixture uses
 //! only published dependencies and the sibling maintained runtime; no shared
 //! target directory or source-tree-generated output is modified.
