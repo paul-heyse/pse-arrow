@@ -3036,7 +3036,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectAction",
       "schema_path": "docs/generated/schema/project-action.input.schema.json",
-      "schema_sha256": "bb12ba75c230edbc36f6993fcb79a63390df9e367ec441f4e6aa208a2a1ed42c",
+      "schema_sha256": "e45837392321e7b941ec9c8d8bf7c9e67e9eb304d1dd353554de04d0ee989a9f",
       "slug": "project-action",
       "version": null,
       "wire": "Native"
@@ -3048,7 +3048,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectAction",
       "schema_path": "docs/generated/schema/project-action.output.schema.json",
-      "schema_sha256": "3a801551e2f1731b1e34e260660f463c6394505b31fa2301b3daee9907402ab0",
+      "schema_sha256": "6a48407343b891e0fad47734645e0e8b906d7d8b45d3f423583dff674c3f8bf5",
       "slug": "project-action",
       "version": null,
       "wire": "Native"
@@ -3612,7 +3612,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectOperationRequest",
       "schema_path": "docs/generated/schema/project-operation-request.input.schema.json",
-      "schema_sha256": "075c682e9b9bfb643e35b3b86f31056481d8837c00172c05dc5811f833b87011",
+      "schema_sha256": "62467e43e74d3c26ade9712304670d65fac534d84f1d6d443c717126cc677bed",
       "slug": "project-operation-request",
       "version": 2,
       "wire": "Native"
@@ -3624,7 +3624,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectOperationRequest",
       "schema_path": "docs/generated/schema/project-operation-request.output.schema.json",
-      "schema_sha256": "2566ffcc48ddd46f2bd22ae9ef7c6d855d3642d95f49b774c867ab43be16d510",
+      "schema_sha256": "3339c2b2c373bbfcf1e0afafbf0b1d924769159e576294fce50d4846002c7456",
       "slug": "project-operation-request",
       "version": 2,
       "wire": "Native"
@@ -4428,7 +4428,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
       "schema_path": "docs/generated/schema/research-read-request.input.schema.json",
-      "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
+      "schema_sha256": "94632f9f8f291c869ca2460ec768937697d7382896f8252aa3f828fd4c04e860",
       "slug": "research-read-request",
       "version": 1,
       "wire": "FlatV1"
@@ -4440,7 +4440,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: workflow :: ResearchReadRequest",
       "schema_path": "docs/generated/schema/research-read-request.output.schema.json",
-      "schema_sha256": "90a69cfec8a041a27bd932b196b0d6cc7cddafd42dcf28c423854fa3e7db2f23",
+      "schema_sha256": "94632f9f8f291c869ca2460ec768937697d7382896f8252aa3f828fd4c04e860",
       "slug": "research-read-request",
       "version": 1,
       "wire": "FlatV1"
@@ -5946,6 +5946,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:ff1a74c7ea53aa1d1411c741566e03893a198bfeb539e88abd0476d4ded85545",
+  "schema_set_fingerprint": "blake3:c189b01abb983e015e8927a2df425a6470ee83160b6fab00bfd768c7e29b8023",
   "version": 1
 }

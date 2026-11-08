@@ -8089,7 +8089,7 @@
               "type": "string"
             },
             "limit": {
-              "description": "At most128metadata records.",
+              "description": "At most 128 metadata records.",
               "format": "uint",
               "minimum": 0,
               "type": "integer"
