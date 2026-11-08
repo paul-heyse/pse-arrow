@@ -370,13 +370,15 @@ struct ProducerIdentityArgs {
 enum Target {
     /// Passive recorded-result contracts before compiling runtime adapter consumers.
     RecordedResult,
+    /// Scientific worker contracts before compiling runtime adapter consumers.
+    ScientificWorker,
     /// Private scientific recipe messages and native adapters from compiler-owned data.
     ScientificRecipe,
     /// Native developer report/inventory observations and independent reader bundle.
     DeveloperEvidence,
     /// Native child protocol projected from its existing source owners.
     NativeRoot,
-    /// Compiled engineering and prepared scientific-worker contract projections.
+    /// Compiled engineering, scientific worker and reference contract projections.
     Engineering,
     /// Code-intelligence contracts, validation and representation fixtures.
     CodeIntelligence,

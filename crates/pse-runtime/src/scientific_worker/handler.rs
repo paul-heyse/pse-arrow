@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One child-native session; public wire claims never establish native meaning.
-use super::{PreparedSession, SessionHandle, WorkerError, protocol as p};
+use super::{
+    PreparedSession, SessionHandle, WorkerError,
+    failure_budget::{FAILURE_DEPTH, FAILURE_NODES, FAILURE_RETAINED_TEXT, failure_within_limits},
+};
 use pse_diagnostics::{
     DiagnosticCode, DiagnosticFacts, DiagnosticObservation, DiagnosticStage, TypedDiagnostic,
 };
 use pse_kernels::{
-    DerivativeOrder, ProviderDemand, ProviderError, ProviderRequest, ProviderRuntime,
+    DerivativeOrder, ProviderError, ProviderRequest, ProviderRuntime, worker_protocol as p,
 };
 use pse_model::{
     HeapUsage as _,
@@ -43,49 +46,6 @@ pub(super) fn order(value: u32) -> Result<DerivativeOrder, ProviderError> {
         )),
     }
 }
-impl p::Demand {
-    pub(super) fn capture(value: &ProviderDemand) -> Self {
-        match value {
-            ProviderDemand::CompleteJets => Self::CompleteJets,
-            ProviderDemand::SelectedColumns { columns } => {
-                Self::SelectedColumns(columns.iter().map(|&n| n as u64).collect())
-            }
-            ProviderDemand::JacobianAction { directions } => {
-                Self::JacobianAction(*directions as u64)
-            }
-            ProviderDemand::TransposeAction { cotangents } => {
-                Self::TransposeAction(*cotangents as u64)
-            }
-            ProviderDemand::WeightedSecondAction { directions } => {
-                Self::WeightedSecondAction(*directions as u64)
-            }
-        }
-    }
-    pub(super) fn restore(&self) -> Result<ProviderDemand, ProviderError> {
-        let extent = |n: u64| {
-            usize::try_from(n).map_err(|_| ProviderError::Limit("scientific worker demand extent"))
-        };
-        Ok(match self {
-            Self::CompleteJets => ProviderDemand::CompleteJets,
-            Self::SelectedColumns(columns) => ProviderDemand::SelectedColumns {
-                columns: columns
-                    .iter()
-                    .map(|&n| extent(n))
-                    .collect::<Result<_, _>>()?,
-            },
-            Self::JacobianAction(n) => ProviderDemand::JacobianAction {
-                directions: extent(*n)?,
-            },
-            Self::TransposeAction(n) => ProviderDemand::TransposeAction {
-                cotangents: extent(*n)?,
-            },
-            Self::WeightedSecondAction(n) => ProviderDemand::WeightedSecondAction {
-                directions: extent(*n)?,
-            },
-        })
-    }
-}
-
 /// Typed selected-water failure, retaining envelope coordinates as exact bits.
 pub(super) fn failure(error: WorkerError) -> p::Failure {
     failure_observation(&error)
@@ -97,14 +57,14 @@ pub(super) fn failure_observation(error: &WorkerError) -> p::Failure {
     observe_with_budget(
         error,
         FailureBudget {
-            nodes: p::FAILURE_NODES,
-            text: p::FAILURE_RETAINED_TEXT,
+            nodes: FAILURE_NODES,
+            text: FAILURE_RETAINED_TEXT,
         },
     )
 }
 fn observe_with_budget(error: &WorkerError, mut budget: FailureBudget) -> p::Failure {
     match capture_failure(error, 0, &mut budget) {
-        Ok(failure) if failure.within_limits() => failure,
+        Ok(failure) if failure_within_limits(&failure) => failure,
         _ => p::Failure::UnknownCompletion("scientific worker could not transfer the complete failure within its declared failure allowance".into()),
     }
 }
@@ -115,7 +75,7 @@ struct FailureBudget {
 }
 impl FailureBudget {
     fn node(&mut self, depth: usize) -> Result<(), ()> {
-        if depth > p::FAILURE_DEPTH {
+        if depth > FAILURE_DEPTH {
             return Err(());
         }
         self.nodes = self.nodes.checked_sub(1).ok_or(())?;
@@ -500,7 +460,7 @@ fn capture_provider_failure(
     })
 }
 pub(super) fn refusal(value: p::Failure) -> WorkerError {
-    if !value.within_limits() {
+    if !failure_within_limits(&value) {
         return WorkerError::UnknownCompletion(
             "scientific worker failure exceeds its declared restoration allowance".into(),
         );
@@ -633,7 +593,7 @@ pub(super) fn prepare(
             })
             .collect::<Result<_, _>>()?,
         order: order(request.order)?,
-        demand: request.demand.restore()?,
+        demand: (&request.demand).try_into()?,
     };
     let admitted = pse_backend_native::coolprop::descriptor(&registry, regime)?;
     if pse_kernels::portable::ProviderRecord::capture(&admitted) != request.spec {
@@ -769,7 +729,7 @@ mod tests {
                 }],
             })),
         };
-        assert!(original.retained_bytes().unwrap() < p::FAILURE_RETAINED_TEXT);
+        assert!(original.retained_bytes().unwrap() < FAILURE_RETAINED_TEXT);
         let p::Failure::Diagnostic(observed) = failure_observation(&original) else {
             panic!("an eligible leaf must survive transfer with its lifecycle context");
         };
@@ -851,14 +811,14 @@ mod tests {
     #[test]
     fn borrowed_failure_refuses_oversize_or_copy_budget_without_consuming_original() {
         let error = WorkerError::Provider(ProviderError::Contract(
-            "x".repeat(p::FAILURE_RETAINED_TEXT + 1),
+            "x".repeat(FAILURE_RETAINED_TEXT + 1),
         ));
         assert!(matches!(
             failure_observation(&error),
             p::Failure::UnknownCompletion(_)
         ));
         assert!(
-            matches!(&error, WorkerError::Provider(ProviderError::Contract(detail)) if detail.len() == p::FAILURE_RETAINED_TEXT + 1)
+            matches!(&error, WorkerError::Provider(ProviderError::Contract(detail)) if detail.len() == FAILURE_RETAINED_TEXT + 1)
         );
         let original = WorkerError::Provider(ProviderError::Contract(
             "original owned native cause".into(),
@@ -866,7 +826,7 @@ mod tests {
         let refused = observe_with_budget(
             &original,
             FailureBudget {
-                nodes: p::FAILURE_NODES,
+                nodes: FAILURE_NODES,
                 text: 0,
             },
         );
@@ -901,7 +861,7 @@ mod tests {
             }
         ));
         let mut deep = WorkerError::Provider(ProviderError::Contract("original deep cause".into()));
-        for _ in 0..p::FAILURE_DEPTH + 1 {
+        for _ in 0..FAILURE_DEPTH + 1 {
             deep = WorkerError::Retirement { causes: vec![deep] };
         }
         assert!(matches!(

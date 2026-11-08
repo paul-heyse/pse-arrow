@@ -6,10 +6,9 @@ use super::{
     generated::{pb::pse::scientific_worker::v1 as pb, services},
     handler, infrastructure,
     process::ParentGuard,
-    protocol as p,
 };
 use pse_ids::SemanticId;
-use pse_kernels::{ExecutionScope, ProviderError};
+use pse_kernels::{ExecutionScope, ProviderError, worker_protocol as p};
 use std::{
     collections::BTreeMap,
     path::PathBuf,
@@ -951,6 +950,7 @@ pub(super) fn serve_with_preparation(
             let mut sessions = BTreeMap::<SemanticId, PreparedSession>::new();
             let mut failures = Vec::new();
             while let Some(job) = receiving.blocking_recv() {
+                let shutdown = matches!(&job.request, p::Request::Shutdown);
                 let preparation = match &job.request {
                     p::Request::Prepare(value) => Some(value.handle.clone()),
                     _ => None,
@@ -1058,9 +1058,6 @@ pub(super) fn serve_with_preparation(
                             Ok(mut controls) => controls.handles.clear(),
                             Err(error) => failures.push(error),
                         }
-                        // Every native owner has settled; begin peer-led H2 drain
-                        // while the method still owns its response stream.
-                        drained.cancel();
                         super::retirement_result(failures)?;
                         Ok(p::Response::Shutdown)
                     }
@@ -1090,8 +1087,30 @@ pub(super) fn serve_with_preparation(
                         controls.handles.remove(&handle.generation);
                     }
                 }
-                let response =
-                    result.unwrap_or_else(|error| p::Response::Failure(handler::failure(error)));
+                let response = match result {
+                    Ok(response) => response,
+                    Err(error) if shutdown => {
+                        // The RPC is a passive observation. The original
+                        // process-wide retirement failure belongs to join.
+                        let observation = handler::failure_observation(&error);
+                        failures.push(error);
+                        p::Response::Failure(observation)
+                    }
+                    Err(error) => p::Response::Failure(handler::failure(error)),
+                };
+                #[cfg(test)]
+                if shutdown
+                    && !failures.is_empty()
+                    && let Err(error) = observe_shutdown_departure_for_test(&job.completion)
+                {
+                    failures.push(error);
+                    break;
+                }
+                if shutdown {
+                    // Every native owner has settled; begin peer-led H2 drain
+                    // while the method still owns its response stream.
+                    drained.cancel();
+                }
                 #[cfg(test)]
                 let response = perturb_response_for_test(response);
                 #[cfg(test)]
@@ -1128,6 +1147,8 @@ pub(super) fn serve_with_preparation(
                     result
                 }) {
                     failures.push(error);
+                }
+                if !failures.is_empty() {
                     break;
                 }
             }
@@ -1320,6 +1341,30 @@ fn observe_prepare_departure_for_test(
         prepared.handle.generation.to_string(),
     )
     .map_err(infrastructure)?;
+    wait_for_method_departure_for_test(completion)?;
+    std::fs::write(
+        marker.with_extension("prepare-departed"),
+        prepared.handle.generation.to_string(),
+    )
+    .map_err(infrastructure)
+}
+
+#[cfg(test)]
+fn observe_shutdown_departure_for_test(completion: &NativeCompletion) -> Result<(), WorkerError> {
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("shutdown-departure-retire-faults") {
+        return Ok(());
+    }
+    let marker = PathBuf::from(
+        std::env::var_os("PSE_SCIENCE_TEST_MARKER")
+            .ok_or_else(|| infrastructure("missing shutdown departure test marker"))?,
+    );
+    std::fs::write(marker.with_extension("shutdown-claimed"), b"retired")
+        .map_err(infrastructure)?;
+    wait_for_method_departure_for_test(completion)
+}
+
+#[cfg(test)]
+fn wait_for_method_departure_for_test(completion: &NativeCompletion) -> Result<(), WorkerError> {
     // Tokio 1.53.3 oneshot::Sender::is_closed guarantees send failure after
     // receiver departure. Wait for that actual server-method fact, never infer
     // it from dropping the client future or from a delay. This test-only wait
@@ -1328,16 +1373,12 @@ fn observe_prepare_departure_for_test(
     while !completion.response.is_closed() {
         if std::time::Instant::now() >= end {
             return Err(infrastructure(
-                "actual generated method did not depart before late Prepared delivery",
+                "actual generated method did not depart before late response delivery",
             ));
         }
         std::thread::sleep(Duration::from_millis(1));
     }
-    std::fs::write(
-        marker.with_extension("prepare-departed"),
-        prepared.handle.generation.to_string(),
-    )
-    .map_err(infrastructure)
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1374,20 +1415,15 @@ fn observe_orphan_retirement_for_test(
 fn observe_native_retirement_failures_for_test(
     failures: &[WorkerError],
 ) -> Result<(), WorkerError> {
-    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("prepare-departure-retire-faults") {
+    let mode = std::env::var("PSE_SCIENCE_TEST_MODE");
+    let shutdown = mode.as_deref() == Ok("shutdown-departure-retire-faults");
+    if !shutdown && mode.as_deref() != Ok("prepare-departure-retire-faults") {
         return Ok(());
     }
     let marker = PathBuf::from(
         std::env::var_os("PSE_SCIENCE_TEST_MARKER")
             .ok_or_else(|| infrastructure("missing retirement-failure test marker"))?,
     );
-    let orphan =
-        std::fs::read_to_string(marker.with_extension("prepare-built")).map_err(infrastructure)?;
-    let [original, WorkerError::Retirement { causes: remaining }] = failures else {
-        return Err(infrastructure(
-            "native failure did not retain original orphan and remaining-owner failures",
-        ));
-    };
     fn original_finish(error: &WorkerError, generation: &str) -> Result<(), WorkerError> {
         let WorkerError::Provider(ProviderError::Retirement { failures }) = error else {
             return Err(infrastructure(
@@ -1408,13 +1444,31 @@ fn observe_native_retirement_failures_for_test(
         }
         Ok(())
     }
-    original_finish(original, &orphan)?;
+    let mut generations = Vec::new();
+    let remaining = if shutdown {
+        let [WorkerError::Retirement { causes }] = failures else {
+            return Err(infrastructure(
+                "native Shutdown lost its original retirement failures",
+            ));
+        };
+        causes
+    } else {
+        let orphan = std::fs::read_to_string(marker.with_extension("prepare-built"))
+            .map_err(infrastructure)?;
+        let [original, WorkerError::Retirement { causes }] = failures else {
+            return Err(infrastructure(
+                "native failure did not retain original orphan and remaining-owner failures",
+            ));
+        };
+        original_finish(original, &orphan)?;
+        generations.push(orphan);
+        causes
+    };
     if remaining.len() != 2 {
         return Err(infrastructure(
             "native failure skipped a remaining prepared owner",
         ));
     }
-    let mut generations = vec![orphan];
     for error in remaining {
         let WorkerError::Lifecycle {
             action: "Stop",
@@ -1430,9 +1484,8 @@ fn observe_native_retirement_failures_for_test(
         original_finish(cause, &generation)?;
         generations.push(generation);
     }
-    // This is a child-local test witness, not a wire report or restored parent
-    // cause. The current non-Shutdown connection-loss path can exit(125) before
-    // joining this completed native result; parent qualification stays separate.
+    // This witness checks the child-owned typed errors. The parent separately
+    // checks its passive wire observation and actual process settlement.
     generations.sort();
     std::fs::write(
         marker.with_extension("native-errors"),

@@ -394,6 +394,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-kernels/src/worker_protocol.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/assembly.rs",
           "kind": "file"
         },
@@ -610,10 +614,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-runtime/src/workflow/bindings.rs",
           "kind": "file"
         },
@@ -767,6 +767,10 @@
         },
         {
           "path": "xtask/src/codegen/proto_projection.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/scientific_worker.rs",
           "kind": "file"
         }
       ],
@@ -1067,6 +1071,10 @@
         },
         {
           "path": "crates/pse-kernels/src/shape.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-kernels/src/worker_protocol.rs",
           "kind": "file"
         },
         {
@@ -1378,10 +1386,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-runtime/src/scientific_worker/protocol.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-runtime/src/tooling/metric_declarations.rs",
           "kind": "file"
         },
@@ -1610,6 +1614,10 @@
           "kind": "file"
         },
         {
+          "path": "xtask/src/codegen/scientific_worker.rs",
+          "kind": "file"
+        },
+        {
           "path": "xtask/src/development",
           "kind": "tree"
         },
@@ -1801,6 +1809,10 @@
         },
         {
           "path": "docs/generated/source-relationships/pse-recorded-result-v1",
+          "kind": "tree"
+        },
+        {
+          "path": "crates/pse-host/src/generated/recorded-result-policy",
           "kind": "tree"
         }
       ],

@@ -145,7 +145,7 @@ Allowed canonical members: `["preserve", "require_equal", "registered_conversion
 
 ## `Batch`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Batch`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::Batch`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -157,7 +157,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `BatchOutcome`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::BatchOutcome`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::BatchOutcome`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -168,7 +168,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `BatchPoint`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::BatchPoint`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_kernels::worker_protocol::BatchPoint`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -182,7 +182,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `BatchProduct`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::BatchProduct`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::BatchProduct`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -194,7 +194,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `BatchResult`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::BatchResult`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::BatchResult`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -264,7 +264,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Demand`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Demand`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_kernels::worker_protocol::Demand`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -389,7 +389,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Evaluate`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Evaluate`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_kernels::worker_protocol::Evaluate`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -404,7 +404,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `EvaluateBatch`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::EvaluateBatch`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_kernels::worker_protocol::EvaluateBatch`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -428,7 +428,7 @@ Allowed canonical members: `["analytic", "symbolic", "automatic", "supplied", "i
 
 ## `Failure`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Failure`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::Failure`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -460,7 +460,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Handle`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Handle`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Both`.
+Rust owner: `pse_kernels::worker_protocol::Handle`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -560,7 +560,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `KeyedFailure`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::KeyedFailure`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::KeyedFailure`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -899,7 +899,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Prepare`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Prepare`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 2. Direction: `Input`.
+Rust owner: `pse_kernels::worker_protocol::Prepare`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 2. Direction: `Input`.
 
 Reserved numbers: `[5]`. Reserved names: `["physical_registry"]`.
 
@@ -920,7 +920,7 @@ Reserved numbers: `[5]`. Reserved names: `["physical_registry"]`.
 
 ## `Prepared`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Prepared`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::Prepared`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -1102,7 +1102,7 @@ Allowed canonical members: `["elemental_at_conditions", "compound_at_conditions"
 
 ## `Request`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Request`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_kernels::worker_protocol::Request`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -1117,7 +1117,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Response`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Response`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::Response`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -1198,7 +1198,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `Values`
 
-Rust owner: `pse_runtime::scientific_worker::protocol::Values`. Source: `crates/pse-runtime/src/scientific_worker/protocol.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_kernels::worker_protocol::Values`. Source: `crates/pse-kernels/src/worker_protocol.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 

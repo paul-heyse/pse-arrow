@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Source-forward passive contract generation, independent of runtime compilation.
-use anyhow::Result;
 #[cfg(any(feature = "product-schemas", test))]
 use anyhow::ensure;
+use anyhow::{Context, Result};
 use buffa_codegen::generated::descriptor::FileDescriptorSet;
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
 use pse_contract::boundary_projection::ProjectionGraph;
@@ -14,6 +14,8 @@ pub(super) const FILE: &str = "recorded_result.proto";
 pub(super) const DESTINATION: &str = "crates/pse-runtime/src/generated/recorded-result";
 pub(super) const MODULE: &str = "crate::recorded_result_projection::pb";
 const PRODUCER: &str = "pse-recorded-result-v1";
+const POLICY_DESTINATION: &str = "crates/pse-host/src/generated/recorded-result-policy";
+const POLICY_FILE: &str = "native-policy.rs";
 
 pub(super) fn graph() -> Result<ProjectionGraph> {
     Ok(ProjectionGraph::of::<
@@ -101,6 +103,23 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         output,
         PRODUCER,
     )?;
+    // The policy is data-only and consumed by the independent schema CLI.
+    // Keep its generated owner separate from the runtime's message bindings.
+    let former_policy = Path::new(DESTINATION).join(POLICY_FILE);
+    let policy_root = Path::new(POLICY_DESTINATION).to_path_buf();
+    let policy_path = policy_root.join(POLICY_FILE);
+    let policy_source = tree
+        .files
+        .remove(&former_policy)
+        .context("recorded-result native policy missing from its projection")?;
+    let mut policy_tree = GeneratedTree::empty(vec![policy_root]);
+    policy_tree.files.insert(policy_path.clone(), policy_source);
+    super::proto_projection::merge_independent(&mut tree, policy_tree)?;
+    for relationship in &mut tree.relationships {
+        if Path::new(&relationship.output_path) == former_policy {
+            relationship.output_path = policy_path.to_string_lossy().into_owned();
+        }
+    }
     let source = boundary_projection::native_adapters_scoped(
         &graph,
         &["RecordedResultSelection"],
@@ -165,6 +184,20 @@ mod tests {
                 .unwrap();
         assert!(adapters.contains("pse_model::recorded_result::PackResultSelection"));
         assert!(!adapters.contains("fn decode_recorded_"));
+        let policy = Path::new(POLICY_DESTINATION).join(POLICY_FILE);
+        assert!(tree.files.contains_key(&policy));
+        assert!(
+            !tree
+                .files
+                .contains_key(&Path::new(DESTINATION).join(POLICY_FILE))
+        );
+        assert_eq!(
+            tree.relationships
+                .iter()
+                .filter(|entry| Path::new(&entry.output_path) == policy)
+                .count(),
+            graph.definitions().len(),
+        );
     }
 
     #[test]

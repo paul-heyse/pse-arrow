@@ -1085,7 +1085,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
-> for crate::scientific_worker::protocol::Batch {
+> for pse_kernels::worker_protocol::Batch {
     fn into_wire(
         self,
         path: &str,
@@ -1094,8 +1094,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "invocation"), (3, "points")],
             path,
@@ -1129,15 +1129,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
-> for crate::scientific_worker::protocol::Batch {
+> for pse_kernels::worker_protocol::Batch {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Batch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "invocation"), (3, "points")],
             path,
@@ -1175,7 +1175,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
-> for crate::scientific_worker::protocol::BatchOutcome {
+> for pse_kernels::worker_protocol::BatchOutcome {
     fn into_wire(
         self,
         path: &str,
@@ -1184,8 +1184,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id"), (2, "result")],
             path,
@@ -1209,15 +1209,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
-> for crate::scientific_worker::protocol::BatchOutcome {
+> for pse_kernels::worker_protocol::BatchOutcome {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchOutcome as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "id"), (2, "result")],
             path,
@@ -1243,7 +1243,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
-> for crate::scientific_worker::protocol::BatchPoint {
+> for pse_kernels::worker_protocol::BatchPoint {
     fn into_wire(
         self,
         path: &str,
@@ -1252,8 +1252,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1325,15 +1325,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
-> for crate::scientific_worker::protocol::BatchPoint {
+> for pse_kernels::worker_protocol::BatchPoint {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchPoint as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "id"),
@@ -1418,7 +1418,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
-> for crate::scientific_worker::protocol::BatchProduct {
+> for pse_kernels::worker_protocol::BatchProduct {
     fn into_wire(
         self,
         path: &str,
@@ -1427,8 +1427,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "values"), (2, "jacobian"), (3, "hessians")],
             path,
@@ -1479,15 +1479,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
-> for crate::scientific_worker::protocol::BatchProduct {
+> for pse_kernels::worker_protocol::BatchProduct {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::BatchProduct as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "values"), (2, "jacobian"), (3, "hessians")],
             path,
@@ -1547,7 +1547,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
-> for crate::scientific_worker::protocol::BatchResult {
+> for pse_kernels::worker_protocol::BatchResult {
     fn into_wire(
         self,
         path: &str,
@@ -1557,17 +1557,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -1593,17 +1593,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -1640,7 +1640,7 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
-> for crate::scientific_worker::protocol::BatchResult {
+> for pse_kernels::worker_protocol::BatchResult {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
         path: &str,
@@ -1662,10 +1662,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -1682,7 +1682,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -1695,10 +1695,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -1715,7 +1715,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::BatchResult as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -2033,7 +2033,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-> for crate::scientific_worker::protocol::Demand {
+> for pse_kernels::worker_protocol::Demand {
     fn into_wire(
         self,
         path: &str,
@@ -2043,17 +2043,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -2071,17 +2071,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2113,17 +2113,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2147,17 +2147,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2181,17 +2181,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
             5,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -2226,7 +2226,7 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-> for crate::scientific_worker::protocol::Demand {
+> for pse_kernels::worker_protocol::Demand {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
         path: &str,
@@ -2248,10 +2248,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -2260,7 +2260,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -2273,10 +2273,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -2301,7 +2301,7 @@ impl NativeFrom<
                     },
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -2314,10 +2314,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -2328,7 +2328,7 @@ impl NativeFrom<
                     native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
@@ -2341,10 +2341,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -2355,7 +2355,7 @@ impl NativeFrom<
                     native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
@@ -2368,10 +2368,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::FIELD_LAYOUT,
                     1,
@@ -2382,7 +2382,7 @@ impl NativeFrom<
                     native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::from_projection_alternative(fields),
                 )
@@ -3331,7 +3331,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
-> for crate::scientific_worker::protocol::Evaluate {
+> for pse_kernels::worker_protocol::Evaluate {
     fn into_wire(
         self,
         path: &str,
@@ -3340,8 +3340,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "handle"),
@@ -3418,15 +3418,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
-> for crate::scientific_worker::protocol::Evaluate {
+> for pse_kernels::worker_protocol::Evaluate {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Evaluate as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "handle"),
@@ -3516,7 +3516,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
-> for crate::scientific_worker::protocol::EvaluateBatch {
+> for pse_kernels::worker_protocol::EvaluateBatch {
     fn into_wire(
         self,
         path: &str,
@@ -3525,8 +3525,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "invocation"), (3, "points")],
             path,
@@ -3560,15 +3560,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
-> for crate::scientific_worker::protocol::EvaluateBatch {
+> for pse_kernels::worker_protocol::EvaluateBatch {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::EvaluateBatch as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "invocation"), (3, "points")],
             path,
@@ -3639,7 +3639,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
-> for crate::scientific_worker::protocol::Failure {
+> for pse_kernels::worker_protocol::Failure {
     fn into_wire(
         self,
         path: &str,
@@ -3649,17 +3649,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -3677,17 +3677,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -3705,17 +3705,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3739,17 +3739,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3773,17 +3773,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             5,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3807,17 +3807,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "axis"), (2, "value"), (3, "lower"), (4, "upper")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             6,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1, field_2, field_3)) => {
@@ -3853,17 +3853,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 7,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 7,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             7,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3887,17 +3887,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 8,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 8,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             8,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3921,17 +3921,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 9,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 9,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "failures")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             9,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -3963,17 +3963,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 10,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 10,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "operation"), (2, "cleanup")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             10,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1)) => {
@@ -4005,17 +4005,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 11,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 11,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             11,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -4039,17 +4039,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 12,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 12,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             12,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -4075,17 +4075,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 13,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 13,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "causes")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             13,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -4117,17 +4117,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 14,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 14,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             14,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -4151,17 +4151,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 15,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 15,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             15,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -4185,17 +4185,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 16,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 16,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             16,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -4213,17 +4213,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 17,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                 17,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "selector"), (2, "bound"), (3, "selected")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
             17,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1, field_2)) => {
@@ -4261,7 +4261,7 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
-> for crate::scientific_worker::protocol::Failure {
+> for pse_kernels::worker_protocol::Failure {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
         path: &str,
@@ -4283,10 +4283,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4295,7 +4295,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -4308,10 +4308,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4320,7 +4320,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -4333,10 +4333,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4347,7 +4347,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
@@ -4360,10 +4360,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4374,7 +4374,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
@@ -4387,10 +4387,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4401,7 +4401,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::from_projection_alternative(fields),
                 )
@@ -4414,10 +4414,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4431,7 +4431,7 @@ impl NativeFrom<
                     native_from::<_, u64>(wire.upper, &child_path(path, "upper"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::from_projection_alternative(fields),
                 )
@@ -4444,10 +4444,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         7,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         7,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4458,7 +4458,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         7,
                     >>::from_projection_alternative(fields),
                 )
@@ -4471,10 +4471,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         8,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         8,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4485,7 +4485,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         8,
                     >>::from_projection_alternative(fields),
                 )
@@ -4498,10 +4498,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         9,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         9,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4526,7 +4526,7 @@ impl NativeFrom<
                     },
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         9,
                     >>::from_projection_alternative(fields),
                 )
@@ -4539,10 +4539,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         10,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         10,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4572,7 +4572,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         10,
                     >>::from_projection_alternative(fields),
                 )
@@ -4585,10 +4585,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         11,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         11,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4599,7 +4599,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         11,
                     >>::from_projection_alternative(fields),
                 )
@@ -4612,10 +4612,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         12,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         12,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4632,7 +4632,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         12,
                     >>::from_projection_alternative(fields),
                 )
@@ -4645,10 +4645,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         13,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         13,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4673,7 +4673,7 @@ impl NativeFrom<
                     },
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         13,
                     >>::from_projection_alternative(fields),
                 )
@@ -4686,10 +4686,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         14,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         14,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4700,7 +4700,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         14,
                     >>::from_projection_alternative(fields),
                 )
@@ -4713,10 +4713,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         15,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         15,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4727,7 +4727,7 @@ impl NativeFrom<
                     native_from::<_, String>(wire.value, &child_path(path, "value"))?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         15,
                     >>::from_projection_alternative(fields),
                 )
@@ -4740,10 +4740,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         16,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         16,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4752,7 +4752,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         16,
                     >>::from_projection_alternative(fields),
                 )
@@ -4765,10 +4765,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         17,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         17,
                     >>::FIELD_LAYOUT,
                     1,
@@ -4790,7 +4790,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Failure as pse_contract::boundary_projection::ProjectionAlternative<
                         17,
                     >>::from_projection_alternative(fields),
                 )
@@ -4800,7 +4800,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-> for crate::scientific_worker::protocol::Handle {
+> for pse_kernels::worker_protocol::Handle {
     fn into_wire(
         self,
         path: &str,
@@ -4809,8 +4809,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "attempt"), (2, "session"), (3, "generation")],
             path,
@@ -4834,15 +4834,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-> for crate::scientific_worker::protocol::Handle {
+> for pse_kernels::worker_protocol::Handle {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "attempt"), (2, "session"), (3, "generation")],
             path,
@@ -5747,7 +5747,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
-> for crate::scientific_worker::protocol::KeyedFailure {
+> for pse_kernels::worker_protocol::KeyedFailure {
     fn into_wire(
         self,
         path: &str,
@@ -5756,8 +5756,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "cause")],
             path,
@@ -5781,15 +5781,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
-> for crate::scientific_worker::protocol::KeyedFailure {
+> for pse_kernels::worker_protocol::KeyedFailure {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::KeyedFailure as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "cause")],
             path,
@@ -8810,7 +8810,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
-> for crate::scientific_worker::protocol::Prepare {
+> for pse_kernels::worker_protocol::Prepare {
     fn into_wire(
         self,
         path: &str,
@@ -8819,8 +8819,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             2,
             &[
                 (1, "version"),
@@ -8915,15 +8915,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
-> for crate::scientific_worker::protocol::Prepare {
+> for pse_kernels::worker_protocol::Prepare {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             2,
             &[
                 (1, "version"),
@@ -9012,7 +9012,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
-> for crate::scientific_worker::protocol::Prepared {
+> for pse_kernels::worker_protocol::Prepared {
     fn into_wire(
         self,
         path: &str,
@@ -9021,8 +9021,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "batch_supported")],
             path,
@@ -9047,15 +9047,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
-> for crate::scientific_worker::protocol::Prepared {
+> for pse_kernels::worker_protocol::Prepared {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Prepared as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "handle"), (2, "batch_supported")],
             path,
@@ -10020,7 +10020,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
-> for crate::scientific_worker::protocol::Request {
+> for pse_kernels::worker_protocol::Request {
     fn into_wire(
         self,
         path: &str,
@@ -10030,17 +10030,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10066,17 +10066,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10102,17 +10102,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10138,17 +10138,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10174,17 +10174,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             5,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -10202,17 +10202,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
             6,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10249,7 +10249,7 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
-> for crate::scientific_worker::protocol::Request {
+> for pse_kernels::worker_protocol::Request {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
         path: &str,
@@ -10271,10 +10271,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10291,7 +10291,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -10304,10 +10304,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10324,7 +10324,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -10337,10 +10337,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10357,7 +10357,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
@@ -10370,10 +10370,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10390,7 +10390,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
@@ -10403,10 +10403,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10415,7 +10415,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::from_projection_alternative(fields),
                 )
@@ -10428,10 +10428,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10448,7 +10448,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Request as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::from_projection_alternative(fields),
                 )
@@ -10458,7 +10458,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
-> for crate::scientific_worker::protocol::Response {
+> for pse_kernels::worker_protocol::Response {
     fn into_wire(
         self,
         path: &str,
@@ -10468,17 +10468,17 @@ impl NativeInto<
     > {
         let value = self;
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 1,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             1,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10504,17 +10504,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 2,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             2,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10540,17 +10540,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 3,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             3,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10576,17 +10576,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 4,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             4,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10612,17 +10612,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 5,
             >>::FIELD_LAYOUT,
             1,
             &[],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             5,
         >>::into_projection_alternative(value) {
             Ok(()) => {
@@ -10640,17 +10640,17 @@ impl NativeInto<
             Err(value) => value,
         };
         layout(
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::VERSION,
-            <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+            <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                 6,
             >>::FIELD_LAYOUT,
             1,
             &[(1, "value")],
             path,
         )?;
-        let value = match <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+        let value = match <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
             6,
         >>::into_projection_alternative(value) {
             Ok((field_0,)) => {
@@ -10687,7 +10687,7 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
-> for crate::scientific_worker::protocol::Response {
+> for pse_kernels::worker_protocol::Response {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
         path: &str,
@@ -10709,10 +10709,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10729,7 +10729,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         1,
                     >>::from_projection_alternative(fields),
                 )
@@ -10742,10 +10742,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10762,7 +10762,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
                     >>::from_projection_alternative(fields),
                 )
@@ -10775,10 +10775,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10795,7 +10795,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         3,
                     >>::from_projection_alternative(fields),
                 )
@@ -10808,10 +10808,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10828,7 +10828,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         4,
                     >>::from_projection_alternative(fields),
                 )
@@ -10841,10 +10841,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10853,7 +10853,7 @@ impl NativeFrom<
                 )?;
                 let fields = ();
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         5,
                     >>::from_projection_alternative(fields),
                 )
@@ -10866,10 +10866,10 @@ impl NativeFrom<
                 let wire = *wire;
                 unknown_fields(&wire.__buffa_unknown_fields, path)?;
                 layout(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::VERSION,
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::FIELD_LAYOUT,
                     1,
@@ -10886,7 +10886,7 @@ impl NativeFrom<
                     )?,
                 );
                 Ok(
-                    <crate::scientific_worker::protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
+                    <pse_kernels::worker_protocol::Response as pse_contract::boundary_projection::ProjectionAlternative<
                         6,
                     >>::from_projection_alternative(fields),
                 )
@@ -11236,7 +11236,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
-> for crate::scientific_worker::protocol::Values {
+> for pse_kernels::worker_protocol::Values {
     fn into_wire(
         self,
         path: &str,
@@ -11245,8 +11245,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::scientific_worker::protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "handle"),
@@ -11310,15 +11310,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
-> for crate::scientific_worker::protocol::Values {
+> for pse_kernels::worker_protocol::Values {
     fn from_wire(
         wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::scientific_worker::protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::scientific_worker::protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_kernels::worker_protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::Values as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "handle"),
@@ -11392,7 +11392,7 @@ impl NativeFrom<
 }
 /// Encode the actual native `Request` and validate outgoing local rules.
 pub(super) fn encode_request(
-    native: crate::scientific_worker::protocol::Request,
+    native: pse_kernels::worker_protocol::Request,
 ) -> Result<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
     BoundaryProjectionError,
@@ -11402,12 +11402,12 @@ pub(super) fn encode_request(
 /// Adopt known `Request` meaning under this package's declared unknown-field policy.
 pub(super) fn decode_request(
     wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
-) -> Result<crate::scientific_worker::protocol::Request, BoundaryProjectionError> {
+) -> Result<pse_kernels::worker_protocol::Request, BoundaryProjectionError> {
     decode_root(wire, "Request")
 }
 /// Encode the actual native `Response` and validate outgoing local rules.
 pub(super) fn encode_response(
-    native: crate::scientific_worker::protocol::Response,
+    native: pse_kernels::worker_protocol::Response,
 ) -> Result<
     crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
     BoundaryProjectionError,
@@ -11417,6 +11417,6 @@ pub(super) fn encode_response(
 /// Adopt known `Response` meaning under this package's declared unknown-field policy.
 pub(super) fn decode_response(
     wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
-) -> Result<crate::scientific_worker::protocol::Response, BoundaryProjectionError> {
+) -> Result<pse_kernels::worker_protocol::Response, BoundaryProjectionError> {
     decode_root(wire, "Response")
 }

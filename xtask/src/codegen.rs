@@ -11,7 +11,8 @@ mod code_intelligence;
     test,
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 mod contract_metadata;
 #[cfg(feature = "host-contracts")]
@@ -41,6 +42,8 @@ mod private_documents;
 mod schemas;
 #[cfg(feature = "product-schemas")]
 mod scientific_recipe;
+#[cfg(feature = "scientific-worker-contracts")]
+mod scientific_worker;
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -61,8 +64,15 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     if only == Some(Target::HostedProjections) && !check {
         bail!("hosted-projections is a check-only selection");
     }
-    if only == Some(Target::RecordedResult) {
-        let tree = recorded_result_tree(root)?;
+    if matches!(
+        only,
+        Some(Target::RecordedResult | Target::ScientificWorker)
+    ) {
+        let tree = if only == Some(Target::RecordedResult) {
+            recorded_result_tree(root)?
+        } else {
+            scientific_worker_tree(root)?
+        };
         validate_tree(&tree)?;
         return if check {
             check_tree(root, &tree)
@@ -138,6 +148,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             | Target::CodeIntelligence
             | Target::Engineering
             | Target::RecordedResult
+            | Target::ScientificWorker
             | Target::DeveloperEvidence
             | Target::NativeRoot
             | Target::ScientificRecipe,
@@ -224,6 +235,15 @@ fn recorded_result_tree(root: &Path) -> Result<GeneratedTree> {
 #[cfg(not(feature = "recorded-result-contracts"))]
 fn recorded_result_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("recorded-result projections require recorded-result-contracts")
+}
+
+#[cfg(feature = "scientific-worker-contracts")]
+fn scientific_worker_tree(root: &Path) -> Result<GeneratedTree> {
+    scientific_worker::generate(&contract_metadata::imports(root)?)
+}
+#[cfg(not(feature = "scientific-worker-contracts"))]
+fn scientific_worker_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("scientific-worker projections require scientific-worker-contracts")
 }
 
 #[cfg(feature = "product-schemas")]

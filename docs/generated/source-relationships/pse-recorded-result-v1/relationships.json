@@ -17,6 +17,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-host/src/generated/recorded-result-policy/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/recorded_result.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::recorded_result::PackResultContext"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "RecordedResultContext",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/recorded_result.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/descriptor-source.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
@@ -50,22 +66,6 @@
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/recorded_result.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::recorded_result::PackResultContext"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "RecordedResultContext",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/recorded_result.rs",
-      "generator_symbol": "generate",
-      "output_path": "crates/pse-runtime/src/generated/recorded-result/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
       "source_role": "semantic_owner",
@@ -177,6 +177,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-host/src/generated/recorded-result-policy/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/recorded_result.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::recorded_result::PackResultPredicate"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "RecordedResultPredicate",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/recorded_result.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/descriptor-source.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
@@ -210,22 +226,6 @@
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/recorded_result.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::recorded_result::PackResultPredicate"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "RecordedResultPredicate",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/recorded_result.rs",
-      "generator_symbol": "generate",
-      "output_path": "crates/pse-runtime/src/generated/recorded-result/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
       "source_role": "semantic_owner",
@@ -353,6 +353,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-host/src/generated/recorded-result-policy/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/recorded_result.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::recorded_result::PackResultSelection"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "RecordedResultSelection",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/recorded_result.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/descriptor-source.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
@@ -386,22 +402,6 @@
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/recorded_result.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::recorded_result::PackResultSelection"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "RecordedResultSelection",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/recorded_result.rs",
-      "generator_symbol": "generate",
-      "output_path": "crates/pse-runtime/src/generated/recorded-result/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
       "source_role": "semantic_owner",
@@ -513,6 +513,22 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
+      "output_path": "crates/pse-host/src/generated/recorded-result-policy/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-model/src/recorded_result.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_model::recorded_result::PackScientificState"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "RecordedScientificUsability",
+      "declaration_kind": "rust_projection",
+      "direction": "Output",
+      "generator_path": "xtask/src/codegen/recorded_result.rs",
+      "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/descriptor-source.bin",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
@@ -546,22 +562,6 @@
       "generator_path": "xtask/src/codegen/recorded_result.rs",
       "generator_symbol": "generate",
       "output_path": "crates/pse-runtime/src/generated/recorded-result/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/recorded_result.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::recorded_result::PackScientificState"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "RecordedScientificUsability",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/recorded_result.rs",
-      "generator_symbol": "generate",
-      "output_path": "crates/pse-runtime/src/generated/recorded-result/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/recorded_result.rs",
       "source_role": "semantic_owner",

@@ -4,7 +4,7 @@
 # The ordinary and isolated generation workflows use the same ordered stages.
 set -eu
 stages() {
-    printf '%s\n' rust-contracts recorded-result surreal full-codegen
+    printf '%s\n' rust-contracts recorded-result scientific-worker surreal full-codegen
 }
 case "${1-}" in
     --stages)
@@ -21,6 +21,9 @@ case "${1-}" in
         ;;
     recorded-result)
         exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
+        ;;
+    scientific-worker)
+        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features scientific-worker-contracts --locked -- codegen --only scientific-worker
         ;;
     surreal)
         exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal

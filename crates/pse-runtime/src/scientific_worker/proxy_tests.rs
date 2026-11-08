@@ -104,7 +104,10 @@ struct ControlledNative {
 }
 impl Provider for ControlledNative {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
-        if self.mode == "prepare-departure-retire-faults" {
+        if matches!(
+            self.mode.as_str(),
+            "prepare-departure-retire-faults" | "shutdown-departure-retire-faults"
+        ) {
             writeln!(
                 std::fs::OpenOptions::new()
                     .create(true)
@@ -400,7 +403,7 @@ fn controlled_child() {
                     _ => return Err(ProviderError::Contract("controlled water regime".into()).into()),
                 };
                 let demand = ProviderRequest { outputs: request.outputs.iter().map(|&n| n as usize).collect(),
-                    order: handler::order(request.order)?, demand: request.demand.restore()? };
+                    order: handler::order(request.order)?, demand: (&request.demand).try_into()? };
                 let scope = handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?;
                 scope.check()?;
                 let factory = WaterFactory::prepare(&registry, regime)?;
@@ -417,7 +420,7 @@ fn controlled_child() {
             let demand = ProviderRequest {
                 outputs: request.outputs.iter().map(|&n| n as usize).collect(),
                 order: handler::order(request.order)?,
-                demand: request.demand.restore()?,
+                demand: (&request.demand).try_into()?,
             };
             let gated = mode.starts_with("prepare-departure") && demand.order == DerivativeOrder::Second;
             let generation = request.handle.generation;
@@ -725,7 +728,7 @@ fn orphan_preparation(proxy: &Proxy) -> p::Prepare {
         regime: "vapor".into(),
         outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
         order: DerivativeOrder::Second as u32,
-        demand: p::Demand::capture(&raw.demand),
+        demand: p::Demand::from(&raw.demand),
         remaining_ns: None,
         result_limit: checked.extents().bytes().unwrap() as u64,
     }
@@ -930,6 +933,80 @@ fn actual_abandoned_prepare_retirement_failure_finishes_remaining_owners_and_fai
 #[test]
 fn immediate_parent_failure_retains_already_joined_child_finalization() {
     receive_failed_retirement(true);
+}
+
+#[test]
+fn actual_abandoned_shutdown_retains_original_native_retirement_failures() {
+    use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
+
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let mut proxy = finish_proxy("shutdown-departure-retire-faults", &marker, &service);
+    let mut expected: Vec<_> = proxy
+        .prepared
+        .iter()
+        .map(|(_, handle, _)| handle.generation.to_string())
+        .collect();
+    expected.sort();
+    let remote = proxy.remote.as_mut().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let admitted = pool.reserved();
+    assert!(admitted > baseline);
+    let io = remote.io.as_mut().unwrap();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let mut exchange = Box::pin(io.departing_exchange(p::Request::Shutdown).unwrap());
+        tokio::select! {
+            result = &mut exchange => panic!("gated generated Shutdown unexpectedly completed: {result:?}"),
+            _ = preparation_witness(marker.with_extension("shutdown-claimed"), "retired") => {},
+        }
+        // The child verifies that the generated method's receiver closed before
+        // offering the failed native retirement, on this same H2 connection.
+        drop(exchange);
+        preparation_witness(marker.with_extension("native-errors"), &expected.join("\n")).await;
+    });
+    drop(runtime);
+    let mut finished: Vec<_> = std::fs::read_to_string(marker.with_extension("failed-finishes"))
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    finished.sort();
+    assert_eq!(
+        finished, expected,
+        "both native owners must be attempted once"
+    );
+    io.request_stop();
+    let reader = ProcessReader::default();
+    let end = Instant::now() + Duration::from_secs(10);
+    loop {
+        match reader.stat(pid) {
+            ProcessRead::Present(stat) if stat.state == 'Z' => break,
+            ProcessRead::Present(_) => {}
+            other => panic!("original child observation changed: {other:?}"),
+        }
+        assert!(
+            Instant::now() < end,
+            "failed child did not exit through graceful drain"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    assert!(endpoint.exists());
+    assert_eq!(pool.reserved(), admitted);
+    let result = proxy.remote.take().unwrap().finish(Vec::new());
+    assert!(
+        matches!(&result, Err(WorkerError::Exit(status)) if status.code() == Some(101)),
+        "parent finish must retain the original unsuccessful child exit: {result:?}"
+    );
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
 }
 
 fn receive_failed_retirement(immediate_parent_finish: bool) {
@@ -2041,7 +2118,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
             regime: "vapor".into(),
             outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
             order: order as u32,
-            demand: p::Demand::capture(&raw.demand),
+            demand: p::Demand::from(&raw.demand),
             remaining_ns: scientific_remaining_ns(&proxy.scope, Instant::now()).unwrap(),
             result_limit: checked.extents().bytes().unwrap() as u64,
         };

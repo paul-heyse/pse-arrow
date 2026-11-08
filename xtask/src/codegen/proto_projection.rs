@@ -5,23 +5,30 @@
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 use anyhow::{Context, ensure};
 use anyhow::{Result, bail};
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "scientific-worker-contracts"
+))]
 use buffa_descriptor::generated::descriptor::FileDescriptorSet;
 use pse_codegen::codegen::GeneratedTree;
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 use pse_codegen::codegen::{boundary_projection, provenance};
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 use pse_contract::boundary_projection::ProjectionGraph;
 use std::{
@@ -34,7 +41,8 @@ pub(super) mod composition;
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 pub(super) struct ProjectionTarget<'a> {
     pub package: &'a str,
@@ -46,7 +54,11 @@ pub(super) struct ProjectionTarget<'a> {
     pub generator_symbol: &'a str,
 }
 
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "scientific-worker-contracts"
+))]
 pub(super) fn projection(
     graph: &ProjectionGraph,
     target: ProjectionTarget<'_>,
@@ -66,7 +78,11 @@ pub(super) fn projection(
 
 /// Publish one actual generation closure. Callers can derive additional consumers
 /// from its descriptor set and original configuration before transferring it here.
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "scientific-worker-contracts"
+))]
 pub(super) fn publish_projection(
     graph: &ProjectionGraph,
     target: ProjectionTarget<'_>,
@@ -80,7 +96,8 @@ pub(super) fn publish_projection(
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "recorded-result-contracts"
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts"
 ))]
 pub(super) fn publish_projection_owned(
     graph: &ProjectionGraph,
@@ -179,7 +196,11 @@ pub(super) fn publish_projection_owned(
     Ok(tree)
 }
 
-#[cfg(any(feature = "product-schemas", feature = "host-contracts"))]
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "scientific-worker-contracts"
+))]
 pub(super) fn producer(package: &str) -> String {
     package.replace(['.', '_'], "-")
 }

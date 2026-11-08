@@ -288,15 +288,17 @@ codegen-relations-check:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features physical-admission,force-validate --locked -- codegen --only relations --check
 
 [group('mutating')]
-[doc('Generate Rust contracts only, without physical fixtures or compiler workflows')]
+[doc('Generate early Rust and protobuf contracts without compiling product adapters')]
 codegen-rust-contracts:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
+    sh scripts/source-change-codegen scientific-worker
 
 [group('local')]
 codegen-rust-contracts-check:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features scientific-worker-contracts --locked -- codegen --only scientific-worker --check
 
 [group('mutating')]
 [doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
@@ -850,6 +852,7 @@ codegen-contracts:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
+    sh scripts/source-change-codegen scientific-worker
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features host-contracts --locked -- codegen --only docs
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
 

@@ -6,11 +6,12 @@
 //! session never restores a failed attempt or replays an ambiguous invocation.
 
 #[cfg(feature = "property-coolprop")]
+mod failure_budget;
+#[cfg(feature = "property-coolprop")]
 pub mod generated;
 #[cfg(feature = "property-coolprop")]
 mod handler;
 mod process;
-pub mod protocol;
 #[cfg(feature = "property-coolprop")]
 mod proxy;
 mod session;
@@ -26,7 +27,7 @@ pub use transport::serve;
 pub use process::{PreparedExecutable, ProcessCustody};
 pub use session::{PreparedSession, SessionHandle, SessionState};
 
-use pse_kernels::ProviderError;
+use pse_kernels::{ProviderError, worker_protocol::Handle};
 
 /// Attributed placement failure; ambiguous dispatch is distinct from a refusal.
 #[derive(Debug, thiserror::Error)]
@@ -68,7 +69,7 @@ pub enum WorkerError {
         /// Requested handle or session operation.
         action: &'static str,
         /// Exact prepared handle, absent only for process-wide Shutdown.
-        handle: Option<protocol::Handle>,
+        handle: Option<Handle>,
         /// Original typed refusal, dispatch or physical settlement failure.
         #[source]
         cause: Box<Self>,
@@ -79,7 +80,7 @@ pub enum WorkerError {
         /// Operation whose response did not acknowledge the requested identity.
         action: &'static str,
         /// Exact prepared handle, absent only for process-wide Shutdown.
-        handle: Option<protocol::Handle>,
+        handle: Option<Handle>,
     },
     /// The explicitly owned Hyper connection completed with an error.
     #[cfg(feature = "property-coolprop")]

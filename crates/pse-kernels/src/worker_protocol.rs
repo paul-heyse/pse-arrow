@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Actual scientific worker operation owners and source-derived wire metadata.
+//! Portable scientific worker operations and their source-owned boundary declarations.
+use crate::{ProviderDemand, ProviderError};
 use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_ids::{ContentHash, SemanticId};
 
@@ -15,13 +16,6 @@ pub const EXCHANGE_EFFECTS: pse_contract::operation_effects::EffectFacts =
         idempotent: false,
         destructive: false,
     };
-
-#[cfg(feature = "property-coolprop")]
-pub(super) const FAILURE_DEPTH: usize = 32;
-#[cfg(feature = "property-coolprop")]
-pub(super) const FAILURE_NODES: usize = 1024;
-#[cfg(feature = "property-coolprop")]
-pub(super) const FAILURE_RETAINED_TEXT: usize = 64 << 10;
 
 pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,6 +47,54 @@ pse_contract::projection_enum! {
         WeightedSecondAction(u64) => 5;
     }
 }
+impl From<&ProviderDemand> for Demand {
+    fn from(value: &ProviderDemand) -> Self {
+        match value {
+            ProviderDemand::CompleteJets => Self::CompleteJets,
+            ProviderDemand::SelectedColumns { columns } => {
+                Self::SelectedColumns(columns.iter().map(|&n| n as u64).collect())
+            }
+            ProviderDemand::JacobianAction { directions } => {
+                Self::JacobianAction(*directions as u64)
+            }
+            ProviderDemand::TransposeAction { cotangents } => {
+                Self::TransposeAction(*cotangents as u64)
+            }
+            ProviderDemand::WeightedSecondAction { directions } => {
+                Self::WeightedSecondAction(*directions as u64)
+            }
+        }
+    }
+}
+
+impl TryFrom<&Demand> for ProviderDemand {
+    type Error = ProviderError;
+
+    fn try_from(value: &Demand) -> Result<Self, Self::Error> {
+        let extent = |n: u64| {
+            usize::try_from(n).map_err(|_| ProviderError::Limit("scientific worker demand extent"))
+        };
+        Ok(match value {
+            Demand::CompleteJets => Self::CompleteJets,
+            Demand::SelectedColumns(columns) => Self::SelectedColumns {
+                columns: columns
+                    .iter()
+                    .map(|&n| extent(n))
+                    .collect::<Result<_, _>>()?,
+            },
+            Demand::JacobianAction(n) => Self::JacobianAction {
+                directions: extent(*n)?,
+            },
+            Demand::TransposeAction(n) => Self::TransposeAction {
+                cotangents: extent(*n)?,
+            },
+            Demand::WeightedSecondAction(n) => Self::WeightedSecondAction {
+                directions: extent(*n)?,
+            },
+        })
+    }
+}
+
 pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// One immutable preparation, carrying selected science and original remaining time.
@@ -63,7 +105,7 @@ pse_contract::projection_struct! {
         /// Parent-issued fresh context reference.
         pub handle: Handle => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Complete expected physical and algorithm descriptor.
-        pub spec: pse_kernels::portable::ProviderRecord => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub spec: crate::portable::ProviderRecord => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Expected native image, data, fitted constants and datum configuration.
         pub configuration: ContentHash => { tag: 4, direction: Direction::Input, rules: [] };
         /// Explicit homogeneous branch; normal native calls never impose phase.
@@ -305,80 +347,6 @@ pse_contract::projection_struct! {
         pub key: ContentHash => { tag: 1, direction: Direction::Output, rules: [] };
         /// Original known failure shape or its explicitly opaque source observation.
         pub cause: Box<Failure> => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
-    }
-}
-impl Failure {
-    /// Semantic restoration has its own finite tree/retention allowance, after
-    /// the generated codec's independent frame, nesting and allocation limits.
-    #[cfg(feature = "property-coolprop")]
-    pub(super) fn within_limits(&self) -> bool {
-        use pse_model::HeapUsage as _;
-        let mut pending = vec![(self, 0usize)];
-        let mut nodes = FAILURE_NODES;
-        let mut text = FAILURE_RETAINED_TEXT;
-        while let Some((failure, depth)) = pending.pop() {
-            if depth > FAILURE_DEPTH || nodes == 0 {
-                return false;
-            }
-            nodes -= 1;
-            let bytes = match failure {
-                Self::ProviderRetirement { failures } => {
-                    if failures.is_empty() || failures.len() > 64 {
-                        return false;
-                    }
-                    pending.extend(
-                        failures
-                            .iter()
-                            .map(|failure| (failure.cause.as_ref(), depth + 1)),
-                    );
-                    0
-                }
-                Self::ProviderSettlement { operation, cleanup } => {
-                    pending.push((operation, depth + 1));
-                    pending.push((cleanup, depth + 1));
-                    0
-                }
-                Self::Retirement { causes } => {
-                    if causes.is_empty() || causes.len() > 128 {
-                        return false;
-                    }
-                    pending.extend(causes.iter().map(|cause| (cause, depth + 1)));
-                    0
-                }
-                Self::Diagnostic(diagnostic) => {
-                    let mut observed = vec![(diagnostic.as_ref(), depth + 1)];
-                    while let Some((diagnostic, depth)) = observed.pop() {
-                        if depth > FAILURE_DEPTH || nodes == 0 {
-                            return false;
-                        }
-                        nodes -= 1;
-                        if diagnostic.causes.len() > 128 {
-                            return false;
-                        }
-                        observed.extend(diagnostic.causes.iter().map(|cause| (cause, depth + 1)));
-                    }
-                    diagnostic.heap_bytes()
-                }
-                Self::Resource(value)
-                | Self::Contract(value)
-                | Self::Trial(value)
-                | Self::Terminal(value)
-                | Self::UnknownCompletion(value)
-                | Self::ProviderRetirementPanic(value)
-                | Self::NativePanic(value)
-                | Self::Singular(value) => value.len(),
-                Self::OutsideEnvelope { axis, .. } => axis.len(),
-                Self::Cancelled
-                | Self::Deadline
-                | Self::LinearizationChanged
-                | Self::RegimeCrossing { .. } => 0,
-            };
-            let Some(remaining) = text.checked_sub(bytes) else {
-                return false;
-            };
-            text = remaining;
-        }
-        true
     }
 }
 pse_contract::projection_enum! {

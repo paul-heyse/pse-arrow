@@ -235,6 +235,11 @@ can grant native authority or replace local I/O join, reap or admission release.
 the joined original-cause repair (`0733f5fd0`) and its pre-copy bounded diagnostic follow-up
 (`9d80d9836`). Their controls cover the selected failed-orphan path and immediate parent finish.
 
+Process-wide Shutdown retains original native retirement failures in the joining owner even
+when the generated method receiver departs. The reply observes the bounded failure and can be
+lost independently. The native join, actual child exit, I/O drain and admission release retain
+their separate outcomes. Stop and Close continue to target the original handle.
+
 Start from the delivered generic admitted-job and unique-surrogate retirement mechanisms.
 Complete the selected preparation abandonment, synchronous fill, provider banks, shared-surrogate,
 multi-session and explicit-close caller population. Exercise receiver loss at each handoff phase,

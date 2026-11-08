@@ -98,6 +98,16 @@ on main. Main's six selected generator controls and nineteen ordinary-result/dev
 controls subsequently passed, zero failures/pending/build warnings; the ordinary receiving excludes
 `engineering-service`. The service receiving closure remains separate from these passes.
 
+The scientific worker now has an early generation closure. Its passive Request and Response
+declarations live with the `pse-kernels` portable worker vocabulary. Runtime retains admission,
+diagnostic budgets and effects. The early and aggregate routes call the same projection producer
+with Buffa 0.9.2 and the maintained validator composition. A temporary `Evaluate.weights`
+removal generated while the previous adapter still projected that field. The original shape
+was restored and full generation published all 15 targets. The worker messages and validators
+stayed byte-identical. Source-forward generation for the other runtime-owned families remains
+open. [Worker generator](../../xtask/src/codegen/scientific_worker.rs) ·
+[Portable declarations](../../crates/pse-kernels/src/worker_protocol.rs)
+
 The existing `xtask/src/codegen/proto_projection/composition.rs` already composes the complete
 typed request, Buffa corpus, maintained validators and service generation. Retain that foundation.
 Buffa0.9.2 `SharedCorpusContext::new` / `CodeGenConfig::shared_corpus_context` reuse complete
@@ -211,6 +221,16 @@ neither unchanged bytes nor imports can supply that missing coverage. These read
 exercise the shared `pse_contract_proto::compare_descriptors` owner and do not qualify other
 families, scientific meaning or present readiness. No database/compiler/provider preparation
 was performed by those comparisons.
+
+The independent host now also accepts an explicit `recorded-result` policy for
+`recorded_result.proto`. It reads the single generated coverage and interpretation table from
+the original projection roots through `pse_contract_proto::compare_descriptors`. The actual
+CLI compares the runtime and SourceCodeInfo-bearing original descriptors as semantically
+compatible under that policy, with available native coverage and compatible Buf classifications.
+The default Core policy continues to report unknown semantic coverage for this family. The
+observation supplies no current scientific admission or original-context restoration.
+[Recorded-result generator](../../xtask/src/codegen/recorded_result.rs) ·
+[Independent host comparator](../../crates/pse-host/src/schema/compare/semantics.rs)
 
 ### B03 — Finish finite source-to-consumer migrations
 

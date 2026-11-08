@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Source-generated structural correspondence; native preparation retains scientific admission.
-use super::{WorkerError, generated::pb::pse::scientific_worker::v1 as pb, protocol as p};
+use super::{
+    WorkerError, failure_budget::failure_within_limits,
+    generated::pb::pse::scientific_worker::v1 as pb,
+};
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_contract_proto::support::*;
-use pse_kernels::ProviderError;
+use pse_kernels::{ProviderError, worker_protocol as p};
 
 #[path = "../generated/scientific-worker/native-adapters.rs"]
 #[rustfmt::skip]
@@ -59,9 +62,9 @@ impl TryFrom<pb::Response> for p::Response {
 
 fn validate_failure_response(value: &p::Response) -> Result<(), WorkerError> {
     let valid = match value {
-        p::Response::Failure(failure) => failure.within_limits(),
+        p::Response::Failure(failure) => failure_within_limits(failure),
         p::Response::Batch(batch) => batch.points.iter().all(|point| match &point.result {
-            p::BatchResult::Refused(failure) => failure.within_limits(),
+            p::BatchResult::Refused(failure) => failure_within_limits(failure),
             p::BatchResult::Product(_) => true,
         }),
         _ => true,
@@ -172,13 +175,13 @@ mod tests {
     #[test]
     fn complete_generated_failure_restoration_refuses_depth_or_node_excess() {
         let mut deep = p::Failure::Cancelled;
-        for _ in 0..=p::FAILURE_DEPTH {
+        for _ in 0..=super::super::failure_budget::FAILURE_DEPTH {
             deep = p::Failure::ProviderSettlement {
                 operation: Box::new(deep),
                 cleanup: Box::new(p::Failure::Cancelled),
             };
         }
-        assert!(!deep.within_limits());
+        assert!(!failure_within_limits(&deep));
         assert!(matches!(
             super::super::handler::refusal(deep),
             WorkerError::UnknownCompletion(_)
@@ -190,7 +193,7 @@ mod tests {
                 })
                 .collect(),
         };
-        assert!(!wide.within_limits());
+        assert!(!failure_within_limits(&wide));
         // Generated schema validation permits each local list; the source's
         // whole-tree allowance independently rejects complete restoration.
         let encoded = native::encode_response(p::Response::Failure(wide))

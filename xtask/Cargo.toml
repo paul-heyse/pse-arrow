@@ -59,6 +59,7 @@ full-codegen = [
 host-contracts = ["dep:pse-host"]
 # Passive recorded-result declarations do not depend on their runtime consumers.
 recorded-result-contracts = ["dep:pse-model"]
+scientific-worker-contracts = ["dep:pse-kernels"]
 evidence-tools = [
   "dep:pse-operations",
   "dep:pse-engine",
@@ -99,6 +100,7 @@ physical-admission = [
 ]
 product-schemas = [
   "recorded-result-contracts",
+  "scientific-worker-contracts",
   "evidence-tools",
   "dep:pse-compiler",
   "dep:pse-admission",
@@ -108,7 +110,6 @@ product-schemas = [
   "dep:pse-runtime",
   "dep:pse-model",
   "dep:pse-operations",
-  "dep:pse-kernels",
 ]
 package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
 property-coolprop = [

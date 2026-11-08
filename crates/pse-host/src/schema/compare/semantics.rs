@@ -7,6 +7,27 @@ use pse_contract_proto::{DescriptorInput, DescriptorPolicy};
 use schemars::JsonSchema;
 use serde::Serialize;
 
+const RECORDED_RESULT_FILE: &str = "recorded_result.proto";
+#[path = "../../generated/recorded-result-policy/native-policy.rs"]
+#[rustfmt::skip]
+#[allow(unreachable_pub, reason = "generated policy constants are private to this comparator")]
+mod recorded_result_policy;
+
+struct RecordedResultPolicy;
+impl metadata::InterpretationPolicy for RecordedResultPolicy {
+    fn name(&self) -> &str {
+        "pse.engineering.v1/recorded-result"
+    }
+    fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
+        recorded_result_policy::INTERPRETATIONS.contains(&(subject, version))
+    }
+}
+impl DescriptorPolicy for RecordedResultPolicy {
+    fn native_selection(&self) -> Option<pse_contract_proto::NativeSelection<'_>> {
+        Some(recorded_result_policy::NATIVE_SELECTION)
+    }
+}
+
 /// An explicitly selected available native policy, never supplied by acquired options.
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
 pub enum Policy {
@@ -15,6 +36,8 @@ pub enum Policy {
     Core,
     /// Current independent-host developer evidence source policy and generated coverage.
     DeveloperEvidence,
+    /// Original recorded-result observation metadata for the explicitly selected result file.
+    RecordedResult,
 }
 /// A conclusion under the selected policy, independent of wire compatibility.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -97,6 +120,20 @@ pub fn assess(
                 baseline,
                 selected_files,
                 &crate::developer_evidence_contracts::Policy,
+                true,
+            )
+        }
+        Policy::RecordedResult => {
+            if selected_files.iter().any(|file| file != RECORDED_RESULT_FILE) {
+                return Err(SchemaError::Invalid(
+                    "recorded-result policy covers only recorded_result.proto; imports are context, not native source coverage".into(),
+                ));
+            }
+            compare_with_policy(
+                current,
+                baseline,
+                selected_files,
+                &RecordedResultPolicy,
                 true,
             )
         }
@@ -202,6 +239,107 @@ mod tests {
     fn assessment(old: &FileDescriptorSet, new: &FileDescriptorSet, policy: Policy) -> Assessment {
         assess(&bundle(new), &bundle(old), &[FILE.into()], policy).unwrap()
     }
+    fn recorded_result_world(name: &str) -> Bundle {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../pse-runtime/src/generated/recorded-result")
+            .join(name);
+        Bundle::load(&path).unwrap()
+    }
+    #[test]
+    fn recorded_result_semantics_uses_explicit_file_and_original_worlds() {
+        let runtime = recorded_result_world("descriptor.bin");
+        let source = recorded_result_world("descriptor-source.bin");
+        let file = [RECORDED_RESULT_FILE.into()];
+        let known = assess(&runtime, &source, &file, Policy::RecordedResult).unwrap();
+        assert_eq!(known.disposition, Disposition::Compatible, "{known:?}");
+        assert!(known.native_coverage_available);
+        assert_eq!(known.policy, "pse.engineering.v1/recorded-result");
+        for unknown in [
+            assess(&runtime, &source, &file, Policy::Core).unwrap(),
+            assess(&runtime, &source, &[], Policy::RecordedResult).unwrap(),
+        ] {
+            assert_eq!(unknown.disposition, Disposition::Unknown, "{unknown:?}");
+            assert!(!unknown.native_coverage_available);
+        }
+        let imported = [pse_contract_proto::CORE_IMPORT.into()];
+        assert!(assess(&runtime, &source, &imported, Policy::RecordedResult).is_err());
+        let foreign = [FILE.into()];
+        assert!(assess(&runtime, &source, &foreign, Policy::RecordedResult).is_err());
+        let mut absent = source.set.clone();
+        absent
+            .file
+            .retain(|file| file.name.as_deref() != Some(RECORDED_RESULT_FILE));
+        let missing = assess(&runtime, &bundle(&absent), &file, Policy::RecordedResult).unwrap();
+        assert_eq!(missing.disposition, Disposition::Unknown, "{missing:?}");
+        assert!(!missing.native_coverage_available);
+
+        let newer = with_unknown_version(
+            &source.set,
+            RECORDED_RESULT_FILE,
+            "RecordedResultSelection",
+        );
+        let unknown = assess(&runtime, &bundle(&newer), &file, Policy::RecordedResult).unwrap();
+        assert_eq!(unknown.disposition, Disposition::Unknown, "{unknown:?}");
+        assert!(unknown.native_coverage_available);
+        assert!(
+            unknown
+                .findings
+                .iter()
+                .any(|finding| finding.reason.contains("interpretation"))
+        );
+    }
+
+    #[test]
+    fn recorded_result_semantics_refuses_wire_identical_coordinate_metadata_drift() {
+        let runtime = recorded_result_world("descriptor.bin");
+        let encoder = pse_contract_proto::OptionEncoder::new(&runtime.set.file).unwrap();
+        let mut changed = runtime.set.clone();
+        let field = changed
+            .file
+            .iter_mut()
+            .find(|file| file.name.as_deref() == Some(RECORDED_RESULT_FILE))
+            .unwrap()
+            .message_type
+            .iter_mut()
+            .find(|message| message.name.as_deref() == Some("RecordedResultSelection"))
+            .unwrap()
+            .field
+            .iter_mut()
+            .find(|field| field.name.as_deref() == Some("row_start"))
+            .unwrap();
+        let mut original_wire = field.clone();
+        original_wire.options = Default::default();
+        let mut options = Default::default();
+        encoder
+            .field_correspondence(
+                &mut options,
+                "row_start",
+                Direction::Output,
+                &TypeRef::Scalar(Scalar::I64),
+                &[],
+                "pse.engineering.v1",
+            )
+            .unwrap();
+        field.options = options.into();
+        let mut changed_wire = field.clone();
+        changed_wire.options = Default::default();
+        assert_eq!(changed_wire, original_wire);
+        let result = assess(
+            &bundle(&changed),
+            &runtime,
+            &[RECORDED_RESULT_FILE.into()],
+            Policy::RecordedResult,
+        )
+        .unwrap();
+        assert_eq!(result.disposition, Disposition::Incompatible, "{result:?}");
+        assert!(
+            result
+                .findings
+                .iter()
+                .any(|finding| finding.subject.ends_with(".row_start"))
+        );
+    }
+
     #[test]
     fn schema_semantics_available_source_policy_and_unknown_coverage_are_distinct() {
         let original = source();
@@ -332,20 +470,22 @@ mod tests {
         // Bundle acquisition correctly refuses an incomplete import closure before comparison.
         assert!(Bundle::from_bytes("incomplete.bin".into(), unrecognized.encode_to_vec()).is_err());
     }
-    #[test]
-    fn schema_semantics_original_interpretation_unavailable_is_unknown_with_native_coverage() {
+    fn with_unknown_version(
+        original: &FileDescriptorSet,
+        file: &str,
+        owner_name: &str,
+    ) -> FileDescriptorSet {
         use buffa_descriptor::{ReflectMessageMut as _, Value};
-        let original = source();
         let encoder = pse_contract_proto::OptionEncoder::new(&original.file).unwrap();
         let mut changed = original.clone();
         let owner = changed
             .file
             .iter_mut()
-            .find(|file| file.name.as_deref() == Some(FILE))
+            .find(|candidate| candidate.name.as_deref() == Some(file))
             .unwrap()
             .message_type
             .iter_mut()
-            .find(|owner| owner.name.as_deref() == Some("ContentIdentity"))
+            .find(|owner| owner.name.as_deref() == Some(owner_name))
             .unwrap();
         let mut metadata = encoder
             .decode_extension(
@@ -370,6 +510,13 @@ mod tests {
             .attach(&mut options, "pse.contract.v1.message", metadata)
             .unwrap();
         owner.options = options.into();
+        changed
+    }
+
+    #[test]
+    fn schema_semantics_original_interpretation_unavailable_is_unknown_with_native_coverage() {
+        let original = source();
+        let changed = with_unknown_version(&original, FILE, "ContentIdentity");
         let report = assessment(&original, &changed, Policy::DeveloperEvidence);
         assert_eq!(report.disposition, Disposition::Unknown, "{report:?}");
         assert!(report.native_coverage_available);

@@ -17,6 +17,7 @@ mod batch;
 pub mod portable;
 mod provider;
 mod shape;
+pub mod worker_protocol;
 pub use batch::{ProviderBatchOutcome, ProviderBatchPoint, ProviderBatchResults};
 pub use provider::{
     PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,

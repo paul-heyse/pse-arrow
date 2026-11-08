@@ -8,64 +8,13 @@ use super::{
 };
 use anyhow::{Context, Result, bail};
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
-use pse_contract::boundary_projection::{ProjectionGraph, Service, TypeRef};
+use pse_contract::boundary_projection::{ProjectionGraph, TypeRef};
 use std::{collections::BTreeSet, path::Path};
 
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     // These are pinned upstream option definitions, not the host service's meanings.
     let imports = imports(root)?;
-    let graph = scientific_graph()?;
-    let mut tree = projection(
-        &graph,
-        ProjectionTarget {
-            package: "pse.scientific_worker.v1",
-            file: "scientific_worker.proto",
-            destination: "crates/pse-runtime/src/generated/scientific-worker",
-            rust_module: "crate::scientific_worker::generated::pb",
-            document_root: super::ENGINEERING_DOCUMENT_ROOT,
-            generator_path: "xtask/src/codegen/proto_projection.rs",
-            generator_symbol: "projection",
-        },
-        &imports,
-    )?;
-    let scientific_roots = ["Request", "Response"];
-    let adapters = boundary_projection::native_adapters_scoped(
-        &graph,
-        &scientific_roots,
-        "crate::scientific_worker::generated::pb::pse::scientific_worker::v1",
-        "pse_runtime",
-        boundary_projection::AdapterVisibility::Parent,
-    )?;
-    insert(
-        &mut tree,
-        Path::new("crates/pse-runtime/src/generated/scientific-worker"),
-        "native-adapters.rs",
-        adapters.as_bytes(),
-    )?;
-    for name in scientific_roots {
-        let owner = graph
-            .definitions()
-            .get(name)
-            .context("scientific adapter owner absent")?;
-        tree.relationships.push(provenance::SourceRelationship {
-            declaration_key: name.into(),
-            declaration_kind: "native_projection_adapter".into(),
-            source_path: Some(owner.source.into()),
-            source_symbol: Some(owner.rust_type.into()),
-            source_role: "adapter_root".into(),
-            source_identity: None,
-            generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs".into(),
-            generator_symbol: "native_adapters_scoped".into(),
-            output_path: "crates/pse-runtime/src/generated/scientific-worker/native-adapters.rs"
-                .into(),
-            direction: Some(format!("{:?}", owner.direction)),
-            contract_sections: vec!["blueprint §4.7".into()],
-            basis: "declared".into(),
-        });
-    }
-    tree.files.extend(
-        provenance::sidecar(&producer("pse.scientific_worker.v1"), &tree.relationships)?.files,
-    );
+    let mut tree = super::scientific_worker::generate(&imports)?;
     let graph = engineering_graph()?;
     let recorded_imports = super::recorded_result::engineering_imports(&graph, &imports)?;
     let mut config = boundary_projection::default_config(
@@ -228,17 +177,6 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     super::proto_projection::merge_independent(&mut tree, reference)?;
     Ok(tree)
 }
-fn scientific_graph() -> Result<ProjectionGraph> {
-    let mut graph = ProjectionGraph::of::<pse_runtime::scientific_worker::protocol::Request>()?;
-    graph.register::<pse_runtime::scientific_worker::protocol::Response>()?;
-    graph.register::<pse_kernels::portable::ProviderRecord>()?;
-    let service = Service::new("ScientificWorker").unary::<
-        pse_runtime::scientific_worker::protocol::Request,
-        pse_runtime::scientific_worker::protocol::Response,
-    >(&mut graph, "Exchange")?.effects(pse_runtime::scientific_worker::protocol::EXCHANGE_EFFECTS)?;
-    graph.service(service)?;
-    Ok(graph)
-}
 
 fn engineering_graph() -> Result<ProjectionGraph> {
     let mut graph = pse_runtime::host_operations::engineering_contract::projection()?;
@@ -373,7 +311,7 @@ mod tests {
             (
                 "pse.scientific_worker.v1",
                 "scientific_worker.proto",
-                scientific_graph().unwrap(),
+                super::super::scientific_worker::graph().unwrap(),
             ),
             (
                 "pse.engineering.v1",

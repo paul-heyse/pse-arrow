@@ -3,7 +3,6 @@
 //! Synchronous provider placement with original-scope process and I/O custody.
 use super::{
     PreparedExecutable, ProcessCustody, SessionHandle, WorkerError, handler, infrastructure,
-    protocol as p,
     transport::{DECODE_LIMIT, FRAME_LIMIT, IoOwner, NATIVE_STACK},
 };
 use pse_backend_native::coolprop::{WaterFactory, WaterRegime};
@@ -12,6 +11,7 @@ use pse_kernels::{
     EvaluationContext, ExecutionScope, PreparedProviderRequest, Provider, ProviderBatchPoint,
     ProviderBatchResults, ProviderBinding, ProviderDemand, ProviderError, ProviderFactory,
     ProviderOutput, ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues, Registration,
+    worker_protocol as p,
 };
 use std::{
     sync::{Arc, Weak},
@@ -348,7 +348,7 @@ impl Proxy {
             .into(),
             outputs: request.outputs.iter().map(|&n| n as u64).collect(),
             order: request.order as u32,
-            demand: p::Demand::capture(&request.demand),
+            demand: p::Demand::from(&request.demand),
             remaining_ns,
             // Transient grouped numerical storage is admitted by the launch reservation's frame
             // allowance. Preparation still allocates only this demand's scalar scratch.

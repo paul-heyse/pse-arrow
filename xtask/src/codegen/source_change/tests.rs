@@ -86,7 +86,7 @@ esac
             r#"#!/bin/sh
 set -eu
 case "$1" in
-    --stages) printf '%s\n' rust-contracts recorded-result surreal full-codegen ;;
+    --stages) printf '%s\n' rust-contracts recorded-result scientific-worker surreal full-codegen ;;
     native-identity) echo 'original native identity' ;;
     rust-contracts)
         printf 'produced rust\n' > fixture-generated/new.rs
@@ -96,6 +96,7 @@ case "$1" in
             exit 13
         fi ;;
     recorded-result) rm -f fixture-generated/original.rs ;;
+    scientific-worker) test -f fixture-generated/new.rs ;;
     surreal) printf 'RETURN 2;\n' > fixture-generated/original.surql ;;
     full-codegen) test -f fixture-generated/new.rs ;;
     *) exit 2 ;;
