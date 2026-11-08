@@ -300,6 +300,11 @@ before returning. Its fixture independently observes the release and the reader 
 fresh activity. This covers cancellation after acquisition. Connect and open still have
 their separately bounded native acquisition lifetime.
 
+The authenticated engineering HTTP/2 control abandons a partial unary upload, observes the
+original ingress reservation return, and reads a valid typed response on the same connection.
+It then joins the actual server and client, retaining the original socket receive half through
+the final Hyper shutdown writes. The server's typed settlement remains part of the assertion.
+
 Original receiving exposed a native launcher gap: a caller without exported placement values
 did not activate the checkout's explicit unbounded selection, so managed test launch chose the
 default finite functional scope and rustc was killed at its 40 GiB limit. Test/check launch now

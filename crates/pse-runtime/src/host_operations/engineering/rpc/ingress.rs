@@ -317,4 +317,124 @@ mod tests {
         drop(refused);
         assert_eq!(pool.reserved(), 0);
     }
+
+    #[tokio::test]
+    async fn abandoned_h2_upload_releases_ingress_and_preserves_the_connection() {
+        use buffa::Message as _;
+        use futures_util::{StreamExt as _, stream};
+        use http_body::Frame;
+        use http_body_util::{BodyExt as _, Full, StreamBody};
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+        use std::time::Duration;
+
+        let runtime = crate::workflow::tests::runtime();
+        let shared = runtime.shared.clone();
+        let engine = super::super::EngineeringService::new(runtime, shared, 8).unwrap();
+        let pool = engine.ingress_pool();
+        let baseline = pool.reserved();
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("engineering.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let stop = crate::CancelSource::new();
+        let serving = super::super::serve(
+            listener,
+            engine,
+            super::super::LocalAccessPolicy {
+                uid: rustix::process::geteuid().as_raw(),
+                gid: None,
+                maximum_connections: 1,
+                connection_drain: Duration::from_secs(5),
+            },
+            stop.clone(),
+        );
+        let stop_after_reply = stop.clone();
+        let exercise = tokio::spawn(async move {
+            // The timeout is a test watchdog. Each transition below is driven by
+            // actual body polling, native admission, or original settlement.
+            tokio::time::timeout(Duration::from_secs(10), async {
+                let peer = tokio::net::UnixStream::connect(socket)
+                    .await
+                    .unwrap()
+                    .into_std()
+                    .unwrap();
+                let retained_peer = peer.try_clone().unwrap();
+                let peer = tokio::net::UnixStream::from_std(peer).unwrap();
+                let (mut client, connection) =
+                    hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(peer))
+                        .await
+                        .unwrap();
+                let exchange = async move {
+                    let request = |body| {
+                        http::Request::post("http://localhost/pse.engineering.v1.EngineeringService/DescribeContract")
+                            .version(http::Version::HTTP_2)
+                            .header(http::header::HOST, "localhost")
+                            .header(http::header::CONTENT_TYPE, "application/grpc+proto")
+                            .header("te", "trailers")
+                            .body(body)
+                            .unwrap()
+                    };
+                    let (started, sent) = tokio::sync::oneshot::channel();
+                    let partial = stream::once(async move {
+                        started.send(()).unwrap();
+                        Ok::<_, Infallible>(Frame::data(Bytes::from_static(&[0, 0])))
+                    })
+                    .chain(stream::pending());
+                    client.ready().await.unwrap();
+                    let mut upload = Box::pin(
+                        client.send_request(request(StreamBody::new(partial).boxed_unsync())),
+                    );
+                    tokio::select! {
+                        reply = &mut upload => panic!("incomplete upload unexpectedly replied: {reply:?}"),
+                        () = async {
+                            sent.await.unwrap();
+                            while pool.reserved() < baseline + REQUEST_EXTENT {
+                                tokio::task::yield_now().await;
+                            }
+                        } => {}
+                    }
+                    // Hyper's response-future cancellation resets this one stream.
+                    // Require release before issuing anything else on the same peer.
+                    drop(upload);
+                    while pool.reserved() != baseline {
+                        tokio::task::yield_now().await;
+                    }
+
+                    let body = Full::new(Bytes::from_static(&[0, 0, 0, 0, 0])).boxed_unsync();
+                    client.ready().await.unwrap();
+                    let response = client.send_request(request(body)).await.unwrap();
+                    let collected = response.into_body().collect().await.unwrap();
+                    assert_eq!(collected.trailers().unwrap()["grpc-status"], "0");
+                    let frame = collected.to_bytes();
+                    assert_eq!(frame[0], 0);
+                    let length = u32::from_be_bytes(frame[1..5].try_into().unwrap()) as usize;
+                    assert_eq!(length, frame.len() - 5);
+                    let contract = super::super::pb::EngineeringContract::decode_from_slice(&frame[5..])
+                        .unwrap();
+                    assert_eq!(contract.descriptor.as_slice(), super::super::generated::DESCRIPTORS);
+                    // The server sends graceful shutdown while the original
+                    // client still owns and polls this connection.
+                    stop_after_reply.cancel();
+                    client
+                };
+                let (client, driver) = tokio::join!(exchange, connection);
+                driver.unwrap();
+                drop(client);
+                // The public driver can finish before the server's last writes.
+                // Signal writer EOF but keep the original receive half through
+                // server join so those writes still have a live socket peer.
+                retained_peer.shutdown(std::net::Shutdown::Write).unwrap();
+                retained_peer
+            })
+            .await
+            .expect("the H2 upload, subsequent reply and original driver must settle")
+        });
+        let joined = async {
+            let exercise = exercise.await;
+            stop.cancel();
+            exercise
+        };
+        let (result, service) = tokio::join!(joined, serving);
+        service.unwrap();
+        drop(result.unwrap());
+    }
 }
