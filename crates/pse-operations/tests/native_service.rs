@@ -978,3 +978,6 @@ mod http_control;
 
 #[path = "native_service/surrealkit.rs"]
 mod surrealkit;
+
+#[path = "native_service/installed_schema.rs"]
+mod installed_schema;
