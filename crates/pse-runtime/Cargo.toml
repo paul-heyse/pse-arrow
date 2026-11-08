@@ -434,6 +434,16 @@ scope.tests = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
+id = "project-cli-configured-target"
+target = "pse-project"
+kind = "bin"
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper", "product-reader"]
+scope.tests = [
+  "project_runtime::tests::configured_project_cli_preserves_the_live_issuer_and_original_acknowledgement",
+]
+
+[[package.metadata.pse.test-fixtures]]
 id = "producer-replay-inputs"
 target = "pse_runtime"
 kind = "lib"

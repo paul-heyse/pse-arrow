@@ -126,6 +126,16 @@ mod tests {
     use super::*;
     #[tokio::test]
     async fn project_cli_runtime_import_fork_compare_and_passive_discovery() {
+        use pse_host::investigation::NativePath;
+        use pse_runtime::{
+            host_operations::project::{
+                exchange::{self, ExchangeRequest, PublicationStatus},
+                handler,
+            },
+            workflow::{
+                ProjectExportRequest, ProjectReference, ProjectSelectRequest, ProjectSelection,
+            },
+        };
         let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
         let directory = tempfile::tempdir().unwrap();
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -250,8 +260,91 @@ mod tests {
         .await;
         assert_eq!(discovery["durable_eligibility"], "unchecked");
         assert!(discovery["resident"].as_array().unwrap().is_empty());
-        let loaded = execute(Action::Load { revision: fork }).await;
+        let loaded = execute(Action::Load {
+            revision: fork.clone(),
+        })
+        .await;
         assert_eq!(loaded["canonical_problem"], "cli-problem");
+        let branches = store.project_branches("cli-project", None).await.unwrap();
+        assert_eq!(branches.branches.len(), 1);
+        let selection: ProjectSelection = serde_json::from_value(
+            execute(Action::Select {
+                request: ProjectSelectRequest {
+                    version: Default::default(),
+                    reference: ProjectReference::Branch {
+                        key: branches.branches[0].key.clone(),
+                    },
+                },
+            })
+            .await,
+        )
+        .unwrap();
+        assert_eq!(selection.revision, fork);
+        let cancel = CancelSource::new();
+        let pack = directory.path().join("exported-pack");
+        let pack_export = Box::pin(exchange::export(
+            &store,
+            "cli-pack-export",
+            NativePath::from(pack.clone()),
+            ExchangeRequest::Pack {
+                request: ProjectExportRequest {
+                    version: Default::default(),
+                    selection,
+                    research_selections: vec![],
+                    publications: vec![],
+                    studies: vec![],
+                    results: vec![],
+                    artifacts: vec![],
+                    reproducers: vec![],
+                    descriptive_only: false,
+                    omissions: vec![],
+                    maximum_output_bytes: 4 << 20,
+                    maximum_document_bytes: PROJECT_DOCUMENT_BYTES,
+                },
+                physical: Some(physical.clone()),
+            },
+            &cancel,
+        ))
+        .await
+        .unwrap();
+        assert!(pack_export.cleanup.is_none());
+        assert!(pack_export.publication_cleanup.is_none());
+        assert!(matches!(
+            pack_export.result.unwrap(),
+            PublicationStatus::Published {
+                synchronized: true,
+                ..
+            }
+        ));
+        let intent = handler::issue_project_import(
+            &store,
+            "cli-pack-import",
+            &pack,
+            "Pack reopened",
+            "main",
+            PROJECT_DOCUMENT_BYTES,
+        )
+        .unwrap();
+        let applied = Box::pin(handler::apply_project_import(
+            &store,
+            &pack,
+            &intent,
+            PROJECT_DOCUMENT_BYTES,
+            &cancel,
+        ))
+        .await
+        .unwrap();
+        assert!(applied.cleanup.is_none());
+        applied.result.unwrap();
+        let reopened = Box::pin(handler::open_project_import(&store, &intent, &cancel))
+            .await
+            .unwrap();
+        assert!(reopened.cleanup.is_none());
+        let reopened = reopened.result.unwrap();
+        assert_eq!(reopened.project, intent.destinations().0);
+        assert_eq!(reopened.branch, intent.destinations().1);
+        assert_eq!(reopened.canonical_problem, intent.destinations().2);
+        assert!(!reopened.canonical_revision.is_empty());
         let page = execute(Action::StudyWorkbench {
             request: StudyWorkbenchRequest {
                 filter: Default::default(),
@@ -311,6 +404,38 @@ mod tests {
         assert_eq!(cohort["receipt"]["complete"], true);
         assert_eq!(cohort["receipt"]["member_count"], 0);
         assert!(cohort.get("members").is_none());
+        let study_destination = directory.path().join("study-cohort");
+        let cohort_export = Box::pin(exchange::export(
+            &store,
+            "cli-cohort-export",
+            NativePath::from(study_destination.clone()),
+            ExchangeRequest::Cohort {
+                request: StudyCohortRequest {
+                    filter: Default::default(),
+                    maximum_studies: 4,
+                    maximum_members: 4,
+                },
+                maximum_bytes: 4 << 20,
+            },
+            &cancel,
+        ))
+        .await
+        .unwrap();
+        assert!(cohort_export.cleanup.is_none());
+        assert!(cohort_export.publication_cleanup.is_none());
+        let PublicationStatus::Published {
+            receipt,
+            synchronized: true,
+        } = cohort_export.result.unwrap()
+        else {
+            panic!("expected a synchronized original Study publication");
+        };
+        assert_eq!(receipt.original.operation, "cli-cohort-export");
+        assert_eq!(
+            receipt.original.issuing_store,
+            store.issuing_store().unwrap()
+        );
+        assert!(study_destination.join("cohort.ndjson").is_file());
         let research = execute(Action::ResearchRead {
             request: ResearchReadRequest::Datasets {
                 project: "cli-project".into(),
@@ -328,12 +453,16 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(meta.projects.len(), 1);
-        let frozen = meta.projects[0].clone();
+        assert_eq!(meta.projects.len(), 2);
+        let frozen = meta
+            .projects
+            .iter()
+            .find(|project| project.key == "cli-project")
+            .unwrap();
         store
             .project_navigate(
                 "cli-rename",
-                &frozen,
+                frozen,
                 &pse_operations::canonical_projects::ProjectNavigation::ProjectTitle {
                     name: "CLI renamed".into(),
                 },
@@ -344,6 +473,134 @@ mod tests {
             store.project("cli-project").await.unwrap().unwrap().title,
             "CLI renamed"
         );
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn configured_project_cli_preserves_the_live_issuer_and_original_acknowledgement() {
+        use pse_operations::native_fixture::{FixtureSelection, canonical_fixture_store};
+        use serde_json::Value;
+        use std::process::Command;
+
+        let fixture = FixtureSelection::selected().unwrap();
+        let store = canonical_fixture_store().unwrap();
+        store.open().await.unwrap();
+        let launcher = std::env::var_os("PSE_NATIVE_FIXTURE_CLI").unwrap();
+        let reader = std::env::var("PSE_NATIVE_FIXTURE_PRODUCT_READER").unwrap();
+        let settings = tempfile::NamedTempFile::new().unwrap();
+        let state = serde_json::to_string(fixture.state().to_str().unwrap()).unwrap();
+        let database = store.database();
+        let issuer = store.issuing_store().unwrap();
+        let target = |alias: &str, issuer: &str| {
+            format!(
+                "[targets.{alias}]\nstate = {state}\ndatabase = {database:?}\nissuing_store = {issuer:?}\nreader = {reader:?}\n"
+            )
+        };
+        let run = |action: &str, arguments: &[&str]| {
+            let output = Command::new(&launcher)
+                .args(["--format", "json", "project", action, "--context-file"])
+                .arg(settings.path())
+                .args(arguments)
+                .output()
+                .unwrap();
+            let bytes = if output.stdout.is_empty() {
+                &output.stderr
+            } else {
+                &output.stdout
+            };
+            let response: Value = serde_json::from_slice(bytes).unwrap_or_else(|error| {
+                panic!("invalid configured product response: {error}: {output:?}")
+            });
+            (output.status, response)
+        };
+
+        std::fs::write(settings.path(), target("valid", issuer)).unwrap();
+        let (status, original) = run(
+            "create",
+            &["--operation", "cli-create", "configured", "Original title"],
+        );
+        assert!(status.success(), "{original}");
+        assert_eq!(
+            store.project("configured").await.unwrap().unwrap().title,
+            "Original title"
+        );
+        let (status, recovered) = run("acknowledgement", &["--operation", "cli-create"]);
+        assert!(status.success(), "{recovered}");
+        assert_eq!(recovered["payload"], original["payload"]);
+        let (status, changed) = run(
+            "create",
+            &["--operation", "cli-create", "configured", "Different title"],
+        );
+        assert!(!status.success(), "{changed}");
+        let original_project = store.project("configured").await.unwrap().unwrap();
+        assert_eq!(original_project.title, "Original title");
+        let cursor = serde_json::json!({
+            "issuing_store": issuer,
+            "project": "configured",
+            "generation": original_project.generation,
+            "after": "",
+        })
+        .to_string();
+        store
+            .project_navigate(
+                "cli-change-generation",
+                &original_project,
+                &pse_operations::canonical_projects::ProjectNavigation::ProjectTitle {
+                    name: "Updated title".into(),
+                },
+            )
+            .await
+            .unwrap();
+        let (status, stale) = run("branches", &["configured", "--cursor", &cursor]);
+        assert!(!status.success(), "{stale}");
+        assert!(
+            stale.to_string().contains("project_generation_changed"),
+            "{stale}"
+        );
+
+        let foreign = uuid::Uuid::new_v4().to_string();
+        std::fs::write(
+            settings.path(),
+            [
+                target("valid", issuer),
+                target("other", issuer),
+                target("foreign", &foreign),
+            ]
+            .concat(),
+        )
+        .unwrap();
+        let (status, ambiguity) = run(
+            "create",
+            &["--operation", "ambiguous", "uncreated", "Ambiguous"],
+        );
+        assert!(!status.success(), "{ambiguity}");
+        let choices = ambiguity["payload"]["choices"].as_array().unwrap();
+        assert_eq!(choices.len(), 2);
+        assert!(
+            choices
+                .iter()
+                .all(|choice| choice["issuing_store"] == issuer)
+        );
+        assert_eq!(
+            ambiguity["payload"]["unavailable"],
+            serde_json::json!(["foreign"])
+        );
+        let (status, refusal) = run(
+            "create",
+            &[
+                "--target",
+                "foreign",
+                "--operation",
+                "foreign",
+                "uncreated",
+                "Foreign",
+            ],
+        );
+        assert!(!status.success(), "{refusal}");
+        assert!(store.project("uncreated").await.unwrap().is_none());
+        for key in ["ambiguous", "foreign"] {
+            assert!(store.project_acknowledgement(key).await.unwrap().is_none());
+        }
         store.remove_isolated_fixture().await.unwrap();
     }
 }
