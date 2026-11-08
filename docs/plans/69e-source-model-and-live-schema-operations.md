@@ -233,6 +233,12 @@ installed-schema inspection remains the supported route. Revisit configured muta
 a named native-owned persistent deployment needs a recurring in-place schema change. The
 disposable phase and interruption evidence remains scoped to that owner.
 
+**Tested, 2026-11-08.** The prepared Viewer reader and owned v4 fixture confirmed the
+original issuer, installed marker and normalized catalog. A foreign issuer refused.
+The reads preserved the marker, admission, catalog and rollout metadata. After the
+original listener shut down, the command refused while the endpoint stayed down and
+the configuration stayed unchanged. The original fixture then disposed its state.
+
 **Tested baseline.** The owned disposable v4 Nextest control ran the prepared SurrealKit
 phases. After interruption and restart, independent readback found the committed SQL effect
 and the original unresolved journal step. The result establishes the tool path and the need
@@ -407,6 +413,6 @@ registry can establish a complete producer and output scope, including aggregate
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
 | E02 | complete | E01 decision, A01 and A03, generator and affected-check owners | Both source-change cases passed. The optional-field preview verified structural anchors, conservative affected evidence, staged SurrealQL and regeneration equivalence. Stale apply preserved all 43 preimages. The exact reviewed apply published all 43 verified postimages. The owned v4 test confirmed historical absence, an explicit string, `NONE`, and refusal of `NULL`. The fixture and preview custody were released. |
-| E03 | deferred | Named native-owned persistent deployment and recurring in-place schema change | The maintainer deferred configured mutation. The disposable v4 phase and interruption controls passed. Passive installed inspection remains supported and has a separate receiving check. |
+| E03 | deferred | Named native-owned persistent deployment and recurring in-place schema change | The disposable v4 phase and interruption controls passed. The owned v4 CLI check verified passive installed inspection, foreign issuer refusal and a stopped listener. The maintainer deferred configured mutation. |
 | E04 | complete | Existing immutable source acquisition and structural query owner | The shared source index is implemented. Focused native tests and a scoped live probe verified UTF-8 captures and multiline edit coordinates while preserving the original source bytes and bounded behavior. Native range pushdown remains conditional. |
 | E05 | complete | E02 verified preview and publication, generator provenance and target selectors | Retain full generation because the current input scopes and aggregate map cannot establish a complete narrower route for the optional-field fixture. |

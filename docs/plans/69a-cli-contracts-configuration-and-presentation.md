@@ -145,9 +145,10 @@ that cannot be disclosed. Migrate string-only wrappers with their callers.
 
 Receive three additional owner projections from the
 [SurrealDB and Rust tooling review](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md).
-[E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema)
-supplies the original nonce and separates pre-write refusal, uncertain phase effect,
-settled phase, and committed activation. Recovery carries that same operation reference.
+On adoption, E03 supplies the original nonce and separates pre-write refusal, uncertain phase
+effect, settled phase, and committed activation. Recovery carries that same operation reference.
+Configured apply and its receiving projection are deferred under the E03 adoption decision.
+[E03 adoption](69e-source-model-and-live-schema-operations.md#configured-rollout-adoption)
 [E02](69e-source-model-and-live-schema-operations.md#e02--preview-publish-and-recover-source-changes)
 supplies a staged source identity and native primary and optional secondary byte labels,
 with independent related findings for other files. Keep unreadable inputs distinct from
@@ -187,4 +188,4 @@ source, independent warnings, unsafe recovery operands, and a delegated cause.
 |---|---|---|---|
 | A01 | complete | Existing parser and catalog | Passive package candidates, typed effect annotations and runnable examples are attached to the parser. The current help snapshot control passed and the parser-owned reference regenerated. Current passive discovery exposed the project publication status route. |
 | A02 | complete | Current identity and configuration owners | Private project settings resolve defaults, a selected profile and CLI overrides in one read. The captured v4 journey verified unique and ambiguous configured targets, filtered unavailable aliases and refused a foreign issuer before any effect. |
-| A03 | in progress | Native envelope and original owner receipts | Preparation, project and source receivers carry owner state and exact operation identity. The live project control retrieved the original acknowledgement, and the source receiver preserved redacted staged labels. The live schema nonce and activation receiver remain open with E03. |
+| A03 | complete | Native envelope and original owner receipts | Preparation, project and source receivers carry owner state and exact operation identity. The live project control retrieved the original acknowledgement, and the source receiver preserved redacted staged labels. The configured schema nonce and activation receiver follow E03's explicit deferral. |

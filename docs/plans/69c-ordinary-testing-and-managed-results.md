@@ -239,6 +239,14 @@ release after drain. Record preparation count and elapsed time for the bounded c
 If grouping removes the observed repetition, record that disposition and retain the current
 reader owner.
 
+**Tested and measured, 2026-11-08.** The grouped command and its warm repeat each selected
+the two exact project tests, prepared one reader and settled the borrowed fixture. Each run
+had two passes and zero failures. The two captures verified the same executable digest.
+Observed wall times were 665 seconds for the first run and 94 seconds for the warm repeat.
+The first timing includes host and product compilation and shared Cargo lock waits. Retain
+the grouped command. Revisit cross-invocation reuse when a named recurring independent run
+needs the same verified reader and the owner can establish bounded release after drain.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
@@ -248,4 +256,4 @@ reader owner.
 | C03 | complete | A01–A03, existing inspection and history | The current managed CLI recovered exact and session-scoped original results, read bounded detail and logs, exported the selected view and refused an existing destination. Held, retired and unknown results use the existing expiry owner. |
 | C04 | complete | C03 and Plan67 release owner | The timer and foreground expiry class have live evidence. Detached and borrowed tests published their expiry clocks before explicit reconciliation. Separate drain witnesses preserved the original records. A settled interrupted foreground listing released its unpublished inventory while preserving the original result pair. |
 | C05 | complete | C01–C02 selection and verdict owners, A01 catalog | Scoped live admission and the guarded rustdoc route passed. A fresh scoped Nextest listing retained one exact identity and reported the execution verdict unavailable. The original seven-test run separately retained all seven identities and its successful execution verdict. |
-| C06 | planned | C01–C02 Nextest selection and verdicts, D01–D03 v4 project fixtures, existing reader preparation and custody | Verify grouped exact filters and normal fixture settlement. Decide whether remaining independent runs justify exact reader reuse, and qualify its identity and release boundary if adopted. |
+| C06 | complete | C01–C02 Nextest selection and verdicts, D01–D03 v4 project fixtures, existing reader preparation and custody | Both grouped runs passed with one reader preparation per invocation, exact verdicts and normal fixture settlement. Cross-invocation reuse retains its named-consumer and release trigger. |

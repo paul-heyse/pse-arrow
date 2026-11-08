@@ -121,4 +121,4 @@ owner verdict and final settlement in the meantime.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A04 | in progress | Existing resolved format, A03 projection, source-change stage record, and E03 owner events if adopted | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Narrow monochrome human output preserved the Unicode refusal. Add and verify passive source-change stage status. Verify rollout receiving output on E03's adoption branch. Counted transfer remains deferred until an owner supplies intermediate events. |
+| A04 | complete | Existing resolved format, A03 projection, and source-change stage record | The terminal policy and passive stage view passed machine pipe and PTY controls and narrow human PTY checks. Earlier receipts, unfinished and failed work, and terminal states preserve the original settlement. Rollout receiving follows E03's explicit deferral. Counted transfer remains conditional on intermediate owner events. |

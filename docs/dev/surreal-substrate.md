@@ -49,6 +49,12 @@ reads an existing pack offline. `metadata`, `show`, `branches`, `branch`,
 `--state`. They use the configured database unless `--database` selects another
 initialized database. Continue bounded pages with the original cursor.
 
+For installed definitions, prepare a Viewer reader with `pse observe prepare --installed-schema`
+and use its reader ID with `pse project installed-schema`. The observation authenticates the
+expected issuer and compares the normalized catalog and marker on the selected connection.
+Configured rollout apply and recovery are deferred until a named native-owned persistent
+deployment needs a recurring in-place schema change.
+
 `pse project create` takes the project key and title. `pse project navigate` takes
 the original project descriptor and navigation action as JSON on stdin or from
 `--intent`. Both require the issuing store observed by a read and an original

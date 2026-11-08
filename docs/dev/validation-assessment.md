@@ -71,6 +71,10 @@ reader or Python invocation reconciliation ledger. A readable report does not es
 success, fixture drain or scientific assertion coverage. A complete failing population remains
 a failure; missing selected outcomes cannot be inferred from a zero-exit helper.
 
+Group exact Nextest filters with `|` in one `pse test` command when target, features, profile,
+and fixture prerequisites agree. The native runner can prepare the shared reader once while
+retaining each test's verdict and the fixture's own settlement.
+
 Native observation, capture, frozen inspection and review documents remain available through
 Rust APIs; see [diagnostics](simulation-diagnostics.md). Keep copied observation scope distinct
 from actual performing handles. Cancellation and deadline results retain the original native
