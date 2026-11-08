@@ -509,21 +509,34 @@ pub(crate) fn bootstrap_seed(root: &Path) -> Result<i32, HostError> {
     let root = root.canonicalize()?;
     let environment = build_environment(&std::env::vars_os().collect())?;
     let _build = crate::build_admission::Permit::acquire(
-        &root, crate::build_admission::Outputs::ordinary(&root)?, None,
+        &root,
+        crate::build_admission::Outputs::ordinary(&root)?,
+        None,
     )?;
     build_local_tools(&root, &environment)
 }
 
 fn build_local_tools(root: &Path, environment: &Environment) -> Result<i32, HostError> {
     let status = Command::new("cargo")
-        .args(["build", "--locked", "--package", "pse-host", "--bins",
-            "--config", "build.target-dir=\"target\"", "--config", "build.build-dir=\"target\""])
+        .args([
+            "build",
+            "--locked",
+            "--package",
+            "pse-host",
+            "--bins",
+            "--config",
+            "build.target-dir=\"target\"",
+            "--config",
+            "build.build-dir=\"target\"",
+        ])
         .current_dir(root)
         .env_clear()
         .envs(environment)
         .status()?;
     use std::os::unix::process::ExitStatusExt as _;
-    Ok(status.code().unwrap_or_else(|| 128 + status.signal().unwrap_or(1)))
+    Ok(status
+        .code()
+        .unwrap_or_else(|| 128 + status.signal().unwrap_or(1)))
 }
 
 struct CopySource {
@@ -628,12 +641,16 @@ fn construct_selected(
     {
         let context = observe_context()?;
         if manifest.source().matches_sources(&root, &context)? {
-            manifest.source().require_current_sources(&root, &observe_context()?)?;
+            manifest
+                .source()
+                .require_current_sources(&root, &observe_context()?)?;
             return Ok(BootstrapOutcome { exit_code: 0 });
         }
     }
     if mode == BootstrapMode::CopyOnly && source.is_none() {
-        return Ok(BootstrapOutcome { exit_code: LOCAL_SEED_REQUIRED });
+        return Ok(BootstrapOutcome {
+            exit_code: LOCAL_SEED_REQUIRED,
+        });
     }
     let observe = || capture(&root, environment, observe_context()?);
     let before = observe()?;
@@ -666,7 +683,9 @@ fn construct_selected(
         )?;
     }
     let _build = crate::build_admission::Permit::acquire(
-        &root, crate::build_admission::Outputs::ordinary(&root)?, None,
+        &root,
+        crate::build_admission::Outputs::ordinary(&root)?,
+        None,
     )?;
     if !before.matches_sources(&root, &before.context)? {
         return Err(invalid("host source inputs changed before construction"));

@@ -971,7 +971,9 @@ pub(super) fn inspect(
                 let root = super::super::checkout_root(selected)?;
                 match crate::build_admission::activity(&root) {
                     Ok(rows) => {
-                        response.payload.build_activity = rows.into_iter().find(|row| row.invocation.as_ref() == Some(id));
+                        response.payload.build_activity = rows
+                            .into_iter()
+                            .find(|row| row.invocation.as_ref() == Some(id));
                         if response.payload.build_activity.is_some() {
                             response.summary = "original Cargo workflow is active".into();
                             response.subject_state = crate::envelope::SubjectState::Running;

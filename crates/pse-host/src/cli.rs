@@ -1176,7 +1176,9 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             let root = checkout_root(selected)?;
             if seed_only {
                 if entry.checkout().as_deref() != Some(root.canonicalize()?.as_path()) {
-                    return Err(HostError::Ownership("seed build requires the destination's prepared entry".into()));
+                    return Err(HostError::Ownership(
+                        "seed build requires the destination's prepared entry".into(),
+                    ));
                 }
                 return crate::generation::bootstrap_seed(&root);
             }
@@ -1385,7 +1387,10 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     .observation
                     .limitations
                     .extend(response.payload.observer.unavailable.iter().cloned());
-                response.observation.limitations.extend(response.payload.builds_unavailable.iter().cloned());
+                response
+                    .observation
+                    .limitations
+                    .extend(response.payload.builds_unavailable.iter().cloned());
             }
             Ok(presentation.emit(response)?)
         }),
@@ -1537,7 +1542,11 @@ fn launch_managed_finalize(
     if let Some((_, input)) = workflow {
         directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
         if !detach {
-            writeln!(io::stderr(), "pse: managed build invocation {}", directory.id())?;
+            writeln!(
+                io::stderr(),
+                "pse: managed build invocation {}",
+                directory.id()
+            )?;
         }
     }
     if !detach {

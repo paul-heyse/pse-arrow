@@ -49,11 +49,11 @@ const BUILD_VARIABLES: &[&str] = &[
 
 mod bootstrap;
 pub(crate) use bootstrap::EXTERNAL_INPUTS;
+pub(crate) use bootstrap::bootstrap_seed;
 pub use bootstrap::{
     BootstrapMode, BootstrapOutcome, Freshness, HostTool, LOCAL_SEED_REQUIRED, PreparedGeneration,
     bootstrap_from, bootstrap_mode, freshness, prepared,
 };
-pub(crate) use bootstrap::bootstrap_seed;
 mod entry;
 pub use entry::{EntryGuard, NewWorkDecision, new_work_decision};
 mod reexec;

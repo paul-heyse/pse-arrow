@@ -557,7 +557,8 @@ impl Admitted {
         destination: &Path,
         options: discovery::DiscoveryOptions,
     ) -> Result<Listed, WorkflowError> {
-        self.list_with_permit(nextest, destination, options, None).await
+        self.list_with_permit(nextest, destination, options, None)
+            .await
     }
 
     pub(crate) async fn list_with_permit(

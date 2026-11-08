@@ -644,7 +644,11 @@ async fn unsupported_input_retains_a_failed_report_without_metadata_or_build() {
 }
 #[tokio::test]
 async fn actual_workflow_runs_only_the_original_selected_pure_test() {
-    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
+    let NativeFixture {
+        scratch: evidence,
+        root,
+        environment,
+    } = NativeFixture::new();
     let mut input = input(Action::Test);
     input.request.scope = NativeFixture::scope(true);
     input.request.filters.words = vec!["ordinary_case".into()];
@@ -844,7 +848,11 @@ fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch:
 
 #[tokio::test]
 async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_only_suite() {
-    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
+    let NativeFixture {
+        scratch: evidence,
+        root,
+        environment,
+    } = NativeFixture::new();
     let mut input = input(Action::Test);
     input.request.scope = NativeFixture::scope(false);
     input.request.filters.expressions =
@@ -894,7 +902,11 @@ async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_onl
 
 #[tokio::test]
 async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
-    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
+    let NativeFixture {
+        scratch: evidence,
+        root,
+        environment,
+    } = NativeFixture::new();
     let mut input = input(Action::Check);
     input.request.scope = NativeFixture::scope(true);
     let destination = evidence.path().join("check");
@@ -917,8 +929,14 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     assert!(report.required_capture_complete);
     let metadata: cargo_metadata::Metadata =
         serde_json::from_slice(&fs::read(destination.join("metadata.stdout")).unwrap()).unwrap();
-    assert_eq!(metadata.target_directory.as_std_path(), root.join("artifact"));
-    assert_eq!(metadata.build_directory.unwrap().as_std_path(), root.join("intermediate"));
+    assert_eq!(
+        metadata.target_directory.as_std_path(),
+        root.join("artifact")
+    );
+    assert_eq!(
+        metadata.build_directory.unwrap().as_std_path(),
+        root.join("intermediate")
+    );
     let terminal = report.publish(&destination).unwrap();
     assert_eq!(terminal.helper_exit(), 0);
     terminal.validate(&input.invocation, Action::Check).unwrap();
@@ -926,9 +944,7 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     input.request.operation = selection::Operation::Test;
     input.request.filters.words = vec![format!("no-such-test-{}", input.invocation)];
     let destination = evidence.path().join("zero-list");
-    let mut report = run(&input, &root, &destination, environment)
-        .await
-        .unwrap();
+    let mut report = run(&input, &root, &destination, environment).await.unwrap();
     if report.outcome != Outcome::ZeroMatch {
         report.publish(&destination).unwrap();
         let evidence = evidence.keep();
@@ -947,18 +963,17 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
 
 #[tokio::test]
 async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
-    let NativeFixture { scratch: evidence, root: checkout, environment } = NativeFixture::new();
+    let NativeFixture {
+        scratch: evidence,
+        root: checkout,
+        environment,
+    } = NativeFixture::new();
     let mut input = input(Action::List);
     input.request.scope = NativeFixture::scope(true);
     let destination = evidence.path().join("list");
-    let mut listed = run(
-        &input,
-        &checkout,
-        &destination,
-        environment.clone(),
-    )
-    .await
-    .unwrap();
+    let mut listed = run(&input, &checkout, &destination, environment.clone())
+        .await
+        .unwrap();
     assert_eq!(listed.outcome, Outcome::Listed, "{:?}", listed.failures);
     assert!(listed.selected_tests.is_some_and(|count| count > 0));
     assert!(listed.inventory.is_some());
@@ -975,14 +990,9 @@ async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
     input.action = Action::Rustdoc;
     input.request.operation = selection::Operation::Rustdoc;
     let destination = evidence.path().join("rustdoc");
-    let mut documented = run(
-        &input,
-        &checkout,
-        &destination,
-        environment,
-    )
-    .await
-    .unwrap();
+    let mut documented = run(&input, &checkout, &destination, environment)
+        .await
+        .unwrap();
     assert_eq!(
         documented.outcome,
         Outcome::CheckSucceeded,

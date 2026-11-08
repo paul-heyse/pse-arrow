@@ -495,7 +495,16 @@ pub async fn list(
     environment: &crate::environment::Environment,
     options: DiscoveryOptions,
 ) -> Result<Inventory, DiscoveryError> {
-    list_with_permit(resolved, checkout, nextest, destination, runner_profile, environment, (options, None)).await
+    list_with_permit(
+        resolved,
+        checkout,
+        nextest,
+        destination,
+        runner_profile,
+        environment,
+        (options, None),
+    )
+    .await
 }
 
 pub(crate) async fn list_with_permit(

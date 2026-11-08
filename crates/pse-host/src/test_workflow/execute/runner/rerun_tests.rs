@@ -76,7 +76,11 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
 
 #[tokio::test]
 async fn actual_native_setup_failure_preserves_original_capture_without_assertion_rerun_grant() {
-    let NativeFixture { scratch, root, environment } = NativeFixture::new();
+    let NativeFixture {
+        scratch,
+        root,
+        environment,
+    } = NativeFixture::new();
     let root = root.as_path();
     let store =
         InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());

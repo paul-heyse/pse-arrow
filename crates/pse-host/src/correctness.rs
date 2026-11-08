@@ -395,7 +395,9 @@ fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, Correctne
                 value
             } else {
                 index += 1;
-                arguments.get(index).and_then(|arg| arg.to_str())
+                arguments
+                    .get(index)
+                    .and_then(|arg| arg.to_str())
                     .ok_or_else(|| invalid("Cargo target directory is missing"))?
             });
         } else if ["--offline", "--frozen"].contains(&text) {
@@ -853,14 +855,29 @@ impl AdmissionContext {
         })
     }
 
-    fn build_outputs(&self) -> Result<Option<(PathBuf, crate::build_admission::Outputs)>, CorrectnessError> {
+    fn build_outputs(
+        &self,
+    ) -> Result<Option<(PathBuf, crate::build_admission::Outputs)>, CorrectnessError> {
         use crate::build_admission::Outputs;
-        let Some(metadata) = &self.metadata else { return Ok(None) };
-        let Some(root) = metadata.workspace.as_ref()
-            .filter(|root| root.join(".config/diagnostic-tools.toml").is_file()) else { return Ok(None) };
+        let Some(metadata) = &self.metadata else {
+            return Ok(None);
+        };
+        let Some(root) = metadata
+            .workspace
+            .as_ref()
+            .filter(|root| root.join(".config/diagnostic-tools.toml").is_file())
+        else {
+            return Ok(None);
+        };
         let root = root.canonicalize()?;
-        let target = metadata.target_directory.as_deref().ok_or_else(|| invalid("Cargo target directory is missing"))?;
-        let build = metadata.build_directory.as_deref().ok_or_else(|| invalid("Cargo intermediate directory is missing"))?;
+        let target = metadata
+            .target_directory
+            .as_deref()
+            .ok_or_else(|| invalid("Cargo target directory is missing"))?;
+        let build = metadata
+            .build_directory
+            .as_deref()
+            .ok_or_else(|| invalid("Cargo intermediate directory is missing"))?;
         let outputs = Outputs::new(target, build).map_err(coordination)?;
         Ok(Some((root, outputs)))
     }
@@ -883,7 +900,9 @@ fn performing_resolution(
     if arguments[mode] == "run" && !is_codegen_run(arguments) {
         return Ok((resolution, None));
     }
-    let Some((root, outputs)) = admission.build_outputs()? else { return Ok((resolution, None)) };
+    let Some((root, outputs)) = admission.build_outputs()? else {
+        return Ok((resolution, None));
+    };
     if let Some(callback) = std::env::var_os(CALLBACK) {
         build_admission::authorize_callback(&root, &outputs, &callback).map_err(coordination)?;
         return Ok((resolution, None));
@@ -893,7 +912,9 @@ fn performing_resolution(
         let mut current = AdmissionContext::default();
         let resolution = current.resolve_with(arguments, |args| capture(cargo, args))?;
         if current.build_outputs()? != Some((root, outputs)) {
-            return Err(invalid("Cargo output scope changed while queued; retry the original command"));
+            return Err(invalid(
+                "Cargo output scope changed while queued; retry the original command",
+            ));
         }
         return Ok((resolution, permit));
     }
@@ -901,10 +922,16 @@ fn performing_resolution(
 }
 
 fn is_codegen_run(arguments: &[OsString]) -> bool {
-    let Some(end) = arguments.iter().position(|arg| arg == "--") else { return false };
+    let Some(end) = arguments.iter().position(|arg| arg == "--") else {
+        return false;
+    };
     arguments.get(end + 1).is_some_and(|arg| arg == "codegen")
-        && (arguments[..end].iter().any(|argument| argument == "--bin=xtask")
-            || arguments[..end].windows(2).any(|pair| pair[0] == "--bin" && pair[1] == "xtask"))
+        && (arguments[..end]
+            .iter()
+            .any(|argument| argument == "--bin=xtask")
+            || arguments[..end]
+                .windows(2)
+                .any(|pair| pair[0] == "--bin" && pair[1] == "xtask"))
 }
 
 /// Resolve real Cargo compiler actions without building, preparing providers or starting services.
@@ -972,7 +999,8 @@ fn native_command_with_rustflags(
 }
 fn metadata_target(arguments: &[OsString]) -> (&[OsString], Option<&OsStr>) {
     if let [mode, rest @ .., option, target] = arguments
-        && mode == "metadata" && option == "--target-dir"
+        && mode == "metadata"
+        && option == "--target-dir"
     {
         return (&arguments[..rest.len() + 1], Some(target));
     }
@@ -982,7 +1010,9 @@ fn metadata_target(arguments: &[OsString]) -> (&[OsString], Option<&OsStr>) {
 pub(crate) fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
     let (arguments, target) = metadata_target(arguments);
     let mut command = native_command(cargo, arguments)?;
-    if let Some(target) = target { command.env("CARGO_TARGET_DIR", target); }
+    if let Some(target) = target {
+        command.env("CARGO_TARGET_DIR", target);
+    }
     capture_command(command)
 }
 /// Query the same native compiler policy in an explicit checkout/environment, without
@@ -1015,7 +1045,9 @@ pub(crate) fn capture_at(
             command.env_remove(key);
         }
     }
-    if let Some(target) = target { command.env("CARGO_TARGET_DIR", target); }
+    if let Some(target) = target {
+        command.env("CARGO_TARGET_DIR", target);
+    }
     capture_command(command)
 }
 fn capture_command(mut command: Command) -> Result<Vec<u8>, CorrectnessError> {

@@ -59,8 +59,14 @@ pub(super) fn dispatch(
     let directory = store.directory(&id)?;
     if cancel && crate::build_admission::cancel_waiter(&root, &id)? {
         let mut response = Envelope::response(
-            "cancel", "cancellation requested for the original waiting build",
-            ControlView { original_invocation: id, service: None, service_gone: false, result: None },
+            "cancel",
+            "cancellation requested for the original waiting build",
+            ControlView {
+                original_invocation: id,
+                service: None,
+                service_gone: false,
+                result: None,
+            },
         );
         response.subject_state = envelope::SubjectState::Running;
         response.settlement = envelope::Settlement::Unknown;
@@ -68,11 +74,19 @@ pub(super) fn dispatch(
         response.observation.required = false;
         return Ok(output.emit(response)?);
     }
-    let foreground = directory.evidence_bytes(crate::invocation::InvocationEvidence::Launch)?.is_none()
+    let foreground = directory
+        .evidence_bytes(crate::invocation::InvocationEvidence::Launch)?
+        .is_none()
         && {
             let metadata = store.metadata::<serde_json::Value>(&id)?;
-            metadata.selection.operation.get("detached").and_then(serde_json::Value::as_bool) == Some(false)
-                && crate::test_workflow::execute::Action::from_command(&metadata.selection.command).is_some()
+            metadata
+                .selection
+                .operation
+                .get("detached")
+                .and_then(serde_json::Value::as_bool)
+                == Some(false)
+                && crate::test_workflow::execute::Action::from_command(&metadata.selection.command)
+                    .is_some()
         };
     let mut result = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?;
     if foreground && !cancel && result.is_none() {
@@ -96,8 +110,14 @@ pub(super) fn dispatch(
         result = observed;
         if result.is_none() {
             let mut response = Envelope::response(
-                "wait", "observation ended before the original foreground result was available",
-                ControlView { original_invocation: id, service: None, service_gone: false, result: None },
+                "wait",
+                "observation ended before the original foreground result was available",
+                ControlView {
+                    original_invocation: id,
+                    service: None,
+                    service_gone: false,
+                    result: None,
+                },
             );
             response.subject_state = envelope::SubjectState::Unknown;
             response.observation.timed_out = !interrupted;

@@ -129,7 +129,9 @@ impl ActivityObservation {
 
     /// A partial observation is not a successfully observed manager unit.
     pub fn complete(&self) -> bool {
-        self.manager.is_some() && self.observer.unavailable.is_empty() && self.builds_unavailable.is_none()
+        self.manager.is_some()
+            && self.observer.unavailable.is_empty()
+            && self.builds_unavailable.is_none()
     }
 }
 

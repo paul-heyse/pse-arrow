@@ -788,9 +788,10 @@ pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostE
         bound_input(&directory, &binding, &id, &metadata.selection.command)?;
     let accepted_content = crate::test_workflow::execute::ContentIdentity::of(&accepted_bytes);
     let destination = directory.path().join("workflow");
-    let mut report = crate::test_workflow::execute::run_managed(&input, &root, &destination, environment)
-        .await
-        .map_err(host)?;
+    let mut report =
+        crate::test_workflow::execute::run_managed(&input, &root, &destination, environment)
+            .await
+            .map_err(host)?;
     // Keep the exact full-file identity accepted before execution, including the
     // native publisher's newline. A later read cannot redefine original input.
     report.input_cutoff = Some(Ok(accepted_content));
@@ -1063,7 +1064,8 @@ pub(crate) async fn validate_report(
             cancelled_before_build: facts.outcome == crate::test_workflow::execute::Outcome::Failed
                 && facts.inventory.is_none()
                 && facts.failures.iter().any(|failure| {
-                    failure.code.as_deref() == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled.as_str())
+                    failure.code.as_deref()
+                        == Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled.as_str())
                 }),
             terminal,
             path,

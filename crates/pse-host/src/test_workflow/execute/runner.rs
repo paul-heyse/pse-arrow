@@ -146,7 +146,9 @@ fn prepare_fixtures(
         report.outcome = Outcome::Pending;
         return Ok(None);
     }
-    if let Some(permit) = permit { permit.stage(crate::build_admission::Stage::Building)?; }
+    if let Some(permit) = permit {
+        permit.stage(crate::build_admission::Stage::Building)?;
+    }
     Ok(Some(assessed.prepare_with_permit(destination, permit)?))
 }
 
@@ -187,7 +189,15 @@ async fn run_inner(
     }
     directory(destination)?;
     let mut report = Report::new(input);
-    let result = perform(input, checkout, destination, environment, &mut report, coordinated).await;
+    let result = perform(
+        input,
+        checkout,
+        destination,
+        environment,
+        &mut report,
+        coordinated,
+    )
+    .await;
     if let Err(error) = result {
         failed(&mut report, error, destination);
     }
@@ -199,13 +209,17 @@ async fn acquire_build(
     outputs: Option<crate::build_admission::Outputs>,
     input: &Input,
 ) -> Result<Option<crate::build_admission::Permit>, WorkflowError> {
-    let Some(outputs) = outputs else { return Ok(None) };
+    let Some(outputs) = outputs else {
+        return Ok(None);
+    };
     let root = checkout.to_owned();
     let invocation = input.invocation.clone();
     let permit = tokio::task::spawn_blocking(move || {
         crate::build_admission::Permit::acquire(&root, outputs, Some(invocation))
-    }).await.map_err(crate::HostError::from)??
-      .ok_or(WorkflowError::BuildCancelled)?;
+    })
+    .await
+    .map_err(crate::HostError::from)??
+    .ok_or(WorkflowError::BuildCancelled)?;
     Ok(Some(permit))
 }
 
@@ -288,8 +302,13 @@ async fn perform(
         let build_directory = metadata.build_directory.as_ref().ok_or_else(|| {
             WorkflowError::Invalid("Cargo intermediate directory is missing".into())
         })?;
-        Some(Outputs::new(metadata.target_directory.as_std_path(), build_directory.as_std_path())?)
-    } else { None };
+        Some(Outputs::new(
+            metadata.target_directory.as_std_path(),
+            build_directory.as_std_path(),
+        )?)
+    } else {
+        None
+    };
     if input.action.is_compiler() {
         let mut admitted =
             test_workflow::CheckIntent::new(metadata, input.request.clone(), environment)?
@@ -319,7 +338,9 @@ async fn perform(
             directory(&capture)?;
             let mut request = prepared.command(group)?;
             if let Some(permit) = &permit {
-                request.environment.insert(CALLBACK.into(), permit.callback());
+                request
+                    .environment
+                    .insert(CALLBACK.into(), permit.callback());
             }
             if input.timings {
                 let end = request
@@ -345,9 +366,9 @@ async fn perform(
         }
         if permit.is_some() {
             // Each group uses the same observed Cargo output domain.
-            let serialized = (0..report.admission.len()).map(|group| {
-                (group, BTreeSet::from(["cargo output".to_owned()]))
-            }).collect();
+            let serialized = (0..report.admission.len())
+                .map(|group| (group, BTreeSet::from(["cargo output".to_owned()])))
+                .collect();
             execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
         } else {
             execute_groups(input, destination, groups, report).await?;
@@ -364,7 +385,9 @@ async fn perform(
             }
         }
         if let Some(permit) = &mut permit {
-            if !report.required_capture_complete { permit.retain_for_drain(); }
+            if !report.required_capture_complete {
+                permit.retain_for_drain();
+            }
             permit.stage(Stage::Capturing)?;
         }
     } else {
@@ -397,17 +420,18 @@ async fn perform(
                 },
                 permit.as_ref(),
             )
-            .await {
-                Ok(listed) => listed,
-                Err(error) => {
-                    if let Some(permit) = &mut permit
-                        && matches!(&error, WorkflowError::Discovery(error) if error.capture_incomplete())
-                    {
-                        permit.retain_for_drain();
-                    }
-                    return Err(error);
+            .await
+        {
+            Ok(listed) => listed,
+            Err(error) => {
+                if let Some(permit) = &mut permit
+                    && matches!(&error, WorkflowError::Discovery(error) if error.capture_incomplete())
+                {
+                    permit.retain_for_drain();
                 }
-            };
+                return Err(error);
+            }
+        };
         report.record_inventory(destination)?;
         report.fixture_requirements = listed.requirements.clone();
         report.selected_tests = Some(listed.inventory.selected_tests_iter().count());
@@ -441,7 +465,9 @@ async fn perform(
         else {
             return Ok(());
         };
-        if let Some(permit) = &permit { permit.stage(Stage::Listing)?; }
+        if let Some(permit) = &permit {
+            permit.stage(Stage::Listing)?;
+        }
         let serialized = group_policy(input, destination, &listed, report).await?;
         let mut groups = Vec::new();
         for group in 0..listed.inventory.groups.len() {

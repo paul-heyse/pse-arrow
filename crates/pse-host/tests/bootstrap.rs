@@ -135,8 +135,15 @@ fn foreign_target_cannot_publish_or_enter_construction() {
         &root.path().join("bin/cargo"),
         "#!/bin/sh\ntouch entered-construction\n",
     );
-    for name in ["CARGO_BUILD_TARGET", "CARGO_BUILD_BUILD_DIR", "RUSTUP_TOOLCHAIN"] {
-        let result = seed(root.path()).env(name, "foreign-target").output().unwrap();
+    for name in [
+        "CARGO_BUILD_TARGET",
+        "CARGO_BUILD_BUILD_DIR",
+        "RUSTUP_TOOLCHAIN",
+    ] {
+        let result = seed(root.path())
+            .env(name, "foreign-target")
+            .output()
+            .unwrap();
         assert_eq!(result.status.code(), Some(125));
     }
     assert!(!root.path().join("build/.pse-cargo").exists());
@@ -375,7 +382,10 @@ fn concurrent_preparation_reuses_publication_before_trying_the_selected_source()
     let root = checkout();
     let path = root.path();
     let source = source_checkout("#!/bin/sh\nexit 99\n");
-    executable(&path.join("bin/cargo"), "#!/bin/sh\nprintf x >> cargo-calls\n");
+    executable(
+        &path.join("bin/cargo"),
+        "#!/bin/sh\nprintf x >> cargo-calls\n",
+    );
     executable(
         &path.join("target/debug/pse-host"),
         r#"#!/bin/sh

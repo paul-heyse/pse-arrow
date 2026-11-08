@@ -1139,7 +1139,8 @@ pub(crate) fn prepare_with_permit(
             build_directory.clone().into_os_string(),
         );
         correctness.verify()?;
-        let mut command = source_build_command(&correctness, &checkout, &environment, installed_schema);
+        let mut command =
+            source_build_command(&correctness, &checkout, &environment, installed_schema);
         if let Some(permit) = permit {
             command.env(crate::build_admission::CALLBACK, permit.callback());
         }
