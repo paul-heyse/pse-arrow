@@ -207,6 +207,8 @@ pub(super) enum Action {
         /// Validate a source witness and explain the current package or its explicitly selected target.
         #[arg(long)]
         from_result: Option<String>,
+        #[arg(long, hide = true, requires = "from_result")]
+        target_witness: Option<String>,
         #[arg(long)]
         admitted: bool,
         #[arg(long)]
@@ -778,6 +780,7 @@ pub(super) fn inspect(
         Action::TestSelection {
             mut tests,
             from_result: _,
+            target_witness,
             admitted,
             full,
         } => {
@@ -811,10 +814,18 @@ pub(super) fn inspect(
                 else {
                     return Err(HostError::Ownership("source witness has no current containing workspace package; select tests explicitly".into()));
                 };
+                if let Some(witness) = &target_witness {
+                    tests.verify_source_target(&snapshot.metadata, &package_id, witness)?;
+                }
                 tests.select_source_package(package_id)?;
             }
             let metadata = snapshot.metadata;
             let request = tests.request()?;
+            let next = if from_source && admitted {
+                tests.admitted_source_argv(&metadata_root, &request)
+            } else {
+                None
+            };
             let intent =
                 crate::test_workflow::Intent::new(metadata, request, tests.profile, inputs)
                     .map_err(|error| HostError::Workflow(Box::new(error)))?;
@@ -822,9 +833,9 @@ pub(super) fn inspect(
                 let admitted = intent
                     .admit()
                     .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                selection_emit(output, "test", full, admitted.explain(), from_source)
+                selection_emit(output, "test", full, admitted.explain(), from_source, next)
             } else {
-                selection_emit(output, "test", full, intent.explain(), from_source)
+                selection_emit(output, "test", full, intent.explain(), from_source, None)
             }
         }
         Action::CheckSelection {
@@ -844,9 +855,9 @@ pub(super) fn inspect(
                 let admitted = intent
                     .admit()
                     .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                selection_emit(output, "check", full, admitted.explain(), false)
+                selection_emit(output, "check", full, admitted.explain(), false, None)
             } else {
-                selection_emit(output, "check", full, intent.explain(), false)
+                selection_emit(output, "check", full, intent.explain(), false, None)
             }
         }
         Action::Invocation {
@@ -909,6 +920,7 @@ fn selection_emit(
     full: bool,
     explanation: crate::test_workflow::Explanation<'_>,
     from_source: bool,
+    next: Option<Vec<String>>,
 ) -> Result<i32, HostError> {
     let command = format!(
         "inspect {kind}-selection{}",
@@ -918,9 +930,15 @@ fn selection_emit(
         "native {kind} {:?} intent; no source build, runtime preparation or test listing performed",
         explanation.stage
     );
-    fn mark<T>(mut response: Envelope<T>, from_source: bool) -> Envelope<T> {
+    fn mark<T>(mut response: Envelope<T>, from_source: bool, next: Option<Vec<String>>) -> Envelope<T> {
         if from_source {
             response.observation.limitations.push("Current test candidate in the containing package from a validated source witness. Cargo checks any explicit target selection. This does not establish dependency impact, a listed population, coverage or a verdict.".into());
+        }
+        if let Some(argv) = next {
+            response.next.push(crate::envelope::NextAction::Command {
+                argv,
+                reason: "run the admitted Cargo target with the selected nextest filters".into(),
+            });
         }
         response
     }
@@ -928,11 +946,13 @@ fn selection_emit(
         Ok(output.emit(mark(
             Envelope::response(command, summary, explanation),
             from_source,
+            next,
         ))?)
     } else {
         Ok(output.emit(mark(
             Envelope::response(command, summary, explanation.brief()),
             from_source,
+            next,
         ))?)
     }
 }

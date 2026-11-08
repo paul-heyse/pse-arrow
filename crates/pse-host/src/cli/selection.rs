@@ -187,6 +187,127 @@ pub(super) struct TestArgs {
     pub(super) profile: String,
 }
 impl TestArgs {
+    pub(super) fn verify_source_target(
+        &self,
+        metadata: &cargo_metadata::Metadata,
+        package_id: &str,
+        encoded: &str,
+    ) -> Result<(), CorrectnessError> {
+        let stale = || {
+            CorrectnessError::Invalid(
+                "semantic target changed or is ambiguous; refresh its source inspection".into(),
+            )
+        };
+        if encoded.len() > 16 * 1024 {
+            return Err(stale());
+        }
+        let witness: crate::semantic::RunnableTargetFact =
+            serde_json::from_str(encoded).map_err(|_| stale())?;
+        let selector = match witness.kind.as_str() {
+            "lib" | "rlib" | "proc-macro" => selection::CargoTargets::Library,
+            "test" => selection::CargoTargets::Test(witness.name.clone()),
+            "bin" => selection::CargoTargets::Bin(witness.name.clone()),
+            _ => return Err(stale()),
+        };
+        if package_id != witness.package_id || self.selection.cargo_targets() != Some(selector) {
+            return Err(stale());
+        }
+        let matches = metadata
+            .packages
+            .iter()
+            .filter(|package| {
+                package.id.repr == package_id
+                    && package.manifest_path.as_std_path() == witness.manifest
+            })
+            .flat_map(|package| &package.targets)
+            .filter(|target| {
+                target.name == witness.name
+                    && target.src_path.as_std_path() == witness.root
+                    && target
+                        .kind
+                        .iter()
+                        .any(|kind| kind.to_string() == witness.kind)
+                    && target.required_features == witness.required_features
+            })
+            .count();
+        if matches != 1 {
+            return Err(stale());
+        }
+        Ok(())
+    }
+
+    /// Render only a source candidate already narrowed to one admitted Cargo target.
+    pub(super) fn admitted_source_argv(
+        &self,
+        root: &std::path::Path,
+        request: &Request,
+    ) -> Option<Vec<String>> {
+        use clap::{Parser as _, ValueEnum as _};
+        let Scope::Targets { scope, selector } = &request.scope else {
+            return None;
+        };
+        let Scope::Packages(packages) = scope.as_ref() else {
+            return None;
+        };
+        let [package] = packages.as_slice() else {
+            return None;
+        };
+        let mut argv = vec![
+            "pse".into(),
+            "-C".into(),
+            root.to_str()?.into(),
+            "test".into(),
+            "-p".into(),
+            package.package.clone(),
+        ];
+        match selector {
+            selection::CargoTargets::Library => argv.push("--lib".into()),
+            selection::CargoTargets::Test(name) => argv.extend(["--test".into(), name.clone()]),
+            selection::CargoTargets::Bin(name) => argv.extend(["--bin".into(), name.clone()]),
+            selection::CargoTargets::AllTargets => return None,
+        }
+        if let Some(platform) = &request.platform {
+            argv.extend(["--target".into(), platform.clone()]);
+        }
+        if request.non_incremental {
+            argv.push("--non-incremental".into());
+        }
+        if !package.features.defaults {
+            argv.push("--no-default-features".into());
+        }
+        if package.features.all {
+            argv.push("--all-features".into());
+        }
+        for feature in &package.features.enabled {
+            argv.extend(["--features".into(), feature.clone()]);
+        }
+        for feature in &package.features.absent {
+            argv.extend(["--without-feature".into(), feature.clone()]);
+        }
+        if request.filters.ignore_default_filter {
+            argv.push("--ignore-default-filter".into());
+        }
+        argv.extend(["--profile".into(), self.profile.clone()]);
+        if request.ignored != selection::IgnoredPolicy::Default {
+            argv.extend([
+                "--ignored".into(),
+                request.ignored.to_possible_value()?.get_name().into(),
+            ]);
+        }
+        for expression in &request.filters.expressions {
+            argv.extend(["-E".into(), expression.clone()]);
+        }
+        if !request.filters.words.is_empty() {
+            argv.push("--".into());
+            argv.extend(request.filters.words.iter().cloned());
+        }
+        let cli = super::Cli::try_parse_from(&argv).ok()?;
+        let Some(super::Command::Test(parsed)) = cli.command else {
+            return None;
+        };
+        (parsed.selection.request().ok().as_ref() == Some(request)).then_some(argv)
+    }
+
     pub(in crate::cli) fn select_source_package(
         &mut self,
         package: String,

@@ -738,6 +738,7 @@ pub(in crate::cli) fn test_routes(
             "test-selection".into(),
             "--from-result".into(),
             reference,
+            "--admitted".into(),
         ];
         if !configuration.features.is_empty() {
             argv.extend(["--features".into(), configuration.features.join(",")]);
@@ -766,8 +767,11 @@ pub(in crate::cli) fn test_routes(
                 "test" | "bin" => Some(vec![format!("--{}", target.kind), target.name.clone()]),
                 _ => None,
             };
-            if let Some(selector) = selector {
+            if let Some(selector) = selector
+                && let Ok(witness) = serde_json::to_string(target)
+            {
                 argv.extend(selector);
+                argv.extend(["--target-witness".into(), witness]);
                 argv.extend(["-E".into(), format!("test(={test})")]);
                 true
             } else {
@@ -868,6 +872,7 @@ mod runnable_route_tests {
         );
         assert!(argv.iter().any(|arg| arg == "test(=selected)"));
         assert!(argv.iter().any(|arg| arg == "--lib"));
+        assert!(argv.iter().any(|arg| arg == "--target-witness"));
         assert!(
             !argv
                 .iter()
