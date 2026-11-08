@@ -355,8 +355,21 @@ impl RetainedDataServices {
         cancel: &CancellationToken,
     ) -> Result<StudyKpiExport, WorkflowError> {
         let cohort = self.freeze_study_cohort(request).await?;
-        let analysis = cohort.aggregate(kpi, cancel.clone()).await?;
-        let written = write_analysis_ipc(&self.pool(), &analysis.batches, output)?;
+        cohort.export_analysis(kpi, output, cancel).await
+    }
+}
+
+impl FrozenStudyCohort {
+    /// Encode an aggregate while the caller retains this exact frozen cut.
+    pub(crate) async fn export_analysis(
+        &self,
+        kpi: &StudyKpiRequest,
+        output: &std::path::Path,
+        cancel: &CancellationToken,
+    ) -> Result<StudyKpiExport, WorkflowError> {
+        let analysis = self.aggregate(kpi, cancel.clone()).await?;
+        cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+        let written = write_analysis_ipc(&self.services.pool(), &analysis.batches, output)?;
         Ok(StudyKpiExport {
             cohort: analysis.cohort,
             included: analysis.included,

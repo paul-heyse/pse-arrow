@@ -753,6 +753,10 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     assert_eq!(collected.import.retired_originals, vec![original.clone()]);
     assert!(!collected.import.project_complete);
     assert!(collected.import.artifact_intent.is_none());
+    let incomplete = Box::pin(handler::open_project_import(store, &intent, &cancel))
+        .await.unwrap();
+    assert!(incomplete.cleanup.is_none());
+    assert!(incomplete.result.unwrap_err().to_string().contains("membership is incomplete"));
     let applied = Box::pin(handler::apply_project_import(
         store,
         root.path(),
@@ -783,14 +787,19 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
         .unwrap();
     assert_eq!(duplicate.project, imported.project);
     std::fs::remove_dir_all(root.path()).unwrap();
-    let reopened = Box::pin(runtime.project_import_open(&intent, &cancel))
+    let reopened = Box::pin(handler::open_project_import(store, &intent, &cancel))
         .await
         .unwrap();
+    assert!(reopened.cleanup.is_none());
+    let reopened = reopened.result.unwrap();
     assert_eq!(
-        reopened.canonical_revision().unwrap().key,
+        reopened.canonical_revision,
         imported.revision,
         "current copied artifact/source ownership is independent of supplied bundle lifetime"
     );
+    assert_eq!(reopened.project, imported.project);
+    assert_eq!(reopened.branch, imported.branch);
+    assert_eq!(reopened.canonical_problem, imported.problem);
     let repeated = Box::pin(runtime.project_import(&reader, &intent, &cancel))
         .await
         .unwrap();
@@ -1078,6 +1087,7 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
 #[tokio::test]
 async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads()
 {
+    use crate::host_operations::project::exchange::{self, Deliverable, ExchangeRequest, PublicationStatus};
     use crate::tooling::reader::{
         self, Access, ProjectRead, ProjectReadSelection, Protocol, ReaderRequest, Request,
     };
@@ -1187,6 +1197,7 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
     let output = tempfile::tempdir().unwrap();
     let complete_path = output.path().join("must-refuse");
     let metadata_path = output.path().join("metadata");
+    let prepared_path = output.path().join("prepared");
     let manifest=workflow::fixture_controls::with_unavailable_fixture_payloads(store, async {
         let unavailable=store.read_artifact(&artifact.key).await.unwrap();assert!(unavailable.block(0).await.is_err(),"the selected artifact's original sealed bytes are genuinely absent");drop(unavailable);
         assert!(Box::pin(runtime.project_export(&complete_path,&request,physical.clone(),&cancel)).await.is_err(),"executable export cannot silently reinterpret missing selected artifact bytes as metadata");
@@ -1213,6 +1224,23 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
         let response: serde_json::Value = serde_json::from_slice(read.bytes()).unwrap();
         assert_eq!(read.exit_code(), 0, "{response}");
         assert_eq!(response["payload"]["result"]["explanation"], serde_json::to_value(explanation).unwrap());
+        let prepared = Box::pin(exchange::export(store, "original-descriptive-export", prepared_path.clone().into(), ExchangeRequest::Pack {
+            request: request.clone(), physical: None,
+        }, &cancel)).await.unwrap();
+        assert!(prepared.cleanup.is_none());
+        let PublicationStatus::Published { receipt } = prepared.result.unwrap() else { unreachable!("descriptive publication must settle"); };
+        let Deliverable::Pack { manifest: file, executable_complete, .. } = &receipt.deliverable else { unreachable!("original pack receipt"); };
+        assert!(!executable_complete);
+        let pack = ProjectBundleReader::open(&prepared_path, request.maximum_document_bytes).unwrap();
+        assert_eq!(file.digest.to_hex(), pack.digest());
+        let mut changed = request.clone();
+        changed.maximum_output_bytes += 1;
+        assert!(Box::pin(exchange::export(store, "original-descriptive-export", prepared_path.clone().into(), ExchangeRequest::Pack {
+            request: changed, physical: None,
+        }, &cancel)).await.is_err());
+        let readback = exchange::publication_status(prepared_path.clone().into(), "original-descriptive-export", store.issuing_store().unwrap(), &cancel.token()).unwrap();
+        let PublicationStatus::Published { receipt: recovered } = readback else { unreachable!("lost publication response recovers the original"); };
+        assert_eq!(serde_json::to_vec(&receipt).unwrap(), serde_json::to_vec(&recovered).unwrap());
         Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()
     }).await.unwrap();
     let restored = store.read_artifact(&artifact.key).await.unwrap();

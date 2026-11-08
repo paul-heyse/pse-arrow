@@ -5,6 +5,8 @@
 
 /// Shared implementations used by native project adapters.
 pub mod handler;
+/// Exact local publication and recovery for the prepared project operator.
+pub mod exchange;
 
 use crate::workflow::{
     PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,

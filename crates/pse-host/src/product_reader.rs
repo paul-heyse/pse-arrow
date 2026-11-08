@@ -295,12 +295,19 @@ pub(crate) enum ProjectEffectOutcome {
     ImportRecovered {
         report: Box<RawValue>,
     },
+    ImportOpened {
+        source: Box<RawValue>,
+    },
+    Export {
+        status: Box<RawValue>,
+    },
     Refused {
         failure: Box<crate::envelope::ErrorRecord>,
     },
     Unresolved {
         failure: Box<crate::envelope::ErrorRecord>,
         import_status: Option<Box<RawValue>>,
+        publication_status: Option<Box<RawValue>>,
         readback_failure: Option<Box<crate::envelope::ErrorRecord>>,
     },
 }
@@ -543,6 +550,8 @@ fn decode_project_effect(
             | ProjectEffectOutcome::ImportIssued { .. }
             | ProjectEffectOutcome::Imported { .. }
             | ProjectEffectOutcome::ImportRecovered { .. }
+            | ProjectEffectOutcome::ImportOpened { .. }
+            | ProjectEffectOutcome::Export { .. }
     );
     let target_matches = match &reply.target {
         Some(target) => {
@@ -706,23 +715,26 @@ impl ProductReaderSelection {
         self.evidence(&self.manifest.discovery, "discovery.json", RESPONSE_BYTES)
     }
     pub(crate) fn supports_project_perform(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability(false)
+        self.project_capability("project_perform")
     }
 
     pub(crate) fn supports_project_import(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability(true)
+        self.project_capability("project_import")
     }
 
-    fn project_capability(&self, import: bool) -> Result<bool, ProductReaderError> {
-        #[derive(Deserialize)]
-        struct Capability {
-            project_perform: Option<u32>,
-            project_import: Option<u32>,
-        }
+    pub(crate) fn supports_project_import_open(&self) -> Result<bool, ProductReaderError> {
+        self.project_capability("project_import_open")
+    }
+
+    pub(crate) fn supports_project_export(&self) -> Result<bool, ProductReaderError> {
+        self.project_capability("project_export")
+    }
+
+    fn project_capability(&self, selected: &str) -> Result<bool, ProductReaderError> {
         let response: Response = serde_json::from_slice(&self.discovery()?)?;
-        let capability: Capability = serde_json::from_str(response.payload.get())?;
-        Ok(capability.project_perform == Some(1)
-            && (!import || capability.project_import == Some(1)))
+        let capability: serde_json::Value = serde_json::from_str(response.payload.get())?;
+        Ok(capability["project_perform"].as_u64() == Some(1)
+            && capability[selected].as_u64() == Some(1))
     }
 
     pub(crate) fn perform_project(

@@ -617,3 +617,831 @@ The following documentation pages are all applicable to the verified 0.18.6 rele
 | Release notes             | [https://github.com/console-rs/indicatif/releases/tag/0.18.6](https://github.com/console-rs/indicatif/releases/tag/0.18.6?utm_source=chatgpt.com)                                       |
 
 Overall: Indicatif 0.18.6 provides a mature separation between shared progress state, presentation logic, concurrent terminal coordination, and instrumentation adapters. Its most consequential advanced capabilities are the customizable tracker system, dynamic multi-progress lifecycle management, iterator/parallel/I/O instrumentation, draw-target abstraction, and in-memory terminal testing. Together, these make it a capable general-purpose foundation for interactive Rust CLI progress reporting without coupling the UI to the underlying execution model.
+
+# Indicatif 0.18.6 — Advanced Runtime and API Semantics Addendum
+
+Supplement to `indicateif.md` | Research date: November 7, 2026 | Target release: 0.18.6
+
+This addendum supplements the existing Indicatif capability reference with implementation mechanisms, lifecycle semantics, adapter behavior, and lower-level APIs not fully developed in the original document. It is intended to be read alongside that reference rather than replace its architectural and functional coverage.
+
+The analysis targets the published Indicatif 0.18.6 release, which remains the latest stable release identified in the registry as of the research date. Claims about internal mechanisms describe the tagged implementation, not necessarily cross-version public API guarantees.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+## 1. Atomic progress updates and hierarchical rendering throttling
+
+### 1.1 A distinct atomic position-update path
+
+Indicatif separates progress-position mutations from the more expensive work of updating derived state, invoking custom trackers, formatting output, and drawing to a terminal.
+
+A `ProgressBar` contains three shared components:
+
+- `Arc<AtomicPosition>` for its position counter and update-admission state.
+- `Arc<Mutex<BarState>>` for progress metadata, estimates, formatting, rendering, and lifecycle state.
+- `Arc<Mutex<Option<Ticker>>>` for controlling periodic ticking.
+
+This decomposition is significant because ordinary position increments do not necessarily acquire the main `BarState` mutex.
+
+The source implementation of `ProgressBar::inc`, `dec`, and `set_position` follows a common pattern:
+
+1. Update the position through `AtomicPosition`.
+2. Obtain the current time.
+3. Ask `AtomicPosition::allow(now)` whether a tick should proceed.
+4. Only when admitted, call `tick_inner`, which can acquire the state lock and perform estimate, tracker, and rendering work.
+
+The `AtomicPosition` counter uses `portable_atomic::AtomicU64`. Increment and decrement operations use atomic read-modify-write instructions, while `set_position` uses an atomic store.
+
+The observable progress position can therefore change without a corresponding immediate style update, custom tracker invocation, or terminal redraw.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 1.2 Token-bucket-like admission control
+
+In version 0.18.6, `AtomicPosition::allow` uses an internal budget with two constants:
+
+| Internal constant | Value                 | Role                                         |
+| ----------------- | --------------------- | -------------------------------------------- |
+| `INTERVAL`        | 1,000,000 nanoseconds | Approximately 1 ms per replenished admission |
+| `MAX_BURST`       | 10                    | Maximum accumulated admission capacity       |
+
+The initial capacity allows a limited number of rapid ticks. Once depleted, additional ticks are admitted as sufficient time elapses.
+
+The mechanism resembles a token bucket, although its implementation uses atomic loads and stores rather than a separately synchronized queue or strict, globally serialized admission counter.
+
+These are internal implementation constants, not public configuration settings. They should not be interpreted as an exact contractual maximum of 1,000 ticks per second under arbitrary contention.
+
+The purpose is to prevent a stream of inexpensive atomic position changes from causing an equally large number of mutex acquisitions and expensive presentation updates.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+### 1.3 The two throttling layers are independent
+
+An admitted position tick is not equivalent to an actual terminal redraw.
+
+Indicatif's update path
+
+`inc` / `dec` / `set_position`
+
+Atomic position mutation
+
+`AtomicPosition::allow`
+
+Admission gate, roughly 1 ms with burst capacity
+
+`BarState::tick`
+
+Mutex-protected estimator and tracker updates
+
+`ProgressDrawTarget::drawable`
+
+Independent redraw limit, terminal visibility, and destination policy
+
+Formatting and terminal I/O
+
+Performed only when a draw is admitted or forced
+
+The draw target applies its own rate limiter after the bar's state-update gate. In the default standalone configuration, the target is configured for approximately 20 redraws per second, with support for occasional bursts.
+
+The separation permits high-frequency progress accounting without equivalent terminal I/O or formatting overhead.
+
+It also means that a custom `ProgressTracker` is not necessarily notified of every individual position change. Its `tick` method is invoked through admitted state-update operations, not directly for every atomic increment.
+
+For trackers that derive cumulative progress, the current `ProgressState::pos()` remains the relevant source. Trackers that assume exactly one tick for each unit of progress can behave incorrectly under throttling.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 1.4 Scope and performance implications
+
+This optimization applies particularly to the ordinary position-update path. Operations such as changing messages, prefixes, or lengths enter `BarState` through separate methods and do not necessarily follow the same atomic admission route.
+
+A `force_draw()` can also bypass ordinary redraw throttling, while steady ticking provides another source of periodic state updates.
+
+Consequently, the mechanism does not imply that every `ProgressBar` method is lock-free, that every mutation incurs constant cost independent of concurrency, or that custom formatters cannot become a performance bottleneck.
+
+The architectural benefit is narrower and more useful: Indicatif can preserve frequent, shared progress-count updates while performing substantially less derived-state and rendering work. This reduces the need for application-specific progress aggregation, timer management, and draw-rate control.
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/progress_bar.rs.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/state.rs.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/draw_target.rs.html`
+
+## 2. Automatic completion, final-handle destruction, and presentation lifetime
+
+### 2.1 Completion is also a destruction-time operation
+
+The original guide describes explicit finishing and the `ProgressFinish` variants. An additional lifecycle mechanism is important: dropping the final owning reference to an unfinished bar can automatically apply its configured finish behavior.
+
+This behavior is implemented by `Drop for BarState`.
+
+When the shared `BarState` is destroyed:
+
+1. If the progress state is already finished, it does not apply a second finish policy.
+2. Otherwise, it invokes `finish_using_style` using its stored `on_finish` policy.
+3. It notifies the draw target that the progress bar has become a zombie, where applicable to `MultiProgress`.
+
+Because `BarState` is held through an `Arc`, this destruction behavior is associated with the last owning reference, not with dropping an arbitrary cloned `ProgressBar` handle.
+
+A `WeakProgressBar` does not keep the shared state alive, although successfully upgrading one temporarily creates another strong handle.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 2.2 The default finish policy is `AndClear`
+
+`ProgressFinish::default()` is `ProgressFinish::AndClear`.
+
+Therefore, when an unfinished bar reaches its final-handle destruction, the default behavior marks it finished and clears its visible progress display.
+
+This differs materially from the explicit `ProgressBar::finish()` method, which corresponds to `ProgressFinish::AndLeave`.
+
+The distinction has implications for progress displays expected to preserve their final output after the owning scope exits. Merely reaching the numerical total and allowing a handle to go out of scope is not equivalent to explicitly finishing with a retained final display.
+
+`ProgressBar::with_finish` allows the automatic policy to be changed. For example, `ProgressFinish::WithMessage` can establish a final message, while `ProgressFinish::Abandon` preserves the current partial progress instead of marking the bar numerically complete.
+
+In the latter case, the display is nevertheless considered finished from Indicatif's lifecycle perspective. `Abandon` is not a mechanism for keeping the progress bar active indefinitely; it is a different terminal presentation state.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+### 2.3 Automatic completion depends on the owning abstraction
+
+There are two distinct automatic completion events:
+
+| Event                                                   | Behavior in 0.18.6                                             |
+| ------------------------------------------------------- | -------------------------------------------------------------- |
+| Iterator or stream adapter observes exhaustion          | Applies `finish_using_style()` to the associated bar           |
+| Last owning reference to an unfinished bar is destroyed | Applies the stored `on_finish` policy through `BarState::drop` |
+
+These events can occur at different times.
+
+An iterator can reach exhaustion and mark a bar finished while other strong handles remain alive. Conversely, an iterator can be abandoned before exhaustion while another strong handle keeps the bar alive and unfinished.
+
+For I/O wrappers, receiving an EOF or completing a write does not follow the same exhaustion-triggered finish path. Their completion behavior is discussed further in Section 4.
+
+An explicitly finished bar avoids reapplication of its automatic finish policy when its final owning handle is subsequently destroyed.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+2
+
+
+
+### 2.4 Interaction with `MultiProgress` zombie handling
+
+Automatic completion and zombie handling should be understood as separate mechanisms.
+
+A bar can be finished while its handle remains alive, allowing `MultiProgress` to reconstruct its final appearance during subsequent redraws.
+
+When its last strong handle is dropped, `MultiProgress` loses access to the underlying bar state. It may temporarily preserve previously drawn terminal lines, but it cannot reliably reconstruct that bar after a later clear or redraw operation.
+
+Thus, the finish policy determines the final state of a bar, while ownership lifetime determines whether a multi-bar renderer can continue reconstructing it.
+
+A configured `WithMessage` or `AndLeave` policy alone is insufficient to guarantee persistent display of a completed child bar across future `MultiProgress` redraws if all owning handles have been dropped.
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/enum.ProgressFinish.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/state.rs.html`
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.MultiProgress.html`
+
+## 3. `MultiProgress` removal, clearing, and ownership constraints
+
+### 3.1 Removing a progress bar changes its draw target
+
+`MultiProgress::remove(&bar)` does more than remove an entry from a visual ordering.
+
+In version 0.18.6, the implementation:
+
+1. Retrieves the bar's internal remote draw target.
+2. Confirms that the bar belongs to the invoking `MultiProgress`.
+3. Replaces the member bar's draw target with `ProgressDrawTarget::hidden()`.
+4. Removes the corresponding member index from the group's internal presentation state.
+
+Importantly, removal does not destroy the `ProgressBar` or reset its position, total length, message, or other progress state.
+
+The application may retain and continue updating the removed handle. However, the bar no longer participates in the original coordinated display and is left with a hidden draw target.
+
+It can subsequently be attached to an appropriate draw target or registered with a progress group again.
+
+This creates a useful lifecycle distinction between removing an indicator from a visual group and terminating the underlying progress state.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 3.2 Ownership checks are stricter than a general no-op rule
+
+The public documentation says that attempting to remove a progress bar not previously registered with the group has no effect.
+
+The tagged implementation has an additional distinction:
+
+- A bar without a remote `MultiProgress` draw target is ignored.
+- A bar associated with a different `MultiProgress` causes an assertion failure because its group identity does not match.
+
+The assertion uses `Arc::ptr_eq` to compare the shared group-state identities.
+
+Therefore, `remove` should not be interpreted as an idempotent operation that safely accepts a bar belonging to an arbitrary group.
+
+The exact assertion is a source-observed 0.18.6 behavior rather than a separately documented compatibility guarantee.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 3.3 Clearing is not equivalent to removal
+
+`MultiProgress::clear()` clears the current terminal presentation without unregistering its active member bars.
+
+The underlying group retains its membership records and ordering. Its bars can be rendered again on subsequent progress updates or forced redraws.
+
+Internally, the clear operation also accounts for zombie lines previously retained by the renderer. These are cleared as part of the terminal operation, even though the original bar states may no longer exist.
+
+The distinction is:
+
+| Operation         | Member registration       | Progress state                | Terminal effect                               |
+| ----------------- | ------------------------- | ----------------------------- | --------------------------------------------- |
+| `remove(&bar)`    | Removes one member        | Retained by surviving handles | Removes the bar from coordinated presentation |
+| `clear()`         | Retains active members    | Unchanged                     | Clears the current rendered display           |
+| Final-handle drop | Ends ownership of the bar | Destroyed                     | Applies finish policy and zombie handling     |
+
+`clear()` is therefore a presentation reset rather than a lifecycle reset. It also returns `io::Result<()>`, allowing its caller to observe at least some terminal-output failures.
+
+These distinctions matter for dynamic interfaces in which indicators can be temporarily cleared, removed, reintroduced, or retained after completion without changing the execution lifecycle of the represented work.
+
+Primary source:
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/multi.rs.html`
+
+## 4. Trait-preserving adapters and precise accounting boundaries
+
+### 4.1 `ProgressBarIter<T>` preserves multiple abstraction interfaces
+
+Although its name emphasizes iteration, `ProgressBarIter<T>` is a general-purpose progress-aware wrapper over several Rust abstraction families.
+
+Its trait implementations are conditional on the wrapped type's own capabilities.
+
+| Wrapped interface                            | Implemented interface      | Important condition                                                            |
+| -------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------ |
+| `Iterator`                                   | `Iterator`                 | Automatically observes item yields and exhaustion                              |
+| `ExactSizeIterator`                          | `ExactSizeIterator`        | Retains the inner iterator's remaining-length behavior                         |
+| `DoubleEndedIterator`                        | `DoubleEndedIterator`      | Also instruments traversal through `next_back()`                               |
+| `FusedIterator`                              | `FusedIterator`            | Retained when the inner iterator implements it                                 |
+| `std::io::Read`                              | `Read`                     | Instruments successful reads                                                   |
+| `std::io::BufRead`                           | `BufRead`                  | Instruments consumption of buffered bytes                                      |
+| `std::io::Seek`                              | `Seek`                     | Retains seeking and position-query methods                                     |
+| `std::io::Write`                             | `Write`                    | Instruments accepted writes                                                    |
+| Tokio `AsyncRead`, `AsyncWrite`, `AsyncSeek` | Corresponding Tokio traits | Requires `tokio` feature and documented `Unpin` bounds                         |
+| Tokio `AsyncBufRead`                         | `AsyncBufRead`             | Requires `tokio`; inner type must implement `AsyncBufRead + AsyncRead + Unpin` |
+| Futures `Stream`                             | `Stream`                   | Requires `futures` feature and `Unpin`                                         |
+
+These implementations make the wrapper useful beyond a single interface. A buffered, seekable reader can retain those capabilities after progress instrumentation is introduced.
+
+This can avoid creating separate instrumentation wrappers for buffering, seeking, and ordinary reading.
+
+The available interfaces depend on the wrapped type and enabled Cargo features; constructing a `ProgressBarIter<T>` does not itself confer traits that `T` lacks.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+2
+
+
+
+### 4.2 Buffered reads are counted when consumed
+
+The buffered I/O implementations make an important distinction between making bytes available and consuming them.
+
+For synchronous `BufRead`:
+
+- `fill_buf()` delegates to the wrapped reader without advancing progress.
+- `consume(amt)` delegates consumption and then advances the progress position by the consumed amount.
+
+The equivalent Tokio `AsyncBufRead` implementation follows the same principle:
+
+- `poll_fill_buf()` does not advance progress merely because data becomes available.
+- `consume(amt)` updates the position.
+
+This prevents repeated buffer inspection from being counted as repeated byte consumption.
+
+It also means that progress is tied to the `BufRead` consumption boundary, not necessarily to underlying system-level reads. A buffer may have been populated earlier without being fully consumed.
+
+For general buffered processing, this is an appropriate distinction. However, the counter should not be interpreted as a measure of physical disk reads, network transfers, or unique source bytes independently of the adapter's position in the I/O stack.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 4.3 Write progress measures accepted bytes, not durable output
+
+The synchronous `Write` implementation updates progress using the number of bytes returned by successful `write()` and `write_vectored()` calls.
+
+`flush()` delegates to the inner writer without adding progress.
+
+The Tokio implementation similarly updates the counter from completed `poll_write()` operations, while `poll_flush()` and `poll_shutdown()` delegate without introducing additional progress accounting.
+
+These behaviors have an important consequence for buffered writers.
+
+A successful write may mean that bytes have been accepted into an intermediate buffer rather than transmitted to a remote destination or persisted to storage.
+
+Thus, the adapter measures accepted write bytes at the instrumented interface, not application-level durability.
+
+For operations involving buffered storage, compression, remote transfer, or transactional output, successful finalization is separate from the progress counter. The adapter neither guarantees persistence nor replaces the relevant completion acknowledgment.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 4.4 Partial failures and asynchronous readiness require care
+
+The adapter also has some consequential implementation-level error behavior.
+
+In the synchronous `Read` implementation, `read_exact()` delegates to the underlying reader and increments the counter by the full buffer length only after the operation returns successfully.
+
+If `read_exact()` fails after the underlying reader has consumed some data, the wrapper does not account for that partial consumption through this overridden method.
+
+This means the progress position can underrepresent actual consumed bytes following certain partial failures.
+
+For Tokio `AsyncRead`, the wrapper calculates the change in `ReadBuf::filled().len()` when the underlying read returns `Poll::Ready`. A `Poll::Pending` result does not advance progress.
+
+These details reinforce that progress accounting is derived from the specific trait method's observable behavior. It is not an independent byte-level audit of all effects performed by the wrapped object.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 4.5 Seek tracking is intentionally presentation-oriented
+
+The I/O wrapper retains `Seek` and Tokio `AsyncSeek`, but its displayed progress is not simply a direct copy of the current underlying cursor.
+
+Internally, the `SeekMax` mechanism maintains recent positions to reduce visible instability from backward-and-forward seeks.
+
+The default implementation uses a recent-position history of ten entries and can discard that history after five consecutive sequential operations.
+
+Several details distinguish this from ordinary cursor tracking:
+
+- A seek can alter displayed progress through the recent-position estimator.
+- `SeekFrom::Current(0)` is treated as a position query rather than a meaningful seek update.
+- `stream_position()` delegates to the underlying object without introducing a progress-position update.
+- After a period of sequential operations, the smoothing history can be discarded.
+
+The resulting progress value is a useful presentation estimate for workloads that seek within a file, but is not necessarily a precise representation of the current cursor, unique bytes processed, or total bytes transferred.
+
+The parameters and implementation are internal details of 0.18.6.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+### 4.6 Exhaustion-driven completion does not extend to ordinary I/O
+
+The adapter's automatic finish semantics differ across abstraction families.
+
+For `Iterator`, the implementation checks the result of `next()` or `next_back()`. When exhaustion is observed, it applies `finish_using_style()` if the bar is not already finished.
+
+For a Futures `Stream`, the analogous trigger is `Poll::Ready(None)`.
+
+In contrast, the `Read`, `Write`, `AsyncRead`, and `AsyncWrite` implementations do not introduce equivalent automatic finish transitions when an EOF, successful flush, or shutdown is encountered.
+
+Their methods instrument progress and propagate the underlying I/O results, while presentation completion remains dependent on explicit finish operations or the separate destruction-time behavior described in Section 2.
+
+This distinction is useful when the end of byte transfer and the end of the broader operation do not coincide—for example, when validation, commit, checksum verification, or remote acknowledgment follows transfer.
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/iter.rs.html`
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBarIter.html`
+
+## 5. Terminal output errors and rendering reliability
+
+### 5.1 Fallible terminal operations do not imply uniformly fallible progress APIs
+
+The `TermLike` abstraction exposes fallible methods for terminal operations, including cursor movement, writing strings and lines, clearing lines, and flushing.
+
+These methods return `io::Result<()>`.
+
+Internally, Indicatif's drawing machinery can propagate such errors through its lower-level rendering operations. However, higher-level public APIs do not consistently expose those errors to their callers.
+
+The important distinction is between the fallibility of the underlying terminal operation and the error contract of the API through which rendering is requested.
+
+| Public operation               | Return type        | Relevant 0.18.6 behavior                                 |
+| ------------------------------ | ------------------ | -------------------------------------------------------- |
+| `ProgressBar::println()`       | `()`               | Internal drawing errors are discarded                    |
+| `ProgressBar::force_draw()`    | `()`               | Discards the result of the forced draw                   |
+| Ordinary progress updates      | `()`               | State-update rendering failures can be discarded         |
+| `MultiProgress::println()`     | `io::Result<()>`   | Propagates group rendering errors                        |
+| `MultiProgress::clear()`       | `io::Result<()>`   | Propagates clear errors                                  |
+| `ProgressBar::suspend()`       | Closure result `R` | Standalone rendering errors are suppressed               |
+| `MultiProgress::suspend()`     | Closure result `R` | Internal clear/redraw errors are unwrapped and can panic |
+| `ProgressBar::set_tab_width()` | `()`               | Forces a redraw and unwraps its result                   |
+
+The last two behaviors are source-level details worth recognizing when custom `TermLike` implementations can return actual I/O errors.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+### 5.2 Rendering should be treated as best-effort presentation
+
+The immediate consequence is that a progress-state update does not prove successful delivery of its visual representation.
+
+There are several distinct reasons:
+
+- Rendering may be suppressed because the draw target is hidden.
+- The redraw limiter may skip an attempted refresh.
+- A write may fail without the public progress operation returning an error.
+- Some APIs may instead propagate or panic on terminal errors.
+
+Even a successful `MultiProgress::println()` can be a no-op on a hidden draw target.
+
+Therefore, a custom rendering destination should not treat Indicatif operations as reliable event acknowledgments.
+
+For integrations where output failures must be observable, the application must consider the error contract of the selected presentation API and the implementation of its terminal destination.
+
+This is a boundary of Indicatif's progress-rendering model rather than a defect in its underlying progress counters.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+### 5.3 Additional `TermLike` geometry behavior
+
+`TermLike` provides a default implementation of `height()` returning 20 rows, while `width()` must be supplied by the implementor.
+
+This is a useful detail for custom terminal-like destinations: relying on the default height may provide an inaccurate model of the actual output surface.
+
+The source identifies this default as a compatibility accommodation that may change in a future major release. It should not be assumed to reflect the dimensions of a real terminal or virtual display.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/trait.TermLike.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/state.rs.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/multi.rs.html`
+
+## 6. Additional formatting and presentation APIs
+
+### 6.1 `style::write_ansi_range`: ANSI-preserving text extraction
+
+Indicatif exposes a public function that is not discussed in the original guide:
+
+```
+indicatif::style::write_ansi_range
+```
+
+Its signature is conceptually:
+
+```
+pub fn write_ansi_range(
+    formatter: &mut std::fmt::Formatter,
+    text: &str,
+    start: usize,
+    end: usize,
+) -> std::fmt::Result
+```
+
+The function writes the requested visible range of text while preserving ANSI escape sequences.
+
+This differs from ordinary string slicing, where byte offsets do not correspond directly to terminal columns and embedded ANSI control sequences can distort naive length calculations.
+
+Its implementation uses `console::AnsiCodeIterator` to distinguish ANSI sequences from visible text. ANSI sequences are written unchanged, while printable characters are selected according to their accumulated display width.
+
+When the `unicode-width` feature is enabled, the function uses Unicode character-width information. Otherwise, it treats each non-ANSI character as width one.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+The function is useful for implementing display-oriented truncation or partial rendering in custom `Display` implementations. Indicatif itself uses it when formatting certain padded and truncated template values.
+
+Its scope has several important limitations.
+
+First, the function accepts a `std::fmt::Formatter`, not an arbitrary `std::io::Write` or `std::fmt::Write`. It is therefore most naturally used inside Rust formatting implementations.
+
+Second, the implementation preserves ANSI sequences even when they occur outside the selected visible-character range. It is not an ANSI sanitizer or a general-purpose mechanism for balancing terminal styles.
+
+Third, its iteration is character-oriented, with width measured per Unicode scalar value. This does not establish perfect grapheme-cluster-aware substring behavior for every complex Unicode sequence or terminal emulator.
+
+It is best understood as a specialized ANSI-aware visible-range formatter, not as a full terminal-text layout engine.
+
+Source:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/style/fn.write_ansi_range.html`
+
+### 6.2 Tab expansion is configurable but not tab-stop alignment
+
+`ProgressBar` provides:
+
+- `with_tab_width(usize)`
+- `set_tab_width(usize)`
+- `tab_width()`
+
+The default tab width is eight spaces.
+
+The underlying `TabExpandedString` implementation stores the original text and expands tab characters lazily.
+
+The expansion uses a direct replacement operation equivalent to replacing each `\t` with exactly the configured number of spaces.
+
+This is not conventional tab-stop expansion, where the number of inserted spaces depends on the current column.
+
+For example, a tab width of four replaces a tab with four spaces whether the preceding text occupies one column or three columns.
+
+The configured width applies to the bar's stored message and prefix, and the style's formatting path is updated as well.
+
+`set_tab_width()` additionally forces a redraw in the current implementation; `with_tab_width()` provides a builder-like configuration path.
+
+The difference matters when using tabs to align labels of different lengths. Indicatif's setting provides consistent replacement width, not automatic alignment to shared terminal columns.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+2
+
+
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBar.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/state.rs.html`
+
+### 6.3 Style introspection and spinner-state access
+
+Two additional public facilities make existing presentation configuration reusable.
+
+`ProgressBar::style()` returns a clone of the bar's current `ProgressStyle`. This can be useful when coordinating presentation across separately constructed bars without independently reconstructing their style configuration.
+
+`ProgressStyle` also provides:
+
+| Method                 | Behavior                                                              |
+| ---------------------- | --------------------------------------------------------------------- |
+| `get_tick_str(idx)`    | Returns the spinner string selected for the supplied tick index       |
+| `get_final_tick_str()` | Returns the configured spinner string reserved for the finished state |
+
+The non-final tick lookup cycles through all entries except the last, while the final-state lookup returns the last entry.
+
+The internal rendering logic selects the finished-state tick string according to `ProgressState::is_finished()`.
+
+This means the completed spinner glyph follows Indicatif's presentation lifecycle rather than independently evaluating whether the bar's numeric position equals its total. An abandoned bar is considered finished for this purpose.
+
+These accessors provide a small but useful bridge between Indicatif's configured animation style and other presentation logic.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Source:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/style/struct.ProgressStyle.html`
+
+## 7. Additional adapter configuration and hidden-state construction
+
+### 7.1 `ProgressBar::wrap_iter` attaches an existing progress handle
+
+In addition to the extension methods on `ProgressIterator`, Indicatif provides:
+
+```
+ProgressBar::wrap_iter(&self, iterator)
+```
+
+The implementation delegates to the iterator's `progress_with` method, supplying a clone of the existing progress handle.
+
+This makes it possible to attach progress instrumentation after constructing a bar with its desired length, style, message, finish policy, or group membership.
+
+The cloned handle refers to the same shared bar state, not a new independently configured progress indicator.
+
+This is particularly useful when progress presentation must be configured separately from the iterator's construction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+### 7.2 Adapter-level configuration preserves shared identity
+
+`ProgressBarIter<T>` also provides builder-like methods corresponding to several `ProgressBar` configuration operations:
+
+`with_style`, `with_prefix`, `with_message`, `with_position`, `with_elapsed`, and `with_finish`.
+
+These methods configure the underlying shared progress bar.
+
+They should not be interpreted as creating independent copies of its progress state. If another strong handle refers to the same bar, the configuration changes can be observed through that handle as well.
+
+The distinction can be useful for building reusable instrumentation layers without separately maintaining a configuration object and synchronized progress metadata.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBar.html`
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBarIter.html`
+
+### 7.3 Hidden progress can retain a known total
+
+`ProgressBar::hidden()` creates a progress indicator without a known length and with rendering disabled.
+
+However, hidden presentation and unknown total length are separate properties.
+
+A hidden bar with a known total can be constructed directly:
+
+```
+use indicatif::{ProgressBar, ProgressDrawTarget};
+
+let bar = ProgressBar::with_draw_target(
+    Some(1_000),
+    ProgressDrawTarget::hidden(),
+);
+```
+
+This preserves a meaningful total and allows progress updates and queries while suppressing rendering.
+
+Alternatively, a visible bar can have its draw target changed to `ProgressDrawTarget::hidden()` without discarding its progress state.
+
+Indicatif also provides `ProgressBar::is_hidden()` and `MultiProgress::is_hidden()`. These are useful for determining whether the configured presentation destination is currently hidden, including when visibility is inherited from a multi-bar group's draw target.
+
+A hidden bar is still a progress-state object; invisibility does not imply that its counters or timing information cease to exist.
+
+This separation can support optional terminal presentation without requiring an application to implement a parallel progress-state model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Primary source:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBar.html`
+
+## 8. Completion fractions, ETA sentinel values, and timing semantics
+
+### 8.1 Numerical completion has defined edge-case behavior
+
+`ProgressState::fraction()` returns a floating-point completion fraction clamped to the range `[0.0, 1.0]`.
+
+The tagged implementation handles several cases explicitly:
+
+| Progress state                       | Fraction returned     |
+| ------------------------------------ | --------------------- |
+| Unknown total length                 | `0.0`                 |
+| Known zero length                    | `1.0`                 |
+| Position zero with a positive length | `0.0`                 |
+| Position between zero and total      | `position / length`   |
+| Position greater than total          | `1.0`, after clamping |
+
+This means `fraction()` is a normalized presentation quantity, not an uncapped ratio or a reliable indicator of lifecycle completion.
+
+For example, a bar with zero length can report `fraction() == 1.0` while `is_finished()` is still false.
+
+Similarly, a position beyond the declared total is not represented as a fraction greater than one.
+
+Applications requiring the actual position-to-length relationship should use the underlying position and length methods rather than infer it from the clamped fraction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+### 8.2 A zero ETA can mean that no useful estimate exists
+
+`ProgressState::eta()` returns `Duration::ZERO` in several cases:
+
+- The bar is finished.
+- Its total length is unknown.
+- Its estimated progress rate is zero.
+- The calculated remaining work is zero.
+
+These outcomes have different meanings.
+
+In particular, a zero ETA for an unfinished bar with no length or no established rate does not indicate that completion is imminent.
+
+The implementation uses zero as a fallback value for certain unavailable or uninformative estimates rather than returning `Option<Duration>`.
+
+Likewise, `ProgressState::duration()` returns zero while an unbounded bar is still in progress. This is distinct from the elapsed runtime reported by `elapsed()`.
+
+This is especially relevant when custom formatting or external consumers attempt to interpret Indicatif's timing values as structured estimates rather than human-readable presentation metrics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+### 8.3 Elapsed time and completed duration are not identical
+
+The source also distinguishes elapsed wall-clock time from the duration captured at completion.
+
+For an unfinished bar with a known total, `duration()` estimates total runtime using elapsed time plus ETA.
+
+For a finished bar, `duration()` returns the duration recorded when the bar transitioned to its finished state.
+
+In contrast, `elapsed()` computes elapsed time relative to the original start instant, including when the bar has already finished.
+
+An additional implementation detail concerns `per_sec()`: for an active bar it uses the smoothed rate estimator, while for a finished bar it divides the current position by elapsed time since the start instant.
+
+Consequently, the value returned by `per_sec()` after completion is not necessarily an immutable snapshot of the rate at the moment of finishing. It can change if queried later.
+
+These are source-observed semantics of the 0.18.6 implementation. For external reporting that requires immutable completion metrics, captured completion values are conceptually different from querying an object that continues to reference the current clock.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source+1
+
+
+
+Primary sources:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressState.html`
+
+`https://docs.rs/indicatif/0.18.6/src/indicatif/state.rs.html`
+
+## 9. Platform compatibility clarification
+
+The Indicatif crate documentation explicitly identifies Linux, macOS, and Windows as supported operating systems.
+
+For Windows, the documentation notes that terminal color support requires Windows 10.
+
+This is separate from the Cargo feature requirements for Tokio, Futures, Unicode handling, and WebAssembly. Platform support does not imply that every output destination behaves identically, since terminal capabilities and automatic interactive-terminal detection remain environment-dependent.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/indicatif/0.18.6/indicatif/`
+
+## Addendum synthesis
+
+The additions clarify several consequential aspects of Indicatif's architecture without changing the broader capability model established in the original reference.
+
+The most significant newly documented mechanism is its hierarchy of update and rendering controls. Atomic counters allow frequent state mutations, while separate admission and redraw controls reduce the amount of work required to maintain an interactive display.
+
+The lifecycle analysis establishes that explicit completion, iterator exhaustion, final-handle destruction, and multi-bar persistence are different events with different implications. These distinctions are important whenever progress presentation must survive changes in ownership or accurately represent incomplete work.
+
+The adapter analysis clarifies that Indicatif can preserve a broader collection of I/O traits than its high-level wrapper methods initially suggest, while its counters remain tied to precise observation boundaries. Buffered reads, accepted writes, seeking, and EOF detection do not all represent the same notion of completed work.
+
+Finally, the formatting, terminal-error, and timing details expose capabilities and limitations that matter when treating Indicatif as an extensible rendering component rather than merely a convenient progress-bar widget.
+
+These additions are specific to Indicatif 0.18.6, with internal implementation observations distinguished from stable public API behavior. They complement the existing guide's coverage without requiring changes to its overall organization.

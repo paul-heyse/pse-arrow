@@ -1004,3 +1004,977 @@ The most important capability of thiserror is not simply eliminating implementat
 The most important capability of miette is not its attractive terminal output. It establishes a shared diagnostic protocol for identifying problems, associating them with source locations, collecting related findings, supplying remediation guidance, and rendering the same information for different consumers.
 
 Combined, they support an error architecture in which semantic failure types remain explicit, rich diagnostic information survives propagation, and application-specific reporting machinery can often be replaced by reusable library capabilities.
+
+# Addendum: Advanced Error Handling and Diagnostic Capabilities
+
+Companion to: Rust Error Handling and Diagnostics: thiserror 2.0.21 + miette 7.6.0\
+Research date: November 7, 2026\
+Version scope: thiserror 2.0.21 and miette 7.6.0, including their associated derive-macro implementations.
+
+This addendum supplements the original technical reference with additional native capabilities, implementation distinctions, and corrections identified through examination of the published APIs, release histories, and upstream source.
+
+The emphasis is on functionality that expands the available error-handling architecture, eliminates unnecessary custom implementations, or affects the preservation of information across diagnostic boundaries. The sections below are organized around the areas of the original guide they extend.
+
+## 1. thiserror: Advanced formatting and derive behavior
+
+Extends original Sections 2.1, 2.4, and 2.6.
+
+### 1.1 Out-of-line error formatting with `#[error(fmt = ...)]`
+
+thiserror 2.x supports delegating an enum variant's `Display` implementation to a named formatting function through `#[error(fmt = path)]`.
+
+This provides a third formatting mechanism between inline `#[error("...")]` expressions and a manually implemented `Display` trait.
+
+The derive macro generates the enum's `Display` implementation and dispatches the selected variant to the specified function, passing references to the variant's fields and a mutable `fmt::Formatter`.
+
+```
+use std::fmt;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+enum ParseError {
+    #[error(fmt = format_invalid_token)]
+    InvalidToken {
+        token: String,
+        position: usize,
+    },
+
+    #[error("unexpected end of input")]
+    UnexpectedEnd,
+}
+
+fn format_invalid_token(
+    token: &String,
+    position: &usize,
+    f: &mut fmt::Formatter<'_>,
+) -> fmt::Result {
+    write!(f, "invalid token {token:?}")?;
+
+    if *position > 0 {
+        write!(f, " at byte offset {position}")?;
+    }
+
+    Ok(())
+}
+```
+
+The formatting function can perform conditional rendering, use helper functions, write multiple fragments, and inspect the actual structured error fields.
+
+Unlike replacing the complete `Display` implementation, this mechanism retains generated dispatch for other variants.
+
+Its architectural value is greatest when an error enum contains a mixture of simple and complex presentation requirements. Variants with straightforward messages can continue to use inline attributes, while the complex ones use dedicated formatting functions.
+
+Constraints and distinctions:
+
+- `#[error(fmt = ...)]` is supported for enum variants, not standalone structs.
+- The function receives borrowed fields and the formatter; its signature must match the variant's fields.
+- It cannot be combined with `#[error(transparent)]` or another formatting attribute on the same variant.
+- It changes presentation, not the error's structured representation or source-chain semantics.
+
+The feature was introduced in thiserror 2.0.0 and is available in 2.0.21.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+1
+
+
+
+Primary sources:
+
+`https://github.com/dtolnay/thiserror/releases/tag/2.0.0`
+
+`https://docs.rs/crate/thiserror-impl/2.0.21/source/src/valid.rs`
+
+### 1.2 Enum-wide formatting defaults and variant overrides
+
+An enum can declare a shared error-formatting attribute at the enum level. Variants without their own formatting attributes inherit this declaration.
+
+An individual variant may override the common formatting behavior, including by specifying `#[error(transparent)]`.
+
+```
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[error("operation failed: {0}")]
+enum OperationError {
+    Read(std::io::Error),
+    Decode(std::str::Utf8Error),
+
+    #[error(transparent)]
+    External(#[from] ExternalError),
+}
+
+#[derive(Debug, Error)]
+#[error("external service unavailable")]
+struct ExternalError;
+```
+
+`Read` and `Decode` use the common `operation failed: ...` message. `External` delegates its `Display` and standard error-source behavior to the wrapped error.
+
+This mechanism is different from creating a shared wrapping variant or introducing an additional error layer. It changes only how the enum's existing variants are formatted.
+
+It is useful when several variants share the same presentation policy but retain distinct semantic identities and source types.
+
+The generated implementation avoids repetitive variant-level formatting attributes and manual `Display` dispatch. The behavior of transparent overrides was explicitly supported in the thiserror 2.0 release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary source:
+
+`https://github.com/dtolnay/thiserror/releases/tag/2.0.0`
+
+### 1.3 Suppressing source-field inference with `r#source`
+
+thiserror normally treats a field named `source` as an underlying `std::error::Error` cause, even without an explicit `#[source]` annotation.
+
+That convention can conflict with domain models in which source means an input state, document, expression, identifier, or graph node rather than a causal error.
+
+thiserror 2.x supports declaring such a field using the raw identifier `r#source` to disable automatic source inference.
+
+```
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+#[error("invalid transition from {source} to {destination}")]
+struct TransitionError {
+    r#source: char,
+    destination: char,
+}
+```
+
+Although Rust allows the field to be accessed using the ordinary name `source`, the derive macro recognizes its raw-identifier declaration and does not treat it as an error cause.
+
+The resulting error has no generated causal source unless another field is explicitly designated.
+
+This provides an alternative to renaming semantically meaningful fields solely to satisfy a derive macro's naming convention.
+
+Importantly, the opt-out concerns implicit source inference, not the explicit `#[source]` attribute. A developer wishing to designate a causal error should continue using the latter mechanism.
+
+The feature was added in thiserror 2.0.0.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary source:
+
+`https://github.com/dtolnay/thiserror/releases/tag/2.0.0`
+
+### 1.4 Independent `Display` implementations alongside `#[derive(Error)]`
+
+thiserror's derive macro does not require that it generate an error type's `Display` implementation itself.
+
+A type can implement `Display` manually while retaining `#[derive(Error)]` for supported `std::error::Error` and source-handling generation.
+
+For example:
+
+```
+use std::{error::Error as StdError, fmt};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+struct ValidationError {
+    message: String,
+
+    #[source]
+    cause: std::io::Error,
+}
+
+impl fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "validation failed: {}", self.message)
+    }
+}
+
+fn inspect_source(error: &ValidationError) {
+    let _cause = StdError::source(error);
+}
+```
+
+No `#[error("...")]` attribute is supplied, so thiserror does not generate a conflicting `Display` implementation.
+
+This is useful for standalone structs with complex formatting requirements, particularly because out-of-line `#[error(fmt = ...)]` formatting is restricted to enums.
+
+A handwritten `Display` implementation and a macro-generated one cannot coexist for the same type. The distinction is between deriving `Error` alone and asking thiserror to generate both trait implementations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Primary sources:
+
+`https://docs.rs/thiserror/2.0.21/thiserror/`
+
+`https://docs.rs/crate/thiserror-impl/2.0.21/source/src/valid.rs`
+
+## 2. miette: Heterogeneous diagnostic aggregation and dynamic construction
+
+Extends original Sections 3.2, 3.4, 3.5, and 3.8.
+
+### 2.1 Heterogeneous related diagnostics using `Vec<Report>`
+
+miette's `#[related]` mechanism is not restricted to a collection of one concrete diagnostic type.
+
+The derive macro supports `Vec<miette::Report>` as a related-diagnostic field, allowing a single parent diagnostic to collect findings produced by independently defined diagnostic types.
+
+```
+use miette::{Diagnostic, Report};
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("required field is missing")]
+#[diagnostic(code(validation::missing_field))]
+struct MissingField;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("duplicate declaration")]
+#[diagnostic(code(validation::duplicate))]
+struct DuplicateDeclaration;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("validation produced multiple findings")]
+struct ValidationBatch {
+    #[related]
+    findings: Vec<Report>,
+}
+
+fn collect_findings() -> ValidationBatch {
+    ValidationBatch {
+        findings: vec![
+            Report::new(MissingField),
+            Report::new(DuplicateDeclaration),
+        ],
+    }
+}
+```
+
+The two contained reports have different concrete underlying diagnostic types. Their common `Report` representation allows them to be collected without declaring a new error enum containing every possible diagnostic.
+
+The parent still presents its findings through `Diagnostic::related()`. Each contained report exposes its underlying diagnostic metadata, including its code, severity, annotations, and help where available.
+
+Architectural consequences
+
+This capability is useful when different validation components produce specialized error types but a coordinating component needs to aggregate their results.
+
+It enables three distinct aggregation models:
+
+| Representation                               | Characteristics                                                  |
+| -------------------------------------------- | ---------------------------------------------------------------- |
+| `Vec<ConcreteDiagnostic>`                    | Homogeneous collection; preserves a specific concrete type       |
+| `Vec<Report>`                                | Heterogeneous collection; individual diagnostics are type-erased |
+| Manually implemented `Diagnostic::related()` | Fully customized selection and traversal of related diagnostics  |
+
+A homogeneous collection is appropriate when all findings naturally belong to one error type. `Vec<Report>` is useful when maintaining a comprehensive enum would create unnecessary coupling between independently developed diagnostic producers.
+
+Important limitations
+
+Type erasure does not establish a common set of domain-specific fields. Consumers requiring information beyond the `Diagnostic` protocol must still inspect or recover the underlying concrete types where possible.
+
+Similarly, `#[related]` does not implement error recovery, validation scheduling, or aggregation policy. It provides a native representation of the findings selected by the producer.
+
+Support for `Report` in related collections was explicitly added in miette 4.2.0 and remains available in 7.6.0.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+Primary source:
+
+`https://docs.rs/crate/miette/7.6.0/source/CHANGELOG.md`
+
+### 2.2 Optional annotations and field-provided help
+
+The `Diagnostic` derive supports conditionally present source labels and remediation messages without a handwritten trait implementation.
+
+A field annotated with `#[label]` can contain an `Option<SourceSpan>`, while a field annotated with `#[help]` can provide a dynamically determined `String` or `Option<String>`.
+
+```
+use miette::{Diagnostic, SourceSpan};
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("conflicting declaration")]
+#[diagnostic(code(validation::conflict))]
+struct DeclarationConflict {
+    #[label(primary, "conflicting declaration")]
+    current: SourceSpan,
+
+    #[label("previous declaration")]
+    previous: Option<SourceSpan>,
+
+    #[help]
+    suggestion: Option<String>,
+}
+```
+
+The diagnostic can include the location of the previous declaration when known and omit it otherwise.
+
+Likewise, the help text can be absent or supplied from data computed elsewhere. No separate diagnostic variant is necessary merely because an optional annotation or recommendation is unavailable.
+
+This capability supports a useful separation between the semantic identity of a diagnostic and the completeness of its presentation metadata.
+
+For example, a validator may identify a conflicting declaration even when its analysis cannot determine the exact location of the earlier declaration. The same error category can represent both situations accurately.
+
+The derive supports these options natively. Optional labels and optional help fields were introduced in miette 4.5 and remain available in 7.6.0.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/`
+
+### 2.3 Incremental diagnostic construction: replacement versus accumulation
+
+`MietteDiagnostic` provides separate builder methods for setting a diagnostic's label collection and extending an existing collection.
+
+This distinction is consequential when findings are assembled incrementally.
+
+| Method                | Semantics                                                      |
+| --------------------- | -------------------------------------------------------------- |
+| `with_label(label)`   | Replaces the complete existing label collection with one label |
+| `with_labels(labels)` | Replaces the collection with the supplied labels               |
+| `and_label(label)`    | Appends one label while preserving existing labels             |
+| `and_labels(labels)`  | Appends multiple labels while preserving existing labels       |
+
+For example:
+
+```
+use miette::{LabeledSpan, MietteDiagnostic};
+
+let finding = MietteDiagnostic::new(
+    "incompatible declarations"
+)
+.with_code("validation::incompatible")
+.with_label(
+    LabeledSpan::at(10..15, "first declaration")
+)
+.and_label(
+    LabeledSpan::at(40..48, "conflicting declaration")
+);
+```
+
+Both labels are retained.
+
+Replacing `and_label` with a second `with_label` would instead discard the first annotation.
+
+This permits a diagnostic to be assembled through successive transformations without a separate intermediate label collection, provided the builder operations are chosen according to their replacement or accumulation semantics.
+
+The methods consume and return the diagnostic, enabling fluent composition.
+
+`MietteDiagnostic` also exposes builders for code, severity, help, and URL. Those metadata fields have single-value semantics; the label collection is distinctive because it supports native accumulation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/struct.MietteDiagnostic.html`
+
+## 3. miette: Source providers, inheritance, and source identity
+
+Extends original Sections 3.3, 3.5, 3.6, and 6.4.
+
+### 3.1 Additional built-in `SourceCode` implementations
+
+miette supplies more built-in `SourceCode` implementations than the guide explicitly identifies.
+
+The published trait documentation includes implementations for:
+
+- `String`, `str`, and `&str`
+- `Vec<u8>`, `[u8]`, and `&[u8]`
+- `Arc<T>` where `T: SourceCode`
+- `Cow<'_, T>` with its documented trait bounds
+- `NamedSource<S>` where `S: SourceCode + 'static`
+
+The `Arc<T>` implementation is particularly useful because it allows multiple diagnostic objects to share ownership of the same underlying source provider.
+
+For example, an owned source string can be held in an `Arc<String>` and used through its existing `SourceCode` implementation without introducing a custom adapter.
+
+The byte-oriented implementations also permit source annotations over buffers that are not stored as `String`, although readable text diagnostics remain subject to the source content's encoding and interpretation.
+
+These implementations are forwarding and source-access facilities, not automatic source repositories. Shared ownership reduces copying but does not provide source revision tracking, persistent storage, or lazy loading from an external database.
+
+For large documents or source-map-backed diagnostics, the custom `SourceCode::read_span()` extension point remains appropriate.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/trait.SourceCode.html`
+
+### 3.2 Source inheritance across diagnostic cause chains
+
+The original guide explains that related diagnostics may inherit source content from their enclosing diagnostic. The same general architecture also applies to diagnostic-aware causes in the graphical reporter.
+
+miette 7.4.0 introduced source inheritance to causes, and the behavior is present in 7.6.0.
+
+The released graphical renderer accepts an optional parent source provider and selects the source for a diagnostic using the equivalent of:
+
+```
+let src = diagnostic.source_code().or(parent_src);
+```
+
+Thus, an explicitly supplied source provider takes precedence. The inherited source is used when the diagnostic does not provide its own.
+
+This precedence rule matters when a diagnostic tree contains both shared-source findings and diagnostics associated with independent source documents.
+
+The renderer also passes the inherited source into the rendering of diagnostic-aware causes.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+The capability permits an architecture in which:
+
+1. Low-level analysis produces diagnostic objects containing compact byte spans.
+2. An enclosing operation retains the source text or source provider.
+3. Rich presentation resolves the spans using that outer provider.
+4. Individual diagnostics may override the inherited provider when they refer to a different source.
+
+The producer does not necessarily need to duplicate a source buffer in every diagnostic.
+
+However, inheritance is a property of the rendering implementation, not a mutation of the underlying diagnostic object.
+
+A consumer that directly calls a child diagnostic's `source_code()` is not guaranteed to receive the inherited source. That consumer must independently reproduce the relevant source-context resolution if it needs the same behavior.
+
+Scope: The released graphical reporter supports this inheritance. Other report handlers should not automatically be assumed to implement identical traversal and source-selection behavior.
+
+Primary sources:
+
+`https://docs.rs/crate/miette/7.6.0/source/CHANGELOG.md`
+
+`https://docs.rs/miette/7.6.0/src/miette/handlers/graphical.rs.html`
+
+### 3.3 `#[diagnostic_source]` and diagnostic-aware cause traversal
+
+There is an important distinction between a standard error cause and a diagnostic-aware cause.
+
+`std::error::Error::source()` exposes `&dyn Error`, whereas `Diagnostic::diagnostic_source()` exposes `&dyn Diagnostic`.
+
+The latter retains access to structured metadata that is unavailable through the ordinary standard error trait-object interface.
+
+A field can participate in both relationships:
+
+```
+use miette::Diagnostic;
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("configuration processing failed")]
+struct ConfigurationFailure {
+    #[source]
+    #[diagnostic_source]
+    cause: ParseFailure,
+}
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("invalid configuration syntax")]
+#[diagnostic(code(config::syntax))]
+struct ParseFailure;
+```
+
+The standard source relationship is available to ordinary Rust error consumers, while the diagnostic relationship is available to miette-aware consumers.
+
+Version-specific reporting behavior
+
+The miette README contains wording suggesting that its built-in reporters do not use `diagnostic_source()`. That statement is not fully consistent with the released 7.6.0 graphical renderer.
+
+Inspection of the released graphical implementation shows that it explicitly checks `diagnostic.diagnostic_source()` before falling back to `diagnostic.source()`.
+
+When the former exists, the renderer traverses the diagnostic-aware chain. When only the standard error source exists, it traverses a standard error chain.
+
+For diagnostic-aware causes, the graphical renderer can recursively render diagnostic information with inherited source context. A standard error cause is instead rendered through the ordinary error presentation path.
+
+This distinction means that `#[diagnostic_source]` can affect more than external programmatic inspection in miette 7.6.0. It can also affect the information available to the graphical cause-chain renderer.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+The mechanism should nevertheless be distinguished from the two forwarding attributes:
+
+| Mechanism                       | Semantics                                                                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `#[diagnostic_source]`          | Exposes another diagnostic as a cause                                                                          |
+| `#[diagnostic(transparent)]`    | Delegates the outer diagnostic's metadata to its single contained field                                        |
+| `#[diagnostic(forward(field))]` | Delegates diagnostic metadata to a selected contained field while allowing a more complex outer representation |
+
+A diagnostic-aware cause introduces a relationship between two diagnostic identities. Metadata forwarding instead makes the selected inner diagnostic's metadata available through the outer diagnostic.
+
+These operations can produce superficially similar reports, but they represent different error structures.
+
+Primary sources:
+
+`https://docs.rs/miette/7.6.0/src/miette/handlers/graphical.rs.html`
+
+`https://docs.rs/crate/miette/7.6.0/source/README.md`
+
+### 3.4 Multi-source diagnostics and coordinate-space constraints
+
+The `Diagnostic` protocol provides one optional `SourceCode` value per diagnostic through `source_code()`.
+
+It also provides an iterator of labels, whose spans are interpreted against the selected source provider.
+
+There is no built-in per-label reference to an arbitrary independent source provider. Consequently, a single diagnostic containing several labels does not automatically represent independent offsets into different files.
+
+This produces a meaningful distinction between two kinds of multi-location problem.
+
+Multiple locations in one source: One diagnostic with multiple `LabeledSpan` values provides an appropriate representation.
+
+Multiple locations in independent sources: Related diagnostics may each provide their own source provider, or an application can implement a composite source abstraction with a clearly defined coordinate system.
+
+For example, a cross-file consistency failure may be represented by a parent diagnostic with related findings for each affected document.
+
+Each related diagnostic can then provide its own `SourceCode` rather than forcing offsets from several documents into one ambiguous space.
+
+A custom composite `SourceCode` is also possible, but the relationship between span offsets and the composite source's contents must be defined by that implementation. miette does not supply a general source identifier or cross-file span-addressing protocol.
+
+This limitation matters for compilers, schema validation, generated programs, and any other system in which an error may relate to several independently versioned inputs.
+
+It also reinforces the importance of source identity: byte offsets only remain meaningful relative to the exact source representation from which they were calculated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html`
+
+### 3.5 Resolving the caller's source location with `SourceOffset::from_current_location()`
+
+miette includes a source-location utility that is not covered in the original guide:
+
+```
+SourceOffset::from_current_location()
+```
+
+This method returns a `Result<(String, SourceOffset), MietteError>`.
+
+On success, the tuple contains the Rust source filename and the byte offset corresponding to the caller's location within that file.
+
+It uses Rust's caller-location facilities and can be composed with `#[track_caller]` on enclosing functions to propagate the relevant caller location through helper functions.
+
+Unlike `SourceOffset::from_location()`, it derives the location from the currently executing Rust code rather than accepting an externally supplied line and column.
+
+Important limitations
+
+The method needs access to the original Rust source file at the location recorded during compilation.
+
+A packaged binary, container, deployment artifact, or executable whose source files have moved may not be able to resolve that file.
+
+The method therefore returns a fallible result rather than guaranteeing source retrieval.
+
+This is useful for diagnostics concerning the invoking Rust code or for development-oriented instrumentation, but it is not a substitute for retained source maps in independently parsed input documents.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/struct.SourceOffset.html`
+
+## 4. miette: Report interoperability and information preservation
+
+Extends original Sections 3.7, 3.8, and 6.2.
+
+### 4.1 `Report` does not itself implement `std::error::Error`
+
+Although `miette::Report` wraps diagnostic errors, it does not implement `std::error::Error` directly.
+
+This is a consequential distinction for generic Rust APIs.
+
+An interface requiring `E: std::error::Error` cannot automatically accept `Report` as its error type merely because the report contains an error.
+
+miette provides explicit interoperability facilities instead.
+
+| Facility                                       | Purpose                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| `Deref<Target = dyn Diagnostic + Send + Sync>` | Access the contained diagnostic                               |
+| `AsRef<dyn Diagnostic>`                        | Borrow the diagnostic trait object                            |
+| `AsRef<dyn std::error::Error>`                 | Borrow through the standard error interface                   |
+| `From<Report> for Box<dyn Error>`              | Transfer the error into a boxed standard-error representation |
+| `From<Report> for Box<dyn Diagnostic>`         | Transfer into a boxed diagnostic representation               |
+| `Report::new_boxed(...)`                       | Construct a report from an owned boxed diagnostic             |
+
+For example, a report can be converted to a boxed standard error:
+
+```
+use miette::Report;
+use std::error::Error;
+
+fn boxed_error() -> Box<dyn Error + Send + Sync> {
+    let report = Report::msg("operation failed");
+    report.into()
+}
+```
+
+This conversion can satisfy generic APIs requiring a boxed standard error without a custom wrapper type.
+
+A borrowed standard error is also accessible through the appropriate `AsRef` implementation.
+
+Conversion does not imply preservation of the diagnostic interface.
+
+When a consumer receives only `dyn Error`, it can inspect standard error behavior but cannot directly call the richer `Diagnostic` methods through that reference.
+
+Therefore, the desired interface matters:
+
+- `dyn Error` for standard interoperability.
+- `dyn Diagnostic` for diagnostic-aware consumers.
+- `Report` for application-level propagation, reporting, and downcasting.
+
+A boxed standard-error conversion is especially useful at generic integration boundaries. It should not be mistaken for a complete machine-readable diagnostic interchange mechanism.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/struct.Report.html`
+
+### 4.2 Error-aware report construction versus message-based construction
+
+`Report::msg()` accepts printable values, but it does not treat an existing structured error in the same way as error-aware construction.
+
+The relevant constructors have different contracts:
+
+| Constructor                | Intended input                                                            |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `Report::new(error)`       | Concrete `Diagnostic + Send + Sync + 'static`                             |
+| `Report::from_err(error)`  | Ordinary `std::error::Error + Send + Sync + 'static`                      |
+| `Report::new_boxed(error)` | Boxed diagnostic trait object                                             |
+| `Report::msg(message)`     | Printable value implementing the required formatting and ownership traits |
+
+The important distinction is how an existing error is represented.
+
+`Report::new` preserves the diagnostic-aware identity of its input.
+
+`Report::from_err` accepts an ordinary standard error and brings it into the report system through that interface. This preserves the standard error relationship but does not automatically make independently implemented `Diagnostic` metadata available if the value is treated only as a standard error.
+
+`Report::msg` instead constructs an ad hoc message-based report. Passing an existing error through this constructor may lose its original causal structure and backtrace information.
+
+The official documentation explicitly warns against treating existing errors as printable messages when their error information should be preserved.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+A useful illustration of the difference is:
+
+```
+use miette::Report;
+
+fn message_report() -> Report {
+    Report::msg("configuration failed")
+}
+
+fn error_report(error: std::io::Error) -> Report {
+    Report::from_err(error)
+}
+```
+
+The first creates a report from a message. The second retains an actual error object through a standard-error conversion.
+
+When an underlying error already implements `Diagnostic`, the diagnostic-aware constructor is preferable if its richer metadata should survive.
+
+The `miette!` macro also provides error-aware construction for appropriate inputs, with documented behavior for distinguishing error values from printable messages.
+
+Architectural implication: Converting an error to a report should be treated as an information-preservation decision, not merely a formatting convenience.
+
+The same visible message can be produced by several conversion paths while those paths retain different amounts of structured data.
+
+Primary source:
+
+`https://docs.rs/miette/7.6.0/miette/struct.Report.html`
+
+## 5. miette: Formatting dispatch and report-handler extensibility
+
+Extends original Sections 4.1, 4.2, and 4.5.
+
+### 5.1 The distinction between `Debug` and `Display` for `Report`
+
+miette integrates with Rust's normal formatting traits.
+
+However, the standard `Display` and `Debug` implementations of `Report` serve different purposes.
+
+The `Debug` implementation is the principal route through which a report handler produces diagnostic-aware presentation.
+
+The `Display` implementation ordinarily presents the contained error's message, although custom handlers may override display behavior.
+
+| Rust expression                                             | Typical behavior                                                       |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `format!("{}", report)`                                     | Ordinary error display                                                 |
+| `format!("{:?}", report)`                                   | Diagnostic presentation through the report handler                     |
+| `format!("{:#?}", report)`                                  | Alternate debug representation, as implemented by the selected handler |
+| Returning `Err(report)` from `main() -> miette::Result<()>` | Uses Rust's error-return formatting path, which relies on `Debug`      |
+
+For the built-in graphical handler, ordinary debug formatting invokes its report-rendering machinery.
+
+Its alternate-debug path delegates to the underlying diagnostic's ordinary `Debug` formatting.
+
+This distinction explains why the following operations can produce different output:
+
+```
+eprintln!("{}", report);
+eprintln!("{:?}", report);
+eprintln!("{:#?}", report);
+```
+
+The second form is the conventional way to request the rich diagnostic report through the installed handler.
+
+In an executable whose `main()` function returns `miette::Result<()>`, the standard Rust termination machinery can provide that diagnostic presentation without an explicit renderer call.
+
+It is also important to distinguish the error type's own `Debug` implementation from `Report`'s handler-driven `Debug` implementation. A directly formatted typed error does not automatically become a graphical miette report merely because it implements `Diagnostic`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Primary sources:
+
+`https://docs.rs/miette/7.6.0/miette/struct.Report.html`
+
+`https://docs.rs/miette/7.6.0/miette/trait.ReportHandler.html`
+
+### 5.2 Custom `ReportHandler::display()`
+
+The original guide emphasizes `ReportHandler` as a way to customize diagnostic presentation, but the trait also provides a separate `display()` extension point.
+
+Its signature accepts an ordinary standard error trait object and a formatter:
+
+```
+fn display(
+    &self,
+    error: &(dyn std::error::Error + 'static),
+    f: &mut std::fmt::Formatter<'_>,
+) -> std::fmt::Result
+```
+
+Unlike `ReportHandler::debug()`, which receives `&dyn Diagnostic`, the display hook operates through the standard error interface.
+
+This allows custom handlers to define different behaviors for ordinary display and rich diagnostic rendering.
+
+For example, an application could retain a concise, one-line representation for normal display while providing verbose, source-annotated rendering through debug formatting.
+
+The two output policies need not be implemented as separate error types or by adding formatting logic to every diagnostic producer.
+
+The available information differs between the methods, however. A display implementation receiving `dyn Error` does not automatically have direct access to the richer `Diagnostic` protocol.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/miette/7.6.0/miette/trait.ReportHandler.html`
+
+### 5.3 Handler inspection, downcasting, and caller tracking
+
+`ReportHandler` provides several less-prominent capabilities for applications that need greater control over an installed handler.
+
+The trait-object interface exposes:
+
+- `is<T>()` — determine whether the handler has a particular concrete implementation.
+- `downcast_ref<T>()` — obtain a borrowed concrete handler when its type matches.
+- `downcast_mut<T>()` — obtain a mutable concrete handler when its type matches.
+- `track_caller()` — a hook through which a handler may record the location at which a report was constructed.
+
+The downcasting functions are useful because miette's `Report` exposes its associated handler through `handler()` and `handler_mut()`.
+
+An application with a custom handler can therefore recover its concrete implementation when necessary, rather than restricting all access to the base rendering methods.
+
+The `track_caller()` facility supports handlers that include report-construction locations in their output or other diagnostic context.
+
+Its invocation from report construction is conditional on the relevant caller-tracking support in the released implementation; the existence of the trait method alone does not guarantee that every construction path or toolchain configuration supplies a location.
+
+Important boundary: Handler downcasting provides access to a concrete handler, not unrestricted replacement of the report's underlying diagnostic or recovery of arbitrary error fields.
+
+For ordinary rendering customization, the existing `MietteHandlerOpts` facilities remain simpler than implementing an entire custom handler. These additional extension methods matter when a handler has behavior or state beyond the standard customization surface.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Primary sources:
+
+`https://docs.rs/miette/7.6.0/miette/trait.ReportHandler.html`
+
+`https://docs.rs/miette/7.6.0/src/miette/eyreish/mod.rs.html`
+
+## 6. miette: Serialization boundaries for diagnostic data
+
+Extends original Sections 3.8 and 4.4.
+
+### 6.1 Serialization of `MietteDiagnostic`
+
+With miette's optional `serde` feature enabled, the concrete `MietteDiagnostic` type supports serialization and deserialization.
+
+The type has public fields for:
+
+| Field      | Type                       |
+| ---------- | -------------------------- |
+| `message`  | `String`                   |
+| `code`     | `Option<String>`           |
+| `severity` | `Option<Severity>`         |
+| `help`     | `Option<String>`           |
+| `url`      | `Option<String>`           |
+| `labels`   | `Option<Vec<LabeledSpan>>` |
+
+This permits a dynamically constructed diagnostic's core metadata to be serialized without implementing an independent serializer for those fields.
+
+The representation is particularly useful when diagnostics are constructed programmatically rather than through a fixed collection of derived Rust error types.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+However, `MietteDiagnostic` does not represent the entire general `Diagnostic` protocol.
+
+In particular, its public field model does not contain an arbitrary source provider, causal error chain, or related-diagnostic tree.
+
+That distinction creates three separate data models:
+
+Concrete diagnostic serialization: `MietteDiagnostic` and other explicitly serializable types capture the fields represented in their Rust data structures.
+
+Diagnostic report rendering: `JSONReportHandler` traverses the information made available through the `Diagnostic` protocol and produces a report-oriented JSON representation.
+
+Durable diagnostic interchange: A system requiring versioned records, explicit source identities, cross-document references, causal relationships, and typed domain attributes may require an additional schema.
+
+The third is an architectural requirement only when such persistence or interchange semantics are needed. It is not an additional built-in miette format.
+
+An important practical distinction is that serialized byte offsets are not independently sufficient to recover the relevant source contents. A persistent diagnostic record needs an external source reference or retained source data if its annotations must be reproducible.
+
+Likewise, the presence of `serde` support does not imply that an arbitrary user-defined `Diagnostic`, a trait-object graph, or a `Report` is automatically serializable.
+
+Primary sources:
+
+`https://docs.rs/miette/7.6.0/miette/struct.MietteDiagnostic.html`
+
+`https://docs.rs/miette/7.6.0/miette/struct.JSONReportHandler.html`
+
+`https://docs.rs/crate/miette/7.6.0/source/Cargo.toml.orig`
+
+## 7. Correction to the original combined-derive example
+
+Corrects original Section 3.2.
+
+The original guide includes an example of a combined `thiserror::Error` and `miette::Diagnostic` implementation containing a field similar to:
+
+```
+#[source_code]
+pub source: NamedSource<String>,
+```
+
+This field name has conflicting meanings for the two derives.
+
+miette recognizes `#[source_code]` and uses the value as source content for diagnostic annotations.
+
+However, thiserror recognizes the field name `source` as an implicit causal error source.
+
+`NamedSource<String>` implements miette's `SourceCode` trait, but it does not implement `std::error::Error`.
+
+Consequently, the original declaration does not satisfy the requirements of the generated standard error-source implementation.
+
+The simplest correction is to rename the field while retaining its diagnostic annotation:
+
+```
+use miette::{Diagnostic, NamedSource, SourceSpan};
+use thiserror::Error;
+
+#[derive(Debug, Error, Diagnostic)]
+#[error("invalid configuration value")]
+#[diagnostic(
+    code(config::invalid_value),
+    help("replace the value with a supported option")
+)]
+pub struct InvalidValue {
+    #[source_code]
+    pub input: NamedSource<String>,
+
+    #[label(primary, "unsupported value")]
+    pub span: SourceSpan,
+}
+```
+
+This separates the source document from the source error at the field-model level.
+
+Alternatively, the `r#source` escape mechanism described in Section 1.3 can be used when preserving the field's logical name is important.
+
+This is a correctness correction to the original example rather than a limitation of using the two derives together. Their generated implementations remain complementary when their annotations and field names are unambiguous.
+
+Primary sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+`https://docs.rs/thiserror/2.0.21/thiserror/`
+
+`https://docs.rs/miette/7.6.0/miette/struct.NamedSource.html`
+
+## 8. Consolidated architectural implications
+
+The additional mechanisms in this addendum extend the libraries' capabilities in several consequential ways.
+
+Complex formatting does not necessarily require handwritten error-trait implementations. thiserror supports shared enum formatting, variant-specific formatting functions, and independently implemented `Display` when needed.
+
+Heterogeneous diagnostic aggregation does not require one comprehensive error enum. `Vec<Report>` can represent findings produced by independent diagnostic types, while homogeneous typed collections remain available when stronger static contracts are useful.
+
+Source content can be shared separately from diagnostic identity. Built-in `SourceCode` implementations, shared ownership, inherited source context, and delayed source attachment can avoid repeated source storage. The resulting benefits depend on preserving source identity and matching byte-coordinate systems.
+
+Standard errors and diagnostic-aware causes are distinct interfaces. The `#[diagnostic_source]` mechanism can preserve richer causal information, while forwarding attributes address a different concern: exposing another diagnostic's metadata through a wrapper.
+
+Report construction is an information-preservation boundary. Creating a report from a structured diagnostic, a standard error, or a printable message can retain different amounts of information. Identical human-readable messages do not imply equivalent structured reports.
+
+Diagnostic rendering is a consumer capability. The `Debug` and `Display` pathways, handler hooks, and source inheritance logic allow diagnostic producers to remain independent of presentation policy. Rich terminal rendering, accessible narration, and machine-oriented reporting may still have different feature coverage and traversal behavior.
+
+Serialization is not synonymous with complete diagnostic persistence. `MietteDiagnostic` provides a concrete serializable metadata representation, while `JSONReportHandler` renders diagnostic protocol information. Neither automatically establishes a complete, versioned interchange schema for arbitrary diagnostic graphs.
+
+Taken together, these capabilities strengthen the original guide's central distinction between typed error semantics, diagnostic metadata, and reporting. They also reveal additional opportunities to use native derive machinery, shared source abstractions, heterogeneous diagnostic collections, and handler extension points instead of implementing equivalent infrastructure.
+
+All additions above are scoped to the released versions identified at the beginning of the addendum. Examples are illustrative and were checked against published API signatures and upstream source; they were not independently compiled or executed.

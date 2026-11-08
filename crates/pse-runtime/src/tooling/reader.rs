@@ -150,6 +150,15 @@ pub enum Request {
         /// Optional bound on bytes in an individual manifest or document.
         maximum_document_bytes: Option<NonZeroUsize>,
     },
+    /// Observe the exact original local publication without contacting its issuing service.
+    ProjectExportStatus {
+        /// Exact authored absolute native destination.
+        destination: NativePath,
+        /// Original publication key.
+        key: String,
+        /// Original authenticated issuing store identity.
+        issuing_store: String,
+    },
     /// Read bounded project metadata from an exact existing canonical deployment.
     Project {
         /// Existing private deployment and its exact selected database.
@@ -422,6 +431,12 @@ pub enum Payload {
         /// Fixed exact project import issue, apply and recovery actions.
         #[serde(skip_serializing_if = "Option::is_none")]
         project_import: Option<u32>,
+        /// Explicit protected source reopen for an existing completed import.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        project_import_open: Option<u32>,
+        /// Exact staged project and study publication protocol.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        project_export: Option<u32>,
     },
     /// Native directional schema document; it validates representation, not scientific meaning.
     Schema {
@@ -437,6 +452,11 @@ pub enum Payload {
         manifest: Box<crate::workflow::ProjectManifest>,
         /// Encoding checksum of the exact manifest bytes the reader verified.
         manifest_digest: String,
+    },
+    /// Original local project or study delivery settlement.
+    ProjectExportStatus {
+        /// Native attribution and observed publication state.
+        status: Box<crate::host_operations::project::exchange::PublicationStatus>,
     },
     /// Bounded original canonical project read over the authenticated target.
     Project {
@@ -623,6 +643,12 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
     match &request.request {
         Request::Discover | Request::Schema { .. } => {}
         Request::InspectProjectPack { input, .. } => absolute(&input.to_path_buf())?,
+        Request::ProjectExportStatus { destination, key, issuing_store } => {
+            absolute(&destination.to_path_buf())?;
+            if !(1..=4096).contains(&key.len()) || !(1..=4096).contains(&issuing_store.len()) {
+                return Err(invalid("original publication key and issuer must be nonempty and bounded"));
+            }
+        }
         Request::Project { canonical, .. } => canonical.validate()?,
         #[cfg(feature = "product-operators")]
         Request::InspectCanonicalCatalog {
@@ -849,6 +875,8 @@ fn handle(
             response_bytes: RESPONSE_BYTES,
             project_perform: cfg!(feature = "product-reader").then_some(1),
             project_import: cfg!(feature = "product-reader").then_some(1),
+            project_import_open: cfg!(feature = "product-reader").then_some(1),
+            project_export: cfg!(feature = "product-reader").then_some(1),
         }),
         Request::Schema { contract } => Ok(Payload::Schema {
             identity: match contract {
@@ -876,6 +904,11 @@ fn handle(
                 manifest: Box::new(manifest),
                 manifest_digest,
             })
+        }
+        Request::ProjectExportStatus { destination, key, issuing_store } => {
+            let status = crate::host_operations::project::exchange::publication_status(destination, &key, &issuing_store, cancel)
+                .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
+            Ok(Payload::ProjectExportStatus { status: Box::new(status) })
         }
         Request::Follow {
             source,

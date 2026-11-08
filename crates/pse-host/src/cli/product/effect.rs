@@ -101,11 +101,72 @@ pub(in crate::cli) enum Action {
         #[arg(long)]
         intent: Option<PathBuf>,
     },
+    /// Reopen the receiving branch from protected copied source after completed import.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    ImportOpen {
+        #[command(flatten)]
+        target: Selection,
+        /// Exact issued intent JSON from another checkout. Uses retained custody by default.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
     /// Release local custody once the original project import is complete.
     #[command(add(crate::catalog::description::CommandEffect::Apply))]
     ImportForget {
         #[command(flatten)]
         target: Selection,
+    },
+    /// Publish a project pack and exact receipt to a fresh directory.
+    #[command(add(crate::catalog::description::CommandEffect::Apply))]
+    Export {
+        #[command(flatten)]
+        target: Selection,
+        /// Fresh destination directory.
+        destination: PathBuf,
+        /// Authored JSON with `request` and optional `physical`. Defaults to stdin.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
+    /// Publish bounded NDJSON pages with the original protected cohort receipt.
+    #[command(add(crate::catalog::description::CommandEffect::Apply))]
+    ExportCohort {
+        #[command(flatten)]
+        target: Selection,
+        /// Fresh directory containing `cohort.ndjson` and its receipt.
+        destination: PathBuf,
+        /// Authored JSON with `request` and optional `maximum_bytes`. Defaults to stdin.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
+    /// Publish one exact cohort member's Arrow result with its original receipt.
+    #[command(add(crate::catalog::description::CommandEffect::Apply))]
+    ExportResult {
+        #[command(flatten)]
+        target: Selection,
+        /// Fresh directory containing `result.arrow` and its receipt.
+        destination: PathBuf,
+        /// Authored JSON with `request`, `member`, `relation`, `start`, `end` and optional `maximum_bytes`.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
+    /// Publish one registered output aggregate with the original cohort and coverage receipt.
+    #[command(add(crate::catalog::description::CommandEffect::Apply))]
+    ExportAnalysis {
+        #[command(flatten)]
+        target: Selection,
+        /// Fresh directory containing the receipt and `analysis.arrow` when produced.
+        destination: PathBuf,
+        /// Authored JSON with `request` and `kpi`. Defaults to stdin.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
+    /// Finish publishing an exact complete staged deliverable without recapturing data.
+    #[command(add(crate::catalog::description::CommandEffect::Recover))]
+    ExportRecover {
+        #[command(flatten)]
+        target: Selection,
+        /// Exact original destination directory.
+        destination: PathBuf,
     },
 }
 #[derive(Debug, Args)]
@@ -122,8 +183,8 @@ pub(in crate::cli) struct Selection {
 impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
-            Self::Acknowledgement { .. } | Self::ImportStatus { .. } => GenerationIntent::Passive,
-            Self::ImportForget { .. } => GenerationIntent::ExistingControl,
+            Self::Acknowledgement { .. } | Self::ImportStatus { .. } | Self::ImportOpen { .. } => GenerationIntent::Passive,
+            Self::ImportForget { .. } | Self::ExportRecover { .. } => GenerationIntent::ExistingControl,
             _ => GenerationIntent::NewWork,
         }
     }
@@ -154,6 +215,29 @@ enum RequestAction {
         intent: Box<RawValue>,
         original: Box<RawValue>,
     },
+    ImportOpen { intent: Box<RawValue> },
+    Export { destination: NativePath, request: ExportRequest },
+    ExportRecover { destination: NativePath },
+}
+
+#[derive(Clone, Copy)]
+enum ExportKind { Pack, Cohort, Result, Analysis }
+
+#[derive(Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ExportRequest {
+    Pack(Box<RawValue>), Cohort(Box<RawValue>), Result(Box<RawValue>), Analysis(Box<RawValue>),
+}
+
+impl ExportKind {
+    fn request(self, body: Box<RawValue>) -> ExportRequest {
+        match self {
+            Self::Pack => ExportRequest::Pack(body),
+            Self::Cohort => ExportRequest::Cohort(body),
+            Self::Result => ExportRequest::Result(body),
+            Self::Analysis => ExportRequest::Analysis(body),
+        }
+    }
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -191,10 +275,30 @@ enum Disposition {
     ImportIssued,
     Imported,
     ImportRecovered,
+    ImportOpened,
+    PublicationUnknown,
+    PublicationPending,
+    PublicationReady,
+    Published,
     ImportForgotten,
     Absent,
     Refused,
     Unresolved,
+}
+#[derive(Clone, Copy, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ExportStatus { Unknown, Pending, Ready, Published }
+
+impl ExportStatus {
+    fn presentation(self) -> (Disposition, SubjectState, Settlement, String) {
+        let (disposition, subject, settlement, summary) = match self {
+            Self::Unknown => (Disposition::PublicationUnknown, SubjectState::Unknown, Settlement::Unknown, "no exact original publication was observed"),
+            Self::Pending => (Disposition::PublicationPending, SubjectState::Unknown, Settlement::Incomplete, "the original publication has no complete staged deliverable"),
+            Self::Ready => (Disposition::PublicationReady, SubjectState::Unknown, Settlement::Incomplete, "the original complete deliverable is staged"),
+            Self::Published => (Disposition::Published, SubjectState::Succeeded, Settlement::Complete, "the original deliverable and receipt are published"),
+        };
+        (disposition, subject, settlement, summary.into())
+    }
 }
 #[derive(Serialize, JsonSchema)]
 pub(in crate::cli) struct ProjectEffectView {
@@ -204,6 +308,8 @@ pub(in crate::cli) struct ProjectEffectView {
     disposition: Disposition,
     acknowledgement: Option<ProjectEffectAcknowledgement>,
     import: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    publication: Option<serde_json::Value>,
 }
 
 fn navigation_intent(path: Option<&Path>) -> Result<NavigationIntent, HostError> {
@@ -469,6 +575,28 @@ fn original_lookup(
     })
 }
 
+fn export_lookup(
+    root: &Path, source: &ResolvedSource, issuer: &str, operation: &str, destination: &Path,
+    policy: &RedactionPolicy, ready: bool,
+) -> Option<NextAction> {
+    let mut argv = vec![
+        root.join("scripts/pse").to_str()?.into(), "-C".into(), root.to_str()?.into(), "project".into(),
+        if ready { "export-recover".into() } else { "export-status".into() },
+        format!("--reader={}", source.reader), format!("--issuing-store={issuer}"),
+        format!("--operation={operation}"),
+    ];
+    if ready {
+        argv.push(format!("--state={}", source.state.to_str()?));
+        if let Some(database) = &source.database { argv.push(format!("--database={database}")); }
+        if let Some(timeout) = source.timeout_ms { argv.push(format!("--timeout-ms={timeout}")); }
+    }
+    argv.push(destination.to_str()?.into());
+    argv.iter().all(|word| policy.redact(word) == *word).then_some(NextAction::Command {
+        argv, reason: if ready { "publish only the already complete original staged deliverable".into() }
+        else { "read the exact original publication before considering recovery".into() },
+    })
+}
+
 pub(super) fn dispatch(
     action: Action,
     root: &Path,
@@ -484,7 +612,10 @@ pub(super) fn dispatch(
         Import(PathBuf, Option<PathBuf>),
         ImportRecover(Option<PathBuf>),
         ImportStatus(Option<PathBuf>),
+        ImportOpen(Option<PathBuf>),
         ImportForget,
+        Export(ExportKind, PathBuf, Option<PathBuf>),
+        ExportRecover(PathBuf),
     }
     let (command, target, request) = match action {
         Action::Create {
@@ -527,7 +658,13 @@ pub(super) fn dispatch(
         Action::ImportStatus { target, intent } => {
             ("project import-status", target, Input::ImportStatus(intent))
         }
+        Action::ImportOpen { target, intent } => ("project import-open", target, Input::ImportOpen(intent)),
         Action::ImportForget { target } => ("project import-forget", target, Input::ImportForget),
+        Action::Export { target, destination, intent } => ("project export", target, Input::Export(ExportKind::Pack, destination, intent)),
+        Action::ExportCohort { target, destination, intent } => ("project export-cohort", target, Input::Export(ExportKind::Cohort, destination, intent)),
+        Action::ExportResult { target, destination, intent } => ("project export-result", target, Input::Export(ExportKind::Result, destination, intent)),
+        Action::ExportAnalysis { target, destination, intent } => ("project export-analysis", target, Input::Export(ExportKind::Analysis, destination, intent)),
+        Action::ExportRecover { target, destination } => ("project export-recover", target, Input::ExportRecover(destination)),
     };
     if command == "project import-status" {
         output.validate_for::<super::ProductView<'static>>(command)?;
@@ -560,12 +697,20 @@ pub(super) fn dispatch(
     source.issuing_store = Some(issuer.clone());
     let reader =
         ProductReaderSelection::open(&root, environment, &source.reader).map_err(product_error)?;
+    let resolve_path = |path| -> Result<PathBuf, HostError> {
+        Ok(std::path::absolute(super::super::source_path(selected, path)?)?)
+    };
+    let export_destination = match &request {
+        Input::Export(_, destination, _) | Input::ExportRecover(destination) => Some(resolve_path(destination.clone())?),
+        _ => None,
+    };
     let is_import = matches!(
         request,
         Input::ImportIssue(..)
             | Input::Import(..)
             | Input::ImportRecover(..)
             | Input::ImportStatus(..)
+            | Input::ImportOpen(..)
             | Input::ImportForget
     );
     let original = if is_import {
@@ -595,10 +740,15 @@ pub(super) fn dispatch(
             disposition: Disposition::Unprepared,
             acknowledgement: None,
             import: None,
+            publication: None,
         },
     );
     response.observation.scope = "project_operation".into();
-    let supported = if is_import {
+    let supported = if export_destination.is_some() {
+        reader.supports_project_export()
+    } else if command == "project import-open" {
+        reader.supports_project_import_open()
+    } else if is_import {
         reader.supports_project_import()
     } else {
         reader.supports_project_perform()
@@ -663,7 +813,7 @@ pub(super) fn dispatch(
         return Ok(output.emit(response)?);
     }
     let resolve_pack = |path| -> Result<NativePath, HostError> {
-        Ok(std::path::absolute(super::super::source_path(selected, path)?)?.into())
+        Ok(resolve_path(path)?.into())
     };
     let request = match request {
         Input::Ready(request) => request,
@@ -691,6 +841,11 @@ pub(super) fn dispatch(
             input: resolve_pack(input)?,
             intent: load_intent(intent)?,
         },
+        Input::ImportOpen(intent) => RequestAction::ImportOpen { intent: load_intent(intent)? },
+        Input::Export(kind, destination, intent) => RequestAction::Export {
+            destination: resolve_pack(destination)?, request: kind.request(original_input(selected, intent)?),
+        },
+        Input::ExportRecover(destination) => RequestAction::ExportRecover { destination: resolve_pack(destination)? },
         Input::ImportRecover(Some(receipt)) => {
             let ImportRecovery { intent, original } = serde_json::from_str(
                 original_input(selected, Some(receipt))?.get(),
@@ -743,14 +898,17 @@ pub(super) fn dispatch(
         source.database.as_deref(),
         environment,
     );
+    let mut export_status = None;
     match reply {
         Ok(reply) => {
             let expected_outcome = match &reply.outcome {
                 ProjectEffectOutcome::ImportIssued { .. } => command == "project import-issue",
                 ProjectEffectOutcome::Imported { .. } => command == "project import",
                 ProjectEffectOutcome::ImportRecovered { .. } => command == "project import-recover",
+                ProjectEffectOutcome::ImportOpened { .. } => command == "project import-open",
+                ProjectEffectOutcome::Export { .. } => export_destination.is_some(),
                 ProjectEffectOutcome::Acknowledged { .. } | ProjectEffectOutcome::Absent => {
-                    !is_import
+                    !is_import && export_destination.is_none()
                 }
                 ProjectEffectOutcome::Refused { .. } | ProjectEffectOutcome::Unresolved { .. } => {
                     true
@@ -831,15 +989,29 @@ pub(super) fn dispatch(
                         }
                     }
                 }
+                ProjectEffectOutcome::ImportOpened { source } => {
+                    response.payload.disposition = Disposition::ImportOpened;
+                    response.payload.import = safe_original(&source, &policy);
+                    response.subject_state = SubjectState::Succeeded;
+                }
+                ProjectEffectOutcome::Export { status } => {
+                    let observed: ExportStatus = serde_json::from_str(status.get()).map_err(io::Error::other)?;
+                    export_status = Some(observed);
+                    (response.payload.disposition, response.subject_state, response.settlement, response.summary) = observed.presentation();
+                    response.payload.publication = safe_original(&status, &policy);
+                }
                 ProjectEffectOutcome::Unresolved {
                     failure,
                     import_status,
+                    publication_status,
                     readback_failure,
                 } => {
                     response.payload.disposition = Disposition::Unresolved;
                     response.payload.import = import_status
                         .as_deref()
                         .and_then(|value| safe_original(value, &policy));
+                    response.payload.publication = publication_status.as_deref().and_then(|value| safe_original(value, &policy));
+                    export_status = publication_status.as_deref().map(|value| serde_json::from_str(value.get())).transpose().map_err(io::Error::other)?;
                     response.failures.push(*failure);
                     response
                         .failures
@@ -875,10 +1047,17 @@ pub(super) fn dispatch(
         response.summary = "original project operation settlement is unresolved".into();
         response.outcome = CommandOutcome::BoundaryFailure;
         response.subject_state = SubjectState::Unknown;
-        response.settlement = Settlement::Unknown;
+        response.settlement = if matches!(export_status, Some(ExportStatus::Pending | ExportStatus::Ready)) {
+            Settlement::Incomplete
+        } else { Settlement::Unknown };
         response.observation.completeness = Completeness::Partial;
     }
-    if matches!(
+    if let Some(destination) = &export_destination {
+        if matches!(response.payload.disposition, Disposition::Unresolved | Disposition::PublicationUnknown | Disposition::PublicationPending | Disposition::PublicationReady)
+            || response.settlement == Settlement::Unknown {
+            response.next.extend(export_lookup(&root, &source, &issuer, &target.operation, destination, &policy, matches!(export_status, Some(ExportStatus::Ready))));
+        }
+    } else if matches!(
         response.payload.disposition,
         Disposition::Absent | Disposition::Unresolved
     ) {

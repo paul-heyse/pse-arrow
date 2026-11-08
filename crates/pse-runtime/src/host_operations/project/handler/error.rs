@@ -3,7 +3,7 @@
 //! Preserve original operation failures through adapter and native drain boundaries.
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
-pub(super) type Result<T, E = Error> = std::result::Result<T, E>;
+pub(in crate::host_operations::project) type Result<T, E = Error> = std::result::Result<T, E>;
 
 /// Original operation and terminal native-drain failures remain independently inspectable.
 #[derive(Debug, thiserror::Error)]
@@ -70,7 +70,7 @@ pse_diagnostics::impl_diagnostic! {
 }
 
 impl ProjectOperationError {
-    pub(super) fn action(source: Error) -> Self {
+    pub(in crate::host_operations::project) fn action(source: Error) -> Self {
         Self::Action { source }
     }
 }

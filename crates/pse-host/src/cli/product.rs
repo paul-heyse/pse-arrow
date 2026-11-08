@@ -98,6 +98,21 @@ pub(super) enum ProjectAction {
         #[arg(long)]
         maximum_document_bytes: Option<NonZeroUsize>,
     },
+    /// Observe the exact original pack or study publication without opening a service.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    ExportStatus {
+        /// Exact reader identifier returned by `pse observe prepare`.
+        #[arg(long)]
+        reader: String,
+        /// Original publication operation key.
+        #[arg(long)]
+        operation: String,
+        /// Original issuing store.
+        #[arg(long)]
+        issuing_store: String,
+        /// Exact original destination directory.
+        destination: PathBuf,
+    },
     /// Read one bounded metadata page from an existing canonical deployment.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
     Metadata {
@@ -540,6 +555,20 @@ impl ProjectAction {
                     project_pack_request(resolve(input)?, maximum_document_bytes)?,
                 )));
             }
+            Self::ExportStatus { reader, operation, issuing_store, destination } => {
+                #[derive(Serialize)]
+                struct Request {
+                    operation: &'static str,
+                    destination: NativePath,
+                    key: String,
+                    issuing_store: String,
+                }
+                let request = serde_json::value::to_raw_value(&Request {
+                    operation: "project_export_status", destination: resolve(destination)?.into(),
+                    key: operation, issuing_store,
+                }).map_err(io::Error::other)?;
+                return Ok(Ok(("project export-status", reader, request)));
+            }
             Self::Metadata {
                 source,
                 cursor,
@@ -782,15 +811,17 @@ fn emit_project_read(
                 .as_bytes(),
         )?;
     }
-    let (category, text) = match (reply.category(), command == "project inspect-pack") {
-        (product_reader::Category::Success, true) => ("success", "offline project pack verified"),
-        (product_reader::Category::Refused, true) => {
+    let (category, text) = match (reply.category(), command) {
+        (product_reader::Category::Success, "project inspect-pack") => ("success", "offline project pack verified"),
+        (product_reader::Category::Refused, "project inspect-pack") => {
             ("refused", "offline project pack inspection refused")
         }
-        (product_reader::Category::Success, false) => {
+        (product_reader::Category::Success, "project export-status") => ("success", "original project publication observed"),
+        (product_reader::Category::Refused, "project export-status") => ("refused", "original project publication observation refused"),
+        (product_reader::Category::Success, _) => {
             ("success", "canonical project data observed")
         }
-        (product_reader::Category::Refused, false) => ("refused", "canonical project read refused"),
+        (product_reader::Category::Refused, _) => ("refused", "canonical project read refused"),
     };
     let mut response = Envelope::response(
         command,
@@ -805,6 +836,8 @@ fn emit_project_read(
     );
     response.observation.scope = if command == "project inspect-pack" {
         "offline_project_pack"
+    } else if command == "project export-status" {
+        "original_project_publication"
     } else if command == "project import-status" {
         "project_import"
     } else if command == "project installed-schema" {

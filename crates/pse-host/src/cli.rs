@@ -807,6 +807,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "tools retire-result" => {
             envelope::schema::<crate::invocation::CompactRetirement>(command, view)
         }
+        "tools export-result" => {
+            envelope::schema::<crate::invocation_view::ResultExport>(command, view)
+        }
         "tools hold-result" => envelope::schema::<()>(command, view),
         "tools sweep-results" => envelope::schema::<crate::invocation::CompactSweep>(command, view),
         "tools prepare-result-expiry" => {
@@ -827,7 +830,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "project research selection" => {
             envelope::schema::<product::ProductView<'static>>("project research", view)
         }
-        "project describe-closure" | "project import-status" | "project installed-schema" => {
+        "project describe-closure" | "project import-status" | "project installed-schema" | "project export-status" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
         "project inspect-pack"
@@ -852,7 +855,13 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "project import-issue"
         | "project import"
         | "project import-recover"
-        | "project import-forget" => envelope::schema::<product::ProjectEffectView>(command, view),
+        | "project import-open"
+        | "project import-forget"
+        | "project export"
+        | "project export-cohort"
+        | "project export-result"
+        | "project export-analysis"
+        | "project export-recover" => envelope::schema::<product::ProjectEffectView>(command, view),
         "source-change preview"
         | "source-change status"
         | "source-change apply"
@@ -980,17 +989,49 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     crate::fixtures::selected_native_lane(&root, &environment)
                         .map(crate::fixtures::FixtureSelection::NativeLane)
                 }
+            };
+            match receipt {
+                Ok(receipt) => Ok(presentation.emit_observation(Envelope::response(
+                    "fixture show",
+                    "native fixture preparation input",
+                    receipt,
+                ))?),
+                Err(error) => {
+                    let policy = RedactionPolicy::from_inputs(&environment);
+                    let mut response = Envelope::response(
+                        "error",
+                        "selected native fixture input is unavailable",
+                        (),
+                    );
+                    response.outcome = CommandOutcome::BoundaryFailure;
+                    response.subject_state = envelope::SubjectState::Unavailable;
+                    if matches!(&error, crate::fixtures::FixtureError::Unprepared(_)) {
+                        response.subject_state = envelope::SubjectState::Unprepared;
+                        if let Ok(launcher) = root.join("scripts/pse").into_os_string().into_string()
+                            && policy.redact(&launcher) == launcher
+                        {
+                            response.next.push(envelope::NextAction::Command {
+                                argv: vec![
+                                    launcher,
+                                    "fixture".into(),
+                                    "prepare".into(),
+                                    fixture.argument().into(),
+                                ],
+                                reason: "prepare the missing input through its original owner".into(),
+                            });
+                        }
+                    }
+                    response
+                        .failures
+                        .push(ErrorRecord::from_typed(&error, &policy));
+                    Ok(render_failure(
+                        response,
+                        presentation,
+                        Some(&error),
+                        &policy,
+                    ))
+                }
             }
-            .map_err(|error| {
-                HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
-                    error,
-                )))
-            })?;
-            Ok(presentation.emit(Envelope::response(
-                "fixture show",
-                "native fixture preparation input",
-                receipt,
-            ))?)
         }
         Command::Prepare(args) => prepare::dispatch(args, selected, presentation),
         Command::Project { action } => product::project_dispatch(action, selected, presentation),
@@ -1298,7 +1339,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     "history limit exceeds this platform",
                 )
             })?;
-            Ok(presentation.emit(crate::invocation_view::history(
+            Ok(presentation.emit_observation(crate::invocation_view::history(
                 &store,
                 session.as_deref(),
                 limit,
@@ -2174,9 +2215,18 @@ fn failure(
         "command could not produce the requested response",
         (),
     );
-    response.invocation_id = presentation.invocation_id.clone();
     response.outcome = outcome;
     response.failures.push(record);
+    render_failure(response, presentation, native, policy)
+}
+
+fn render_failure(
+    mut response: Envelope<()>,
+    presentation: &OutputOptions,
+    native: Option<&dyn miette::Diagnostic>,
+    policy: &RedactionPolicy,
+) -> i32 {
+    response.invocation_id = presentation.invocation_id.clone();
     let code = response.exit_code();
     if envelope::write(
         io::stderr().lock(),
@@ -2366,9 +2416,19 @@ mod tests {
             vec!["pse", "history", "--limit", "0"],
             vec!["pse", "inspect", "log", "latest", "--length", "0"],
             vec!["pse", "inspect", "log", "latest", "--offset", "1", "--tail"],
+            vec!["pse", "tools", "export-result", "latest"],
         ] {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
+        let parsed = Cli::try_parse_from([
+            "pse", "tools", "export-result", "latest", "--output", "chosen.json",
+            "--detail", "failures",
+        ])
+        .unwrap();
+        assert_eq!(
+            parsed.command.unwrap().generation_intent(),
+            GenerationIntent::ExistingControl
+        );
     }
 
     #[test]

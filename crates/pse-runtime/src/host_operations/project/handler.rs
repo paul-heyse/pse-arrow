@@ -26,7 +26,7 @@ use std::{
     sync::Arc,
 };
 
-mod error;
+pub(super) mod error;
 pub use error::ProjectOperationError;
 use error::{Context, Result, ensure};
 
@@ -59,6 +59,15 @@ fn build_project_runtime(
     Ok((shared, runtime))
 }
 
+pub(super) fn prepared_runtime(store: &CanonicalStore) -> Result<(tempfile::TempDir, Arc<SharedRuntime>, Runtime)> {
+    let spill = tempfile::tempdir()?;
+    let budget = project_operator_budget(
+        spill.path().to_owned(), PROJECT_OPERATOR_DEFAULTS, default_batch_size(),
+    )?;
+    let (shared, runtime) = build_project_runtime(store, budget, project_operator_attestation()?)?;
+    Ok((spill, shared, runtime))
+}
+
 /// Issue an exact receiving intent for a verified executable pack.
 /// # Errors
 /// Original pack, receiving authority or intent refusal.
@@ -74,11 +83,11 @@ pub fn issue_project_import(
     project_import_issue(store, operation, &bundle, title, branch_name)
 }
 
-/// Original import result and independently attempted native-lane drain.
+/// Original project action result and independently attempted native-lane drain.
 #[derive(Debug)]
-pub struct AppliedProjectImport {
+pub struct PreparedProjectOutcome<T, E = WorkflowError> {
     /// Acknowledged original checkpoint, or the exact failure after invoking apply.
-    pub result: Result<ProjectImportReport, WorkflowError>,
+    pub result: Result<T, E>,
     /// Native drain may fail even when project membership already completed.
     pub cleanup: Option<crate::math::MathRuntimeError>,
 }
@@ -92,27 +101,60 @@ pub async fn apply_project_import(
     intent: &ProjectImportIntent,
     maximum_document_bytes: usize,
     cancel: &CancelSource,
-) -> Result<AppliedProjectImport, ProjectOperationError> {
+) -> Result<PreparedProjectOutcome<ProjectImportReport>, ProjectOperationError> {
     let prepared: Result<_> = (|| {
         cancel.checkpoint()?;
         let bundle = ProjectBundleReader::open(input, maximum_document_bytes)?;
         bundle.validate_import_intent(intent)?;
         cancel.checkpoint()?;
-        let spill = tempfile::tempdir()?;
-        let budget = project_operator_budget(
-            spill.path().to_owned(),
-            PROJECT_OPERATOR_DEFAULTS,
-            default_batch_size(),
-        )?;
-        let attestation = project_operator_attestation()?;
-        let (shared, runtime) = build_project_runtime(store, budget, attestation)?;
+        let (spill, shared, runtime) = prepared_runtime(store)?;
         Ok((bundle, spill, shared, runtime))
     })();
     let (bundle, _spill, shared, runtime) = prepared.map_err(ProjectOperationError::action)?;
     let result = Box::pin(runtime.project_import(&bundle, intent, cancel)).await;
     runtime.close();
     let cleanup = shared.math().shutdown_native_lanes().await.err();
-    Ok(AppliedProjectImport { result, cleanup })
+    Ok(PreparedProjectOutcome { result, cleanup })
+}
+
+/// Authoritative current source reached by opening the completed original import.
+#[derive(Debug, Serialize)]
+pub struct OpenedProjectImport {
+    /// Original receiving project.
+    pub project: String,
+    /// Original receiving branch; its current admitted source is observed below.
+    pub branch: String,
+    /// Current admitted source identity.
+    pub revision_id: String,
+    /// Exact canonical revision observed at the receiving branch.
+    pub canonical_revision: String,
+    /// Exact canonical problem of that revision.
+    pub canonical_problem: String,
+    /// Admitted physical context of that source.
+    pub physical_context: pse_ids::ContentHash,
+}
+
+/// Reopen copied local source under the original artifact and physical admission owners.
+/// # Errors
+/// Refuses incomplete membership, construction failure, or original protected source failure.
+pub async fn open_project_import(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+    cancel: &CancelSource,
+) -> Result<PreparedProjectOutcome<OpenedProjectImport>, ProjectOperationError> {
+    let (_spill, shared, runtime) = prepared_runtime(store).map_err(ProjectOperationError::action)?;
+    let result = Box::pin(runtime.project_import_open(intent, cancel)).await.and_then(|package| {
+        let revision = package.canonical_revision().ok_or_else(|| crate::workflow::contract("import reopen did not retain a canonical revision"))?;
+        let (project, branch, _) = intent.destinations();
+        Ok(OpenedProjectImport {
+            project: project.into(), branch: branch.into(), revision_id: package.revision_id().into(),
+            canonical_revision: revision.key.clone(), canonical_problem: revision.problem.clone(),
+            physical_context: package.physical_context().identity(),
+        })
+    });
+    runtime.close();
+    let cleanup = shared.math().shutdown_native_lanes().await.err();
+    Ok(PreparedProjectOutcome { result, cleanup })
 }
 
 /// Recover or collect only the exact original artifact under its issued import intent.

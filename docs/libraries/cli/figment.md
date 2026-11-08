@@ -955,3 +955,572 @@ Its boundaries are equally clear. It is not a live configuration service, genera
 | Published source and manifest                     | [https://docs.rs/crate/figment/0.10.19/source/](https://docs.rs/crate/figment/0.10.19/source/?utm_source=chatgpt.com)                                                                     |
 
 All capability discussions above refer to the published stable 0.10.19 API, with development-branch differences called out separately.
+
+# Figment — Technical Capability Addendum
+
+Target version: 0.10.19 (published stable) | Research date: November 7, 2026
+
+This addendum supplements the existing Figment — Rust Configuration Composition Library reference. It develops additional capabilities and consequential implementation details concerning file acquisition, provenance semantics, metadata extensibility, profile identity, configuration addressing, environment providers, numeric representation, and testing utilities.
+
+All functionality described as available refers to the published Figment 0.10.19 crate. Differences in upstream development sources are identified separately.
+
+## 1. File provider discovery, acquisition, and required-file semantics
+
+### 1.1 File discovery and file loading occur at different stages
+
+The published `Data<F>` implementation distinguishes between resolving a file's location and reading its contents. This distinction is especially important because `Data::file()` and `Data::file_exact()` do not merely apply different search policies: they also retain different information when constructed.
+
+`Data::file(path)` performs file discovery immediately, when the provider is constructed. For a relative path, it searches the current working directory and successive parent directories. The first matching regular file is retained as a `PathBuf`. If no file is found, the provider retains the absence of a path.
+
+`Data::file_exact(path)`, by contrast, stores the supplied path without checking its existence or searching parent directories.
+
+The subsequent `Provider::data()` call performs file acquisition and parsing, normally when the provider is added to a `Figment`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+| Behavior                            | `Data::file()`                    | `Data::file_exact()`        |
+| ----------------------------------- | --------------------------------- | --------------------------- |
+| Parent-directory discovery          | Yes, for relative paths           | No                          |
+| Path resolution during construction | Yes                               | No existence check          |
+| Stored file reference               | Resolved path or absence          | Supplied path               |
+| Missing file at construction        | Retains absence                   | Retains supplied path       |
+| Missing file at composition         | Emits no data if discovery failed | Returns a provider error    |
+| File content acquisition            | During provider composition       | During provider composition |
+
+This produces several consequences that are not immediately apparent from the public constructor signatures.
+
+Discovery is effectively snapshotted, but file contents are not. A `file()` provider constructed before a configuration file exists will continue to contribute no data even if the file is subsequently created before composition. Conversely, when discovery succeeds, the file's contents are not necessarily read until later. Changes between discovery and composition can therefore affect the configuration that is ultimately loaded.
+
+For `file_exact()`, a relative path is retained rather than converted to a discovered absolute path. Consequently, the working directory at the time of file acquisition can determine which file is opened, potentially differing from the working directory when the provider was constructed.
+
+A missing file handled by `file()` is therefore fundamentally different from a read failure encountered by `file_exact()`. The former contributes an empty provider; the latter produces an error that is retained by Figment and surfaced through fallible evaluation.
+
+### 1.2 Required-file behavior without an explicit existence check
+
+The strict behavior of `file_exact()` provides a useful configuration-loading contract when a particular file must exist.
+
+An optional configuration source can use `file()`, accepting its discovery semantics. A required configuration source can use `file_exact()`, causing missing-file and I/O failures to enter Figment's normal provider-error machinery rather than requiring an independent preflight existence check.
+
+This is not equivalent to schema-level required-field validation. A missing `file()` provider may still lead to a typed extraction error if mandatory fields cannot be obtained from other sources. The distinction is whether the missing source itself constitutes an error, independently of the final configuration schema.
+
+The published 0.10.19 API does not expose configurable `required()` or `search()` builder methods. Those appear in newer upstream development code and must not be substituted for the published constructors.
+
+Primary source: [https://docs.rs/figment/0.10.19/figment/providers/struct.Data.html](https://docs.rs/figment/0.10.19/figment/providers/struct.Data.html?utm_source=chatgpt.com)
+
+Published implementation: [https://docs.rs/figment/0.10.19/src/figment/providers/data.rs.html](https://docs.rs/figment/0.10.19/src/figment/providers/data.rs.html?utm_source=chatgpt.com)
+
+## 2. Custom metadata construction and source-native diagnostics
+
+### 2.1 Metadata is an extensible provider contract
+
+The original reference discusses how provenance metadata is retrieved and retained. A complementary capability is that custom providers can define the metadata associated with their configuration sources, including how logical configuration paths are represented in the source's own naming system.
+
+The relevant public construction APIs are:
+
+| API                                    | Capability                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------- |
+| `Metadata::named(name)`                | Construct metadata identifying a provider without an explicit source location |
+| `Metadata::from(name, source)`         | Construct metadata with a source identifier                                   |
+| `Metadata::source(source)`             | Assign a source to existing metadata                                          |
+| `Metadata::interpolater(f)`            | Install custom source-native key-path formatting                              |
+| `Metadata::interpolate(profile, keys)` | Apply that formatting to a profile and key path                               |
+
+The interpolater receives a `&Profile` and a slice of key components, returning a `String`. Its closure must implement `Fn`, `Clone`, `Send`, and `Sync`, and have a `'static` lifetime.
+
+For example, a custom provider can identify a remote configuration source and represent errors using paths corresponding to that service's namespace.
+
+```
+use figment::Metadata;
+
+let metadata = Metadata::named("Configuration Service")
+    .source("config://services")
+    .interpolater(|profile, keys| {
+        if profile.is_custom() {
+            format!("{}/{}", profile, keys.join("/"))
+        } else {
+            keys.join("/")
+        }
+    });
+```
+
+This example illustrates metadata construction; the returned `Metadata` would ordinarily be exposed by a custom `Provider::metadata()` implementation.
+
+Rather than rendering an error at an internal path such as `database.primary.timeout`, the provider could represent the offending setting as `production/database/primary/timeout`, or another source-native identifier.
+
+Figment then uses the interpolater in its existing diagnostic machinery. This permits source-specific diagnostics without replacing the core extraction or error model.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 2.2 Source classification and inspection
+
+The published `Source` enum distinguishes three source categories:
+
+| Variant                                    | Meaning                                 | Useful accessor   |
+| ------------------------------------------ | --------------------------------------- | ----------------- |
+| `Source::File(PathBuf)`                    | Filesystem-backed configuration         | `file_path()`     |
+| `Source::Code(&'static Location<'static>)` | Programmatically supplied configuration | `code_location()` |
+| `Source::Custom(String)`                   | Arbitrary source identifier             | `custom()`        |
+
+`Source` is marked `#[non_exhaustive]`, so exhaustive matching in downstream code must accommodate additional variants.
+
+The distinction between a provider's source and its registration location is important. `Metadata::source` describes where the configuration came from, whereas `Metadata::provide_location` identifies the source-code location where the provider was added to Figment, when known.
+
+These represent two independent forms of attribution: the configuration's origin and the code path responsible for incorporating that origin.
+
+File-backed sources also have different semantics from custom sources. In particular, `RelativePathBuf` relies on file-origin metadata to establish a configuration-file-relative base. Attaching a remote URI through `Source::Custom` does not automatically give relative paths remote-resolution semantics.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 2.3 Limits of source-native interpolation
+
+Custom interpolation should not be confused with reversible source mapping.
+
+An interpolater can render a logical key using a source's conventions, but it is not required to preserve or reconstruct the original source identifier exactly. When a provider performs arbitrary key rewriting, multiple original names may map to the same normalized key.
+
+Likewise, a normal `Provider::metadata()` implementation supplies metadata for the provider as a whole. It does not constitute an unrestricted API for attaching an unrelated source identity to every emitted field.
+
+Where configuration combines independently attributed origins, preserving those boundaries through separate providers or an appropriate composition abstraction can be more faithful than representing all values as originating from one synthetic source.
+
+Primary sources:
+
+[https://docs.rs/figment/0.10.19/figment/struct.Metadata.html](https://docs.rs/figment/0.10.19/figment/struct.Metadata.html?utm_source=chatgpt.com)
+
+[https://docs.rs/figment/0.10.19/figment/enum.Source.html](https://docs.rs/figment/0.10.19/figment/enum.Source.html?utm_source=chatgpt.com)
+
+## 3. Provenance semantics under recursive composition
+
+### 3.1 Parent-container provenance is not necessarily child provenance
+
+Figment's value representation associates a `Tag` with every value, including dictionaries, arrays, and their individual descendants. However, composition can produce containers whose nested values originate from several providers.
+
+The published `Coalescible for Value` implementation makes the distinction explicit.
+
+For dictionary conflicts, recursive composition retains the existing dictionary's outer tag under `join` and `adjoin`, or the incoming dictionary's outer tag under `merge` and `admerge`. Nested members are combined individually.
+
+Consequently, the metadata of a composed dictionary does not necessarily describe the origin of every member within that dictionary.
+
+A similar distinction applies to concatenated arrays, but their container-level tag policy is different.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+### 3.2 Array concatenation retains the existing container tag
+
+For `adjoin` and `admerge`, the published implementation is equivalent to:
+
+```
+(A(t, mut existing), A(_, incoming), Adjoin | Admerge) => {
+    existing.extend(incoming);
+    A(t, existing)
+}
+```
+
+Here, `A` denotes `Value::Array`. The original array's outer tag is retained, even when `admerge` would otherwise prefer incoming scalar values.
+
+The appended elements retain their individual `Value` objects and associated tags.
+
+This yields a noteworthy difference between the two levels of provenance:
+
+| Configuration object             | Provenance after array concatenation |
+| -------------------------------- | ------------------------------------ |
+| Concatenated array container     | Existing array's tag                 |
+| Elements originally in the array | Their existing individual tags       |
+| Appended elements                | Their incoming individual tags       |
+
+For instance, an array representing a list of enabled integrations may contain entries from a file, environment variables, and programmatic configuration, even though the array container itself points to only one source.
+
+A source-aware inspection system should therefore inspect the nested elements rather than assume that the array's outer metadata explains the entire list.
+
+This makes Figment suitable for retaining meaningful element provenance across additive composition, while also establishing a limit: container provenance is not a complete record of composition history.
+
+Source: [https://docs.rs/crate/figment/0.10.19/source/src/coalesce.rs](https://docs.rs/crate/figment/0.10.19/source/src/coalesce.rs?utm_source=chatgpt.com)
+
+### 3.3 Provider metadata inventory differs from effective-value attribution
+
+`Figment::metadata()` exposes an iterator over collected provider metadata in the order that providers were added.
+
+This is distinct from `Figment::find_metadata(path)` or `Figment::get_metadata(tag)`, which resolve provenance associated with particular values or tags.
+
+The distinction permits several forms of inspection.
+
+An application can enumerate registered configuration sources independently of which source supplied a particular surviving field. Conversely, it can inspect a particular field's effective origin without attempting to infer precedence from provider order.
+
+The provider metadata inventory can include sources whose data did not survive a conflict, sources affecting another profile, or sources contributing no values. It should not be interpreted as the set of currently winning providers.
+
+There is an additional diagnostic distinction: `find_metadata(path)` returns an `Option`, using `find_value(path).ok()?.tag()` internally. Therefore, a missing metadata result does not necessarily prove the key was absent; an underlying configuration-evaluation error can also prevent retrieval.
+
+Use `find_value()` when a distinction between absence and evaluation failure is required.
+
+Although Figment retains metadata associated with earlier providers, it does not retain a publicly navigable history of all overwritten values and their conflict decisions. Enumerating metadata cannot reconstruct that history.
+
+Source: [https://docs.rs/figment/0.10.19/figment/struct.Figment.html](https://docs.rs/figment/0.10.19/figment/struct.Figment.html?utm_source=chatgpt.com)&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 4. Profile information encoded in `Tag`
+
+### 4.1 `Tag::profile()` is not equivalent to retrieving the originating profile name
+
+A `Tag` encodes both an identifier associated with metadata and a compact profile classification.
+
+The public `Tag::profile()` API returns `Option<Profile>`, but the published implementation cannot reconstruct the names of arbitrary custom profiles.
+
+Internally, the tag allocates two bits to a `ProfileTag` category. The categories are `Default`, `Global`, and `Custom`.
+
+The corresponding published conversion behavior is:
+
+| Encoded profile category | `Tag::profile()`         |
+| ------------------------ | ------------------------ |
+| Default                  | `Some(Profile::Default)` |
+| Global                   | `Some(Profile::Global)`  |
+| Custom                   | `None`                   |
+
+All arbitrary custom profile names share the same encoded category. A tag from `staging` and a tag from `production` do not themselves retain those distinct profile names.
+
+Documentation discrepancy: The published rustdoc description of `Tag::profile()` says that a result is returned for `Default` or `Custom`. The published `ProfileTag` conversion implementation instead returns a result for `Default` or `Global`, and `None` for `Custom`. The implementation is the basis for the behavior described here.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+This distinction matters whenever the exact origin profile, rather than merely its category, must be retained.
+
+### 4.2 Default tags versus default-profile values
+
+`Tag::Default` is a distinguished tag without associated provider metadata. It should not be confused with a normal value originating from `Profile::Default`.
+
+Accordingly, `Tag::is_default()` tests whether a tag equals that distinguished default tag. It does not answer whether the value originated from the default configuration profile.
+
+A value emitted into `Profile::Default` by an ordinary provider can have a nondefault tag, with `Tag::profile()` returning `Some(Profile::Default)`.
+
+These are separate properties: one describes whether the tag is the special metadata-free identifier; the other describes its encoded profile category.
+
+`Figment::profile()` also serves a different purpose. It reports the active profile selected for extraction rather than the profile classification associated with an individual value.
+
+Sources:
+
+[https://docs.rs/figment/0.10.19/figment/value/struct.Tag.html](https://docs.rs/figment/0.10.19/figment/value/struct.Tag.html?utm_source=chatgpt.com)
+
+[https://docs.rs/crate/figment/0.10.19/source/src/profile.rs](https://docs.rs/crate/figment/0.10.19/source/src/profile.rs?utm_source=chatgpt.com)
+
+## 5. Configuration key paths and addressability limits
+
+### 5.1 Dotted paths are structural paths, not arbitrary dictionary keys
+
+Figment's dotted key notation represents navigation through nested dictionaries. It does not provide an escaping mechanism for literal dictionary keys containing dots.
+
+Consider the following JSON representation:
+
+```
+{
+  "service.endpoint": "literal-key",
+  "service": {
+    "endpoint": "nested-key"
+  }
+}
+```
+
+Both keys are valid and distinct members of the underlying configuration representation.
+
+However, `extract_inner::<String>("service.endpoint")` addresses the nested value `"nested-key"` rather than the literal top-level key `"service.endpoint"`.
+
+The same distinction applies to `find_value()`, `focus()`, `Value::find()`, and `Value::find_ref()`, which interpret a dotted string as a sequence of dictionary-key components.
+
+For literal keys containing dots, extraction of the containing `Dict` or `Value::Dict` followed by direct map access preserves the distinction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 5.2 Keyed serialized providers share the same limitation
+
+The published `Serialized<T>` provider's keyed constructors, including `Serialized::default()`, `Serialized::global()`, and `.key()`, also interpret their key arguments as dotted paths.
+
+For example, `Serialized::default("a.b", value)` constructs nested dictionaries rather than emitting a literal root key named `"a.b"`.
+
+When arbitrary literal keys must be preserved, an unkeyed serialized dictionary or custom provider can supply the desired dictionary structure directly. This avoids imposing dotted-path interpretation on key names supplied by an external schema.
+
+The relevant distinction is between two different operations: constructing a configuration tree and subsequently addressing a member of that tree. The same dotted syntax is used by several conveniences, but it is not a general-purpose escaped key-path language.
+
+### 5.3 Array elements are not addressed through dotted numeric indices
+
+In published Figment 0.10.19, `Value::find()` and `Value::find_ref()` traverse dictionary keys. They do not interpret numeric path components as array indices.
+
+A path such as `plugins.0.name` therefore does not provide ordinary array-index navigation through `Value::Array`.
+
+The corresponding approach is to retrieve the enclosing array and use `as_array()` or `into_array()` before indexing or iterating over its elements.
+
+This boundary is especially relevant for generic configuration inspectors. Dotted paths address nested dictionaries; arrays require explicit sequence handling.
+
+Primary sources:
+
+[https://docs.rs/figment/0.10.19/figment/value/enum.Value.html](https://docs.rs/figment/0.10.19/figment/value/enum.Value.html?utm_source=chatgpt.com)
+
+[https://docs.rs/figment/0.10.19/figment/providers/struct.Serialized.html](https://docs.rs/figment/0.10.19/figment/providers/struct.Serialized.html?utm_source=chatgpt.com)
+
+## 6. Environment-provider inspection and transformation semantics
+
+### 6.1 `Env::iter()` exposes source strings before structured interpretation
+
+`Env::iter()` yields transformed environment-variable keys paired with `String` values.
+
+It applies the provider's configured key filtering and mapping behavior, but its values remain strings rather than the typed `Value` objects produced through provider evaluation.
+
+For example, an environment variable containing the textual value `[1, 2, 3]` is yielded as a string by `Env::iter()`. The environment provider's data-construction stage then interprets the text according to its supported value syntax.
+
+The distinction matters when inspecting or composing environment-provider adapters. Operating on `Env::iter()` exposes key/value strings; operating on `Provider::data()` exposes profile-indexed dictionaries containing Figment values.
+
+Another difference is lifecycle: repeated calls to `Env::iter()` inspect the environment as it exists at those calls. It is not itself a frozen snapshot. Once an environment provider has been added to a Figment, its data has been collected through Figment's usual eager composition mechanism.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 6.2 `Uncased` and `UncasedStr` are public building blocks
+
+Figment reexports the `Uncased` and `UncasedStr` types used by its environment-variable transformation API.
+
+`UncasedStr` provides a borrowed, case-insensitive representation, while `Uncased` supports owned or borrowed case-preserving strings.
+
+Their case-insensitive comparison semantics apply to ASCII case differences. They do not provide general Unicode case folding.
+
+This distinction is relevant when implementing filters and mappings because an operation performed on an `UncasedStr` can have different matching semantics from one performed on its ordinary `&str` representation.
+
+The types also provide convenient case-insensitive prefix matching for configuration namespaces without requiring repeated manual lowercase transformations.
+
+Source: [https://docs.rs/figment/0.10.19/figment/value/struct.UncasedStr.html](https://docs.rs/figment/0.10.19/figment/value/struct.UncasedStr.html?utm_source=chatgpt.com)
+
+### 6.3 Diagnostic interpolation is not a reversible environment mapping
+
+The built-in environment provider's metadata identifies environment-variable configuration but does not supply a separate `Source` identifying each original variable.
+
+Its default interpolation converts logical key-path components to uppercase, separated by dots.
+
+This is a readable diagnostic convention, not a guaranteed reconstruction of the original environment-variable name.
+
+For example, a provider might remove a prefix, convert double underscores to dots, and apply further custom renaming. The logical key produced by that transformation may not contain sufficient information to recover the original variable exactly.
+
+A custom provider preserving the original source-key mapping would need to manage that information explicitly when exact reconstruction matters.
+
+### 6.4 Provider thread safety versus composed configuration thread safety
+
+The published `Env` provider implements neither `Send` nor `Sync`, reflecting the type's internal transformation machinery and its trait-object constraints.
+
+The resulting `Figment` implements both `Send` and `Sync`.
+
+This makes source-provider construction and composed-configuration sharing distinct concurrency concerns. A fully constructed Figment can be shared across threads even though an `Env` provider used to construct it is not independently transferable under those same bounds.
+
+This does not imply that reading or modifying process environment variables is synchronized by Figment, or that composition represents an atomic snapshot across independently changing external sources.
+
+Primary source: [https://docs.rs/figment/0.10.19/figment/providers/struct.Env.html](https://docs.rs/figment/0.10.19/figment/providers/struct.Env.html?utm_source=chatgpt.com)&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 7. Additional profile construction utilities
+
+Beyond profile creation and selection, the published `Profile` type exposes several methods useful in custom provider implementations and configuration introspection.
+
+| Method                         | Function                                                               |
+| ------------------------------ | ---------------------------------------------------------------------- |
+| `Profile::collect(dict)`       | Construct a `Map<Profile, Dict>` containing one profile and dictionary |
+| `Profile::as_str()`            | Access the profile's case-insensitive string representation            |
+| `Profile::starts_with(prefix)` | Perform case-insensitive profile-prefix matching                       |
+| `Profile::is_custom()`         | Identify profiles other than `Default` and `Global`                    |
+
+`Profile::collect()` is particularly useful at the provider boundary because it directly creates the return structure required by `Provider::data()` for a single-profile source.
+
+For example:
+
+```
+use figment::{Profile, value::{Dict, Map}};
+
+fn single_profile_data(
+    profile: Profile,
+    values: Dict,
+) -> Map<Profile, Dict> {
+    profile.collect(values)
+}
+```
+
+This avoids manually constructing a one-entry profile map.
+
+`Profile::starts_with()` and `Profile::is_custom()` support profile-aware logic without manually normalizing names or comparing string representations.
+
+These are convenience operations rather than an additional profile-inheritance mechanism. Prefix matching does not cause a profile to inherit configuration from another profile with a related name.
+
+Source: [https://docs.rs/figment/0.10.19/figment/struct.Profile.html](https://docs.rs/figment/0.10.19/figment/struct.Profile.html?utm_source=chatgpt.com)&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 8. Numeric representation and conversion fidelity
+
+### 8.1 `Num` preserves multiple numeric representations
+
+Figment's internal `Num` enum represents signed and unsigned integers across multiple widths, including `i128` and `u128`, together with `isize`, `usize`, `f32`, and `f64`.
+
+This is more expressive than an intermediate representation that normalizes every integer into `i64` or every numeric value into `f64`.
+
+It can therefore preserve distinctions that matter when constructing or examining configuration programmatically, including signedness and numeric width.
+
+However, the conversion methods are intentionally more restrictive than ordinary mathematical convertibility.
+
+| Method            | Conversion behavior                                |
+| ----------------- | -------------------------------------------------- |
+| `to_u32()`        | Accepts unsigned variants of width at most 32 bits |
+| `to_u128()`       | Accepts unsigned integer variants                  |
+| `to_u128_lossy()` | Also accepts nonnegative signed integer variants   |
+| `to_i128()`       | Accepts signed integer variants                    |
+| `to_f64()`        | Accepts floating-point variants                    |
+| `to_actual()`     | Converts to the diagnostic `Actual` representation |
+
+A particularly important detail is that conversion behavior can depend on the stored variant rather than only the numeric value.
+
+For example, `to_u32()` is not a general checked integer cast from every wider integer type. A value represented as a `u64` does not satisfy its documented variant-width restriction simply because its magnitude would fit in `u32`.
+
+Similarly, `to_i128()` is not a universal signed conversion for nonnegative unsigned variants.
+
+### 8.2 Diagnostic conversion has different fidelity requirements
+
+`Num::to_actual()` converts a numeric value into Figment's diagnostic `Actual` representation, which distinguishes signed, unsigned, and floating-point numbers.
+
+The documentation notes that values exceeding the target diagnostic representation's bit width can be truncated.
+
+This is distinct from the underlying `Num` representation and should not be interpreted as a claim that ordinary configuration storage truncates those values.
+
+Consequently, raw numeric inspection and diagnostic formatting can have different fidelity characteristics for extreme integer values.
+
+That distinction is relevant when interpreting errors involving large numeric configuration values or developing tooling that must preserve exact numerical representations.
+
+Primary source: [https://docs.rs/figment/0.10.19/figment/value/enum.Num.html](https://docs.rs/figment/0.10.19/figment/value/enum.Num.html?utm_source=chatgpt.com)&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+## 9. Additional `Jail` testing semantics
+
+### 9.1 Complete environment clearing and restoration
+
+`Jail::clear_env()` removes all environment variables in the temporary test context. It does not merely remove variables previously introduced with `Jail::set_env()`.
+
+The original environment is restored when the jail exits through normal cleanup.
+
+This allows configuration tests to distinguish behavior under an explicitly empty environment from behavior under an environment inheriting unrelated variables from the test runner or host process.
+
+It is particularly useful for verifying implicit defaults, missing-variable behavior, and provider filtering without accidental interference from preexisting process variables.
+
+The distinction remains process-level rather than thread-local. `Jail` coordinates its own invocations, but unrelated code that accesses or mutates process-global environment state is not automatically isolated.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 9.2 Controlled filesystem operations and path validation
+
+The `Jail` file and directory helpers validate supplied paths against the temporary jail directory.
+
+The relevant methods include `create_file()`, `create_binary()`, `create_dir()`, and `change_dir()`.
+
+File and directory creation operations reject paths outside the allowed temporary directory, while `create_dir()` can recursively construct missing parent directories.
+
+These checks help keep test fixtures within the expected temporary namespace and avoid accidental modifications to external paths.
+
+They do not constitute an operating-system security boundary. The rest of the process can still use ordinary filesystem APIs, and the jail does not isolate the process from its host filesystem or unrelated threads.
+
+Source: [https://docs.rs/figment/0.10.19/figment/struct.Jail.html](https://docs.rs/figment/0.10.19/figment/struct.Jail.html?utm_source=chatgpt.com)
+
+## 10. Published-release versus development-source distinctions
+
+The distinction between the published crate and newer upstream source is unusually important for Figment because the upstream manifest continues to identify the package as version `0.10.19` despite containing changes not present in the published package.
+
+As of the research date, 0.10.19 remains the latest published stable release.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+### 10.1 File-provider API divergence
+
+The published `Data<F>` API supports `file()`, `file_exact()`, `string()`, `profile()`, and `nested()`.
+
+Newer upstream material introduces additional controls, including `required()` and `search()`, which alter the file-discovery and missing-file model.
+
+These methods are not available in the published 0.10.19 public API and should not be presented as capabilities of that release merely because documentation indexed from the development branch contains them.
+
+### 10.2 Feature and dependency divergence
+
+There are also material differences in the manifest:
+
+| Area                      | Published 0.10.19                      | Upstream development                           |
+| ------------------------- | -------------------------------------- | ---------------------------------------------- |
+| Default features          | None                                   | `env`                                          |
+| TOML dependency           | `toml` 0.8                             | `toml_edit` 0.22                               |
+| Environment-value parsing | `env` enables `parse-value` and `pear` | Revised implementation and feature arrangement |
+| `Data` file controls      | `file()` / `file_exact()`              | Additional search/required controls            |
+
+In the published crate, enabling `env` automatically enables its `parse-value` dependency feature. There is ordinarily no reason to specify `parse-value` separately when the `env` provider is already enabled.
+
+These are release-specific facts rather than general guarantees across future Figment releases. The development branch is useful for understanding implementation direction, but its capabilities must be verified independently before being represented as released.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs+1
+
+
+
+Published features: [https://docs.rs/crate/figment/0.10.19/features](https://docs.rs/crate/figment/0.10.19/features?utm_source=chatgpt.com)
+
+Published manifest: [https://docs.rs/crate/figment/0.10.19/source/Cargo.toml](https://docs.rs/crate/figment/0.10.19/source/Cargo.toml?utm_source=chatgpt.com)
+
+Upstream development manifest: [https://github.com/SergioBenitez/Figment/blob/master/Cargo.toml](https://github.com/SergioBenitez/Figment/blob/master/Cargo.toml?utm_source=chatgpt.com)
+
+## 11. Cross-cutting architectural implications
+
+The additional behaviors establish three consequential distinctions for systems using Figment as a shared configuration abstraction.
+
+Configuration acquisition is not a single atomic snapshot operation. File discovery, file reading, environment inspection, provider composition, and typed extraction can occur at different points. Figment provides a reusable composed configuration once inputs are collected, but does not guarantee consistency across external sources that change during construction. The file-provider distinctions are particularly important because discovery can precede acquisition.
+
+Provenance is attached to values and their contributing metadata, not to an exhaustive history of configuration decisions. Retained values can identify their source, and nested values can retain different source tags. However, parent containers can have different provenance from their children, custom profile names are not recoverable from tags alone, and overwritten values are not exposed through a general historical audit interface. Accurate provenance inspection therefore depends on the level of the value tree being examined.
+
+Figment's generic representation is more expressive than its convenience key-path interface. Dictionaries can contain literal keys that cannot be addressed unambiguously through dotted paths, while arrays require explicit sequence operations. The internal numeric representation also preserves distinctions that some conversion helpers do not accept. Direct `Value` and `Dict` inspection remains an important complement to the higher-level extraction APIs.
+
+Together, these distinctions clarify how Figment can support sophisticated configuration composition and diagnostics without requiring a bespoke intermediate representation, while identifying the points at which exact source identity, structural addressing, or acquisition consistency require additional handling outside the core API.
