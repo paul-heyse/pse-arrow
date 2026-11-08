@@ -299,7 +299,12 @@ impl CaptureSnapshot {
     pub(super) fn verify(&self, root: &Path, registry: &Registry) -> Result<()> {
         let mut current_roots = BTreeSet::new();
         let mut current_directories = BTreeMap::new();
-        discover_packages(root, &self.inventory, &mut current_roots, &mut current_directories)?;
+        discover_packages(
+            root,
+            &self.inventory,
+            &mut current_roots,
+            &mut current_directories,
+        )?;
         ensure!(
             current_roots == self.inventory_roots
                 && current_directories == self.inventory_directories,
@@ -328,7 +333,12 @@ impl CaptureSnapshot {
         Ok(())
     }
 
-    fn identity(&self, name: &str, registry: &Registry, budget: ParseBudget) -> Result<ContentHash> {
+    fn identity(
+        &self,
+        name: &str,
+        registry: &Registry,
+        budget: ParseBudget,
+    ) -> Result<ContentHash> {
         let packages = self
             .packages
             .iter()
@@ -350,7 +360,12 @@ impl CaptureSnapshot {
             packages,
             package_checksum(&self.auxiliary),
             registry.fingerprint(),
-            (budget.max_depth, budget.max_aliases, budget.max_bytes, budget.max_data_rows),
+            (
+                budget.max_depth,
+                budget.max_aliases,
+                budget.max_bytes,
+                budget.max_data_rows,
+            ),
         ))
         .into_diagnostic()?;
         Ok(pse_ids::preimage::hash(&metadata))
@@ -470,7 +485,8 @@ fn materialize_family(
         let path = normalize(Path::new(path))?;
         ensure!(
             path.ends_with(".pse")
-                && !snapshot.headers
+                && !snapshot
+                    .headers
                     .keys()
                     .any(|package| path.starts_with(&format!("{package}/"))),
             "substitution must be outside authenticated package transport: {path}"

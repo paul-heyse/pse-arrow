@@ -74,7 +74,10 @@ fn taxonomy_problems(items: &[syn::Item], scope: &dyn Fn() -> String, out: &mut 
                     {
                         out.push(format!(
                             "{}::{} does not implement {}::{} (blueprint §23.2)",
-                            scope(), e.ident, required[0], required[1]
+                            scope(),
+                            e.ident,
+                            required[0],
+                            required[1]
                         ));
                     }
                 }
@@ -95,7 +98,11 @@ fn error_enums_implement_error_and_diagnostic() {
     let mut problems = Vec::new();
     for path in common::crate_sources_at(&root) {
         let syntax = syn::parse_file(&common::read(&path)).unwrap();
-        taxonomy_problems(&syntax.items, &|| common::rel_at(&root, &path), &mut problems);
+        taxonomy_problems(
+            &syntax.items,
+            &|| common::rel_at(&root, &path),
+            &mut problems,
+        );
     }
     assert!(
         problems.is_empty(),

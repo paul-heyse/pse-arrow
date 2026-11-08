@@ -246,7 +246,11 @@ fn native_campaign_shares_exact_physical_custody_only_for_the_resolved_root() ->
     assert_eq!(selection.modeling[2], selection.physical);
     let physical_document = "materials/time.yaml";
     let path = selection.physical.join(physical_document);
-    let alternate = [original.files[physical_document].as_slice(), b"\n# changed bytes\n"].concat();
+    let alternate = [
+        original.files[physical_document].as_slice(),
+        b"\n# changed bytes\n",
+    ]
+    .concat();
     std::fs::write(selection.modeling[1].join(physical_document), &alternate)?;
     let captured = selection.capture_physical(&registry)?;
     assert_eq!(captured.header.content_hash, original.header.content_hash);
@@ -257,7 +261,9 @@ fn native_campaign_shares_exact_physical_custody_only_for_the_resolved_root() ->
 
     let validation = pse_relations::validate::ValidationContext::new(
         &registry,
-        pse_engine::validation::NativeValidation(datafusion::prelude::SessionContext::new().state()),
+        pse_engine::validation::NativeValidation(
+            datafusion::prelude::SessionContext::new().state(),
+        ),
     );
     let pool: Arc<dyn pse_columnar::MemoryPool> =
         Arc::new(pse_columnar::GreedyMemoryPool::new(512 << 20));
@@ -266,28 +272,58 @@ fn native_campaign_shares_exact_physical_custody_only_for_the_resolved_root() ->
     let load = |files: &BTreeMap<String, Vec<u8>>| -> Result<_> {
         admissions.set(admissions.get() + 1);
         Ok(load_package_documents_owned(
-            files, &registry, Default::default(), &pool, &token, &validation,
+            files,
+            &registry,
+            Default::default(),
+            &pool,
+            &token,
+            &validation,
         )?)
     };
     let physical = load(&captured.files)?;
     let modeling = selection.modeling_bundles(&physical, &registry, load)?;
-    assert_eq!(admissions.get(), 3, "physical, modeling root and distinct dependency");
+    assert_eq!(
+        admissions.get(),
+        3,
+        "physical, modeling root and distinct dependency"
+    );
     assert!(std::ptr::eq(physical.bundle(), modeling[2].bundle()));
-    assert_eq!(physical.bundle().package.package_id, modeling[1].bundle().package.package_id);
-    assert_eq!(physical.bundle().package.version, modeling[1].bundle().package.version);
-    assert_ne!(physical.bundle().package.content_hash, modeling[1].bundle().package.content_hash);
+    assert_eq!(
+        physical.bundle().package.package_id,
+        modeling[1].bundle().package.package_id
+    );
+    assert_eq!(
+        physical.bundle().package.version,
+        modeling[1].bundle().package.version
+    );
+    assert_ne!(
+        physical.bundle().package.content_hash,
+        modeling[1].bundle().package.content_hash
+    );
 
     let physical = OwnedDocumentSet::try_from_bundles(vec![physical], &pool, &token)?;
     let modeling = OwnedDocumentSet::try_from_bundles(modeling, &pool, &token)?;
     let original = &physical.bundles()[0];
     let shared = &modeling.bundles()[2];
-    assert!(std::ptr::eq(original.documents.as_ptr(), shared.documents.as_ptr()));
+    assert!(std::ptr::eq(
+        original.documents.as_ptr(),
+        shared.documents.as_ptr()
+    ));
     assert_eq!(original.package.content_hash, captured.header.content_hash);
-    let document = shared.documents.iter().find(|doc| doc.path == physical_document)
+    let document = shared
+        .documents
+        .iter()
+        .find(|doc| doc.path == physical_document)
         .context("selected physical document")?;
     assert_eq!(document.bytes(), captured.files[physical_document]);
-    assert_eq!(document.id, pse_ids::named_id(captured.header.package_id.as_id(), physical_document));
-    assert_ne!(selection.capture_physical(&registry)?.header.content_hash, captured.header.content_hash);
+    assert_eq!(
+        document.id,
+        pse_ids::named_id(captured.header.package_id.as_id(), physical_document)
+    );
+    assert_ne!(
+        selection.capture_physical(&registry)?.header.content_hash,
+        captured.header.content_hash
+    );
     Ok(())
 }
 

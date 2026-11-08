@@ -36,8 +36,12 @@ pub(crate) fn family(name: &str) -> Arc<SelectedCapture> {
             .canonicalize()
             .expect("resolve authored scientific checkout");
         Arc::new(
-            owner::capture_family(&root, Path::new("tests/fixtures/scientific-inputs.toml"), name)
-                .expect("capture selected authored scientific inputs"),
+            owner::capture_family(
+                &root,
+                Path::new("tests/fixtures/scientific-inputs.toml"),
+                name,
+            )
+            .expect("capture selected authored scientific inputs"),
         )
     })
     .clone()

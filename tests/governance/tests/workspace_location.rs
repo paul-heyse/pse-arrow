@@ -57,7 +57,10 @@ fn relocated_checkout_is_discovered_after_original_is_removed() {
     let moved = fixture.0.join("moved checkout");
     std::fs::rename(&original, &moved).unwrap();
     let canonical = moved.canonicalize().unwrap();
-    assert_eq!(common::rel_at(&canonical, &canonical.join("xtask/Cargo.toml")), relative);
+    assert_eq!(
+        common::rel_at(&canonical, &canonical.join("xtask/Cargo.toml")),
+        relative
+    );
     for relative in ["", "xtask/src", "tests/governance/tests"] {
         assert_eq!(
             common::workspace::find_workspace_root(&moved.join(relative)).unwrap(),

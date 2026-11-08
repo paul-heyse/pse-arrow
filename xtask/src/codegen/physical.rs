@@ -60,7 +60,11 @@ pub(super) fn source_scopes(
     Ok(scopes)
 }
 
-pub(super) fn append(root: &Path, registry: &Arc<Registry>, tree: &mut GeneratedTree) -> Result<()> {
+pub(super) fn append(
+    root: &Path,
+    registry: &Arc<Registry>,
+    tree: &mut GeneratedTree,
+) -> Result<()> {
     let physical = load(root, Arc::clone(registry))?;
     pse_codegen::codegen::rust::physical::append_quantity_fixture(
         tree,

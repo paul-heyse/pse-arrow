@@ -888,10 +888,7 @@ async fn fixture_scope_listing(
     Ok(listing)
 }
 
-fn reuse_listing(
-    listed: &test_workflow::Listed,
-    group: usize,
-) -> Result<Command, WorkflowError> {
+fn reuse_listing(listed: &test_workflow::Listed, group: usize) -> Result<Command, WorkflowError> {
     listed.verify_reuse_inputs(group)?;
     let directory = listed.capture_root.join(format!("group-{group}"));
     let mut command = Command::new(&listed.inventory.nextest.captured);
@@ -930,8 +927,8 @@ async fn group_policy(
     // Read declaration names only. Nextest remains the policy/filter membership authority.
     let configuration = std::str::from_utf8(&listed.inventory.nextest_configuration)
         .map_err(|error| WorkflowError::Invalid(error.to_string()))?;
-    let configuration: toml::Value = toml::from_str(configuration)
-    .map_err(|error| WorkflowError::Invalid(error.to_string()))?;
+    let configuration: toml::Value =
+        toml::from_str(configuration).map_err(|error| WorkflowError::Invalid(error.to_string()))?;
     let names: Vec<_> = configuration
         .get("test-groups")
         .and_then(toml::Value::as_table)

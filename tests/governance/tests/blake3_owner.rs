@@ -20,7 +20,9 @@ mod common;
 /// The crate that owns hashing (blueprint §3.1 "`blake3` ... **`pse-ids`** (sole hasher)").
 const OWNER: &str = "pse-ids";
 
-fn ownership<'a>(packages: impl IntoIterator<Item = (bool, &'a str, bool)>) -> (bool, Vec<&'a str>) {
+fn ownership<'a>(
+    packages: impl IntoIterator<Item = (bool, &'a str, bool)>,
+) -> (bool, Vec<&'a str>) {
     let mut owns = false;
     let mut offenders = Vec::new();
     for (member, name, depends_on_blake3) in packages {

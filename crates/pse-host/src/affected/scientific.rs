@@ -85,11 +85,17 @@ pub(super) fn verify_changed_path(root: &Path, path: &Path) -> Result<(), String
             .canonicalize()
             .map_err(|error| format!("{}: {error}", relative.display()))?;
         if metadata.file_type().is_symlink() || resolved != absolute {
-            return Err(format!("scientific changed path alias: {}", relative.display()));
+            return Err(format!(
+                "scientific changed path alias: {}",
+                relative.display()
+            ));
         }
         return Ok(());
     }
-    Err(format!("scientific changed path cannot be observed: {}", path.display()))
+    Err(format!(
+        "scientific changed path cannot be observed: {}",
+        path.display()
+    ))
 }
 
 #[derive(Deserialize)]
@@ -181,7 +187,10 @@ impl Sources<'_> {
         let error = |error| format!("{}: {error}", path.display());
         let mut source = fs::File::open(self.root.join(path)).map_err(error)?;
         if stamp(&source.metadata().map_err(error)?) != expected {
-            return Err(format!("scientific source changed before read: {}", path.display()));
+            return Err(format!(
+                "scientific source changed before read: {}",
+                path.display()
+            ));
         }
         let mut content = Vec::new();
         (&mut source)
@@ -189,10 +198,16 @@ impl Sources<'_> {
             .read_to_end(&mut content)
             .map_err(error)?;
         if stamp(&source.metadata().map_err(error)?) != expected {
-            return Err(format!("scientific source changed during read: {}", path.display()));
+            return Err(format!(
+                "scientific source changed during read: {}",
+                path.display()
+            ));
         }
         if content.len() as u64 > MAX_HEADER_BYTES {
-            return Err(format!("scientific header exceeds limit: {}", path.display()));
+            return Err(format!(
+                "scientific header exceeds limit: {}",
+                path.display()
+            ));
         }
         Ok(content)
     }
@@ -202,7 +217,10 @@ impl Sources<'_> {
             let metadata = fs::symlink_metadata(self.root.join(path))
                 .map_err(|error| format!("{}: {error}", path.display()))?;
             if stamp(&metadata) != *expected {
-                return Err(format!("scientific projection input changed: {}", path.display()));
+                return Err(format!(
+                    "scientific projection input changed: {}",
+                    path.display()
+                ));
             }
         }
         Ok(())
@@ -213,7 +231,10 @@ impl Sources<'_> {
         let mut pending = vec![inventory];
         while let Some(path) = pending.pop() {
             if !self.observe(&path)?.is_dir() {
-                return Err(format!("scientific inventory directory absent: {}", path.display()));
+                return Err(format!(
+                    "scientific inventory directory absent: {}",
+                    path.display()
+                ));
             }
             let header = path.join("package.toml");
             match fs::symlink_metadata(self.root.join(&header)) {
@@ -233,12 +254,18 @@ impl Sources<'_> {
                 let entry = entry.map_err(|error| error.to_string())?;
                 let kind = entry.file_type().map_err(|error| error.to_string())?;
                 if kind.is_symlink() {
-                    return Err(format!("scientific inventory alias: {}", entry.path().display()));
+                    return Err(format!(
+                        "scientific inventory alias: {}",
+                        entry.path().display()
+                    ));
                 }
                 if kind.is_dir() {
                     let name = entry.file_name();
                     if name.to_str().is_none() {
-                        return Err(format!("non-UTF8 scientific inventory entry: {}", entry.path().display()));
+                        return Err(format!(
+                            "non-UTF8 scientific inventory entry: {}",
+                            entry.path().display()
+                        ));
                     }
                     pending.push(path.join(name));
                     if pending.len() > MAX_PATHS {
@@ -273,8 +300,7 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
     };
     let catalog = Catalog::from_bytes(&sources.read(Path::new(CATALOG))?)
         .map_err(|error| error.to_string())?;
-    let mut package_roots =
-        sources.discover(relative(Path::new(&catalog.package_inventory))?)?;
+    let mut package_roots = sources.discover(relative(Path::new(&catalog.package_inventory))?)?;
     let families = resolve_families(catalog.families, None).map_err(|error| error.to_string())?;
     let mut prepared = Vec::new();
     let mut context = BTreeSet::new();
@@ -298,7 +324,9 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
             let manifest = relative(Path::new(&manifest))?;
             let input = Manifest::from_bytes(&sources.read(&manifest)?)
                 .map_err(|error| error.to_string())?;
-            let directory = manifest.parent().ok_or("scientific manifest parent absent")?;
+            let directory = manifest
+                .parent()
+                .ok_or("scientific manifest parent absent")?;
             if let Some(diagnostics) = input.settings.diagnostics {
                 let path = relative(&directory.join(diagnostics))?;
                 context.insert(path.clone());
@@ -313,7 +341,10 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
             files.insert(manifest);
         }
         if roots.is_empty() || family.consumers.is_empty() || family.name.is_empty() {
-            return Err(format!("scientific family {} lacks roots or consumers", family.name));
+            return Err(format!(
+                "scientific family {} lacks roots or consumers",
+                family.name
+            ));
         }
         for path in documents.iter().chain(&files) {
             sources.file(path)?;
@@ -342,26 +373,35 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
     for root in package_roots {
         let path = root.join("package.toml");
         let bytes = sources.read(&path)?;
-        let text = std::str::from_utf8(&bytes)
-            .map_err(|error| format!("{}: {error}", path.display()))?;
+        let text =
+            std::str::from_utf8(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
         let header: PackageHeader =
             toml::from_str(text).map_err(|error| format!("{}: {error}", path.display()))?;
         let package = header.package;
         let components = package.version.split('.').collect::<Vec<_>>();
         if package.name.is_empty()
             || package.package_id.len() != 32
-            || !package.package_id.bytes().all(|part| {
-                part.is_ascii_digit() || (b'a'..=b'f').contains(&part)
-            })
+            || !package
+                .package_id
+                .bytes()
+                .all(|part| part.is_ascii_digit() || (b'a'..=b'f').contains(&part))
             || components.len() != 3
             || components.iter().any(|part| part.parse::<u64>().is_err())
         {
-            return Err(format!("invalid scientific package identity at {}", path.display()));
+            return Err(format!(
+                "invalid scientific package identity at {}",
+                path.display()
+            ));
         }
         if !names.insert(package.name.clone())
-            || identities.insert(package.package_id.clone(), root.clone()).is_some()
+            || identities
+                .insert(package.package_id.clone(), root.clone())
+                .is_some()
         {
-            return Err(format!("ambiguous scientific package identity at {}", path.display()));
+            return Err(format!(
+                "ambiguous scientific package identity at {}",
+                path.display()
+            ));
         }
         context.insert(path);
         packages.insert(root, package);
@@ -370,7 +410,11 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
     for family in prepared {
         let mut trees = BTreeSet::new();
         let mut active = BTreeSet::new();
-        let mut pending = family.roots.into_iter().map(|path| (path, false)).collect::<Vec<_>>();
+        let mut pending = family
+            .roots
+            .into_iter()
+            .map(|path| (path, false))
+            .collect::<Vec<_>>();
         while let Some((path, expanded)) = pending.pop() {
             if expanded {
                 active.remove(&path);
@@ -381,7 +425,10 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
                 continue;
             }
             if !active.insert(path.clone()) {
-                return Err(format!("scientific package dependency cycle at {}", path.display()));
+                return Err(format!(
+                    "scientific package dependency cycle at {}",
+                    path.display()
+                ));
             }
             let package = packages
                 .get(&path)
@@ -389,19 +436,35 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
             pending.push((path.clone(), true));
             for dependency in &package.dependencies {
                 let target = identities.get(&dependency.package_id).ok_or_else(|| {
-                    format!("{}: missing scientific dependency {}", path.display(), dependency.package_id)
+                    format!(
+                        "{}: missing scientific dependency {}",
+                        path.display(),
+                        dependency.package_id
+                    )
                 })?;
                 let req = &dependency.version_req;
                 if req.operator != "exact"
-                    || packages[target].version != format!("{}.{}.{}", req.major, req.minor, req.patch)
+                    || packages[target].version
+                        != format!("{}.{}.{}", req.major, req.minor, req.patch)
                 {
-                    return Err(format!("{}: unresolved scientific dependency version for {}", path.display(), target.display()));
+                    return Err(format!(
+                        "{}: unresolved scientific dependency version for {}",
+                        path.display(),
+                        target.display()
+                    ));
                 }
                 pending.push((target.clone(), false));
             }
         }
-        if family.documents.iter().any(|document| !trees.iter().any(|tree| document.starts_with(tree))) {
-            return Err(format!("{}: scientific document outside its package closure", family.name));
+        if family
+            .documents
+            .iter()
+            .any(|document| !trees.iter().any(|tree| document.starts_with(tree)))
+        {
+            return Err(format!(
+                "{}: scientific document outside its package closure",
+                family.name
+            ));
         }
         let mut files = family.files;
         if family.parser_fields && !family.documents.is_empty() {
@@ -410,7 +473,12 @@ pub(super) fn read(root: &Path) -> Result<Projection, String> {
             trees.clear();
         }
         files.extend(family.documents);
-        families.push(FamilyReach { name: family.name, consumers: family.consumers, trees, files });
+        families.push(FamilyReach {
+            name: family.name,
+            consumers: family.consumers,
+            trees,
+            files,
+        });
     }
     sources.verify()?;
     Ok(Projection { families, context })

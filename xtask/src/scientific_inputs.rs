@@ -259,7 +259,10 @@ consumers = ["other-consumer"]
         assert!(capture_family(root.path(), catalog_path, "other").is_err());
         assert!(capture(root.path(), catalog_path).is_err());
         assert_eq!(
-            selected.packages().map(|(path, _)| path).collect::<Vec<_>>(),
+            selected
+                .packages()
+                .map(|(path, _)| path)
+                .collect::<Vec<_>>(),
             ["inventory/a", "inventory/b"]
         );
         for (path, package) in selected.packages() {
@@ -270,7 +273,11 @@ consumers = ["other-consumer"]
             );
         }
         assert!(selected.package("inventory/unused").is_none());
-        assert!(!selected.files().contains_key("inventory/unused/package.toml"));
+        assert!(
+            !selected
+                .files()
+                .contains_key("inventory/unused/package.toml")
+        );
 
         let imported = "inventory/b/models/source.pse";
         std::fs::write(root.path().join(imported), b"package beta {}\n// drift\n").unwrap();
@@ -286,7 +293,12 @@ consumers = ["other-consumer"]
         let root = fixture();
         let capture = || capture_family(root.path(), Path::new("inputs.toml"), "control");
         package(root.path(), "inventory/alias", 2, &[], "package alias {}\n");
-        assert!(capture().unwrap_err().to_string().contains("ambiguous package identity"));
+        assert!(
+            capture()
+                .unwrap_err()
+                .to_string()
+                .contains("ambiguous package identity")
+        );
         std::fs::remove_dir_all(root.path().join("inventory/alias")).unwrap();
         let header = root.path().join("inventory/b/package.toml");
         let original = std::fs::read_to_string(&header).unwrap();
@@ -294,7 +306,12 @@ consumers = ["other-consumer"]
         assert!(format!("{:?}", capture().unwrap_err()).contains("version requirement differs"));
         std::fs::write(&header, original).unwrap();
         std::fs::remove_file(root.path().join("inventory/a/models/source.pse")).unwrap();
-        assert!(capture().unwrap_err().to_string().contains("selects a missing source"));
+        assert!(
+            capture()
+                .unwrap_err()
+                .to_string()
+                .contains("selects a missing source")
+        );
     }
 
     #[test]

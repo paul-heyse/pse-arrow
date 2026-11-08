@@ -309,7 +309,10 @@ fn scientific_family_reach_seeds_reverse_cargo_scope_without_opening_model_bodie
     let metadata = metadata(root.path());
     let shared = preview(
         root.path(),
-        &changes(root.path(), &[b"packages/reference/shared/models/input.pse"]),
+        &changes(
+            root.path(),
+            &[b"packages/reference/shared/models/input.pse"],
+        ),
         Some(&metadata),
     )
     .unwrap();
@@ -321,9 +324,16 @@ fn scientific_family_reach_seeds_reverse_cargo_scope_without_opening_model_bodie
             "opaque:unrelated@1#source"
         ]
     );
-    assert_eq!(shared.changed_packages, ["opaque:consumer@1#source", "opaque:unrelated@1#source"]);
     assert_eq!(
-        shared.scientific.iter().map(|association| association.family.as_str()).collect::<Vec<_>>(),
+        shared.changed_packages,
+        ["opaque:consumer@1#source", "opaque:unrelated@1#source"]
+    );
+    assert_eq!(
+        shared
+            .scientific
+            .iter()
+            .map(|association| association.family.as_str())
+            .collect::<Vec<_>>(),
         ["left", "right"]
     );
     assert!(shared.widening.is_empty());
@@ -334,14 +344,18 @@ fn scientific_family_reach_seeds_reverse_cargo_scope_without_opening_model_bodie
         Some(&metadata),
     )
     .unwrap();
-    assert_eq!(ids(&left), ["opaque:consumer@1#source", "opaque:downstream@1#source"]);
+    assert_eq!(
+        ids(&left),
+        ["opaque:consumer@1#source", "opaque:downstream@1#source"]
+    );
     assert_eq!(left.scientific[0].family, "left");
     assert!(left.widening.is_empty());
 
     let aliased = root.path().join("packages/reference/left/models/input.pse");
     fs::remove_file(&aliased).unwrap();
     std::os::unix::fs::symlink(
-        root.path().join("packages/reference/right/models/input.pse"),
+        root.path()
+            .join("packages/reference/right/models/input.pse"),
         &aliased,
     )
     .unwrap();

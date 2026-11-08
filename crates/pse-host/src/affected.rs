@@ -527,12 +527,14 @@ pub fn preview(
     };
     result.graph = Graph::Available;
     result.widening.append(&mut workspace.uncertain);
-    let scientific_inputs = root.join(scientific::CATALOG).exists() || result.changes.iter().any(|path| {
-        scientific::scientific_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
-    });
-    let scientific = if scientific_inputs && !result.changes.iter().any(|path| {
-        scientific::context_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
-    }) {
+    let scientific_inputs = root.join(scientific::CATALOG).exists()
+        || result.changes.iter().any(|path| {
+            scientific::scientific_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
+        });
+    let scientific = if scientific_inputs
+        && !result.changes.iter().any(|path| {
+            scientific::context_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
+        }) {
         match scientific::read(&root) {
             Ok(projection) => Some(projection),
             Err(reason) => {

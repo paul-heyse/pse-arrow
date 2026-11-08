@@ -97,7 +97,10 @@ impl Manifest {
     }
 }
 
-pub(crate) fn resolve_families(families: Vec<Family>, selection: Option<&str>) -> Result<Vec<Family>> {
+pub(crate) fn resolve_families(
+    families: Vec<Family>,
+    selection: Option<&str>,
+) -> Result<Vec<Family>> {
     let mut declared = BTreeMap::new();
     for family in families {
         ensure!(
@@ -107,9 +110,16 @@ pub(crate) fn resolve_families(families: Vec<Family>, selection: Option<&str>) -
     }
     let mut resolved = BTreeMap::new();
     if let Some(name) = selection {
-        ensure!(declared.contains_key(name), "unknown scientific family {name}");
+        ensure!(
+            declared.contains_key(name),
+            "unknown scientific family {name}"
+        );
         resolve_family(name, &declared, &mut resolved, &mut BTreeSet::new())?;
-        return Ok(vec![resolved.remove(name).wrap_err("selected family was not resolved")?]);
+        return Ok(vec![
+            resolved
+                .remove(name)
+                .wrap_err("selected family was not resolved")?,
+        ]);
     }
     for name in declared.keys() {
         resolve_family(name, &declared, &mut resolved, &mut BTreeSet::new())?;

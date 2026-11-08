@@ -207,19 +207,30 @@ fn launch_verifies_its_group_helpers_and_pre_filter_images_without_opening_anoth
     let mut listed = listed(intent);
     let mut unrelated: discovery::ListedGroup =
         serde_json::from_value(serde_json::to_value(&listed.inventory.groups[0]).unwrap()).unwrap();
-    unrelated.build.artifacts[0].executable.captured = listed.capture_root.join("missing-other-image");
+    unrelated.build.artifacts[0].executable.captured =
+        listed.capture_root.join("missing-other-image");
     listed.inventory.groups.push(unrelated);
-    listed.inventory.capture.extend(
-        listed.inventory.capture[1..].to_vec().into_iter().map(|mut capture| {
-            capture.group = Some(1);
-            capture
-        }),
-    );
+    listed
+        .inventory
+        .capture
+        .extend(
+            listed.inventory.capture[1..]
+                .to_vec()
+                .into_iter()
+                .map(|mut capture| {
+                    capture.group = Some(1);
+                    capture
+                }),
+        );
     let mut artifacts = Vec::new();
     for name in ["helper", "before-name-filter"] {
         let mut artifact = listed.inventory.groups[0].build.artifacts[0].clone();
         artifact.executable.captured = listed.capture_root.join(name);
-        fs::copy(&listed.inventory.nextest.captured, &artifact.executable.captured).unwrap();
+        fs::copy(
+            &listed.inventory.nextest.captured,
+            &artifact.executable.captured,
+        )
+        .unwrap();
         artifacts.push(artifact);
     }
     let group = &mut listed.inventory.groups[0];
@@ -237,9 +248,17 @@ fn launch_verifies_its_group_helpers_and_pre_filter_images_without_opening_anoth
     group.binaries = serde_json::from_value(binaries).unwrap();
     group.build.artifacts.extend(artifacts);
     let binary_metadata = listed.capture_root.join("group-0/binaries.json");
-    fs::write(&binary_metadata, serde_json::to_vec(&group.binaries).unwrap()).unwrap();
-    listed.controls.iter_mut().find(|control| control.path == binary_metadata).unwrap().digest =
-        digest(&binary_metadata).unwrap();
+    fs::write(
+        &binary_metadata,
+        serde_json::to_vec(&group.binaries).unwrap(),
+    )
+    .unwrap();
+    listed
+        .controls
+        .iter_mut()
+        .find(|control| control.path == binary_metadata)
+        .unwrap()
+        .digest = digest(&binary_metadata).unwrap();
 
     assert!(listed.inventory.verify_executables().is_err());
     assert_eq!(listed.page(0, 1).unwrap().total, 2);

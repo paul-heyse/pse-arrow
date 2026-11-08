@@ -40,8 +40,12 @@ fn standard_fixture_matches_yaml() {
 
 #[test]
 fn independently_hydrated_registry_disagreement_refuses_before_package_admission() {
-    let other = pse_schema::RegistryBuilder::new().build().expect("empty registry");
-    let error = load_independent(root(), &other).err().expect("different registry");
+    let other = pse_schema::RegistryBuilder::new()
+        .build()
+        .expect("empty registry");
+    let error = load_independent(root(), &other)
+        .err()
+        .expect("different registry");
     assert!(error.to_string().contains("registry differs"));
 }
 
@@ -328,7 +332,10 @@ fn altered_physical_facts_are_admitted_from_values_or_refused() {
         ("reference_states", "pressure", serde_json::json!(-1.0)),
     ] {
         let scratch = mutated_package("physical", |body| body[section][0][field] = value);
-        assert!(load_independent(scratch.path(), registry).is_err(), "{section}.{field}");
+        assert!(
+            load_independent(scratch.path(), registry).is_err(),
+            "{section}.{field}"
+        );
     }
     // A defined unit's identity is its product identity; a changed exponent is refused.
     let composition = mutated_package("physical", |body| {

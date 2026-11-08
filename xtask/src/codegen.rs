@@ -258,7 +258,11 @@ fn cli_reference(root: &Path) -> Result<Vec<u8>> {
         .output()
         .context("running the prepared host's source-built CLI reference export")?;
     if !export.status.success() || export.stdout.is_empty() {
-        bail!("CLI reference export exited {}: {}", export.status, String::from_utf8_lossy(&export.stderr));
+        bail!(
+            "CLI reference export exited {}: {}",
+            export.status,
+            String::from_utf8_lossy(&export.stderr)
+        );
     }
     Ok(export.stdout)
 }
@@ -313,7 +317,10 @@ fn language_tree(
         tree.roots.extend(private.roots);
         tree.files.extend(private.files);
         tree.relationships.extend(private.relationships);
-        if matches!(only, Some(Target::RustContracts | Target::HostedProjections)) {
+        if matches!(
+            only,
+            Some(Target::RustContracts | Target::HostedProjections)
+        ) {
             contract_roots(&mut tree);
         } else {
             append_physical(root, registry, &mut tree)?;
@@ -351,7 +358,9 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
     if let Some(registry) = check_result(
         &mut failures,
         "registry assembly",
-        pse_schema::catalog::assemble().map(Arc::new).map_err(anyhow::Error::from),
+        pse_schema::catalog::assemble()
+            .map(Arc::new)
+            .map_err(anyhow::Error::from),
     ) {
         for &language in languages {
             let label = format!("registry-{}", language.as_str());

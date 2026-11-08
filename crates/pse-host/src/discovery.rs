@@ -290,9 +290,14 @@ impl Inventory {
     /// including binaries enumerated before name selection and integration helpers.
     pub(crate) fn verify_group_executables(&self, group: usize) -> Result<(), DiscoveryError> {
         if !self.capture_complete() {
-            return Err(invalid("inventory lacks supported complete discovery capture"));
+            return Err(invalid(
+                "inventory lacks supported complete discovery capture",
+            ));
         }
-        let group = self.groups.get(group).ok_or_else(|| invalid("captured group is absent"))?;
+        let group = self
+            .groups
+            .get(group)
+            .ok_or_else(|| invalid("captured group is absent"))?;
         let mut verification = capture::Verification::default();
         verification.verify(&self.nextest)?;
         verification.verify(&self.correctness)?;
