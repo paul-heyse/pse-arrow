@@ -191,7 +191,10 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
             "packages/reference/process",
             "packages/reference/methods",
         ] {
-            let header = &selected.package(path).expect("PID dependency package").header;
+            let header = &selected
+                .package(path)
+                .expect("PID dependency package")
+                .header;
             let version: Vec<i64> = header
                 .version
                 .split('.')
@@ -216,8 +219,8 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
             ),
             ("models/loop.pse".into(), source.into_bytes()),
         ]);
-        let bundles = std::iter::once(&local)
-            .chain(selected.packages().map(|(_, package)| &package.files));
+        let bundles =
+            std::iter::once(&local).chain(selected.packages().map(|(_, package)| &package.files));
         let pool = context.shared.pool();
         let token = pse_columnar::CancellationToken::new();
         let validation = context.runtime.validation_context();

@@ -161,7 +161,7 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
         let request = Request {
             version: 1,
             case,
-            pins: reference_environment::pins(&reference_support::root())?,
+            pins: reference_environment::pins(&root())?,
             candidates: vec![
                 record("native", Some(report.clone())),
                 record("wrong-response", Some(wrong)),

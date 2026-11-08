@@ -10,6 +10,7 @@ inlet would represent a different process. Candidate code and values are absent.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from idaes.core import FlowsheetBlock, MaterialBalanceType
@@ -33,8 +34,6 @@ from pyomo.environ import (
     value,
 )
 from pyomo.opt import SolverResults, TerminationCondition
-
-from collections.abc import Mapping
 
 from .ordinary_thermo import SPECIES, SpeciesInput, configuration, load_inputs
 from .reference_environment import ReferenceEnvironment

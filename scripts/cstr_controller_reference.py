@@ -15,13 +15,13 @@ from typing import TYPE_CHECKING
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from scripts.pfr_reference import INPUTS as CHEMISTRY
 from scripts.pfr_reference import (
     CONSTANTS,
     SAPONIFICATION,
     rate_constant,
     validate_chemistry,
 )
+from scripts.pfr_reference import INPUTS as CHEMISTRY
 from scripts.scientific_reference import (
     NUMBER,
     ROOT,

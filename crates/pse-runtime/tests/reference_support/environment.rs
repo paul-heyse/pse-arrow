@@ -13,7 +13,7 @@ use std::{
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-pub fn pins(root: &Path) -> Result<BTreeMap<String, String>> {
+pub(crate) fn pins(root: &Path) -> Result<BTreeMap<String, String>> {
     let project: toml::Value =
         toml::from_str(&std::fs::read_to_string(root.join("pyproject.toml"))?)?;
     let group = project
@@ -43,7 +43,7 @@ pub fn pins(root: &Path) -> Result<BTreeMap<String, String>> {
     dead_code,
     reason = "ordinary reference returns an attributable interpreter refusal"
 )]
-pub fn interpreter(role: &str) -> PathBuf {
+pub(crate) fn interpreter(role: &str) -> PathBuf {
     let python = PathBuf::from(
         std::env::var_os(role)
             .unwrap_or_else(|| panic!("select the locked interpreter with {role}")),
@@ -55,12 +55,12 @@ pub fn interpreter(role: &str) -> PathBuf {
     python
 }
 
-pub struct PreparedSolver {
+pub(crate) struct PreparedSolver {
     path: PathBuf,
     digest: String,
 }
 
-pub fn prepared(role: &str, name: &str) -> Result<PreparedSolver> {
+pub(crate) fn prepared(role: &str, name: &str) -> Result<PreparedSolver> {
     let directory = std::env::var_os(role)
         .map(PathBuf::from)
         .or_else(|| {
@@ -76,7 +76,7 @@ pub fn prepared(role: &str, name: &str) -> Result<PreparedSolver> {
     Ok(PreparedSolver { path, digest })
 }
 
-pub fn image_digest(path: &Path) -> io::Result<String> {
+pub(crate) fn image_digest(path: &Path) -> io::Result<String> {
     let mut digest = Sha256::new();
     let mut file = BufReader::new(File::open(path)?);
     loop {
@@ -95,7 +95,7 @@ pub fn image_digest(path: &Path) -> io::Result<String> {
         .collect())
 }
 
-pub fn verify(
+pub(crate) fn verify(
     evidence: &BTreeMap<String, String>,
     python: &Path,
     interpreter_digest: &str,
@@ -117,7 +117,7 @@ pub fn verify(
     Ok(())
 }
 
-pub fn verify_stage(
+pub(crate) fn verify_stage(
     evidence: &BTreeMap<String, String>,
     stage: &str,
     selected: &PreparedSolver,

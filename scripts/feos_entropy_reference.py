@@ -158,10 +158,7 @@ def main() -> None:
         {"case": pa.int64()},
         output,
         regenerate,
-        {
-            name: (2e-12, 1e-10)
-            for name in ("entropy", "ideal_entropy", "residual_entropy")
-        },
+        dict.fromkeys(("entropy", "ideal_entropy", "residual_entropy"), (2e-12, 1e-10)),
         check_metadata=False,
     )
     write_reference(

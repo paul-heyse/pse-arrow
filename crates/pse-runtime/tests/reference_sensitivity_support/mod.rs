@@ -130,6 +130,16 @@ impl NativeCandidate {
         let mut settings = SolveSettings {
             backend: Some(Backend::Ipopt),
             intent: SolveIntent::Optimize,
+            numerics: pse_model::numerics::NumericalPolicy {
+                // This fixed active-bound case compares a local derivative and a
+                // physical prediction at a prescribed point. Keep the native
+                // complementarity error well inside the oracle's point budget.
+                kkt: pse_model::numerics::KktTolerances {
+                    stationarity: 1e-9,
+                    complementarity: 1e-9,
+                },
+                ..Default::default()
+            },
             ..Default::default()
         };
         let mut analysis = ModelingAnalysis {
@@ -158,10 +168,6 @@ impl NativeCandidate {
             reduced_hessian: false,
             propagation: None,
         });
-        assert_eq!(
-            serde_json::to_value(&settings.numerics)?,
-            serde_json::to_value(pse_model::numerics::NumericalPolicy::default())?
-        );
         assert_eq!(
             settings.sensitivity.as_ref().unwrap().parameters,
             vec![a, b]
@@ -227,16 +233,15 @@ impl NativeCandidate {
         assert!(case.nominal["a"] > 0.0 && case.perturbed["a"] > 0.0);
 
         let numerics: Vec<resolved_numerics::Row> = rows(&result, "runtime.resolved_numerics");
+        let engineering_fraction =
+            pse_model::numerics::NumericalPolicy::default().engineering_relative_fraction;
         let mut resolved = BTreeMap::new();
         for row in &numerics {
             assert_eq!((row.run_id, row.step), basis);
             assert!(row.nominal.is_finite() && row.nominal > 0.0);
             assert!(row.coordinate_scale.is_finite() && row.coordinate_scale > 0.0);
             let engineering = row.engineering.as_ref().unwrap();
-            assert_eq!(
-                engineering.relative_fraction,
-                settings.numerics.engineering_relative_fraction
-            );
+            assert_eq!(engineering.relative_fraction, engineering_fraction);
             assert!(
                 row.provenance
                     .iter()

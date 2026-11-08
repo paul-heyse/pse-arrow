@@ -285,10 +285,9 @@ def main() -> None:
         regenerate,
         {
             "pressure": (2e-12, 1e-6),
-            **{
-                name: (2e-12, 1e-8)
-                for name in ("enthalpy", "ideal_enthalpy", "h_residual")
-            },
+            **dict.fromkeys(
+                ("enthalpy", "ideal_enthalpy", "h_residual"), (2e-12, 1e-08)
+            ),
         },
     )
     write_reference(

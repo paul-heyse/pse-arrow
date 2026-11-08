@@ -4,8 +4,8 @@
 
 from __future__ import annotations
 
-import os
 import io
+import os
 import sys
 import tempfile
 import unittest
@@ -48,11 +48,11 @@ class ReferenceEnvironmentTests(unittest.TestCase):
 
     def test_missing_prepared_solver_does_not_search_path(self) -> None:
         environment = ReferenceEnvironment(sys.executable, {})
-        with patch.dict(os.environ, {"IPOPT_DIR": ""}):
-            with self.assertRaisesRegex(
-                ReferenceAdmissionError, "case.stage.*IPOPT_DIR"
-            ):
-                environment.solver("ipopt", "case.stage")
+        with (
+            patch.dict(os.environ, {"IPOPT_DIR": ""}),
+            self.assertRaisesRegex(ReferenceAdmissionError, "case.stage.*IPOPT_DIR"),
+        ):
+            environment.solver("ipopt", "case.stage")
 
 
 class ReferenceSolverEnvironmentTests(unittest.TestCase):

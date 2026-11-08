@@ -262,7 +262,8 @@ def compare(
                 quantity.base,
                 nominal[name],
                 NATIVE_VALUE_ABSOLUTE_ERROR,
-                f"nominal solution differs for {name}",
+                f"nominal solution differs for {name} ({quantity.base!r} versus {nominal[name]!r}, "
+                f"absolute allowance {NATIVE_VALUE_ABSOLUTE_ERROR:g})",
             )
             close(
                 quantity.increment,
