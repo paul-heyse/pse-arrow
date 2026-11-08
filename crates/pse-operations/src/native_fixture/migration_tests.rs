@@ -167,6 +167,71 @@ async fn native_service_pre_epoch_checkpoint_lost_ack_restarts_and_resumes_origi
 }
 
 #[tokio::test]
+async fn native_service_final_apply_lost_ack_reads_original_commit_after_reopen() {
+    let mut service = fixture_with_schema(false).unwrap();
+    let state = service.state().to_path_buf();
+    let work_end = Instant::now() + Duration::from_secs(240);
+    let settlement_end = work_end + Duration::from_secs(60);
+    let (recovered, original_epoch) = service
+        .run_until(work_end, settlement_end, |service| {
+            Box::pin(async move {
+                service.launch(work_end).await?;
+                let old = service.ready()?;
+                let original_epoch = old.fence().epoch().to_owned();
+                let old = old.store().clone();
+                let maintenance = service.maintenance().await?;
+                let request = maintenance.request_current(uuid::Uuid::new_v4()).await?;
+                assert!(maintenance.reconcile_receipt(&request).await?.is_none());
+                let pending = maintenance.begin(request.clone()).await?;
+                let closed = pending
+                    .quiesce(service.stop_ingress_and_join(work_end), &[old])
+                    .await?;
+                let before = maintenance.inspect().await?;
+                assert_eq!(
+                    before.pending_operation.as_deref(),
+                    Some(request.operation())
+                );
+                assert_eq!(before.pending_phase.as_deref(), Some("schema-applying"));
+                assert!(maintenance.reconcile_receipt(&request).await?.is_none());
+
+                let mut committed = None;
+                let recovered = closed
+                    .apply_receipt_with_lost_ack_for_test(&mut committed)
+                    .await?;
+                assert_eq!(committed.as_ref(), Some(&recovered));
+                assert_eq!(recovered.request(), &request);
+                assert_eq!(
+                    recovered.version(),
+                    pse_schema::catalog::substrate::SCHEMA_VERSION
+                );
+                assert!(maintenance.inspect().await?.pending_operation.is_none());
+                Ok((recovered, original_epoch))
+            })
+        })
+        .await
+        .unwrap();
+
+    let mut service = service.try_into_stopped().unwrap().reopen().unwrap();
+    service
+        .run_until(work_end, settlement_end, |service| {
+            Box::pin(async move {
+                service.launch(work_end).await?;
+                assert_ne!(service.ready()?.fence().epoch(), original_epoch);
+                let maintenance = service.maintenance().await?;
+                assert_eq!(
+                    maintenance.reconcile_receipt(recovered.request()).await?,
+                    Some(recovered)
+                );
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+    service.dispose().unwrap();
+    assert!(!state.exists());
+}
+
+#[tokio::test]
 async fn native_service_inflight_old_epoch_writer_cannot_commit_across_activation() {
     let mut service = fixture_with_schema(false).unwrap();
     service.run(Instant::now() + Duration::from_secs(240), |service| {

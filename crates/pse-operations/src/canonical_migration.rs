@@ -626,6 +626,19 @@ impl SchemaMaintenance {
             .await?
             .ok_or(CanonicalError::IncompleteResponse)
     }
+    async fn read_activation(
+        &self,
+        request: &SchemaMigrationRequest,
+    ) -> Result<Option<Object>, CanonicalError> {
+        let mut bindings = Object::new();
+        bindings.insert("migration_operation", request.operation.clone());
+        self.execute(
+            "",
+            "SELECT * FROM ONLY type::record('canonical_maintenance_activations',$migration_operation)",
+            bindings,
+        )
+        .await
+    }
     async fn snapshot(&self) -> Result<Object, CanonicalError> {
         self.execute_object("", MIGRATION_SNAPSHOT, Object::new())
             .await
@@ -726,8 +739,8 @@ impl SchemaMaintenance {
     ) -> Result<Option<SchemaMigrationReceipt>, CanonicalError> {
         request.validate()?;
         self.require_original_module(request)?;
-        let receipt: Option<Object> = self.execute("", "SELECT * FROM ONLY type::record('canonical_maintenance_activations',$migration_operation)", request.bindings()?).await?;
-        receipt
+        self.read_activation(request)
+            .await?
             .map(|receipt| verified_activation(receipt, request))
             .transpose()
     }
@@ -941,6 +954,25 @@ impl QuiescentSchemaMigration {
     /// receipt. Historical target-v2 success returns its typed receipt unchanged.
     /// Never replay a transformation because readback itself failed.
     pub async fn apply_receipt(self) -> Result<SchemaMigrationReceipt, CanonicalError> {
+        self.apply_receipt_inner(
+            #[cfg(test)]
+            None,
+        )
+        .await
+    }
+
+    #[cfg(all(test, feature = "native-service"))]
+    pub(crate) async fn apply_receipt_with_lost_ack_for_test(
+        self,
+        committed: &mut Option<SchemaMigrationReceipt>,
+    ) -> Result<SchemaMigrationReceipt, CanonicalError> {
+        self.apply_receipt_inner(Some(committed)).await
+    }
+
+    async fn apply_receipt_inner(
+        self,
+        #[cfg(test)] committed: Option<&mut Option<SchemaMigrationReceipt>>,
+    ) -> Result<SchemaMigrationReceipt, CanonicalError> {
         let request = &self.request;
         let module = self.maintenance.require_original_module(request)?;
         if let Some(receipt) = self.maintenance.reconcile_receipt(request).await? {
@@ -979,32 +1011,54 @@ impl QuiescentSchemaMigration {
         let mut bindings = request.bindings()?;
         bindings.extend(module.catalog_bindings());
         let body = final_application_body(request)?;
-        let write: Result<Object, CanonicalError> = self
-            .maintenance
-            .execute_object(&body, "$pse_migration_receipt", bindings)
-            .await;
-        let receipt = match write {
-            Ok(receipt) => receipt,
-            Err(error) => {
-                let readback: Result<Option<Object>, CanonicalError> = self.maintenance.execute("", "SELECT * FROM ONLY type::record('canonical_maintenance_activations',$migration_operation)", request.bindings()?).await;
-                match readback {
-                    Ok(Some(receipt)) => receipt,
-                    Ok(None) => return Err(error),
-                    Err(readback) => {
-                        return Err(CanonicalError::SettlementUnresolved {
-                            owner: "schema-migration",
-                            operation: request.operation.clone(),
-                            request: bytes(request)?,
-                            source: Box::new(error),
-                            readback: Some(Box::new(readback)),
-                        });
-                    }
-                }
-            }
-        };
-        verified_activation(receipt, request)
+        execute_final_application(
+            request,
+            self.maintenance
+                .execute_object(&body, "$pse_migration_receipt", bindings),
+            self.maintenance.read_activation(request),
+            #[cfg(test)]
+            committed,
+        )
+        .await
     }
 }
+
+async fn execute_final_application(
+    request: &SchemaMigrationRequest,
+    write: impl Future<Output = Result<Object, CanonicalError>>,
+    readback: impl Future<Output = Result<Option<Object>, CanonicalError>>,
+    #[cfg(test)] committed: Option<&mut Option<SchemaMigrationReceipt>>,
+) -> Result<SchemaMigrationReceipt, CanonicalError> {
+    let write = write.await;
+    #[cfg(test)]
+    let write = match (write, committed) {
+        // The transaction has returned its real receipt. Suppress only this
+        // acknowledgement and let the original error path recover it.
+        (Ok(receipt), Some(committed)) => {
+            *committed = Some(verified_activation(receipt, request)?);
+            Err(CanonicalError::Timeout)
+        }
+        (write, _) => write,
+    };
+    let receipt = match write {
+        Ok(receipt) => receipt,
+        Err(error) => match readback.await {
+            Ok(Some(receipt)) => receipt,
+            Ok(None) => return Err(error),
+            Err(readback) => {
+                return Err(CanonicalError::SettlementUnresolved {
+                    owner: "schema-migration",
+                    operation: request.operation.clone(),
+                    request: bytes(request)?,
+                    source: Box::new(error),
+                    readback: Some(Box::new(readback)),
+                });
+            }
+        },
+    };
+    verified_activation(receipt, request)
+}
+
 fn verified_activation(
     receipt: Object,
     request: &SchemaMigrationRequest,
@@ -1788,75 +1842,179 @@ mod tests {
         );
     }
     #[test]
-    fn schema_migration_v2_original_request_and_receipt_are_not_retargeted() {
-        let mut original = request(&legacy_marker());
-        original.target_version = V2_VERSION;
-        original.target_digest = V2_DIGEST.into();
-        original.validate().unwrap();
-        let recorded = bytes(&original).unwrap();
-        assert!(
-            serde_json::from_slice::<serde_json::Value>(&recorded)
-                .unwrap()
-                .get("target_module")
-                .is_none()
-        );
-        let fingerprint = original.fingerprint().unwrap();
-        let decoded: SchemaMigrationRequest = serde_json::from_slice(&recorded).unwrap();
-        assert_eq!(bytes(&decoded).unwrap(), recorded);
-        assert_eq!(decoded.fingerprint().unwrap(), fingerprint);
-        let settled = verified_activation(activation(&original), &decoded).unwrap();
-        assert_eq!(settled.version(), V2_VERSION);
-        assert_eq!(settled.digest(), V2_DIGEST);
-        assert_eq!(bytes(settled.request()).unwrap(), recorded);
-        assert!(require_current_target(&decoded).is_err());
-        let declarations = migration_declarations(&decoded).unwrap();
-        assert_eq!(declarations, v2_declarations(&decoded));
-        let mut retargeted = decoded.clone();
-        retargeted.target_version = VERSION;
-        retargeted.target_digest = wire::SCHEMA_DIGEST.into();
-        assert!(verify_activation(activation(&original), &retargeted).is_err());
-        assert_ne!(retargeted.fingerprint().unwrap(), fingerprint);
-        let current = request(&marker());
-        let mut downgrade = current.clone();
-        downgrade.target_version = V2_VERSION;
-        downgrade.target_digest = V2_DIGEST.into();
-        assert!(downgrade.validate().is_err());
-    }
-    #[test]
-    fn schema_migration_v3_original_receipt_keeps_readonly_contract_and_fingerprint() {
-        for source in [legacy_marker(), v2_marker(), v3_marker()] {
-            let mut original = request(&source);
-            original.target_version = V3_VERSION;
-            original.target_digest = V3_DIGEST.into();
-            original.validate().unwrap();
-            let recorded = bytes(&original).unwrap();
-            let decoded: SchemaMigrationRequest = serde_json::from_slice(&recorded).unwrap();
-            assert_eq!(bytes(&decoded).unwrap(), recorded);
+    fn historical_schema_migration_witnesses_preserve_original_receipt_and_read_only_scope() {
+        #[derive(Deserialize)]
+        struct Witness {
+            name: String,
+            request: String,
+            activation: std::collections::BTreeMap<String, String>,
+        }
+        // Independently authored format witnesses. Field order and activation
+        // fields follow the Git producers at 5120f79c6 (v2) and 62551283f (v3).
+        // These use synthetic identities and module paths. The fingerprints
+        // come from sha256sum on the exact authored request bytes.
+        let witnesses: Vec<Witness> =
+            serde_json::from_str(include_str!("migrations/predecessor-wire-witnesses.json"))
+                .unwrap();
+        let expected = [
+            ("v2-from-pre-epoch", 2, None),
+            ("v3-from-pre-epoch", 3, None),
+            ("v3-from-v2", 3, Some(2)),
+            ("v3-from-v3", 3, Some(3)),
+        ];
+        assert_eq!(witnesses.len(), expected.len());
+        for (witness, (name, version, predecessor_version)) in witnesses.iter().zip(expected) {
+            assert_eq!(witness.name, name);
+            let recorded = witness.request.as_bytes();
+            let decoded: SchemaMigrationRequest = serde_json::from_slice(recorded).unwrap();
+            decoded.validate().unwrap();
+            assert_eq!(
+                decoded.predecessor.schema_version, predecessor_version,
+                "{name}"
+            );
+            assert!(decoded.target_module.is_none());
+            assert_eq!(bytes(&decoded).unwrap(), recorded, "{name}");
             assert_eq!(
                 decoded.fingerprint().unwrap(),
-                original.fingerprint().unwrap()
+                witness.activation["input_sha256"]
             );
-            let settled = verified_activation(activation(&original), &decoded).unwrap();
-            assert_eq!(settled.version(), V3_VERSION);
-            assert_eq!(settled.digest(), V3_DIGEST);
+
+            let mut row = Object::new();
+            for (field, value) in &witness.activation {
+                if field == "predecessor" {
+                    row.insert(
+                        field,
+                        surrealdb_types::Bytes::from(value.as_bytes().to_vec()),
+                    );
+                } else {
+                    row.insert(field, value.clone());
+                }
+            }
+            let settled = verified_activation(row.clone(), &decoded).unwrap();
+            assert_eq!(settled.version(), version);
+            assert_eq!(settled.digest(), witness.activation["schema_digest"]);
+            assert_eq!(settled.request().operation(), witness.activation["key"]);
+            assert_eq!(
+                settled.request().predecessor.issuing_store,
+                witness.activation["issuing_store"]
+            );
+            assert_eq!(bytes(settled.request()).unwrap(), recorded);
             assert!(require_current_target(&decoded).is_err());
             assert!(!decoded.needs_legacy_capture_cutover());
-            assert_eq!(
-                migration_declarations(&decoded).unwrap(),
-                overwrite_declarations(SCHEMA_V3_DECLARATION)
-            );
-            let application = final_application_body(&decoded).unwrap();
-            assert!(application.contains(super::super::study_module::CATALOG_VALIDATION_PREDICATE));
-            assert!(!application.contains("study_capture::capture"));
-            assert!(!application.contains(ATOMIC_CAPTURE_CUTOVER));
+            if version == 2 {
+                assert_eq!(
+                    migration_declarations(&decoded).unwrap(),
+                    v2_declarations(&decoded)
+                );
+            } else {
+                assert_eq!(
+                    migration_declarations(&decoded).unwrap(),
+                    overwrite_declarations(SCHEMA_V3_DECLARATION)
+                );
+                let application = final_application_body(&decoded).unwrap();
+                assert!(
+                    application.contains(super::super::study_module::CATALOG_VALIDATION_PREDICATE)
+                );
+                assert!(!application.contains("study_capture::capture"));
+                assert!(!application.contains(ATOMIC_CAPTURE_CUTOVER));
+            }
+
+            let mut foreign = row.clone();
+            foreign.insert("issuing_store", "70000000-0000-4000-8000-000000000099");
+            assert!(matches!(
+                verified_activation(foreign, &decoded),
+                Err(CanonicalError::OperationReused)
+            ));
+            let mut mutated = decoded.clone();
+            mutated.predecessor.payload_incarnation = "70000000-0000-4000-8000-000000000098".into();
+            assert!(matches!(
+                verified_activation(row.clone(), &mutated),
+                Err(CanonicalError::OperationReused)
+            ));
             let mut retargeted = decoded.clone();
             retargeted.target_version = VERSION;
             retargeted.target_digest = wire::SCHEMA_DIGEST.into();
-            assert!(verify_activation(activation(&original), &retargeted).is_err());
+            retargeted.validate().unwrap();
+            assert!(matches!(
+                verified_activation(row, &retargeted),
+                Err(CanonicalError::OperationReused)
+            ));
         }
+        let mut downgrade = request(&marker());
+        downgrade.target_version = V2_VERSION;
+        downgrade.target_digest = V2_DIGEST.into();
+        assert!(downgrade.validate().is_err());
         assert!(SchemaFence::from_marker(&v3_marker()).is_err());
         assert!(request(&v3_marker()).needs_legacy_capture_cutover());
         assert!(!request(&marker()).needs_legacy_capture_cutover());
+    }
+
+    #[tokio::test]
+    async fn schema_final_apply_settles_exact_readback_without_replaying_write() {
+        let request = request(&v2_marker());
+        let original = activation(&request);
+        let accepted = execute_final_application(
+            &request,
+            std::future::ready(Ok(original.clone())),
+            async { panic!("a successful write needs no readback") },
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(accepted.request(), &request);
+
+        let mut foreign = original.clone();
+        foreign.insert("key", uuid::Uuid::new_v4().to_string());
+        let cases = [
+            (Ok(Some(original)), "matching"),
+            (Ok(None), "absent"),
+            (Err(CanonicalError::IncompleteResponse), "unavailable"),
+            (Ok(Some(foreign)), "foreign"),
+        ];
+        for (readback, case) in cases {
+            let write_calls = std::cell::Cell::new(0);
+            let readback_calls = std::cell::Cell::new(0);
+            let result = execute_final_application(
+                &request,
+                async {
+                    write_calls.set(write_calls.get() + 1);
+                    Err(CanonicalError::Timeout)
+                },
+                async {
+                    assert_eq!(write_calls.get(), 1);
+                    readback_calls.set(readback_calls.get() + 1);
+                    readback
+                },
+                None,
+            )
+            .await;
+            assert_eq!((write_calls.get(), readback_calls.get()), (1, 1), "{case}");
+            match (case, result) {
+                ("matching", Ok(receipt)) => assert_eq!(receipt.request(), &request),
+                ("absent", Err(CanonicalError::Timeout)) => {}
+                ("foreign", Err(CanonicalError::OperationReused)) => {}
+                (
+                    "unavailable",
+                    Err(CanonicalError::SettlementUnresolved {
+                        owner,
+                        operation,
+                        request: recorded,
+                        source,
+                        readback,
+                    }),
+                ) => {
+                    assert_eq!(owner, "schema-migration");
+                    assert_eq!(operation, request.operation());
+                    assert_eq!(recorded, bytes(&request).unwrap());
+                    assert!(matches!(*source, CanonicalError::Timeout));
+                    assert!(matches!(
+                        readback.as_deref(),
+                        Some(CanonicalError::IncompleteResponse)
+                    ));
+                }
+                (_, outcome) => panic!("unexpected final apply outcome for {case}: {outcome:?}"),
+            }
+        }
     }
     #[test]
     fn schema_migration_receipt_binds_original_issuer_payload_and_operation() {
