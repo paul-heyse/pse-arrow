@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Handoff of private executable release to an enclosing native workload owner.
-use super::{complete_capture, digest, host, invalid, release_original_images};
+use super::{
+    complete_capture, digest, host, invalid, release_interrupted_listing, release_original_images,
+};
 use crate::{
     HostError, HostManager,
     envelope::{CliInvocationId, RedactionPolicy, Settlement},
@@ -110,6 +112,11 @@ fn release_recorded(
     let result = store
         .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
         .ok_or_else(|| host(invalid("original foreground workflow result is absent")))?;
+    if result.payload.borrowed_reservation == borrowed
+        && release_interrupted_listing(directory, &result)?
+    {
+        return Ok(());
+    }
     let workflow = result.payload.workflow.as_ref().ok_or_else(|| {
         host(invalid(
             "original foreground workflow transport is incomplete",

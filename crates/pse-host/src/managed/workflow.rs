@@ -4,7 +4,9 @@
 use super::{payload::PayloadCommand, supervisor};
 use crate::{
     HostError, HostManager,
-    envelope::{CliInvocationId, Completeness, Envelope, RedactionPolicy, Settlement},
+    envelope::{
+        CliInvocationId, CommandOutcome, Completeness, Envelope, RedactionPolicy, Settlement,
+    },
     generation::{HostTool, PreparedGeneration},
     invocation::{DeferredTestDrain, InvocationDirectory, InvocationEvidence, InvocationStore},
     stream_records::{Frame, RecordFramer},
@@ -98,6 +100,9 @@ pub(crate) fn release_foreground_images(
     terminal: &super::result::TerminalResult<super::result::ManagedSummary>,
 ) -> Result<(), HostError> {
     let result = terminal.response();
+    if !result.payload.borrowed_reservation && release_interrupted_listing(directory, result)? {
+        return Ok(());
+    }
     let Some(workflow) = &result.payload.workflow else {
         return Ok(());
     };
@@ -336,39 +341,39 @@ fn require_fixture_settlement(original: &CapturedReport) -> Result<(), HostError
     Ok(())
 }
 
-pub(crate) fn release_images(
-    invocation: &Path,
-    action: Action,
-    inventory: Option<&crate::discovery::Inventory>,
-    fixture_settled: Option<bool>,
-    unlisted: &[(usize, crate::discovery::BuildCapture)],
-) -> Result<(), HostError> {
-    use rustix::fs::{FlockOperation, Mode, OFlags, flock, openat};
+const RELEASE_DIRECTORY_FLAGS: rustix::fs::OFlags = rustix::fs::OFlags::RDONLY
+    .union(rustix::fs::OFlags::DIRECTORY)
+    .union(rustix::fs::OFlags::NOFOLLOW)
+    .union(rustix::fs::OFlags::CLOEXEC);
 
-    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
-    let open = |parent: &File, name: &str| -> Result<Option<File>, HostError> {
-        let file: File = match openat(parent, name, flags, Mode::empty()) {
-            Ok(fd) => fd.into(),
-            Err(rustix::io::Errno::NOENT) => return Ok(None),
-            Err(error) => return Err(io::Error::from(error).into()),
-        };
-        let metadata = file.metadata()?;
-        if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700
-        {
-            return Err(host(invalid(
-                "workflow control directory lacks private custody",
-            )));
-        }
-        Ok(Some(file))
+fn release_private_child(parent: &File, name: &str) -> Result<Option<File>, HostError> {
+    let file: File = match rustix::fs::openat(
+        parent,
+        name,
+        RELEASE_DIRECTORY_FLAGS,
+        rustix::fs::Mode::empty(),
+    ) {
+        Ok(fd) => fd.into(),
+        Err(rustix::io::Errno::NOENT) => return Ok(None),
+        Err(error) => return Err(io::Error::from(error).into()),
     };
-    let (location, controls): (_, &[_]) = if action.is_compiler() {
-        ("check-control", &["cargo-pse-correctness"])
-    } else {
-        ("inventory", &["cargo-nextest", "cargo-pse-correctness"])
-    };
-    let invocation_root: File = rustix::fs::open(invocation, flags, Mode::empty())
-        .map_err(io::Error::from)?
-        .into();
+    let metadata = file.metadata()?;
+    if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
+        return Err(host(invalid(
+            "workflow control directory lacks private custody",
+        )));
+    }
+    Ok(Some(file))
+}
+
+fn lock_release_directory(invocation: &Path) -> Result<File, HostError> {
+    let invocation_root: File = rustix::fs::open(
+        invocation,
+        RELEASE_DIRECTORY_FLAGS,
+        rustix::fs::Mode::empty(),
+    )
+    .map_err(io::Error::from)?
+    .into();
     // All release routes serialize against the same stable directory inode. No
     // additional lock file survives an otherwise complete invocation release.
     let metadata = invocation_root.metadata()?;
@@ -377,7 +382,77 @@ pub(crate) fn release_images(
             "original invocation directory lacks private custody",
         )));
     }
-    flock(&invocation_root, FlockOperation::NonBlockingLockExclusive).map_err(io::Error::from)?;
+    rustix::fs::flock(
+        &invocation_root,
+        rustix::fs::FlockOperation::NonBlockingLockExclusive,
+    )
+    .map_err(io::Error::from)?;
+    Ok(invocation_root)
+}
+
+/// Only a physically settled list with no published inventory has no image consumers.
+pub(super) fn release_interrupted_listing(
+    directory: &InvocationDirectory,
+    result: &Envelope<super::result::ManagedSummary>,
+) -> Result<bool, HostError> {
+    if Action::from_command(&result.command) != Some(Action::List)
+        || !matches!(result.outcome, CommandOutcome::Interrupted)
+        || result.settlement != Settlement::Complete
+        || result.payload.native_lifetime_pending != Some(false)
+        || result.payload.workflow.is_some()
+        || &result.invocation_id != directory.id()
+    {
+        return Ok(false);
+    }
+    directory.paired_settlement_bytes()?;
+    discard_unpublished_inventory(directory.path())?;
+    Ok(true)
+}
+
+fn discard_unpublished_inventory(invocation: &Path) -> Result<(), HostError> {
+    let root = lock_release_directory(invocation)?;
+    let Some(workflow) = release_private_child(&root, "workflow")? else {
+        return Ok(());
+    };
+    let Some(inventory) = release_private_child(&workflow, "inventory")? else {
+        return Ok(());
+    };
+    for (owner, name) in [(&workflow, "report.json"), (&inventory, "inventory.json")] {
+        match rustix::fs::statat(owner, name, rustix::fs::AtFlags::SYMLINK_NOFOLLOW) {
+            Err(rustix::io::Errno::NOENT) => {}
+            Err(error) => return Err(io::Error::from(error).into()),
+            Ok(_) => {
+                return Err(host(invalid(
+                    "interrupted listing already has published evidence",
+                )));
+            }
+        }
+    }
+    let path = invocation.join("workflow/inventory");
+    let selected = fs::symlink_metadata(&path)?;
+    let opened = inventory.metadata()?;
+    if !selected.is_dir() || (selected.dev(), selected.ino()) != (opened.dev(), opened.ino()) {
+        return Err(host(invalid("interrupted inventory directory changed")));
+    }
+    fs::remove_dir_all(path)?;
+    workflow.sync_all()?;
+    Ok(())
+}
+
+pub(crate) fn release_images(
+    invocation: &Path,
+    action: Action,
+    inventory: Option<&crate::discovery::Inventory>,
+    fixture_settled: Option<bool>,
+    unlisted: &[(usize, crate::discovery::BuildCapture)],
+) -> Result<(), HostError> {
+    let open = release_private_child;
+    let (location, controls): (_, &[_]) = if action.is_compiler() {
+        ("check-control", &["cargo-pse-correctness"])
+    } else {
+        ("inventory", &["cargo-nextest", "cargo-pse-correctness"])
+    };
+    let invocation_root = lock_release_directory(invocation)?;
     let Some(workflow) = open(&invocation_root, "workflow")? else {
         return Ok(());
     };
@@ -949,6 +1024,42 @@ impl<R: Read> Read for HashingReader<R> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cancelled_listing_releases_unpublished_images_and_keeps_committed_inventory() {
+        use std::os::unix::fs::{DirBuilderExt as _, PermissionsExt as _, symlink};
+
+        let scratch = tempfile::tempdir().unwrap();
+        fs::set_permissions(scratch.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        let workflow = scratch.path().join("workflow");
+        let inventory = workflow.join("inventory");
+        let images = inventory.join("group-0/build/artifact-0");
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .recursive(true)
+            .create(&images)
+            .unwrap();
+        let source = scratch.path().join("outside-inventory");
+        fs::write(&source, b"unrelated original").unwrap();
+        symlink(&source, images.join("external-link")).unwrap();
+        let captured = images.join("captured-image");
+        fs::write(&captured, b"private scratch").unwrap();
+
+        for receipt in [
+            workflow.join("report.json"),
+            inventory.join("inventory.json"),
+        ] {
+            fs::write(&receipt, b"original publication").unwrap();
+            assert!(discard_unpublished_inventory(scratch.path()).is_err());
+            assert!(captured.exists());
+            fs::remove_file(receipt).unwrap();
+        }
+
+        discard_unpublished_inventory(scratch.path()).unwrap();
+        discard_unpublished_inventory(scratch.path()).unwrap();
+        assert!(!inventory.exists());
+        assert_eq!(fs::read(source).unwrap(), b"unrelated original");
+    }
 
     #[test]
     fn workflow_controls_release_refuses_changed_capture_and_can_resume() {
