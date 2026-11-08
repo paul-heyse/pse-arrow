@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan 69 SurrealDB and Rust tooling review](plan69-surrealdb-and-rust-tooling-2026-11-08.md)
+assesses three SurrealDB guides and the full Rust analyzer corpus against the remaining CLI
+work. It separates live fixture verification from rollout ownership and proposes improvements
+to source previews, selection explanations, and tool recovery. Its coverage appendix records
+the exact guide snapshots and dispositions.
+
 The [Plan 69 CLI library leverage review](plan69-cli-library-leverage-2026-11-07.md)
 assesses the complete clap, Figment, thiserror/miette and indicatif guides, including
 their uncommitted addenda. Eight proposed amendments address parser construction and
