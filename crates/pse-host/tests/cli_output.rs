@@ -135,6 +135,52 @@ fn missing_fixture_readiness_keeps_owner_diagnostic_and_exact_preparation() {
 }
 
 #[test]
+fn surrealkit_readiness_only_offers_install_for_the_absent_default() {
+    let data = tempfile::tempdir().unwrap();
+    for (selected, expected, state) in [
+        (None, "missing_default", "unprepared"),
+        (
+            Some(data.path().join("unavailable")),
+            "rejected_override",
+            "unavailable",
+        ),
+    ] {
+        let mut command = pse();
+        command.env("XDG_DATA_HOME", data.path());
+        match selected {
+            Some(path) => command.env("PSE_SURREALKIT_BIN", path),
+            None => command.env_remove("PSE_SURREALKIT_BIN"),
+        };
+        let output = command
+            .args(["diagnostic-tools", "verify", "surrealkit"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(125), "{output:?}");
+        assert!(output.stdout.is_empty());
+        let response: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(response["subject_state"], state);
+        assert_eq!(
+            response["failures"][0]["facts"]["observations"]["preparation_state"]["value"],
+            expected
+        );
+        if expected == "missing_default" {
+            assert_eq!(
+                response["next"][0]["argv"],
+                serde_json::json!([
+                    checkout().join("scripts/pse"),
+                    "diagnostic-tools",
+                    "install",
+                    "surrealkit",
+                ])
+            );
+        } else {
+            assert_eq!(response["next"], serde_json::json!([]));
+        }
+        assert_eq!(std::fs::read_dir(data.path()).unwrap().count(), 0);
+    }
+}
+
+#[test]
 fn retained_result_cli_reads_and_exports_one_selected_original() {
     use pse_host::{
         envelope::{CliInvocationId, Envelope, Settlement, SubjectState},

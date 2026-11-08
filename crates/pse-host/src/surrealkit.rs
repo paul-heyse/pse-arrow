@@ -24,6 +24,64 @@ const BINARY: &str = "surrealkit";
 const RECEIPT: &str = "release.json";
 const MAX_RECEIPT: u64 = 16 << 10;
 
+/// Refusal from the selected SurrealKit preparation owner.
+#[derive(Debug, thiserror::Error)]
+pub enum PreparationError {
+    /// The exact default release has never been published.
+    #[error("prepared SurrealKit release is absent at {path:?}")]
+    MissingDefault {
+        /// Expected release directory.
+        path: PathBuf,
+    },
+    /// Explicit selection failed verification.
+    #[error("PSE_SURREALKIT_BIN selection at {path:?} was rejected: {source}")]
+    RejectedOverride {
+        /// Explicitly selected executable.
+        path: PathBuf,
+        /// Original verification failure.
+        #[source]
+        source: HostError,
+    },
+    /// The default generation exists but cannot be verified.
+    #[error("existing SurrealKit generation at {path:?} requires owner repair: {source}")]
+    InvalidGeneration {
+        /// Exact generation directory.
+        path: PathBuf,
+        /// Original verification failure.
+        #[source]
+        source: HostError,
+    },
+}
+
+pse_diagnostics::impl_diagnostic! {
+    PreparationError,
+    code(this) { Some(match this {
+        Self::MissingDefault { .. } => pse_diagnostics::DiagnosticCode::FixtureUnprepared,
+        _ => pse_diagnostics::DiagnosticCode::HostOwnership,
+    }) },
+    forward(this) { match this {
+        Self::RejectedOverride { source, .. } | Self::InvalidGeneration { source, .. } => Some(source),
+        _ => None,
+    } },
+    help(this) { Some(Box::new(match this {
+        Self::MissingDefault { .. } => "Prepare the default release, then verify it.",
+        Self::RejectedOverride { .. } => "Correct or clear PSE_SURREALKIT_BIN, then verify the selected release.",
+        Self::InvalidGeneration { .. } => "Preserve this generation for owner recovery. Installing again will recheck the same bytes.",
+    })) },
+    related(_this) { None },
+    source(_this) { None },
+    facts(this) {
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        let state = match this {
+            Self::MissingDefault { .. } => "missing_default",
+            Self::RejectedOverride { .. } => "rejected_override",
+            Self::InvalidGeneration { .. } => "invalid_generation",
+        };
+        facts.observe("preparation_state", pse_diagnostics::DiagnosticObservation::Text(state.into()));
+        facts
+    }
+}
+
 #[derive(Clone, Deserialize, Eq, PartialEq, Serialize)]
 struct Pin {
     version: String,
@@ -57,6 +115,31 @@ struct Receipt {
     input_sha256: String,
     lock_sha256: String,
     binary_sha256: String,
+}
+
+/// Exact executable and preparation digests verified by the pinned tool owner.
+#[derive(Debug)]
+pub struct VerifiedRelease {
+    binary: PathBuf,
+    input_sha256: String,
+    binary_sha256: String,
+}
+
+impl VerifiedRelease {
+    /// Exact executable path observed by the release verifier.
+    pub fn binary(&self) -> &Path {
+        &self.binary
+    }
+
+    /// Digest of the release's pinned preparation inputs.
+    pub fn input_sha256(&self) -> &str {
+        &self.input_sha256
+    }
+
+    /// Digest of the verified executable bytes.
+    pub fn binary_sha256(&self) -> &str {
+        &self.binary_sha256
+    }
 }
 
 fn invalid(message: impl Into<String>) -> HostError {
@@ -164,7 +247,7 @@ impl Selection {
         })
     }
 
-    fn verify_at(&self, binary: &Path) -> Result<(), HostError> {
+    fn verify_at(&self, binary: &Path) -> Result<VerifiedRelease, HostError> {
         let record = binary.with_file_name(RECEIPT);
         let record = release_member(&record, 0o400)?;
         if record.metadata()?.len() > MAX_RECEIPT {
@@ -187,7 +270,47 @@ impl Selection {
                 "SurrealKit release does not match prepared source and executable",
             ));
         }
-        Ok(())
+        Ok(VerifiedRelease {
+            binary: binary.to_owned(),
+            input_sha256: receipt.input_sha256,
+            binary_sha256: receipt.binary_sha256,
+        })
+    }
+
+    fn verify_selected(
+        &self,
+        override_path: Option<PathBuf>,
+    ) -> Result<VerifiedRelease, HostError> {
+        if let Some(path) = override_path {
+            return self.verify_at(&path).map_err(|source| {
+                HostError::SurrealKit(Box::new(PreparationError::RejectedOverride {
+                    path,
+                    source,
+                }))
+            });
+        }
+        let binary = self.release.join(BINARY);
+        let failure = |source| {
+            HostError::SurrealKit(Box::new(PreparationError::InvalidGeneration {
+                path: self.release.clone(),
+                source,
+            }))
+        };
+        match self.release.symlink_metadata() {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // A dangling parent symlink is an invalid selection, even though the
+                // expected generation cannot be reached through it.
+                no_symlinks(&self.release).map_err(failure)?;
+                return Err(HostError::SurrealKit(Box::new(
+                    PreparationError::MissingDefault {
+                        path: self.release.clone(),
+                    },
+                )));
+            }
+            Err(error) => return Err(failure(error.into())),
+            Ok(_) => {}
+        }
+        self.verify_at(&binary).map_err(failure)
     }
 }
 
@@ -195,15 +318,23 @@ impl Selection {
 /// # Errors
 /// The selected release is absent or its pin, protected receipt, lock, or executable differs.
 pub fn verify(root: &Path, environment: &Environment) -> Result<PathBuf, HostError> {
+    Ok(verify_release(root, environment)?.binary)
+}
+
+/// Verify the selected executable and return the matching preparation identity.
+///
+/// # Errors
+/// Selection is unavailable or a protected release member or digest differs.
+pub fn verify_release(
+    root: &Path,
+    environment: &Environment,
+) -> Result<VerifiedRelease, HostError> {
     let selected = Selection::read(root, environment)?;
-    let binary = HostPaths::new(environment)
-        .selected("PSE_SURREALKIT_BIN")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| selected.release.join(BINARY));
-    selected.verify_at(&binary).map_err(|error| {
-        invalid(format!("SurrealKit release {} is unavailable: {error}; explicitly run scripts/pse-env -- scripts/pse diagnostic-tools install surrealkit", binary.display()))
-    })?;
-    Ok(binary)
+    selected.verify_selected(
+        HostPaths::new(environment)
+            .selected("PSE_SURREALKIT_BIN")
+            .map(PathBuf::from),
+    )
 }
 
 fn replace_once(path: &Path, old: &str, new: &str) -> Result<(), HostError> {
@@ -260,9 +391,9 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
     rustix::fs::flock(&directory, rustix::fs::FlockOperation::LockExclusive)
         .map_err(std::io::Error::from)?;
     let binary = selected.release.join(BINARY);
-    if selected.release.try_exists()? {
-        selected.verify_at(&binary)?;
-        return Ok(binary);
+    match selected.release.symlink_metadata() {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        _ => return selected.verify_selected(None).map(|release| release.binary),
     }
     let stage = tempfile::Builder::new()
         .prefix(".surrealkit-build-")
@@ -399,4 +530,65 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
             source,
         })?;
     Ok(binary)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn preparation_refusals_preserve_selection_and_recover_only_with_matching_bytes() {
+        let temporary = tempfile::tempdir().unwrap();
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let environment = Environment::from([(
+            "XDG_DATA_HOME".into(),
+            temporary.path().as_os_str().to_owned(),
+        )]);
+        let selected = Selection::read(&root, &environment).unwrap();
+        assert!(matches!(
+            selected.verify_selected(None),
+            Err(HostError::SurrealKit(error))
+                if matches!(*error, PreparationError::MissingDefault { .. })
+        ));
+        let wrong_path = temporary.path().join(BINARY);
+        assert!(matches!(
+            selected.verify_selected(Some(wrong_path)),
+            Err(HostError::SurrealKit(error))
+                if matches!(*error, PreparationError::RejectedOverride { .. })
+        ));
+        assert!(!selected.release.exists());
+
+        fs::create_dir_all(&selected.release).unwrap();
+        let binary = selected.release.join(BINARY);
+        let lock = selected.release.join("Cargo.lock");
+        let record = selected.release.join(RECEIPT);
+        fs::write(&binary, b"known executable").unwrap();
+        fs::write(&lock, b"known lock").unwrap();
+        fs::set_permissions(&binary, fs::Permissions::from_mode(0o500)).unwrap();
+        fs::set_permissions(&lock, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(matches!(
+            install(&root, &environment),
+            Err(HostError::SurrealKit(error))
+                if matches!(*error, PreparationError::InvalidGeneration { .. })
+        ));
+        assert_eq!(fs::read(&binary).unwrap(), b"known executable");
+
+        let receipt = Receipt {
+            source_commit: selected.pin.source_revision.clone(),
+            pin: selected.pin,
+            source_build: true,
+            release_build_locked: true,
+            input_sha256: selected.inputs,
+            lock_sha256: digest(&lock).unwrap(),
+            binary_sha256: digest(&binary).unwrap(),
+        };
+        fs::write(&record, serde_json::to_vec(&receipt).unwrap()).unwrap();
+        fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
+        let verified = verify_release(&root, &environment).unwrap();
+        assert_eq!(verified.binary(), binary);
+        assert_eq!(verified.input_sha256(), receipt.input_sha256);
+        assert_eq!(verified.binary_sha256(), receipt.binary_sha256);
+        assert_eq!(verify(&root, &environment).unwrap(), binary);
+        assert_eq!(install(&root, &environment).unwrap(), binary);
+    }
 }

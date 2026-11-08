@@ -1221,10 +1221,54 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             let values = std::env::vars_os().collect();
             let root = checkout_root(selected)?;
             let path = if name == "surrealkit" {
-                if install {
-                    crate::surrealkit::install(&root, &values)?
+                let selected = if install {
+                    crate::surrealkit::install(&root, &values)
                 } else {
-                    crate::surrealkit::verify(&root, &values)?
+                    crate::surrealkit::verify(&root, &values)
+                };
+                match selected {
+                    Ok(path) => path,
+                    Err(HostError::SurrealKit(refusal)) => {
+                        let policy = RedactionPolicy::from_inputs(&values);
+                        let mut response = Envelope::response(
+                            "error",
+                            "selected SurrealKit prerequisite is unavailable",
+                            (),
+                        );
+                        response.outcome = CommandOutcome::BoundaryFailure;
+                        response.subject_state = envelope::SubjectState::Unavailable;
+                        if matches!(
+                            *refusal,
+                            crate::surrealkit::PreparationError::MissingDefault { .. }
+                        ) {
+                            response.subject_state = envelope::SubjectState::Unprepared;
+                            if let Ok(launcher) =
+                                root.join("scripts/pse").into_os_string().into_string()
+                                && policy.redact(&launcher) == launcher
+                            {
+                                response.next.push(envelope::NextAction::Command {
+                                    argv: vec![
+                                        launcher,
+                                        "diagnostic-tools".into(),
+                                        "install".into(),
+                                        "surrealkit".into(),
+                                    ],
+                                    reason: "prepare the absent default release through its owner"
+                                        .into(),
+                                });
+                            }
+                        }
+                        response
+                            .failures
+                            .push(ErrorRecord::from_typed(refusal.as_ref(), &policy));
+                        return Ok(render_failure(
+                            response,
+                            presentation,
+                            Some(refusal.as_ref()),
+                            &policy,
+                        ));
+                    }
+                    Err(error) => return Err(error),
                 }
             } else {
                 let tool = crate::diagnostic_tools::Tool::parse(&name)?;

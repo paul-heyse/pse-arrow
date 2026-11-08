@@ -111,6 +111,9 @@ pub enum HostError {
     /// Captured development-tool preparation or native forwarding failure.
     #[error(transparent)]
     PreparedNativeTool(Box<prepared_xtask::PreparedNativeToolError>),
+    /// Standalone SurrealKit release selection and recovery refusal.
+    #[error(transparent)]
+    SurrealKit(Box<surrealkit::PreparationError>),
     /// Scratch authored input, resolution or disposal failure.
     #[error(transparent)]
     Probe(Box<probe::ProbeError>),
@@ -206,6 +209,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::WorkflowOwner(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::ProductReader(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::PreparedNativeTool(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        Self::SurrealKit(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Probe(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Api(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Schema(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
@@ -227,7 +231,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Artifact(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SourceOwnership(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
     }) },
-    forward(this) { match this { Self::Io(error) if envelope::PresentationError::from_io(error).is_some() => envelope::PresentationError::from_io(error).map(|error| -> &dyn pse_diagnostics::TypedDiagnostic { error }), Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedNativeTool(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Investigation(error) => Some(error), Self::Semantic(error) => Some(error.as_ref()), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
+    forward(this) { match this { Self::Io(error) if envelope::PresentationError::from_io(error).is_some() => envelope::PresentationError::from_io(error).map(|error| -> &dyn pse_diagnostics::TypedDiagnostic { error }), Self::Workflow(error) => Some(error.as_ref()), Self::WorkflowOwner(error) => Some(error.as_ref()), Self::ProductReader(error) => Some(error.as_ref()), Self::PreparedNativeTool(error) => Some(error.as_ref()), Self::SurrealKit(error) => Some(error.as_ref()), Self::Affected(error) => Some(error), Self::Environment(error) => Some(error), Self::Repository(error) => Some(error), Self::Correctness(error) => Some(error), Self::SourceCommand(error) => Some(error), Self::SourceQuery(error) => Some(error), Self::Investigation(error) => Some(error), Self::Semantic(error) => Some(error.as_ref()), Self::Artifact(error) => Some(error), Self::SourceOwnership(error) => Some(error), _ => None } },
     help(_this) { None },
     related(this) { match this {
         Self::Settlement {operation,cleanup} => { let children:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()]; Some(Box::new(children.into_iter())) },
