@@ -8578,7 +8578,6 @@ version = "0.0.1"
 dependencies = [
  "buffa",
  "buffa-descriptor",
- "miette",
  "once_cell",
  "petgraph",
  "protovalidate-buffa",
@@ -8869,7 +8868,6 @@ dependencies = [
 name = "pse-modeling"
 version = "0.0.1"
 dependencies = [
- "miette",
  "petgraph",
  "pse-admission",
  "pse-authoring",

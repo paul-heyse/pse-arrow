@@ -1,14 +1,14 @@
 {
   "descriptor_sha256": "e7e786ce7ea633983f941279e952a9dc7e9d46e846419e067a853bd3f86b8003",
   "inputs": {
-    "Cargo.lock": "8fca385c86aa8a447a7bdddae84a0d3da72405b5f177f769497c814b00252534",
+    "Cargo.lock": "11e3ca291bfd99abf325bf0c4470a62dc7135e4773b159283ef298f60e5f9faf",
     "Cargo.toml": "1f466e904be2d9aff8a716a7885bf340037ef8af3a9538af839a14d18ea26b72",
     "crates/pse-codegen/src/codegen/boundary_projection.rs": "a82284230b89136b73579d41636a64037de0d205f6765114747c712c1d92a3f6",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "7f551dc8325d9ac1149263bfb6f520dd503f53a8950745aa4fc7cb6498dbc7b7",
+    "xtask/Cargo.toml": "f74af62152a6218745bde3799c2d50c4d0304c1bc0bb03b621c94eb632035cfb",
     "xtask/src/codegen/code_intelligence.rs": "8aa2f221baaeae8297b9b2512e18a0e6686d6aec0c00574b8dc376932bc25d25",
     "xtask/src/codegen/code_intelligence/associations.rs": "211bad898e26c9f6cade1d2a2e24e93b3a3aaf5df1c712736fce4cd41e3e8bad",
     "xtask/src/codegen/proto_projection.rs": "4deb94b4e0aac7b226f0e334dbeed52098906022de436eb2f23e37eba4f15bfd",

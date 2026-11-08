@@ -11,7 +11,7 @@ mod owner;
 use owner::MAX_CAPTURE_BYTES;
 
 fn capture(root: &Path, catalog: &Path) -> Result<owner::data::Capsule> {
-    owner::capture(root, catalog).map_err(|error| anyhow::Error::from_boxed(error.into()))
+    Ok(owner::capture(root, catalog)?)
 }
 
 pub(super) fn run(root: &Path, catalog: &Path, output: &Path) -> Result<()> {
@@ -303,7 +303,12 @@ consumers = ["other-consumer"]
         let header = root.path().join("inventory/b/package.toml");
         let original = std::fs::read_to_string(&header).unwrap();
         std::fs::write(&header, original.replace("1.0.0", "1.0.1")).unwrap();
-        assert!(format!("{:?}", capture().unwrap_err()).contains("version requirement differs"));
+        let conflict = capture().unwrap_err();
+        assert_eq!(conflict.to_string(), "resolving scientific family control");
+        let owner::CaptureError::Graph { source, .. } = conflict else {
+            panic!("expected the original package graph diagnostic");
+        };
+        assert!(source.to_string().contains("version requirement differs"));
         std::fs::write(&header, original).unwrap();
         std::fs::remove_file(root.path().join("inventory/a/models/source.pse")).unwrap();
         assert!(

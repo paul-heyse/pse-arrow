@@ -48,7 +48,6 @@ pse-kernels.workspace = true
 pse-quantity.workspace = true
 
 [dev-dependencies]
-miette.workspace = true
 pse-admission.workspace = true
 pse-ids = { workspace = true, features = ["fixtures"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
@@ -58,4 +57,4 @@ toml.workspace = true
 # The shared authored fixture is linked from outside the crate. Cargo-shear
 # 1.14.0 does not count imports reached through that path module.
 [package.metadata.cargo-shear]
-ignored = ["miette", "pse-admission", "pse-schema", "toml"]
+ignored = ["pse-admission", "pse-schema", "toml"]

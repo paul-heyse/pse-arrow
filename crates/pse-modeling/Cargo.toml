@@ -32,7 +32,6 @@ rpds.workspace = true
 typed-index-collections.workspace = true
 thiserror.workspace = true
 [dev-dependencies]
-miette.workspace = true
 pse-admission.workspace = true
 pse-schema.workspace = true
 toml.workspace = true
@@ -41,4 +40,4 @@ pse-quantity = { workspace = true, features = ["fixtures"] }
 # The shared authored fixture is linked from outside the crate. Cargo-shear
 # 1.14.0 does not count imports reached through that path module.
 [package.metadata.cargo-shear]
-ignored = ["miette", "pse-admission", "pse-schema", "toml"]
+ignored = ["pse-admission", "pse-schema", "toml"]

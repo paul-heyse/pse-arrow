@@ -3,7 +3,6 @@
 
 //! Lightweight authored scientific declarations for capture and passive source reach.
 
-use miette::{IntoDiagnostic as _, Result, WrapErr as _, bail, ensure};
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -12,6 +11,36 @@ use std::{
 
 const MAX_FAMILIES: usize = 4096;
 const MAX_FAMILY_DEPTH: usize = 64;
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum CatalogError {
+    #[error(transparent)]
+    Utf8(#[from] std::str::Utf8Error),
+    #[error(transparent)]
+    Toml(#[from] Box<toml::de::Error>),
+    #[error("{0}")]
+    Invalid(String),
+    #[error("{0}")]
+    Limit(&'static str),
+}
+
+pse_diagnostics::impl_diagnostic! {
+    CatalogError,
+    code(this) {
+        use pse_diagnostics::DiagnosticCode as Code;
+        Some(match this {
+            Self::Utf8(_) | Self::Toml(_) => Code::AuthoringParse,
+            Self::Invalid(_) => Code::AuthoringReferenceContract,
+            Self::Limit(_) => Code::RuntimeResourceLimit,
+        })
+    },
+    forward(_this) { None },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
+}
+
+type Result<T> = std::result::Result<T, CatalogError>;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -71,28 +100,29 @@ impl Run {
 
 impl Catalog {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let text = std::str::from_utf8(bytes).into_diagnostic()?;
-        let catalog: Self = toml::from_str(text).into_diagnostic()?;
-        ensure!(
-            catalog.version == 1,
-            "unsupported scientific input catalog version"
-        );
-        ensure!(
-            catalog.families.len() <= MAX_FAMILIES,
-            "scientific family count exceeds bound"
-        );
+        let text = std::str::from_utf8(bytes)?;
+        let catalog: Self = toml::from_str(text).map_err(Box::new)?;
+        if catalog.version != 1 {
+            return Err(CatalogError::Invalid(
+                "unsupported scientific input catalog version".into(),
+            ));
+        }
+        if catalog.families.len() > MAX_FAMILIES {
+            return Err(CatalogError::Limit("scientific family count exceeds bound"));
+        }
         Ok(catalog)
     }
 }
 
 impl Manifest {
     pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        let text = std::str::from_utf8(bytes).into_diagnostic()?;
-        let manifest: Self = toml::from_str(text).into_diagnostic()?;
-        ensure!(
-            manifest.version == 1 && !manifest.runs.is_empty(),
-            "unsupported or empty scientific run manifest"
-        );
+        let text = std::str::from_utf8(bytes)?;
+        let manifest: Self = toml::from_str(text).map_err(Box::new)?;
+        if manifest.version != 1 || manifest.runs.is_empty() {
+            return Err(CatalogError::Invalid(
+                "unsupported or empty scientific run manifest".into(),
+            ));
+        }
         Ok(manifest)
     }
 }
@@ -103,23 +133,23 @@ pub(crate) fn resolve_families(
 ) -> Result<Vec<Family>> {
     let mut declared = BTreeMap::new();
     for family in families {
-        ensure!(
-            declared.insert(family.name.clone(), family).is_none(),
-            "duplicate scientific family name"
-        );
+        if declared.insert(family.name.clone(), family).is_some() {
+            return Err(CatalogError::Invalid(
+                "duplicate scientific family name".into(),
+            ));
+        }
     }
     let mut resolved = BTreeMap::new();
     if let Some(name) = selection {
-        ensure!(
-            declared.contains_key(name),
-            "unknown scientific family {name}"
-        );
+        if !declared.contains_key(name) {
+            return Err(CatalogError::Invalid(format!(
+                "unknown scientific family {name}"
+            )));
+        }
         resolve_family(name, &declared, &mut resolved, &mut BTreeSet::new())?;
-        return Ok(vec![
-            resolved
-                .remove(name)
-                .wrap_err("selected family was not resolved")?,
-        ]);
+        return Ok(vec![resolved.remove(name).ok_or_else(|| {
+            CatalogError::Invalid("selected family was not resolved".into())
+        })?]);
     }
     for name in declared.keys() {
         resolve_family(name, &declared, &mut resolved, &mut BTreeSet::new())?;
@@ -136,17 +166,19 @@ fn resolve_family(
     if resolved.contains_key(name) {
         return Ok(());
     }
-    ensure!(
-        active.insert(name.to_owned()),
-        "scientific family inheritance cycle at {name}"
-    );
-    ensure!(
-        active.len() <= MAX_FAMILY_DEPTH,
-        "scientific family inheritance exceeds depth bound"
-    );
+    if !active.insert(name.to_owned()) {
+        return Err(CatalogError::Invalid(format!(
+            "scientific family inheritance cycle at {name}"
+        )));
+    }
+    if active.len() > MAX_FAMILY_DEPTH {
+        return Err(CatalogError::Limit(
+            "scientific family inheritance exceeds depth bound",
+        ));
+    }
     let mut family = declared
         .get(name)
-        .wrap_err_with(|| format!("missing scientific base family {name}"))?
+        .ok_or_else(|| CatalogError::Invalid(format!("missing scientific base family {name}")))?
         .clone();
     if let Some(base) = &family.extends {
         resolve_family(base, declared, resolved, active)?;
@@ -192,17 +224,27 @@ pub(crate) fn normalize(path: &Path) -> Result<String> {
     for component in path.components() {
         match component {
             Component::Normal(part) => {
-                parts.push(part.to_str().wrap_err("non-UTF8 scientific input path")?)
+                parts.push(part.to_str().ok_or_else(|| {
+                    CatalogError::Invalid("non-UTF8 scientific input path".into())
+                })?)
             }
             Component::CurDir => (),
             Component::ParentDir => {
-                ensure!(parts.pop().is_some(), "scientific path escapes repository");
+                if parts.pop().is_none() {
+                    return Err(CatalogError::Invalid(
+                        "scientific path escapes repository".into(),
+                    ));
+                }
             }
             _ => {
-                bail!("scientific input path must be repository-relative");
+                return Err(CatalogError::Invalid(
+                    "scientific input path must be repository-relative".into(),
+                ));
             }
         }
     }
-    ensure!(!parts.is_empty(), "empty scientific input path");
+    if parts.is_empty() {
+        return Err(CatalogError::Invalid("empty scientific input path".into()));
+    }
     Ok(parts.join("/"))
 }

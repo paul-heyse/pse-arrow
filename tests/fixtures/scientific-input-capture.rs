@@ -7,35 +7,100 @@
     reason = "explicit exporters and selected-source test binaries use different capture views"
 )]
 
-use miette::{IntoDiagnostic as _, Result, WrapErr as _, ensure, miette};
-use pse_admission::authoring_driver::document::{
-    CapturedPackage, CapturedPackageHeader, capture_package, capture_package_header,
-    package_checksum,
+use pse_admission::authoring_driver::{
+    DriverError,
+    document::{
+        CapturedPackage, CapturedPackageHeader, capture_package, capture_package_header,
+        package_checksum,
+    },
 };
 use pse_authoring::{
-    ParseBudget,
+    AuthoringError, ParseBudget,
     language::{self, IdentityPolicy},
     p0::{GraphLimits, resolve_rows},
 };
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::generated::enums::{IdPolicy, ModelingDeclarationKind};
-use pse_schema::Registry;
+use pse_schema::{Registry, SchemaError};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Read,
-    path::{Path, PathBuf},
+    io::{self, Read},
+    path::{Path, PathBuf, StripPrefixError},
 };
 
 #[path = "scientific-input-catalog.rs"]
 mod catalog;
 pub(super) use catalog::{Catalog, resolve_families};
-use catalog::{Family, Manifest, normalize};
+use catalog::{CatalogError, Family, Manifest, normalize};
 #[path = "scientific-input-data.rs"]
 pub(super) mod data;
 use data::{Capsule, CapturedFamily, SCHEMA};
 
 const MAX_PACKAGES: usize = 4096;
 pub(super) const MAX_CAPTURE_BYTES: usize = 256 << 20;
+
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum CaptureError {
+    #[error(transparent)]
+    Catalog(#[from] CatalogError),
+    #[error(transparent)]
+    Schema(#[from] Box<SchemaError>),
+    #[error(transparent)]
+    Authoring(#[from] Box<AuthoringError>),
+    #[error("resolving scientific family {family}")]
+    Graph {
+        family: String,
+        source: Box<AuthoringError>,
+    },
+    #[error("{context}")]
+    Package {
+        context: String,
+        source: Box<DriverError>,
+    },
+    #[error(transparent)]
+    Io(#[from] io::Error),
+    #[error(transparent)]
+    Utf8(#[from] std::str::Utf8Error),
+    #[error(transparent)]
+    Serialize(#[from] serde_json::Error),
+    #[error("catalog must be inside the repository")]
+    CatalogLocation(#[from] StripPrefixError),
+    #[error("{0}")]
+    Invalid(String),
+    #[error("{0}")]
+    Changed(String),
+    #[error("{0}")]
+    Limit(&'static str),
+}
+
+pse_diagnostics::impl_diagnostic! {
+    CaptureError,
+    code(this) {
+        use pse_diagnostics::DiagnosticCode as Code;
+        match this {
+            Self::Catalog(_) | Self::Schema(_) | Self::Authoring(_) | Self::Graph { .. }
+            | Self::Package { .. } => None,
+            Self::Io(_) | Self::Serialize(_) | Self::Changed(_) => Some(Code::RuntimeInfrastructure),
+            Self::Utf8(_) => Some(Code::AuthoringParse),
+            Self::CatalogLocation(_) | Self::Invalid(_) => Some(Code::AuthoringReferenceContract),
+            Self::Limit(_) => Some(Code::RuntimeResourceLimit),
+        }
+    },
+    forward(this) {
+        match this {
+            Self::Catalog(source) => Some(source),
+            Self::Schema(source) => Some(source.as_ref()),
+            Self::Authoring(source) | Self::Graph { source, .. } => Some(source.as_ref()),
+            Self::Package { source, .. } => Some(source.as_ref()),
+            _ => None,
+        }
+    },
+    help(_this) { None },
+    related(_this) { None },
+    source(_this) { None }
+}
+
+type Result<T> = std::result::Result<T, CaptureError>;
 
 #[derive(Clone)]
 struct ParsedDocument {
@@ -93,11 +158,12 @@ impl SelectedCapture {
 
     /// Verify current checkout stability without changing this capture's admitted bytes.
     pub(crate) fn verify_checkout(&self, root: &Path) -> Result<()> {
-        ensure!(
-            root.canonicalize().into_diagnostic()? == self.root,
-            "scientific capture belongs to a different checkout root"
-        );
-        let registry = pse_schema::shared_registry()?;
+        if root.canonicalize()? != self.root {
+            return Err(CaptureError::Invalid(
+                "scientific capture belongs to a different checkout root".into(),
+            ));
+        }
+        let registry = pse_schema::shared_registry().map_err(Box::new)?;
         self.snapshot.verify(&self.root, &registry)
     }
 
@@ -126,10 +192,10 @@ impl SelectedCapture {
 }
 
 pub(super) fn capture_family(root: &Path, catalog: &Path, name: &str) -> Result<SelectedCapture> {
-    let registry = pse_schema::shared_registry()?;
+    let registry = pse_schema::shared_registry().map_err(Box::new)?;
     let budget = ParseBudget::default();
     let catalog = catalog.strip_prefix(root).unwrap_or(catalog);
-    let root = root.canonicalize().into_diagnostic()?;
+    let root = root.canonicalize()?;
     let snapshot = CaptureSnapshot::read(&root, catalog, Some(name), &registry, budget)?;
     snapshot.verify(&root, &registry)?;
     let identity = snapshot.identity(name, &registry, budget)?;
@@ -142,7 +208,7 @@ pub(super) fn capture_family(root: &Path, catalog: &Path, name: &str) -> Result<
 }
 
 pub(super) fn capture(root: &Path, catalog: &Path) -> Result<Capsule> {
-    let registry = pse_schema::shared_registry()?;
+    let registry = pse_schema::shared_registry().map_err(Box::new)?;
     let budget = ParseBudget::default();
     let snapshot = CaptureSnapshot::read(root, catalog, None, &registry, budget)?;
     snapshot.verify(root, &registry)?;
@@ -169,10 +235,7 @@ impl CaptureSnapshot {
         budget: ParseBudget,
     ) -> Result<Self> {
         let catalog_path = if catalog_path.is_absolute() {
-            catalog_path
-                .strip_prefix(root)
-                .into_diagnostic()
-                .wrap_err("catalog must be inside the repository")?
+            catalog_path.strip_prefix(root)?
         } else {
             catalog_path
         };
@@ -198,31 +261,40 @@ impl CaptureSnapshot {
         let mut candidates = snapshot.inventory_roots.clone();
         let mut family_roots = BTreeMap::new();
         for family in &families {
-            ensure!(
-                !family.name.is_empty() && !family.consumers.is_empty(),
-                "family needs a name and consumers"
-            );
+            if family.name.is_empty() || family.consumers.is_empty() {
+                return Err(CaptureError::Invalid(
+                    "family needs a name and consumers".into(),
+                ));
+            }
             let roots = family_roots_from_sources(root, family, &mut snapshot.auxiliary)?;
             candidates.extend(roots.iter().cloned());
             family_roots.insert(family.name.as_str(), roots);
         }
-        ensure!(
-            candidates.len() <= MAX_PACKAGES,
-            "scientific package inventory exceeds bounds"
-        );
+        if candidates.len() > MAX_PACKAGES {
+            return Err(CaptureError::Limit(
+                "scientific package inventory exceeds bounds",
+            ));
+        }
         let mut identities = BTreeMap::new();
         let mut remaining = MAX_CAPTURE_BYTES;
         for path in candidates {
-            let header = capture_package_header(&checked_path(root, &path)?, budget)
-                .wrap_err_with(|| format!("capturing candidate header {path}"))?;
+            let header =
+                capture_package_header(&checked_path(root, &path)?, budget).map_err(|source| {
+                    CaptureError::Package {
+                        context: format!("capturing candidate header {path}"),
+                        source: Box::new(source),
+                    }
+                })?;
             charge(&mut remaining, header.bytes.len())?;
-            ensure!(
-                identities
-                    .insert(header.header.package_id, path.clone())
-                    .is_none(),
-                "ambiguous package identity {}",
-                header.header.package_id
-            );
+            if identities
+                .insert(header.header.package_id, path.clone())
+                .is_some()
+            {
+                return Err(CaptureError::Invalid(format!(
+                    "ambiguous package identity {}",
+                    header.header.package_id
+                )));
+            }
             snapshot.headers.insert(path, header);
         }
         let mut closures = BTreeMap::new();
@@ -238,8 +310,11 @@ impl CaptureSnapshot {
                     continue;
                 }
                 for dependency in &snapshot.headers[path].header.dependencies {
-                    let target = identities.get(&dependency.package_id).wrap_err_with(|| {
-                        format!("{path}: missing dependency {}", dependency.package_id)
+                    let target = identities.get(&dependency.package_id).ok_or_else(|| {
+                        CaptureError::Invalid(format!(
+                            "{path}: missing dependency {}",
+                            dependency.package_id
+                        ))
                     })?;
                     pending.push(target);
                 }
@@ -255,7 +330,10 @@ impl CaptureSnapshot {
                     edges: MAX_PACKAGES * MAX_PACKAGES,
                 },
             )
-            .wrap_err_with(|| format!("resolving scientific family {}", family.name))?;
+            .map_err(|source| CaptureError::Graph {
+                family: family.name.clone(),
+                source: Box::new(source),
+            })?;
             selected_packages.extend(closure.iter().copied());
             closures.insert(family.name.as_str(), closure);
         }
@@ -268,11 +346,15 @@ impl CaptureSnapshot {
                     ..budget
                 },
             )
-            .wrap_err_with(|| format!("capturing package {path}"))?;
-            ensure!(
-                package.files["package.toml"] == snapshot.headers[path].bytes,
-                "scientific package header changed during capture: {path}"
-            );
+            .map_err(|source| CaptureError::Package {
+                context: format!("capturing package {path}"),
+                source: Box::new(source),
+            })?;
+            if package.files["package.toml"] != snapshot.headers[path].bytes {
+                return Err(CaptureError::Changed(format!(
+                    "scientific package header changed during capture: {path}"
+                )));
+            }
             for bytes in package.files.values() {
                 charge(&mut remaining, bytes.len())?;
             }
@@ -305,30 +387,35 @@ impl CaptureSnapshot {
             &mut current_roots,
             &mut current_directories,
         )?;
-        ensure!(
-            current_roots == self.inventory_roots
-                && current_directories == self.inventory_directories,
-            "scientific package-header inventory changed during capture"
-        );
+        if current_roots != self.inventory_roots
+            || current_directories != self.inventory_directories
+        {
+            return Err(CaptureError::Changed(
+                "scientific package-header inventory changed during capture".into(),
+            ));
+        }
         for (path, before) in &self.packages {
-            before.verify(&checked_path(root, path)?, registry).wrap_err_with(|| {
-                format!("scientific package bytes or document membership changed during capture: {path}")
+            before.verify(&checked_path(root, path)?, registry).map_err(|source| CaptureError::Package {
+                context: format!("scientific package bytes or document membership changed during capture: {path}"),
+                source: Box::new(source),
             })?;
         }
         for (path, before) in &self.headers {
             if !self.packages.contains_key(path) {
                 let path = format!("{path}/package.toml");
-                ensure!(
-                    before.bytes == read_file(&checked_path(root, &path)?)?,
-                    "scientific package header changed during capture: {path}"
-                );
+                if before.bytes != read_file(&checked_path(root, &path)?)? {
+                    return Err(CaptureError::Changed(format!(
+                        "scientific package header changed during capture: {path}"
+                    )));
+                }
             }
         }
         for (path, before) in &self.auxiliary {
-            ensure!(
-                *before == read_file(&checked_path(root, path)?)?,
-                "scientific auxiliary input changed during capture: {path}"
-            );
+            if *before != read_file(&checked_path(root, path)?)? {
+                return Err(CaptureError::Changed(format!(
+                    "scientific auxiliary input changed during capture: {path}"
+                )));
+            }
         }
         Ok(())
     }
@@ -366,8 +453,7 @@ impl CaptureSnapshot {
                 budget.max_bytes,
                 budget.max_data_rows,
             ),
-        ))
-        .into_diagnostic()?;
+        ))?;
         Ok(pse_ids::preimage::hash(&metadata))
     }
 
@@ -408,9 +494,9 @@ impl CaptureSnapshot {
 }
 
 fn charge(remaining: &mut usize, size: usize) -> Result<()> {
-    *remaining = remaining
-        .checked_sub(size)
-        .wrap_err("scientific source capture exceeds byte bound")?;
+    *remaining = remaining.checked_sub(size).ok_or(CaptureError::Limit(
+        "scientific source capture exceeds byte bound",
+    ))?;
     Ok(())
 }
 
@@ -423,14 +509,14 @@ fn family_roots_from_sources(
         .roots
         .iter()
         .map(|path| normalize(Path::new(path)))
-        .collect::<Result<BTreeSet<_>>>()?;
+        .collect::<std::result::Result<BTreeSet<_>, _>>()?;
     if let Some(manifest) = &family.manifest {
         let manifest = normalize(Path::new(manifest))?;
         let bytes = auxiliary_input(root, &manifest, auxiliary)?;
         let declared = Manifest::from_bytes(bytes)?;
         let directory = Path::new(&manifest)
             .parent()
-            .wrap_err("manifest parent absent")?;
+            .ok_or_else(|| CaptureError::Invalid("manifest parent absent".into()))?;
         if let Some(diagnostics) = declared.settings.diagnostics {
             auxiliary_input(root, &normalize(&directory.join(diagnostics))?, auxiliary)?;
         }
@@ -440,11 +526,12 @@ fn family_roots_from_sources(
             }
         }
     }
-    ensure!(
-        !selected.is_empty(),
-        "family {} has no package roots",
-        family.name
-    );
+    if selected.is_empty() {
+        return Err(CaptureError::Invalid(format!(
+            "family {} has no package roots",
+            family.name
+        )));
+    }
     Ok(selected)
 }
 
@@ -483,14 +570,16 @@ fn materialize_family(
     let mut substitutions = BTreeSet::new();
     for path in &family.substitutions {
         let path = normalize(Path::new(path))?;
-        ensure!(
-            path.ends_with(".pse")
-                && !snapshot
-                    .headers
-                    .keys()
-                    .any(|package| path.starts_with(&format!("{package}/"))),
-            "substitution must be outside authenticated package transport: {path}"
-        );
+        if !path.ends_with(".pse")
+            || snapshot
+                .headers
+                .keys()
+                .any(|package| path.starts_with(&format!("{package}/")))
+        {
+            return Err(CaptureError::Invalid(format!(
+                "substitution must be outside authenticated package transport: {path}"
+            )));
+        }
         let bytes = auxiliary_input(root, &path, &mut snapshot.auxiliary)?;
         if !parsed.contains_key(&path) {
             let document =
@@ -509,13 +598,14 @@ fn materialize_family(
             .documents
             .iter()
             .map(|path| normalize(Path::new(path)))
-            .collect::<Result<BTreeSet<_>>>()?
+            .collect::<std::result::Result<BTreeSet<_>, _>>()?
     };
-    ensure!(
-        selected.is_subset(&available),
-        "family {} selects a missing source or a source outside its package closure",
-        family.name
-    );
+    if !selected.is_subset(&available) {
+        return Err(CaptureError::Invalid(format!(
+            "family {} selects a missing source or a source outside its package closure",
+            family.name
+        )));
+    }
     let documents = if family.projection.as_deref() == Some("parser-fields") {
         // This family observes source attribution without semantic import admission.
         selected
@@ -563,8 +653,8 @@ fn parse_document(
     policy: IdentityPolicy,
     budget: ParseBudget,
 ) -> Result<ParsedDocument> {
-    let source = std::str::from_utf8(bytes).into_diagnostic()?;
-    let rows = language::parse(source, document, policy, budget)?;
+    let source = std::str::from_utf8(bytes)?;
+    let rows = language::parse(source, document, policy, budget).map_err(Box::new)?;
     let mut names = BTreeMap::new();
     let mut scopes = Vec::new();
     let mut imports = Vec::new();
@@ -572,7 +662,9 @@ fn parse_document(
         let name = match row.parent_id {
             Some(parent) => format!(
                 "{}.{}",
-                names.get(&parent).wrap_err("modeling parent name absent")?,
+                names
+                    .get(&parent)
+                    .ok_or_else(|| CaptureError::Invalid("modeling parent name absent".into()))?,
                 row.name
             ),
             None => row.name.clone(),
@@ -597,10 +689,11 @@ fn imported_documents(
     let mut scopes = BTreeMap::new();
     for path in available.iter().chain(substitutions) {
         for name in &parsed[path].scopes {
-            ensure!(
-                scopes.insert(name.clone(), path.clone()).is_none(),
-                "ambiguous modeling package scope {name}"
-            );
+            if scopes.insert(name.clone(), path.clone()).is_some() {
+                return Err(CaptureError::Invalid(format!(
+                    "ambiguous modeling package scope {name}"
+                )));
+            }
         }
     }
     let mut visited = BTreeSet::new();
@@ -617,7 +710,11 @@ fn imported_documents(
             pending.push(
                 scopes
                     .get(name)
-                    .wrap_err_with(|| format!("{path}: imported package scope {name} is absent"))?
+                    .ok_or_else(|| {
+                        CaptureError::Invalid(format!(
+                            "{path}: imported package scope {name} is absent"
+                        ))
+                    })?
                     .clone(),
             );
         }
@@ -630,36 +727,31 @@ fn checked_path(root: &Path, relative: &str) -> Result<PathBuf> {
     let mut path = root.to_owned();
     for component in Path::new(&relative).components() {
         path.push(component);
-        ensure!(
-            !std::fs::symlink_metadata(&path)
-                .into_diagnostic()?
-                .file_type()
-                .is_symlink(),
-            "scientific input traverses a symlink: {}",
-            path.display()
-        );
+        if std::fs::symlink_metadata(&path)?.file_type().is_symlink() {
+            return Err(CaptureError::Invalid(format!(
+                "scientific input traverses a symlink: {}",
+                path.display()
+            )));
+        }
     }
     Ok(path)
 }
 
 fn read_file(path: &Path) -> Result<Vec<u8>> {
-    ensure!(
-        std::fs::symlink_metadata(path)
-            .into_diagnostic()?
-            .file_type()
-            .is_file(),
-        "scientific input must be a regular file"
-    );
+    if !std::fs::symlink_metadata(path)?.file_type().is_file() {
+        return Err(CaptureError::Invalid(
+            "scientific input must be a regular file".into(),
+        ));
+    }
     let mut bytes = Vec::new();
-    std::fs::File::open(path)
-        .into_diagnostic()?
+    std::fs::File::open(path)?
         .take(ParseBudget::DEFAULT_MAX_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .into_diagnostic()?;
-    ensure!(
-        bytes.len() as u64 <= ParseBudget::DEFAULT_MAX_BYTES,
-        "scientific input exceeds source byte bound"
-    );
+        .read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > ParseBudget::DEFAULT_MAX_BYTES {
+        return Err(CaptureError::Limit(
+            "scientific input exceeds source byte bound",
+        ));
+    }
     Ok(bytes)
 }
 
@@ -670,23 +762,18 @@ pub(super) fn discover_packages(
     directories: &mut BTreeMap<String, Option<Vec<String>>>,
 ) -> Result<()> {
     let relative = normalize(Path::new(relative))?;
-    ensure!(
-        relative.split('/').count() <= ParseBudget::DEFAULT_MAX_DEPTH as usize,
-        "package inventory depth exceeds bound"
-    );
+    if relative.split('/').count() > ParseBudget::DEFAULT_MAX_DEPTH as usize {
+        return Err(CaptureError::Limit("package inventory depth exceeds bound"));
+    }
     let path = checked_path(root, &relative)?;
-    if path.join("package.toml").try_exists().into_diagnostic()? {
+    if path.join("package.toml").try_exists()? {
         packages.insert(relative);
-        ensure!(
-            packages.len() <= MAX_PACKAGES,
-            "package inventory exceeds bound"
-        );
+        if packages.len() > MAX_PACKAGES {
+            return Err(CaptureError::Limit("package inventory exceeds bound"));
+        }
         return Ok(());
     }
-    let mut entries = std::fs::read_dir(&path)
-        .into_diagnostic()?
-        .collect::<std::io::Result<Vec<_>>>()
-        .into_diagnostic()?;
+    let mut entries = std::fs::read_dir(&path)?.collect::<io::Result<Vec<_>>>()?;
     entries.sort_by_key(std::fs::DirEntry::file_name);
     directories.insert(
         relative.clone(),
@@ -697,23 +784,28 @@ pub(super) fn discover_packages(
                     entry
                         .file_name()
                         .into_string()
-                        .map_err(|_| miette!("non-UTF8 inventory member"))
+                        .map_err(|_| CaptureError::Invalid("non-UTF8 inventory member".into()))
                 })
                 .collect::<Result<Vec<_>>>()?,
         ),
     );
-    ensure!(
-        directories.len() <= MAX_PACKAGES * 16,
-        "package directory inventory exceeds bound"
-    );
+    if directories.len() > MAX_PACKAGES * 16 {
+        return Err(CaptureError::Limit(
+            "package directory inventory exceeds bound",
+        ));
+    }
     for entry in entries {
-        let kind = entry.file_type().into_diagnostic()?;
-        ensure!(!kind.is_symlink(), "package inventory contains a symlink");
+        let kind = entry.file_type()?;
+        if kind.is_symlink() {
+            return Err(CaptureError::Invalid(
+                "package inventory contains a symlink".into(),
+            ));
+        }
         if kind.is_dir() {
             let name = entry
                 .file_name()
                 .into_string()
-                .map_err(|_| miette!("non-UTF8 package directory"))?;
+                .map_err(|_| CaptureError::Invalid("non-UTF8 package directory".into()))?;
             discover_packages(root, &format!("{relative}/{name}"), packages, directories)?;
         }
     }

@@ -95,6 +95,7 @@ physical-admission = [
   "dep:pse-model",
   "dep:pse-relations",
   "dep:pse-rules",
+  "dep:thiserror",
 ]
 product-schemas = [
   "recorded-result-contracts",
