@@ -52,5 +52,15 @@ their scientific and database cutover scope.
 - [69f · Parser startup and argument forwarding](69f-parser-startup-and-argument-forwarding.md)
 - [69g · Output policy and owner-driven progress](69g-output-policy-and-owner-driven-progress.md)
 
+[Plan70: Test assurance architecture](70-test-assurance-architecture.md) proposes the changes
+from the November test design review. It owns the new series' finding dispositions and assembled
+verification. Plans66 and 69 retain their scientific population and native test/result obligations.
+
+- [70a · Selection and execution](70a-selection-and-execution.md)
+- [70b · Fixtures and process ownership](70b-fixtures-and-process-ownership.md)
+- [70c · Test support and contract evidence](70c-test-support-and-contract-evidence.md)
+- [70d · Scientific references](70d-scientific-references.md)
+- [70e · Preparation and verification scope](70e-preparation-and-verification-scope.md)
+
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.

@@ -7522,3 +7522,87 @@ id_column = 0
 id_pattern = '^(A04)\b'
 status_profile = "packet"
 status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70-test-assurance-architecture.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(Q[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70a-selection-and-execution.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70b-fixtures-and-process-ownership.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70c-test-support-and-contract-evidence.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70d-scientific-references.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70e-preparation-and-verification-scope.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70-test-assurance-architecture.md"
+name = "finding-dispositions"
+heading = "Finding dispositions"
+headers = [
+  "Finding reference",
+  "Scenario reference",
+  "Disposition",
+  "Decision/work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(DTA-[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+owner_column = 3
