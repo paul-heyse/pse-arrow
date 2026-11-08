@@ -40,6 +40,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
           shared-key: miri
           save-if: "true"
       - name: pure scientific replay authority
@@ -62,6 +65,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: mutants
           save-if: "true"
           tools: cargo-mutants
@@ -86,6 +93,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: governance
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: native unsafe allowlist and unwind-boundary contracts

@@ -178,6 +178,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: solver-pin-tooling
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: synchronize the image manifest and literal consumers

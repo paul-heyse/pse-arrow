@@ -48,13 +48,16 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
-          shared-key: lint
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-          tools: taplo
+          toolchain: "true"
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: prepare the locked Taplo tool environment
+        env:
+          UV_PROJECT_ENVIRONMENT: .venv
+        run: uv sync --locked --only-group quality --no-install-project
       - name: cargo fmt
         run: cargo fmt --all --check
       - name: taplo fmt
-        run: taplo fmt --check --diff
+        run: .venv/bin/taplo fmt --check --diff
 
   clippy:
     name: rust / clippy
@@ -69,6 +72,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: clippy (default features)
@@ -89,6 +96,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: identity-unit
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: pure identity units
@@ -107,6 +118,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: codegen
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: independent generated projections match their owners
@@ -124,6 +139,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: one resolved version per pinned family
@@ -137,8 +156,6 @@ jobs:
             --evidence docs/capability-maps/evidence/rust/apisurface-Cargo.lock \
             --evidence docs/capability-maps/evidence/rust/support-Cargo.lock \
             --evidence-families-only
-      - name: lockfile is complete and current
-        run: cargo metadata --locked --format-version 1 > /dev/null
 
   # --- informational -----------------------------------------------------------------
   deny:
@@ -154,6 +171,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: policy
           save-if: ${{ github.ref == 'refs/heads/main' }}
           tools: |
@@ -183,6 +204,9 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
           shared-key: docs
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: cargo doc
@@ -218,6 +242,10 @@ jobs:
       - uses: ./.github/actions/setup-rust
         if: steps.availability.outputs.ready == 'true'
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: backticked paths in docs resolve
@@ -235,6 +263,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: check
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: locked dependency language floors

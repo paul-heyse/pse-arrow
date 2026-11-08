@@ -37,6 +37,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-rust
         with:
+          toolchain: "true"
+          linker: "true"
+          cache: "true"
+          host: "true"
           shared-key: governance
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: collect what is due

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 #
-# One place where every CI job gets its Rust toolchain, its cache, and its cargo tools.
+# Shared preparation for CI jobs that consume the pinned Rust toolchain.
 #
 # The toolchain is NEVER named here. `rust-toolchain.toml` is the single authority
 # (a dated nightly, profile minimal, its declared components; ADR-0122); this action only
@@ -20,12 +20,21 @@ description: >-
   on Linux. The external runner owns placement; this does not qualify user-systemd lifecycles.
 
 inputs:
+  toolchain:
+    description: Install rustup if needed and materialise the checkout's pinned toolchain.
+    default: "false"
+  linker:
+    description: Install the platform linker used for Rust builds.
+    default: "false"
+  host:
+    description: Prepare the native host for the Cargo adapter or host-backed tool resolver.
+    default: "false"
   shared-key:
     description: >-
       Cache key shared by jobs that build the same thing (for example `check` for
       cargo check/clippy jobs and `test` for nextest jobs). Jobs with different feature
       sets or profiles must not share a key.
-    required: true
+    required: false
   save-if:
     description: >-
       Whether this job may WRITE the cache. Pass the expression "github.ref equals
@@ -44,14 +53,33 @@ inputs:
     required: false
     default: ""
   cache:
-    description: Set to "false" to skip the cargo cache entirely (used by jobs that must build cold).
+    description: Restore the cargo and target cache using the selected shared key.
     required: false
-    default: "true"
+    default: "false"
 
 runs:
   using: composite
   steps:
+    - name: Validate preparation selection
+      shell: bash
+      env:
+        CACHE: ${{ inputs.cache }}
+        SHARED_KEY: ${{ inputs.shared-key }}
+        HOST: ${{ inputs.host }}
+        TOOLS: ${{ inputs.tools }}
+      run: |
+        set -euo pipefail
+        if [[ "$CACHE" == true && -z "$SHARED_KEY" ]]; then
+          echo '::error::Rust caching requires a shared key'
+          exit 1
+        fi
+        if [[ -n "$TOOLS" && "$HOST" != true ]]; then
+          echo '::error::Cargo tool resolution requires native host preparation'
+          exit 1
+        fi
+
     - name: Install the x86_64 Linux linker
+      if: inputs.linker == 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -74,6 +102,7 @@ runs:
         mold --version
 
     - name: Install rustup if the image does not have one
+      if: inputs.toolchain == 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -92,6 +121,7 @@ runs:
         echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
 
     - name: Materialise the pinned toolchain
+      if: inputs.toolchain == 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -107,7 +137,7 @@ runs:
         }
 
     - name: Cache cargo registry and target directory
-      if: inputs.cache != 'false'
+      if: inputs.cache == 'true'
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         shared-key: ${{ inputs.shared-key }}
@@ -116,6 +146,7 @@ runs:
         cache-on-failure: "true"
 
     - name: Prepare native host and Cargo tools explicitly
+      if: inputs.host == 'true'
       shell: bash
       run: scripts/bootstrap-host
 
