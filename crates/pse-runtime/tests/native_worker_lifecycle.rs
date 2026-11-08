@@ -15,9 +15,7 @@
 mod native_worker_environment;
 
 use futures_util::FutureExt;
-use pse_operations::native_service::{
-    NativeCanonicalService, NativeModuleSource, NativeServiceSpec,
-};
+use pse_operations::native_service::{NativeCanonicalService, NativeServiceSpec};
 use pse_runtime::workflow::{
     NativeAllocation, NativeExecutionAllocation, NativeStudyWorker, NativeStudyWorkerSpec,
     WorkerSettings,
@@ -29,32 +27,7 @@ use std::{
 };
 
 fn canonical_service() -> NativeCanonicalService {
-    let environment = std::env::vars_os().collect();
-    let module_source = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-    {
-        NativeModuleSource::Prepared(
-            pse_host::study_module::select(
-                &PathBuf::from(receipt),
-                pse_host::study_module::Variant::Production,
-            )
-            .unwrap(),
-        )
-    } else {
-        NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                .expect("explicit prepared canonical module state"),
-        ))
-    };
-    NativeCanonicalService::new(NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper: PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-                .expect("explicit already-built control ingress helper"),
-        ),
-        module_source,
-        state_parent: std::env::temp_dir(),
-    })
-    .unwrap()
+    NativeCanonicalService::new(NativeServiceSpec::selected_fixture(None).unwrap()).unwrap()
 }
 
 #[tokio::test(flavor = "multi_thread")]

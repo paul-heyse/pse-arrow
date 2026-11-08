@@ -232,16 +232,16 @@ fn native_correctness_missing_real_cargo_refuses_recursion() {
     );
 }
 #[test]
+#[ignore = "requires the fixture-free generic Nextest adapter and its restoration setup"]
 fn native_correctness_nextest_attempt_observes_restored_cargo() {
-    // Cargo's own libtest route has no nextest setup marker. The native nextest journey
-    // selects this same test with the marker present and must prove actual restoration.
-    if let Some(real) = std::env::var_os("PSE_CORRECTNESS_REAL_CARGO") {
-        assert_eq!(std::env::var_os("CARGO"), Some(real));
-        assert_ne!(
-            std::env::var_os("PSE_CORRECTNESS_ADAPTER"),
-            Some("1".into())
-        );
-    }
+    assert!(std::env::var_os("NEXTEST_RUN_ID").is_some());
+    let real =
+        std::env::var_os("PSE_CORRECTNESS_REAL_CARGO").expect("generic adapter selected Cargo");
+    assert_eq!(std::env::var_os("CARGO"), Some(real));
+    assert_eq!(
+        std::env::var_os("PSE_CORRECTNESS_ADAPTER"),
+        Some("0".into())
+    );
 }
 #[test]
 fn native_correctness_nextest_build_adapter_receives_translated_cargo_argv() {

@@ -37,7 +37,7 @@ use pse_model::{
 };
 use pse_operations::{
     canonical::CanonicalStore,
-    native_service::{NativeCanonicalService, NativeServiceSpec},
+    native_service::{NativeCanonicalService, NativeServiceError, NativeServiceSpec},
 };
 use pse_relations::generated::runtime::{solve_runs, solve_variables};
 use pse_runtime::{
@@ -60,7 +60,7 @@ use std::{
     collections::BTreeMap,
     num::NonZeroUsize,
     panic::AssertUnwindSafe,
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -72,37 +72,8 @@ const SQUARE: &str = "package local { test square fixture { dof 0; } { param p:S
 const POINT_KEYS: [u32; 2] = [13, 29];
 
 fn service() -> NativeCanonicalService {
-    let environment = std::env::vars_os().collect();
-    let helper = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-            .expect("explicit already-built native-service helper"),
-    );
-    assert!(
-        helper.is_absolute() && helper.is_file(),
-        "build -p pse-operations --features native-service --bin pse-canonical-service first"
-    );
-    let module_source = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-    {
-        pse_operations::native_service::NativeModuleSource::Prepared(
-            pse_host::study_module::select(
-                &PathBuf::from(record),
-                pse_host::study_module::Variant::Production,
-            )
-            .unwrap(),
-        )
-    } else {
-        pse_operations::native_service::NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                .expect("explicit private module receipt selector"),
-        ))
-    };
-    let service = NativeCanonicalService::new(NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper,
-        module_source,
-        state_parent: std::env::temp_dir(),
-    })
-    .unwrap();
+    let service =
+        NativeCanonicalService::new(NativeServiceSpec::selected_fixture(None).unwrap()).unwrap();
     eprintln!(
         "repeated-analysis private state={} original_service={}",
         service.state().display(),
@@ -1733,42 +1704,71 @@ fn journey<'a>(
 #[tokio::test]
 async fn public_native_repeated_analysis_preserves_frozen_cut_and_replays_realized_points() {
     let mut service = service();
-    let outcome = AssertUnwindSafe(service.run(
-        Instant::now() + Duration::from_secs(600),
-        |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                let store = service.ready()?.store().clone();
-                let left = service.connect().await?;
-                let right = service.connect().await?;
-                let mut science =
-                    Science::new(&[store, left.store().clone(), right.store().clone()]);
-                let outcome = AssertUnwindSafe(journey(&mut science, service))
-                    .catch_unwind()
-                    .await;
-                // This drain runs even when any consumer assertion panics. The
-                // service owner independently settles every retained connection and
-                // original process after this scope, preserving teardown failures.
-                let cleanup = science.close().await;
-                if let Err(error) = &cleanup {
-                    eprintln!("native-lane cleanup failed: {error}");
+    let work_end = Instant::now() + Duration::from_secs(600);
+    let settlement_end = work_end + Duration::from_secs(60);
+    let cleanup_pending = std::sync::atomic::AtomicBool::new(false);
+    let pending = &cleanup_pending;
+    let outcome = AssertUnwindSafe(service.run_until(work_end, settlement_end, |service| {
+        Box::pin(async move {
+            service
+                .launch((Instant::now() + Duration::from_secs(90)).min(work_end))
+                .await?;
+            let store = service.ready()?.store().clone();
+            let left = service.connect().await?;
+            let right = service.connect().await?;
+            let mut science = Science::new(&[store, left.store().clone(), right.store().clone()]);
+            pending.store(true, std::sync::atomic::Ordering::Release);
+            let outcome = tokio::time::timeout_at(
+                work_end.into(),
+                AssertUnwindSafe(journey(&mut science, service)).catch_unwind(),
+            )
+            .await;
+            // This drain runs even when any consumer assertion panics. The
+            // service owner independently settles every retained connection and
+            // original process after this scope, preserving teardown failures.
+            let lane_end = settlement_end - Duration::from_secs(30);
+            let cleanup = match tokio::time::timeout_at(lane_end.into(), science.close()).await {
+                Ok(Ok(())) => {
+                    pending.store(false, std::sync::atomic::Ordering::Release);
+                    None
                 }
-                if let Err(panic) = outcome {
-                    std::panic::resume_unwind(panic);
+                Ok(Err(error)) => Some(error.to_string()),
+                Err(_) => Some("original native lane cleanup deadline elapsed".into()),
+            };
+            if let Some(error) = &cleanup {
+                eprintln!("native-lane cleanup failed: {error}");
+            }
+            let cleanup = cleanup.map(|_| {
+                NativeServiceError::Refused("repeated-analysis native lanes did not drain")
+            });
+            match outcome {
+                Ok(Err(panic)) => std::panic::resume_unwind(panic),
+                Err(_) => {
+                    let work = NativeServiceError::Refused("repeated-analysis work cutoff elapsed");
+                    match cleanup {
+                        Some(drain) => Err(NativeServiceError::Settlement {
+                            state: service.state().to_owned(),
+                            failures: vec![work, drain],
+                        }),
+                        None => Err(work),
+                    }
                 }
-                cleanup.unwrap();
-                Ok(())
-            })
-        },
-    ))
+                Ok(Ok(())) => cleanup.map_or(Ok(()), Err),
+            }
+        })
+    }))
     .catch_unwind()
     .await;
     // run() settles service/connection owners before propagating an assertion.
     // Attempt private-state disposal on both success and panic, retaining its
     // authenticated path if physical settlement made disposal unavailable.
-    let disposal = service.dispose();
+    let disposal = if cleanup_pending.load(std::sync::atomic::Ordering::Acquire) {
+        Err(NativeServiceError::Refused(
+            "repeated-analysis retains original native lane custody",
+        ))
+    } else {
+        service.dispose()
+    };
     if let Err(error) = &disposal {
         eprintln!(
             "private repeated-analysis cleanup failed: {error}; state={}",

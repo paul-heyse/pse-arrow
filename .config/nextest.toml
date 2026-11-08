@@ -56,6 +56,11 @@ default-filter = "test(managed_primary_)"
 # Nextest owns the declared scheduling and timeout behavior directly. Private native
 # fixtures supply capabilities; scheduling groups never grant execution authority.
 [[profile.default.overrides]]
+# Both owners reserve 600 s for work and 60 s for original settlement.
+filter = 'test(=surrealkit::surrealkit_generated_contract_uses_owned_service_and_disposes) | test(=public_native_repeated_analysis_preserves_frozen_cut_and_replays_realized_points)'
+slow-timeout = { period = "60s", terminate-after = 15 }
+
+[[profile.default.overrides]]
 filter = '(package(pse-backend-native) & test(/^(kinsol|ipopt|uno|petsc|root_isolation|dynamics|highs|clarabel_tests|restart_tests|scip_tests|l1_tests|pounce_convex_tests|measurement_tests)::/)) | test(/(^|::)solve_/)'
 slow-timeout = { period = "300s", terminate-after = 2 }
 

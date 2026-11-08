@@ -135,6 +135,12 @@ pub enum HostError {
     /// A requested capability has invalid premises.
     #[error("host ownership: {0}")]
     Ownership(String),
+    /// The requested preparation names an atom outside the native capability vocabulary.
+    #[error("unknown native capability {name:?}; expected {expected}", expected = native::capability_names().join(","))]
+    InvalidNativeCapability {
+        /// Exact rejected atom, including an empty component in a nonempty request.
+        name: String,
+    },
     /// History could not establish a global selection; every original row failure survives.
     #[error("invocation history is incomplete; global latest cannot be established")]
     IncompleteInvocationHistory {
@@ -217,6 +223,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::Affected(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Manager(_) => pse_diagnostics::DiagnosticCode::HostManager,
         Self::Ownership(_) => pse_diagnostics::DiagnosticCode::HostOwnership,
+        Self::InvalidNativeCapability { .. } => pse_diagnostics::DiagnosticCode::ConfigInvalid,
         Self::IncompleteInvocationHistory {..} => pse_diagnostics::DiagnosticCode::HostOwnership,
         Self::Deadline(_) => pse_diagnostics::DiagnosticCode::HostDeadline,
         Self::UnknownLaunch {..} => pse_diagnostics::DiagnosticCode::HostUnknownLaunch,

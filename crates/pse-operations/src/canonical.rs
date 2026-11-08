@@ -857,7 +857,6 @@ struct ProtectionOwner {
     key: String,
     revision: Revision,
     store: Option<CanonicalStore>,
-    executor: Option<tokio::runtime::Handle>,
     activity: std::sync::Mutex<Option<ConnectionActivity>>,
     released: std::sync::atomic::AtomicBool,
     metadata_owner: std::sync::OnceLock<crate::transport::client::ResponseAllocation>,
@@ -870,7 +869,6 @@ impl ProtectedSelection {
                 key: key.into(),
                 revision,
                 store: None,
-                executor: None,
                 activity: std::sync::Mutex::new(None),
                 released: std::sync::atomic::AtomicBool::new(false),
                 metadata_owner: std::sync::OnceLock::new(),
@@ -974,13 +972,11 @@ impl ProtectedSelection {
             let store = store.clone();
             let key = owner.key.clone();
             let revision = owner.revision.clone();
-            let executor = owner.executor.clone().ok_or_else(|| {
-                CanonicalError::Configuration("protection cleanup executor unavailable".into())
-            })?;
             let activity = owner.activity()?;
             let fixture = store.fixture_lifetime.clone();
             let metadata_owner = owner.metadata_owner.get().cloned();
-            let task = executor.spawn(async move {
+            let client = store.db.clone();
+            let task = client.spawn(async move {
                 let result = transport::optional_response_ownership_scope(
                     metadata_owner,
                     activity.scope(async move {
@@ -1033,7 +1029,7 @@ impl Drop for ProtectionOwner {
         if self.released.load(std::sync::atomic::Ordering::Acquire) {
             return;
         }
-        if let (Some(store), Some(executor)) = (&self.store, &self.executor) {
+        if let Some(store) = &self.store {
             let store = store.clone();
             let store = {
                 // The last lexical fixture borrower must join this tracked release
@@ -1071,7 +1067,8 @@ impl Drop for ProtectionOwner {
                 key.clone(),
                 metadata_owner.clone(),
             );
-            executor.spawn(async move {
+            let client = store.db.clone();
+            client.spawn(async move {
                 let result = transport::optional_response_ownership_scope(
                     metadata_owner,
                     store.release_protection(&revision, &key),
@@ -2125,21 +2122,12 @@ impl CanonicalStore {
                 let grant_key =
                     within_clock(deadline, self.protection_grant_key(&revision.problem)).await?;
                 self.result_read_drain.retain()?;
-                let executor = tokio::runtime::Handle::current();
-                // A fixture's physical clients outlive the caller's short-lived test
-                // executor. Their automatic protection releases must have that same
-                // retained lifetime, including when a test abandons its result reader.
-                let executor = self
-                    .fixture_lifetime
-                    .as_ref()
-                    .map_or(executor.clone(), |fixture| fixture.cleanup_executor());
                 let selection = ProtectedSelection {
                     owner: Arc::new(ProtectionOwner {
                         key: grant_key,
                         revision,
                         store: Some(self.clone()),
                         activity: std::sync::Mutex::new(Some(self.admit_activity()?)),
-                        executor: Some(executor),
                         released: std::sync::atomic::AtomicBool::new(false),
                         metadata_owner: std::sync::OnceLock::new(),
                     }),
@@ -2147,17 +2135,19 @@ impl CanonicalStore {
                 let store = self.clone();
                 // Submission owns the protection before any RPC. Abandoning the caller detaches
                 // this task; its eventual result still owns cleanup through acknowledgement.
-                tokio::spawn(inherit_activity(transport::inherit_response_ownership(
-                    async move {
-                        within_clock(deadline, store.acquire_protection(selection, micros)).await
-                    },
-                )))
-                .await
-                .map_err(|error| {
-                    CanonicalError::Configuration(format!(
-                        "protection acquisition task failed: {error}"
-                    ))
-                })?
+                self.db
+                    .spawn(inherit_activity(transport::inherit_response_ownership(
+                        async move {
+                            within_clock(deadline, store.acquire_protection(selection, micros))
+                                .await
+                        },
+                    )))
+                    .await
+                    .map_err(|error| {
+                        CanonicalError::Configuration(format!(
+                            "protection acquisition task failed: {error}"
+                        ))
+                    })?
             })
             .await
     }
@@ -3589,7 +3579,6 @@ mod description_unit {
             owner: Arc::new(ProtectionOwner {
                 store: None,
                 activity: std::sync::Mutex::new(None),
-                executor: None,
                 released: std::sync::atomic::AtomicBool::new(false),
                 metadata_owner: std::sync::OnceLock::new(),
                 key: protection.into(),
@@ -4292,7 +4281,7 @@ mod canonical_server_unit {
             .enable_all()
             .build()
             .unwrap();
-        observer.block_on(store.result_read_drain.drain()).unwrap();
+        observer.block_on(store.join_result_releases()).unwrap();
         observer.block_on(async {
             tokio::time::timeout(REQUEST_TIMEOUT, async {
                 while store
@@ -4307,6 +4296,33 @@ mod canonical_server_unit {
             .unwrap();
         });
         observer.block_on(store.remove_isolated_fixture()).unwrap();
+    }
+    #[tokio::test]
+    async fn isolated_fixture_refuses_drain_while_sibling_owns_a_protection() {
+        let (owner, _) = initialization_fixture().await;
+        owner.create().await.unwrap();
+        let sibling = owner.independent_caller().unwrap();
+        let revision = sibling
+            .edit("live-sibling", None, "source", &[])
+            .await
+            .unwrap();
+        let protection = sibling
+            .protect(revision, std::time::Duration::from_secs(30))
+            .await
+            .unwrap();
+
+        assert!(matches!(
+            owner.remove_isolated_fixture().await,
+            Err(CanonicalError::Configuration(detail)) if detail == "canonical client still has live protected readers"
+        ));
+        let drained = owner.fixture_lifetime.as_ref().unwrap().drained.clone();
+        assert!(!drained.load(std::sync::atomic::Ordering::Acquire));
+        sibling.close();
+        drop(sibling);
+        drop(protection);
+        owner.join_result_releases().await.unwrap();
+        owner.remove_isolated_fixture().await.unwrap();
+        assert!(drained.load(std::sync::atomic::Ordering::Acquire));
     }
     #[tokio::test]
     async fn source_protection_follows_last_reader_and_abandoned_acquisition() {
@@ -4681,7 +4697,6 @@ mod canonical_server_unit {
                 revision: revision.clone(),
                 store: Some(store.clone()),
                 activity: std::sync::Mutex::new(Some(store.admit_activity().unwrap())),
-                executor: Some(tokio::runtime::Handle::current()),
                 released: std::sync::atomic::AtomicBool::new(false),
                 metadata_owner: std::sync::OnceLock::new(),
             }),

@@ -18,6 +18,8 @@ use std::{
 mod execution;
 pub use execution::{ExecutionInputs, PreparedExecution, prepare_module, selected_module};
 mod native_lane;
+#[doc(hidden)]
+pub mod target_settlement;
 pub use native_lane::{
     NativeLaneArtifact, NativeLaneSelection, prepare_native_lane, selected_native_lane,
 };

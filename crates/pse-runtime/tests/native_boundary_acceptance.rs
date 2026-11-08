@@ -34,7 +34,7 @@ use pse_model::{
 };
 use pse_operations::{
     canonical::CanonicalStore,
-    native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec},
+    native_service::{NativeCanonicalService, NativeServiceSpec},
 };
 use pse_relations::{
     columnar::RelationRow,
@@ -68,30 +68,7 @@ fn root() -> PathBuf {
 }
 
 fn service() -> NativeCanonicalService {
-    let environment = std::env::vars_os().collect();
-    let module_source = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-    {
-        NativeModuleSource::Prepared(
-            pse_host::study_module::select(
-                &PathBuf::from(receipt),
-                pse_host::study_module::Variant::Production,
-            )
-            .unwrap(),
-        )
-    } else {
-        NativeModuleSource::RecordedState(PathBuf::from(std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-            .expect("explicit prepared module selector; the fixture copies its immutable module into fresh state")))
-    };
-    NativeCanonicalService::new(NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper: PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-                .expect("explicit already-built native canonical helper"),
-        ),
-        module_source,
-        state_parent: std::env::temp_dir(),
-    })
-    .unwrap()
+    NativeCanonicalService::new(NativeServiceSpec::selected_fixture(None).unwrap()).unwrap()
 }
 
 struct Science {

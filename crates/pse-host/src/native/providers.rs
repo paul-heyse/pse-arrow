@@ -77,10 +77,8 @@ pub(super) fn capabilities(value: &str) -> Result<BTreeSet<&str>, HostError> {
         return Ok(BTreeSet::new());
     }
     let requested: BTreeSet<_> = value.split(',').collect();
-    if requested.is_empty() || requested.iter().any(|name| !ORDER.contains(name)) {
-        return Err(invalid(
-            "unknown native capability; expected compiler,solver,klu,isolation,uno,petsc,coolprop",
-        ));
+    if let Some(&name) = requested.iter().find(|name| !ORDER.contains(name)) {
+        return Err(HostError::InvalidNativeCapability { name: name.into() });
     }
     let mut result = requested;
     if result
@@ -1530,8 +1528,16 @@ mod tests {
             capabilities("petsc,uno,klu").unwrap(),
             BTreeSet::from(["compiler", "solver", "klu", "uno", "petsc"])
         );
-        for value in [",", "compiler,", "ipopt", "compiler,IPOPT"] {
-            assert!(validate_capabilities(value).is_err());
+        for (value, rejected) in [
+            (",", ""),
+            ("compiler,", ""),
+            ("ipopt", "ipopt"),
+            ("compiler,IPOPT", "IPOPT"),
+        ] {
+            assert!(matches!(
+                validate_capabilities(value),
+                Err(HostError::InvalidNativeCapability { name }) if name == rejected
+            ));
         }
     }
     #[test]

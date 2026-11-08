@@ -74,10 +74,6 @@ impl FixtureLifetime {
     }
 }
 impl FixtureLifetime {
-    pub(crate) fn cleanup_executor(&self) -> tokio::runtime::Handle {
-        self.executor.handle().clone()
-    }
-
     #[cfg(test)]
     pub(crate) fn execute<F, T>(&self, future: F) -> Result<T, crate::canonical::CanonicalError>
     where

@@ -22,7 +22,7 @@ use surrealdb_types::SurrealValue;
 use std::io::Write;
 
 #[cfg(all(test, feature = "native-service"))]
-use crate::native_service::{NativeModuleSource, NativeServiceSpec};
+use crate::native_service::NativeServiceSpec;
 
 mod logical;
 pub(crate) use logical::FixtureLifetime;
@@ -42,31 +42,7 @@ mod migration_tests;
     reason = "the isolated lifecycle test requires admitted native images and state"
 )]
 pub(crate) fn owned_test_service_spec() -> NativeServiceSpec {
-    let environment = std::env::vars_os().collect();
-    let helper = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-            .expect("explicit already-built native-service helper"),
-    );
-    assert!(helper.is_absolute() && helper.is_file());
-    NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper,
-        module_source: if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-            NativeModuleSource::Prepared(
-                pse_host::study_module::select(
-                    &PathBuf::from(record),
-                    pse_host::study_module::Variant::Production,
-                )
-                .unwrap(),
-            )
-        } else {
-            NativeModuleSource::RecordedState(PathBuf::from(
-                std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                    .expect("explicit private module receipt selector"),
-            ))
-        },
-        state_parent: std::env::temp_dir(),
-    }
+    NativeServiceSpec::selected_fixture(None).unwrap()
 }
 
 /// Explicit child selection, issued only after the private native service is ready.
@@ -572,7 +548,7 @@ mod command {
             let runner_exit = std::sync::Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
             let observed_exit = runner_exit.clone();
             let outcome = service
-                .run(final_end, |service| {
+                .run_until(execution_end, final_end, |service| {
                     Box::pin(async move {
                         service
                             .launch(execution_end.min(Instant::now() + Duration::from_secs(90)))

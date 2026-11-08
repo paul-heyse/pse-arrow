@@ -20,9 +20,7 @@ use pse_backend_native::{
     solve::{Backend, SolveIntent},
 };
 use pse_model::study::{OccurrenceKey, StartPolicy};
-use pse_operations::native_service::{
-    NativeCanonicalService, NativeModuleSource, NativeServiceSpec,
-};
+use pse_operations::native_service::{NativeCanonicalService, NativeServiceSpec};
 use pse_runtime::{
     CancelSource, SharedRuntime,
     math::{settings::SolveSettings, solves::Outcome},
@@ -79,27 +77,6 @@ fn allocation_for_workers(
 
 impl ManagedWorkerCase {
     fn new(workers: usize) -> Self {
-        let environment = std::env::vars_os().collect();
-        let module_source =
-            if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-                NativeModuleSource::Prepared(
-                    pse_host::study_module::select(
-                        &PathBuf::from(receipt),
-                        pse_host::study_module::Variant::Production,
-                    )
-                    .unwrap(),
-                )
-            } else {
-                NativeModuleSource::RecordedState(PathBuf::from(
-                    std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE")
-                        .expect("explicit prepared native module receipt selector"),
-                ))
-            };
-        let helper = PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-                .expect("root supplies the already-built canonical-service helper"),
-        );
-        assert!(helper.is_absolute() && helper.is_file());
         // Share the declared workstation envelope across these original processes;
         // no independently invented small fixture pool can block default preparation.
         let profiles = pse_runtime::workflow::ProductionProfiles::read(
@@ -112,13 +89,9 @@ impl ManagedWorkerCase {
             workers,
             selected.execution.unwrap().observer_memory_bytes,
         );
-        let service = NativeCanonicalService::new(NativeServiceSpec {
-            server: pse_host::server::select(&environment).unwrap(),
-            helper,
-            module_source,
-            state_parent: std::env::temp_dir(),
-        })
-        .unwrap();
+        let service =
+            NativeCanonicalService::new(NativeServiceSpec::selected_fixture(None).unwrap())
+                .unwrap();
         eprintln!(
             "worker journey private state={} original_service={}",
             service.state().display(),

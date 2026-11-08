@@ -81,6 +81,9 @@ impl CompletedObserver {
     pub(crate) fn with_target_owned(self, cases: BTreeSet<TestIdentity>) -> Self {
         Self(self.0.with_target_owned(cases))
     }
+    pub(crate) fn with_target_settlement(self, directory: PathBuf) -> Self {
+        Self(self.0.with_target_settlement(directory))
+    }
     /// Called after original wait and required raw output drainage.
     pub fn finish(
         self,

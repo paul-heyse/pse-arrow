@@ -106,15 +106,26 @@ fn fixture_retirement_uses_the_original_selected_population() {
     });
     fs::remove_file(&group.build.artifacts[0].executable.captured).unwrap();
     let unselected = serde_json::from_value(candidate.clone()).unwrap();
-    assert!(!selected_target_owned_fixture(&listed.inventory, &[unselected]).unwrap());
+    assert!(
+        selected_target_owned_groups(&listed.inventory, &[unselected])
+            .unwrap()
+            .is_empty()
+    );
 
     candidate["declaration"]["scope"]["tests"] = json!(["same_name"]);
     let selected = serde_json::from_value(candidate.clone()).unwrap();
-    assert!(selected_target_owned_fixture(&listed.inventory, &[selected]).unwrap());
+    assert_eq!(
+        selected_target_owned_groups(&listed.inventory, &[selected]).unwrap(),
+        [0].into()
+    );
 
     candidate["declaration"]["ownership"] = json!("runner-borrowed");
     let borrowed = serde_json::from_value(candidate).unwrap();
-    assert!(!selected_target_owned_fixture(&listed.inventory, &[borrowed]).unwrap());
+    assert!(
+        selected_target_owned_groups(&listed.inventory, &[borrowed])
+            .unwrap()
+            .is_empty()
+    );
 }
 #[test]
 fn metadata_traversal_authenticates_unique_executables_once_and_refuses_changed_captures() {

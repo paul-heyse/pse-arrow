@@ -503,6 +503,8 @@ pub struct NextestSummary {
     child_exit: i32,
     native_child_exit: Option<i32>,
     fixture_settled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_fixture_settled: Option<bool>,
     child_class: NextestExitClass,
     outcome: NextestOutcome,
     setup: NextestSetup,

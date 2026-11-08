@@ -4,7 +4,7 @@
 //! The pinned SurrealKit suite on a fresh native service and a separate namespace.
 
 use super::{NativeServiceError, fixture_with_schema};
-use pse_diagnostics::{DrainFailurePolicy, SupervisedChild};
+use pse_diagnostics::{SupervisedChild, SupervisionError};
 use pse_operations::{
     canonical::{CanonicalOptions, MESSAGE_BYTES},
     generated::surreal::{SCHEMA, SCHEMA_DIGEST},
@@ -23,10 +23,16 @@ use std::{
     os::unix::{fs::OpenOptionsExt as _, process::ExitStatusExt as _},
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::{Duration, Instant},
 };
 
 const SUITE: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/canonical.toml");
+const SEED_MUTATION_CASES: [&str; 2] = ["authored_seed_is_visible", "decimal_u64_exact"];
+const MAX_REPORT_BYTES: u64 = 1024 * 1024;
 const SEED: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/seed.surql");
 const HTTP_FIXTURE: &str =
     include_str!("../../../../scripts/tests/fixtures/surrealkit/control-transaction.surql");
@@ -177,18 +183,22 @@ struct SuiteTool<'a> {
     endpoint: &'a str,
     setup_password: &'a str,
     inspection_password: &'a str,
+    work_end: Instant,
+    settlement_end: Instant,
+    child_pending: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Copy)]
 enum SuiteSelection {
     CurrentSchema,
+    SeedMutation,
     AuthoredRollout,
 }
 
 impl SuiteSelection {
     fn cli(self) -> (&'static str, &'static str) {
         match self {
-            Self::CurrentSchema => ("sync", SUITE_NAME),
+            Self::CurrentSchema | Self::SeedMutation => ("sync", SUITE_NAME),
             Self::AuthoredRollout => ("both", ROLLOUT_SUITE_NAME),
         }
     }
@@ -200,26 +210,19 @@ impl SuiteTool<'_> {
         folder: &Path,
         selection: SuiteSelection,
         interrupt_at: Option<PathBuf>,
-    ) -> Result<ExitStatus, NativeServiceError> {
+    ) -> Result<(ExitStatus, Vec<u8>), NativeServiceError> {
         let (schema_source, suite) = selection.cli();
         let allowance = match selection {
-            SuiteSelection::CurrentSchema => Duration::from_secs(30),
+            SuiteSelection::CurrentSchema | SuiteSelection::SeedMutation => Duration::from_secs(30),
             SuiteSelection::AuthoredRollout => Duration::from_secs(120),
         };
         let mut command = Command::new(self.binary);
         let http_endpoint = self.endpoint.replacen("grpc://", "http://", 1);
-        let diagnostics = fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(folder.join("stderr"))?;
         command
             .env_clear()
             .env("HOME", folder)
             .current_dir(folder)
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::from(diagnostics))
             .args(["test", "--schema-from", schema_source, "--suite", suite])
             .args([
                 "--host",
@@ -246,29 +249,56 @@ impl SuiteTool<'_> {
         if matches!(selection, SuiteSelection::AuthoredRollout) {
             command.arg("--no-seed");
         }
+        if matches!(selection, SuiteSelection::SeedMutation) {
+            command.args(["--tag", "seed-mutation"]);
+        }
+        let deadline = (Instant::now() + allowance).min(self.work_end);
+        if deadline <= Instant::now() {
+            return Err(NativeServiceError::Refused(
+                "SurrealKit work cutoff elapsed",
+            ));
+        }
+        let child_end =
+            (deadline + Duration::from_secs(10)).min(self.settlement_end - Duration::from_secs(30));
+        let child_pending = self.child_pending.clone();
+        let state = folder.to_owned();
         tokio::task::spawn_blocking(move || {
-            let mut child = SupervisedChild::spawn(&mut command, DrainFailurePolicy::Park, None)
-                .map_err(|_| NativeServiceError::Refused("SurrealKit child admission failed"))?;
-            let deadline = Instant::now() + allowance;
+            child_pending.store(true, Ordering::Release);
+            let mut child =
+                SupervisedChild::spawn_captured(&mut command, 64 * 1024, 64 * 1024, child_end)?;
             let observed = if let Some(input) = interrupt_at {
                 wait_for_project_reader(&mut child, &input, deadline).map(Some)
             } else {
                 child
-                    .wait_ready(None, Some(deadline))
-                    .map_err(|error| {
-                        eprintln!(
-                            "SurrealKit {suite} ({schema_source}) child observation: {error}"
-                        );
-                        NativeServiceError::Refused("SurrealKit child observation failed")
-                    })
+                    .wait_captured(None, deadline)
+                    .map_err(NativeServiceError::from)
                     .map(|()| None)
             };
-            let status = child
-                .cancel()
-                .map_err(|_| NativeServiceError::Refused("SurrealKit child settlement failed"))?;
             // Hold the test FIFO writer open until the child is physically drained.
-            drop(observed?);
-            Ok(status)
+            let settlement = child.cancel();
+            if child.retained_status().is_some() && settlement.is_ok() {
+                child_pending.store(false, Ordering::Release);
+            }
+            let status = match (observed, settlement) {
+                (Ok(_writer), Ok(status)) => status,
+                (Err(work), Ok(_)) => return Err(work),
+                (Ok(_writer), Err(drain)) => return Err(drain.into()),
+                (Err(work), Err(drain)) => {
+                    return Err(NativeServiceError::Settlement {
+                        state,
+                        failures: vec![work, drain.into()],
+                    });
+                }
+            };
+            let output = child.captured_output().ok_or(NativeServiceError::Refused(
+                "SurrealKit capture absent after settlement",
+            ))?;
+            if output.stdout.overflow || output.stderr.overflow {
+                return Err(NativeServiceError::Refused(
+                    "SurrealKit diagnostics exceeded capture bounds",
+                ));
+            }
+            Ok((status, output.stderr.prefix.clone()))
         })
         .await
         .map_err(|_| NativeServiceError::Refused("SurrealKit child owner task failed"))?
@@ -291,14 +321,14 @@ fn wait_for_project_reader(
             Err(error) if error.raw_os_error() == Some(libc::ENXIO) => {}
             Err(error) => return Err(error.into()),
         }
-        if child
-            .try_wait()
-            .map_err(|_| NativeServiceError::Refused("SurrealKit child observation failed"))?
-            .is_some()
-        {
-            break;
+        match child.wait_captured(
+            None,
+            (Instant::now() + Duration::from_millis(15)).min(deadline),
+        ) {
+            Ok(()) => break,
+            Err(SupervisionError::Deadline) => {}
+            Err(error) => return Err(error.into()),
         }
-        std::thread::sleep(Duration::from_millis(15));
     }
     Err(NativeServiceError::Refused(
         "SurrealKit did not reach the selected interrupted input",
@@ -362,7 +392,12 @@ fn verify_report(
             "missing SurrealKit suite result",
         ));
     };
-    let names: BTreeSet<_> = source.cases.iter().map(|case| case.name.as_str()).collect();
+    let authored: BTreeSet<_> = source.cases.iter().map(|case| case.name.as_str()).collect();
+    let names = if expected_failure.is_some() {
+        BTreeSet::from(SEED_MUTATION_CASES)
+    } else {
+        authored.clone()
+    };
     let observed: BTreeSet<_> = suite.cases.iter().map(|case| case.name.as_str()).collect();
     if report.suites_total != 1
         || report.suites.len() != 1
@@ -371,7 +406,8 @@ fn verify_report(
         || !suite
             .database
             .starts_with(&format!("{DATABASE_PREFIX}_sk_test_"))
-        || report.cases_total != source.cases.len()
+        || !names.is_subset(&authored)
+        || report.cases_total != names.len()
         || suite.cases.len() != names.len()
         || observed != names
     {
@@ -385,7 +421,7 @@ fn verify_report(
         .filter(|case| !case.passed)
         .map(|case| case.name.as_str())
         .collect();
-    if status.success() != expected_failure.is_none()
+    if status.code() != Some(i32::from(expected_failure.is_some()))
         || report.suites_failed != usize::from(expected_failure.is_some())
         || report.cases_failed != failures.len()
         || report.cases_passed != names.len() - failures.len()
@@ -401,24 +437,45 @@ fn verify_report(
 }
 
 fn read_report(path: &Path) -> Result<Report, NativeServiceError> {
-    serde_json::from_slice(&fs::read(path).map_err(|_| {
-        NativeServiceError::Refused("SurrealKit stopped before writing its original suite report")
-    })?)
-    .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+        .map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                NativeServiceError::Refused(
+                    "SurrealKit stopped before writing its original suite report",
+                )
+            } else {
+                error.into()
+            }
+        })?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file() || metadata.len() > MAX_REPORT_BYTES {
+        return Err(NativeServiceError::Refused(
+            "SurrealKit suite report is not a bounded regular file",
+        ));
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_REPORT_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_REPORT_BYTES {
+        return Err(NativeServiceError::Refused(
+            "SurrealKit suite report exceeds its byte limit",
+        ));
+    }
+    serde_json::from_slice(&bytes)
+        .map_err(|_| NativeServiceError::Refused("invalid SurrealKit suite report"))
 }
 
 fn verify_pre_report_refusal(
     project: &Path,
     status: ExitStatus,
+    stderr: &[u8],
     refusal: &str,
 ) -> Result<(), NativeServiceError> {
-    let mut diagnostics = String::new();
-    fs::File::open(project.join("stderr"))?
-        .take(64 * 1024)
-        .read_to_string(&mut diagnostics)?;
     if status.code() != Some(1)
         || project.join("result.json").try_exists()?
-        || !diagnostics.contains(refusal)
+        || !String::from_utf8_lossy(stderr).contains(refusal)
     {
         return Err(NativeServiceError::Refused(
             "SurrealKit did not observe the expected authored refusal before report publication",
@@ -524,7 +581,7 @@ fn verify_rollout_report(
 async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, NativeServiceError> {
     let passing = root.join("passing");
     stage_project(&passing, SCHEMA, Some(SEED))?;
-    let status = tool
+    let (status, _) = tool
         .run(&passing, SuiteSelection::CurrentSchema, None)
         .await?;
     let passed = verify_report(&passing.join("result.json"), status, None)?;
@@ -535,8 +592,8 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
         SCHEMA,
         Some(&SEED.replace("42dec", "43dec")),
     )?;
-    let status = tool
-        .run(&assertion_failure, SuiteSelection::CurrentSchema, None)
+    let (status, _) = tool
+        .run(&assertion_failure, SuiteSelection::SeedMutation, None)
         .await?;
     verify_report(
         &assertion_failure.join("result.json"),
@@ -550,10 +607,10 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
         setup_failure.join("setup.surql"),
         format!("THROW '{SETUP_REFUSAL}';"),
     )?;
-    let status = tool
+    let (status, stderr) = tool
         .run(&setup_failure, SuiteSelection::CurrentSchema, None)
         .await?;
-    verify_pre_report_refusal(&setup_failure, status, SETUP_REFUSAL)?;
+    verify_pre_report_refusal(&setup_failure, status, &stderr, SETUP_REFUSAL)?;
 
     let seed_failure = root.join("seed-failure");
     stage_project(
@@ -561,10 +618,10 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
         ROLLOUT_SCHEMA,
         Some(&format!("THROW '{SEED_REFUSAL}';")),
     )?;
-    let status = tool
+    let (status, stderr) = tool
         .run(&seed_failure, SuiteSelection::CurrentSchema, None)
         .await?;
-    verify_pre_report_refusal(&seed_failure, status, SEED_REFUSAL)?;
+    verify_pre_report_refusal(&seed_failure, status, &stderr, SEED_REFUSAL)?;
 
     let setup_interrupted = root.join("setup-interrupted");
     stage_project(&setup_interrupted, ROLLOUT_SCHEMA, Some(SEED))?;
@@ -573,7 +630,7 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     let seed_interrupted = root.join("seed-interrupted");
     let seed = stage_project(&seed_interrupted, ROLLOUT_SCHEMA, None)?;
     for (project, input) in [(setup_interrupted, setup), (seed_interrupted, seed)] {
-        let status = tool
+        let (status, _) = tool
             .run(&project, SuiteSelection::CurrentSchema, Some(input))
             .await?;
         if status.signal().is_none() || project.join("result.json").try_exists()? {
@@ -585,7 +642,7 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     for (name, drift) in [("rollout", false), ("rollout-drift", true)] {
         let project = root.join(name);
         stage_rollout_project(&project, drift)?;
-        let status = tool
+        let (status, _) = tool
             .run(&project, SuiteSelection::AuthoredRollout, None)
             .await?;
         verify_rollout_report(&project.join("result.json"), status, drift)?;
@@ -593,18 +650,79 @@ async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, Nati
     Ok(passed)
 }
 
+fn verify_rejected_reports() {
+    let root = tempfile::tempdir().unwrap();
+    let report = root.path().join("result.json");
+    let failure = ExitStatus::from_raw(1 << 8);
+    let verify = || verify_report(&report, failure, Some("authored_seed_is_visible"));
+    assert!(verify().unwrap_err().to_string().contains("before writing"));
+    fs::write(&report, b"{").unwrap();
+    assert!(verify().unwrap_err().to_string().contains("invalid"));
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&report)
+        .unwrap()
+        .set_len(MAX_REPORT_BYTES + 1)
+        .unwrap();
+    assert!(
+        verify()
+            .unwrap_err()
+            .to_string()
+            .contains("bounded regular file")
+    );
+    let case = |name, passed| {
+        serde_json::json!({
+            "name": name, "kind": "sql_expect", "passed": passed, "assertions": []
+        })
+    };
+    let mut document = serde_json::json!({
+        "suites_total": 1, "suites_failed": 1, "cases_total": 2,
+        "cases_passed": 1, "cases_failed": 1,
+        "suites": [{
+            "suite_name": SUITE_NAME, "namespace": NAMESPACE,
+            "database": format!("{DATABASE_PREFIX}_sk_test_selected"),
+            "cases": [case(SEED_MUTATION_CASES[0], false), case(SEED_MUTATION_CASES[1], true)]
+        }]
+    });
+    let write = |document: &serde_json::Value| {
+        fs::write(&report, serde_json::to_vec(document).unwrap()).unwrap();
+    };
+    write(&document);
+    assert_eq!(verify().unwrap(), 1);
+    document["suites"][0]["cases"][1]["name"] = serde_json::json!("immutable_bytes_exact");
+    write(&document);
+    assert!(
+        verify()
+            .unwrap_err()
+            .to_string()
+            .contains("partial or unexpected")
+    );
+    document["suites"][0]["cases"] = serde_json::json!([case(SEED_MUTATION_CASES[0], false)]);
+    write(&document);
+    assert!(
+        verify()
+            .unwrap_err()
+            .to_string()
+            .contains("partial or unexpected")
+    );
+}
+
 #[tokio::test]
 #[ignore = "requires the explicitly prepared pinned SurrealKit release"]
 async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
+    verify_rejected_reports();
     let binary = prepared_tool().unwrap();
     let mut service = fixture_with_schema(false).unwrap();
     let state = service.state().to_path_buf();
-    let deadline = Instant::now() + Duration::from_secs(300);
+    let work_end = Instant::now() + Duration::from_secs(600);
+    let settlement_end = work_end + Duration::from_secs(60);
+    let child_pending = Arc::new(AtomicBool::new(false));
+    let pending = child_pending.clone();
     let outcome = service
-        .run(deadline, |service| {
+        .run_until(work_end, settlement_end, |service| {
             Box::pin(async move {
                 service
-                    .launch(Instant::now() + Duration::from_secs(90))
+                    .launch((Instant::now() + Duration::from_secs(90)).min(work_end))
                     .await?;
                 let options = CanonicalOptions::from_state(service.state())?;
                 let live_endpoint = service.ready()?.store().endpoint();
@@ -621,7 +739,7 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
                     &options,
                     &setup_password,
                     &inspection_password,
-                    deadline,
+                    work_end,
                 )
                 .await?;
                 let tool = SuiteTool {
@@ -629,11 +747,18 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
                     endpoint: &options.endpoint,
                     setup_password: &setup_password,
                     inspection_password: &inspection_password,
+                    work_end,
+                    settlement_end,
+                    child_pending: pending,
                 };
                 exercise_suite(&tool, &service.state().join("surrealkit")).await
             })
         })
         .await;
+    assert!(
+        !child_pending.load(Ordering::Acquire),
+        "unsettled SurrealKit child retains {state:?}: {outcome:?}"
+    );
     let disposal = service.dispose();
     let (Ok(cases), Ok(())) = (&outcome, &disposal) else {
         panic!(

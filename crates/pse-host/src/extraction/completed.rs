@@ -50,6 +50,7 @@ pub struct CompletedReport {
     ignored_policy: IgnoredPolicy,
     fixture_outcome: Option<PathBuf>,
     target_owned: BTreeSet<TestIdentity>,
+    target_settlement: Option<PathBuf>,
 }
 impl CompletedReport {
     /// Original invocation-owned report location, available even when publication fails.
@@ -64,6 +65,10 @@ impl CompletedReport {
     /// Accept setup evidence only for selected cases already matched to a performing owner.
     pub(crate) fn with_target_owned(mut self, cases: BTreeSet<TestIdentity>) -> Self {
         self.target_owned = cases;
+        self
+    }
+    pub(crate) fn with_target_settlement(mut self, directory: PathBuf) -> Self {
+        self.target_settlement = Some(directory);
         self
     }
     /// Bind the observed native population before execution.
@@ -127,6 +132,7 @@ impl CompletedReport {
             ignored_policy,
             fixture_outcome: None,
             target_owned: BTreeSet::new(),
+            target_settlement: None,
         })
     }
     /// Interpret completed evidence after raw capture and original wait, retaining native exit.
@@ -144,6 +150,7 @@ impl CompletedReport {
         let mut target_setup_failed = false;
         let mut native_test_failed = false;
         let mut error = None;
+        let mut run = None;
         let decoded = File::open(&self.path)
             .map(BufReader::new)
             .map_err(|cause| cause.to_string())
@@ -159,6 +166,7 @@ impl CompletedReport {
                 )))
             }
             Ok(report) => {
+                run = report.uuid;
                 for suite in report.test_suites {
                     if suite.name.as_str().starts_with("@setup-script:") {
                         runner_setup_failed |= suite
@@ -275,6 +283,33 @@ impl CompletedReport {
                 }
             }
         }
+        let target_fixture_settled = self.target_settlement.as_ref().map(|directory| {
+            if !capture_complete || error.is_some() {
+                return false;
+            }
+            let Some(run) = run else {
+                return false;
+            };
+            let mut attempts = BTreeSet::new();
+            for identity in &self.target_owned {
+                if !completed.contains(&(identity.binary_id.clone(), identity.test_name.clone())) {
+                    return false;
+                }
+                let count = retries
+                    .iter()
+                    .find(|retry| &retry.identity == identity)
+                    .map_or(1, |retry| retry.attempts);
+                attempts.extend((1..=count).map(|attempt| {
+                    (
+                        identity.binary_id.clone(),
+                        identity.test_name.clone(),
+                        attempt,
+                    )
+                }));
+            }
+            crate::fixtures::target_settlement::settled(directory, &run.to_string(), &attempts)
+                .unwrap_or(false)
+        });
         let (native_child_exit, fixture_settled) = match self.fixture_outcome {
             None => (Some(child_exit), None),
             Some(path) => match std::fs::read(&path)
@@ -331,6 +366,7 @@ impl CompletedReport {
                 child_exit,
                 native_child_exit,
                 fixture_settled,
+                target_fixture_settled,
                 child_class,
                 outcome,
                 setup,

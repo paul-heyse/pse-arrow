@@ -196,6 +196,9 @@ pub enum NativeServiceError {
     /// Private filesystem or native exec operation failed.
     #[error("native canonical service I/O: {0}")]
     Io(#[from] std::io::Error),
+    /// Original owned subprocess observation or settlement failure.
+    #[error(transparent)]
+    Supervision(#[from] pse_diagnostics::SupervisionError),
     /// An original source preparation command completed unsuccessfully.
     #[error("native fixture {stage} command exited with {status}")]
     Command {
@@ -311,6 +314,57 @@ pub struct NativeServiceSpec {
     pub module_source: NativeModuleSource,
     /// Parent for a newly created private disposable directory.
     pub state_parent: PathBuf,
+}
+
+impl NativeServiceSpec {
+    /// Select a prepared test server and module, or the explicitly retained historical module.
+    /// An integration target can supply the exact helper admitted by Cargo and Nextest.
+    pub fn selected_fixture(helper: Option<PathBuf>) -> Result<Self, NativeServiceError> {
+        let module = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
+            NativeModuleSource::Prepared(pse_host::study_module::select(
+                Path::new(&receipt),
+                pse_host::study_module::Variant::Production,
+            )?)
+        } else {
+            let state = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").ok_or(
+                NativeServiceError::Refused(
+                    "explicit prepared receipt or historical module state required",
+                ),
+            )?;
+            NativeModuleSource::RecordedState(state.into())
+        };
+        Self::fixture_inputs(helper, module)
+    }
+
+    /// Select the current prepared module for a test that requires it explicitly.
+    pub fn selected_prepared_fixture() -> Result<Self, NativeServiceError> {
+        let receipt = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT").ok_or(
+            NativeServiceError::Refused("explicit prepared private module receipt required"),
+        )?;
+        let module = pse_host::study_module::select(
+            Path::new(&receipt),
+            pse_host::study_module::Variant::Production,
+        )?;
+        Self::fixture_inputs(None, NativeModuleSource::Prepared(module))
+    }
+
+    fn fixture_inputs(
+        helper: Option<PathBuf>,
+        module_source: NativeModuleSource,
+    ) -> Result<Self, NativeServiceError> {
+        let helper = helper
+            .or_else(|| std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER").map(PathBuf::from))
+            .filter(|helper| helper.is_absolute() && helper.is_file())
+            .ok_or(NativeServiceError::Refused(
+                "absolute already-built canonical-service helper required",
+            ))?;
+        Ok(Self {
+            server: server::select(&std::env::vars_os().collect())?,
+            helper,
+            module_source,
+            state_parent: std::env::temp_dir(),
+        })
+    }
 }
 enum ModuleCompanion {
     Migration(NativeModuleSource),
@@ -599,6 +653,7 @@ pub struct NativeCanonicalService {
     schema_writes: Vec<crate::canonical::migration::SchemaFenceWrite>,
     ingresses: Vec<OwnedIngress>,
     process_drained: Option<UnitObservation>,
+    target_effect: Option<pse_host::fixtures::target_settlement::TargetEffect>,
     closing: bool,
     stopped: bool,
     disposed: bool,
@@ -947,6 +1002,7 @@ impl NativeCanonicalService {
             schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,
+            target_effect: None,
             closing: false,
             stopped: false,
             disposed: false,
@@ -1047,6 +1103,9 @@ impl NativeCanonicalService {
             return Err(NativeServiceError::Refused(
                 "native canonical fixture requires authenticated native workload containment",
             ));
+        }
+        if self.target_effect.is_none() {
+            self.target_effect = pse_host::fixtures::target_settlement::TargetEffect::begin()?;
         }
         self.manager = Some(manager.clone());
         self.launch_dispatched = true;
@@ -1383,13 +1442,46 @@ impl NativeCanonicalService {
             Box<dyn Future<Output = Result<T, NativeServiceError>> + Send + 'a>,
         >,
     {
+        self.run_until(deadline, deadline, body).await
+    }
+
+    /// Run work under its own cutoff and preserve the original outer cutoff for settlement.
+    ///
+    /// # Errors
+    /// The cutoff order, work, or any independent settlement fails.
+    /// # Panics
+    /// Resumes the original body panic after attempting every independent settlement.
+    pub async fn run_until<T, F>(
+        &mut self,
+        work_end: Instant,
+        settlement_end: Instant,
+        body: F,
+    ) -> Result<T, NativeServiceError>
+    where
+        F: for<'a> FnOnce(
+            &'a mut Self,
+        ) -> std::pin::Pin<
+            Box<dyn Future<Output = Result<T, NativeServiceError>> + Send + 'a>,
+        >,
+    {
+        if work_end > settlement_end {
+            return Err(NativeServiceError::Refused(
+                "work cutoff exceeds settlement cutoff",
+            ));
+        }
         let outcome =
-            std::panic::AssertUnwindSafe(crate::transport::operation_scope(deadline, async {
+            std::panic::AssertUnwindSafe(crate::transport::operation_scope(work_end, async {
+                if Instant::now() >= work_end {
+                    return Err(NativeServiceError::Refused(
+                        "native fixture work cutoff elapsed",
+                    ));
+                }
                 body(self).await
             }))
             .catch_unwind()
             .await;
-        let settlement = self.shutdown(deadline).await;
+        let settlement =
+            crate::transport::operation_scope(settlement_end, self.shutdown(settlement_end)).await;
         match (outcome, settlement) {
             (Ok(Ok(value)), Ok(())) => Ok(value),
             (Ok(Err(error)), Ok(())) => Err(error),
@@ -1626,6 +1718,10 @@ impl NativeCanonicalService {
                 state: self.state.path.clone(),
                 failures,
             });
+        }
+        if let Some(effect) = &self.target_effect {
+            effect.settle()?;
+            self.target_effect = None;
         }
         self.stopped = true;
         Ok(())
@@ -2331,6 +2427,7 @@ mod tests {
             schema_writes: Vec::new(),
             ingresses: Vec::new(),
             process_drained: None,
+            target_effect: None,
             closing: false,
             stopped: false,
             disposed: false,
@@ -2481,6 +2578,33 @@ mod tests {
                 ))
             ));
         }
+    }
+
+    #[tokio::test]
+    async fn native_service_work_cutoff_leaves_the_original_settlement_reserve() {
+        let (_temporary, mut service) = unlaunched_service();
+        let work_end = Instant::now() + Duration::from_millis(250);
+        let outer = work_end + Duration::from_secs(5);
+        let result = service
+            .run_until(work_end, outer, |_| {
+                Box::pin(async move {
+                    assert_eq!(crate::transport::current_deadline(), Some(work_end.into()));
+                    crate::transport::within_clock(
+                        outer.into(),
+                        std::future::pending::<Result<(), CanonicalError>>(),
+                    )
+                    .await?;
+                    Ok(())
+                })
+            })
+            .await;
+        assert!(matches!(
+            result,
+            Err(NativeServiceError::Canonical(CanonicalError::Timeout))
+        ));
+        assert!(Instant::now() < outer);
+        assert!(service.stopped);
+        service.dispose().unwrap();
     }
     #[test]
     fn native_service_private_payload_refuses_symlinks_hardlinks_and_shared_modes() {

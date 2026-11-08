@@ -424,31 +424,35 @@ fn matches_requirement_target(
             .all(|(expected, actual)| expected == &actual.to_string())
 }
 
-pub(crate) fn selected_target_owned_fixture(
+pub(crate) fn selected_target_owned_groups(
     inventory: &Inventory,
     requirements: &[Requirement],
-) -> Result<bool, WorkflowError> {
+) -> Result<BTreeSet<usize>, WorkflowError> {
     let candidates: Vec<_> = requirements
         .iter()
         .filter(|requirement| requirement.ownership() == fixtures::Ownership::TargetOwned)
         .collect();
     if candidates.is_empty() {
-        return Ok(false);
+        return Ok(BTreeSet::new());
     }
     // Unknown selection cannot rule out a target-owned fixture. For a complete
     // inventory use its recorded correspondence, which survives image release.
     if !inventory.selected_population_complete() {
-        return Ok(true);
+        return Ok(candidates.into_iter().map(Requirement::group).collect());
     }
+    let mut groups = BTreeSet::new();
     for identity in inventory.selected_tests_iter() {
+        if groups.contains(&identity.group) {
+            continue;
+        }
         let captured = inventory.test_record(&identity)?;
         if candidates.iter().any(|requirement| {
             matches_requirement(requirement, &identity, &captured.artifact.cargo)
         }) {
-            return Ok(true);
+            groups.insert(identity.group);
         }
     }
-    Ok(false)
+    Ok(groups)
 }
 
 /// Normalized declaration-backed intent. Construction reads only explicit owning inputs.

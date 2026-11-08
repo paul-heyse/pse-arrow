@@ -380,8 +380,18 @@ async fn perform(
                 continue;
             }
             let mut observer = listed.observer(group)?;
+            let mut request = listed.command(group)?;
+            let settlement_env = crate::fixtures::target_settlement::DIRECTORY_ENV;
+            request.environment.remove(OsStr::new(settlement_env));
             if let Some(cases) = target_owned.remove(&group) {
-                observer = observer.with_target_owned(cases);
+                let settlement = destination.join(format!("target-settlement-{group}"));
+                directory(&settlement)?;
+                request
+                    .environment
+                    .insert(settlement_env.into(), settlement.clone().into_os_string());
+                observer = observer
+                    .with_target_owned(cases)
+                    .with_target_settlement(settlement);
             }
             report.expect_path(
                 destination,
@@ -403,7 +413,6 @@ async fn perform(
                 )?;
                 observer = observer.with_fixture_outcome(outcome);
             }
-            let request = listed.command(group)?;
             report.expect_path(
                 destination,
                 &listed.run_configuration_path(group),

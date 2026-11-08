@@ -2608,6 +2608,15 @@ mod canonical_execution_server_unit {
             std::env::var_os("PSE_CANONICAL_RESTART_CONTROL")
                 .expect("explicit owned restart control directory required"),
         );
+        // The performing test reserves this one-shot rendezvous before touching the
+        // store. A stopped run leaves its claim for the original restart owner.
+        let mut claim = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(directory.join("claim"))
+            .expect("exclusive fresh restart rendezvous required");
+        std::io::Write::write_all(&mut claim, uuid::Uuid::new_v4().to_string().as_bytes())
+            .expect("publish the original restart claimant");
         for name in [
             "ready.json",
             "stopped.json",

@@ -33,6 +33,7 @@ error_contains = "PSE_REFUSAL:original_canonical_rpc_deadline_expired"
 
 [[cases]]
 name = "decimal_u64_exact"
+tags = ["seed-mutation"]
 kind = "sql_expect"
 sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:exact);"
 allow = true
@@ -42,6 +43,7 @@ equals = "18446744073709551615"
 
 [[cases]]
 name = "authored_seed_is_visible"
+tags = ["seed-mutation"]
 kind = "sql_expect"
 sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:seeded);"
 allow = true

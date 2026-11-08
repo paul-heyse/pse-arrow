@@ -18,35 +18,12 @@ use std::{
 };
 
 fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
-    let environment = std::env::vars_os().collect();
-    let server = pse_host::server::select(&environment)?;
-    let module_source = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-    {
-        NativeModuleSource::Prepared(pse_host::study_module::select(
-            PathBuf::from(record).as_path(),
-            pse_host::study_module::Variant::Production,
-        )?)
-    } else {
-        NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").ok_or(
-                NativeServiceError::Refused(
-                    "explicit prepared receipt or historical module state required",
-                ),
-            )?,
-        ))
-    };
-    Ok(NativeServiceSpec {
-        server,
-        helper: PathBuf::from(
-            std::env::var_os("CARGO_BIN_EXE_pse-canonical-service").ok_or(
-                NativeServiceError::Refused(
-                    "Cargo/nextest must supply the selected runtime service executable",
-                ),
-            )?,
+    let helper = std::env::var_os("CARGO_BIN_EXE_pse-canonical-service").ok_or(
+        NativeServiceError::Refused(
+            "Cargo/nextest must supply the selected runtime service executable",
         ),
-        module_source,
-        state_parent: std::env::temp_dir(),
-    })
+    )?;
+    NativeServiceSpec::selected_fixture(Some(helper.into()))
 }
 
 // The fixture may select retained immutable bytes directly without synthesizing
@@ -248,6 +225,75 @@ async fn native_service_process_stop_joins_without_database_transport() {
 }
 
 #[tokio::test]
+#[ignore = "requires two separately managed invocations and one private overlap rendezvous"]
+async fn native_service_independent_invocations_overlap_on_private_servers() {
+    let exchange = PathBuf::from(std::env::var_os("PSE_TEST_PRIVATE_SERVICE_OVERLAP").unwrap());
+    let participant = std::env::var("PSE_TEST_PRIVATE_SERVICE_PARTICIPANT").unwrap();
+    let sibling = match participant.as_str() {
+        "first" => "second",
+        "second" => "first",
+        _ => panic!("select one exact overlap participant"),
+    };
+    assert!(exchange.is_absolute() && exchange.is_dir());
+    let mut service = fixture_with_schema(false).unwrap();
+    let state = service.state().to_owned();
+    let work_end = Instant::now() + Duration::from_secs(120);
+    service
+        .run_until(work_end, work_end + Duration::from_secs(30), |service| {
+            Box::pin(async move {
+                service.launch(work_end).await?;
+                let publish =
+                    |phase: &str, path: &std::path::Path| -> Result<(), NativeServiceError> {
+                        let temporary = exchange.join(format!("{participant}-{phase}.tmp"));
+                        std::fs::write(
+                            &temporary,
+                            serde_json::to_vec(path).map_err(std::io::Error::other)?,
+                        )?;
+                        std::fs::rename(
+                            temporary,
+                            exchange.join(format!("{participant}-{phase}.json")),
+                        )?;
+                        Ok(())
+                    };
+                let observe = |phase: &'static str| {
+                    let path = exchange.join(format!("{sibling}-{phase}.json"));
+                    async move {
+                        loop {
+                            match std::fs::read(&path) {
+                                Ok(bytes) => {
+                                    return serde_json::from_slice::<PathBuf>(&bytes)
+                                        .map_err(std::io::Error::other)
+                                        .map_err(NativeServiceError::from);
+                                }
+                                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                                Err(error) => return Err(error.into()),
+                            }
+                            if Instant::now() >= work_end {
+                                return Err(NativeServiceError::Refused(
+                                    "independent private service did not reach its rendezvous",
+                                ));
+                            }
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        }
+                    }
+                };
+                publish("ready", service.state())?;
+                let other = observe("ready").await?;
+                assert_ne!(other, service.state());
+                assert!(other.join("config.json").is_file());
+                assert!(service.ready()?.store().endpoint().starts_with("grpc://"));
+                publish("observed", service.state())?;
+                assert_eq!(observe("observed").await?, other);
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+    service.dispose().unwrap();
+    assert!(!state.exists());
+}
+
+#[tokio::test]
 async fn native_service_rejects_issued_session_on_another_accepted_connection() {
     use surrealdb_protocol::proto::rpc::v1::{AttachSessionRequest, RequestContext};
 
@@ -440,6 +486,30 @@ async fn native_service_body_panic_still_joins_original_owned_units() {
         .await
         .unwrap();
     service.dispose().unwrap();
+}
+
+#[tokio::test]
+#[ignore = "manual managed-retention control deliberately fails after physical settlement"]
+async fn native_service_managed_release_after_assertion_failure_control() {
+    let mut service = fixture_with_schema(false).unwrap();
+    let state = service.state().to_owned();
+    service
+        .run(Instant::now() + Duration::from_secs(180), |service| {
+            Box::pin(async move {
+                service
+                    .launch(Instant::now() + Duration::from_secs(90))
+                    .await?;
+                service
+                    .start_ingress(Instant::now() + Duration::from_secs(30))
+                    .await?;
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+    service.dispose().unwrap();
+    assert!(!state.exists());
+    panic!("intentional managed assertion failure after original service and ingress drain");
 }
 
 #[tokio::test]

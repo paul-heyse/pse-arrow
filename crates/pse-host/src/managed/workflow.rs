@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use sha2::{Digest as _, Sha256};
 use std::{
+    collections::BTreeSet,
     ffi::OsString,
     fs::{self, File, OpenOptions},
     io::{self, Read},
@@ -202,15 +203,12 @@ fn release_original_images(
             }
             let requirements: FixtureRequirements =
                 serde_json::from_slice(&original.report).map_err(host)?;
-            Some(
-                original.observation.outcome
-                    == crate::test_workflow::execute::Outcome::TestsSucceeded
-                    || !crate::test_workflow::selected_target_owned_fixture(
-                        inventory,
-                        &requirements.fixture_requirements,
-                    )
-                    .map_err(host)?,
+            let groups = crate::test_workflow::selected_target_owned_groups(
+                inventory,
+                &requirements.fixture_requirements,
             )
+            .map_err(host)?;
+            Some(target_fixture_settled(&original.report, &groups)?)
         }
         _ => None,
     };
@@ -230,6 +228,70 @@ fn release_original_images(
         captured: original,
         paired_result_sha256,
     })
+}
+
+fn target_fixture_settled(report: &[u8], required: &BTreeSet<usize>) -> Result<bool, HostError> {
+    if required.is_empty() {
+        return Ok(true);
+    }
+    #[derive(Deserialize)]
+    struct Summary {
+        target_fixture_settled: Option<bool>,
+    }
+    #[derive(Deserialize)]
+    struct Observation {
+        summary: Summary,
+    }
+    #[derive(Deserialize)]
+    struct Group {
+        kind: String,
+        group: usize,
+        observation: Observation,
+    }
+    #[derive(Deserialize)]
+    struct TargetReport {
+        observations: Vec<Group>,
+    }
+    let original: TargetReport = serde_json::from_slice(report).map_err(host)?;
+    let mut settled = BTreeSet::new();
+    for group in original.observations {
+        if required.contains(&group.group)
+            && (group.kind != "test"
+                || group.observation.summary.target_fixture_settled != Some(true)
+                || !settled.insert(group.group))
+        {
+            return Ok(false);
+        }
+    }
+    Ok(&settled == required)
+}
+
+#[cfg(test)]
+#[test]
+fn target_fixture_release_depends_on_all_original_owner_observations() {
+    let required = BTreeSet::from([1, 3]);
+    let report = |groups: &[(usize, Option<bool>)]| {
+        serde_json::to_vec(&serde_json::json!({
+            "outcome": "tests_failed",
+            "observations": groups.iter().map(|(group, settled)| serde_json::json!({
+                "kind": "test",
+                "group": group,
+                "observation": {"summary": {"target_fixture_settled": settled}}
+            })).collect::<Vec<_>>()
+        }))
+        .unwrap()
+    };
+    assert!(
+        target_fixture_settled(&report(&[(1, Some(true)), (3, Some(true))]), &required).unwrap()
+    );
+    for groups in [
+        &[(1, Some(true))][..],
+        &[(1, Some(true)), (3, None)][..],
+        &[(1, Some(false)), (3, Some(true))][..],
+        &[(1, Some(true)), (1, Some(true)), (3, Some(true))][..],
+    ] {
+        assert!(!target_fixture_settled(&report(groups), &required).unwrap());
+    }
 }
 
 fn unlisted_builds(
@@ -443,6 +505,11 @@ pub(crate) fn release_images(
     fixture_settled: Option<bool>,
     unlisted: &[(usize, crate::discovery::BuildCapture)],
 ) -> Result<(), HostError> {
+    if fixture_settled == Some(false) {
+        return Err(host(invalid(
+            "target-owned fixture capture release awaits verified settlement",
+        )));
+    }
     let open = release_private_child;
     let (location, controls): (_, &[_]) = if action.is_compiler() {
         ("check-control", &["cargo-pse-correctness"])
@@ -481,14 +548,9 @@ pub(crate) fn release_images(
         for (group, listed) in inventory.groups.iter().enumerate() {
             release_group(group, &listed.build)?;
         }
-        if let Some(fixture_settled) = fixture_settled
+        if fixture_settled.is_some()
             && let Some(fixtures) = open(&workflow, "fixtures")?
         {
-            if !fixture_settled {
-                return Err(host(invalid(
-                    "target-owned fixture helper release awaits verified settlement",
-                )));
-            }
             let fixtures_path = invocation.join("workflow/fixtures");
             let release = |name: &str, targets: &[&str]| -> Result<(), HostError> {
                 let Some(build) = open(&fixtures, name)? else {

@@ -215,6 +215,7 @@ impl std::ops::Deref for CanonicalClient {
 
 pub(crate) struct ClientState {
     client: Arc<Client>,
+    executor: tokio::runtime::Handle,
     budget: Duration,
     namespace: String,
     database: String,
@@ -250,6 +251,7 @@ impl CanonicalClient {
             schema: Arc::default(),
             inner: Arc::new(ClientState {
                 client: Arc::new(client),
+                executor: tokio::runtime::Handle::current(),
                 budget,
                 namespace: options.namespace.clone(),
                 database: options.database.clone(),
@@ -276,6 +278,15 @@ impl CanonicalClient {
     }
     pub(crate) fn same_driver(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    /// Continue admitted protection work on the physical connection's executor.
+    pub(crate) fn spawn<F>(&self, work: F) -> tokio::task::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.executor.spawn(work)
     }
 
     /// VIEWER cannot implicitly define catalog entries during USE. Inspect the

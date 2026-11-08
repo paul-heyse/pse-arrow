@@ -22,42 +22,32 @@ use pse_model::generated::identities::RunId;
 use pse_operations::{
     canonical::CanonicalStore,
     canonical_execution::{AttemptFence, RunRequest, SeedEligibility, TerminalClass},
-    native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec},
+    native_service::{NativeCanonicalService, NativeServiceSpec},
 };
 use pse_relations::generated::runtime::fit_parameters;
 use std::{
     panic::AssertUnwindSafe,
-    path::PathBuf,
     time::{Duration, Instant},
 };
+
+#[path = "../../../../tests/support/arrow_rows.rs"]
+mod arrow_rows;
 
 #[derive(Debug)]
 struct RetainedReadConfiguration;
 
+type FitRows = &'static [&'static [(u8, Option<f64>)]];
+const LIMIT_ROWS: FitRows = &[&[(1, Some(0.0)), (2, Some(2.0))], &[(3, Some(1.0))]];
+const DIFFERENTIAL_ROWS: FitRows = &[
+    &[(1, Some(0.0)), (2, None), (3, Some(4.0))],
+    &[(4, Some(2.0)), (5, Some(2.0))],
+    &[(6, None), (7, Some(8.0))],
+];
+
 fn private_service() -> NativeCanonicalService {
-    let environment = std::env::vars_os().collect();
-    let helper = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-            .expect("explicit already-built native-service helper"),
-    );
-    assert!(
-        helper.is_absolute() && helper.is_file(),
-        "build -p pse-operations --features native-service --bin pse-canonical-service first"
-    );
-    let module_record = PathBuf::from(
-        std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-            .expect("explicit prepared production module receipt"),
-    );
-    let module =
-        pse_host::study_module::select(&module_record, pse_host::study_module::Variant::Production)
+    let service =
+        NativeCanonicalService::new(NativeServiceSpec::selected_prepared_fixture().unwrap())
             .unwrap();
-    let service = NativeCanonicalService::new(NativeServiceSpec {
-        server: pse_host::server::select(&environment).unwrap(),
-        helper,
-        module_source: NativeModuleSource::Prepared(module),
-        state_parent: std::env::temp_dir(),
-    })
-    .unwrap();
     eprintln!(
         "result-pruning private state={} original_service={}",
         service.state().display(),
@@ -90,6 +80,7 @@ fn retained_data(
 async fn publish_pruning_fixture(
     runtime: &RetainedDataServices,
     name: &str,
+    groups: FitRows,
 ) -> Result<AttemptFence, Box<dyn std::error::Error + Send + Sync>> {
     let store = runtime.canonical_store()?;
     let source = store.edit(name, None, "source", &[]).await?;
@@ -112,26 +103,13 @@ async fn publish_pruning_fixture(
     let acknowledgments = super::super::durable::PublicationAcks::new(&runtime.pool());
     let mut position = super::super::result_projection::ResultStreamPosition::default();
     let validation = runtime.validation_context();
-    // The first batch is a min/max false positive for value=1. The second
-    // contains the sole match. Their exact source keys and positions are known.
-    for rows in [&[(1u8, 0.0), (2u8, 2.0)][..], &[(3u8, 1.0)][..]] {
-        let mut builder = fit_parameters::Builder::new(&validation)?;
-        for (owner, value) in rows {
-            builder.push(fit_parameters::Row {
-                run_id: RunId::from_bytes([42; 16]),
-                parameter_id: pse_ids::SemanticId::from_bytes([*owner; 16]),
-                fixed: false,
-                value: Some(*value),
-                unit_id: pse_ids::SemanticId::NIL,
-                scale: 1.0,
-                at_bound: None,
-            })?;
-        }
+    for rows in groups {
+        let batch = fit_parameter_batch(&validation, rows)?;
         super::super::result_projection::append_result_table_prefix(
             store,
             &fence,
             fit_parameters::RELATION_ID,
-            super::super::ResultCursor::from_checked(builder.finish()?),
+            super::super::ResultCursor::from_checked(batch),
             &runtime.pool(),
             &acknowledgments,
             &mut position,
@@ -163,9 +141,32 @@ async fn publish_pruning_fixture(
     Ok(fence)
 }
 
+fn fit_parameter_batch(
+    validation: &pse_relations::validate::ValidationContext,
+    rows: &[(u8, Option<f64>)],
+) -> Result<pse_relations::columnar::FieldCheckedBatch, pse_relations::RelationError> {
+    let mut builder = fit_parameters::Builder::new(validation)?;
+    for &(owner, value) in rows {
+        builder.push(fit_parameters::Row {
+            run_id: RunId::from_bytes([42; 16]),
+            parameter_id: pse_ids::SemanticId::from_bytes([owner; 16]),
+            fixed: false,
+            value,
+            unit_id: pse_ids::SemanticId::NIL,
+            scale: 1.0,
+            at_bound: None,
+        })?;
+    }
+    builder.finish()
+}
+
 type PruningCase = for<'a> fn(&'a RetainedDataServices, &'a AttemptFence) -> BoxFuture<'a, ()>;
 
 async fn pruning_fixture(name: &'static str, body: PruningCase) {
+    pruning_fixture_rows(name, LIMIT_ROWS, body).await;
+}
+
+async fn pruning_fixture_rows(name: &'static str, rows: FitRows, body: PruningCase) {
     let mut service = private_service();
     let outcome = AssertUnwindSafe(service.run(
         Instant::now() + Duration::from_secs(240),
@@ -179,7 +180,7 @@ async fn pruning_fixture(name: &'static str, body: PruningCase) {
                 // physical service owner. A panic still seals this read caller and
                 // joins result releases before run() disconnects and drains it.
                 let outcome = AssertUnwindSafe(async {
-                    let fence = publish_pruning_fixture(&data, name).await.unwrap();
+                    let fence = publish_pruning_fixture(&data, name, rows).await.unwrap();
                     body(&data, &fence).await;
                 })
                 .catch_unwind()
@@ -219,6 +220,81 @@ async fn pruning_fixture(name: &'static str, body: PruningCase) {
             disposal.unwrap();
         }
     }
+}
+
+#[tokio::test]
+async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
+    use datafusion::datasource::MemTable;
+    const CASE: &str = "res-pruning-differential";
+    pruning_fixture_rows(CASE, DIFFERENTIAL_ROWS, |runtime, fence| {
+        Box::pin(async move {
+            let reader = runtime
+                .results(
+                    CASE,
+                    fence.attempt(),
+                    fit_parameters::QUALIFIED_NAME,
+                    0,
+                    u64::MAX,
+                    CancellationToken::new(),
+                )
+                .await
+                .unwrap();
+            let snapshot = reader.snapshot();
+            assert_eq!(snapshot.blocks().len(), DIFFERENTIAL_ROWS.len());
+            assert!(
+                snapshot
+                    .blocks()
+                    .iter()
+                    .all(|block| block.statistics.is_some())
+            );
+            let actual = SessionContext::new_with_state(snapshot.session_state());
+            actual
+                .register_table("items", snapshot.table_provider())
+                .unwrap();
+
+            let validation = runtime.validation_context();
+            let complete = DIFFERENTIAL_ROWS
+                .iter()
+                .map(|rows| {
+                    vec![
+                        fit_parameter_batch(&validation, rows)
+                            .unwrap()
+                            .batch()
+                            .clone(),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            let unpruned = SessionContext::new();
+            unpruned
+                .register_table(
+                    "items",
+                    Arc::new(MemTable::try_new(complete[0][0].schema(), complete).unwrap()),
+                )
+                .unwrap();
+
+            for (sql, expected_count) in [
+                ("SELECT value FROM items WHERE value BETWEEN 1 AND 4", 3),
+                (
+                    "SELECT value FROM items WHERE NOT (value BETWEEN 1 AND 4)",
+                    2,
+                ),
+                ("SELECT value FROM items WHERE value IS NULL", 2),
+                ("SELECT value FROM items WHERE value = 7", 0),
+                ("SELECT value FROM items WHERE value = 2", 2),
+                (
+                    "SELECT parameter_id FROM items WHERE value = 2 ORDER BY parameter_id LIMIT 1",
+                    1,
+                ),
+            ] {
+                let expected = unpruned.sql(sql).await.unwrap().collect().await.unwrap();
+                let observed = actual.sql(sql).await.unwrap().collect().await.unwrap();
+                let expected = arrow_rows::multiset(&expected);
+                assert_eq!(expected.len(), expected_count, "{sql}");
+                assert_eq!(arrow_rows::multiset(&observed), expected, "{sql}");
+            }
+        })
+    })
+    .await;
 }
 
 #[tokio::test]

@@ -3036,7 +3036,7 @@ mod canonical_connected_results_server_unit {
     };
     use pse_operations::{
         canonical::CanonicalStore,
-        native_service::{NativeCanonicalService, NativeModuleSource, NativeServiceSpec},
+        native_service::{NativeCanonicalService, NativeServiceSpec},
     };
     use pse_relations::generated::{enums::NativeMetricKind, runtime::solve_metrics};
     use std::{
@@ -3092,29 +3092,8 @@ mod canonical_connected_results_server_unit {
         reason = "test-only fixture requires explicit prepared inputs and fails rather than skipping missing prerequisites"
     )]
     fn private_service() -> NativeCanonicalService {
-        let environment = std::env::vars_os().collect();
-        let helper = PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_SERVICE_HELPER")
-                .expect("explicit already-built native-service helper"),
-        );
-        assert!(helper.is_absolute() && helper.is_file());
-        let receipt = PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
-                .expect("explicit prepared private module receipt"),
-        );
-        NativeCanonicalService::new(NativeServiceSpec {
-            server: pse_host::server::select(&environment).unwrap(),
-            helper,
-            module_source: NativeModuleSource::Prepared(
-                pse_host::study_module::select(
-                    &receipt,
-                    pse_host::study_module::Variant::Production,
-                )
-                .unwrap(),
-            ),
-            state_parent: std::env::temp_dir(),
-        })
-        .unwrap()
+        NativeCanonicalService::new(NativeServiceSpec::selected_prepared_fixture().unwrap())
+            .unwrap()
     }
     type Case = for<'a> fn(
         &'a NativeCanonicalService,
