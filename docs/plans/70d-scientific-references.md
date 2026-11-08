@@ -8,6 +8,7 @@ doc_owner: docs/plans/70-test-assurance-architecture.md
 doc_topics: [current-work, design, validation, numerical-execution]
 review_sources:
   - docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md
+  - docs/plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md
 ---
 
 # Scientific references
@@ -152,6 +153,42 @@ responses, oversized legacy producer output, and a receiver-side oversized paylo
 decode. Verify a valid legacy response and ordinary Proto result still reach their existing
 comparators. These controls establish the selected channel bounds and failure distinctions.
 
+## <a id="d04"></a>D04 — Bind independent calculation to verified inputs
+
+For [I11](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i11),
+the native exchange supplies the original selected source identity through
+[E01](70e-preparation-and-verification-scope.md#e01). The Python receiver independently
+derives the expected population and verifies original digests. Bound the files and bytes
+before acquiring them, reject missing, extra, malformed or oversized inputs, and parse the
+consumed property records from the same immutable bytes that passed verification. The
+existing checkout-path reopens can read a transient substitute that disappears before the
+final drift check. Keep a distinct checkout-drift check where current-source stability
+is claimed. This is input custody and reuse within the exchange (AP-06, DP-09, DP-15,
+H12–H14, PS-13).
+[Native verification](../../crates/pse-runtime/src/workflow/modeling/ordinary_reference.rs) ·
+[Independent receiver](../../tests/reference/oracles/ordinary_exchange.py) ·
+[Property reader](../../tests/reference/oracles/ordinary_thermo.py)
+
+Use PyArrow 25.0.1 `parquet.read_table` on a `BufferReader` over the verified Parquet
+bytes so the reader has seekable immutable input. Text readers likewise consume the
+verified bytes. Parse selected property records once per admitted exchange and pass those
+records into fresh IDAES 2.13.0 model construction, keeping independent expectations and
+actual solves. An owned staged tree is a candidate only for a path-only consumer. If
+required, use the same verified bytes and prove the staged copy's identity and lifetime
+before retiring the original path reads. The reference owns its expected inputs and
+scientific interpretation, regardless of the storage form. [Pins](../../pyproject.toml) ·
+[Pinned PyArrow Parquet reader](https://github.com/apache/arrow/blob/apache-arrow-25.0.1/python/pyarrow/parquet/core.py) ·
+[Pinned buffer implementation](https://github.com/apache/arrow/blob/apache-arrow-25.0.1/python/pyarrow/io.pxi) ·
+[D02 environment and solver contract](#d02)
+
+In the exchange control, replace a selected file after verification and restore it before
+the final check. Require use of the admitted bytes or attributable refusal. Challenge missing,
+extra, wrong and oversized inputs, and compare input reads and decodes. Qualify the exchanger,
+recycle and overheated controls in their existing isolated environment and distinguish
+reference agreement, scientific refusal and checkout drift. Keep the response bounds and
+original settlement owned by D03. Remove reopens and repeated decodes from migrated reference
+calculations after their receiving controls pass.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
@@ -159,6 +196,7 @@ comparators. These controls establish the selected channel bounds and failure di
 | [D01](#d01) | planned | Current independent comparators and authored case identities. E01 closure when the case is moved to selected authored inputs. | Independent comparison allowances reject altered results even with inflated candidate policy. Exact reference attribution and legacy generator stale-input controls exercise their scoped cases. |
 | [D02](#d02) | planned | Locked parity environment and named caller roles for direct owner checks. | Prepared interpreter and actual per-stage solver identity are admitted and observed. Substituted or missing tools produce attributable nonpass. A04 consumes this contract for the assembled routes. |
 | [D03](#d03) | planned | B02's finite two-stream capture and settlement contract. D02's executed environment identity for assembled reference verification. | Migrated exchanges bound live diagnostics and legacy response production and readback. Zero-exit overflow and malformed response controls pass with authentic settlement, and the Proto bounds stay exercised. |
+| [D04](#d04) | planned | E01's selected capture contract, D02 environment and solver identity and D03 response boundary for assembled receiving | Independent calculation consumes verified bytes and parses once. Transient substitution and source, extent and scientific cases distinguish the actual input and outcome. |
 
 Use targeted comparator and encoding controls as changes land, then the affected native
 exchanges with the repository correctness route and force validation where applicable. At

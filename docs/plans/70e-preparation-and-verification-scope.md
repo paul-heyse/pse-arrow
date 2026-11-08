@@ -6,7 +6,9 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/70-test-assurance-architecture.md
 doc_topics: [current-work, design, preparation, validation]
-review_sources: [docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md]
+review_sources:
+  - docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md
+  - docs/plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md
 ---
 
 # Preparation and verification scope
@@ -43,6 +45,12 @@ test admission owners. A process-local preparation may share the immutable resul
 verified source context. Give subsequent selections their own closure and source identity.
 [Catalog](../../tests/fixtures/scientific-inputs.toml) ·
 [Capture owner](../../tests/fixtures/scientific-input-capture.rs)
+
+Publish the selected capture's source identity, input population and lifetime for
+[D04](70d-scientific-references.md#d04) and [F02](70f-conformance-and-benchmark-execution.md#f02).
+D04 independently verifies its consumed bytes. F02 retains separate semantic admissions
+over the shared source. Both can assess their local boundaries before the capture contract
+is available for integration.
 
 Migrate the ordinary runtime and PID authored consumers and deliver the same current-source
 contract to the compiler/modeling migration in [70a A04](70a-selection-and-execution.md#a04).
@@ -130,7 +138,12 @@ independence. Compare selected case identities and ensure ordinary launch, borro
 exact rerun and cancellation preserve their existing outcomes and owner-issued release. In
 targeted host controls count authenticated images and decoded scope rather than infer a speedup.
 
-## <a id="e04"></a>E04 — Narrow membership queries and justify focused build scope
+Compare the complete compiler-unit records at applicable capture and receiving boundaries
+using [A01's exact multiset comparison](70a-selection-and-execution.md#a01). A matched
+compiler context leaves image, helper, metadata and custody authentication with the
+receiving owner.
+
+## <a id="e04"></a>E04 — Scope workspace governance acquisition
 
 Use `cargo_metadata` `0.23.1` `MetadataCommand::no_deps()` for membership governance on the real
 locked workspace. It requests workspace package metadata with the resolved dependency graph
@@ -145,21 +158,76 @@ membership's uses of the full-graph helper and repeated acquisitions after those
 [Membership tests](../../tests/governance/tests/every_crate_registered.rs) ·
 [Full graph helper](../../tests/governance/tests/common/mod.rs)
 
-For DTA-053, pick a named focused control whose admission includes a capability unrelated to its
-claim. Use [A01's pinned unit-graph contract](70a-selection-and-execution.md#a01) to compare the
-actual graph and an equivalent check at the existing smaller
-owner. Move it only if the same behavior is exercised, the admitted closure is narrower and
-explicit validation remains correct. If inspection finds no defensible candidate, record the
-graph and the needed capability distinctions as the conclusion and keep the current control.
-A filter can narrow execution while retaining the crate's build graph. Preserve genuine provider,
-maintenance and validation variants and the retirement of scenario-only variants. Retain
-Plan67d's compatible graph reuse at its recorded scope. [Build reuse evidence](67d-cargo-variants-and-sccache-reuse.md)
+For [I03](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i03),
+use the same member-scoped acquisition in one real-workspace sole-hasher control. Join on
+`workspace_members` before checking the owner and direct dependencies. Report a missing owner
+declaration separately from a forbidden second declaration. Exercise an absent owner, an external
+namesake and a second declaration locally. Keep dependency floors, engine reach and version-family
+policy on the resolved graph. [Sole-hasher control](../../tests/governance/tests/blake3_owner.rs)
+
+For [I13](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i13),
+resolve the live checkout once per consuming governance control. Pass it to inventory and relative
+path rendering, deferring display work until needed. Migrate the per-path callers, including error
+taxonomy and shadow-struct scanning. Require identical findings and paths in the current and
+relocated workspaces, and preserve refusal for unrelated or incomplete checkouts. The caller's
+runtime directory determines the checkout (DP-09, H12, H26).
+[Checkout discovery](../../scripts/workspace.rs) ·
+[Shared formatter](../../tests/governance/tests/common/mod.rs) ·
+[Relocation controls](../../tests/governance/tests/workspace_location.rs)
+
+## <a id="e05"></a>E05 — Reduce unnecessary test harnesses and focused build work
+
+For [I10](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i10)
+and DTA-053, start with the ungated xtask `unchanged_generation_preserves_the_source_timestamp`
+case. Compare `codegen-unit-test` and an exact no-default correctness selection using
+[A01's actual unit graph](70a-selection-and-execution.md#a01). Adopt the focused route only
+if the same test runs with a narrower admitted graph and actual Arrow leaves retain required
+validation. Check that unused prepared providers are absent. Preserve the real physical, product schema
+and full ABI variants. A nextest case filter alone may leave the compilation scope unchanged.
+[Recipes](../../justfile) · [Generator controls](../../xtask/src/codegen.rs)
+
+Check the module closure and actual pinned listing of the thin `pse`, `pse-host` and
+`cargo-pse-correctness` targets and the standalone `pse-deployment` candidate. For a confirmed
+empty harness, Cargo's target `test = false` suppresses its default test harness while the
+ordinary executable remains available to integration consumers through `CARGO_BIN_EXE_*`.
+Verify the actual roots, helper images and their live launch in ordinary and exact failed
+rerun. Retain `pse-engineering` and other targets that contain reachable tests. Evaluate
+`pse-contract` for `doctest = false` only after actual pinned rustdoc enumeration in the
+supported configurations. cargo-shear 1.14.0's test-target check can nominate candidates.
+The native runner or rustdoc supplies the deciding evidence. Record the result and retain
+the existing route when equivalence or a narrower scope cannot be established.
+[Cargo target settings](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#the-test-field) ·
+[Host targets](../../crates/pse-host/Cargo.toml) ·
+[Runtime targets](../../crates/pse-runtime/Cargo.toml) ·
+[Test-target discovery](../libraries/utilities/rust_caching.md#51-bidirectional-test-and-doctest-configuration-analysis)
+
+#### Build and cache boundary
+
+Keep the pinned Cargo workspace feature unification, content freshness and checkout-local
+targets selected in Plan67d. Native build-script rerun conditions and actual provider and
+force-validation variants still apply. Incremental compilation serves small edits. Managed
+sccache 0.19.0 can restore eligible compiler outputs when they are absent. It cannot establish a
+linked test, native readiness or fresh test evidence. Keep the existing policy and settings.
+Hakari would duplicate the selected Cargo mechanism. A cargo-shear declaration lead needs an
+actual dependency and consumer graph change before removal (H12–H14, H28).
+[Build owner and release](../dev/build-performance.md) ·
+[Plan67d outcome](67d-cargo-variants-and-sccache-reuse.md#outcome) ·
+[Exact managed cache probe](../../scripts/sccache-source/probe.sh)
+
+For a named recurring workload whose result could change a decision, distinguish the unchanged
+warm run, small edit or absent-output recovery as appropriate. Use the existing Cargo timing
+path, managed JSON cache statistics and native phase observations. Record source, toolchain,
+features, provider, profile, validation, cache condition and competing work. Separate eligible
+compiler requests from linking, build scripts, rustdoc, discovery, fixture setup and actual
+test execution. Additional tiers, budget changes, non-incremental defaults or linker changes
+remain conditional on such evidence and compatibility. [Timing route](../dev/build-performance.md#selected-timing-investigations)
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [E01](#e01) | planned | Authored catalog and production admission | Selected closure and authoritative conservative associations serve ordinary consumers and A04. Scoped exactness, missing/changed input and affected-preview controls pass. |
+| [E01](#e01) | planned | Authored catalog and production admission | Selected closure and conservative associations serve ordinary consumers and A04. D04 and F02 receive source identity and lifetime. Scoped exactness, missing/changed input and affected-preview controls pass. |
 | [E02](#e02) | planned | Plan69c binary-membership facts and pinned nextest interfaces | Bounded comparison establishes safe group transfer/borrow or identifies the unresolved proof. Receiver verification and custody boundaries are recorded for E03. |
-| [E03](#e03) | planned | Existing passive traversal. E02 decision for launch and borrowing | Page verifies reached images once. Selected launch and receiver authenticate their proved scope and preserve exact selection, tamper refusal and original custody. Replaced broad paths retire where moved. |
-| [E04](#e04) | planned | Real workspace membership and admitted graph for a named focused control | Membership-only acquisition and local stray control pass alongside preserved full-graph checks. The focused control moves with equivalent narrower evidence, or its graph supports a documented retention decision. |
+| [E03](#e03) | planned | Existing passive traversal. E02 decision for launch and borrowing, A01 exact comparison at applicable receivers | Page verifies reached images once. Selected launch and receiver authenticate their proved scope and preserve exact selection, tamper refusal and original custody. Replaced broad paths retire where moved. |
+| [E04](#e04) | planned | Real workspace membership and live checkout discovery | Scoped membership and sole-hasher checks, equivalent relocated diagnostics, and preserved full-graph policies. |
+| [E05](#e05) | planned | A01 pinned graph and exact unit comparison, existing native runner and image custody | Named focused and empty-harness decisions supported by graph and execution evidence. Adopt only equivalent narrower routes. Retain applicable cache and validation policy. |

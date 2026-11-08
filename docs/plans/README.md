@@ -52,14 +52,17 @@ their scientific and database cutover scope.
 - [69g · Output policy and owner-driven progress](69g-output-policy-and-owner-driven-progress.md)
 
 [Plan70: Test assurance architecture](70-test-assurance-architecture.md) proposes the changes
-from the November test design review. It owns the new series' finding dispositions and assembled
-verification. Plans66 and 69 retain their scientific population and native test/result obligations.
+from the November test design review and repository-wide efficiency review. It owns the series'
+finding and improvement dispositions and assembled verification. Plans66 and 69 retain their
+scientific population and native test/result obligations.
 
 - [70a · Selection and execution](70a-selection-and-execution.md)
 - [70b · Fixtures and process ownership](70b-fixtures-and-process-ownership.md)
 - [70c · Test support and contract evidence](70c-test-support-and-contract-evidence.md)
 - [70d · Scientific references](70d-scientific-references.md)
 - [70e · Preparation and verification scope](70e-preparation-and-verification-scope.md)
+- [70f · Conformance and benchmark execution](70f-conformance-and-benchmark-execution.md)
+- [70g · Developer verification](70g-developer-verification.md)
 
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.

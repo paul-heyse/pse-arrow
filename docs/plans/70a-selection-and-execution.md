@@ -6,7 +6,9 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/70-test-assurance-architecture.md
 doc_topics: [design, validation, preparation]
-review_sources: [docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md]
+review_sources:
+  - docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md
+  - docs/plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md
 ---
 
 # Selection and execution
@@ -34,6 +36,36 @@ validation from ordinary source compilation and nextest listing.
 [Cargo unit graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph) ·
 [Toolchain pin](../../rust-toolchain.toml) · [Correctness adapter](../../crates/pse-host/src/correctness.rs) ·
 [Discovery](../../crates/pse-host/src/discovery.rs)
+
+#### Analyze the admitted graph and compare complete unit records
+
+For [I01](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i01),
+validate the reached union of Cargo unit indices once per unchanged admission. Propagate Arrow
+reachability back through those edges to determine which roots need explicit validation.
+This removes overlapping root walks and carries the reached set through unchanged arguments.
+Reject unknown package IDs and malformed indices. Keep host/build, target and selected-root dev
+contexts distinct. A feature or diagnostic-isolation change requires a newly admitted Cargo
+graph, identical root identity and validation of the final relevant Arrow leaves. Cargo owns
+the edges and features. PSE owns the decision and must refuse a missing propagation route.
+
+For [I02](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i02),
+the correctness owner supplies one order-independent multiset comparison of complete
+`CompilerUnit` records. Replace equal-length membership checks in discovery, managed workflow,
+prepared xtask, check capture and workflow comparison. An ordered comparison or counted records
+preserve repeated unit multiplicities without introducing a digest identity. Keep checks whose
+contract includes order, and keep separate argument, capability, exit, source observation and
+custody checks. [E03](70e-preparation-and-verification-scope.md#e03) consumes this comparison at
+its scoped receivers. [Managed workflow](../../crates/pse-host/src/managed/workflow.rs) ·
+[Prepared xtask](../../crates/pse-host/src/prepared_xtask.rs) ·
+[Check capture](../../crates/pse-host/src/test_workflow/execute/runner.rs) ·
+[Workflow comparison](../../crates/pse-host/src/test_workflow/mod.rs)
+
+Compare old and new root decisions on a shared graph with a pure root and Arrow through build
+and dev edges. Include malformed references, graph-changing feature admission and actual focused
+and broad pinned selections. Count visited edges as structural evidence. Accept a permutation
+of identical records and refuse equal-length multiplicity substitution and changed host/target,
+feature or mode. Exercise actual receiving refusal alongside the local comparison (DP-09, DP-15,
+H10, H18–H19).
 
 ### <a id="a02"></a>A02 — Bind selected requirements and truthful outcomes
 
@@ -91,11 +123,14 @@ on their explicit capture route. Repair obsolete binding and validation guide co
 [Recipes](../../justfile) · [Fixture declarations](../../crates/pse-operations/Cargo.toml) ·
 [Qualification guide](../dev/validation-assessment.md)
 
+Use [E05](70e-preparation-and-verification-scope.md#e05) for focused harness and command changes
+that alter the compiled target population.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [A01](#a01) | planned | Current Cargo adapter and tool pin | Actual launched nextest verified, including substitution refusal, and scoped unit-graph and doctest controls. |
+| [A01](#a01) | planned | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
 | [A02](#a02) | planned | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
 | [A03](#a03) | planned | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
 | [A04](#a04) | planned | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |

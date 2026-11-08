@@ -6,7 +6,9 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/70-test-assurance-architecture.md
 doc_topics: [design, validation, storage]
-review_sources: [docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md]
+review_sources:
+  - docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md
+  - docs/plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md
 ---
 
 # Test support and contract evidence
@@ -65,6 +67,21 @@ Move pure invalid-input cases to the smallest actual owner. Remove fixture-only 
 surfaces when normal ownership covers their consumers, after the fixture companion has supplied
 the actual receiving path where needed. A private `cfg(test)` stage seam can remain if it enables
 a uniquely discriminating branch test. It grants no evidence of physical settlement.
+
+For [I04](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i04),
+construct the lifecycle query-budget fixture's two UInt64 columns directly with Arrow 59.3.0
+`UInt64Array` and `RecordBatch::try_new` under the existing relation schema. The Arrow API
+assembles the physical batch. Keep the normal semantic validation and candidate admission,
+which establish the relation and query guarantees. Preserve the 200,000 rows, both column
+values, 64 KiB scan headroom, typed pressure, cancellation and exact release. Keep the
+distinct eight-row operator-expansion and 32,768-row recovery checks. The authored-literal
+and bad-encoding controls continue to exercise their actual codecs. Compare the resulting
+fixture and negative outcomes under force-validation before removing the tagged JSON
+construction from the budget control (AP-06, H7, H10, H26).
+[Pinned batch constructor](https://docs.rs/arrow-array/59.3.0/arrow_array/struct.RecordBatch.html#method.try_new) ·
+[Typed fixture example](../../benches/benches/native_cache.rs) ·
+[Lifecycle fixture](../../tests/lifecycle/tests/support/mod.rs) ·
+[Budget controls](../../tests/lifecycle/tests/query_memory_budget.rs)
 
 ## <a id="c02"></a>C02 — Resolve historical provenance and final-apply fault control
 
@@ -177,7 +194,7 @@ existing architecture publication route for enduring contract wording. [Taxonomy
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [C01](#c01) | planned | Existing compiler, authored input and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits and shared mechanics pass their revealing controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
+| [C01](#c01) | planned | Existing compiler, authored input, relation admission and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits, shared mechanics and typed lifecycle fixture pass their controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
 | [C02](#c02) | planned | Current migration and native fixture owners. Access to Git history and retained evidence. | Record the selected byte witness and final fault boundary or the exact unresolved physical witness and receiving constraint. Independent branch work can proceed. |
 | [C03](#c03) | planned | C02 witness and fault decision. B02 settlement for the physical control. | Independent predecessor and three recovery branches pass. The actual final commit and missing acknowledgement are demonstrated and drained. Keep native acceptance open if the physical witness is unresolved. |
 | [C04](#c04) | planned | Existing identity, pruning and diagnostic owners. Native fixture readiness for physical pruning. | Named and generated equivalence and negative controls distinguish required behavior. Stable diagnostic and compile-fail claims match the executed evidence. |

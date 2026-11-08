@@ -6,7 +6,9 @@ adrs: []
 doc_role: plan
 doc_owner: docs/plans/70-test-assurance-architecture.md
 doc_topics: [design, validation, preparation]
-review_sources: [docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md]
+review_sources:
+  - docs/design_review/reviews/design_review_test-assurance-target_2026-11-08.md
+  - docs/plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md
 ---
 
 # Fixtures and process ownership
@@ -93,7 +95,7 @@ and a 64 KiB stderr readback limit. Preserve these discriminators and the separa
 rollout drift controls. Move live diagnostics to B02's bounded process contract because a
 readback cap leaves the producer file free to grow. Verify that a startup or endpoint refusal
 cannot satisfy the intended-marker check. Replace elapsed-time
-inference in worker cancellation, lease and park cases with a phase/lease or original process
+inference in lease and park cases with a phase/lease or original process
 observation where one exists. Challenge a wrong PID or missing witness. Drive the actual
 preparation owner through its lock and a controlled cancellable build stage, checking
 unchanged publication pointer and successful retry. Keep the synthetic flock check scoped to
@@ -103,6 +105,35 @@ actual placement, drain and SIGKILL recovery. Prove another owner's state remain
 [SurrealKit control](../../crates/pse-operations/tests/native_service/surrealkit.rs) ·
 [Preparation controls](../../crates/pse-host/tests/native.rs) · [Foreground controls](../../crates/pse-host/tests/foreground.rs)
 
+For [I12](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i12),
+keep the full 19-case positive suite. Qualify a smaller seed-mutation run only if the pinned
+SurrealKit CLI can select `authored_seed_is_visible` and a stable positive control and report
+exactly those identities and original outcomes. Confirm the selection behavior at the pinned
+CLI and runner with the expected assertion failure and a substituted or missing case.
+Retain the full negative run if exact selection cannot be shown. Keep the distinct setup
+and seed refusals, FIFO interruption and drain, and both rollout comparisons on the same
+private-service ownership path. Bound report readback before JSON decode. Distinguish absent,
+malformed, oversized and partial reports, and authenticate the selected suite, cases and
+original exit. B02 owns bounded live diagnostics. A report readback bound alone leaves
+producer output free to grow (H5, H19, H26).
+[Pinned CLI source tree](https://github.com/surrealdb/surrealkit/tree/625e264c4e134def842bfe8ac9d2f918a42bb6c3) ·
+[Authored suite](../../scripts/tests/fixtures/surrealkit/canonical.toml)
+
+### <a id="b05"></a>B05 — Separate worker ordering controls from real deadlines
+
+For [I09](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i09),
+use the existing controlled scientific child and owner acknowledgements for the ordering
+controls. Gate release on the observed dispatch or cleanup phase and preserve the original
+cancellation, child reap, I/O drain and admission-release distinctions. Replace polling or
+unconditional waits only where that phase is directly observable. A synthetic clock can
+exercise pure deadline calculations. The current real-clock deadline control keeps its active
+native dispatch and actual reap evidence until a shorter witness demonstrates sufficient
+startup headroom under supported ordinary load. Compare wrong phase, missing dispatch and
+wrong settlement against the expected refusal and successful drain. Use B02's original
+deadline and settlement meanings for the real-clock case (AP-06, DP-23, H21, H24).
+[Worker proxy controls](../../crates/pse-runtime/src/scientific_worker/proxy_tests.rs) ·
+[Original deadline and drain](#b02)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
@@ -110,4 +141,5 @@ actual placement, drain and SIGKILL recovery. Prove another owner's state remain
 | [B01](#b01) | planned | Existing process owner and pinned platform primitives | Selected capture mechanism with bounded-stream, overflow and original drain evidence, or explicit gate on B02's capture slice. |
 | [B02](#b02) | planned | B01 for stream capture, actual service and runner deadline contracts | Shared work/capture and settlement contract, targeted success, overflow and interrupted-drain controls, and selected profile budget correspondence. |
 | [B03](#b03) | planned | Existing client and connection owner, B02 for new settlement receiving | Real protection cleanup and target-owned release evidence. Remove replaced fixture seams and duplicated constructors with their consumers. |
-| [B04](#b04) | planned | B02 for bounded seed and interruption cases, A02 for marked runner cases | Named wrong-reason, original cancellation/phase, restore, private-policy and real-manager controls. |
+| [B04](#b04) | planned | B02 for bounded seed and interruption cases, A02 for marked runner cases | Existing wrong-reason, cancellation, restore, private-policy and real-manager controls. SurrealKit preserves exact case and drain evidence, records the negative-selection decision and bounds report admission. |
+| [B05](#b05) | planned | Existing scientific worker controls, B02 settlement contract for physical receiving | Phase-controlled ordering and failure witnesses, with a real-clock deadline witness that observes active work, reap and release. |

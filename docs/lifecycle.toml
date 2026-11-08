@@ -7617,3 +7617,42 @@ id_pattern = '^(DTA-[0-9]+)\b'
 status_profile = "finding"
 status_column = 2
 owner_column = 3
+
+[[scope_tables]]
+path = "docs/plans/70f-conformance-and-benchmark-execution.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70g-developer-verification.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/70-test-assurance-architecture.md"
+name = "improvement-dispositions"
+heading = "Improvement dispositions"
+headers = [
+  "Improvement",
+  "Disposition",
+  "Work owner",
+  "Required evidence or trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
