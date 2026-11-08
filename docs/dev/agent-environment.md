@@ -361,7 +361,7 @@ managed `pse run` invocation when the command starts subprocesses or needs a dur
 settlement observation.
 
 At closeout, retain the selected finding and its rerun selection. Transfer any needed
-published result through its own owner. Use `pse result` or `pse wait` on the original
+published result through its own owner. Use `pse inspect invocation` or `pse wait` on the original
 invocation and check its payload settlement. A successful observation that times out
 still leaves the original completion unknown. Preview allocated bytes and recheck the
 directory identity, backing mount, readers and holds before releasing the exact private
@@ -870,11 +870,56 @@ does not prove export or ingestion. One-shot children can lose final batches.
 
 ### Project and evidence commands
 
+`pse project` uses an explicitly captured product reader. Prepare one with
+`pse observe prepare`. Add `--installed-schema` to include normalized installed catalog
+observation. The ordinary reader uses its smaller build.
+
+Store project preferences in the checkout-specific
+`$XDG_CONFIG_HOME/pse-arrow/<checkout-id>/cli.toml` (or the XDG default configuration
+directory). The file must be private to the current user. `pse inspect settings` reports
+the checkout ID, effective values and their origins. Use `--context-file` for a deliberate
+alternate file, `--context-profile` for a named overlay, and `--target` to select an alias.
+An operation with one configured target can omit all three. `pse project targets` checks the
+configured issuer against each connection-only reader and reports unavailable choices.
+
+```toml
+[defaults]
+target = "local"
+
+[targets.local]
+state = "/absolute/private/canonical-state"
+database = "pse"
+issuing_store = "00000000-0000-4000-8000-000000000001"
+reader = "00000000-0000-4000-8000-000000000002"
+```
+
+Project import uses one operation key. Run `pse project import-issue --operation KEY PACK TITLE`,
+then `pse project import --operation KEY PACK`. The checkout retains the bounded original
+intent, and `pse project import-status --operation KEY` reads the authoritative checkpoint.
+`pse project import-recover --operation KEY` reconciles the current original artifact.
+`pse project import-forget --operation KEY` releases the local intent after the owner confirms
+the project is complete. The portable pack is an authored input throughout. Installed-schema
+observation describes the catalog at the authenticated issuer and keeps activation authority
+with the maintenance owner.
+
 `just project-build` and `just evidence-build` explicitly construct separate native operators;
 `just project` and `just evidence` forward to those prepared binaries. The project operator
 consumes explicit state and typed documents; the derived evidence index has separate ownership.
 Neither can initialize/start an unrelated canonical service during a read. See
 [the substrate guide](surreal-substrate.md#project-and-derived-evidence-operations).
+
+### Authored source changes
+
+After editing a supported declaration and its consumers, use `pse source-change preview --case
+optional-project-description` or `recorded-result-field-rename` to derive and check the generated
+consequences in isolation. `pse source-change status ID` reads the original receipt directly.
+Add `--diagnostic` to read the recorded failed stage's bounded diagnostic tail.
+`pse source-change apply ID` guards the original source premise before publishing.
+`pse source-change recover ID` resumes the original preview or publication.
+`pse source-change discard ID` releases settled preview custody.
+
+After changing named dependency pins that affect host preparation, `just upgrade-host PACKAGE…`
+composes the targeted lock refresh and the existing explicit preparation owner.
 
 ### Local observation and selected investigation
 

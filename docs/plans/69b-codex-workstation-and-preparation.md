@@ -92,6 +92,6 @@ authenticate and settle its owners reliably, bring the combined mutation to R-56
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | in progress | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. Assembled checkout and selected-mode evidence remains. |
-| B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Cold help, fixed preparation, verified seed selection and warm receipts are implemented. The assembled prerequisite and continuation journey remains. |
-| B03 | in progress | B01, A03, and existing scratch and retirement owners | The Study fixture owns a short private scratch path and checks it before launch. Live drain and bounded recovery remain to be exercised. |
+| B01 | in progress | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. A cold checkout's help and catalog refusal left its target absent. Selected-mode receiving evidence remains. |
+| B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Warm preparation returned the authenticated generation, and a disposable checkout accepted a verified matching seed. Missing-provider and incompatible-seed continuation still need receiving evidence. |
+| B03 | in progress | B01, A03, and existing scratch and retirement owners | The Study fixture owns a short private scratch path and checks it before launch. `just upgrade-host` composes targeted dependency refresh and host preparation. The assembled drain and bounded recovery controls remain. |

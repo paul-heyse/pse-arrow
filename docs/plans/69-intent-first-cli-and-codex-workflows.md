@@ -109,25 +109,27 @@ do not gate receiving work that already has the required contract.
 
 ## Execution checkpoint
 
-The first implementation wave adds strict parse before usage-format recovery,
-machine-format search progress gating, passive catalog candidates, exact investigation
-configuration acquisition, explicit cold and prepared host preparation, and the
-ordinary workspace test default. Compact invocation inspection and the checkout
-release owner are wired. The user timer is enabled and its fixed service ran
-successfully. Offline project-pack
-inspection and connection-only project metadata use the existing captured product
-owner. Online reads currently require an explicit deployment and use its configured
-database by default. The separate project-effect protocol carries the expected issuer
-and original operation key for creation, navigation and acknowledgement lookup. E01
-records the two fixture cases and the authored-edit fallback. E02 stages per-file
-identities in the generator writer before guarded publication.
+The CLI now discovers parser-checked examples, resolves private project targets once,
+and presents effective settings with provenance. The captured project receiver checks
+the expected issuer and exposes bounded research and descriptive closure reads. The
+performing route carries original import issue, apply, checkpoint and recovery identities.
+The checkout retains at most 64 original import intents and releases an intent after
+authoritative project completion. Prepared host receipts include the authenticated
+selected generation.
 
-Next qualify the project receivers and connect shared settings across commands.
-The generator's isolated preview and persisted recovery, live schema rollout, project
-exchange, and assembled journeys remain open. F02 retains eager construction after
-selective deferral failed catalog parity. A04's first machine-output control is separate
-from the remaining owner-event work. Keep v4-specific evidence on its exact receiving
-baseline once Plan68's contracts are available on main.
+Detached and borrowed test presentations can enter the compact expiry class after the
+owner proves native drain and image release. The original settlement bytes stay immutable.
+Source-change preview uses an isolated checkout with one retained snapshot per checkout.
+It publishes the staged generator delta and recovers by exact file identity. The
+installed-catalog observer uses an authenticated Viewer connection and shares the
+normalized inventory with maintenance validation.
+
+The companion plans retain assembled qualification that remains open. Project export and
+study deliverables still need publication identities that survive a lost reply.
+Live schema rollout still needs an owner for the original rollout nonce, physical
+server instance and settled activation. Receive those guarantees on Plan68's selected
+candidate baseline. F02 retains eager construction after selective deferral failed catalog
+parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
 ## Opportunity dispositions
 

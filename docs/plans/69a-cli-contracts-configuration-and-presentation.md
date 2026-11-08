@@ -165,6 +165,6 @@ source, independent warnings, unsafe recovery operands, and a delegated cause.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A01 | in progress | Existing parser and catalog | Passive package candidates and initial effect metadata are implemented. Complete discovery, examples and parser parity remain. |
-| A02 | in progress | Current identity and configuration owners | Investigation has exact file acquisition, same-resolution provenance and a redacted public view. Cross-command settings and authorized default target selection remain. |
-| A03 | in progress | Native envelope and original owner receipts | Preparation and project receivers use the existing envelope. Project effects preserve the original operation and typed failures. Source and schema receiving controls remain. |
+| A01 | in progress | Existing parser and catalog | Passive package candidates, typed effect annotations and runnable examples are attached to the parser. Assembled catalog and preparation parity remains. |
+| A02 | in progress | Current identity and configuration owners | Private project settings resolve defaults, a selected profile and CLI overrides in one read. `inspect settings` explains that resolution. Live ambiguous, unique and stale-target receiving controls remain. |
+| A03 | in progress | Native envelope and original owner receipts | Preparation, project and source receivers carry owner state and exact operation identity. Live schema activation and assembled receiving controls remain. |

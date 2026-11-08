@@ -85,4 +85,4 @@ and use `InMemoryTerm` only if layout or removal needs assertions beyond stream 
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A04 | in progress | Existing resolved format and search renderer for the first deliverable. A03 projection and actual owner events for later receiving work. | Machine-format search is gated and the isolated PTY control passed. Receiving controls remain for later owner events. |
+| A04 | in progress | Existing resolved format and search renderer for the first deliverable. A03 projection and actual owner events for later receiving work. | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Transfer progress remains conditional on an adopted publication owner. |

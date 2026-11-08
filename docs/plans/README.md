@@ -38,7 +38,7 @@ and its outstanding acceptance.
 - [68e · Fresh generation and acceptance](68e-surrealdb-v4-fresh-generation-and-acceptance.md)
 
 [Plan69: Intent-first CLI and Codex workflows](69-intent-first-cli-and-codex-workflows.md)
-proposes one routine CLI front door with resolved context, typed recovery and managed results.
+is implementing one routine CLI front door with resolved context, typed recovery and managed results.
 Its companions own CLI contracts, workstation preparation, ordinary tests and results, product
 operations, model and schema changes, parser startup, and terminal presentation. The coordinator
 owns opportunity and improvement dispositions and assembled acceptance. Plan66 and Plan68 retain

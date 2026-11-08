@@ -110,10 +110,8 @@ incomplete or failed publication.
   `control_study_workbench_page` through the same captured reader and target selection. It
   defaults to 64 compact live headers, takes optional exact filters and accepts the original
   issuer- and predicate-bound cursor. The host parser and reader fixture cover the new route.
-  `research_read` reads up to 128 dataset headers per
-  project/key seek page or one exact dataset or frozen selection. Its current `Runtime` method
-  only reads and decodes canonical metadata. Share that owner through D01's bounded encoding
-  and authenticated connection-only dispatch.
+  `pse project research` reads up to 128 dataset headers per project/key seek page or
+  one exact dataset or frozen selection through the authenticated connection-only reader.
   [Project reader](../../crates/pse-runtime/src/tooling/reader/canonical/project.rs) ·
   [Prepared reader](../../crates/pse-runtime/src/tooling/reader.rs) ·
   [Study browse](../../crates/pse-operations/src/canonical_control.rs) ·
@@ -121,15 +119,17 @@ incomplete or failed publication.
 - **Closure and export.** `ProjectClosure` and `ProjectExport` take an exact `ProjectSelection`,
   explicit member keys, original run/attempt and result row predicates, omissions, and document
   and copy allowances. The closure owner caps each primary key list at 1,024 and documents at
-  64 MiB. A descriptive closure returns authenticated metadata and can move separately when
-  the prepared connection-only adapter can invoke it with an already-issued selection. Issuing
-  that selection currently uses source admission. Executable closure and export require authored
+  64 MiB. `pse project describe-closure` returns authenticated metadata for an already-issued
+  selection through the prepared connection-only adapter. Issuing that selection uses
+  source admission. Executable closure and export require authored
   physical inputs that admit the same physical identity. Both exports require an intentional
   fresh destination and return the original manifest after verifying copied members and publishing
   `project.json` last. A partial directory may remain before publication. The D02/A03 effect
-  handoff must preserve that distinction and reconcile uncertain publication against the original
-  destination. Stdout currently fits the manifest or acknowledgement. A streamed pack would
-  require a separate owner publication contract.
+  handoff must preserve that distinction. Current packs bind integrity of the manifest and
+  copied members. They carry no original operation key or digest of the complete authored
+  request, so manifest readback alone cannot prove settlement of a particular submission.
+  Before exposing a routine export route, bind the request and destination at the publication
+  owner and make that association available on readback.
   [Source selection](../../crates/pse-runtime/src/workflow/projects.rs) ·
   [Closure](../../crates/pse-runtime/src/workflow/project_closure.rs) ·
   [Pack owner](../../crates/pse-runtime/src/workflow/project_portability.rs) ·
@@ -142,9 +142,11 @@ incomplete or failed publication.
   source from completed project membership. `ProjectImportRecover` takes the same intent and
   original artifact header and returns exact pending, collected or completed state. `ProjectImportOpen`
   requires completed membership and reopens admitted source. D02/A03 must preserve those original
-  identities, diagnostics and safe continuations before exposing effects. The one-shot operator
-  currently accepts a request file and spill directory and returns JSON. The prepared reader has
-  no equivalent typed exchange-effect route yet.
+  identities, diagnostics and safe continuations. The prepared receiver exposes
+  `import-issue`, `import`, `import-status` and `import-recover`. It retains the exact issued
+  intent in private checkout custody and uses it by default. `import-forget` releases it
+  after exact completion is observed. `ProjectImportOpen` still needs a distinct protected
+  physical-admission route.
   [Original action types](../../crates/pse-runtime/src/host_operations/project.rs) ·
   [Action dispatch](../../crates/pse-runtime/src/host_operations/project/handler.rs) ·
   [Import checkpoints](../../crates/pse-operations/src/canonical_project_imports.rs) ·
@@ -162,6 +164,6 @@ incomplete or failed publication.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| D01 | in progress | A01–A03, B02 prepared route, current product read owner | Offline pack and connection-only metadata, branch and draft routes exist. Authorized default selection, ambiguity and live cursor controls remain. |
+| D01 | in progress | A01–A03, B02 prepared route, current product read owner | Connection-only reads and the target identity query are wired. Named selections carry expected issuer and database, and ambiguous targets return authenticated choices. The assembled receiving journey remains. |
 | D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. The live owner control passed for wrong issuer, duplicates, stale navigation and receipt recovery. The assembled captured CLI journey remains. |
-| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | The live study-workbench read and foreign cursor refusal passed. Research metadata and typed exchange remain open. |
+| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | Research metadata, descriptive closure and typed import custody are implemented. Assembled import verification, protected import open and original publication receipts for export and study deliverables remain. |

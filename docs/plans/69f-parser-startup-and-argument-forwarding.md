@@ -99,5 +99,5 @@ boundaries. A second prepared generation with deferred construction was not time
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| F01 | in progress | Existing strict parser, usage envelope and special entry protocols | Successful paths skip full prefix reflection. A prepared run preserved literal child format, comma-bearing and non-UTF-8 arguments, with the original child status. Special entry protocol qualification remains part of the assembled journey. |
+| F01 | complete | Existing strict parser, usage envelope and special entry protocols | Successful paths skip full prefix reflection. A prepared run preserved literal child format, comma-bearing and non-UTF-8 arguments with the original child status. Prepared ordinary usage, raw boundary refusal and hook advice preserved their respective protocols. The parser controls cover the early outer prefix and expanded help tree. |
 | F02 | complete | F01 and A01's scoped and full discovery contracts | Retain eager construction after the selective alternatives failed current catalog parity. The measurement boundary is recorded above. |
