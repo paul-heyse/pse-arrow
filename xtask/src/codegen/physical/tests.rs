@@ -43,9 +43,9 @@ fn independently_hydrated_registry_disagreement_refuses_before_package_admission
     let other = pse_schema::RegistryBuilder::new()
         .build()
         .expect("empty registry");
-    let error = load_independent(root(), &other)
-        .err()
-        .expect("different registry");
+    let Err(error) = load_independent(root(), &other) else {
+        panic!("different registry must refuse before package admission");
+    };
     assert!(error.to_string().contains("registry differs"));
 }
 
