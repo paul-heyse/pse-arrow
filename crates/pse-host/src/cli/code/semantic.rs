@@ -719,16 +719,40 @@ pub(in crate::cli) fn test_routes(
         if let Some(target) = &configuration.target {
             argv.extend(["--target".into(), target.clone()]);
         }
-        if candidate.runnable_kind.as_deref() == Some("test")
+        let exact = if candidate.runnable_kind.as_deref() == Some("test")
+            && candidate.eligible == Some(true)
+            && let [target] = candidate.cargo_targets.as_slice()
+            && target.required_features_satisfied
+            && target.manifest.parent().is_some_and(|owner| {
+                owner.starts_with(root) && path.starts_with(owner) && target.root.starts_with(owner)
+            })
             && let Some(test) = &candidate.test_id
             && !test.is_empty()
             && test
                 .chars()
                 .all(|ch| ch.is_alphanumeric() || ch == '_' || ch == ':')
         {
-            argv.extend(["-E".into(), format!("test(={test})")]);
-        }
-        next.push(envelope::NextAction::Command{argv,reason:format!("{} runnable ({}) nominates a guarded containing-package validation candidate through the existing selection owner; relevance is not coverage or execution", candidate.runnable_kind.as_deref().unwrap_or("unclassified"), candidate.relatedness.as_deref().unwrap_or("native relationship"))});
+            let selector = match target.kind.as_str() {
+                "lib" | "rlib" | "proc-macro" => Some(vec!["--lib".into()]),
+                "test" | "bin" => Some(vec![format!("--{}", target.kind), target.name.clone()]),
+                _ => None,
+            };
+            if let Some(selector) = selector {
+                argv.extend(selector);
+                argv.extend(["-E".into(), format!("test(={test})")]);
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        };
+        let scope = if exact {
+            "a unique snapshot target and exact test name; current Cargo admission checks the selection"
+        } else {
+            "the containing package because the snapshot could not establish an eligible exact target and test name"
+        };
+        next.push(envelope::NextAction::Command{argv,reason:format!("{} runnable ({}) nominates {scope}; this candidate supplies no coverage or verdict", candidate.runnable_kind.as_deref().unwrap_or("unclassified"), candidate.relatedness.as_deref().unwrap_or("native relationship"))});
     }
     next
 }
@@ -772,9 +796,18 @@ mod runnable_route_tests {
                     test_id: Some("selected".into()),
                     cfg: None,
                     relatedness: Some("native relationship".into()),
-                    eligible: None,
-                    cfg_eligible: None,
-                    cargo_targets: Vec::new(),
+                    eligible: Some(true),
+                    cfg_eligible: Some(true),
+                    cargo_targets: vec![semantic::RunnableTargetFact {
+                        package_id: "fixture".into(),
+                        manifest: temporary.path().join("Cargo.toml"),
+                        root: path.clone(),
+                        name: "fixture".into(),
+                        kind: "lib".into(),
+                        required_features: Vec::new(),
+                        active_features: Default::default(),
+                        required_features_satisfied: true,
+                    }],
                     snapshot_update: None,
                     label: Some("display only".into()),
                     location: Some(semantic::FactLocation::Bytes {
@@ -805,6 +838,7 @@ mod runnable_route_tests {
                 .any(|pair| pair == ["inspect", "test-selection"])
         );
         assert!(argv.iter().any(|arg| arg == "test(=selected)"));
+        assert!(argv.iter().any(|arg| arg == "--lib"));
         assert!(
             !argv
                 .iter()
@@ -822,6 +856,11 @@ mod runnable_route_tests {
         answer.observed.tests[0].eligible = Some(false);
         assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
         answer.observed.tests[0].eligible = None;
+        let routes = test_routes(temporary.path(), &answer, &configuration);
+        let [envelope::NextAction::Command { argv, .. }] = routes.as_slice() else {
+            panic!("conservative route missing")
+        };
+        assert!(!argv.iter().any(|arg| arg == "--lib" || arg == "-E"));
         std::fs::write(path, "changed historical witness\n").unwrap();
         assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
     }

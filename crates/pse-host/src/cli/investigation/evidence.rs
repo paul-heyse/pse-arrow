@@ -204,7 +204,7 @@ pub(super) enum Action {
     TestSelection {
         #[command(flatten)]
         tests: super::super::selection::TestArgs,
-        /// Validate a source witness, then select its current containing package as a test candidate.
+        /// Validate a source witness and explain the current package or its explicitly selected target.
         #[arg(long)]
         from_result: Option<String>,
         #[arg(long)]
@@ -919,7 +919,7 @@ fn selection_emit(
     );
     fn mark<T>(mut response: Envelope<T>, from_source: bool) -> Envelope<T> {
         if from_source {
-            response.observation.limitations.push("Current containing-package test candidate from a validated source witness. The source search did not capture a Cargo graph; this does not establish original compiler context, dependency impact, a retained/listed population, sufficient coverage or execution.".into());
+            response.observation.limitations.push("Current test candidate in the containing package from a validated source witness. Cargo checks any explicit target selection. This does not establish dependency impact, a listed population, coverage or a verdict.".into());
         }
         response
     }
