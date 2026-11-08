@@ -3,6 +3,9 @@
 //! Receiving controls for campaign selection and owned report publication.
 use super::*;
 
+#[path = "conformance_export_tests.rs"]
+mod export;
+
 #[test]
 fn native_provider_selection_is_explicit_and_unprepared_builds_refuse() {
     assert_eq!(NativeProviders::default(), NativeProviders::None);
