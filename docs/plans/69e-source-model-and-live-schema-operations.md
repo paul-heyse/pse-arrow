@@ -228,6 +228,11 @@ with the original operation ID and owner facts.
 
 ### Configured rollout adoption
 
+**Decision, 2026-11-08.** The maintainer deferred configured apply and recovery. Passive
+installed-schema inspection remains the supported route. Revisit configured mutation when
+a named native-owned persistent deployment needs a recurring in-place schema change. The
+disposable phase and interruption evidence remains scoped to that owner.
+
 **Tested baseline.** The owned disposable v4 Nextest control ran the prepared SurrealKit
 phases. After interruption and restart, independent readback found the committed SQL effect
 and the original unresolved journal step. The result establishes the tool path and the need
@@ -386,12 +391,22 @@ candidate path. Compare generator work and temporary allocation in this bounded 
 Adopt the narrower route only when it preserves the evidence and removes material work.
 Otherwise record the reason and retain the full route for that case.
 
+**Interface-checked, 2026-11-08.** The current ownership map assigns the schema source
+tree to 15 producers, including the generated ownership map itself. The contributor
+sidecars describe observed relationships and retain coverage limits. Independent target
+generation preserves the previous aggregate map. Those declarations cannot exclude an
+omitted producer or establish current ownership for additions and removals in the optional
+field case. Retain full generation and its comparison. Revisit a narrower route when the
+registry can establish a complete producer and output scope, including aggregate map effects.
+[Generated ownership map](../../scripts/generated/generated-outputs.json) ·
+[Aggregate map owner](../../xtask/src/codegen/ownership.rs)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
 | E02 | complete | E01 decision, A01 and A03, generator and affected-check owners | Both source-change cases passed. The optional-field preview verified structural anchors, conservative affected evidence, staged SurrealQL and regeneration equivalence. Stale apply preserved all 43 preimages. The exact reviewed apply published all 43 verified postimages. The owned v4 test confirmed historical absence, an explicit string, `NONE`, and refusal of `NULL`. The fixture and preview custody were released. |
-| E03 | in progress | D01 authenticated selection, A03, persistent native maintenance ownership on adoption, and Plan68 version-specific receiving | The disposable v4 phase and interruption controls passed. First record the named configured consumer and lifecycle authority, or explicit deferral with its revisit trigger. On adoption, finish persistent handoff, original nonce issue and settlement, activation, and CLI receiving for the bounded additive rollout. |
+| E03 | deferred | Named native-owned persistent deployment and recurring in-place schema change | The maintainer deferred configured mutation. The disposable v4 phase and interruption controls passed. Passive installed inspection remains supported and has a separate receiving check. |
 | E04 | complete | Existing immutable source acquisition and structural query owner | The shared source index is implemented. Focused native tests and a scoped live probe verified UTF-8 captures and multiline edit coordinates while preserving the original source bytes and bounded behavior. Native range pushdown remains conditional. |
-| E05 | planned | E02 verified preview and publication, generator provenance and target selectors | Qualify the narrower generator route against the full optional-field preview and an incomplete-input fallback, or record why the full route remains necessary. |
+| E05 | complete | E02 verified preview and publication, generator provenance and target selectors | Retain full generation because the current input scopes and aggregate map cannot establish a complete narrower route for the optional-field fixture. |
