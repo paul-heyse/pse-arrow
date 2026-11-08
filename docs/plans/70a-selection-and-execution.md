@@ -212,9 +212,15 @@ Fresh long-hold preparation succeeded and the eight-controller capacity case pas
 in `01a1bbdb-39a6-771e-8c7e-8e18afd00dd4`.
 [Operator routes](../dev/validation-assessment.md#individual-commands)
 
-The retained native reference contracts refused current source-closure validation. The
-independent receiver still needs current producer bytes for its five selected contracts.
-The four parity exchanges still require D02's actual performing solver admission. Ordinary
-compiler and modeling capsule migration still needs E01's selected authored closure. The staged
-receipt cases retain their explicit capture route. Run build-bearing checks one at a time in the
-shared checkout or combine compatible selectors under one Cargo invocation.
+The retained native reference contracts refused current source-closure validation. The fresh
+managed `pse-runtime --lib` producer with Ipopt, KINSOL, and root isolation then passed five
+selected cases with zero failures in `01a1bbf2-f862-72a4-8926-4bbbb8f0d3de`, and its managed
+wait confirmed settlement. `just reference-contract-unit` passed all five independent receiver
+tests against those fresh bytes. This establishes the selected producer and receiver routes.
+The configured exchanger population and its scientific qualification remain with [Plan66l](66l-required-population-and-assembled-acceptance.md#packages)
+on its own schedule.
+
+A04 remains open for D02's actual performing solver admission for the four named parity exchanges
+and E01's selected authored closure for ordinary compiler and modeling capsule migration. The
+staged receipt cases retain their explicit capture route. Run build-bearing checks one at a time
+in the shared checkout or combine compatible selectors under one Cargo invocation.
