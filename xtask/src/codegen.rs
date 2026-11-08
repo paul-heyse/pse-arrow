@@ -46,6 +46,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::process::Command;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use pse_codegen::codegen::{GeneratedTree, Language, documents, provenance};
@@ -57,6 +58,9 @@ use crate::Target;
 const BINDINGS: &str = provenance::protocol::IPOPT_BINDINGS;
 
 pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> {
+    if only == Some(Target::HostedProjections) && !check {
+        bail!("hosted-projections is a check-only selection");
+    }
     if only == Some(Target::RecordedResult) {
         let tree = recorded_result_tree(root)?;
         validate_tree(&tree)?;
@@ -126,6 +130,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         Some(Target::Relations | Target::RustContracts) => vec![Language::Rust],
         Some(Target::Docs) => vec![Language::Markdown],
         Some(Target::Surreal) => vec![Language::Surreal],
+        Some(Target::HostedProjections) => Language::ALL.to_vec(),
         Some(Target::Bindgen) => return native_abi(root, check),
         Some(
             Target::Schemas
@@ -142,7 +147,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     if check {
         return check_generators(root, &languages, only);
     }
-    let source_registry = pse_schema::catalog::assemble()?;
+    let source_registry = Arc::new(pse_schema::catalog::assemble()?);
     let registry = &source_registry;
     let mut trees = Vec::new();
     // Preflight the complete code-intelligence corpus before any aggregate publication.
@@ -241,13 +246,21 @@ fn developer_evidence_tree(_: &Path) -> Result<GeneratedTree> {
 }
 
 #[cfg(feature = "host-contracts")]
-fn cli_reference() -> Result<Vec<u8>> {
+fn cli_reference(_root: &Path) -> Result<Vec<u8>> {
     Ok(pse_host::catalog::markdown::render(&[])?.into_bytes())
 }
 
 #[cfg(not(feature = "host-contracts"))]
-fn cli_reference() -> Result<Vec<u8>> {
-    bail!("CLI reference generation requires host-contracts")
+fn cli_reference(root: &Path) -> Result<Vec<u8>> {
+    let export = Command::new(root.join("scripts/pse-host"))
+        .args(["commands", "--markdown"])
+        .current_dir(root)
+        .output()
+        .context("running the prepared host's source-built CLI reference export")?;
+    if !export.status.success() || export.stdout.is_empty() {
+        bail!("CLI reference export exited {}: {}", export.status, String::from_utf8_lossy(&export.stderr));
+    }
+    Ok(export.stdout)
 }
 
 #[cfg(feature = "product-schemas")]
@@ -281,7 +294,7 @@ fn stage_code_intelligence<T>(
 
 fn language_tree(
     root: &Path,
-    registry: &pse_schema::Registry,
+    registry: &Arc<pse_schema::Registry>,
     language: Language,
     only: Option<Target>,
 ) -> Result<GeneratedTree> {
@@ -300,7 +313,7 @@ fn language_tree(
         tree.roots.extend(private.roots);
         tree.files.extend(private.files);
         tree.relationships.extend(private.relationships);
-        if only == Some(Target::RustContracts) {
+        if matches!(only, Some(Target::RustContracts | Target::HostedProjections)) {
             contract_roots(&mut tree);
         } else {
             append_physical(root, registry, &mut tree)?;
@@ -311,7 +324,7 @@ fn language_tree(
     }
     if language == Language::Markdown {
         let path = "docs/generated/agent-cli.md";
-        tree.files.insert(path.into(), cli_reference()?);
+        tree.files.insert(path.into(), cli_reference(root)?);
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: "pse-command-tree".into(),
             declaration_kind: "cli_parser".into(),
@@ -338,7 +351,7 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
     if let Some(registry) = check_result(
         &mut failures,
         "registry assembly",
-        pse_schema::catalog::assemble().map_err(anyhow::Error::from),
+        pse_schema::catalog::assemble().map(Arc::new).map_err(anyhow::Error::from),
     ) {
         for &language in languages {
             let label = format!("registry-{}", language.as_str());
@@ -622,14 +635,14 @@ fn document_schemas(_: &pse_schema::Registry) -> Result<GeneratedTree> {
 #[cfg(feature = "physical-admission")]
 fn append_physical(
     root: &Path,
-    registry: &pse_schema::Registry,
+    registry: &Arc<pse_schema::Registry>,
     tree: &mut GeneratedTree,
 ) -> Result<()> {
     physical::append(root, registry, tree)
 }
 
 #[cfg(not(feature = "physical-admission"))]
-fn append_physical(_: &Path, _: &pse_schema::Registry, _: &mut GeneratedTree) -> Result<()> {
+fn append_physical(_: &Path, _: &Arc<pse_schema::Registry>, _: &mut GeneratedTree) -> Result<()> {
     bail!(
         "complete Rust generation requires physical-admission; `just codegen` regenerates the contracts first and then rebuilds the admitted package loader"
     )
@@ -1140,7 +1153,7 @@ mod tests {
     #[test]
     fn markdown_renders_the_parser_reference_without_a_cargo_checkout() {
         let destination = tempfile::tempdir().unwrap();
-        let registry = pse_schema::catalog::assemble().unwrap();
+        let registry = Arc::new(pse_schema::catalog::assemble().unwrap());
         let docs = language_tree(
             destination.path(),
             &registry,

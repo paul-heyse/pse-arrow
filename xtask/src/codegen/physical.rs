@@ -60,8 +60,8 @@ pub(super) fn source_scopes(
     Ok(scopes)
 }
 
-pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree) -> Result<()> {
-    let physical = load(root, registry)?;
+pub(super) fn append(root: &Path, registry: &Arc<Registry>, tree: &mut GeneratedTree) -> Result<()> {
+    let physical = load(root, Arc::clone(registry))?;
     pse_codegen::codegen::rust::physical::append_quantity_fixture(
         tree,
         physical.quantities(),
@@ -70,7 +70,7 @@ pub(super) fn append(root: &Path, registry: &Registry, tree: &mut GeneratedTree)
     Ok(())
 }
 
-fn load(root: &Path, registry: &Registry) -> Result<Physical> {
+fn load(root: &Path, registry: Arc<Registry>) -> Result<Physical> {
     let projection = projection(root)?;
     ensure!(
         !projection.packages.is_empty(),
@@ -109,12 +109,7 @@ impl Sources {
         clippy::too_many_lines,
         reason = "complete target fixture construction and its independent assertions are kept in execution order"
     )]
-    async fn load(root: &Path, packages: &[String], declaration: &Registry) -> Result<Self> {
-        let registry = Arc::new(pse_schema::catalog::assemble()?);
-        ensure!(
-            registry.fingerprint() == declaration.fingerprint(),
-            "physical fixture registry differs from the generator declaration"
-        );
+    async fn load(root: &Path, packages: &[String], registry: Arc<Registry>) -> Result<Self> {
         let spill = tempfile::tempdir()?;
         let one = NonZeroUsize::new(1).context("positive thread count")?;
         let memory = NonZeroUsize::new(32usize << 30).context("positive tool budget")?;

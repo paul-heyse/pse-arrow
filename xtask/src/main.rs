@@ -387,6 +387,8 @@ enum Target {
     Docs,
     /// Registry-generated canonical native schema and codecs.
     Surreal,
+    /// Check the independent Rust contracts, documentation and Surreal projections together.
+    HostedProjections,
     /// `bindgen` output for the Ipopt C API.
     Bindgen,
     /// The JSON Schemas of the Rust-owned boundary documents and of the authoring

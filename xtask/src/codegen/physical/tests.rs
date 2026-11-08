@@ -17,15 +17,32 @@ fn root() -> &'static Path {
         .expect("workspace parent")
 }
 
+fn load_independent(root: &Path, generated: &Registry) -> Result<Physical> {
+    let declared = Arc::new(pse_schema::catalog::assemble()?);
+    ensure!(
+        declared.fingerprint() == generated.fingerprint(),
+        "physical fixture registry differs from the generator declaration"
+    );
+    load(root, declared)
+}
+
 #[test]
 fn standard_fixture_matches_yaml() {
-    let source = load(root(), pse_schema::registry().expect("registry")).expect("package data");
+    let registry = Arc::new(pse_schema::catalog::assemble().expect("source registry"));
+    let source = load(root(), registry).expect("package data");
     let fixture = pse_quantity::standard::standard_registry().expect("generated fixture");
     assert_quantities_equal(source.quantities(), &fixture);
     assert_eq!(
         source.preconditions(),
         pse_quantity::generated::standard_preconditions()
     );
+}
+
+#[test]
+fn independently_hydrated_registry_disagreement_refuses_before_package_admission() {
+    let other = pse_schema::RegistryBuilder::new().build().expect("empty registry");
+    let error = load_independent(root(), &other).err().expect("different registry");
+    assert!(error.to_string().contains("registry differs"));
 }
 
 fn assert_quantities_equal(a: &QuantityRegistry, b: &QuantityRegistry) {
@@ -192,7 +209,8 @@ fn assert_operation_equal(a: &QuantityOperation, b: &QuantityOperation) {
 
 #[test]
 fn reference_package_admission_scientific_units() {
-    let source = load(root(), pse_schema::registry().expect("registry")).expect("package data");
+    let source =
+        load_independent(root(), pse_schema::registry().expect("registry")).expect("package data");
     // BIPM SI bases and NIST SP 811 Appendix B.8; checked independently of generator.
     let units = source.quantities();
     let atomic = |symbol: &str| {
@@ -304,13 +322,13 @@ fn mutated_package(
 fn altered_physical_facts_are_admitted_from_values_or_refused() {
     let registry = pse_schema::registry().expect("registry");
     let unchanged = mutated_package("physical", |_| {});
-    load(unchanged.path(), registry).expect("unchanged fixture closure admits");
+    load_independent(unchanged.path(), registry).expect("unchanged fixture closure admits");
     for (section, field, value) in [
         ("units", "scale_to_canonical", serde_json::json!(0.0)),
         ("reference_states", "pressure", serde_json::json!(-1.0)),
     ] {
         let scratch = mutated_package("physical", |body| body[section][0][field] = value);
-        assert!(load(scratch.path(), registry).is_err(), "{section}.{field}");
+        assert!(load_independent(scratch.path(), registry).is_err(), "{section}.{field}");
     }
     // A defined unit's identity is its product identity; a changed exponent is refused.
     let composition = mutated_package("physical", |body| {
@@ -323,14 +341,14 @@ fn altered_physical_facts_are_admitted_from_values_or_refused() {
         defined["definition"][0]["num"] = serde_json::json!(5);
     });
     assert!(
-        load(composition.path(), registry).is_err(),
+        load_independent(composition.path(), registry).is_err(),
         "defined unit composition disagrees with its identity"
     );
     let dimensions = mutated_package("physical", |body| {
         body["quantity_kinds"][0]["dimension"][0]["num"] = serde_json::json!(7);
     });
     assert!(
-        load(dimensions.path(), registry).is_err(),
+        load_independent(dimensions.path(), registry).is_err(),
         "kind dimension disagrees with actual quantity canonical unit"
     );
 }

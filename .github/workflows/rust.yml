@@ -125,10 +125,7 @@ jobs:
           shared-key: codegen
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: independent generated projections match their owners
-        run: |
-          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only rust-contracts
-          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only docs
-          scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only surreal
+        run: scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- codegen --check --only hosted-projections
 
   family-check:
     name: rust / family-check
