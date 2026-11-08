@@ -37,6 +37,12 @@ fn unavailable(reason: impl Into<String>) -> MetadataError {
 /// Actual source schema import required by every owner-derived generation world.
 pub const CORE_IMPORT: &str = "pse/contract/v1/metadata.proto";
 
+fn missing_core_import() -> MetadataError {
+    unavailable(format!(
+        "required typed metadata import {CORE_IMPORT} is missing; compile the source schema with its complete import closure"
+    ))
+}
+
 mod check;
 mod field_contract;
 mod owner_shape;
@@ -61,9 +67,7 @@ impl OptionEncoder {
             .iter()
             .any(|file| file.name.as_deref() == Some(CORE_IMPORT))
         {
-            return Err(unavailable(format!(
-                "required typed metadata import {CORE_IMPORT} is missing; compile the source schema with its complete import closure"
-            )));
+            return Err(missing_core_import());
         }
         let pool = DescriptorPool::new(FileDescriptorSet {
             file: imports.to_vec(),
@@ -76,6 +80,9 @@ impl OptionEncoder {
     /// Reuse an acquired immutable world while enforcing the identical core schema
     /// guard. Sharing a pool never supplies source interpretation or coverage.
     pub fn from_pool(pool: Arc<DescriptorPool>) -> Result<Self, MetadataError> {
+        if pool.file_by_name(CORE_IMPORT).is_none() {
+            return Err(missing_core_import());
+        }
         let encoder = Self { pool };
         // These are representations of actual native members, not a second native
         // vocabulary. Refuse a schema that changes the correspondence silently.
@@ -599,11 +606,27 @@ pub struct NativeSelection<'a> {
     pub facet_fields: &'a [(&'a str, &'a str, &'a str)],
 }
 
-/// One acquired descriptor world with its own available native policy.
+/// Original descriptor source or the exact immutable pool that already linked it.
+/// A pooled selection always obtains its file declarations from that same pool.
+#[derive(Clone, Copy, Debug)]
+pub enum DescriptorWorld<'a> {
+    /// Complete source descriptors whose links have not been acquired by the caller.
+    Source(&'a FileDescriptorSet),
+    /// Original linked pool retained by the caller's read operation.
+    Acquired(&'a Arc<DescriptorPool>),
+}
+
+impl<'a> From<&'a FileDescriptorSet> for DescriptorWorld<'a> {
+    fn from(descriptors: &'a FileDescriptorSet) -> Self {
+        Self::Source(descriptors)
+    }
+}
+
+/// One descriptor world with its own available native policy.
 #[derive(Clone, Copy, Debug)]
 pub struct DescriptorInput<'a, P> {
     /// Acquired descriptors, preserving their original schema pool.
-    pub descriptors: &'a FileDescriptorSet,
+    pub descriptors: DescriptorWorld<'a>,
     /// Explicit selected native source file.
     pub selected_file: &'a str,
     /// Available source interpretation and expected native coverage.

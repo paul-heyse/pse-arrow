@@ -238,12 +238,12 @@ fn unavailable_original_ipc_interpretation_does_not_mask_required_or_contradicto
         .unwrap();
         let both = compare_descriptors(
             DescriptorInput {
-                descriptors: world,
+                descriptors: world.into(),
                 selected_file: "correspondence.proto",
                 policy: &policy,
             },
             DescriptorInput {
-                descriptors: world,
+                descriptors: world.into(),
                 selected_file: "correspondence.proto",
                 policy: &policy,
             },
@@ -423,12 +423,12 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
         .retain(|field| field.number != 51066);
     let compared = compare_descriptors(
         DescriptorInput {
-            descriptors: &before,
+            descriptors: (&before).into(),
             selected_file: "physical.proto",
             policy: &policy,
         },
         DescriptorInput {
-            descriptors: &set,
+            descriptors: (&set).into(),
             selected_file: "physical.proto",
             policy: &policy,
         },
@@ -460,7 +460,7 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
         },
     );
     let input = || DescriptorInput {
-        descriptors: &before,
+        descriptors: (&before).into(),
         selected_file: "physical.proto",
         policy: &strict,
     };
@@ -495,7 +495,7 @@ fn physical_facet_reaches_inspection_and_requires_its_selected_owner_policy() {
         .attach(options, registry_facets::EXTENSION, role_only)
         .unwrap();
     let input = || DescriptorInput {
-        descriptors: &missing_fact,
+        descriptors: (&missing_fact).into(),
         selected_file: "physical.proto",
         policy: &strict,
     };

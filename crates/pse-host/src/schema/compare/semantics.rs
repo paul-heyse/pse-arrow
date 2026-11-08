@@ -3,7 +3,7 @@
 //! Original-world metadata comparison using the shared pure checker and native policies.
 use super::{Bundle, SchemaError};
 use pse_contract::metadata;
-use pse_contract_proto::{DescriptorInput, DescriptorPolicy};
+use pse_contract_proto::{DescriptorInput, DescriptorPolicy, DescriptorWorld};
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -150,6 +150,15 @@ fn compare_with_policy(
     policy: &impl DescriptorPolicy,
     native_coverage: bool,
 ) -> Result<Assessment, SchemaError> {
+    fn original(bundle: &Bundle) -> DescriptorWorld<'_> {
+        // Bundle's navigation pool omits redundant identical file occurrences.
+        // The semantic checker still sees that original acquisition population.
+        if bundle.set.file.len() == bundle.pool.files().len() {
+            DescriptorWorld::Acquired(&bundle.pool)
+        } else {
+            DescriptorWorld::Source(&bundle.set)
+        }
+    }
     let files = selected_files
         .iter()
         .cloned()
@@ -188,12 +197,12 @@ fn compare_with_policy(
         }
         let assessed = pse_contract_proto::compare_descriptors(
             DescriptorInput {
-                descriptors: &baseline.set,
+                descriptors: original(baseline),
                 selected_file: file,
                 policy,
             },
             DescriptorInput {
-                descriptors: &current.set,
+                descriptors: original(current),
                 selected_file: file,
                 policy,
             },

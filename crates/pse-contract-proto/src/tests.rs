@@ -34,12 +34,12 @@ fn compared(
 ) -> pse_contract::metadata::Assessment {
     compare_descriptors(
         DescriptorInput {
-            descriptors: old,
+            descriptors: old.into(),
             selected_file: "options.proto",
             policy: &POLICY,
         },
         DescriptorInput {
-            descriptors: new,
+            descriptors: new.into(),
             selected_file: "options.proto",
             policy: &POLICY,
         },
@@ -52,6 +52,90 @@ fn compared(
 const SOURCE: &str = include_str!("../tests/fixtures/metadata/options.proto");
 const FORWARDED: &str = include_str!("../tests/fixtures/metadata/forwarded.proto");
 const NATIVE_FIELDS: &str = include_str!("../tests/fixtures/metadata/native-fields.proto");
+
+#[test]
+fn acquired_comparison_normalizes_each_side_in_its_original_pool() {
+    struct PoolPolicy<'a>(&'a Arc<DescriptorPool>);
+    impl pse_contract::metadata::InterpretationPolicy for PoolPolicy<'_> {
+        fn name(&self) -> &str {
+            POLICY.name()
+        }
+        fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
+            POLICY.supports_interpretation(subject, version)
+        }
+        fn check_facet(&self, _facet: &pse_contract::metadata::Facet<'_>) -> Disposition {
+            Disposition::Compatible
+        }
+        fn compare_facet(
+            &self,
+            old: &pse_contract::metadata::Facet<'_>,
+            new: &pse_contract::metadata::Facet<'_>,
+        ) -> Disposition {
+            if old.value == new.value {
+                Disposition::Compatible
+            } else {
+                Disposition::Incompatible
+            }
+        }
+    }
+    impl DescriptorPolicy for PoolPolicy<'_> {
+        fn native_selection(&self) -> Option<NativeSelection<'_>> {
+            POLICY.native_selection()
+        }
+        fn normalize_decoded_facet(
+            &self,
+            _extension: &str,
+            value: &DynamicMessage,
+            _field: FieldContext<'_>,
+        ) -> Option<Result<Option<Vec<u8>>, MetadataError>> {
+            Some(if Arc::ptr_eq(self.0, value.pool()) {
+                Ok(Some(value.encode_to_vec()))
+            } else {
+                Err(unavailable("native facet belongs to a foreign pool"))
+            })
+        }
+    }
+
+    let source = SOURCE.replace(
+        "= \"opaque-import-preserved\"",
+        "= { value: \"opaque-import-preserved\" }",
+    );
+    let forwarded = FORWARDED.replace(
+        "optional string forwarded",
+        "optional OriginalFacet forwarded",
+    ) + "\nmessage OriginalFacet { optional string value = 1; }";
+    let original = compile(&source, &forwarded).unwrap();
+    let before = Arc::new(DescriptorPool::new(original.clone()).unwrap());
+    let after = Arc::new(DescriptorPool::new(original).unwrap());
+    let old = PoolPolicy(&before);
+    let new = PoolPolicy(&after);
+    let compare = |new_policy: &PoolPolicy<'_>| {
+        compare_descriptors(
+            DescriptorInput {
+                descriptors: DescriptorWorld::Acquired(&before),
+                selected_file: "options.proto",
+                policy: &old,
+            },
+            DescriptorInput {
+                descriptors: DescriptorWorld::Acquired(&after),
+                selected_file: "options.proto",
+                policy: new_policy,
+            },
+            &old,
+            &["independent.imports.forwarded"],
+        )
+        .unwrap()
+    };
+    assert_eq!(compare(&new).disposition, Disposition::Compatible);
+    let refused = compare(&old);
+    assert_eq!(refused.disposition, Disposition::Unknown);
+    assert!(
+        refused
+            .findings
+            .iter()
+            .any(|finding| finding.reason.contains("foreign pool"))
+    );
+}
 
 #[test]
 fn independent_within_world_field_copies_cannot_agree_only_across_worlds() {
@@ -85,12 +169,12 @@ fn independent_within_world_field_copies_cannot_agree_only_across_worlds() {
         assert_ne!(
             compare_descriptors(
                 DescriptorInput {
-                    descriptors: &world,
+                    descriptors: (&world).into(),
                     selected_file: "options.proto",
                     policy: &NativeFactsPolicy
                 },
                 DescriptorInput {
-                    descriptors: &world,
+                    descriptors: (&world).into(),
                     selected_file: "options.proto",
                     policy: &NativeFactsPolicy
                 },
@@ -174,12 +258,12 @@ optional string value=1 [(pse.contract.v1.field)={metadata_version:2 native_fiel
         assert_eq!(
             compare_descriptors(
                 DescriptorInput {
-                    descriptors: &world,
+                    descriptors: (&world).into(),
                     selected_file: "options.proto",
                     policy: &Policy
                 },
                 DescriptorInput {
-                    descriptors: &world,
+                    descriptors: (&world).into(),
                     selected_file: "options.proto",
                     policy: &Policy
                 },
@@ -199,12 +283,12 @@ optional string value=1 [(pse.contract.v1.field)={metadata_version:2 native_fiel
     assert_eq!(
         compare_descriptors(
             DescriptorInput {
-                descriptors: &old,
+                descriptors: (&old).into(),
                 selected_file: "options.proto",
                 policy: &Policy
             },
             DescriptorInput {
-                descriptors: &changed,
+                descriptors: (&changed).into(),
                 selected_file: "options.proto",
                 policy: &Policy
             },
@@ -236,12 +320,12 @@ fn supported_native_owner_cannot_omit_selected_record_or_alternative_members() {
         let world = compile(&source, FORWARDED).unwrap();
         let assessment = compare_descriptors(
             DescriptorInput {
-                descriptors: &world,
+                descriptors: (&world).into(),
                 selected_file: "options.proto",
                 policy: &NativeFactsPolicy,
             },
             DescriptorInput {
-                descriptors: &world,
+                descriptors: (&world).into(),
                 selected_file: "options.proto",
                 policy: &NativeFactsPolicy,
             },
@@ -347,12 +431,12 @@ fn independent_native_contract_changes_are_incompatible_with_identical_wire_decl
         assert_eq!(
             compare_descriptors(
                 DescriptorInput {
-                    descriptors: &old,
+                    descriptors: (&old).into(),
                     selected_file: "options.proto",
                     policy: &NativeFactsPolicy
                 },
                 DescriptorInput {
-                    descriptors: &new,
+                    descriptors: (&new).into(),
                     selected_file: "options.proto",
                     policy: &NativeFactsPolicy
                 },
@@ -545,12 +629,12 @@ fn signed_i128_metadata_allocation_is_distinct_and_unknown_readers_do_not_defaul
     let compare = |old: &FileDescriptorSet, new: &FileDescriptorSet| {
         compare_descriptors(
             DescriptorInput {
-                descriptors: old,
+                descriptors: old.into(),
                 selected_file: "options.proto",
                 policy: &NativeFactsPolicy,
             },
             DescriptorInput {
-                descriptors: new,
+                descriptors: new.into(),
                 selected_file: "options.proto",
                 policy: &NativeFactsPolicy,
             },
@@ -869,7 +953,7 @@ fn required_source_coverage_survives_stripped_options_and_removed_descriptors() 
         Disposition::Unknown
     );
     let input = || DescriptorInput {
-        descriptors: &original,
+        descriptors: (&original).into(),
         selected_file: "options.proto",
         policy: &inspection,
     };

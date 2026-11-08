@@ -30,6 +30,20 @@ pub fn check_descriptors(
     policy: &impl DescriptorPolicy,
     selected_extensions: &[&str],
 ) -> Result<core::Assessment, MetadataError> {
+    check_world(
+        descriptors.into(),
+        selected_file,
+        policy,
+        selected_extensions,
+    )
+}
+
+fn check_world(
+    descriptors: DescriptorWorld<'_>,
+    selected_file: &str,
+    policy: &impl DescriptorPolicy,
+    selected_extensions: &[&str],
+) -> Result<core::Assessment, MetadataError> {
     let mut result = match with_world(
         descriptors,
         selected_file,
@@ -122,7 +136,7 @@ pub fn compare_descriptors<A: DescriptorPolicy, B: DescriptorPolicy>(
             merge_source(
                 &mut result,
                 "new",
-                check_descriptors(
+                check_world(
                     new.descriptors,
                     new.selected_file,
                     new.policy,
@@ -174,17 +188,23 @@ fn merge_source(result: &mut core::Assessment, label: &str, source: core::Assess
 }
 
 fn with_world<T>(
-    descriptors: &FileDescriptorSet,
+    descriptors: DescriptorWorld<'_>,
     selected_file: &str,
     selected_extensions: &[&str],
     policy: &impl DescriptorPolicy,
     consume: impl FnOnce(&core::World<'_>) -> T,
 ) -> Result<T, MetadataError> {
-    let encoder = OptionEncoder::new(&descriptors.file)?;
-    let file = descriptors
-        .file
-        .iter()
-        .find(|file| file.name.as_deref() == Some(selected_file))
+    let encoder = match descriptors {
+        DescriptorWorld::Source(source) => OptionEncoder::new(&source.file)?,
+        DescriptorWorld::Acquired(pool) => OptionEncoder::from_pool(Arc::clone(pool))?,
+    };
+    let descriptors = match descriptors {
+        DescriptorWorld::Source(source) => source.file.as_slice(),
+        DescriptorWorld::Acquired(pool) => pool.files(),
+    };
+    let file = encoder
+        .pool
+        .file_by_name(selected_file)
         .ok_or_else(|| error(format!("selected metadata file {selected_file} is absent")))?;
     let package = file.package.as_deref().unwrap_or_default();
     let mut messages = Vec::new();
@@ -330,7 +350,6 @@ fn with_world<T>(
         }
     }
     let imports = descriptors
-        .file
         .iter()
         .map(|file| {
             file.dependency
@@ -340,7 +359,6 @@ fn with_world<T>(
         })
         .collect::<Vec<_>>();
     let files = descriptors
-        .file
         .iter()
         .zip(&imports)
         .map(|(file, imports)| core::File {
@@ -356,7 +374,7 @@ fn with_world<T>(
         .chain(encoder.pool.enums().iter().map(|symbol| symbol.full_name()))
         .collect::<Vec<_>>();
     let mut extension_declarations = Vec::new();
-    for file in &descriptors.file {
+    for file in descriptors {
         collect_extensions(file, &mut extension_declarations);
     }
     let extensions = extension_declarations
