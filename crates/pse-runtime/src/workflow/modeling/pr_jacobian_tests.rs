@@ -187,70 +187,48 @@ fn numerical_campaign_variants_are_explicit_and_change_only_selected_controls() 
     }
 }
 
-/// Load exact document bytes; unlike the acceptance seed helper, no tests are removed.
+/// Load exact document bytes through the production selection.
 pub(super) fn documents(root: &Path) -> TestResult<BTreeMap<String, Vec<u8>>> {
-    documents_with(root, &mut |path| Ok(std::fs::read(path)?))
-}
-
-fn authored_document(path: &Path) -> bool {
-    matches!(
-        path.extension().and_then(|extension| extension.to_str()),
-        Some("toml" | "yaml" | "yml" | "pse" | "parquet")
-    )
-}
-
-/// Walk the same admitted document population with an explicit original-byte reader.
-pub(super) fn documents_with(
-    root: &Path,
-    read: &mut impl FnMut(&Path) -> TestResult<Vec<u8>>,
-) -> TestResult<BTreeMap<String, Vec<u8>>> {
-    fn visit(
-        root: &Path,
-        directory: &Path,
-        out: &mut BTreeMap<String, Vec<u8>>,
-        read: &mut impl FnMut(&Path) -> TestResult<Vec<u8>>,
-    ) -> TestResult<()> {
-        for entry in std::fs::read_dir(directory)? {
-            let entry = entry?;
-            if entry.file_type()?.is_symlink() {
-                return Err("reference source documents cannot traverse symlinks".into());
-            }
-            let path = entry.path();
-            if path.is_dir() {
-                visit(root, &path, out, read)?;
-            } else if authored_document(&path) {
-                let relative = path
-                    .strip_prefix(root)?
-                    .to_str()
-                    .ok_or_else(|| std::io::Error::other("non-UTF8 reference document path"))?;
-                out.insert(relative.replace('\\', "/"), read(&path)?);
-            }
-        }
-        Ok(())
-    }
-    let mut out = BTreeMap::new();
     if std::fs::symlink_metadata(root)?.file_type().is_symlink() {
         return Err("reference source root cannot be a symlink".into());
     }
-    visit(root, root, &mut out, read)?;
-    Ok(out)
+    let registry = pse_schema::shared_registry()?;
+    Ok(pse_admission::authoring_driver::document::capture_package(
+        root,
+        &registry,
+        Default::default(),
+    )?
+    .files)
 }
+
+pub(super) type PackageDocumentPaths = BTreeMap<String, Vec<String>>;
 
 type CapturedDocuments<'a> = (
     &'a BTreeMap<String, Vec<u8>>,
+    &'a PackageDocumentPaths,
     &'a mut Option<Arc<pse_columnar::AllocationLease>>,
 );
 
-/// Select the same authored documents as the live owner from captured checkout bytes.
+/// Borrow only the original declared documents of this package occurrence.
 pub(super) fn captured_package_sources<'a>(
     files: &'a BTreeMap<String, Vec<u8>>,
+    packages: &'a PackageDocumentPaths,
     name: &str,
 ) -> impl Iterator<Item = (&'a str, &'a [u8])> + Clone + use<'a> {
     let prefix = format!("packages/reference/{name}/");
-    files.iter().filter_map(move |(path, bytes)| {
-        let relative = path.strip_prefix(prefix.as_str())?;
-        authored_document(Path::new(relative)).then_some((relative, bytes.as_slice()))
-    })
+    let paths = packages.get(name);
+    files
+        .range(prefix.clone()..)
+        .map_while(move |(path, bytes)| {
+            Some((path.strip_prefix(prefix.as_str())?, bytes.as_slice()))
+        })
+        .filter(move |(relative, _)| {
+            paths.is_some_and(|paths| {
+                paths
+                    .binary_search_by(|path| path.as_str().cmp(relative))
+                    .is_ok()
+            })
+        })
 }
 
 async fn package(
@@ -306,7 +284,7 @@ async fn package(
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
     let validation = runtime.validation_context();
-    if let Some((files, owner)) = captured.as_mut() {
+    if let Some((files, packages, owner)) = captured.as_mut() {
         let bytes = files
             .iter()
             .try_fold(1usize << 20, |total, (path, bytes)| {
@@ -316,6 +294,17 @@ async fn package(
                     .checked_add(1024)
             })
             .ok_or("captured ordinary source allocation extent")?;
+        let bytes = packages
+            .iter()
+            .try_fold(bytes, |total, (package, paths)| {
+                let total = total
+                    .checked_add(package.capacity())?
+                    .checked_add(paths.capacity().checked_mul(size_of::<String>())?)?;
+                paths
+                    .iter()
+                    .try_fold(total, |total, path| total.checked_add(path.capacity()))
+            })
+            .ok_or("captured ordinary source membership extent")?;
         **owner = Some(
             shared
                 .math()
@@ -323,10 +312,10 @@ async fn package(
         );
     }
     let load = |name: &str| -> TestResult<_> {
-        if let Some((files, _)) = &captured {
+        if let Some((files, packages, _)) = &captured {
             return Ok(
                 pse_admission::authoring_driver::document::load_package_sources_owned(
-                    captured_package_sources(files, name),
+                    captured_package_sources(files, packages, name),
                     &registry,
                     Default::default(),
                     &pool,
@@ -474,7 +463,7 @@ pub(super) async fn ordinary_delivery_reference_package() -> TestResult<(
         &source,
         &root.join("packages/reference"),
         false,
-        Some((&inputs.files, &mut inputs.owner)),
+        Some((&inputs.files, &inputs.package_paths, &mut inputs.owner)),
     )
     .await?;
     Ok((runtime, package, spill, preparation, inputs))

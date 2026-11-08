@@ -35,9 +35,54 @@ pub(super) fn package_files_with_directories(
     budget: &ParseBudget,
 ) -> Result<PackageFiles, DriverError> {
     let mut files = BTreeMap::new();
-    let mut membership = BTreeMap::new();
     let mut remaining = budget.max_bytes;
-    read_one(root, "package.toml", &mut remaining, &mut files)?;
+    let directories = visit_package_paths(root, registry, true, |relative| {
+        files.insert(
+            relative.to_owned(),
+            read_document(root, relative, &mut remaining)?,
+        );
+        Ok(())
+    })?;
+    Ok(PackageFiles { files, directories })
+}
+
+/// Discover the production loader's exact ordered document paths without opening their bytes.
+/// # Errors
+/// Invalid declared membership, missing or nonregular documents, or too many selected files.
+pub fn package_document_paths(
+    root: &Path,
+    registry: &Registry,
+    maximum_files: usize,
+) -> Result<Vec<String>, DriverError> {
+    let mut paths = Vec::new();
+    visit_package_paths(root, registry, false, |relative| {
+        if paths.len() == maximum_files {
+            return Err(DriverError::Authoring(
+                pse_authoring::AuthoringError::Budget {
+                    limit: "package document population",
+                    allowed: u64::try_from(maximum_files).unwrap_or(u64::MAX),
+                    needed: u64::try_from(maximum_files)
+                        .unwrap_or(u64::MAX)
+                        .saturating_add(1),
+                },
+            ));
+        }
+        require_regular_file(root, relative)?;
+        paths.push(relative.to_owned());
+        Ok(())
+    })?;
+    paths.sort_unstable();
+    Ok(paths)
+}
+
+fn visit_package_paths(
+    root: &Path,
+    registry: &Registry,
+    retain_membership: bool,
+    mut visit: impl FnMut(&str) -> Result<(), DriverError>,
+) -> Result<BTreeMap<String, Option<Vec<String>>>, DriverError> {
+    let mut membership = BTreeMap::new();
+    visit("package.toml")?;
     let mut directories = BTreeMap::<&str, Vec<&str>>::new();
     for document in registry.documents() {
         let Some((directory, pattern)) = document.path_glob.split_once('/') else {
@@ -54,7 +99,9 @@ pub(super) fn package_files_with_directories(
     for (directory, patterns) in directories {
         let path = root.join(directory);
         if !path.exists() {
-            membership.insert(directory.to_owned(), None);
+            if retain_membership {
+                membership.insert(directory.to_owned(), None);
+            }
             continue;
         }
         if std::fs::symlink_metadata(&path)
@@ -73,7 +120,9 @@ pub(super) fn package_files_with_directories(
                 .file_name()
                 .into_string()
                 .map_err(|_| failure(directory, "non-UTF8 document path"))?;
-            names.push(name.clone());
+            if retain_membership {
+                names.push(name.clone());
+            }
             if entry
                 .file_type()
                 .map_err(|error| failure(directory, &error.to_string()))?
@@ -89,34 +138,19 @@ pub(super) fn package_files_with_directories(
                 // only the registry's declared globs own document selection.
                 continue;
             }
-            super::load::select(registry, &format!("{directory}/{name}"))?;
-            read_one(
-                root,
-                &format!("{directory}/{name}"),
-                &mut remaining,
-                &mut files,
-            )?;
+            let relative = format!("{directory}/{name}");
+            super::load::select(registry, &relative)?;
+            visit(&relative)?;
         }
-        names.sort();
-        membership.insert(directory.to_owned(), Some(names));
+        if retain_membership {
+            names.sort();
+            membership.insert(directory.to_owned(), Some(names));
+        }
     }
-    Ok(PackageFiles {
-        files,
-        directories: membership,
-    })
+    Ok(membership)
 }
 
-fn read_one(
-    root: &Path,
-    relative: &str,
-    remaining: &mut u64,
-    files: &mut BTreeMap<String, Vec<u8>>,
-) -> Result<(), DriverError> {
-    files.insert(relative.to_owned(), read_document(root, relative, remaining)?);
-    Ok(())
-}
-
-fn read_document(root: &Path, relative: &str, remaining: &mut u64) -> Result<Vec<u8>, DriverError> {
+fn require_regular_file(root: &Path, relative: &str) -> Result<std::path::PathBuf, DriverError> {
     let path = root.join(relative);
     let metadata =
         std::fs::symlink_metadata(&path).map_err(|error| failure(relative, &error.to_string()))?;
@@ -126,6 +160,11 @@ fn read_document(root: &Path, relative: &str, remaining: &mut u64) -> Result<Vec
             "document must be a regular file, not a symlink",
         ));
     }
+    Ok(path)
+}
+
+fn read_document(root: &Path, relative: &str, remaining: &mut u64) -> Result<Vec<u8>, DriverError> {
+    let path = require_regular_file(root, relative)?;
     let mut bytes = Vec::new();
     std::fs::File::open(path)
         .map_err(|error| failure(relative, &error.to_string()))?

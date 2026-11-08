@@ -1,28 +1,32 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Independent ordinary IDAES correspondence over the source-generated binary contract.
+#[path = "../../../tests/reference_support/environment.rs"]
+mod reference_environment;
+#[path = "../../../tests/reference_support/process.rs"]
+mod reference_process;
+
 use super::*;
 use crate::reference_exchange::{
     ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact, ReferenceObservableContract,
 };
+use pse_admission::authoring_driver::document::package_document_paths;
 use pse_model::reference_exchange::{
     ComparisonAllowance, ReferenceEnvelope, ReferenceMeaning, ReferenceOutcome, compare,
 };
 use sha2::Digest as _;
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     io::Read as _,
     path::{Component, Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 
 const LIMIT: usize = 16 << 20;
 const SOURCE_LIMIT: usize = 64 << 20;
 const SOURCE_FILE_LIMIT: usize = 1024;
-const LOG_LIMIT: usize = 1 << 20;
-const TRUNCATED_LOG: &[u8] = b"\n[reference diagnostic extent exceeded; retained bounded prefix]\n";
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Debug)]
@@ -148,14 +152,21 @@ fn reference_failure_with_comparison(
 }
 
 fn read_prefix(path: &Path, limit: usize) -> TestResult<(Vec<u8>, bool)> {
-    if !std::fs::symlink_metadata(path)?.file_type().is_file() {
+    use rustix::fs::{Mode, OFlags, open};
+    let fd = open(
+        path,
+        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+        Mode::empty(),
+    )?;
+    let mut file = std::fs::File::from(fd);
+    let metadata = file.metadata()?;
+    if !metadata.is_file() {
         return Err("reference exchange input must be a regular file".into());
     }
-    let mut file = std::fs::File::open(path)?;
     let maximum = limit
         .checked_add(1)
         .ok_or("reference input extent overflow")?;
-    let extent = usize::try_from(file.metadata()?.len().min(u64::try_from(maximum)?))?
+    let extent = usize::try_from(metadata.len().min(u64::try_from(maximum)?))?
         .checked_add(1)
         .ok_or("reference input extent overflow")?
         .min(maximum);
@@ -193,15 +204,51 @@ fn read_bounded(path: &Path, limit: usize) -> TestResult<Vec<u8>> {
     Ok(bytes)
 }
 
-fn diagnostics(path: &Path, destination: Option<&Path>, case: &str) -> TestResult<(String, bool)> {
-    let (mut bytes, exceeded) = read_prefix(path, LOG_LIMIT)?;
-    if exceeded {
-        bytes.extend_from_slice(TRUNCATED_LOG);
+fn verify_environment(
+    root: &Path,
+    python: &Path,
+    interpreter_digest: &str,
+    solver: &reference_environment::PreparedSolver,
+    case: &str,
+    diagnostics: &str,
+) -> TestResult {
+    const PREFIX: &str = "ordinary_reference_environment ";
+    let mut lines = diagnostics
+        .lines()
+        .filter_map(|line| line.strip_prefix(PREFIX));
+    let encoded = lines
+        .next()
+        .ok_or("performed reference environment absent")?;
+    if lines.next().is_some() {
+        return Err("multiple performed reference environment records".into());
     }
-    if let Some(destination) = destination {
-        std::fs::write(destination.join(format!("{case}.reference.log")), &bytes)?;
+    let evidence: BTreeMap<String, String> = serde_json::from_str(encoded)?;
+    reference_environment::verify(
+        &evidence,
+        python,
+        interpreter_digest,
+        &reference_environment::pins(root)?,
+    )?;
+    let stages: &[(&str, usize)] = match case {
+        "exchanger_rating" => &[
+            ("exchanger.initializer", 14),
+            ("exchanger.design", 1),
+            ("exchanger.rating", 1),
+            ("exchanger.costing", 1),
+        ],
+        "exchanger_design" | "exchanger_arithmetic" => &[
+            ("exchanger.initializer", 14),
+            ("exchanger.design", 1),
+            ("exchanger.costing", 1),
+        ],
+        "ideal_recycle" => &[("recycle.tear", 1), ("recycle.original", 1)],
+        "overheated_recycle_failure" => &[("recycle.overheated_tear", 1)],
+        _ => return Err("unknown ordinary reference stage population".into()),
+    };
+    for &(stage, count) in stages {
+        reference_environment::verify_stage(&evidence, stage, solver, count..=count)?;
     }
-    Ok((String::from_utf8_lossy(&bytes).into_owned(), exceeded))
+    Ok(())
 }
 
 fn retained_destination() -> TestResult<Option<PathBuf>> {
@@ -302,6 +349,7 @@ fn source_path(root: &Path, relative: &str) -> TestResult<PathBuf> {
 pub(super) struct OriginalInputs {
     pub(super) manifest: crate::workflow::ConformanceManifest,
     pub(super) files: BTreeMap<String, Vec<u8>>,
+    pub(super) package_paths: pr_jacobian_tests::PackageDocumentPaths,
     artifacts: Vec<ReferenceInputArtifact>,
     root: PathBuf,
     // Original source bytes and their attestation metadata settle before the lease.
@@ -329,11 +377,22 @@ impl OriginalInputs {
         // Original path, canonical result and comparison join coexist. At a
         // join reallocation: two retained paths plus old/new storage cost at
         // most six complete path lengths; spelling admission allocates no list.
+        // Membership verification retains at most one package's selected paths.
+        // The declared globs add a fixed directory to one Linux file name.
+        let membership = self
+            .package_paths
+            .values()
+            .map(Vec::len)
+            .max()
+            .unwrap_or(0)
+            .checked_mul(1024)
+            .ok_or("source verification membership extent overflow")?;
         payload
             .checked_add(
                 path.checked_mul(6)
                     .ok_or("source verification extent overflow")?,
             )
+            .and_then(|bytes| bytes.checked_add(membership))
             .and_then(|bytes| bytes.checked_add(size_of::<sha2::Sha256>()))
             .ok_or_else(|| "source verification extent overflow".into())
     }
@@ -359,49 +418,48 @@ impl OriginalInputs {
         let source = pr_jacobian_tests::ordinary_delivery_source(&manifest)?;
         let mut packages = source.dependencies.into_iter().collect::<BTreeSet<_>>();
         packages.extend([source.package, source.physical]);
+        let registry = pse_schema::shared_registry()?;
+        let mut paths = BTreeSet::new();
+        let mut package_paths = BTreeMap::new();
+        for package in packages {
+            let prefix = format!("packages/reference/{package}");
+            let directory = source_path(&root, &prefix)?;
+            let selected =
+                package_document_paths(&directory, &registry, maximum_files - 1 - paths.len())?;
+            paths.extend(
+                selected
+                    .iter()
+                    .map(|relative| format!("{prefix}/{relative}")),
+            );
+            package_paths.insert(package, selected);
+        }
+        paths.extend(
+            [
+                "packages/reference/data/ordinary-bt/source-artifacts/yaws-critical.tsv",
+                "packages/reference/data/ordinary-bt/source-artifacts/crc-vaporization.tsv",
+                "packages/reference/data/ordinary-bt/source-artifacts/poling-wagner.tsv",
+                "packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json",
+                "packages/reference/data/perry7/data/perry_liquid.parquet",
+            ]
+            .map(str::to_owned),
+        );
+        if paths.len() >= maximum_files {
+            return Err(format!(
+                "original scientific artifact population exceeds {maximum_files} files"
+            )
+            .into());
+        }
         let mut remaining = maximum_bytes
             .checked_sub(manifest_bytes.len())
             .ok_or("original source extent")?;
-        let mut count = 1usize;
         let mut files = BTreeMap::from([(manifest_name.to_owned(), manifest_bytes)]);
-        let mut read = |path: &Path| -> TestResult<Vec<u8>> {
-            count = count
-                .checked_add(1)
-                .ok_or("original artifact count extent")?;
-            if count > maximum_files {
-                return Err(format!(
-                    "original scientific artifact population exceeds {maximum_files} files"
-                )
-                .into());
-            }
-            let relative = path
-                .strip_prefix(&root)?
-                .to_str()
-                .ok_or("scientific artifact path is not UTF-8")?;
-            let path = source_path(&root, relative)?;
+        for relative in paths {
+            let path = source_path(&root, &relative)?;
             let bytes = read_bounded(&path, remaining)?;
             remaining = remaining
                 .checked_sub(bytes.len())
                 .ok_or("original source extent")?;
-            Ok(bytes)
-        };
-        for package in packages {
-            let prefix = format!("packages/reference/{package}");
-            let directory = source_path(&root, &prefix)?;
-            for (relative, bytes) in pr_jacobian_tests::documents_with(&directory, &mut read)? {
-                files.insert(format!("{prefix}/{relative}"), bytes);
-            }
-        }
-        for relative in [
-            "packages/reference/data/ordinary-bt/source-artifacts/yaws-critical.tsv",
-            "packages/reference/data/ordinary-bt/source-artifacts/crc-vaporization.tsv",
-            "packages/reference/data/ordinary-bt/source-artifacts/poling-wagner.tsv",
-            "packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json",
-            "packages/reference/data/perry7/data/perry_liquid.parquet",
-        ] {
-            if !files.contains_key(relative) {
-                files.insert(relative.to_owned(), read(&root.join(relative))?);
-            }
+            files.insert(relative, bytes);
         }
         let artifacts = files
             .iter()
@@ -413,6 +471,7 @@ impl OriginalInputs {
         Ok(Self {
             manifest,
             files,
+            package_paths,
             artifacts,
             root,
             owner: None,
@@ -420,6 +479,16 @@ impl OriginalInputs {
     }
 
     pub(super) fn verify_checkout(&self) -> TestResult {
+        let registry = pse_schema::shared_registry()?;
+        for (package, expected) in &self.package_paths {
+            let directory = source_path(&self.root, &format!("packages/reference/{package}"))?;
+            let changed = || format!("checkout document membership differs for {package}");
+            let current = package_document_paths(&directory, &registry, expected.len())
+                .map_err(|error| format!("{}: {error}", changed()))?;
+            if &current != expected {
+                return Err(changed().into());
+            }
+        }
         for artifact in &self.artifacts {
             let path = source_path(&self.root, &artifact.path)?;
             let original = self
@@ -931,11 +1000,7 @@ pub(super) fn check(
         })
         .ok_or("comparison diagnostic extent overflow")?;
     let response_bytes = admission
-        .custody_bound(
-            LOG_LIMIT
-                .checked_add(TRUNCATED_LOG.len())
-                .ok_or("diagnostic extent overflow")?,
-        )?
+        .custody_bound(reference_process::DIAGNOSTIC_BYTES + 256)?
         .checked_add(
             admission
                 .native_envelope_bound()?
@@ -1002,9 +1067,9 @@ pub(super) fn check(
     if !python.is_absolute() || !python.is_file() {
         return Err("reference interpreter must be an existing absolute file".into());
     }
-    let log = scratch.path().join("reference.log");
-    let diagnostic_sink = std::fs::File::create(&log)?;
-    let mut command = Command::new(python);
+    let interpreter_digest = reference_environment::image_digest(&python)?;
+    let solver = reference_environment::prepared("IPOPT_DIR", "ipopt")?;
+    let mut command = Command::new(&python);
     command
         .arg("-I")
         .arg(root.join("tests/reference/ordinary_reference_driver.py"))
@@ -1016,55 +1081,30 @@ pub(super) fn check(
         .arg(&response)
         .current_dir(scratch.path())
         .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME")
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(diagnostic_sink.try_clone()?))
-        .stderr(Stdio::from(diagnostic_sink));
-    let mut child = pse_diagnostics::SupervisedChild::spawn(
-        &mut command,
-        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
-        None,
-    )?;
-    if let Err(error) = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(240))) {
-        let drained = child.cancel();
-        let diagnostic = diagnostics(&log, evidence.as_deref(), short)
-            .map(|(text, _)| text)
-            .unwrap_or_else(|cause| format!("diagnostic capture failed: {cause}"));
-        return Err(reference_failure(
-            "did not complete",
-            format!("{error}; drain={drained:?}"),
-            diagnostic,
-            owners,
-        ));
+        .env_remove("PYTHONHOME");
+    let execution =
+        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
+    let diagnostic = execution.diagnostics;
+    if let Some(destination) = &evidence {
+        std::fs::write(
+            destination.join(format!("{short}.reference.log")),
+            &diagnostic,
+        )?;
     }
-    let settled = child.wait();
-    let (diagnostic, exceeded) =
-        diagnostics(&log, evidence.as_deref(), short).map_err(|cause| {
-            reference_failure(
-                "diagnostic capture failed",
-                cause,
-                format!("child settlement={settled:?}"),
-                owners,
-            )
-        })?;
-    let status = match settled {
-        Ok(status) => status,
-        Err(cause) => {
-            return Err(reference_failure("drain failed", cause, diagnostic, owners));
-        }
-    };
-    if !status.success() {
-        return Err(reference_failure(
-            "refused",
-            status.to_string(),
-            diagnostic,
-            owners,
-        ));
+    if let Some((phase, cause)) = execution.refusal {
+        return Err(reference_failure(phase, cause, diagnostic, owners));
     }
-    if exceeded {
+    if let Err(cause) = verify_environment(
+        root,
+        &python,
+        &interpreter_digest,
+        &solver,
+        short,
+        &diagnostic,
+    ) {
         return Err(reference_failure(
-            "diagnostics exceeded their finite extent",
-            "bounded log truncated",
+            "environment refused",
+            cause,
             diagnostic,
             owners,
         ));
@@ -1078,7 +1118,7 @@ pub(super) fn check(
         ));
     }
     let reference = match (|| -> TestResult<_> {
-        let payload = read_bounded(&response, LIMIT)?;
+        let payload = reference_process::read_response(&response, LIMIT)?;
         if let Some(destination) = &evidence {
             std::fs::write(destination.join(format!("{short}.reference.bin")), &payload)?;
         }
@@ -1295,9 +1335,13 @@ mod tests {
             "ordinary-delivery",
             "data/ordinary-bt",
         ] {
-            let captured = pr_jacobian_tests::captured_package_sources(&inputs.files, name)
-                .map(|(path, bytes)| (path.to_owned(), bytes.to_vec()))
-                .collect::<BTreeMap<_, _>>();
+            let captured = pr_jacobian_tests::captured_package_sources(
+                &inputs.files,
+                &inputs.package_paths,
+                name,
+            )
+            .map(|(path, bytes)| (path.to_owned(), bytes.to_vec()))
+            .collect::<BTreeMap<_, _>>();
             assert_eq!(
                 captured,
                 pr_jacobian_tests::documents(
@@ -1316,11 +1360,27 @@ mod tests {
             assert!(inputs.artifacts.iter().any(|input| input.path == relative));
         }
         assert!(
-            pr_jacobian_tests::captured_package_sources(&inputs.files, "data/ordinary-bt")
-                .all(|(path, _)| !path.starts_with("source-artifacts/")),
+            pr_jacobian_tests::captured_package_sources(
+                &inputs.files,
+                &inputs.package_paths,
+                "data/ordinary-bt",
+            )
+            .all(|(path, _)| !path.starts_with("source-artifacts/")),
             "raw scientific inputs retain attestation custody without becoming authored documents"
         );
         let relative = "packages/reference/ordinary-delivery/models/root.pse";
+        let added = directory
+            .path()
+            .join("packages/reference/ordinary-delivery/models/added.pse");
+        std::fs::write(&added, b"package added {}\n")?;
+        assert!(
+            inputs
+                .verify_checkout()
+                .unwrap_err()
+                .to_string()
+                .contains("membership differs")
+        );
+        std::fs::remove_file(added)?;
         let original_hash = inputs
             .artifacts
             .iter()
@@ -1342,7 +1402,11 @@ mod tests {
         let token = pse_columnar::CancellationToken::new();
         let validation = runtime.validation_context();
         let admitted = pse_admission::authoring_driver::document::load_package_sources_owned(
-            pr_jacobian_tests::captured_package_sources(&inputs.files, "ordinary-delivery"),
+            pr_jacobian_tests::captured_package_sources(
+                &inputs.files,
+                &inputs.package_paths,
+                "ordinary-delivery",
+            ),
             runtime.registry(),
             Default::default(),
             &pool,
@@ -1446,35 +1510,52 @@ mod tests {
                 .contains("population exceeds")
         );
         assert!(OriginalInputs::capture_with_limits(directory.path(), 1, files).is_err());
+        let oversized = directory
+            .path()
+            .join("packages/reference/ordinary-delivery/models/root.pse");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(oversized)?
+            .set_len(SOURCE_LIMIT as u64 + 1)?;
+        assert!(
+            OriginalInputs::capture_with_limits(directory.path(), bytes, files - 1)
+                .unwrap_err()
+                .to_string()
+                .contains("population exceeds"),
+            "the selected file count refuses before reading package bodies"
+        );
         Ok(())
     }
 
     #[test]
     fn reference_diagnostics_preserve_bounded_failure_evidence() -> TestResult {
+        let mut child = Command::new("/bin/sh");
+        child.args(["-c", "printf 'actual stdout '; printf 'actual stderr ' >&2; head -c 256 /dev/zero; head -c 256 /dev/zero >&2"]);
+        let output = reference_process::execute(&mut child, tempfile::tempdir()?, 64);
+        let (phase, cause) = output.refusal.ok_or("missing bounded capture refusal")?;
+        assert_eq!(phase, "diagnostic capture refused");
+        assert!(cause.contains("exit=exit status: 0") && cause.contains("settlement=complete"));
+        assert!(
+            output
+                .diagnostics
+                .contains("[stdout overflow=true complete=true]")
+        );
+        assert!(
+            output
+                .diagnostics
+                .contains("[stderr overflow=true complete=true]")
+        );
+        assert!(output.diagnostics.contains("actual stdout"));
+        assert!(output.diagnostics.contains("actual stderr"));
+        assert!(output.diagnostics.len() <= 256);
         let directory = tempfile::tempdir()?;
-        let evidence = tempfile::tempdir()?;
-        let log = directory.path().join("reference.log");
-        std::fs::write(&log, b"actual reference solver refusal\n")?;
-        std::fs::OpenOptions::new()
-            .write(true)
-            .open(&log)?
-            .set_len((LOG_LIMIT as u64) + 4096)?;
-        let (diagnostic, exceeded) = diagnostics(&log, Some(evidence.path()), "fixture")?;
-        assert!(
-            exceeded,
-            "truncated diagnostics must make the attempt refuse"
-        );
-        assert!(diagnostic.starts_with("actual reference solver refusal\n"));
-        assert!(
-            diagnostic
-                .ends_with("[reference diagnostic extent exceeded; retained bounded prefix]\n")
-        );
-        let retained = evidence.path().join("fixture.reference.log");
+        let response = directory.path().join("response.bin");
+        std::fs::write(&response, b"invalid frame")?;
+        assert!(reference_process::read_response(&response, 8).is_err());
         assert_eq!(
-            read_bounded(&retained, LOG_LIMIT + 128)?,
-            diagnostic.as_bytes()
+            reference_process::read_response(&response, 13)?,
+            b"invalid frame"
         );
-        assert!(std::fs::metadata(&retained)?.len() < (LOG_LIMIT as u64) + 128);
         Ok(())
     }
 

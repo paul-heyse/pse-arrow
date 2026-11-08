@@ -83,6 +83,8 @@ pub(super) struct QuantityReport {
 #[derive(Clone, Serialize)]
 pub(super) struct CandidateReport {
     pub(super) complete: bool,
+    pub(super) unit: String,
+    pub(super) coordinates: String,
     pub(super) parameter_scales: BTreeMap<String, f64>,
     pub(super) quantities: BTreeMap<String, QuantityReport>,
 }
@@ -261,11 +263,7 @@ impl NativeCandidate {
             .map(|(name, id)| (name.to_owned(), resolved[&id].coordinate_scale))
             .collect();
         let mut quantities = BTreeMap::new();
-        for (name, jacobian) in [
-            ("x", [2.0 / 3.0, 1.0 / 3.0]),
-            ("y", [1.0 / 3.0, -1.0 / 3.0]),
-            ("z", [0.0, 0.0]),
-        ] {
+        for name in ["x", "y", "z"] {
             let target = ids[name];
             let variable = indexed[&target];
             assert_eq!(
@@ -279,11 +277,11 @@ impl NativeCandidate {
             for row in sensitivities.iter().filter(|row| {
                 row.target_kind == NumericalTarget::Variable && row.target_id == target
             }) {
-                let (parameter_name, expected) = if row.parameter_id == a {
-                    ("a", jacobian[0])
+                let parameter_name = if row.parameter_id == a {
+                    "a"
                 } else {
                     assert_eq!(row.parameter_id, b);
-                    ("b", jacobian[1])
+                    "b"
                 };
                 let parameter = indexed[&row.parameter_id];
                 assert_eq!(parameter.quantity_id, indexed[&a].quantity_id);
@@ -296,14 +294,6 @@ impl NativeCandidate {
                     derivative
                         .insert(parameter_name.to_owned(), value)
                         .is_none()
-                );
-                let parameter_scale = resolved[&row.parameter_id].coordinate_scale;
-                // J_hat=J*S_p/S_x. This empirical physical allowance is no backward-error proof.
-                let normalized = value * parameter_scale / output_scale;
-                let wanted = expected * parameter_scale / output_scale;
-                assert!(
-                    (normalized - wanted).abs() <= allowance / output_scale,
-                    "{name}/{parameter_name}"
                 );
             }
             assert_eq!(
@@ -331,6 +321,8 @@ impl NativeCandidate {
         }
         Ok(CandidateReport {
             complete: true,
+            unit: case.unit.clone(),
+            coordinates: "physical".into(),
             parameter_scales,
             quantities,
         })

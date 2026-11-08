@@ -10,6 +10,10 @@
     reason = "reference setup and independent scientific assertions fail directly"
 )]
 
+#[path = "reference_support/environment.rs"]
+mod reference_environment;
+#[path = "reference_support/process.rs"]
+mod reference_process;
 #[path = "reference_support/mod.rs"]
 mod reference_support;
 #[path = "reference_sensitivity_support/mod.rs"]
@@ -18,13 +22,7 @@ mod support;
 use futures_util::FutureExt;
 use reference_support::{Result, root};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    panic::AssertUnwindSafe,
-    path::PathBuf,
-    process::{Command, Stdio},
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
 use support::{Candidate, CandidateReport, NativeCandidate, SensitivityCase};
 
 #[derive(Serialize)]
@@ -53,81 +51,47 @@ struct Response {
     comparisons: Vec<Comparison>,
 }
 
-fn pins() -> Result<BTreeMap<String, String>> {
-    // Reference versions have one owner: existing dependency declarations.
-    let project: toml::Value =
-        toml::from_str(&std::fs::read_to_string(root().join("pyproject.toml"))?)?;
-    let group = project["dependency-groups"]["parity"].as_array().unwrap();
-    ["idaes-pse", "pyomo"]
-        .into_iter()
-        .map(|name| {
-            let prefix = format!("{name}==");
-            let version = group
-                .iter()
-                .filter_map(toml::Value::as_str)
-                .find_map(|entry| entry.strip_prefix(&prefix))
-                .unwrap()
-                .split(';')
-                .next()
-                .unwrap()
-                .trim();
-            Ok((name.to_owned(), version.to_owned()))
-        })
-        .collect()
-}
-
 fn exchange(request: &Request) -> Result<Response> {
-    let python = PathBuf::from(std::env::var_os("PSE_SENSITIVITY_REFERENCE_PYTHON")
-        .expect("select an existing locked reference interpreter with PSE_SENSITIVITY_REFERENCE_PYTHON; absence is failure"));
-    assert!(
-        python.is_absolute() && python.is_file(),
-        "explicit reference interpreter must be an absolute existing file"
-    );
+    let python = reference_environment::interpreter("PSE_SENSITIVITY_REFERENCE_PYTHON");
+    let interpreter_digest = reference_environment::image_digest(&python)?;
+    let solver = reference_environment::prepared("IPOPT_DIR", "ipopt_sens")?;
     let scratch = tempfile::tempdir()?;
     let input = scratch.path().join("request.json");
     let output = scratch.path().join("response.json");
-    let log = scratch.path().join("oracle.log");
+    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
     std::fs::write(&input, serde_json::to_vec(request)?)?;
-    let diagnostics = std::fs::File::create(&log)?;
-    let mut command = Command::new(python);
+    let mut command = Command::new(&python);
     command
         .arg("-I")
-        .arg(root().join("tests/reference/oracles/sensitivity.py"))
+        .arg(root().join("tests/reference/legacy_reference_driver.py"))
+        .arg("sensitivity")
         .arg(&input)
         .arg(&output)
         .current_dir(scratch.path())
         .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME")
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(diagnostics.try_clone()?))
-        .stderr(Stdio::from(diagnostics));
-    let mut child = pse_diagnostics::SupervisedChild::spawn(
-        &mut command,
-        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
-        None,
-    )?;
-    let deadline = Instant::now() + Duration::from_secs(240);
-    if let Err(error) = child.wait_ready(None, Some(deadline)) {
-        let drained = child.cancel();
-        panic!(
-            "reference execution failed: {error}; drain={drained:?}; oracle output: {}",
-            std::fs::read_to_string(&log)?
-        );
+        .env_remove("PYTHONHOME");
+    let execution =
+        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
+    if let Some((phase, cause)) = &execution.refusal {
+        return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
     }
-    let status = child.wait()?;
-    assert!(
-        status.success(),
-        "reference environment/execution failed ({status}); {}",
-        std::fs::read_to_string(&log)?
-    );
-    let bytes =
-        std::fs::read(&output).expect("successful oracle must publish its explicit response");
-    let response: Response = serde_json::from_slice(&bytes)?;
+    let response: Response = execution.decode_legacy(&output, limit)?;
     assert_eq!(response.version, 1);
     assert_eq!(response.case_id, request.case.id);
-    for (name, version) in &request.pins {
-        assert_eq!(&response.environment[name], version);
-    }
+    reference_environment::verify(
+        &response.environment,
+        &python,
+        &interpreter_digest,
+        &request.pins,
+    )
+    .map_err(|error| execution.failure("environment refused", error))?;
+    reference_environment::verify_stage(
+        &response.environment,
+        "sensitivity.sipopt",
+        &solver,
+        1..=1,
+    )
+    .map_err(|error| execution.failure("solver evidence refused", error))?;
     assert_eq!(
         response
             .reference
@@ -157,6 +121,8 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
         let x = wrong.quantities.get_mut("x").unwrap();
         // A coherent but wrong physical Jacobian must fail even if prediction=base+increment.
         *x.derivative.get_mut("a").unwrap() += 1.0;
+        x.allowance = 10.0;
+        wrong.parameter_scales.insert("a".into(), 0.01);
         x.increment = x
             .derivative
             .iter()
@@ -176,19 +142,26 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
             .remove("b");
         let mut wrong_increment = report.clone();
         let x = wrong_increment.quantities.get_mut("x").unwrap();
-        x.increment += 10.0 * x.allowance;
+        x.increment += 0.01;
+        x.allowance = 1.0;
         x.predicted = x.base + x.increment;
         let mut wrong_base = report.clone();
         let y = wrong_base.quantities.get_mut("y").unwrap();
-        y.base += 10.0 * y.allowance;
+        y.base += 0.01;
+        y.allowance = 1.0;
         y.predicted = y.base + y.increment;
         let mut wrong_prediction = report.clone();
         let z = wrong_prediction.quantities.get_mut("z").unwrap();
-        z.predicted += 10.0 * z.allowance;
+        z.predicted += 0.01;
+        z.allowance = 1.0;
+        let mut wrong_unit = report.clone();
+        wrong_unit.unit = "Pa".into();
+        let mut wrong_coordinates = report.clone();
+        wrong_coordinates.coordinates = "normalized".into();
         let request = Request {
             version: 1,
             case,
-            pins: pins()?,
+            pins: reference_environment::pins(&reference_support::root())?,
             candidates: vec![
                 record("native", Some(report.clone())),
                 record("wrong-response", Some(wrong)),
@@ -199,13 +172,15 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
                 record("wrong-increment", Some(wrong_increment)),
                 record("wrong-base", Some(wrong_base)),
                 record("wrong-prediction", Some(wrong_prediction)),
+                record("wrong-unit", Some(wrong_unit)),
+                record("wrong-coordinates", Some(wrong_coordinates)),
                 record("native-after-failures", Some(report)),
             ],
         };
         let response = tokio::task::spawn_blocking(move || exchange(&request)).await??;
         let expected = [
             ("native", "passed", ""),
-            ("wrong-response", "failed", "normalized derivative differs"),
+            ("wrong-response", "failed", "physical derivative differs"),
             ("missing", "missing", "native result missing"),
             ("incomplete", "failed", "native response incomplete"),
             (
@@ -221,6 +196,12 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
             ("wrong-increment", "failed", "physical increment differs"),
             ("wrong-base", "failed", "nominal solution differs"),
             ("wrong-prediction", "failed", "predicted solution differs"),
+            ("wrong-unit", "failed", "native sensitivity unit differs"),
+            (
+                "wrong-coordinates",
+                "failed",
+                "native sensitivity coordinates differ",
+            ),
             ("native-after-failures", "passed", ""),
         ];
         assert_eq!(

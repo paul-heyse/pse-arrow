@@ -10,6 +10,10 @@
     reason = "reference setup and independent scientific assertions fail directly"
 )]
 
+#[path = "reference_support/environment.rs"]
+mod reference_environment;
+#[path = "reference_support/process.rs"]
+mod reference_process;
 #[path = "reference_support/context.rs"]
 mod reference_support;
 #[path = "../../../tests/fixtures/authored-scientific-inputs.rs"]
@@ -19,13 +23,7 @@ mod support;
 
 use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    panic::AssertUnwindSafe,
-    path::PathBuf,
-    process::{Command, Stdio},
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
 use support::{Candidate, CandidateReport, LoopCase, Result};
 
 #[derive(Serialize)]
@@ -61,80 +59,49 @@ struct Response {
     comparisons: Vec<Comparison>,
 }
 
-fn pins() -> Result<BTreeMap<String, String>> {
-    let project: toml::Value = toml::from_str(&std::fs::read_to_string(
-        support::root().join("pyproject.toml"),
-    )?)?;
-    let group = project["dependency-groups"]["parity"].as_array().unwrap();
-    ["idaes-pse", "pyomo"]
-        .into_iter()
-        .map(|name| {
-            let prefix = format!("{name}==");
-            let version = group
-                .iter()
-                .filter_map(toml::Value::as_str)
-                .find_map(|entry| entry.strip_prefix(&prefix))
-                .unwrap()
-                .split(';')
-                .next()
-                .unwrap()
-                .trim();
-            Ok((name.to_owned(), version.to_owned()))
-        })
-        .collect()
-}
-
 fn exchange(request: &Request) -> Result<Response> {
-    let python = PathBuf::from(std::env::var_os("PSE_PID_REFERENCE_PYTHON").expect(
-        "select the locked reference interpreter with PSE_PID_REFERENCE_PYTHON; absence fails",
-    ));
-    assert!(
-        python.is_absolute() && python.is_file(),
-        "explicit reference interpreter must be an absolute existing file"
-    );
+    let python = reference_environment::interpreter("PSE_PID_REFERENCE_PYTHON");
+    let interpreter_digest = reference_environment::image_digest(&python)?;
+    let solver = reference_environment::prepared("IDAES_DATA", "petsc")?;
     let scratch = tempfile::tempdir()?;
     let input = scratch.path().join("request.json");
     let output = scratch.path().join("response.json");
-    let log = scratch.path().join("oracle.log");
+    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
     std::fs::write(&input, serde_json::to_vec(request)?)?;
-    let diagnostics = std::fs::File::create(&log)?;
-    let mut command = Command::new(python);
+    let mut command = Command::new(&python);
     command
         .arg("-I")
-        .arg(support::root().join("tests/reference/oracles/pid.py"))
+        .arg(support::root().join("tests/reference/legacy_reference_driver.py"))
+        .arg("pid")
         .arg(&input)
         .arg(&output)
         .current_dir(scratch.path())
         .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME")
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(diagnostics.try_clone()?))
-        .stderr(Stdio::from(diagnostics));
-    let mut child = pse_diagnostics::SupervisedChild::spawn(
-        &mut command,
-        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
-        None,
-    )?;
-    if let Err(error) = child.wait_ready(None, Some(Instant::now() + Duration::from_secs(240))) {
-        let drained = child.cancel();
-        panic!(
-            "PID reference failed: {error}; drain={drained:?}; {}",
-            std::fs::read_to_string(&log)?
-        );
+        .env_remove("PYTHONHOME");
+    let execution =
+        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
+    if let Some((phase, cause)) = &execution.refusal {
+        return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
     }
-    let status = child.wait()?;
-    assert!(
-        status.success(),
-        "PID reference environment/execution failed ({status}); {}",
-        std::fs::read_to_string(&log)?
-    );
-    let response: Response = serde_json::from_slice(&std::fs::read(&output)?)?;
+    let response: Response = execution.decode_legacy(&output, limit)?;
     assert_eq!(response.version, 1);
     assert_eq!(response.case_id, request.case.id);
-    for (name, pin) in &request.pins {
-        assert_eq!(&response.environment[name], pin);
-    }
-    assert!(response.environment.contains_key("python"));
+    reference_environment::verify(
+        &response.environment,
+        &python,
+        &interpreter_digest,
+        &request.pins,
+    )
+    .map_err(|error| execution.failure("environment refused", error))?;
+    reference_environment::verify_stage(
+        &response.environment,
+        "pid.initial_conditions",
+        &solver,
+        1..=1,
+    )
+    .map_err(|error| execution.failure("solver evidence refused", error))?;
+    reference_environment::verify_stage(&response.environment, "pid.integration", &solver, 4..=4)
+        .map_err(|error| execution.failure("solver evidence refused", error))?;
     assert_eq!(
         response.reference.samples_seconds,
         request.case.samples_seconds
@@ -203,7 +170,7 @@ async fn native_pi_loop_matches_petsc_and_exact_response_and_rejects_bad_populat
         stopped.termination = "failed".into();
         let request = Request {
             version: 1,
-            pins: pins()?,
+            pins: reference_environment::pins(&reference_support::root())?,
             case,
             candidates: vec![
                 candidate("native", Some(report.clone())),

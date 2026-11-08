@@ -10,6 +10,10 @@
     reason = "reference setup and independent scientific assertions fail directly"
 )]
 
+#[path = "reference_support/environment.rs"]
+mod reference_environment;
+#[path = "reference_support/process.rs"]
+mod reference_process;
 #[path = "reference_support/mod.rs"]
 mod reference_support;
 #[path = "reference_covariance_support/mod.rs"]
@@ -17,13 +21,7 @@ mod support;
 
 use futures_util::FutureExt;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    panic::AssertUnwindSafe,
-    path::PathBuf,
-    process::{Command, Stdio},
-    time::{Duration, Instant},
-};
+use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
 use support::{Candidate, CandidateReport, Covariance, LineCase, Result};
 
 #[derive(Serialize)]
@@ -31,7 +29,6 @@ struct Request {
     version: u32,
     case: LineCase,
     pins: BTreeMap<String, String>,
-    frozen_estimate_allowances: BTreeMap<String, f64>,
     candidates: Vec<Candidate>,
 }
 
@@ -61,83 +58,49 @@ struct Response {
     comparisons: Vec<Comparison>,
 }
 
-fn pins() -> Result<BTreeMap<String, String>> {
-    let project: toml::Value = toml::from_str(&std::fs::read_to_string(
-        support::root().join("pyproject.toml"),
-    )?)?;
-    let group = project["dependency-groups"]["parity"].as_array().unwrap();
-    ["idaes-pse", "pyomo"]
-        .into_iter()
-        .map(|name| {
-            let prefix = format!("{name}==");
-            let version = group
-                .iter()
-                .filter_map(toml::Value::as_str)
-                .find_map(|entry| entry.strip_prefix(&prefix))
-                .unwrap()
-                .split(';')
-                .next()
-                .unwrap()
-                .trim();
-            Ok((name.into(), version.into()))
-        })
-        .collect()
-}
-
 fn exchange(request: &Request) -> Result<Response> {
-    let python = PathBuf::from(std::env::var_os("PSE_COVARIANCE_REFERENCE_PYTHON")
-        .expect("select an existing locked reference interpreter with PSE_COVARIANCE_REFERENCE_PYTHON; absence is failure"));
-    assert!(
-        python.is_absolute() && python.is_file(),
-        "reference interpreter must be an absolute existing file"
-    );
+    let python = reference_environment::interpreter("PSE_COVARIANCE_REFERENCE_PYTHON");
+    let interpreter_digest = reference_environment::image_digest(&python)?;
+    let solver = reference_environment::prepared("IPOPT_DIR", "ipopt")?;
     let scratch = tempfile::tempdir()?;
     let input = scratch.path().join("request.json");
     let output = scratch.path().join("response.json");
-    let log = scratch.path().join("oracle.log");
+    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
     std::fs::write(&input, serde_json::to_vec(request)?)?;
-    let diagnostics = std::fs::File::create(&log)?;
-    let mut command = Command::new(python);
+    let mut command = Command::new(&python);
     command
         .arg("-I")
-        .arg(support::root().join("tests/reference/oracles/covariance.py"))
+        .arg(support::root().join("tests/reference/legacy_reference_driver.py"))
+        .arg("covariance")
         .arg(&input)
         .arg(&output)
         .current_dir(scratch.path())
         .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME")
-        .stdin(Stdio::null())
-        .stdout(Stdio::from(diagnostics.try_clone()?))
-        .stderr(Stdio::from(diagnostics));
-    let mut child = pse_diagnostics::SupervisedChild::spawn(
-        &mut command,
-        pse_diagnostics::DrainFailurePolicy::Refuse(Duration::from_secs(30)),
-        None,
-    )?;
-    let deadline = Instant::now() + Duration::from_secs(240);
-    if let Err(error) = child.wait_ready(None, Some(deadline)) {
-        let drained = child.cancel();
-        panic!(
-            "reference execution failed: {error}; drain={drained:?}; oracle output: {}",
-            std::fs::read_to_string(&log)?
-        );
+        .env_remove("PYTHONHOME");
+    let execution =
+        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
+    if let Some((phase, cause)) = &execution.refusal {
+        return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
     }
-    let status = child.wait()?;
-    assert!(
-        status.success(),
-        "reference environment/execution failed ({status}); {}",
-        std::fs::read_to_string(&log)?
-    );
-    let bytes =
-        std::fs::read(&output).expect("successful oracle must publish an explicit response");
-    let response: Response = serde_json::from_slice(&bytes)?;
+    let response: Response = execution.decode_legacy(&output, limit)?;
     assert_eq!(response.version, 1);
     assert_eq!(response.case_id, request.case.id);
-    for (name, pin) in &request.pins {
-        assert_eq!(&response.environment[name], pin);
-    }
-    assert!(!response.environment["ipopt"].is_empty());
-    assert!(!response.environment["python"].is_empty());
+    reference_environment::verify(
+        &response.environment,
+        &python,
+        &interpreter_digest,
+        &request.pins,
+    )
+    .map_err(|error| execution.failure("environment refused", error))?;
+    reference_environment::verify_stage(&response.environment, "parmest.fit", &solver, 1..=1)
+        .map_err(|error| execution.failure("solver evidence refused", error))?;
+    reference_environment::verify_stage(
+        &response.environment,
+        "parmest.covariance",
+        &solver,
+        30..=30,
+    )
+    .map_err(|error| execution.failure("solver evidence refused", error))?;
     assert_eq!(
         response
             .reference
@@ -177,8 +140,10 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
         let case = LineCase::weighted();
         let report = support::run(&native, &case).await?;
         let mut wrong_estimate = report.clone();
-        *wrong_estimate.estimates.get_mut("a").unwrap() +=
-            1. + 2. * report.estimate_allowances["a"];
+        *wrong_estimate.estimates.get_mut("a").unwrap() += 0.01;
+        wrong_estimate.estimate_allowances.insert("a".into(), 1.0);
+        let mut invalid_engineering = report.clone();
+        invalid_engineering.estimate_allowances.remove("a");
         let mut wrong_covariance = report.clone();
         wrong_covariance.covariance.values[0] *= 1.25;
         let mut incomplete = report.clone();
@@ -201,11 +166,11 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
         let request = Request {
             version: 1,
             case,
-            pins: pins()?,
-            frozen_estimate_allowances: report.estimate_allowances.clone(),
+            pins: reference_environment::pins(&reference_support::root())?,
             candidates: vec![
                 record("native", Some(report.clone())),
                 record("wrong-estimate", Some(wrong_estimate)),
+                record("missing-engineering-budget", Some(invalid_engineering)),
                 record("wrong-covariance", Some(wrong_covariance)),
                 record("missing", None),
                 record("incomplete", Some(incomplete)),
@@ -221,6 +186,11 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
         let expected = [
             ("native", "passed", ""),
             ("wrong-estimate", "failed", "estimate differs"),
+            (
+                "missing-engineering-budget",
+                "failed",
+                "native engineering estimate budgets",
+            ),
             ("wrong-covariance", "failed", "covariance differs"),
             ("missing", "missing", "native result missing"),
             ("incomplete", "failed", "native fit incomplete"),
