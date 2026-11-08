@@ -11,16 +11,15 @@ process failure, never a skipped or passing comparison.
 from __future__ import annotations
 
 import contextlib
-import importlib.metadata
 import math
-import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import msgspec
+
+from .legacy_exchange import admit_candidates, read_request, write_response
+from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
 
 if TYPE_CHECKING:
     from pyomo.core.base.var import ScalarVar
@@ -131,48 +130,11 @@ def validate_case(case: LinearCase) -> None:
     )
 
 
-def environment(pins: dict[str, str]) -> dict[str, str]:
-    """Preserve parity pin/interpreter/Ipopt checks and require SCIP for this oracle."""
-    require(
-        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
-    )
-    require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
-    observed = {name: importlib.metadata.version(name) for name in pins}
-    require(
-        observed == pins,
-        f"reference pin mismatch: expected {pins}, observed {observed}",
-    )
-    executable = shutil.which("ipopt")
-    require(executable is not None, "ipopt is absent; reference execution never skips")
-    if executable is None:
-        message = "unreachable missing ipopt"
-        raise ValueError(message)
-    probe = subprocess.run(  # noqa: S603 - resolved reference solver, fixed version probe
-        [executable, "-v"], capture_output=True, text=True, timeout=30, check=False
-    )
-    match = re.search(r"\bIpopt\s+(\d+(?:\.\d+)*)", probe.stdout + probe.stderr)
-    require(probe.returncode == 0 and match is not None, "ipopt version probe failed")
-    if match is None:
-        message = "unreachable missing ipopt version"
-        raise ValueError(message)
-    require(match[1].startswith("3.14."), f"unexpected Ipopt series {match[1]}")
-    observed["ipopt"] = match[1]
-    observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
-    return observed
-
-
-def reference_sets(case: LinearCase) -> list[RowSet]:
+def reference_sets(case: LinearCase, environment: ReferenceEnvironment) -> list[RowSet]:
     """Execute IDAES on explicit equations without consulting candidate values."""
-    import idaes
     import pyomo.environ as pyo
-    from idaes import config
     from idaes.core.util.diagnostics_tools.degeneracy_hunter import DegeneracyHunter
 
-    # Keep the explicitly prepared solver prefix ahead of IDAES's bundled fallback.
-    idaes.cfg.use_idaes_solvers = False
-    config.reconfig(idaes.cfg)
-    require(pyo.SolverFactory("ipopt").available(False), "Pyomo cannot see ipopt")
-    require(pyo.SolverFactory("scip").available(False), "Pyomo cannot see SCIP")
     model = pyo.ConcreteModel()
     variables = {}
     for name, value in zip(case.variables, case.point, strict=True):
@@ -188,8 +150,14 @@ def reference_sets(case: LinearCase) -> list[RowSet]:
             if coefficient != 0.0
         )
         model.add_component(row.name, pyo.Constraint(expr=expression == row.rhs))
-    hunter = DegeneracyHunter(model, solver="scip", solver_options={"limits/time": 60})
-    hunter.find_irreducible_degenerate_sets()
+    alias = "pse_reference_degeneracy"
+    with environment.registration("scip", "degeneracy.search", alias=alias):
+        hunter = DegeneracyHunter(
+            model, solver=alias, solver_options={"limits/time": 60}
+        )
+        hunter.find_irreducible_degenerate_sets()
+    # One candidate MILP and one irreducible-set MILP per candidate equation.
+    environment.require_solves("degeneracy.search", 1 + len(hunter.degenerate_set))
     found: dict[frozenset[str], RowSet] = {}
     for members in hunter.irreducible_degenerate_sets:
         item = RowSet(
@@ -278,7 +246,10 @@ def main() -> None:
     """Read one exchange and publish one response only after reference execution."""
     require(len(sys.argv) == 3, "expected request and response paths")
     require(sys.flags.isolated == 1, "oracle must run with the interpreter's -I option")
-    request = msgspec.json.decode(Path(sys.argv[1]).read_bytes(), type=Request)
+    request = read_request(Path(sys.argv[1]), Request)
+    admit_candidates(
+        (candidate.id for candidate in request.candidates), len(request.candidates)
+    )
     require(request.version == 1, "unsupported exchange version")
     validate_case(request.case)
     require(bool(request.candidates), "candidate population is empty")
@@ -289,8 +260,12 @@ def main() -> None:
     )
     # Library chatter is diagnostic output, never part of the result document.
     with contextlib.redirect_stdout(sys.stderr):
-        observed = environment(request.pins)
-        raw_reference = reference_sets(request.case)
+        environment = ReferenceEnvironment.from_process(
+            (*LEGACY_PACKAGES, "numpy", "scipy"),
+            role="PSE_DEGENERACY_REFERENCE_PYTHON",
+            declared=request.pins,
+        )
+        raw_reference = reference_sets(request.case, environment)
     reference = indexed(raw_reference)
     require(set(reference) <= set(EXPECTED), "IDAES found an unexpected row support")
     for rows, multipliers in reference.items():
@@ -302,12 +277,14 @@ def main() -> None:
     response = Response(
         version=1,
         case_id=request.case.id,
-        environment=observed,
+        environment=environment.evidence,
         reference=raw_reference,
         comparisons=[compare(candidate, reference) for candidate in request.candidates],
     )
-    Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
-
-
-if __name__ == "__main__":
-    main()
+    write_response(
+        Path(sys.argv[2]),
+        response,
+        len(request.candidates),
+        response.environment,
+        response.comparisons,
+    )

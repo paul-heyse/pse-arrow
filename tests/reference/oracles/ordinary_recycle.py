@@ -27,7 +27,6 @@ from pyomo.environ import (
     Constraint,
     Expression,
     Param,
-    SolverFactory,
     Var,
     assert_optimal_termination,
     units,
@@ -35,7 +34,10 @@ from pyomo.environ import (
 )
 from pyomo.opt import SolverResults, TerminationCondition
 
-from .ordinary_thermo import SPECIES, configuration
+from collections.abc import Mapping
+
+from .ordinary_thermo import SPECIES, SpeciesInput, configuration, load_inputs
+from .reference_environment import ReferenceEnvironment
 
 
 @dataclass(frozen=True)
@@ -117,13 +119,15 @@ def original_specification(model: ConcreteModel) -> tuple[float, ...]:
     )
 
 
-def build_recycle() -> ConcreteModel:
+def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> ConcreteModel:
     """Build the original closed process, with its inactive explicit tear stage."""
     model = ConcreteModel()
     model.fs = FlowsheetBlock(dynamic=False)
     fs = model.fs
-    fs.ideal = GenericParameterBlock(**configuration("ideal"))
-    fs.liquid = GenericParameterBlock(**configuration("liquid"))
+    if inputs is None:
+        inputs = load_inputs()
+    fs.ideal = GenericParameterBlock(**configuration("ideal", inputs=inputs))
+    fs.liquid = GenericParameterBlock(**configuration("liquid", inputs=inputs))
     fs.fresh = fs.ideal.build_state_block([0], defined_state=True)
     fs.recycled = fs.liquid.build_state_block([0], defined_state=True)
     fs.mixed = fs.ideal.build_state_block([0], defined_state=False)
@@ -217,10 +221,10 @@ def build_recycle() -> ConcreteModel:
     return model
 
 
-def _solve(model: ConcreteModel) -> SolverResults:
-    solver = SolverFactory("ipopt")
-    if not solver.available(exception_flag=True):
-        raise RuntimeError("the selected independent recycle requires Ipopt")
+def _solve(
+    model: ConcreteModel, environment: ReferenceEnvironment, stage: str
+) -> SolverResults:
+    solver = environment.solver("ipopt", stage)
     solver.options.update(
         {
             "tol": 1e-10,
@@ -229,7 +233,9 @@ def _solve(model: ConcreteModel) -> SolverResults:
             "bound_relax_factor": 0.0,
         }
     )
-    return solver.solve(model, load_solutions=False)
+    result = solver.solve(model, load_solutions=False)
+    environment.require_solves(stage, 1)
+    return result
 
 
 def _tear_model(original: ConcreteModel, temperature: float) -> ConcreteModel:
@@ -243,12 +249,18 @@ def _tear_model(original: ConcreteModel, temperature: float) -> ConcreteModel:
     return stage
 
 
-def solve_recycle() -> RecycleSolution:
+def solve_recycle(
+    *,
+    environment: ReferenceEnvironment | None = None,
+    inputs: Mapping[str, SpeciesInput] | None = None,
+) -> RecycleSolution:
     """Solve the actual tear, then transfer only its primal starts to the original."""
-    original = build_recycle()
+    if environment is None:
+        environment = ReferenceEnvironment.from_process()
+    original = build_recycle(inputs=inputs)
     before = original_specification(original)
     tear = _tear_model(original, 368.0)
-    tear_result = _solve(tear)
+    tear_result = _solve(tear, environment, "recycle.tear")
     assert_optimal_termination(tear_result)
     tear.solutions.load_from(tear_result)
     source, receiver = tear.fs.tear_caloric[0], tear.fs.recycled[0]
@@ -282,7 +294,7 @@ def solve_recycle() -> RecycleSolution:
             target.set_value(value(coordinate))
     if original_specification(original) != before:
         raise RuntimeError("tear transfer changed the original recycle specification")
-    result = _solve(original)
+    result = _solve(original, environment, "recycle.original")
     assert_optimal_termination(result)
     original.solutions.load_from(result)
     if original_specification(original) != before:
@@ -328,12 +340,18 @@ def observations(solution: RecycleSolution) -> dict[str, float]:
     return output
 
 
-def overheated_failure() -> OverheatedFailure:
+def overheated_failure(
+    *,
+    environment: ReferenceEnvironment | None = None,
+    inputs: Mapping[str, SpeciesInput] | None = None,
+) -> OverheatedFailure:
     """Execute the500K-port stage without committing any candidate to the original."""
-    original = build_recycle()
+    if environment is None:
+        environment = ReferenceEnvironment.from_process()
+    original = build_recycle(inputs=inputs)
     before = original_specification(original)
     stage = _tear_model(original, 500.0)
-    result = _solve(stage)
+    result = _solve(stage, environment, "recycle.overheated_tear")
     if result.solver.termination_condition != TerminationCondition.infeasible:
         raise RuntimeError(
             f"overheated stage did not reach its intended numerical failure: {result.solver}"

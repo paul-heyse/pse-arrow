@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import math
 import os
+import tempfile
 import unittest
+from collections.abc import Mapping
 from pathlib import Path
 from unittest.mock import patch
 
@@ -80,6 +82,16 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
             exchange._optional_identity(key, "basis")
         key.basis.id = bytes([0x31]) * 16
         self.assertEqual(exchange._optional_identity(key, "basis"), bytes([0x31]) * 16)
+
+    def test_scientific_input_refuses_oversized_bytes_before_parsing(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / "property.tsv"
+            artifact.write_bytes(b"12345")
+            with (
+                patch.object(exchange, "_safe_path", return_value=artifact),
+                self.assertRaisesRegex(ValueError, "byte limit"),
+            ):
+                exchange._read_artifact("property.tsv", 4)
 
     def test_invalid_wire_contract_refuses_before_scientific_input_reads(self) -> None:
         descriptors = DESCRIPTORS.read_bytes()
@@ -399,6 +411,70 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
             self.assertRaisesRegex(RuntimeError, "missing solver"),
         ):
             exchange.produce_reference(self.descriptors, contract.SerializeToString())
+
+    def test_solve_uses_verified_property_bytes_despite_substitute_then_restore(
+        self,
+    ) -> None:
+        contract = self.contract(exchange.CASE_NAMES[-1])
+        path = exchange.PROPERTY_ARTIFACTS[0]
+        original_path = exchange._safe_path
+        verified = original_path(path).read_bytes()
+        parse = exchange.parse_inputs
+        calculate = exchange._reference_outputs
+
+        with tempfile.TemporaryDirectory() as directory:
+            replacement = Path(directory) / "property.tsv"
+            replacement.write_bytes(verified)
+
+            def parse_during_replacement(
+                artifacts: Mapping[str, bytes],
+            ) -> dict[str, exchange.SpeciesInput]:
+                replacement.write_bytes(b"substituted invalid property data")
+                self.assertEqual(artifacts[path], verified)
+                return parse(artifacts)
+
+            def solve_before_restoration(
+                case_name: str,
+                *,
+                inputs: Mapping[str, exchange.SpeciesInput],
+                environment: exchange.ReferenceEnvironment,
+            ) -> dict[str, float] | None:
+                self.assertNotEqual(replacement.read_bytes(), verified)
+                try:
+                    return calculate(case_name, inputs=inputs, environment=environment)
+                finally:
+                    replacement.write_bytes(verified)
+
+            with (
+                patch.object(
+                    exchange,
+                    "_safe_path",
+                    side_effect=lambda relative: (
+                        replacement if relative == path else original_path(relative)
+                    ),
+                ),
+                patch.object(
+                    exchange, "parse_inputs", side_effect=parse_during_replacement
+                ) as parsed,
+                patch.object(
+                    exchange, "_reference_outputs", side_effect=solve_before_restoration
+                ),
+                patch.object(
+                    exchange.ordinary_recycle,
+                    "load_inputs",
+                    side_effect=AssertionError(
+                        "exchange reopened the property sources"
+                    ),
+                ),
+            ):
+                payload = exchange.produce_reference(
+                    self.descriptors, contract.SerializeToString()
+                )
+            self.assertEqual(parsed.call_count, 1)
+            self.assertEqual(
+                self.envelope_type.FromString(payload).outcome.failed.stage,
+                "overheated_tear",
+            )
 
 
 if __name__ == "__main__":

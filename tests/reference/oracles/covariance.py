@@ -10,16 +10,15 @@ information. No product package, generated contract or candidate fixture imports
 from __future__ import annotations
 
 import contextlib
-import importlib.metadata
 import math
-import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import msgspec
+
+from .legacy_exchange import admit_candidates, read_request, write_response
+from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
 
 if TYPE_CHECKING:
     from pyomo.core.base.var import ScalarVar
@@ -68,12 +67,11 @@ class Candidate(msgspec.Struct, forbid_unknown_fields=True):
 
 
 class Request(msgspec.Struct, forbid_unknown_fields=True):
-    """One bounded exchange with its original frozen estimate error budgets."""
+    """One bounded exchange over the independently specified experiment."""
 
     version: int
     case: LineCase
     pins: dict[str, str]
-    frozen_estimate_allowances: dict[str, float]
     candidates: list[Candidate]
 
 
@@ -91,6 +89,12 @@ class Reference(msgspec.Struct, forbid_unknown_fields=True):
     estimates: dict[str, float]
     covariance: Covariance
     inverse_information: list[float]
+
+
+# This dimensionless linear fit has a well-conditioned two-column information
+# matrix. Allow one part in a million of a unit for the numerical fit, independent
+# of the candidate's engineering budget and the larger measurement error (0.5).
+ESTIMATE_ABSOLUTE_ERROR = 1e-6
 
 
 class Response(msgspec.Struct, forbid_unknown_fields=True):
@@ -133,47 +137,11 @@ def validate_case(case: LineCase) -> None:
     )
 
 
-def environment(pins: dict[str, str]) -> dict[str, str]:
-    """Reference absence or wrong declared pins fails the whole exchange."""
-    require(
-        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
-    )
-    require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
-    observed = {name: importlib.metadata.version(name) for name in pins}
-    require(
-        observed == pins,
-        f"reference pin mismatch: expected {pins}, observed {observed}",
-    )
-    executable = shutil.which("ipopt")
-    require(executable is not None, "ipopt is absent; reference execution never skips")
-    if executable is None:
-        message = "unreachable missing ipopt"
-        raise ValueError(message)
-    probe = subprocess.run(  # noqa: S603 - selected reference solver, fixed version probe
-        [executable, "-v"], capture_output=True, text=True, timeout=30, check=False
-    )
-    match = re.search(r"\bIpopt\s+(\d+(?:\.\d+)*)", probe.stdout + probe.stderr)
-    require(probe.returncode == 0 and match is not None, "ipopt version probe failed")
-    if match is None:
-        message = "unreachable missing ipopt version"
-        raise ValueError(message)
-    observed["ipopt"] = match[1]
-    observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
-    return observed
-
-
-def parmest_reference(case: LineCase) -> Reference:
+def parmest_reference(case: LineCase, environment: ReferenceEnvironment) -> Reference:
     """Execute the original independent parmest experiment without candidate inputs."""
-    import idaes
     import pyomo.contrib.parmest.parmest as parmest
     import pyomo.environ as pyo
-    from idaes import config
     from pyomo.contrib.parmest.experiment import Experiment
-
-    # Keep the prepared external solver prefix selected by the caller.
-    idaes.cfg.use_idaes_solvers = False
-    config.reconfig(idaes.cfg)
-    require(pyo.SolverFactory("ipopt").available(False), "Pyomo cannot see ipopt")
 
     class LineExperiment(Experiment):
         """One independently constructed, annotated measurement."""
@@ -206,8 +174,21 @@ def parmest_reference(case: LineCase) -> Reference:
         [LineExperiment(x, y) for x, y in zip(case.x, case.y, strict=True)],
         obj_function="SSE_weighted",
     )
-    _, theta = estimator.theta_est()
-    covariance = estimator.cov_est(method="finite_difference")
+    # theta_est's extensive-form path selects the literal "ipopt" in
+    # Pyomo 6.10.1. cov_est accepts an independent named solver for its re-solves.
+    with environment.registration("ipopt", "parmest.fit", alias="ipopt"):
+        _, theta = estimator.theta_est()
+    environment.require_solves("parmest.fit", 1)
+    alias = "pse_reference_parmest_covariance"
+    with environment.registration("ipopt", "parmest.covariance", alias=alias):
+        covariance = estimator.cov_est(
+            method="finite_difference", solver=alias, step=1e-3
+        )
+    # One SSE solve and one central-difference baseline per experiment, then
+    # one solve for each direction of each parameter perturbation.
+    environment.require_solves(
+        "parmest.covariance", len(case.x) * (2 + 2 * len(case.parameters))
+    )
     values = [
         float(covariance.loc[p, q]) for p in case.parameters for q in case.parameters
     ]
@@ -232,6 +213,16 @@ def parmest_reference(case: LineCase) -> Reference:
         -s01 / determinant,
         s00 / determinant,
     ]
+    rhs = [
+        weight * sum(case.y),
+        weight * sum(x * y for x, y in zip(case.x, case.y, strict=True)),
+    ]
+    for index, name in enumerate(case.parameters):
+        exact = sum(inverse[2 * index + column] * rhs[column] for column in range(2))
+        require(
+            abs(estimates[name] - exact) <= ESTIMATE_ABSOLUTE_ERROR,
+            f"parmest estimate differs from independent normal equations at {name}",
+        )
     require(
         all(
             covariance_close(actual, expected)
@@ -264,20 +255,23 @@ def compare(candidate: Candidate, request: Request, reference: Reference) -> Com
         names = request.case.parameters
         require(set(report.estimates) == set(names), "native estimates are incomplete")
         require(
-            report.estimate_allowances == request.frozen_estimate_allowances,
-            "estimate allowances differ from frozen native budgets",
-        )
-        require(
             report.response_unit == request.case.response_unit, "response unit differs"
         )
         for name in names:
             actual = report.estimates[name]
             require(
                 math.isfinite(actual)
-                and abs(actual - reference.estimates[name])
-                <= request.frozen_estimate_allowances[name],
+                and abs(actual - reference.estimates[name]) <= ESTIMATE_ABSOLUTE_ERROR,
                 f"estimate differs at {name}",
             )
+        require(
+            set(report.estimate_allowances) == set(names)
+            and all(
+                math.isfinite(budget) and budget > 0.0
+                for budget in report.estimate_allowances.values()
+            ),
+            "native engineering estimate budgets are incomplete or invalid",
+        )
         covariance = report.covariance
         require(
             len(covariance.parameters) == len(names)
@@ -324,7 +318,10 @@ def main() -> None:
     """Publish one explicit response after real reference execution."""
     require(len(sys.argv) == 3, "expected request and response paths")
     require(sys.flags.isolated == 1, "oracle must run with the interpreter's -I option")
-    request = msgspec.json.decode(Path(sys.argv[1]).read_bytes(), type=Request)
+    request = read_request(Path(sys.argv[1]), Request)
+    admit_candidates(
+        (candidate.id for candidate in request.candidates), len(request.candidates)
+    )
     require(request.version == 1, "unsupported exchange version")
     validate_case(request.case)
     require(bool(request.candidates), "candidate population is empty")
@@ -333,18 +330,14 @@ def main() -> None:
         all(ids) and len(set(ids)) == len(ids),
         "candidate identities must be unique and nonempty",
     )
-    require(
-        set(request.frozen_estimate_allowances) == set(request.case.parameters)
-        and all(
-            math.isfinite(value) and value > 0.0
-            for value in request.frozen_estimate_allowances.values()
-        ),
-        "missing or invalid frozen native estimate budgets",
-    )
     # Library chatter belongs in diagnostics, never the exchange document.
     with contextlib.redirect_stdout(sys.stderr):
-        observed = environment(request.pins)
-        reference = parmest_reference(request.case)
+        environment = ReferenceEnvironment.from_process(
+            (*LEGACY_PACKAGES, "numpy", "pandas", "scipy"),
+            role="PSE_COVARIANCE_REFERENCE_PYTHON",
+            declared=request.pins,
+        )
+        reference = parmest_reference(request.case, environment)
     require(
         not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
         "reference execution imported the candidate product",
@@ -352,14 +345,16 @@ def main() -> None:
     response = Response(
         version=1,
         case_id=request.case.id,
-        environment=observed,
+        environment=environment.evidence,
         reference=reference,
         comparisons=[
             compare(candidate, request, reference) for candidate in request.candidates
         ],
     )
-    Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
-
-
-if __name__ == "__main__":
-    main()
+    write_response(
+        Path(sys.argv[2]),
+        response,
+        len(request.candidates),
+        response.environment,
+        response.comparisons,
+    )

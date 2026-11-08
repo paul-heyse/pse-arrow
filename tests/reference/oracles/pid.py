@@ -10,15 +10,16 @@ PID parity test. It never imports the candidate product or its fixtures.
 from __future__ import annotations
 
 import contextlib
-import importlib.metadata
 import math
-import shutil
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TextIO, cast
 from unittest.mock import patch
 
 import msgspec
+
+from .legacy_exchange import admit_candidates, read_request, write_response
+from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
 
 if TYPE_CHECKING:
     import pyomo.dae as dae
@@ -184,26 +185,6 @@ def validate_case(case: LoopCase) -> None:
     )
 
 
-def environment(pins: dict[str, str]) -> dict[str, str]:
-    """Require the declared reference pins and executable reference environment."""
-    require(
-        (3, 11) <= sys.version_info[:2] < (3, 15), "reference requires Python 3.11-3.14"
-    )
-    require(set(pins) == {"idaes-pse", "pyomo"}, "missing or unknown reference pins")
-    observed = {name: importlib.metadata.version(name) for name in pins}
-    require(
-        observed == pins,
-        f"reference pin mismatch: expected {pins}, observed {observed}",
-    )
-    require(
-        shutil.which("ipopt") is not None,
-        "ipopt is absent; reference execution never skips",
-    )
-    observed["python"] = ".".join(str(part) for part in sys.version_info[:3])
-    observed["numpy"] = importlib.metadata.version("numpy")
-    return observed
-
-
 def exact(case: LoopCase) -> tuple[list[float], float, float]:
     """Solve d(y,I)/dt=A(y,I)+c by eigendecomposition, as in the original oracle."""
     import numpy as np
@@ -243,21 +224,15 @@ def exact(case: LoopCase) -> tuple[list[float], float, float]:
     return response, float(steady[0]), float(steady[1])
 
 
-def petsc_response(case: LoopCase) -> list[float]:
+def petsc_response(case: LoopCase, environment: ReferenceEnvironment) -> list[float]:
     """Run the original independent IDAES PIDController on the first-order plant."""
-    import idaes
     import pyomo.dae as dae
     import pyomo.environ as pyo
-    from idaes import config
     from idaes.core import FlowsheetBlock
     from idaes.core.solvers import petsc
     from idaes.models.control import controller
     from idaes.models.control.controller import ControllerType
 
-    # Match the original parity environment: retain the explicitly prepared
-    # solver prefix ahead of the bundled IDAES (PETSc) fallback.
-    idaes.cfg.use_idaes_solvers = False
-    config.reconfig(idaes.cfg)
     model = pyo.ConcreteModel()
     end = case.samples_seconds[-1]
     fs = cast(
@@ -310,9 +285,24 @@ def petsc_response(case: LoopCase) -> list[float]:
     with contextlib.ExitStack() as ownership:
         ownership.callback(lambda: [handle.close() for handle in handles])
         ownership.enter_context(patch.object(reader, "open", reader_open, create=True))
+        initializer = "pse_reference_petsc_snes"
+        ownership.enter_context(
+            environment.registration(
+                "petsc_snes",
+                "pid.initial_conditions",
+                alias=initializer,
+                executable="petsc",
+            )
+        )
+        ownership.enter_context(
+            environment.registration(
+                "petsc_ts", "pid.integration", alias="petsc_ts", executable="petsc"
+            )
+        )
         result = petsc.petsc_dae_by_time_element(
             model,
             time=fs.time,
+            initial_solver=initializer,
             ts_options={
                 "--ts_type": "bdf",
                 "--ts_bdf_order": 3,
@@ -331,6 +321,8 @@ def petsc_response(case: LoopCase) -> list[float]:
             raise ValueError(message)
         trajectory = saved.interpolate(case.samples_seconds)
         values = [float(value) for value in trajectory.get_vec(fs.y[end])]
+    environment.require_solves("pid.initial_conditions", 1)
+    environment.require_solves("pid.integration", 4)
     require(
         len(values) == len(case.samples_seconds), "PETSc sample coverage incomplete"
     )
@@ -396,7 +388,10 @@ def main() -> None:
     """Execute the independent oracle before producing any comparison verdict."""
     require(len(sys.argv) == 3, "expected request and response paths")
     require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
-    request = msgspec.json.decode(Path(sys.argv[1]).read_bytes(), type=Request)
+    request = read_request(Path(sys.argv[1]), Request)
+    admit_candidates(
+        (candidate.id for candidate in request.candidates), len(request.candidates)
+    )
     require(request.version == 1, "unsupported exchange version")
     validate_case(request.case)
     identities = [candidate.id for candidate in request.candidates]
@@ -407,9 +402,13 @@ def main() -> None:
         "candidate identities must be unique and nonempty",
     )
     with contextlib.redirect_stdout(sys.stderr):
-        observed = environment(request.pins)
+        environment = ReferenceEnvironment.from_process(
+            (*LEGACY_PACKAGES, "numpy", "pint", "scipy"),
+            role="PSE_PID_REFERENCE_PYTHON",
+            declared=request.pins,
+        )
         values, steady_process, steady_integral = exact(request.case)
-        integrated = petsc_response(request.case)
+        integrated = petsc_response(request.case, environment)
     for time, want, idaes in zip(
         request.case.samples_seconds, values, integrated, strict=True
     ):
@@ -433,15 +432,17 @@ def main() -> None:
     response = Response(
         1,
         request.case.id,
-        observed,
+        environment.evidence,
         reference,
         [
             compare(candidate, request.case, reference)
             for candidate in request.candidates
         ],
     )
-    Path(sys.argv[2]).write_bytes(msgspec.json.encode(response))
-
-
-if __name__ == "__main__":
-    main()
+    write_response(
+        Path(sys.argv[2]),
+        response,
+        len(request.candidates),
+        response.environment,
+        response.comparisons,
+    )

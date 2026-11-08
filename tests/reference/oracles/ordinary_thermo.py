@@ -9,6 +9,7 @@ parameters, native evaluation functions and candidate results are never imported
 from __future__ import annotations
 
 import csv
+import io
 import json
 import math
 from collections.abc import Collection, Mapping
@@ -17,6 +18,7 @@ from importlib.metadata import version
 from pathlib import Path
 from typing import Protocol, cast
 
+import pyarrow as pa
 import pyarrow.parquet as pq
 from idaes.core import Component, LiquidPhase, VaporPhase
 from idaes.core.util.constants import Constants
@@ -38,6 +40,14 @@ from pyomo.environ import Param, exp, units, value
 
 ROOT = Path(__file__).resolve().parents[3]
 SPECIES = {"benzene": "71-43-2", "toluene": "108-88-3"}
+_SOURCE = "packages/reference/data/ordinary-bt/source-artifacts"
+PROPERTY_ARTIFACTS = (
+    f"{_SOURCE}/yaws-critical.tsv",
+    f"{_SOURCE}/crc-vaporization.tsv",
+    f"{_SOURCE}/poling-wagner.tsv",
+    f"{_SOURCE}/feos-poling2000.json",
+    "packages/reference/data/perry7/data/perry_liquid.parquet",
+)
 type Five = tuple[float, float, float, float, float]
 
 
@@ -75,9 +85,9 @@ def _five(raw: object) -> Five:
     return cast("Five", tuple(_number(item) for item in raw))
 
 
-def _csv_rows(path: Path) -> dict[str, dict[str, str]]:
+def _csv_rows(path: str, content: bytes) -> dict[str, dict[str, str]]:
     selected: dict[str, dict[str, str]] = {}
-    with path.open(newline="", encoding="utf-8") as stream:
+    with io.StringIO(content.decode("utf-8"), newline="") as stream:
         for row in csv.DictReader(stream, delimiter="\t"):
             cas = row["CAS"]
             if cas in SPECIES.values():
@@ -91,12 +101,21 @@ def _csv_rows(path: Path) -> dict[str, dict[str, str]]:
 
 def load_inputs(root: Path = ROOT) -> dict[str, SpeciesInput]:
     """Read the actual frozen source artifacts, without parsing native formulas."""
-    source = root / "packages/reference/data/ordinary-bt/source-artifacts"
-    critical = _csv_rows(source / "yaws-critical.tsv")
-    latent = _csv_rows(source / "crc-vaporization.tsv")
-    pressure = _csv_rows(source / "poling-wagner.tsv")
+    return parse_inputs(
+        {path: (root / path).read_bytes() for path in PROPERTY_ARTIFACTS}
+    )
+
+
+def parse_inputs(artifacts: Mapping[str, bytes]) -> dict[str, SpeciesInput]:
+    """Interpret only the supplied original property bytes."""
+    critical_path, latent_path, pressure_path, gas_path, liquid_path = (
+        PROPERTY_ARTIFACTS
+    )
+    critical = _csv_rows(critical_path, artifacts[critical_path])
+    latent = _csv_rows(latent_path, artifacts[latent_path])
+    pressure = _csv_rows(pressure_path, artifacts[pressure_path])
     gas: dict[str, Five] = {}
-    raw: object = json.loads((source / "feos-poling2000.json").read_bytes())
+    raw: object = json.loads(artifacts[gas_path])
     if not isinstance(raw, list):
         raise ValueError("FeOS input must contain a record population")
     for item in raw:
@@ -107,9 +126,8 @@ def load_inputs(root: Path = ROOT) -> dict[str, SpeciesInput]:
                 raise ValueError("duplicate selected FeOS record")
             gas[cas] = _five(row["DIPPR100"])
     liquid: dict[str, Five] = {}
-    records: object = pq.read_table(
-        root / "packages/reference/data/perry7/data/perry_liquid.parquet"
-    ).to_pylist()
+    with pa.BufferReader(artifacts[liquid_path]) as source:
+        records: object = pq.read_table(source).to_pylist()
     if not isinstance(records, list):
         raise ValueError("Perry source must contain records")
     for item in records:
@@ -274,7 +292,9 @@ class CaloricIdeal(Ideal):
         )
 
 
-def configuration(kind: str, root: Path = ROOT) -> dict[str, object]:
+def configuration(
+    kind: str, root: Path = ROOT, *, inputs: Mapping[str, SpeciesInput] | None = None
+) -> dict[str, object]:
     """Build a fresh selected ideal, liquid-only or PR parameter configuration."""
     if version("idaes-pse") != "2.13.0" or version("pyomo") != "6.10.1":
         raise RuntimeError("ordinary reference requires IDAES2.13.0 and Pyomo6.10.1")
@@ -282,7 +302,7 @@ def configuration(kind: str, root: Path = ROOT) -> dict[str, object]:
         raise ValueError("unknown ordinary thermodynamic realization")
     gas_constant = float(value(Constants.gas_constant))
     components: dict[str, object] = {}
-    for name, source in load_inputs(root).items():
+    for name, source in (inputs if inputs is not None else load_inputs(root)).items():
         data: dict[str, object] = {
             "temperature_crit": (source.critical_temperature, units.K),
             "pressure_crit": (source.critical_pressure, units.Pa),

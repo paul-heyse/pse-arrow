@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import math
+import os
+import stat
 import struct
 import sys
 import tomllib
+from collections.abc import Mapping
 from fractions import Fraction
 from importlib.metadata import version
 from pathlib import Path, PurePosixPath
@@ -28,7 +32,14 @@ from pyomo.opt import TerminationCondition
 from proto_exchange import MAXIMUM_BYTES, encode_reference, reference_type
 
 from . import ordinary_exchanger, ordinary_recycle
-from .ordinary_thermo import ROOT, SPECIES
+from .ordinary_thermo import (
+    PROPERTY_ARTIFACTS,
+    ROOT,
+    SPECIES,
+    SpeciesInput,
+    parse_inputs,
+)
+from .reference_environment import ReferenceEnvironment
 
 CASE_NAMES = (
     "ordinary_delivery.exchanger_design",
@@ -70,13 +81,9 @@ EXCHANGER_KEYS = (
     "cost.pressure_factor",
     "cost.capital",
 )
-_DATA_ARTIFACTS = (
-    "packages/reference/data/ordinary-bt/source-artifacts/yaws-critical.tsv",
-    "packages/reference/data/ordinary-bt/source-artifacts/crc-vaporization.tsv",
-    "packages/reference/data/ordinary-bt/source-artifacts/poling-wagner.tsv",
-    "packages/reference/data/ordinary-bt/source-artifacts/feos-poling2000.json",
-    "packages/reference/data/perry7/data/perry_liquid.parquet",
-)
+_MANIFEST = "packages/reference/conformance.toml"
+_SOURCE_LIMIT = 64 << 20
+_SOURCE_FILE_LIMIT = 1024
 
 
 def float_bits(number: float) -> int:
@@ -175,10 +182,11 @@ def _safe_path(relative: str) -> Path:
     return candidate
 
 
-def artifact_paths() -> tuple[str, ...]:
+def artifact_paths(manifest_bytes: bytes | None = None) -> tuple[str, ...]:
     """Select the original fixture closure and scientific inputs independently."""
-    relative = "packages/reference/conformance.toml"
-    manifest = tomllib.loads(_safe_path(relative).read_text(encoding="utf-8"))
+    if manifest_bytes is None:
+        manifest_bytes = _read_artifact(_MANIFEST, _SOURCE_LIMIT)
+    manifest = tomllib.loads(manifest_bytes.decode("utf-8"))
     seeds = [run for run in manifest["runs"] if run["name"] == "seed"]
     if len(seeds) != 1:
         raise ValueError("ordinary source closure needs exactly one seed run")
@@ -189,7 +197,7 @@ def artifact_paths() -> tuple[str, ...]:
         "ordinary-delivery",
         "data/ordinary-bt",
     }
-    result = {relative, *_DATA_ARTIFACTS}
+    result = {_MANIFEST, *PROPERTY_ARTIFACTS}
 
     def visit(directory: Path) -> None:
         for child in directory.iterdir():
@@ -201,30 +209,65 @@ def artifact_paths() -> tuple[str, ...]:
                 if not child.is_file():
                     raise ValueError("ordinary source artifact is not a regular file")
                 result.add(child.relative_to(ROOT).as_posix())
+                if len(result) > _SOURCE_FILE_LIMIT:
+                    raise ValueError("ordinary source closure exceeds its file limit")
 
     for package in selected:
         visit(_safe_path(f"packages/reference/{package}"))
     return tuple(sorted(result))
 
 
-def _validate_artifacts(contract: Message) -> None:
-    entries = list(contract.artifacts)
-    paths = [str(entry.path) for entry in entries]
-    if len(paths) != len(set(paths)) or set(paths) != set(artifact_paths()):
+def _read_artifact(relative: str, remaining: int) -> bytes:
+    path = _safe_path(relative)
+    # Avoid opening a substituted symlink or waiting on a pipe in place of a file.
+    with os.fdopen(
+        os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb"
+    ) as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode):
+            raise ValueError("scientific input artifact is not a regular file")
+        if before.st_size > remaining:
+            raise ValueError("ordinary source closure exceeds its byte limit")
+        content = stream.read(before.st_size + 1)
+        after = os.fstat(stream.fileno())
+        if len(content) != before.st_size or (
+            before.st_size,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+            raise ValueError(
+                f"scientific input artifact changed during read: {relative}"
+            )
+    return content
+
+
+def _validate_artifacts(
+    contract: Message, *, retain_properties: bool = False
+) -> dict[str, bytes]:
+    entries = contract.artifacts
+    if len(entries) > _SOURCE_FILE_LIMIT:
+        raise ValueError("ordinary source closure exceeds its file limit")
+    paths = {str(entry.path) for entry in entries}
+    manifest = _read_artifact(_MANIFEST, _SOURCE_LIMIT)
+    if len(paths) != len(entries) or paths != set(artifact_paths(manifest)):
         raise ValueError(
             "artifact population differs from the complete selected source closure"
         )
+    retained = {}
+    remaining = _SOURCE_LIMIT - len(manifest)
     for entry in entries:
         expected = bytes(entry.sha256)
         if len(expected) != 32:
-            raise ValueError("artifact SHA256 does not contain32 original bytes")
-        path = _safe_path(str(entry.path))
-        if not path.is_file():
-            raise ValueError("scientific input artifact is not a regular file")
-        with path.open("rb") as stream:
-            actual = hashlib.file_digest(stream, "sha256").digest()
-        if actual != expected:
-            raise ValueError(f"scientific input artifact SHA256 differs: {entry.path}")
+            raise ValueError("artifact SHA256 does not contain 32 original bytes")
+        path = str(entry.path)
+        content = manifest if path == _MANIFEST else _read_artifact(path, remaining)
+        if hashlib.sha256(content).digest() != expected:
+            raise ValueError(f"scientific input artifact SHA256 differs: {path}")
+        if path != _MANIFEST:
+            remaining -= len(content)
+        if retain_properties and path in PROPERTY_ARTIFACTS:
+            retained[path] = content
+    return retained
 
 
 def _type_for_key(key: str) -> str:
@@ -438,16 +481,18 @@ def _validate_physical(physical: Message, type_name: str) -> None:
         raise ValueError("ordinary representation cannot impose another unit datum")
 
 
-def _fixed_inputs(case_name: str) -> dict[str, NumericValue]:
+def _fixed_inputs(
+    case_name: str, inputs: Mapping[str, SpeciesInput] | None = None
+) -> dict[str, NumericValue]:
     if case_name in CASE_NAMES[:3]:
         rating = case_name == CASE_NAMES[1]
         return ordinary_exchanger.fixed_inputs(
             ordinary_exchanger.build_exchanger(
-                arithmetic=case_name == CASE_NAMES[2], rating=rating
+                arithmetic=case_name == CASE_NAMES[2], rating=rating, inputs=inputs
             ),
             rating=rating,
         )
-    fresh = ordinary_recycle.build_recycle().fs.fresh[0]
+    fresh = ordinary_recycle.build_recycle(inputs=inputs).fs.fresh[0]
     return {
         "feed.state.flow": fresh.flow_mol,
         "feed.state.T": fresh.temperature,
@@ -505,11 +550,19 @@ def _validate_context(physicals: list[Message]) -> None:
                 )
 
 
-def _reference_outputs(case_name: str) -> dict[str, float] | None:
+def _reference_outputs(
+    case_name: str,
+    *,
+    inputs: Mapping[str, SpeciesInput] | None = None,
+    environment: ReferenceEnvironment | None = None,
+) -> dict[str, float] | None:
     if case_name in CASE_NAMES[:3]:
         raw = ordinary_exchanger.observations(
             ordinary_exchanger.solve_exchanger(
-                arithmetic=case_name == CASE_NAMES[2], rating=case_name == CASE_NAMES[1]
+                arithmetic=case_name == CASE_NAMES[2],
+                rating=case_name == CASE_NAMES[1],
+                inputs=inputs,
+                environment=environment,
             )
         )
         renamed = {key: raw[key] for key in EXCHANGER_KEYS[:16]}
@@ -529,7 +582,9 @@ def _reference_outputs(case_name: str) -> dict[str, float] | None:
         )
         return renamed
     if case_name == CASE_NAMES[3]:
-        raw = ordinary_recycle.observations(ordinary_recycle.solve_recycle())
+        raw = ordinary_recycle.observations(
+            ordinary_recycle.solve_recycle(inputs=inputs, environment=environment)
+        )
         labels = (
             "ordinary feed flow",
             "vapor product",
@@ -546,7 +601,9 @@ def _reference_outputs(case_name: str) -> dict[str, float] | None:
             ),
         )
         return dict(zip(RECYCLE_KEYS, (raw[label] for label in labels), strict=True))
-    failure = ordinary_recycle.overheated_failure()
+    failure = ordinary_recycle.overheated_failure(
+        inputs=inputs, environment=environment
+    )
     witness = ordinary_recycle.overheated_observations(failure)
     if (
         failure.result.solver.termination_condition != TerminationCondition.infeasible
@@ -575,7 +632,12 @@ def _reference_outputs(case_name: str) -> dict[str, float] | None:
     return None
 
 
-def produce_reference(descriptors: bytes, contract_payload: bytes) -> bytes:
+def produce_reference(
+    descriptors: bytes,
+    contract_payload: bytes,
+    *,
+    evidence: dict[str, str] | None = None,
+) -> bytes:
     """Validate shared correspondence before independently constructing answers."""
     if version("protobuf") != "7.36.2":
         raise RuntimeError("ordinary binary reference requires protobuf7.36.2")
@@ -611,8 +673,8 @@ def produce_reference(descriptors: bytes, contract_payload: bytes) -> bytes:
         raise ValueError(
             "required original output identities are malformed or duplicated"
         )
-    _validate_artifacts(contract)
-    expected = _fixed_inputs(contract.case_name)
+    inputs = parse_inputs(_validate_artifacts(contract, retain_properties=True))
+    expected = _fixed_inputs(contract.case_name, inputs)
     original_inputs = list(contract.specification)
     if len(original_inputs) != len(expected) or {
         item.key for item in original_inputs
@@ -639,8 +701,13 @@ def produce_reference(descriptors: bytes, contract_payload: bytes) -> bytes:
     _validate_context(
         [_message(item, "physical") for item in (*original_inputs, *observables)]
     )
-    values = _reference_outputs(contract.case_name)
+    environment = ReferenceEnvironment.from_process()
+    values = _reference_outputs(
+        contract.case_name, inputs=inputs, environment=environment
+    )
     _validate_artifacts(contract)
+    if evidence is not None:
+        evidence.update(environment.evidence)
     envelope = envelope_type(version=1)
     envelope.meaning.CopyFrom(meaning)
     envelope.required.extend(identities)
@@ -685,11 +752,18 @@ def main() -> None:
     parser.add_argument("--contract", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     arguments = parser.parse_args()
+    evidence: dict[str, str] = {}
     payload = produce_reference(
-        _bounded_read(arguments.descriptors), _bounded_read(arguments.contract)
+        _bounded_read(arguments.descriptors),
+        _bounded_read(arguments.contract),
+        evidence=evidence,
     )
     with arguments.output.open("xb") as stream:
         stream.write(payload)
+    print(
+        "ordinary_reference_environment " + json.dumps(evidence, sort_keys=True),
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

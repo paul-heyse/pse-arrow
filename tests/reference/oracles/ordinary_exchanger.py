@@ -32,22 +32,29 @@ from idaes.models.unit_models.heat_exchanger import (
 from pyomo.core.expr.numeric_expr import NumericValue
 from pyomo.environ import (
     ConcreteModel,
-    SolverFactory,
     assert_optimal_termination,
     units,
     value,
 )
 
-from .ordinary_thermo import SPECIES, configuration
+from collections.abc import Mapping
+
+from .ordinary_thermo import SPECIES, SpeciesInput, configuration
+from .reference_environment import ReferenceEnvironment
 
 
-def build_exchanger(*, arithmetic: bool = False, rating: bool = False) -> ConcreteModel:
+def build_exchanger(
+    *,
+    arithmetic: bool = False,
+    rating: bool = False,
+    inputs: Mapping[str, SpeciesInput] | None = None,
+) -> ConcreteModel:
     """Build the original fixed specification, without initialization or a solve."""
     if arithmetic and rating:
         raise ValueError("the selected rating case uses the logarithmic closure")
     model = ConcreteModel()
     model.fs = FlowsheetBlock(dynamic=False)
-    model.fs.properties = GenericParameterBlock(**configuration("pr"))
+    model.fs.properties = GenericParameterBlock(**configuration("pr", inputs=inputs))
     model.fs.exchanger = HeatExchanger(
         hot_side={
             "property_package": model.fs.properties,
@@ -128,27 +135,43 @@ def fixed_inputs(model: ConcreteModel, *, rating: bool) -> dict[str, NumericValu
     return result
 
 
-def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> ConcreteModel:
+def solve_exchanger(
+    *,
+    arithmetic: bool = False,
+    rating: bool = False,
+    environment: ReferenceEnvironment | None = None,
+    inputs: Mapping[str, SpeciesInput] | None = None,
+) -> ConcreteModel:
     """Solve the original design, then optionally its area-fixed rating question."""
     if arithmetic and rating:
         raise ValueError("the selected rating case uses the logarithmic closure")
-    model = build_exchanger(arithmetic=arithmetic)
+    if environment is None:
+        environment = ReferenceEnvironment.from_process()
+    model = build_exchanger(arithmetic=arithmetic, inputs=inputs)
     exchanger = model.fs.exchanger
-    solver = SolverFactory("ipopt")
-    if not solver.available(exception_flag=True):
-        raise RuntimeError("the selected reference requires Ipopt")
-    solver.options.update({"tol": 1e-10, "max_iter": 1000, "max_cpu_time": 300})
+    options = {"tol": 1e-10, "max_iter": 1000, "max_cpu_time": 300}
+
+    def solve(stage: str) -> None:
+        solver = environment.solver("ipopt", stage)
+        solver.options.update(options)
+        assert_optimal_termination(solver.solve(model))
+        environment.require_solves(stage, 1)
+
     # The unit initializer's side-by-side duty construction expects a rating
     # specification. Use that only to obtain numerical starts, then restore and
     # solve the actual original design before any reference output is readable.
     exchanger.cold_side.properties_out[0].temperature.unfix()
     exchanger.area.fix(1.0)
-    exchanger.initialize(
-        solver="ipopt", optarg=dict(solver.options), outlvl=idaeslog.ERROR
-    )
+    alias = "pse_reference_exchanger_initializer"
+    with environment.registration("ipopt", "exchanger.initializer", alias=alias):
+        # IDAES 2.13.0 forwards this name to both control volumes and on to
+        # their inlet and outlet state initializers. Every shell command issued
+        # by the resulting solver instances is checked by the same witness.
+        exchanger.initialize(solver=alias, optarg=options, outlvl=idaeslog.ERROR)
+    environment.require_solves("exchanger.initializer", 14)
     exchanger.area.unfix()
     exchanger.cold_side.properties_out[0].temperature.fix(331.6111111111111)
-    assert_optimal_termination(solver.solve(model))
+    solve("exchanger.design")
     if rating:
         # Transfer only the accepted same-model primal state into the unchanged
         # rating specification; no source result supplies a target answer.
@@ -156,7 +179,7 @@ def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> Concre
         exchanger.cold_side.properties_out[0].temperature.unfix()
         if degrees_of_freedom(model) != 0:
             raise RuntimeError("the independent rating specification is not square")
-        assert_optimal_termination(solver.solve(model))
+        solve("exchanger.rating")
     model.fs.costing = SSLWCosting()
     exchanger.costing = UnitModelCostingBlock(
         flowsheet_costing_block=model.fs.costing,
@@ -171,7 +194,7 @@ def solve_exchanger(*, arithmetic: bool = False, rating: bool = False) -> Concre
     exchanger.costing.hx_oversize.set_value(1.1)
     model.fs.costing.cost_process()
     model.fs.costing.initialize()
-    assert_optimal_termination(solver.solve(model))
+    solve("exchanger.costing")
     return model
 
 

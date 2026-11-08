@@ -5,13 +5,40 @@
 from __future__ import annotations
 
 import math
+import os
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from oracles.ordinary_exchanger import observations, solve_exchanger
+from oracles.reference_environment import ReferenceEnvironment, prepared_solver
 
 
 class OrdinaryExchangerReferenceTests(unittest.TestCase):
     """Complete calculations still need the separate native differential comparison."""
+
+    def test_prepared_ipopt_reaches_the_initializer_and_direct_solves(self) -> None:
+        environment = ReferenceEnvironment.from_process()
+        prepared = prepared_solver("ipopt", "exchanger test")
+        with tempfile.TemporaryDirectory() as temporary:
+            substitute = Path(temporary) / "ipopt"
+            marker = Path(temporary) / "used"
+            substitute.write_text(f"#!/bin/sh\ntouch '{marker}'\nexit 99\n")
+            substitute.chmod(0o700)
+            with patch.dict(
+                os.environ, {"PATH": f"{temporary}{os.pathsep}{os.environ['PATH']}"}
+            ):
+                solve_exchanger(environment=environment)
+            self.assertFalse(marker.exists())
+        for stage, count in (("initializer", "14"), ("design", "1"), ("costing", "1")):
+            name = f"exchanger.{stage}"
+            self.assertEqual(
+                environment.evidence[f"{name}.executable"], str(prepared.path)
+            )
+            self.assertEqual(environment.evidence[f"{name}.sha256"], prepared.sha256)
+            self.assertTrue(environment.evidence[f"{name}.release"])
+            self.assertEqual(environment.evidence[f"{name}.solves"], count)
 
     def test_reference_design_rating_and_arithmetic_keep_original_balances(
         self,
