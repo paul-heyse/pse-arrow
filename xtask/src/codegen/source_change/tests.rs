@@ -52,7 +52,11 @@ fn fixture(root: &Path, fail_generation: bool) {
             {"path": "fixture-generated", "kind": "tree"}], "regenerate": [], "inputs": [], "contributors": null}]
     })).unwrap());
     write(root, "justfile", b"codegen-all-check:\n    test -f fixture-generated/new.rs\n    test -f fixture-generated/original.surql\n");
-    write(root, "scripts/bootstrap-host", b"#!/bin/sh\nexit 0\n");
+    write(
+        root,
+        "scripts/bootstrap-host",
+        b"#!/bin/sh\ntest -z \"${RUSTUP_TOOLCHAIN+x}\"\n",
+    );
     write(
         root,
         "scripts/pse-env",
@@ -145,6 +149,12 @@ fn diagnostic_capture_drains_without_retaining_unbounded_child_output() {
     let retained = drain(output.as_slice(), MAX_LOG_STREAM).unwrap();
     assert_eq!(retained.total, output.len() as u64);
     assert_eq!(retained.bytes, output[output.len() - MAX_LOG_STREAM..]);
+}
+
+#[test]
+fn isolated_bootstrap_reselects_the_pinned_checkout_toolchain() {
+    let command = snapshot::isolated_command(Path::new("/snapshot"), "scripts/bootstrap-host");
+    assert!(command.get_envs().any(|(name, value)| name == "RUSTUP_TOOLCHAIN" && value.is_none()));
 }
 
 #[test]

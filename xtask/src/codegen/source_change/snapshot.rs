@@ -166,6 +166,8 @@ pub(super) fn isolated_command(root: &Path, program: &str) -> Command {
         "PSE_CARGO_TARGET_DIR",
         "CARGO_BUILD_DIR",
         "CARGO_BUILD_BUILD_DIR",
+        // `cargo run` exports this to xtask. The child selects its own checkout pin.
+        "RUSTUP_TOOLCHAIN",
         "GIT_DIR",
         "GIT_COMMON_DIR",
         "GIT_WORK_TREE",
