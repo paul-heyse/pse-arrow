@@ -7,7 +7,10 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import os
+import select
+import subprocess
 import sys
+import time
 import tomllib
 from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
@@ -22,6 +25,7 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).resolve().parents[3]
 ORDINARY_PACKAGES = ("idaes-pse", "pyomo", "pint", "pyarrow", "protobuf")
 LEGACY_PACKAGES = ("idaes-pse", "pyomo", "msgspec")
+SOLVER_LOG_BYTES = 128 << 10
 
 
 class ReferenceAdmissionError(ValueError):
@@ -59,8 +63,7 @@ def locked_pins(packages: Iterable[str]) -> dict[str, str]:
     return selected
 
 
-def _file_stamp(path: Path) -> tuple[int, int, int, int, int]:
-    state = path.stat()
+def _stamp(state: os.stat_result) -> tuple[int, int, int, int, int]:
     return (
         state.st_dev,
         state.st_ino,
@@ -68,6 +71,10 @@ def _file_stamp(path: Path) -> tuple[int, int, int, int, int]:
         state.st_mtime_ns,
         state.st_ctime_ns,
     )
+
+
+def _file_stamp(path: Path) -> tuple[int, int, int, int, int]:
+    return _stamp(path.stat())
 
 
 def _digest(path: Path) -> str:
@@ -137,6 +144,80 @@ def prepared_solver(name: str, stage: str) -> Executable:
     return Executable.select(Path(selected) / "bin" / name, stage)
 
 
+def _execute_solver(
+    solver: SystemCallSolver, command: Bunch, image: Executable, stage: str
+) -> tuple[int, str]:
+    """Give the pinned shell plugin a bounded log for its normal result parser."""
+    from pyomo.opt.solver.shellcmd import (
+        SUBPROCESS_TIMEOUT_ABS_ADJUST,
+        SUBPROCESS_TIMEOUT_REL_ADJUST,
+    )
+
+    if "script" in command:
+        raise ReferenceAdmissionError(stage, "selected solver unexpectedly needs stdin")
+    began = time.monotonic()
+    timeout = solver._timelimit  # noqa: SLF001 - preserve pinned shell plugin timeout
+    if timeout is not None:
+        timeout += max(
+            SUBPROCESS_TIMEOUT_ABS_ADJUST, SUBPROCESS_TIMEOUT_REL_ADJUST * timeout
+        )
+    deadline = began + (timeout if timeout is not None else 240)
+    log = bytearray()
+    fd = os.open(image.path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        if _stamp(os.fstat(fd)) != image.stamp:
+            raise ReferenceAdmissionError(stage, "substituted executable before launch")
+        # The descriptor selects the observed executable. Keep Pyomo's argv
+        # and its normal solver solution-file and result parsing protocols.
+        with subprocess.Popen(
+            command.cmd,
+            executable=f"/proc/self/fd/{fd}",
+            pass_fds=(fd,),
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=command.env,
+            cwd=command.cwd if "cwd" in command else None,
+        ) as child:
+            try:
+                assert child.stdout is not None
+                stream = child.stdout.fileno()
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if (
+                        remaining <= 0
+                        or not select.select([stream], [], [], remaining)[0]
+                    ):
+                        raise ReferenceAdmissionError(
+                            stage, "solver diagnostic deadline expired"
+                        )
+                    chunk = os.read(stream, 8192)
+                    if not chunk:
+                        break
+                    available = SOLVER_LOG_BYTES - len(log)
+                    log.extend(chunk[:available])
+                    if len(chunk) > available:
+                        print(log.decode("utf-8", errors="replace"), file=sys.stderr)
+                        raise ReferenceAdmissionError(
+                            stage, "solver diagnostics exceeded their byte limit"
+                        )
+                status = child.wait(timeout=max(0, deadline - time.monotonic()))
+            finally:
+                if child.poll() is None:
+                    child.kill()
+        if _stamp(os.fstat(fd)) != image.stamp:
+            raise ReferenceAdmissionError(
+                stage, "solver image changed during execution"
+            )
+    finally:
+        os.close(fd)
+    solver._last_solve_time = time.monotonic() - began  # noqa: SLF001 - Pyomo result accounting
+    output = log.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    if solver._tee:  # noqa: SLF001 - preserve pinned shell plugin tee policy
+        print(output, end="", flush=True)
+    return status, output
+
+
 class ReferenceEnvironment:
     """Case-owned environment and results observed on performing solver instances."""
 
@@ -168,11 +249,16 @@ class ReferenceEnvironment:
                     "package", f"{name} expected {expected}; observed {actual_version}"
                 )
             observed[name] = actual_version
+        running_digest = _digest(Path("/proc/self/exe"))
+        if running_digest != _digest(actual):
+            raise ReferenceAdmissionError(
+                "interpreter", "running executable differs from selected image"
+            )
         self.evidence = {
             **observed,
             "python": ".".join(str(part) for part in sys.version_info[:3]),
             "python.executable": str(actual),
-            "python.sha256": _digest(actual),
+            "python.sha256": running_digest,
         }
         self._executables: dict[str, Executable] = {}
         self._counts: dict[str, int] = {}
@@ -207,9 +293,8 @@ class ReferenceEnvironment:
         self, solver: SystemCallSolver, image: Executable, stage: str
     ) -> SystemCallSolver:
         solver.set_executable(str(image.path))
-        perform = solver._execute_command  # noqa: SLF001 - exact Pyomo shell execution boundary
 
-        def execute(command: Bunch) -> list[object]:
+        def execute(command: Bunch) -> tuple[int, str]:
             executable = solver.executable()
             if not executable:
                 raise ReferenceAdmissionError(
@@ -217,7 +302,7 @@ class ReferenceEnvironment:
                 )
             image.verify(Path(executable), stage)
             image.verify(Path(command.cmd[0]), stage)
-            result = perform(command)
+            result = _execute_solver(solver, command, image, stage)
             image.verify(Path(executable), stage)
             count = self._counts.get(stage, 0)
             if count == 0:

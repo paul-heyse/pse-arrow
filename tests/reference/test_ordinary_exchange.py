@@ -70,6 +70,36 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
             with self.subTest(path=invalid), self.assertRaises(ValueError):
                 exchange._safe_path(invalid)
 
+    def test_artifact_population_uses_the_physical_root_and_package_document_layout(
+        self,
+    ) -> None:
+        manifest = b"""
+            [[runs]]
+            name = "seed"
+            package = "seed-data"
+            physical = "distinct-physical"
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for package in (
+                "seed-data",
+                "distinct-physical",
+                "campaign",
+                "ordinary-delivery",
+                "data/ordinary-bt",
+            ):
+                package_root = root / "packages/reference" / package
+                (package_root / "models").mkdir(parents=True)
+                (package_root / "package.toml").touch()
+                (package_root / "README.toml").touch()
+                (package_root / "models/selected.pse").touch()
+            with patch.object(exchange, "ROOT", root):
+                paths = exchange.artifact_paths(manifest)
+            self.assertIn(
+                "packages/reference/distinct-physical/models/selected.pse", paths
+            )
+            self.assertFalse(any(path.endswith("README.toml") for path in paths))
+
     def test_absent_optional_identity_is_not_an_explicit_nil_identity(self) -> None:
         pool = reference_type(DESCRIPTORS.read_bytes()).DESCRIPTOR.file.pool
         key = message_factory.GetMessageClass(

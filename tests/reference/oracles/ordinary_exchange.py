@@ -84,6 +84,14 @@ EXCHANGER_KEYS = (
 _MANIFEST = "packages/reference/conformance.toml"
 _SOURCE_LIMIT = 64 << 20
 _SOURCE_FILE_LIMIT = 1024
+# This receiver independently admits the scientific package layout it supports.
+_DOCUMENTS = (
+    ("models", ".pse"),
+    ("data", ".parquet"),
+    ("assertions", ".yaml"),
+    ("materials", ".yaml"),
+    ("cases", ".yaml"),
+)
 
 
 def float_bits(number: float) -> int:
@@ -192,28 +200,33 @@ def artifact_paths(manifest_bytes: bytes | None = None) -> tuple[str, ...]:
         raise ValueError("ordinary source closure needs exactly one seed run")
     selected = {
         seeds[0]["package"],
-        *seeds[0]["dependencies"],
+        seeds[0]["physical"],
+        *seeds[0].get("dependencies", []),
         "campaign",
         "ordinary-delivery",
         "data/ordinary-bt",
     }
     result = {_MANIFEST, *PROPERTY_ARTIFACTS}
 
-    def visit(directory: Path) -> None:
-        for child in directory.iterdir():
-            if child.is_symlink():
-                raise ValueError("ordinary source closure contains a symlink")
-            if child.is_dir():
-                visit(child)
-            elif child.suffix in {".toml", ".yaml", ".yml", ".pse", ".parquet"}:
-                if not child.is_file():
-                    raise ValueError("ordinary source artifact is not a regular file")
-                result.add(child.relative_to(ROOT).as_posix())
-                if len(result) > _SOURCE_FILE_LIMIT:
-                    raise ValueError("ordinary source closure exceeds its file limit")
+    def include(path: Path) -> None:
+        if path.is_symlink() or not path.is_file():
+            raise ValueError("ordinary source artifact is not a regular file")
+        result.add(path.relative_to(ROOT).as_posix())
+        if len(result) > _SOURCE_FILE_LIMIT:
+            raise ValueError("ordinary source closure exceeds its file limit")
 
     for package in selected:
-        visit(_safe_path(f"packages/reference/{package}"))
+        prefix = f"packages/reference/{package}"
+        include(_safe_path(f"{prefix}/package.toml"))
+        for directory, suffix in _DOCUMENTS:
+            path = _safe_path(f"{prefix}/{directory}")
+            if not path.exists():
+                continue
+            for child in path.iterdir():
+                if child.is_symlink():
+                    raise ValueError("ordinary source closure contains a symlink")
+                if child.name.endswith(suffix):
+                    include(child)
     return tuple(sorted(result))
 
 

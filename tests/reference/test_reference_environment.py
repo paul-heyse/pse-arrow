@@ -5,13 +5,17 @@
 from __future__ import annotations
 
 import os
+import io
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
 from unittest.mock import patch
 
 from oracles.reference_environment import (
+    SOLVER_LOG_BYTES,
+    Executable,
     ReferenceAdmissionError,
     ReferenceEnvironment,
     locked_pins,
@@ -72,3 +76,35 @@ class ReferenceSolverEnvironmentTests(unittest.TestCase):
             ):
                 solver.solve(model)
         self.assertNotIn("test.direct.solves", environment.evidence)
+
+    def test_performing_solver_refuses_excess_output_before_pyomo_writes_a_log(
+        self,
+    ) -> None:
+        from pyomo.common.collections import Bunch
+        from pyomo.environ import SolverFactory
+
+        environment = ReferenceEnvironment(sys.executable, {})
+        with tempfile.TemporaryDirectory() as temporary:
+            substitute = Path(temporary) / "ipopt"
+            substitute.write_text(
+                f"#!/bin/sh\nprintf 'actual solver output\\n' >&2\n"
+                f"head -c {SOLVER_LOG_BYTES + 1} /dev/zero\n"
+            )
+            substitute.chmod(0o700)
+            solver = environment._bind(
+                SolverFactory("ipopt"),
+                Executable.select(substitute, "test.overflow"),
+                "test.overflow",
+            )
+            solver._timelimit = None
+            diagnostics = io.StringIO()
+            with (
+                redirect_stderr(diagnostics),
+                self.assertRaisesRegex(
+                    ReferenceAdmissionError, "test.overflow.*diagnostics exceeded"
+                ),
+            ):
+                solver._execute_command(Bunch(cmd=[str(substitute)], env=None))
+            self.assertTrue(diagnostics.getvalue().startswith("actual solver output"))
+            self.assertLessEqual(len(diagnostics.getvalue()), SOLVER_LOG_BYTES + 1)
+            self.assertNotIn("test.overflow.solves", environment.evidence)
