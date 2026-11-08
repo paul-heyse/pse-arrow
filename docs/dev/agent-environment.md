@@ -555,6 +555,33 @@ Plan58 H; there is no replacement resume ledger or implication that those campai
 Native benchmarks and direct external tools retain their own interfaces. Report functional
 assertions, exact placement, sample intervals and environmental interference separately.
 
+Use `just bench-smoke` for local smoke. The preparation target selects
+`k4-demand-orders-selected-output` and `k4-worker-permit-lifetime`. The other local targets
+are native cache, consolidation and document admission.
+
+Use `just bench-prepared-modeling CASE OUTPUT smoke` or
+`just bench-prepared-process CASE OUTPUT smoke` for one prepared workload. Select
+`measure` to retain the named workload's Criterion samples and harness phase observations.
+Use a fresh output directory. Canonical workloads require the prepared production module
+receipt and a private source-build capture of the service helper. Keep that capture through
+the benchmark's fixture settlement:
+
+```bash
+capture=$(mktemp -d)
+scripts/pse-env -- env PSE_CORRECTNESS_ADAPTER=1 PSE_CORRECTNESS_BUILD_CAPTURE="$capture" \
+  scripts/cargo-bin/cargo-pse-correctness build --locked -p pse-operations \
+  --bin pse-canonical-service -F pse-operations/native-service --message-format=json
+export PSE_BENCHMARK_CANONICAL_BUILD="$capture/build.json"
+export PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/production/module.json
+just bench-prepared-modeling k4-scalar-preparation /absolute/fresh-output smoke
+```
+
+The canonical fixture owner lends the exact benchmark image its private selection and
+records disposal after the child settles. Select linked solver providers through the
+native environment for solver workloads. The complete-process harness also requires
+the frozen `PSE_SCIENTIFIC_INPUTS` capsule for cases that consume its authored packages.
+The managed durable K4 case requires a matched primary allocation and receiver.
+
 ## Bundles, logs and preflight
 
 `just turn-end`, `just ready` and `just hygiene` are ordinary native recipe aggregates, using

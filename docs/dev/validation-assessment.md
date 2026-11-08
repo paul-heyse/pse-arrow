@@ -237,9 +237,10 @@ public callers, conformance/benchmark consumers and Rust scientific units own it
 The catalog `tests/fixtures/scientific-inputs.toml` declares scientific families and projections.
 Independent references remain distinct from native model execution.
 
-`just plan14-reference` generates frozen teqp PC-SAFT and Decimal caloric reference files from
-the published parameter banks in an isolated locked CPython 3.12 environment, without product
-imports. `bash scripts/setup-env reference` prepares `.venv-parity` from the locked parity
+`just plan14-reference` recalculates teqp PC-SAFT and Decimal caloric observations from
+the published parameter banks in an isolated locked CPython 3.12 environment and compares
+them with the retained reference files. Explicit `--regenerate` publishes replacements.
+`bash scripts/setup-env reference` prepares `.venv-parity` from the locked parity
 group. `just parity` checks that prepared environment and exercises the four native exchange
 callers with the pinned `idaes-pse==2.13.0`. The narrower reference routes distinguish
 helper and analytic checks, independent solves, and checks that require original native
@@ -257,8 +258,9 @@ H acceptance scenario. Use the [current work index](../plans/README.md) for rema
 ## Scientific test input and support ownership
 
 The native bounded document reader and package resolver derive exact package and data membership
-from the authored scientific input catalog. Runtime tests capture and verify the inputs in their
-own process. The explicit `xtask scientific-inputs` and `scientific-inputs-check` commands
+from the authored scientific input catalog. Runtime, compiler and modeling tests capture and
+verify their selected family in their own process. The explicit `xtask scientific-inputs` and
+`scientific-inputs-check` commands
 export and verify the same capsule for separately selected consumers. Synthetic declaration
 projections and independent reference executables retain distinct owners.
 

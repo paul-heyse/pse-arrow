@@ -1775,10 +1775,17 @@ admission separately from mathematical preparation and solving.
 
 | Command | Purpose |
 |---|---|
-| `just bench-smoke` | runs every benchmark once as a test; no timing |
+| `just bench-smoke` | runs the local cache, consolidation, document admission and two scalar preparation controls in Criterion test mode |
+| `just bench-prepared-modeling CASE OUTPUT MODE` | selects one prepared modeling workload in smoke or measurement mode |
+| `just bench-prepared-process CASE OUTPUT MODE` | selects one prepared complete-process workload in smoke or measurement mode |
 | `just bench-cache` | native cache/reuse observations under the declared benchmark profile |
 | `just check-native-process-bench` | compile the native process target; this does not execute or qualify a measurement campaign |
 | `just bench-production` | production-equivalent native measurements without force-validation, in its declared isolated target directory, with outputs under the repository `build/` |
+
+Prepared workloads declare their canonical fixture and native provider requirements
+separately. Canonical cases borrow the private selection through the existing fixture owner,
+which records child settlement and disposal. See the
+[prepared benchmark commands](../../dev/agent-environment.md#selected-reproducible-experiments).
 
 Measurement rules:
 

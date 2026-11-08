@@ -186,6 +186,11 @@ codegen-unit-test *args:
     scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p xtask --bin xtask --locked --features full-codegen -E 'test(codegen::tests::) | test(codegen::physical::tests::)' "$@"
 
 [group('local')]
+[doc('Run the unchanged-generation timestamp control on its narrower correctness graph')]
+codegen-timestamp-test:
+    scripts/pse test xtask:xtask --target-kind bin --no-default-features -E 'test(=codegen::tests::unchanged_generation_preserves_the_source_timestamp)'
+
+[group('local')]
 [doc('Worker CLI admission budgets against the configured managed process allocation')]
 [positional-arguments]
 worker-cli-unit-test *args:
@@ -545,7 +550,7 @@ docs-rust *args:
     RUSTDOCFLAGS="-D warnings" cargo doc --keep-going --workspace --no-deps --locked "$@"
 
 [group('local')]
-[doc('Regenerate schema targets and pinned Ipopt bindings in scratch space and compare both ways')]
+[doc('Compare freshly rendered schema targets and both pinned native bindings directly')]
 codegen-check:
     scripts/pse run-all codegen-all-check
 
@@ -657,9 +662,47 @@ policy:
     scripts/pse run-all audit-dependencies audit-advisories
 
 [group('manual')]
-[doc('Every benchmark runs once (no timing gate)')]
+[doc('Local benchmark smoke: cache, consolidation, document admission and two scalar preparation cases')]
 bench-smoke:
-    scripts/cargo-bin/cargo-pse-correctness test --no-fail-fast --benches -p pse-benches --locked
+    env -u PSE_BENCHMARK_PREPARED -u PSE_PREPARATION_CASE -u PSE_PROCESS_COST_CASE scripts/cargo-bin/cargo-pse-correctness test --no-fail-fast -p pse-benches --locked --bench native_cache --bench native_consolidation --bench document_admission --bench modeling_preparation
+
+[group('manual')]
+[doc('Run a named prepared modeling benchmark in smoke or measurement mode')]
+[positional-arguments]
+[script]
+bench-prepared-modeling case output mode="smoke":
+    features=pse-benches/prepared-benchmark
+    native=
+    if [[ "$1" == pr-nested ]]; then
+        features+=,pse-benches/solver-kinsol
+        native=compiler,klu
+    fi
+    args=()
+    case "$3" in
+        smoke) args=(-- --test) ;;
+        measure) ;;
+        *) echo 'select smoke or measure' >&2; exit 2 ;;
+    esac
+    export PSE_BENCHMARK_PREPARED=1 PSE_PREPARATION_CASE="$1" PSE_PREPARATION_OUTPUT="$2"
+    exec scripts/pse-env --native="$native" -- scripts/cargo-bin/cargo-pse-correctness bench --profile dev -p pse-benches --bench modeling_preparation --features "$features" --locked "${args[@]}"
+
+[group('manual')]
+[doc('Run a named prepared complete-process benchmark in smoke or measurement mode')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+bench-prepared-process case output mode="smoke":
+    args=()
+    features=pse-benches/native-process
+    if [[ -n "${PSE_BENCHMARK_CANONICAL_BUILD:-}" ]]; then
+        features+=,pse-benches/prepared-benchmark
+    fi
+    case "$3" in
+        smoke) args=(-- --test) ;;
+        measure) ;;
+        *) echo 'select smoke or measure' >&2; exit 2 ;;
+    esac
+    export PSE_BENCHMARK_PREPARED=1 PSE_PROCESS_COST_CASE="$1" PSE_PROCESS_COST_OUTPUT="$2"
+    exec scripts/cargo-bin/cargo-pse-correctness bench --profile dev -p pse-benches --bench native_process --features "$features" --locked "${args[@]}"
 
 [group('local')]
 [doc('Native cache, round and reuse benchmark measurements')]
@@ -706,6 +749,7 @@ docs-serve:
 [script("bash", "scripts/pse-env", "--native=compiler,solver,klu", "--", "bash", "-euo", "pipefail")]
 parity *args: reference-environment
     reference_python="$PWD/{{ parity_venv }}/bin/python"
+    export NEXTEST_PROFILE="${NEXTEST_PROFILE:-local}"
     export PSE_DEGENERACY_REFERENCE_PYTHON="$reference_python"
     export PSE_COVARIANCE_REFERENCE_PYTHON="$reference_python"
     export PSE_SENSITIVITY_REFERENCE_PYTHON="$reference_python"
@@ -981,18 +1025,20 @@ plan53a-reference:
     build/plan53a-reference/bin/python -m scripts.cstr_controller_reference
     build/plan53a-reference/bin/python -m scripts.decay_fit_reference
 
-[group('mutating')]
-[doc('Regenerate independent PC-SAFT and Peng-Robinson references in an isolated locked Python 3.12 environment')]
-plan14-reference:
+[group('manual')]
+[doc('Compare independent PC-SAFT and Peng-Robinson references; pass --regenerate to publish')]
+[positional-arguments]
+plan14-reference *args:
     UV_PROJECT_ENVIRONMENT=build/plan14-reference uv sync --locked --python 3.12 --no-default-groups --group thermo-reference --no-install-project
-    build/plan14-reference/bin/python scripts/plan14_reference.py
-    build/plan14-reference/bin/python -m scripts.feos_entropy_reference
-    build/plan14-reference/bin/python scripts/pr_stability_reference.py
+    build/plan14-reference/bin/python -m scripts.plan14_reference "$@"
+    build/plan14-reference/bin/python -m scripts.feos_entropy_reference "$@"
+    build/plan14-reference/bin/python -m scripts.pr_stability_reference "$@"
 
-[group('mutating')]
-[doc('Freeze seven independent FeOS 0.10.1 PC-SAFT states into the typed oracle bank')]
-feos-reference:
-    scripts/pse-env --native= -- cargo run --package xtask --locked --features thermodynamic-oracles -- feos-reference packages/reference/data/oracles/feos-0.10.1/data
+[group('manual')]
+[doc('Compare the typed FeOS 0.10.1 oracle bank; pass --regenerate to publish')]
+[positional-arguments]
+feos-reference *args:
+    scripts/pse-env --native= -- scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --locked --features thermodynamic-oracles -- feos-reference packages/reference/data/oracles/feos-0.10.1/data "$@"
 
 [group('mutating')]
 [doc('Freeze the declared 200 paired Latin-hypercube thermodynamic campaign feeds')]
@@ -1000,19 +1046,21 @@ thermodynamic-feeds:
     .venv/bin/python -m scripts.thermodynamic_feeds
 
 [group('manual')]
-[doc('Freeze the declared IDAES 2.13.0 SRK oracle observations through the isolated parity environment')]
+[doc('Compare the declared IDAES 2.13.0 SRK oracle; pass --regenerate to publish')]
+[positional-arguments]
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-srk-reference:
+srk-reference *args:
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
     export PATH="$IPOPT_DIR/bin:$PATH"
-    .venv-parity/bin/python scripts/idaes_srk_reference.py
+    .venv-parity/bin/python -m scripts.idaes_srk_reference "$@"
 
 [group('manual')]
-[doc('Freeze the declared binary NRTL defaults through IDAES 2.13.0 equality evaluation')]
+[doc('Compare the declared IDAES 2.13.0 binary NRTL defaults; pass --regenerate to publish')]
+[positional-arguments]
 [script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-nrtl-reference:
+nrtl-reference *args:
     UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --group parity --no-install-project --python 3.13
-    .venv-parity/bin/python scripts/idaes_nrtl_reference.py
+    .venv-parity/bin/python -m scripts.idaes_nrtl_reference "$@"
 
 
 
@@ -1080,6 +1128,8 @@ reference-unit: reference-environment
     cd tests/reference
     exec "$reference_python" -E -s -m unittest \
         test_proto_exchange.ForeignProtoExchangeTests \
+        test_legacy_agreement.LegacyAgreementTests \
+        test_reference_environment.ReferenceEnvironmentTests \
         test_ordinary_exchange.OrdinaryExchangeUnitTests \
         test_ordinary_thermo.OrdinaryThermodynamicReferenceTests
 
@@ -1093,8 +1143,10 @@ reference-solver-unit: reference-environment
         exit 1
     fi
     export PATH="$IPOPT_DIR/bin:$PATH"
+    export PSE_ORDINARY_REFERENCE_PYTHON="$reference_python"
     cd tests/reference
     exec "$reference_python" -E -s -m unittest \
+        test_reference_environment.ReferenceSolverEnvironmentTests \
         test_ordinary_exchange.OrdinaryExchangeSolverTests \
         test_ordinary_exchanger.OrdinaryExchangerReferenceTests \
         test_ordinary_recycle.OrdinaryRecycleReferenceTests
@@ -1110,6 +1162,7 @@ reference-contract-unit directory: reference-environment
         exit 1
     fi
     export PATH="$IPOPT_DIR/bin:$PATH"
+    export PSE_ORDINARY_REFERENCE_PYTHON="$reference_python"
     contract_directory=$(cd -- "$1" && pwd -P)
     export PSE_ORDINARY_REFERENCE_CONTRACTS="$contract_directory"
     cd tests/reference
