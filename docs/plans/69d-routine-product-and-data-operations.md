@@ -195,6 +195,14 @@ with a named consumer and bounded contract, or an explicit deferral and revisit 
 [Typed graph diagnostics](../../xtask/src/canonical_diagnostics.rs) ·
 [Plan 68c graph receiving](68c-surrealdb-v4-query-improvements.md#c03--graph-receiving-and-bounded-diagnostic-projection)
 
+**Interface-checked.** At the v4 CLI baseline, the graph diagnostic accepts a state
+path and a typed request file and delegates to the canonical graph owner. The
+routine product CLI has no graph-neighborhood consumer, and the current workflow
+and source references identify no recurring caller whose staging this receiver
+would remove. Retain the explicit diagnostic route. Revisit when a named project
+or Study workflow needs the same bounded graph request and can retain its role
+and continuation through D01's prepared connection-only receiver.
+
 For a selected route, reuse Plan 68c's owner facts. `EXPLAIN FORMAT JSON` reports the
 planned access path and its raw shape can change. Project bounded stable facts with
 explicit unavailable fields. `INFO FOR INDEX` supplies construction state and checks
@@ -224,4 +232,4 @@ publication events through A04. Durable developer history follows C04's named-qu
 | D01 | in progress | A01–A03, B02 prepared route, current product read owner | Connection-only reads and the target identity query are wired. Named selections carry expected issuer and database, and ambiguous targets return authenticated choices. Current v4 invalid-target and offline pack receiving controls passed. The live assembled target journey remains. |
 | D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. Current v4 controls preserved uncertain settlement and refused an invalid selection before open. The live captured CLI journey remains. |
 | D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | Protected reopen and publication custody are implemented. The force-validating v4 `pse-project` product-operators check passed. All three fixture-free exchange controls passed after correcting the staging permissions to `0700`. Live import reopen and Study exports require a compatible v4 Study module receipt. |
-| D04 | planned | D01 authenticated selection and Plan 68c typed graph observations | Record a bounded comparison and adoption or deferral. CLI implementation and its receiving controls depend on the named-consumer and authority decision. |
+| D04 | complete | D01 authenticated selection and Plan 68c typed graph observations | Compared the staged diagnostic with the connection-only candidate. Deferred the CLI route pending a named recurring consumer and preservation of its read authority and bounds. |

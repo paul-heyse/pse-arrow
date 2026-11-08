@@ -88,8 +88,17 @@ and use `InMemoryTerm` only if layout or removal needs assertions beyond stream 
 [Terminal abstraction](https://docs.rs/indicatif/0.18.6/indicatif/trait.TermLike.html) ·
 [In-memory terminal](https://docs.rs/indicatif/0.18.6/indicatif/struct.InMemoryTerm.html)
 
+### Receiving checkpoint
+
+The current terminal policy kept explicit JSON and NDJSON search clean over both
+pipe and PTY stderr. A 44-column monochrome human PTY preserved the Unicode usage
+refusal. Product transfer currently returns its terminal receipt through the captured
+protocol. No intermediate owner event is available at that boundary, so counted
+transfer remains deferred until a publication producer exposes one. Preserve the
+owner verdict and final settlement in the meantime.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A04 | in progress | Existing resolved format and search renderer for the first deliverable. A03 projection and actual owner events for later receiving work. | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Transfer progress remains conditional on an adopted publication owner. |
+| A04 | in progress | Existing resolved format, A03 projection and actual owner events for receiving work | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Narrow monochrome human output preserved the Unicode refusal. Verify new rollout receiving output when the owner is available. Counted transfer remains deferred until an owner supplies intermediate events. |
