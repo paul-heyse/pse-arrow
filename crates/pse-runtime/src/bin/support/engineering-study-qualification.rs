@@ -438,6 +438,16 @@ fn frontend_socket(directory: &Path, replacement: bool) -> Result<PathBuf, Error
     Ok(path)
 }
 
+fn prepare_frontend_sockets(parent: &Path) -> Result<tempfile::TempDir, Error> {
+    let directory = tempfile::Builder::new()
+        .prefix("pse-s-")
+        .tempdir_in(parent.canonicalize()?)?;
+    for replacement in [false, true] {
+        frontend_socket(directory.path(), replacement)?;
+    }
+    Ok(directory)
+}
+
 impl Native {
     fn path(&self, name: &str) -> PathBuf {
         self.args.work_directory.join(name)
@@ -1074,21 +1084,16 @@ pub(super) async fn run(mut args: Args) -> Result<(), Error> {
     if std::env::current_exe()?.canonicalize()? != keeper_image.captured.canonicalize()? {
         return Err("qualification must execute its original captured fixture image, not a mutable Cargo output".into());
     }
+    let socket_parent = std::env::var_os("XDG_RUNTIME_DIR")
+        .filter(|value| !value.is_empty())
+        .map_or_else(std::env::temp_dir, PathBuf::from);
+    let socket_directory = prepare_frontend_sockets(&socket_parent)?;
     std::fs::DirBuilder::new()
         .mode(0o700)
         .create(&args.work_directory)?;
     let stop = CancelSource::new();
     let signals = signals::ProcessInterrupt::new(stop.clone())?;
     let store = InvocationStore::new(CheckoutState::resolve(&args.root, &environment)?);
-    let socket_parent = std::env::var_os("XDG_RUNTIME_DIR")
-        .filter(|value| !value.is_empty())
-        .map_or_else(std::env::temp_dir, PathBuf::from);
-    let socket_directory = tempfile::Builder::new()
-        .prefix("pse-s-")
-        .tempdir_in(socket_parent.canonicalize()?)?;
-    for replacement in [false, true] {
-        frontend_socket(socket_directory.path(), replacement)?;
-    }
     // Once a managed frontend may have started, only original-owner drain proves
     // this scratch is safe to release. Keep its exact location in the diagnostics.
     let socket_directory = socket_directory.keep();
@@ -1159,6 +1164,16 @@ mod tests {
                 .to_string()
                 .contains("cannot use Study frontend socket")
         );
+        let scratch = tempfile::tempdir().unwrap();
+        let long_parent = scratch.path().join("a".repeat(128));
+        std::fs::create_dir(&long_parent).unwrap();
+        let refusal = prepare_frontend_sockets(&long_parent).unwrap_err();
+        assert!(
+            refusal
+                .to_string()
+                .contains("cannot use Study frontend socket")
+        );
+        assert_eq!(std::fs::read_dir(&long_parent).unwrap().count(), 0);
     }
     #[derive(Default)]
     struct Probe {
