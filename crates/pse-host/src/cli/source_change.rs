@@ -127,6 +127,8 @@ struct Status {
     state: State,
     failure: Option<OwnerFailure>,
     #[serde(default)]
+    completed_stages: Vec<String>,
+    #[serde(default)]
     surrealql_validation: Vec<StagedValidation>,
 }
 
@@ -215,15 +217,26 @@ impl StagedValidation {
 pub(super) struct View {
     preview_id: String,
     state: State,
+    /// Unfinished stage recorded by the original owner. This does not establish liveness.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recorded_stage: Option<String>,
+    /// Last stage whose completion was recorded by the original owner.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_completed_stage: Option<String>,
     receipt: serde_json::Value,
     diagnostic: Option<String>,
 }
 
-fn passive_status(root: &Path, state: &Path, id: &str) -> Result<Box<RawValue>, HostError> {
+fn passive_status(
+    root: &Path,
+    state: &Path,
+    id: &str,
+) -> Result<(Box<RawValue>, Option<String>), HostError> {
     #[derive(Deserialize)]
     struct Record {
         checkout: PathBuf,
         status: Box<RawValue>,
+        inflight_stage: Option<String>,
     }
     private_state::directory(state)?;
     let directory = state.join(id);
@@ -235,7 +248,7 @@ fn passive_status(root: &Path, state: &Path, id: &str) -> Result<Box<RawValue>, 
             "source-change receipt belongs to a different checkout".into(),
         ));
     }
-    Ok(record.status)
+    Ok((record.status, record.inflight_stage))
 }
 
 fn decode(raw: &RawValue, expected: Option<&str>) -> Result<Status, HostError> {
@@ -390,11 +403,12 @@ pub(super) fn dispatch(
     };
     let command_name = format!("source-change {verb}");
     output.validate_for::<View>(&command_name)?;
-    let (raw, exit) = if verb == "status" {
+    let (raw, exit, inflight_stage) = if verb == "status" {
         let id = id
             .as_deref()
             .ok_or_else(|| HostError::Ownership("source-change status requires an ID".into()))?;
-        (passive_status(&root, &state, id)?, None)
+        let (raw, inflight_stage) = passive_status(&root, &state, id)?;
+        (raw, None, inflight_stage)
     } else {
         let mut command = Command::new(root.join("scripts/pse-env"));
         command
@@ -436,7 +450,7 @@ pub(super) fn dispatch(
                 policy.redact(&String::from_utf8_lossy(&child.stderr))
             ))
         })?;
-        (raw, Some(child.status))
+        (raw, Some(child.status), None)
     };
     let status = decode(&raw, id.as_deref())?;
     if exit.is_some_and(|exit| exit != if status.failure.is_some() { 1 } else { 0 }) {
@@ -447,12 +461,21 @@ pub(super) fn dispatch(
     // Project string values after JSON decoding to preserve redaction across JSON escapes.
     let receipt =
         serde_json::from_str::<serde_json::Value>(raw.get()).map_err(std::io::Error::other)?;
+    let recorded_stage = inflight_stage
+        .filter(|_| matches!(status.state, State::Generating | State::Applying))
+        .map(|stage| policy.redact(&stage));
+    let last_completed_stage = (verb == "status")
+        .then_some(status.completed_stages.last())
+        .flatten()
+        .map(|stage| policy.redact(stage));
     let mut response = Envelope::response(
         &command_name,
         format!("source-change {verb} receipt"),
         View {
             preview_id: status.preview_id,
             state: status.state,
+            recorded_stage,
+            last_completed_stage,
             receipt: redact(receipt, &policy),
             diagnostic: None,
         },
@@ -691,7 +714,8 @@ mod tests {
             .write_all(&serde_json::to_vec(&record).unwrap())
             .unwrap();
         assert!(passive_status(&state, &state, id).is_err());
-        let receipt = passive_status(directory.path(), &state, id).unwrap();
+        let (receipt, recorded_stage) = passive_status(directory.path(), &state, id).unwrap();
+        assert!(recorded_stage.is_none());
         assert!(matches!(
             decode(&receipt, Some(id)).unwrap().state,
             State::Applying

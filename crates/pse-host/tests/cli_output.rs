@@ -100,6 +100,111 @@ fn settings_field_projection_is_passive_and_keeps_the_selected_schema() {
 }
 
 #[test]
+fn source_change_status_reports_original_stage_evidence_passively() {
+    use pse_host::paths::CheckoutState;
+    use std::{
+        fs::{self, OpenOptions},
+        io::Write as _,
+        os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _},
+    };
+
+    let state = tempfile::tempdir().unwrap();
+    let root = CheckoutState::resolve(
+        checkout(),
+        &[("XDG_STATE_HOME".into(), state.path().into())]
+            .into_iter()
+            .collect(),
+    )
+    .unwrap()
+    .root;
+    let id = "1234567890abcdef1234567890abcdef";
+    let directory = root.join("source-change").join(id);
+    fs::DirBuilder::new()
+        .mode(0o700)
+        .recursive(true)
+        .create(&directory)
+        .unwrap();
+    let record = directory.join("record.json");
+    for (state_name, inflight, completed, recorded) in [
+        (
+            "generating",
+            Some("prepare-host"),
+            Some("snapshot"),
+            Some("prepare-host"),
+        ),
+        (
+            "generating",
+            Some("receiving-tests"),
+            Some("affected-selection"),
+            Some("receiving-tests"),
+        ),
+        ("applying", None, Some("retain-generated-delta"), None),
+        (
+            "generation_failed",
+            Some("full-codegen"),
+            Some("surreal"),
+            None,
+        ),
+        ("ready", None, Some("retain-generated-delta"), None),
+        ("generating", None, None, None),
+    ] {
+        let failure = (state_name == "generation_failed").then(|| {
+            serde_json::json!({
+                "code": "source_change.stage_failed", "stage": "full-codegen",
+            })
+        });
+        let mut value = serde_json::json!({
+            "checkout": checkout(),
+            "status": {"version": 1, "preview_id": id, "state": state_name, "failure": failure},
+        });
+        if let Some(inflight) = inflight {
+            value["inflight_stage"] = inflight.into();
+        }
+        if let Some(completed) = completed {
+            value["status"]["completed_stages"] = serde_json::json!(["earlier", completed]);
+        }
+        let bytes = serde_json::to_vec(&value).unwrap();
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&record)
+            .unwrap()
+            .write_all(&bytes)
+            .unwrap();
+        for format in ["json", "ndjson"] {
+            let output = pse()
+                .env("XDG_STATE_HOME", state.path())
+                .args(["--format", format, "source-change", "status", id])
+                .output()
+                .unwrap();
+            assert_eq!(
+                output.status.code(),
+                Some(i32::from(state_name != "ready")),
+                "{output:?}"
+            );
+            assert!(output.stderr.is_empty(), "{output:?}");
+            let response = json(&output);
+            assert!(response["child_exit"].is_null());
+            assert_eq!(response["payload"]["preview_id"], id);
+            assert_eq!(response["payload"]["recorded_stage"].as_str(), recorded);
+            assert_eq!(
+                response["payload"]["last_completed_stage"].as_str(),
+                completed
+            );
+            assert_eq!(
+                response["payload"]["receipt"]["failure"],
+                value["status"]["failure"]
+            );
+            assert_eq!(fs::read(&record).unwrap(), bytes);
+        }
+    }
+    assert_eq!(fs::read_dir(root).unwrap().count(), 1);
+    assert_eq!(fs::read_dir(directory).unwrap().count(), 1);
+}
+
+#[test]
 fn missing_fixture_readiness_keeps_owner_diagnostic_and_exact_preparation() {
     let state = tempfile::tempdir().unwrap();
     let help = pse()

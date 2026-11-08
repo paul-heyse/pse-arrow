@@ -928,6 +928,9 @@ Neither can initialize/start an unrelated canonical service during a read. See
 After editing a supported declaration and its consumers, use `pse source-change preview --case
 optional-project-description` or `recorded-result-field-rename` to derive and check the generated
 consequences in isolation. `pse source-change status ID` reads the original receipt directly.
+Its `recorded_stage` and `last_completed_stage` fields describe the owner's recorded work
+when available. A recorded stage can remain after interruption. Use settlement and any
+recorded failure to decide whether the original preview needs recovery.
 When the Rust edits came from a reviewed `pse propose rename` or `pse propose ssr` result,
 pass its JSON receipt as `--proposal PATH` or `--proposal -` for stdin. Preview checks that
 the applied source edits match the reviewed whole-file postimages before generation.
