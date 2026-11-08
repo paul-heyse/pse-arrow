@@ -9,11 +9,14 @@ use std::{
     collections::BTreeMap,
     fmt::Display,
     fs::{self, File, OpenOptions},
-    io::{self, Read, Write},
-    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
+    io::{self, Read, Seek, Write},
+    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
+
+mod pool;
+pub(crate) use pool::collect_unused;
 
 fn invalid(message: impl Into<String>) -> CorrectnessError {
     CorrectnessError::Invalid(message.into())
@@ -48,6 +51,7 @@ pub struct Executable {
 impl Executable {
     /// Authenticate retained bytes before lending their path to a child.
     pub fn verify(&self) -> Result<(), CorrectnessError> {
+        let _pool = pool::Pool::lock(&self.captured, false)?;
         let mut file = read_file(&self.captured)?;
         self.verify_file(&mut file).map(|_| ())
     }
@@ -73,7 +77,7 @@ pub(super) struct Verification<'a> {
     #[cfg(test)]
     authentications: usize,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 struct FileIdentity {
     device: u64,
     inode: u64,
@@ -95,14 +99,29 @@ impl FileIdentity {
 }
 impl<'a> Verification<'a> {
     pub(super) fn verify(&mut self, executable: &'a Executable) -> Result<(), CorrectnessError> {
+        let pool = pool::Pool::lock(&executable.captured, false)?;
         let mut file = read_file(&executable.captured)?;
         if let Some((original, identity)) = self.files.get(executable.captured.as_path()) {
-            if *original != executable || *identity != FileIdentity::read(&file)? {
+            let current = FileIdentity::read(&file)?;
+            if *original != executable
+                || current.device != identity.device
+                || current.inode != identity.inode
+            {
                 return Err(invalid(
                     "captured executable changed during inventory traversal",
                 ));
             }
-            return Ok(());
+            if current == *identity {
+                return Ok(());
+            }
+            if let Some(pool) = &pool {
+                // Acquiring or releasing another lease changes ctime on the shared inode.
+                pool.validate_link(executable, &file)?;
+            } else {
+                return Err(invalid(
+                    "captured executable changed during inventory traversal",
+                ));
+            }
         }
         #[cfg(test)]
         {
@@ -166,7 +185,7 @@ pub(crate) fn original_executable(
 fn read_file(path: &Path) -> Result<File, CorrectnessError> {
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .custom_flags((rustix::fs::OFlags::NOFOLLOW | rustix::fs::OFlags::NONBLOCK).bits() as i32)
         .open(path)?;
     if !file.metadata()?.is_file() {
         return Err(invalid("captured executable is not a regular file"));
@@ -204,10 +223,133 @@ pub(crate) fn executable(
     original: &Path,
     destination: &Path,
 ) -> Result<Executable, CorrectnessError> {
+    capture_executable(original, destination, None)
+}
+
+pub(super) fn shared_executable(
+    original: &Path,
+    destination: &Path,
+) -> Result<Executable, CorrectnessError> {
+    shared_capture(original, destination, None)
+}
+
+/// The enclosing prepared process holds this generation through the native workflow.
+pub(super) fn prepared_executable(original: &Path) -> Result<Executable, CorrectnessError> {
+    let mut file = read_file(original)?;
+    let identity = FileIdentity::read(&file)?;
+    if !original.is_absolute() || file.metadata()?.mode() & 0o111 == 0 {
+        return Err(invalid("prepared executable has an invalid path or mode"));
+    }
+    let (bytes, sha256) = hash_copy(&mut file, &mut io::sink())?;
+    if FileIdentity::read(&file)? != identity {
+        return Err(invalid("prepared executable changed during observation"));
+    }
+    Ok(Executable {
+        original: original.into(),
+        captured: original.into(),
+        sha256,
+        bytes,
+    })
+}
+
+fn shared_capture(
+    original: &Path,
+    destination: &Path,
+    observed: Option<FileIdentity>,
+) -> Result<Executable, CorrectnessError> {
+    let Some(pool) = pool::Pool::lock(destination, true)? else {
+        return capture_executable(original, destination, observed);
+    };
+    let mut input = read_file(original)?;
+    let identity = FileIdentity::read(&input)?;
+    if !original.is_absolute()
+        || input.metadata()?.mode() & 0o111 == 0
+        || observed.is_some_and(|observed| observed != identity)
+    {
+        return Err(invalid(
+            "Cargo executable changed or was invalid after its original artifact event",
+        ));
+    }
+    let (bytes, sha256) = hash_copy(&mut input, &mut io::sink())?;
+    let object = pool.object(&sha256)?;
+    let executable = Executable {
+        original: original.into(),
+        captured: destination.into(),
+        sha256,
+        bytes,
+    };
+    match read_file(&object) {
+        Ok(mut file) => {
+            let meta = file.metadata()?;
+            if meta.mode() & 0o777 != 0o500 || meta.uid() != rustix::process::geteuid().as_raw() {
+                return Err(invalid("test image object lacks private custody"));
+            }
+            executable.verify_file(&mut file)?;
+        }
+        Err(CorrectnessError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+            input.rewind()?;
+            let parent = destination
+                .parent()
+                .ok_or_else(|| invalid("test image destination has no parent"))?;
+            let mut staged = tempfile::NamedTempFile::new_in(parent)?;
+            if hash_copy(&mut input, staged.as_file_mut())? != (bytes, executable.sha256.clone())
+                || FileIdentity::read(&input)? != identity
+            {
+                return Err(invalid(
+                    "original executable changed during immutable image capture",
+                ));
+            }
+            staged
+                .as_file()
+                .set_permissions(fs::Permissions::from_mode(0o500))?;
+            staged.as_file().sync_all()?;
+            staged
+                .persist_noclobber(&object)
+                .map_err(|error| error.error)?;
+            pool.sync()?;
+        }
+        Err(error) => return Err(error),
+    }
+    let result = (|| {
+        if FileIdentity::read(&input)? != identity
+            || FileIdentity::read(&read_file(original)?)? != identity
+        {
+            return Err(invalid(
+                "original executable changed or was replaced during immutable image capture",
+            ));
+        }
+        write_json(&executable_record(destination)?, &executable)?;
+        pool.link(&object, destination)?;
+        File::open(
+            destination
+                .parent()
+                .ok_or_else(|| invalid("test image destination has no parent"))?,
+        )?
+        .sync_all()?;
+        Ok(())
+    })();
+    if result.is_err() {
+        pool.collect(&executable.sha256)?;
+    }
+    result?;
+    Ok(executable)
+}
+
+fn capture_executable(
+    original: &Path,
+    destination: &Path,
+    observed: Option<FileIdentity>,
+) -> Result<Executable, CorrectnessError> {
     if !original.is_absolute() {
         return Err(invalid("original executable path must be absolute"));
     }
     let mut input = read_file(original)?;
+    let identity = FileIdentity::read(&input)?;
+    if observed.is_some_and(|observed| observed != identity) {
+        return Err(invalid(
+            "Cargo executable changed after its original artifact event",
+        ));
+    }
     let before = input.metadata()?;
     if before.mode() & 0o111 == 0 {
         return Err(invalid("original artifact is not executable"));
@@ -230,6 +372,9 @@ pub(crate) fn executable(
     {
         return Err(invalid("original executable changed during capture"));
     }
+    if observed.is_some() && FileIdentity::read(&read_file(original)?)? != identity {
+        return Err(invalid("Cargo executable path was replaced during capture"));
+    }
     let captured = Executable {
         original: original.into(),
         captured: destination.into(),
@@ -250,6 +395,8 @@ pub(crate) fn release_executable(
     expected: Option<&Executable>,
 ) -> Result<(), CorrectnessError> {
     use rustix::fs::{Mode, OFlags, openat, unlinkat};
+
+    let pool = pool::Pool::lock(path, false)?;
 
     let name = path
         .file_name()
@@ -280,18 +427,18 @@ pub(crate) fn release_executable(
         }
         Err(error) => return Err(error.into()),
     };
-    let protected = |file: &File, mode: u32| -> Result<(), CorrectnessError> {
+    let protected = |file: &File, mode: u32, single: bool| -> Result<(), CorrectnessError> {
         let metadata = file.metadata()?;
         if !metadata.is_file()
             || metadata.uid() != rustix::process::geteuid().as_raw()
             || metadata.mode() & 0o777 != mode
-            || metadata.nlink() != 1
+            || (single && metadata.nlink() != 1)
         {
             return Err(invalid("executable capture member lacks private custody"));
         }
         Ok(())
     };
-    protected(&record, 0o400)?;
+    protected(&record, 0o400, true)?;
     let before = FileIdentity::read(&record)?;
     let mut bytes = Vec::new();
     (&record).take(65_537).read_to_end(&mut bytes)?;
@@ -318,11 +465,20 @@ pub(crate) fn release_executable(
             unlinkat(directory, record_name, rustix::fs::AtFlags::empty())
                 .map_err(io::Error::from)?;
             directory.sync_all()?;
+            if let Some(pool) = &pool {
+                pool.collect(&executable.sha256)?;
+            }
             return Ok(());
         }
         Err(error) => return Err(error.into()),
     };
-    protected(&image, 0o500)?;
+    let shared = image.metadata()?.nlink() != 1;
+    protected(&image, 0o500, !shared)?;
+    if shared {
+        pool.as_ref()
+            .ok_or_else(|| invalid("linked executable has no checkout image owner"))?
+            .validate_link(&executable, &image)?;
+    }
     let image_identity = executable.verify_file(&mut image)?;
     if FileIdentity::read(&open(name)?)? != image_identity
         || FileIdentity::read(&open(record_name)?)? != before
@@ -330,6 +486,9 @@ pub(crate) fn release_executable(
         return Err(invalid("executable capture changed before release"));
     }
     unlinkat(directory, name, rustix::fs::AtFlags::empty()).map_err(io::Error::from)?;
+    if shared && let Some(pool) = &pool {
+        pool.collect(&executable.sha256)?;
+    }
     unlinkat(directory, record_name, rustix::fs::AtFlags::empty()).map_err(io::Error::from)?;
     directory.sync_all()?;
     Ok(())
@@ -369,6 +528,73 @@ pub struct BuildCapture {
     pub cargo_exit: i32,
     /// At most one bounded first cause per domain; a zero Cargo exit does not clear these.
     pub incomplete: BTreeMap<CaptureFailureDomain, String>,
+}
+
+/// An original Cargo executable path observation. It carries no execution grant.
+#[derive(Debug, Serialize, Deserialize)]
+pub(super) struct ObservedArtifact {
+    pub(super) cargo: Artifact,
+    identity: Option<FileIdentity>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(super) struct ObservedBuild {
+    pub(super) resolution: Resolution,
+    pub(super) artifacts: Vec<ObservedArtifact>,
+}
+
+impl ObservedArtifact {
+    pub(super) fn from_cargo(cargo: Artifact) -> Self {
+        let identity = cargo.executable.as_ref().and_then(|path| {
+            let file = read_file(path.as_std_path()).ok()?;
+            FileIdentity::read(&file).ok()
+        });
+        Self { cargo, identity }
+    }
+
+    pub(super) fn capture(
+        self,
+        directory: &Path,
+        index: usize,
+    ) -> Result<BuiltArtifact, CorrectnessError> {
+        let original = self
+            .cargo
+            .executable
+            .as_ref()
+            .ok_or_else(|| invalid("Cargo artifact has no executable"))?;
+        let identity = self.identity.ok_or_else(|| {
+            invalid("required executable was unavailable at its original Cargo artifact event")
+        })?;
+        let executable =
+            capture_artifact(directory, index, original.as_std_path(), Some(identity))?;
+        Ok(BuiltArtifact {
+            cargo: self.cargo,
+            executable,
+        })
+    }
+}
+
+fn capture_artifact(
+    directory: &Path,
+    index: usize,
+    original: &Path,
+    observed: Option<FileIdentity>,
+) -> Result<Executable, CorrectnessError> {
+    let captured = artifact_path(directory, index, original)?;
+    let parent = captured
+        .parent()
+        .ok_or_else(|| invalid("Cargo artifact capture parent is absent"))?;
+    fs::DirBuilder::new().mode(0o700).create(parent)?;
+    let result = if observed.is_some() {
+        shared_capture(original, &captured, observed)
+    } else {
+        capture_executable(original, &captured, None)
+    };
+    if result.is_err() {
+        fs::remove_dir_all(parent)?;
+        collect_unused(&captured)?;
+    }
+    result
 }
 
 impl BuildCapture {
@@ -520,8 +746,7 @@ fn sink(
 
 fn record(
     bytes: &[u8],
-    directory: &Path,
-    artifacts: &mut Vec<BuiltArtifact>,
+    observe: &mut impl FnMut(Artifact) -> Result<(), CorrectnessError>,
     failures: &mut Failures,
 ) {
     if failures.contains_key(&CaptureFailureDomain::Protocol)
@@ -549,24 +774,10 @@ fn record(
     }
     match serde_json::from_value::<Message>(value) {
         Ok(Message::CompilerArtifact(artifact)) => {
-            if let Some(path) = &artifact.executable {
-                // Preserve Cargo's basename/argv[0] contract inside a distinct private
-                // directory; native owners may legitimately require their program name.
-                let captured = (|| {
-                    let captured = artifact_path(directory, artifacts.len(), path.as_std_path())?;
-                    let parent = captured
-                        .parent()
-                        .ok_or_else(|| invalid("Cargo artifact capture parent is absent"))?;
-                    fs::DirBuilder::new().mode(0o700).create(parent)?;
-                    executable(path.as_std_path(), &captured)
-                })();
-                match captured {
-                    Ok(executable) => artifacts.push(BuiltArtifact {
-                        cargo: artifact,
-                        executable,
-                    }),
-                    Err(error) => first_failure(failures, CaptureFailureDomain::Artifact, error),
-                }
+            if artifact.executable.is_some()
+                && let Err(error) = observe(artifact)
+            {
+                first_failure(failures, CaptureFailureDomain::Artifact, error);
             }
         }
         Ok(_) => first_failure(
@@ -581,14 +792,13 @@ fn record(
 fn consume_frame(
     frame: crate::stream_records::Frame<'_>,
     forwarded: &mut impl Write,
-    directory: &Path,
-    artifacts: &mut Vec<BuiltArtifact>,
+    observe: &mut impl FnMut(Artifact) -> Result<(), CorrectnessError>,
     failures: &mut Failures,
 ) {
     use crate::stream_records::Frame;
     match frame {
         Frame::Complete(bytes) => {
-            record(bytes, directory, artifacts, failures);
+            record(bytes, observe, failures);
             sink(bytes, forwarded, CaptureFailureDomain::Forwarding, failures);
         }
         Frame::Oversized { bytes, .. } => {
@@ -614,8 +824,7 @@ fn drain(
     input: &mut impl Read,
     raw: &mut impl Write,
     forwarded: &mut impl Write,
-    directory: &Path,
-    artifacts: &mut Vec<BuiltArtifact>,
+    mut observe: impl FnMut(Artifact) -> Result<(), CorrectnessError>,
     failures: &mut Failures,
 ) -> io::Result<()> {
     use crate::stream_records::RecordFramer;
@@ -639,10 +848,10 @@ fn drain(
             failures,
         );
         framer.push(&chunk[..count], |frame| {
-            consume_frame(frame, forwarded, directory, artifacts, failures)
+            consume_frame(frame, forwarded, &mut observe, failures)
         });
     }
-    framer.finish(|frame| consume_frame(frame, forwarded, directory, artifacts, failures));
+    framer.finish(|frame| consume_frame(frame, forwarded, &mut observe, failures));
     Ok(())
 }
 
@@ -657,13 +866,50 @@ pub(super) fn write_json(path: &Path, value: &impl Serialize) -> Result<(), Corr
     Ok(())
 }
 
+pub(super) fn finish_observed_build(
+    directory: &Path,
+    capture: &BuildCapture,
+) -> Result<(), CorrectnessError> {
+    private_directory(directory)?;
+    let mut staged = tempfile::NamedTempFile::new_in(directory)?;
+    serde_json::to_writer(staged.as_file_mut(), capture)?;
+    staged
+        .as_file()
+        .set_permissions(fs::Permissions::from_mode(0o400))?;
+    staged.as_file().sync_all()?;
+    staged
+        .persist(directory.join("build.json"))
+        .map_err(|error| error.error)?;
+    File::open(directory)?.sync_all()?;
+    Ok(())
+}
+
 /// Internal correctness callback: capture each executable before forwarding its Cargo record.
 /// A capture or forwarding failure still drains stdout and waits for the original child.
 pub(crate) fn execute_build(
+    command: Command,
+    resolution: &Resolution,
+    directory: &Path,
+    forwarded: &mut impl Write,
+) -> Result<i32, CorrectnessError> {
+    build(command, resolution, directory, forwarded, false)
+}
+
+pub(crate) fn observe_build(
+    command: Command,
+    resolution: &Resolution,
+    directory: &Path,
+    forwarded: &mut impl Write,
+) -> Result<i32, CorrectnessError> {
+    build(command, resolution, directory, forwarded, true)
+}
+
+fn build(
     mut command: Command,
     resolution: &Resolution,
     directory: &Path,
     forwarded: &mut impl Write,
+    deferred: bool,
 ) -> Result<i32, CorrectnessError> {
     private_directory(directory)?;
     let mut stream = OpenOptions::new()
@@ -681,12 +927,25 @@ pub(crate) fn execute_build(
         .ok_or_else(|| invalid("Cargo stdout was not captured"))?;
     let mut failures = Failures::new();
     let mut artifacts = Vec::new();
+    let mut observations = Vec::new();
     if let Err(error) = drain(
         &mut stdout,
         &mut stream,
         forwarded,
-        directory,
-        &mut artifacts,
+        |cargo| {
+            if deferred {
+                observations.push(ObservedArtifact::from_cargo(cargo));
+            } else {
+                let path = cargo
+                    .executable
+                    .as_ref()
+                    .ok_or_else(|| invalid("Cargo artifact has no executable"))?
+                    .as_std_path();
+                let executable = capture_artifact(directory, artifacts.len(), path, None)?;
+                artifacts.push(BuiltArtifact { cargo, executable });
+            }
+            Ok(())
+        },
         &mut failures,
     ) {
         first_failure(&mut failures, CaptureFailureDomain::Read, error);
@@ -710,6 +969,19 @@ pub(crate) fn execute_build(
         incomplete: failures.clone(),
     };
     if let Err(error) = write_json(&directory.join("build.json"), &captured) {
+        first_failure(&mut failures, CaptureFailureDomain::Manifest, error);
+    }
+    if deferred
+        && failures.is_empty()
+        && cargo_exit == 0
+        && let Err(error) = write_json(
+            &directory.join("observed.json"),
+            &ObservedBuild {
+                resolution: resolution.clone(),
+                artifacts: observations,
+            },
+        )
+    {
         first_failure(&mut failures, CaptureFailureDomain::Manifest, error);
     }
     if !failures.is_empty() {

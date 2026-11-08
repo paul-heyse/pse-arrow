@@ -19,6 +19,7 @@ const REAL_CARGO: &str = "PSE_CORRECTNESS_REAL_CARGO";
 const ADAPTER: &str = "PSE_CORRECTNESS_ADAPTER";
 const FIXTURE_METADATA_CAPTURE: &str = "PSE_FIXTURE_CARGO_METADATA_CAPTURE";
 const BUILD_CAPTURE: &str = "PSE_CORRECTNESS_BUILD_CAPTURE";
+const BUILD_OBSERVATION: &str = "PSE_CORRECTNESS_BUILD_OBSERVATION";
 const CARGO_HACK_ADAPTER: &str = "CARGO_HACK_CARGO_SRC";
 const DIAGNOSTIC_TARGET: &str = "x86_64-unknown-linux-gnu";
 const DIAGNOSTIC_CFG: &str = "target.'cfg(all())'.rustflags=[\"--cfg\",\"tokio_unstable\"]";
@@ -919,6 +920,7 @@ pub(crate) fn standalone_adapter_environment(
         ADAPTER,
         CARGO_HACK_ADAPTER,
         BUILD_CAPTURE,
+        BUILD_OBSERVATION,
         FIXTURE_METADATA_CAPTURE,
     ] {
         selected.remove(OsStr::new(key));
@@ -1142,6 +1144,14 @@ fn execute_adapter(
         return execute(cargo, arguments);
     }
     let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
+    if let Some(directory) = std::env::var_os(BUILD_OBSERVATION) {
+        return crate::discovery::capture::observe_build(
+            native_command(cargo, &resolution.arguments)?,
+            &resolution,
+            Path::new(&directory),
+            &mut io::stdout().lock(),
+        );
+    }
     if let Some(directory) = std::env::var_os(BUILD_CAPTURE) {
         return crate::discovery::capture::execute_build(
             native_command(cargo, &resolution.arguments)?,

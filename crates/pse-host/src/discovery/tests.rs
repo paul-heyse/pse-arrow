@@ -362,6 +362,58 @@ fn non_test_capture() -> (tempfile::TempDir, BinaryListSummary, BuildCapture) {
 }
 
 #[test]
+fn selective_acquisition_keeps_only_nextest_images_and_runtime_helpers() {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let (directory, mut binaries, mut original) = non_test_capture();
+    let helper = original.artifacts.pop().unwrap().cargo;
+    let harness = directory.path().join("integration");
+    fs::write(&harness, b"integration harness").unwrap();
+    fs::set_permissions(&harness, fs::Permissions::from_mode(0o700)).unwrap();
+    let mut suite = binary("integration");
+    suite["binary-path"] = json!(harness);
+    binaries.rust_binaries.insert(
+        nextest_metadata::RustBinaryId::new("alpha::integration"),
+        serde_json::from_value(suite).unwrap(),
+    );
+    let mut unrelated = helper.clone();
+    unrelated.target.name = "unrelated".into();
+    unrelated.executable = Some(
+        directory
+            .path()
+            .join("unavailable-unrelated")
+            .try_into()
+            .unwrap(),
+    );
+    let mut test = helper.clone();
+    test.profile.test = true;
+    test.target.name = "integration".into();
+    test.target.kind = vec![cargo_metadata::TargetKind::Test];
+    test.executable = Some(harness.try_into().unwrap());
+    let observed = capture::ObservedBuild {
+        resolution: original.resolution.clone(),
+        artifacts: vec![
+            capture::ObservedArtifact::from_cargo(test),
+            capture::ObservedArtifact::from_cargo(helper),
+            capture::ObservedArtifact::from_cargo(unrelated),
+        ],
+    };
+    let build = directory.path().join("build");
+    super::directory(&build).unwrap();
+    acquire_binaries(&mut binaries, observed, &build, &mut original).unwrap();
+    assert_eq!(original.artifacts.len(), 2);
+    assert!(!build.join("artifact-2").exists());
+    assert!(
+        binaries
+            .rust_build_meta
+            .non_test_binaries
+            .values()
+            .flatten()
+            .any(|binary| binary.kind == nextest_metadata::RustNonTestBinaryKind::DYLIB)
+    );
+}
+
+#[test]
 fn native_non_test_binary_mapping_survives_original_cargo_output_replacement() {
     let (_directory, mut declared, captured) = non_test_capture();
     pin_binaries(&mut declared, &captured).unwrap();

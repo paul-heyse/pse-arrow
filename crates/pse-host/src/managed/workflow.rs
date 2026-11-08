@@ -415,6 +415,7 @@ fn discard_unpublished_inventory(invocation: &Path) -> Result<(), HostError> {
         return Ok(());
     };
     let Some(inventory) = release_private_child(&workflow, "inventory")? else {
+        crate::discovery::capture::collect_unused(&invocation.join("workflow/inventory"))?;
         return Ok(());
     };
     for (owner, name) in [(&workflow, "report.json"), (&inventory, "inventory.json")] {
@@ -436,6 +437,7 @@ fn discard_unpublished_inventory(invocation: &Path) -> Result<(), HostError> {
     }
     fs::remove_dir_all(path)?;
     workflow.sync_all()?;
+    crate::discovery::capture::collect_unused(&invocation.join("workflow/inventory"))?;
     Ok(())
 }
 

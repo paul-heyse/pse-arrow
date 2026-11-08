@@ -27,6 +27,70 @@ fn source(root: &Path) -> PathBuf {
     source
 }
 
+#[test]
+fn observed_cargo_events_write_no_images_and_reject_replaced_members() {
+    let root = tempfile::tempdir().unwrap();
+    let original = source(root.path());
+    let build = root.path().join("build");
+    fs::DirBuilder::new().mode(0o700).create(&build).unwrap();
+    let artifact = Message::CompilerArtifact(artifact(&original, "selected", "test"));
+    let record = serde_json::to_string(&artifact).unwrap();
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "printf '%s\\n' \"$1\"", "fixture", &record]);
+    observe_build(command, &resolution(), &build, &mut io::sink()).unwrap();
+    assert!(!build.join("artifact-0").exists());
+    let observed: ObservedBuild =
+        serde_json::from_slice(&fs::read(build.join("observed.json")).unwrap()).unwrap();
+    assert_eq!(observed.artifacts.len(), 1);
+    fs::write(&original, b"replaced after Cargo observation").unwrap();
+    assert!(
+        observed
+            .artifacts
+            .into_iter()
+            .next()
+            .unwrap()
+            .capture(&build, 0)
+            .is_err()
+    );
+    assert!(!build.join("artifact-0").exists());
+}
+
+#[test]
+fn immutable_images_share_bytes_until_both_invocations_release() {
+    let root = tempfile::tempdir().unwrap();
+    fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let original = source(root.path());
+    let make = || {
+        let inventory = root
+            .path()
+            .join("invocations")
+            .join(crate::envelope::CliInvocationId::new().as_str())
+            .join("workflow/inventory");
+        fs::DirBuilder::new()
+            .mode(0o700)
+            .recursive(true)
+            .create(&inventory)
+            .unwrap();
+        shared_executable(&original, &inventory.join("original")).unwrap()
+    };
+    let a = make();
+    let b = make();
+    let object = root.path().join("test-images").join(&a.sha256);
+    assert_eq!(
+        fs::metadata(&a.captured).unwrap().ino(),
+        fs::metadata(&b.captured).unwrap().ino()
+    );
+    assert_eq!(fs::metadata(&object).unwrap().nlink(), 3);
+    for image in [&b, &a] {
+        image.verify().unwrap();
+        let directory = File::open(image.captured.parent().unwrap()).unwrap();
+        release_executable(&directory, &image.captured, Some(image)).unwrap();
+        assert!(!image.captured.exists());
+    }
+    assert!(!object.exists());
+    assert!(original.exists());
+}
+
 fn application_capture(directory: &Path) -> BuildCapture {
     let original = source(directory);
     let executable = executable(&original, &directory.join("captured-tool")).unwrap();
@@ -359,8 +423,7 @@ fn failed_sinks_are_not_retried_and_failure_retention_does_not_grow_per_line() {
         &mut input,
         &mut raw,
         &mut forwarded,
-        Path::new("/unused"),
-        &mut vec![],
+        |_| panic!("no compiler artifact expected"),
         &mut failures,
     )
     .unwrap();
@@ -392,18 +455,15 @@ fn oversized_record_is_streamed_in_full_and_capture_remains_incomplete() {
     let mut raw = Count::default();
     let mut forwarded = Count::default();
     let mut failures = Failures::new();
-    let mut artifacts = vec![];
     drain(
         &mut input,
         &mut raw,
         &mut forwarded,
-        Path::new("/unused"),
-        &mut artifacts,
+        |_| panic!("no compiler artifact expected"),
         &mut failures,
     )
     .unwrap();
     assert_eq!((raw.0, forwarded.0), (size + 1, size + 1));
-    assert!(artifacts.is_empty());
     assert_eq!(failures.len(), 1);
     assert!(failures.contains_key(&CaptureFailureDomain::Protocol));
 }
