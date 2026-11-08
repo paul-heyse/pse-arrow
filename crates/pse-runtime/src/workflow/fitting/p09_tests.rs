@@ -2492,6 +2492,7 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
         (id(72), "Scalar", Some(1.), Some(1.)),
         (id(81), "Time", Some(73.), Some(1.)),
         (id(82), "Time", Some(73.), Some(1.)),
+        (id(83), "Time", Some(12.), Some(1.)),
     ]);
     let replaced = measurements
         .iter()
@@ -2523,6 +2524,10 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
             .simulations
             .insert(*member, profile.simulations[&ids[0]].clone());
     }
+    let mut observation = declarations.fits[0].observations[0].clone();
+    observation.observation_id = id(83).into();
+    observation.output_path = "x[160{s}]".into();
+    declarations.fits[0].observations.push(observation);
     let package = package
         .with_fit_declarations(&runtime.source_services(), declarations)
         .await
@@ -2562,6 +2567,46 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
     assert_eq!(coordinates.instance_id, Some(ids[0]));
     assert!(coordinates.time.is_some());
     let source = prepared.trajectory_source(ids[0]).unwrap();
+    use pse_compiler::workspace::ModelingOutput;
+    let state = source.contract().states[0];
+    let reported = source
+        .model()
+        .compiled()
+        .admitted
+        .outputs
+        .iter()
+        .find_map(|output| match output {
+            ModelingOutput::Member(symbol)
+                if *symbol != state && source.contract().outputs.contains(&output.row_id()) =>
+            {
+                Some(*symbol)
+            }
+            _ => None,
+        })
+        .unwrap();
+    assert_eq!(coordinates.outputs.len(), 2);
+    let allowance = crate::workflow::tests::engineering_target(
+        source.numerics(),
+        NumericalTarget::Variable,
+        state,
+    ).budget;
+    for (time, expected_state, expected_report) in [(160., 10., 70.), (161., 12., 73.)] {
+        let x = selected.qualified_output_at(time, state).unwrap().unwrap();
+        let y = selected.qualified_output_at(time, reported).unwrap().unwrap();
+        assert!(x.trajectory().belongs_to(&original));
+        assert_eq!(y.trajectory().experiment_id(), ids[0]);
+        assert_eq!(x.sample().time, time);
+        assert_eq!(y.sample().time, time);
+        assert_eq!(x.sample().symbol_id, state);
+        assert_eq!(y.sample().symbol_id, reported);
+        assert_eq!(x.sample().quantity_id, y.sample().quantity_id);
+        assert_eq!(x.sample().unit_id, y.sample().unit_id);
+        assert_action(x.sample().value, expected_state, allowance);
+        assert_action(y.sample().value, expected_report, allowance);
+    }
+    for (time, symbol) in [(160.5, state), (f64::NAN, state), (160., id(99))] {
+        assert!(selected.qualified_output_at(time, symbol).unwrap().is_none());
+    }
     assert_eq!(
         coordinates
             .state
@@ -2621,6 +2666,18 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
     )
     .completed(None);
     assert!(!result.usable());
+    let sample_at_end = |result: &RunResult, member| {
+        result
+            .fit_trajectory(member)
+            .unwrap()
+            .qualified_output_at(161., reported)
+            .unwrap()
+            .is_some()
+    };
+    assert!(sample_at_end(&result, ids[0]));
+    for id in &ids[1..] {
+        assert!(!sample_at_end(&result, *id));
+    }
     assert!(
         result
             .fit_trajectory(ids[0])
@@ -2721,6 +2778,8 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
     // A different actual producer's facts cannot govern this result.
     let foreign = prepared.start(&services).unwrap().wait().await.unwrap();
     let original_completion = result.completion.clone();
+    result.completion = Ok(passive);
+    assert!(!sample_at_end(&result, ids[0]));
     result.completion = Ok(foreign.completion().unwrap().clone());
     assert!(
         result
@@ -2729,6 +2788,7 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
             .governing_permission()
             .is_none()
     );
+    assert!(!sample_at_end(&result, ids[0]));
     result.completion = original_completion;
     let duplicate = result
         .completion()
@@ -2749,6 +2809,7 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
             .governing_permission()
             .is_none()
     );
+    assert!(!sample_at_end(&result, ids[0]));
     assert!(
         result
             .fit_trajectory(ids[0])

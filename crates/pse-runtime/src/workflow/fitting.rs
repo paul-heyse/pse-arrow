@@ -24,7 +24,7 @@ pub use profile::{ProfileChain, ProfileFailure, ProfilePoint, ProfileWorkerFailu
 pub(in crate::workflow) mod regression;
 mod results;
 mod trajectory;
-pub use trajectory::FitTrajectory;
+pub use trajectory::{FitTrajectory, FitTrajectoryOutput};
 #[cfg(all(test, feature = "solver-ipopt"))]
 mod scientific_equipment_tests;
 mod sparse;

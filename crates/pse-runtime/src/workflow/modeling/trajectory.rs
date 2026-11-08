@@ -58,11 +58,27 @@ impl ModelingTrajectory {
         symbol: SemanticId,
     ) -> Result<Option<pse_relations::generated::runtime::simulation_samples::Row>, WorkflowError>
     {
-        use pse_relations::generated::runtime::simulation_samples;
-
         let Some(report) = self.qualified_report(producer) else {
             return Ok(None);
         };
+        self.prepared()
+            .original_output_at(self.run_id(), report, time, symbol)
+    }
+}
+
+impl ModelingSimulation {
+    /// Read a sampled output from the report already joined and qualified by the
+    /// standalone simulation or fitting owner.
+    pub(in crate::workflow) fn original_output_at(
+        &self,
+        run_id: RunId,
+        report: &native::Report,
+        time: f64,
+        symbol: SemanticId,
+    ) -> Result<Option<pse_relations::generated::runtime::simulation_samples::Row>, WorkflowError>
+    {
+        use pse_relations::generated::runtime::simulation_samples;
+
         if !time.is_finite() || report.coverage.retention != native::SampleRetention::Full {
             return Ok(None);
         }
@@ -73,6 +89,14 @@ impl ModelingTrajectory {
             return Ok(None);
         };
         let point = &report.samples[sample];
+        if (sample > 0 && report.samples[sample - 1].time.to_bits() == time.to_bits())
+            || report
+                .samples
+                .get(sample + 1)
+                .is_some_and(|next| next.time.to_bits() == time.to_bits())
+        {
+            return Ok(None);
+        }
         if report
             .coverage
             .points
@@ -82,17 +106,20 @@ impl ModelingTrajectory {
         {
             return Err(contract("retained sample differs from original coverage"));
         }
-        let prepared = self.prepared();
         let target = ModelingOutput::Member(symbol).row_id();
-        let Some(column) = prepared
+        let mut columns = self
             .contract
             .outputs
             .iter()
-            .position(|id| *id == target)
-        else {
+            .enumerate()
+            .filter_map(|(column, id)| (*id == target).then_some(column));
+        let Some(column) = columns.next() else {
             return Ok(None);
         };
-        let product = prepared.model().compiled();
+        if columns.next().is_some() {
+            return Ok(None);
+        }
+        let product = self.model().compiled();
         let row = product
             .admitted
             .case()
@@ -106,13 +133,13 @@ impl ModelingTrajectory {
             .copied()
             .filter(|value| value.is_finite())
             .ok_or_else(|| contract("retained trajectory output absent or nonfinite"))?;
-        let unit = prepared
+        let unit = self
             .quantities
             .quantity_type(row.quantity)
             .map_err(math)?
             .canonical_unit;
         Ok(Some(simulation_samples::Row {
-            run_id: self.run_id(),
+            run_id,
             sample: i64::try_from(sample)
                 .map_err(|_| contract("trajectory sample index extent"))?,
             time: point.time,
@@ -122,7 +149,9 @@ impl ModelingTrajectory {
             value,
         }))
     }
+}
 
+impl ModelingTrajectory {
     pub(in crate::workflow) fn relation_ids() -> Vec<SemanticId> {
         use pse_relations::generated::runtime::*;
         vec![

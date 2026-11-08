@@ -7,7 +7,9 @@ use crate::workflow::{
     MemberScientificPermission, ModelingSimulation, RunOutcome, RunResult, ScientificPermission,
     WorkflowError,
 };
+use pse_ids::SemanticId;
 use pse_model::generated::identities::RunId;
+use pse_relations::generated::runtime::simulation_samples;
 use std::sync::Arc;
 
 /// Raw trajectory selected from one original experiment of an exact joined fit.
@@ -22,7 +24,26 @@ pub struct FitTrajectory<'a> {
     source: &'a ModelingSimulation,
 }
 
-impl FitTrajectory<'_> {
+/// Sampled physical output with its original experiment and fit attempt still joined.
+#[derive(Debug)]
+pub struct FitTrajectoryOutput<'a> {
+    trajectory: FitTrajectory<'a>,
+    sample: simulation_samples::Row,
+}
+
+impl<'a> FitTrajectoryOutput<'a> {
+    /// Exact original member and producer, including the attempt when durable.
+    pub fn trajectory(&self) -> FitTrajectory<'a> {
+        self.trajectory
+    }
+
+    /// Original physical time, authored symbol and canonical quantity and unit.
+    pub fn sample(&self) -> &simulation_samples::Row {
+        &self.sample
+    }
+}
+
+impl<'a> FitTrajectory<'a> {
     /// Original scientific execution identity; retries may share this run identity.
     pub fn run_id(&self) -> RunId {
         self.producer.run_id
@@ -94,6 +115,26 @@ impl FitTrajectory<'_> {
         self.governing_permission()
             .filter(|permission| permission.permits_result())
             .map(|_| self.report())
+    }
+
+    /// Select an authored value at an exact retained physical time under the
+    /// original member decision. Derivatives and point accuracy require their own evidence.
+    pub fn qualified_output_at(
+        &self,
+        time: f64,
+        symbol: SemanticId,
+    ) -> Result<Option<FitTrajectoryOutput<'a>>, WorkflowError> {
+        let Some(report) = self.qualified_report() else {
+            return Ok(None);
+        };
+        self.source
+            .original_output_at(self.run_id(), report, time, symbol)
+            .map(|sample| {
+                sample.map(|sample| FitTrajectoryOutput {
+                    trajectory: *self,
+                    sample,
+                })
+            })
     }
 
     /// This producer's original whole-fit decision, if captured.
