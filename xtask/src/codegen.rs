@@ -483,12 +483,7 @@ fn finish_checks(failures: Vec<String>) -> Result<()> {
 fn check_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
     validate_tree(tree)?;
     let mut failures = Vec::new();
-    let comparison = (|| {
-        let scratch = tempfile::tempdir().context("creating codegen comparison directory")?;
-        write_tree(scratch.path(), tree)?;
-        compare_tree(root, scratch.path(), tree)
-    })();
-    check_result(&mut failures, "comparison", comparison);
+    check_result(&mut failures, "comparison", compare_tree(root, tree));
     check_result(
         &mut failures,
         "tracking",
@@ -676,6 +671,30 @@ fn validate_tree(tree: &GeneratedTree) -> Result<()> {
             );
         }
     }
+    for path in tree.files.keys().chain(&tree.roots) {
+        if let Some(file) = path
+            .ancestors()
+            .skip(1)
+            .find(|ancestor| tree.files.contains_key(*ancestor))
+        {
+            bail!(
+                "generated file {} is an ancestor of {}",
+                file.display(),
+                path.display()
+            );
+        }
+    }
+    let foreign = nested_roots(tree);
+    if let Some(path) = tree
+        .files
+        .keys()
+        .find(|path| foreign.iter().any(|root| path.starts_with(root)))
+    {
+        bail!(
+            "generated file belongs to another target: {}",
+            path.display()
+        );
+    }
     Ok(())
 }
 
@@ -760,28 +779,27 @@ fn collect_files(root: &Path, relative: &Path, files: &mut BTreeSet<PathBuf>) ->
     Ok(())
 }
 
-fn compare_tree(root: &Path, scratch: &Path, tree: &GeneratedTree) -> Result<()> {
-    let expected = inventory(scratch, tree)?;
-    let actual = inventory(root, tree)?;
+fn compare_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
+    let mut actual = inventory(root, tree)?;
     let mut differences = Vec::new();
-    for path in expected.union(&actual) {
-        let difference = match (expected.contains(path), actual.contains(path)) {
-            (true, false) => Some("missing from checkout"),
-            (false, true) => Some("stale in checkout"),
-            (true, true) if fs::read(root.join(path))? != fs::read(scratch.join(path))? => {
-                Some("bytes differ")
-            }
-            _ => None,
-        };
-        if let Some(reason) = difference {
-            differences.push(format!("{}: {reason}", path.display()));
+    for (path, expected) in &tree.files {
+        if !actual.remove(path) {
+            differences.push((path, "missing from checkout"));
+        } else if fs::read(root.join(path))? != *expected {
+            differences.push((path, "bytes differ"));
         }
     }
+    differences.extend(actual.iter().map(|path| (path, "stale in checkout")));
     if !differences.is_empty() {
+        differences.sort_unstable();
+        let report = differences
+            .iter()
+            .map(|(path, reason)| format!("{}: {reason}", path.display()))
+            .collect::<Vec<_>>()
+            .join("\n");
         bail!(
-            "codegen --check found {} difference(s):\n{}",
-            differences.len(),
-            differences.join("\n")
+            "codegen --check found {} difference(s):\n{report}",
+            differences.len()
         );
     }
     Ok(())
@@ -840,7 +858,6 @@ mod tests {
     #[test]
     fn partial_schema_publication_preserves_foreign_outputs() {
         let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
         let registry = pse_schema::catalog::assemble().unwrap();
         let tree = document_schemas(&registry).unwrap();
         assert!(
@@ -857,12 +874,11 @@ mod tests {
             fs::write(path, b"original foreign bytes").unwrap();
         }
         write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
         let metric = checkout
             .path()
             .join("scripts/generated/native_metric_declarations.json");
         fs::write(&metric, b"stale owned metadata").unwrap();
-        let error = compare_tree(checkout.path(), scratch.path(), &tree)
+        let error = compare_tree(checkout.path(), &tree)
             .unwrap_err()
             .to_string();
         assert!(
@@ -871,7 +887,7 @@ mod tests {
         );
         assert_eq!(fs::read(&metric).unwrap(), b"stale owned metadata");
         write_tree(checkout.path(), &tree).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        compare_tree(checkout.path(), &tree).unwrap();
         for path in [
             "scripts/generated/foreign.json",
             "scripts/generated/foreign_schema/record.json",
@@ -1039,23 +1055,32 @@ mod tests {
     #[test]
     fn comparison_detects_changes_missing_and_extra_files_without_writing_checkout() {
         let checkout = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
         let tree = tree();
         write_tree(checkout.path(), &tree).unwrap();
-        write_tree(scratch.path(), &tree).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        compare_tree(checkout.path(), &tree).unwrap();
         let path = checkout.path().join("generated/a.txt");
         fs::write(&path, b"changed").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(compare_tree(checkout.path(), &tree).is_err());
         assert_eq!(fs::read(&path).unwrap(), b"changed");
         fs::remove_file(&path).unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(compare_tree(checkout.path(), &tree).is_err());
         assert!(!path.exists());
         write_tree(checkout.path(), &tree).unwrap();
         fs::write(checkout.path().join("generated/stale.txt"), b"stale").unwrap();
-        assert!(compare_tree(checkout.path(), scratch.path(), &tree).is_err());
+        assert!(compare_tree(checkout.path(), &tree).is_err());
         write_tree(checkout.path(), &tree).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &tree).unwrap();
+        compare_tree(checkout.path(), &tree).unwrap();
+    }
+
+    #[test]
+    fn comparison_rejects_conflicting_candidate_before_checkout_inventory() {
+        let checkout = tempfile::tempdir().unwrap();
+        let mut tree = tree();
+        tree.files
+            .insert("generated/a.txt/child".into(), Vec::new());
+        let error = check_tree(checkout.path(), &tree).unwrap_err();
+        assert!(error.to_string().contains("is an ancestor"), "{error:#}");
+        assert!(!checkout.path().join("generated").exists());
     }
 
     #[test]
@@ -1151,9 +1176,7 @@ mod tests {
         write_tree(checkout.path(), &markdown).unwrap();
         assert!(checkout.path().join(native_path).is_file());
         assert!(checkout.path().join(catalogue_path).is_file());
-        let scratch = tempfile::tempdir().unwrap();
-        write_tree(scratch.path(), &markdown).unwrap();
-        compare_tree(checkout.path(), scratch.path(), &markdown).unwrap();
+        compare_tree(checkout.path(), &markdown).unwrap();
     }
 
     #[test]
@@ -1190,6 +1213,7 @@ mod tests {
         let other = tempfile::tempdir().unwrap();
         std::os::unix::fs::symlink(other.path(), checkout.path().join("generated")).unwrap();
         assert!(write_tree(checkout.path(), &tree()).is_err());
+        assert!(compare_tree(checkout.path(), &tree()).is_err());
         assert!(!other.path().join("a.txt").exists());
     }
 }
