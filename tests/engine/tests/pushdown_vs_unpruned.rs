@@ -27,7 +27,7 @@ use pse_schema::{
 };
 use std::{collections::BTreeMap, sync::Arc};
 
-async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
+async fn fixture(count: i64) -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     let mut builder = RegistryBuilder::new();
     pse_schema::catalog::declare_diagnostics(&mut builder);
     builder.declare_enum(EnumDecl::platform(
@@ -69,7 +69,7 @@ async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     );
     let registry = Arc::new(builder.build().expect("registry"));
     let spec = registry.relation("authored.items").expect("relation");
-    let rows = (1..=36)
+    let rows = (1..=count)
         .map(|id| {
             vec![
                 serde_json::json!(["i64", id]),
@@ -103,7 +103,12 @@ async fn fixture() -> (Arc<dyn TableProvider>, RecordBatch, tempfile::TempDir) {
     (table, batch, directory)
 }
 fn unpruned(batch: RecordBatch) -> Arc<dyn TableProvider> {
-    Arc::new(MemTable::try_new(batch.schema(), vec![vec![batch]]).expect("unpruned source"))
+    let split = batch.num_rows() / 2;
+    let partitions = vec![
+        vec![batch.slice(0, split)],
+        vec![batch.slice(split, batch.num_rows() - split)],
+    ];
+    Arc::new(MemTable::try_new(batch.schema(), partitions).expect("complete unpruned source"))
 }
 
 /// Deliberately lies about exact filtering; only used to prove oracle completeness.
@@ -148,8 +153,6 @@ impl TableProvider for DefectiveExact {
 }
 #[tokio::test]
 async fn all_declared_filter_shapes_match_complete_unpruned_results() {
-    let (table, batch, _directory) = fixture().await;
-    let baseline = unpruned(batch);
     let cases = [
         "SELECT * FROM items WHERE id = 1",
         "SELECT * FROM items WHERE id IN (1,2)",
@@ -158,24 +161,31 @@ async fn all_declared_filter_shapes_match_complete_unpruned_results() {
         "SELECT * FROM items WHERE id IN (1,2,3,4) AND label LIKE '%2'",
         "SELECT * FROM items WHERE parent IS NULL",
         "SELECT * FROM items WHERE parent IS NOT NULL",
+        "SELECT * FROM items WHERE parent BETWEEN 0 AND 2",
+        "SELECT * FROM items WHERE NOT (parent BETWEEN 2 AND 4)",
         "SELECT * FROM items WHERE choice='one'",
+        "SELECT choice FROM items WHERE parent IS NOT NULL",
         "SELECT label FROM items WHERE id=2",
-        "SELECT label FROM items WHERE id IN (1,2,3) LIMIT 2",
+        "SELECT label FROM items WHERE id IN (1,2,3,4) AND label LIKE '%2' ORDER BY id LIMIT 1",
         "SELECT i.label AS value FROM items AS i WHERE i.id=4",
     ];
-    for sql in cases {
-        let actual = oracle::query(table.clone(), sql).await;
-        let expected = oracle::query(Arc::clone(&baseline), sql).await;
-        assert_eq!(
-            oracle::multiset(&actual),
-            oracle::multiset(&expected),
-            "{sql}"
-        );
+    for (count, selected) in [(0, &cases[..1]), (36, &cases[..])] {
+        let (table, batch, _directory) = fixture(count).await;
+        let baseline = unpruned(batch);
+        for &sql in selected {
+            let actual = oracle::query(table.clone(), sql).await;
+            let expected = oracle::query(Arc::clone(&baseline), sql).await;
+            assert_eq!(
+                oracle::multiset(&actual),
+                oracle::multiset(&expected),
+                "{count} rows: {sql}"
+            );
+        }
     }
 }
 #[tokio::test]
 async fn oracle_detects_over_pruning_empty_and_extra_rows() {
-    let (_table, batch, _directory) = fixture().await;
+    let (_table, batch, _directory) = fixture(36).await;
     let sql = "SELECT * FROM items WHERE id IN (1,2)";
     let expected = oracle::multiset(&oracle::query(unpruned(batch.clone()), sql).await);
     let over_pruning = batch.slice(0, 1);

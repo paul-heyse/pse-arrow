@@ -6,10 +6,11 @@
     clippy::expect_used,
     reason = "test oracle reports precise contract failures"
 )]
-use datafusion::arrow::{
-    array::RecordBatch,
-    row::{RowConverter, SortField},
-};
+#[path = "../../support/arrow_rows.rs"]
+mod arrow_rows;
+pub(crate) use arrow_rows::multiset;
+
+use datafusion::arrow::array::RecordBatch;
 use datafusion::catalog::TableProvider;
 use datafusion::execution::context::{SessionConfig, SessionContext};
 use std::sync::Arc;
@@ -26,28 +27,4 @@ pub(crate) async fn query(table: Arc<dyn TableProvider>, sql: &str) -> Vec<Recor
         .collect()
         .await
         .expect("execute oracle query")
-}
-pub(crate) fn multiset(batches: &[RecordBatch]) -> Vec<Vec<u8>> {
-    let Some(first) = batches.first() else {
-        return Vec::new();
-    };
-    let converter = RowConverter::new(
-        first
-            .schema()
-            .fields()
-            .iter()
-            .map(|field| SortField::new(field.data_type().clone()))
-            .collect(),
-    )
-    .expect("exact Arrow row encoding");
-    let mut rows = Vec::new();
-    for batch in batches {
-        assert_eq!(batch.schema(), first.schema());
-        let encoded = converter
-            .convert_columns(batch.columns())
-            .expect("actual row values");
-        rows.extend((0..batch.num_rows()).map(|row| encoded.row(row).as_ref().to_vec()));
-    }
-    rows.sort();
-    rows
 }

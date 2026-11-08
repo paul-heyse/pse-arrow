@@ -107,7 +107,13 @@ impl QualifiedProducer {
     /// to make an arbitrary JSON claim match. This asserts deployment provenance;
     /// matching JSON fields alone cannot establish a qualified producer.
     ///
-    /// ```compile_fail
+    /// ```
+    /// use pse_runtime::math::portable::{ExpectedProducerTarget, QualifiedProducer};
+    /// let _mint: unsafe fn(&[u8], &str, ExpectedProducerTarget) -> _ =
+    ///     QualifiedProducer::from_deployment_receipt;
+    /// ```
+    ///
+    /// ```compile_fail,E0133
     /// use pse_runtime::math::portable::QualifiedProducer;
     /// let id=pse_ids::ContentHash::from_bytes([0;32]);
     /// let _=QualifiedProducer::from_deployment_receipt(b"{}",&id.to_hex(),pse_runtime::math::portable::ExpectedProducerTarget::WORKER);

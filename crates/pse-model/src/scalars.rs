@@ -100,7 +100,7 @@ pub struct FiniteBound(f64);
 /// assert_eq!(scalar!(Tolerance(1e-9)).into_inner(), 1e-9);
 /// ```
 ///
-/// ```compile_fail
+/// ```compile_fail,E0080
 /// use pse_model::{scalar, scalars::Tolerance};
 /// let _ = scalar!(Tolerance(-1.0));
 /// ```

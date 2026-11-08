@@ -98,11 +98,21 @@ impl NativeMembershipCounts {
 
 /// A qualified compiler-issued recipe. It cannot be cloned or deserialized.
 ///
-/// ```compile_fail
+/// ```
+/// let payload: serde_json::Value = serde_json::from_slice(b"{}").unwrap();
+/// assert!(payload.is_object());
+/// ```
+///
+/// ```compile_fail,E0277
 /// let _: pse_ids::scientific_replay::QualifiedScientificRecipe =
 ///     serde_json::from_slice(b"{}").unwrap();
 /// ```
-/// ```compile_fail
+/// ```
+/// fn borrow(permit: &pse_ids::scientific_replay::QualifiedScientificRecipe)
+///     -> &pse_ids::scientific_replay::QualifiedScientificRecipe { permit }
+/// ```
+///
+/// ```compile_fail,E0308
 /// fn duplicate(permit: &pse_ids::scientific_replay::QualifiedScientificRecipe)
 ///     -> pse_ids::scientific_replay::QualifiedScientificRecipe { permit.clone() }
 /// ```
@@ -134,7 +144,13 @@ impl QualifiedScientificRecipe {
     /// from impersonating scientific admission. Reserve `scratch_bytes` before parsing.
     /// A digest supplied by an arbitrary consumer is insufficient to establish this.
     ///
-    /// ```compile_fail
+    /// ```
+    /// use pse_ids::{ContentHash, scientific_replay::QualifiedScientificRecipe};
+    /// let _mint: unsafe fn(Vec<u8>, ContentHash, ContentHash, ContentHash) -> _ =
+    ///     QualifiedScientificRecipe::from_canonical_product;
+    /// ```
+    ///
+    /// ```compile_fail,E0133
     /// use pse_ids::{ContentHash, scientific_replay::QualifiedScientificRecipe};
     /// let id = ContentHash::from_bytes([0; 32]);
     /// let _ = QualifiedScientificRecipe::from_canonical_product(Vec::new(), id, id, id);

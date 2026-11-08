@@ -262,6 +262,40 @@ mod tests {
             Some(pse_diagnostics::DiagnosticCode::RuntimeCancelled)
         );
     }
+
+    #[test]
+    fn public_diagnostic_code_keeps_leaf_and_delegated_identity() {
+        use miette::Diagnostic;
+        let matches_code = |error: &dyn Diagnostic, expected: &str| {
+            error
+                .code()
+                .is_some_and(|code| code.to_string() == expected)
+        };
+        assert!(matches_code(&EngineError::Cancelled, "runtime::cancelled"));
+        let leaf = pse_relations::RelationError::UnknownRegistry {
+            relation: "fixture".into(),
+        };
+        assert!(matches_code(&leaf, "schema::unknown_registry"));
+        assert!(matches_code(
+            &EngineError::from(leaf),
+            "schema::unknown_registry"
+        ));
+
+        #[derive(Debug, thiserror::Error, miette::Diagnostic)]
+        #[error("fixture diagnostic without a code")]
+        struct AbsentCode;
+        impl TypedDiagnostic for AbsentCode {
+            fn diagnostic_code(&self) -> Option<pse_diagnostics::DiagnosticCode> {
+                None
+            }
+        }
+        let absent = EngineError::Semantic(std::sync::Arc::new(AbsentCode));
+        assert!(!matches_code(&absent, "runtime::cancelled"));
+        assert!(
+            absent.code().is_none(),
+            "a delegated missing code must stay missing"
+        );
+    }
 }
 
 pse_columnar::impl_native_error!(EngineError);

@@ -20,7 +20,13 @@ crate::semantic_id_newtype! {
     OperationalJobHash: ContentHash,
 }
 /// Role boundaries reject implicit substitutions.
-/// ```compile_fail
+/// ```
+/// use pse_ids::roles::ProfileHash;
+/// fn profile(_: ProfileHash) {}
+/// profile(ProfileHash::from_bytes([0; 32]));
+/// ```
+///
+/// ```compile_fail,E0308
 /// use pse_ids::roles::{BindingHash, ProfileHash};
 /// fn profile(_: ProfileHash) {}
 /// profile(BindingHash::from_bytes([0; 32]));

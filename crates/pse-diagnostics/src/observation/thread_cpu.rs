@@ -10,7 +10,12 @@ use std::{marker::PhantomData, rc::Rc, thread::ThreadId, time::Duration};
 /// it does not measure children, exclusive owner CPU, asynchronous work or wait.
 /// Constructing an ordinary diagnostic producer does not read this clock.
 ///
-/// ```compile_fail
+/// ```
+/// use pse_diagnostics::observation::ThreadCpuSample;
+/// let _ = ThreadCpuSample::start().and_then(|sample| sample.elapsed());
+/// ```
+///
+/// ```compile_fail,E0277
 /// use pse_diagnostics::observation::ThreadCpuSample;
 /// let sample = ThreadCpuSample::start().unwrap();
 /// std::thread::spawn(move || sample.elapsed());

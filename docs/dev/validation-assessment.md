@@ -26,6 +26,8 @@ qualification meaning of the resulting evidence.
 | `scripts/pse test PACKAGE --lib -E FILTER` | Selected source-built library tests under native nextest | Unselected targets, providers and services |
 | `scripts/pse test PACKAGE --lib --features FEATURES -E FILTER` | Selected native library tests with required already prepared providers and declared fixture inputs | Unselected targets, provider preparation and scientific cases |
 | `scripts/pse test PACKAGE:TARGET ...` | Selected source-built tests with their declared Rust fixture ownership | Other deployments, historical state and unselected scientific cases |
+| `scripts/pse test pse-tests-lifecycle:query_memory_budget` | Actual scan and operator pressure, cancellation, recovery and release under the shared memory budget | Native service lifecycle and result publication |
+| `scripts/pse test pse-tests-engine:pushdown_vs_unpruned` | Selected engine provider results against complete unpruned inputs, including a deliberately defective provider | Canonical snapshot pruning and statistics custody |
 | `just modeling-conformance ...` | Selected authored conformance runs in the manifest's supported native/pure mode | Unselected packages and independent reference execution |
 | `just parity` | Four native candidate exchanges against the isolated pinned IDAES/Pyomo environment | Other cases, versions and exhaustive parity |
 | `just reference-unit` | Independent helper, wire and thermodynamic controls in the prepared parity environment | Solver execution and native candidate contracts |

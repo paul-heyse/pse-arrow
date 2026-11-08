@@ -16,8 +16,8 @@
 //! exist only in the CLI and the driver (`xtask`, which is outside this scan). An
 //! `anyhow::Error` in a library erases exactly the structure a finding is made of.
 //!
-//! Trivially green in phase 0 — which is the point: the first error enum written is
-//! checked, not the hundredth.
+//! This scan checks implementation presence. Owner-local controls exercise declared codes
+//! and their forwarding at the public diagnostic boundary.
 
 mod common;
 
