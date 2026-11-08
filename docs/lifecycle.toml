@@ -7502,6 +7502,17 @@ status_profile = "finding"
 status_column = 1
 
 [[scope_tables]]
+path = "docs/plans/69-intent-first-cli-and-codex-workflows.md"
+name = "surrealdb-and-rust-tooling-dispositions"
+heading = "SurrealDB and Rust tooling dispositions"
+headers = ["Review reference", "Disposition", "Owning intervention"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+
+[[scope_tables]]
 path = "docs/plans/69f-parser-startup-and-argument-forwarding.md"
 name = "packages"
 heading = "Packages"

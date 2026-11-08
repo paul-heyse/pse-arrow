@@ -68,6 +68,39 @@ eliminated manual steps. Reuse Plan67’s captured tool and compiler cache paths
 [Preparation and custody](67b-invocation-custody-and-developer-history.md) ·
 [Build reuse](67d-cargo-variants-and-sccache-reuse.md)
 
+### Exact v4 prerequisites
+
+The live fixture continuation in [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02)
+uses the current Study module preparation owner. The earlier v3-shaped receipt was refused.
+Use `scripts/pse fixture prepare study-module` to select the verified v4 inputs and publish
+the private pointer. The owner derives an immutable key from the selected server, source,
+locked dependencies and build inputs, reuses an exact receipt when present, and builds only
+on a miss. Check the installed extension's artifact digest, capability scope and original
+`ext::` readiness through the canonical fixture. A server version or listener readiness
+probe is a separate preflight. Check refusal of the old receipt, successful explicit
+continuation, and warm reuse. D01–D03 consume the prepared receipt independently of E03.
+[Fixture preparation](../../crates/pse-host/src/fixtures/execution.rs) ·
+[Module preparation and reuse](../../crates/pse-host/src/study_module.rs) ·
+[Installed extension validation](../../crates/pse-operations/src/canonical_study_module.rs) ·
+[SurrealDB v4 readiness probe](https://surrealdb.com/docs/reference/cli/db/commands/isready)
+
+If [E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema)
+selects the standalone tool, receive [I07](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I07)
+before exposing rollout apply. The prepared SurrealKit rc.1 owner checks source, lock and
+executable identity. Its current `verify` follows `PSE_SURREALKIT_BIN` while `install`
+targets the default generation. An invalid existing default generation also fails install's
+verification. Project three distinct A03 outcomes. An absent default can use explicit
+`diagnostic-tools install surrealkit` followed by verify. A rejected override requires
+selection correction followed by verify. An invalid existing generation needs an exact
+protected-owner repair where available, otherwise an unresolved prerequisite with the original
+identity. Preserve prior usable generations. Verify passive inspection and a successful
+second verification for each supported correction, plus a corrupt-generation refusal that
+preserves the bytes and offers no ineffective retry. The upstream version report provides
+version, OS and architecture for diagnosis. The checkout receipt establishes provenance.
+[Tool selection, verification and install](../../crates/pse-host/src/surrealkit.rs) ·
+[Pin](../../.config/surrealkit.toml) ·
+[Pinned version report](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/output.rs)
+
 ## B03 — Remove repeated staging and operational sequences
 
 When a managed service needs a socket, allocate a short private scratch root through its
@@ -76,6 +109,13 @@ when a required path cannot work. Verify no service is started for a rejected pa
 owner releases scratch after actual drain. Expose failed-stage identity and bounded, redacted
 compiler/native prerequisite or crash details through A03. A deliberate exact retry reuses the
 selected intent. The log evidence does not establish a cause for compiler crashes.
+
+Use the existing native Study fixture for the live invalid-socket refusal and owner-drain
+controls. A rejected pathname must leave launch unstarted. For admitted work, check the
+original process forest settlement before releasing its scratch and retained diagnostics.
+SurrealKit's logical database teardown is a separate assertion.
+[Native fixture owner](../../crates/pse-host/src/fixtures/execution.rs) ·
+[I02 receiving boundaries](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02)
 
 Inventory repeated fixed sequences from the review, including targeted dependency refresh
 followed by host preparation. Add a `just` recipe only if its components already expose
@@ -93,5 +133,5 @@ authenticate and settle its owners reliably, bring the combined mutation to R-56
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | B01 | complete | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. Cold help and catalog refusal left the target absent. Current activated foreground probes observed the configured unbounded mode and the explicit light mode's 2 GiB ancestor limit, with complete settlement in both cases. |
-| B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Current bootstrap nextest controls passed for passive cold help, the fixed preparation handoff, incompatible-seed fallback, authenticated receipts and the original failure status. The current CLI returned the exact missing-fixture preparation command. A compatible v4 Study module receipt is required for its live continuation. |
+| B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Current bootstrap nextest controls passed for passive cold help, the fixed preparation handoff, incompatible-seed fallback, authenticated receipts and the original failure status. The current CLI returned the exact missing-fixture preparation command. Exact v4 Study continuation and warm reuse remain. Receive the standalone tool's exact recovery when E03 selects it. |
 | B03 | in progress | B01, A03, and existing scratch and retirement owners | The Study fixture owns a short private scratch path and checks it before launch. `just upgrade-host` composes targeted dependency refresh and host preparation. The current foreground service-forest drain control passed. Live socket refusal and bounded native recovery receiving remain. |

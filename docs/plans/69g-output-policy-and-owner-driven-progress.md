@@ -70,6 +70,13 @@ Keep optional Tokio, Rayon, and stream features conditional on a receiving workl
 [Indicatif adapter contracts](https://docs.rs/indicatif/0.18.6/indicatif/struct.ProgressBarIter.html) ·
 [Pinned writer implementation](https://docs.rs/indicatif/0.18.6/src/indicatif/iter.rs.html)
 
+[I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05)
+keeps transfer display conditional on actual publication-owner events. Distinguish SDK
+arrival, accepted writer bytes, durable publication and original settlement. The display
+follows the selected owner facts in [69d](69d-routine-product-and-data-operations.md#d04--decide-whether-typed-graph-diagnosis-belongs-at-the-front-door).
+Exercise full accepted-byte count followed by a publication failure if that boundary
+is adopted, with the owner failure and machine-output policy preserved.
+
 For the first deliverable, reproduce the review search fixture with stdout piped
 and stderr alternately a pipe and PTY. Require valid JSON or NDJSON frames and zero
 progress or terminal escapes on either stream. Check structured usage and failure

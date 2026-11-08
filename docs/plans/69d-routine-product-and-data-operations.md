@@ -168,6 +168,55 @@ incomplete or failed publication.
   [Cohort and analysis owner](../../crates/pse-runtime/src/workflow/study_workbench.rs) ·
   [Selected result export](../../crates/pse-runtime/src/workflow/connected_results.rs)
 
+### Live v4 receiving
+
+Use the [B02 prepared Study module](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites)
+on an owned v4 fixture. D01 verifies unique and ambiguous authorized target resolution,
+foreign-issuer refusal, and passive reads that leave the configured service unstarted.
+D02 uses the captured performing CLI to exercise typed create or navigation with the
+original acknowledgement, changed-input refusal and same-operation reconciliation after an
+uncertain response. D03 exercises protected import reopen and Study publication with the
+original operation, receipt, issuer and bounded output. Reuse preparation and fixture setup
+where the selected cases need the same authority. Preserve owner custody, drain and
+release. Retain compact case outcomes rather than complete fixture data.
+[I02 receiving](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) ·
+[Product action types](../../crates/pse-runtime/src/host_operations/project.rs)
+
+## D04 — Decide whether typed graph diagnosis belongs at the front door
+
+[I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05)
+compares the existing staged `xtask canonical-graph-inspect` with an authenticated
+connection-only receiver for the same bounded graph-neighborhood request. Identify a
+recurring consumer and its required observation. Select a CLI route only if it eliminates
+state-path or request-file staging while preserving the issuer, database, anchor
+recheck, row cap, continuation and original role. Otherwise record the constraint
+and retain the existing diagnostic route. Completion of this investigation is a decision
+with a named consumer and bounded contract, or an explicit deferral and revisit condition.
+[Typed graph diagnostics](../../xtask/src/canonical_diagnostics.rs) ·
+[Plan 68c graph receiving](68c-surrealdb-v4-query-improvements.md#c03--graph-receiving-and-bounded-diagnostic-projection)
+
+For a selected route, reuse Plan 68c's owner facts. `EXPLAIN FORMAT JSON` reports the
+planned access path and its raw shape can change. Project bounded stable facts with
+explicit unavailable fields. `INFO FOR INDEX` supplies construction state and checks
+database actor View before evaluating its operands. Preserve scoped-role refusal.
+`EXPLAIN ANALYZE` executes the query and stays in the explicit Plan 68c qualification
+lane. Require a bounded result with continuation, a foreign-issuer refusal before effect,
+and a constructing-index observation under the intended role. Plan 68c owns query
+shape, plan interpretation and benefit measurements.
+[EXPLAIN contract](https://surrealdb.com/docs/reference/query-language/statements/explain) ·
+[Pinned index authority](https://github.com/surrealdb/surrealdb/blob/284fe93afc851c3baec2c262c01289602021a70d/surrealdb/core/src/exec/vm/ir_lower/info.rs)
+
+Consider SDK streams, subscriptions and CDC only when a named consumer needs a
+continuous or larger projection and the selected transport preserves bounded pages,
+partial results, cancellation, transaction completion and drain. Product packs retain
+their original typed custody. The v4 HTTP dump import can commit successful statements
+independently and report partial application. Keep that data-movement contract with
+Plan 68e's named maintenance cases. Any useful transfer progress consumes real
+publication events through A04. Durable developer history follows C04's named-query gate.
+[Pinned HTTP import](https://github.com/surrealdb/surrealdb/blob/284fe93afc851c3baec2c262c01289602021a70d/surrealdb/server/src/ntw/import.rs) ·
+[A04](69g-output-policy-and-owner-driven-progress.md#a04--gate-presentation-on-format-then-integrate-owner-events) ·
+[C04](69c-ordinary-testing-and-managed-results.md#c04--retention-and-authenticated-release)
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
@@ -175,3 +224,4 @@ incomplete or failed publication.
 | D01 | in progress | A01–A03, B02 prepared route, current product read owner | Connection-only reads and the target identity query are wired. Named selections carry expected issuer and database, and ambiguous targets return authenticated choices. Current v4 invalid-target and offline pack receiving controls passed. The live assembled target journey remains. |
 | D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. Current v4 controls preserved uncertain settlement and refused an invalid selection before open. The live captured CLI journey remains. |
 | D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | Protected reopen and publication custody are implemented. The force-validating v4 `pse-project` product-operators check passed. All three fixture-free exchange controls passed after correcting the staging permissions to `0700`. Live import reopen and Study exports require a compatible v4 Study module receipt. |
+| D04 | planned | D01 authenticated selection and Plan 68c typed graph observations | Record a bounded comparison and adoption or deferral. CLI implementation and its receiving controls depend on the named-consumer and authority decision. |

@@ -9,6 +9,7 @@ doc_topics: [current-work, design, libraries, storage, validation]
 review_sources:
   - docs/functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md
   - docs/plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md
+  - docs/plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md
 ---
 
 # Intent-first CLI and Codex workflows
@@ -56,6 +57,20 @@ the scheduled packages. The target acceptance below remains **Proposed**.
 [CLI library review](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md) ·
 [Baseline evidence](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#evidence-and-limits)
 
+The [SurrealDB and Rust tooling review](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md)
+inspected `e7bcacac8`. Plan authoring rechecked the owners at `622261d8f`, which includes
+Plan 68's completed v4 cutover and its remaining separate qualification and custody.
+**Interface-checked.** The current host prepares SurrealKit 1.0.0-rc.1 and a separate
+v4 Study extension. The maintenance consumer verifies exact settlement and activation
+but lacks its production issuer and settler. The source preview currently uses textual
+anchors, and the SurrealQL parser already returns structured spans the receiver flattens.
+**Tested in the review.** Scoped `pse-host --lib` admission reported a Cargo target
+and unavailable exact test inventory without building or listing tests. Use this
+evidence for admission only. The remaining live product and rollout journeys still
+need their own evidence.
+[Plan 68 current status](68-surrealdb-v4-cutover.md#current-status) ·
+[Review evidence](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#ordering-and-evidence-limits)
+
 ## Shared decisions and boundaries
 
 - Classify each action as read, prepare, apply or recover. Passive discovery and inspection
@@ -88,10 +103,10 @@ before dependent work. [Plan67 retirement](67e-resource-retirement-and-storage-v
 | Owner | Scope and handoff |
 |---|---|
 | [69a](69a-cli-contracts-configuration-and-presentation.md) | Own catalog metadata and typed syntax, resolved context and provenance, and the original diagnostic projection. |
-| [69b](69b-codex-workstation-and-preparation.md) | Inspect and settle placement and bootstrap design alongside 69a. Use 69a’s action and recovery contract for live handoffs. The missing-host launcher remains a separate bootstrap boundary. |
-| [69c](69c-ordinary-testing-and-managed-results.md) | Reconcile ordinary selection against existing fixture and validation contracts. Deliver test and result entry points using 69a’s catalog and recovery. Exercise cold end-to-end use once 69b’s handoff works. |
-| [69d](69d-routine-product-and-data-operations.md) | Receive existing typed product operations through 69a’s context and 69b’s prepared route. Add a consumer only when its exact typed operation and acknowledgement are available. |
-| [69e](69e-source-model-and-live-schema-operations.md) | Investigate source changes independently. Apply shared preview/recovery rules and 69d’s target-selection contract to live maintenance. Receive exact version-specific changes through Plan68. |
+| [69b](69b-codex-workstation-and-preparation.md) | Own explicit prepared v4 Study continuation and socket refusal/drain receiving. Supply exact SurrealKit recovery if E03 selects the standalone tool. Use 69a’s recovery projection. |
+| [69c](69c-ordinary-testing-and-managed-results.md) | Own test and result entry points. C05 explains source candidates, Cargo admission, Nextest and rustdoc lanes through 69a’s catalog. Existing execution and custody evidence retain their owners. |
+| [69d](69d-routine-product-and-data-operations.md) | Receive live typed product operations through 69a’s context and 69b’s prepared Study route. D04 investigates a bounded diagnostic consumer of Plan 68c's existing observations. |
+| [69e](69e-source-model-and-live-schema-operations.md) | Own exact source evidence and guarded publication, local structural-query reuse, and native rollout issue, settlement and activation. E03 uses 69d target selection, 69a recovery, and Plan 68's exact v4 contracts. |
 | [69f](69f-parser-startup-and-argument-forwarding.md) | Parse strictly before recovering usage format and preserve OS-native argv. Compare selective construction only after F01 and A01's discovery contracts are ready. |
 | [69g](69g-output-policy-and-owner-driven-progress.md) | Own A04. Fix machine-format search output first, then apply one presentation policy as owner events and A03 projections become available. |
 
@@ -106,6 +121,13 @@ and full A01 discovery contracts. In A02, resolve acquisition before specifying
 attribution. B–E receive those shared contracts as needed. Additional progress
 presentation uses each receiver's existing owner events. Conditional experiments
 do not gate receiving work that already has the required contract.
+
+Use B02's v4 Study preparation to unblock D01–D03 and B03 without waiting for E03.
+E03's passive preview, E02 source evidence, C05 and E04 can advance on their own
+available prerequisites. Before exposing E03 apply, settle the executable authority
+investigation, receive the matching B02 recovery if applicable, and verify the original
+nonce issuer and settler. D04 requires a bounded adoption or deferral decision.
+Its candidate CLI route depends on that decision.
 
 ## Execution checkpoint
 
@@ -170,6 +192,25 @@ a governed decision, record its consequences and use the existing decision route
 before any package relies on it.
 [Guide coverage and dispositions](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#appendix--guide-coverage-and-dispositions)
 
+## SurrealDB and Rust tooling dispositions
+
+| Review reference | Disposition | Owning intervention |
+|---|---|---|
+| [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01) | Scheduled | [69e E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema) owns passive preview, the prepared execution decision, and original nonce settlement and activation. |
+| [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) | Scheduled | [69b B02–B03](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) prepare and receive the native fixture. [69d D01–D03](69d-routine-product-and-data-operations.md#live-v4-receiving) own live product receiving. [69e E02](69e-source-model-and-live-schema-operations.md#optional-field-receiving) owns optional-field checks and the external fixture candidate. |
+| [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03) | Scheduled | [69e E02](69e-source-model-and-live-schema-operations.md#exact-authored-and-generated-evidence) owns structural spans and the bounded affected view. [69a A03](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) receives original diagnostics. |
+| [I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04) | Scheduled | [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership) owns selection explanation and doctest routing, with 69a A01 catalog receiving. |
+| [I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05) | Scheduled investigation | [69d D04](69d-routine-product-and-data-operations.md#d04--decide-whether-typed-graph-diagnosis-belongs-at-the-front-door) owns the bounded decision. CLI implementation and A04 transfer display depend on their named consumer and owner gates. C04 retains the existing expiry policy. |
+| [I06](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I06) | Scheduled | [69e E04](69e-source-model-and-live-schema-operations.md#e04--reuse-coordinates-in-bounded-structural-browsing) owns source-coordinate reuse. Range pushdown has a separate revisit condition. |
+| [I07](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I07) | Deferred until E03 selects the standalone tool | [69b B02](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) and 69a A03 own exact preparation and recovery as an apply prerequisite when selected. |
+
+The [coverage appendix](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#coverage-appendix)
+retains the detailed guide dispositions. Revisit optional analyzers, language services,
+embedded compilation, and external fixtures at the owning package's trigger. Route
+broader query, transport, migration, or backend investigations to Plan 68 and
+scientific consumers to Plan 66. Any discovered change to a governed decision follows
+the existing decision route before dependent work adopts it.
+
 ## Verification and completion
 
 **Proposed.** Run focused parser, owner and terminal checks with each package. At scope end,
@@ -182,9 +223,9 @@ conditions or retained-byte observations when making a time or storage claim.
 
 | Journey | Completion evidence |
 |---|---|
-| Bare ordinary tests and exact rerun | Catalog syntax and effective selection are distinct. Compare admitted workspace roots and feature-bearing units with the pinned Cargo graph, including integration targets. Exercise exact nextest inventory, missing prerequisites and verdicts on a scoped selection. A full test-name census requires a separate use case. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
+| Bare ordinary tests and exact rerun | Catalog syntax, advisory source candidates, Cargo admission, Nextest inventory, and verdict are distinct. Preserve workspace root and feature-unit equivalence evidence, and exercise scoped admission, exact inventory and verdict, missing prerequisites and doctest-only routing. A full test-name census requires a separate use case. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
 | Retrieve and expire a result | A returned ID opens a compact result and bounded detail with diagnostic relationships and provenance where captured. Holds block release. The owner releases settled disposable records under the enabled policy. Retired and unknown differ within the witness lifetime. |
-| Ambiguous product target | Typed choices appear before mutation. The authenticated selection and original acknowledgement survive dispatch. Any export counter describes only its observed stage. |
-| Source model change | Supported change yields coherent preview, generated consumers, affected checks and findings with exact file and byte coordinates. Stale inputs refuse before edits and partial publication retains exact recovery. |
-| Stale schema preview | Changed predecessor, target or module refuses activation. Uncertain application differs from completed activation in human and machine output. Reconcile the same operation reference without resubmission. |
-| Cold Codex checkout | Help and catalog stay passive. Explicit preparation establishes scope and prerequisites. Continuation and warm reuse preserve the selected operation and mode despite child arguments or configuration preferences. |
+| Live product target and original effects | Typed choices appear before mutation and foreign issuer refuses. The authenticated target and original acknowledgement survive dispatch and uncertain recovery. Protected import reopen and Study publication use their original identities on the prepared v4 fixture. Any export counter describes only its observed stage. |
+| Source model change | Supported change yields unique authored spans, bounded affected reasons, generated consumers, and exact staged diagnostic labels. Stale inputs refuse before edits and partial publication retains exact recovery. Check optional-field source publication, SurrealQL syntax and predecessor-row behavior separately. |
+| Passive, stale and interrupted schema rollout | Preview leaves installed state unchanged. Changed predecessor, instance, target or module refuses before writes. A lost reply before step settlement remains distinct from committed activation in both outputs. Reconcile the original nonce and prove a single activation without blind SQL resubmission. |
+| Cold Codex checkout | Help and catalog stay passive. Explicit preparation establishes scope and prerequisites. Verify exact v4 Study continuation and warm reuse. Reject invalid socket paths before launch and release scratch after actual drain. Receive exact standalone tool recovery if E03 selects it. |

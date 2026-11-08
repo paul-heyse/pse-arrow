@@ -73,6 +73,12 @@ the deferred-construction experiment. [Catalog](../../crates/pse-host/src/catalo
 [Completion](https://docs.rs/clap_complete/4.6.11/clap_complete/) ·
 [Manual generation](https://docs.rs/clap_mangen/0.3.3/clap_mangen/)
 
+Receive [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership)
+through the existing parser catalog. A source-derived candidate, a Cargo-admitted target,
+and a Nextest-enumerated test carry different availability. Doc-only source candidates
+point to the existing rustdoc lane. Keep discovery passive and take candidate and admission
+meaning from the selection owner.
+
 ## A02 — Resolved context with provenance
 
 Resolve developer checkout and session identity from the existing owner. Product actions may
@@ -136,6 +142,20 @@ For each B–E receiver specify the original owner code, typed facts, effect ide
 retry unit, verdict, settlement and redacted source reference or bounded excerpt.
 Keep clap usage context. Emit exact safe argv or a typed reference and omit operands
 that cannot be disclosed. Migrate string-only wrappers with their callers.
+
+Receive three additional owner projections from the
+[SurrealDB and Rust tooling review](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md).
+[E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema)
+supplies the original nonce and separates pre-write refusal, uncertain phase effect,
+settled phase, and committed activation. Recovery carries that same operation reference.
+[E02](69e-source-model-and-live-schema-operations.md#e02--preview-publish-and-recover-source-changes)
+supplies a staged source identity and native primary and optional secondary byte labels,
+with independent related findings for other files. Keep unreadable inputs distinct from
+syntax failures and redact source excerpts at the receiving boundary.
+[B02](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites)
+supplies the selected preparation identity and, for a selected standalone rollout tool,
+the exact absent-release, rejected-override, or corrupt-generation disposition. Emit a
+retry only when that route can restore the original prerequisite.
 
 Use thiserror 2.0.21 contextual variants when a crossing adds typed facts. Use
 `#[from]` and transparent forwarding where the source already supplies the

@@ -133,6 +133,81 @@ Clap owns CLI argument discovery, and the project and maintenance owners supply 
 effect identities and installed state. Compiler internals, MIR and expanded Rust capture
 remain focused diagnostic tools for a question that needs that evidence.
 
+### Exact authored and generated evidence
+
+Apply [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03)
+at the existing preview owner. Replace first-substring anchors with unique structural
+locations in the exact authored bytes. Use xtask's pinned Tree-sitter 0.27.0 and Rust
+grammar 0.24.2 first. Locate the `canonical_projects` tuple and its direct
+`column("description", …).optional()` expression, and the direct `selected_field`
+member in the `PackResultSelection` declaration inside
+`pse_contract::projection_struct!`. Scope matching to those token-tree constructs.
+If the grammar cannot locate both shapes without ambiguous interpretation, use xtask's
+`syn` 3.0.5 for the enclosing grammar and bounded token-tree matching for the custom
+body. `proc_macro2::Span::byte_range` with `span-locations` yields byte ranges outside
+proc-macro execution. Account for `syn::parse_file`'s BOM and shebang handling, and
+validate the offsets against the captured original. Reject missing, ambiguous or
+malformed anchors before preparation. Test real grammar, a comment or string decoy,
+duplicate candidates and independently known UTF-8 coordinates. Keep the existing
+semantic proposal and digest guard for cross-file edits.
+[Preview source](../../xtask/src/codegen/source_change.rs) ·
+[Pinned Tree-sitter byte ranges](https://docs.rs/tree-sitter/0.27.0/tree_sitter/struct.Node.html#method.byte_range) ·
+[Pinned Rust grammar](https://docs.rs/tree-sitter-rust/0.24.2/tree_sitter_rust/) ·
+[Pinned syn parser](https://docs.rs/syn/3.0.5/src/syn/lib.rs.html) ·
+[Pinned span API](https://docs.rs/proc-macro2/1.0.107/proc_macro2/struct.Span.html#method.byte_range)
+
+Preserve a bounded projection of `inspect affected` in the preview. Carry direct
+owners, graph state and widening reasons, and the selected generator route alongside
+package names. Exercise an incomplete graph that widens and a direct-owner case. A
+semantic reference query can explain a specific consumer while the affected owner
+retains conservative selection. Use the existing configuration-bound rustdoc JSON
+format 61 comparison only for a distinct public Rust compatibility question. The
+generator and receiving tests own preserved JSON name, Protobuf tag, presence and
+historical decode.
+[Affected owner](../../crates/pse-host/src/affected.rs) ·
+[Format-checked API owner](../../crates/pse-host/src/api.rs)
+
+For changed SurrealQL postimages selected by the preview, use the existing
+`surrealql-validate` parser route on the exact staged bytes while the snapshot exists.
+In surrealdb-parser-next 4.0.0, `Diag` contains `kind`, primary `start` and `end`,
+`label`, and optional secondary `extra`. Preserve validated ranges, bounded path
+and digest in A03. Keep separate files as related findings, preserve read failures
+and apply the owner redaction policy. Verify UTF-8 before an invalid token, a
+secondary delimiter label and an unreadable input. `surreal db validate --stdin`
+is a separate syntax comparator. Revisit SurrealQL LSP 0.6.3 only for a named
+semantic question unresolved by parsing and installed checks. Account for UTF-16
+ranges and its different builtins revision. Revisit embedded SurrealKit `compile`
+only for a named independent normalization question. It uses an embedded memory
+engine omitted by the prepared remote gRPC build, and its schema v2 digest omits
+extension digest and capability attestation.
+[Validator owner](../../xtask/src/surrealql_tools.rs) ·
+[Pinned parser diagnostics](https://github.com/surrealdb/surrealdb/blob/284fe93afc851c3baec2c262c01289602021a70d/surrealdb/parser-next/src/parse/mod.rs) ·
+[CLI syntax validation](https://surrealdb.com/docs/reference/cli/db/commands/validate) ·
+[Pinned LSP contract](https://github.com/surrealdb/surrealql-language-server/blob/5aa6a12a29b7def0e7df662c09ac9203e66f5033/AGENTS.md) ·
+[Pinned compile implementation](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/compile.rs)
+
+### Optional-field receiving
+
+Retain three distinct checks under
+[I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02).
+Complete the guarded source apply with generated-file publication and digest checks.
+Parse the selected generated SurrealQL independently of installed behavior. In an
+owned disposable logical database, insert a row under the predecessor, apply the
+generated field change, then verify absent description and an explicit string
+round-trip. Check `NONE` and `NULL` according to the actual generated field type.
+Use a named migration only for an actual stored-value transformation. The rc.1
+`test --schema-from both` runner applies sync and rollout replay in separate
+databases and seeds after building schema. Reuse that parity evidence for its
+claim. Insert the predecessor row in an ordered fixture or explicit rollout step
+to establish historical-row behavior. Keep the native fixture for product
+initializer and process ownership. Consider SurrealKit `test --exec` only when
+named database contract tests can reuse logical database setup with scoped tokens.
+Its whitespace-split command inherits most environment variables and direct child
+interruption is distinct from native descendant drain.
+[Pinned suite preparation and cleanup](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/tester/runner.rs) ·
+[Pinned external runner options](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/main.rs) ·
+[v4 field semantics](../libraries/surrealDB/SurrealDB_v4.md#34-missing-null-and-optional-values)
+
 ## E03 — Inspect, preview, apply and recover live schema
 
 Use D01’s authenticated target selection. Inspect installed definitions passively. A rollout
@@ -151,33 +226,103 @@ Assert that stale refusal and uncertain application remain distinguishable from
 completed activation in human output and the machine envelope. Retry reconciliation
 with the original operation ID and owner facts.
 
-Use the current owned SurrealKit route to evaluate preview and replay. The pinned 1.0.0-beta.6
-suite runner can prepare isolated logical databases and compare sync with rollout replay under
-`--schema-from both`. Use that to establish definition parity on a small fixture. Use the
-canonical maintenance owner to establish original effect, installed-state recheck, interruption
-recovery and protected activation. Compare any proposed wrapper against those guarantees and
-prefer composing the existing owners when they suffice. Test stale predecessor, changed target
-or module, interrupted apply and exact recovery. Receive version-specific schema and transport
-from Plan68 without taking ownership of its migration or qualification.
-The Viewer-only installed catalog observer now normalizes the same catalog as activation,
-checks the expected live issuer and reads the catalog and marker on one connection.
-`pse observe prepare --installed-schema` selects the owning feature and
-`pse project installed-schema` requests the passive observation. The physical server
-instance and loaded module still need independent evidence. The current activation path
-expects a listener and rollout record without a production producer on main. Complete
-the owner that issues, settles and reconciles the exact nonce on the receiving runtime
-before exposing activation. The isolated SurrealKit fixture establishes parity and drift
-behavior. Plan68b owns version-specific inventory and the bounded wire, and Plan68d and
-68e own their exact fixture and selected candidate evidence.
-[SurrealKit pin](../../.config/surrealkit.toml) ·
-[Pinned suite runner](https://github.com/surrealdb/surrealkit/blob/92ebc3cc89b99f00d21c7d2cbf5136d728367061/crates/surrealkit/src/tester/runner.rs) ·
+### Passive preview and frozen inputs
+
+[I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01)
+uses the existing Viewer observer from `pse observe prepare --installed-schema` and
+`pse project installed-schema`. The observer authenticates the issuer and reads the
+normalized catalog and marker on one connection. The preview also binds the physical
+server instance, exact namespace/database, issuer and predecessor, generated target
+interpretation and digest, loaded module identity, rollout identity, verified tool
+generation, and the exact manifest and SQL digests. Freeze effective template variables
+or disable substitution. Keep producer-owned frozen inputs immutable and append forward
+steps when declarations change. Use `rollout lint` for manifest and chain checking in
+private staging. SurrealKit rc.1 `sync --dry-run`, `rollout status`, and
+`Rollouts::pending` call setup. `rollout up --dry-run` also acquires a lock, and
+`rollout plan --dry-run` can create local directories and reports a local proposal.
+Use authenticated observation for the live preview. Check that preview leaves
+application admission, tool metadata and the installed catalog unchanged.
+[Viewer observer](../../crates/pse-operations/src/canonical_maintenance/catalog.rs) ·
+[Pin](../../.config/surrealkit.toml) ·
+[Pinned sync](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/sync.rs) ·
+[Pinned setup](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/setup.rs) ·
+[Pinned rollout and lint](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/rollout.rs) ·
+[Pinned up and lock behavior](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/rollout/up.rs)
+
+### Owned execution and authority gate
+
+The activation consumer requires an initializer-authorized maintenance listener and exact
+pending and settled records. Current main has no production producer for those records.
+Extend the existing native lifecycle owner. Recheck preview premises before the first
+effect. The owner fences writes, drains authentic holders and the ordinary server, and
+owns the isolated listener and tool child under the existing initializer and credential
+contract. It issues the original pending nonce and binds the exact inputs before SQL
+dispatch. The checkout's prepared SurrealKit 1.0.0-rc.1 executable uses the locked v4
+remote gRPC feature closure. Evaluate that subprocess first, including the
+[B02 recovery prerequisite](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites).
+Use the existing Plan 68d fixture as evidence that scoped authentication and supervised
+gRPC tool execution compose. Before selecting live apply, verify one small authored
+rollout against an owned v4 fixture. Demonstrate exact endpoint, identity and credentials,
+controlled effective variables, frozen inputs, explicit `start` and `complete`,
+bounded output and actual native and SQL drain. Scope credentials to the required
+maintenance effects and redact their presentation. If the subprocess cannot preserve
+these facts, record the failing contract, compare the pinned Rust `Rollout` API and
+its SDK closure, and keep apply gated until an equivalent owner path is established.
+[Maintenance contract, blueprint §20.5](../authoritative_design/sections/identity-and-publication.md#section-20-5) ·
+[Existing preparation owner](../../crates/pse-host/src/surrealkit.rs) ·
+[Exact v4 fixture integration](../../crates/pse-operations/tests/native_service/surrealkit.rs) ·
+[Plan 68d receiving](68d-surrealdb-v4-developer-and-test-receiving.md#d02--receive-database-contracts-at-the-owned-endpoint)
+
+### Independent settlement and activation
+
+SurrealKit's phase journal records running state, SQL execution and completion through
+separate calls. Its `repair` can promote `running_complete` without verifying each
+completion step. Read the original persisted phase and step state through the owner.
+Check required schema effects against the installed definitions after authentic drain.
+Data steps need their domain owner's acknowledgement or independent atomic effect
+witness and postconditions. Use `await_migrations` for selected named v4 rewrites,
+and `INFO FOR INDEX` for declared admission-critical builds under the qualified role.
+Retain unresolved operations under the original nonce with admission closed where
+effects remain unknown. A tool exit, catalog equality or native drain alone supplies
+insufficient effect evidence.
+
+After complete settlement, publish the exact owned nonce-bound record expected by
+`activate_definitions`. Reobserve the generated-target witness and loaded module through
+`validate_definitions`, and let activation recheck the predecessor and actual installed
+target before committing the marker. Reconcile an already committed activation by its
+original nonce. Verify zero writes for changed predecessor, instance, target or module.
+Interrupt between SQL dispatch and journal completion, and after activation effect
+before receipt. Distinguish unresolved and completed responses in human and machine
+formats, proving at most one activation and no blind phase resubmission. Keep compact
+operation, manifest and witness references. Plan68b owns the v4 inventory and bounded
+wire, Plan68c owns access-path readiness, and 68d/68e own their respective fixture and
+cutover evidence.
+[Pinned phase and repair behavior](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/rollout.rs) ·
+[Pinned index inspection](https://github.com/surrealdb/surrealdb/blob/284fe93afc851c3baec2c262c01289602021a70d/surrealdb/core/src/exec/vm/ir_lower/info.rs) ·
 [Canonical maintenance](../../crates/pse-operations/src/canonical_maintenance.rs) ·
 [Surreal substrate](../dev/surreal-substrate.md#explicit-design-phase-reconstruction-and-recovery)
+
+## E04 — Reuse coordinates in bounded structural browsing
+
+[I06](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I06)
+removes repeated whole-source line-start calculation. Compute the index once per
+immutable queried source and carry it through the existing match, capture and edit
+locators. Preserve original bytes and source identity, output limits, completeness,
+parser recovery, cancellation and change authority. Verify exact independent UTF-8
+coordinates for multiple captures and a multiline edit. The direct reuse needs
+no new cache or retained artifact. Revisit native range pushdown only for a named
+need. Tree-sitter 0.27.0 `set_containing_byte_range` requires all matched nodes
+inside the range, while the current projection checks captured nodes. An uncaptured
+parent with an in-range capture must preserve existing behavior under any change.
+[Coordinate owner](../../crates/pse-host/src/source_query.rs) ·
+[Structural query](../../crates/pse-host/src/source_query/native.rs) ·
+[Pinned range contract](https://docs.rs/tree-sitter/0.27.0/tree_sitter/struct.QueryCursor.html#method.set_containing_byte_range)
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
-| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The recorded-result rename passed its full journey. The optional codec passed on the original baseline. Two focused current-main xtask nextest controls passed for proposal postimage binding and clearing the inherited toolchain override. The full optional-description publication journey on v4 remains open. |
-| E03 | blocked | Authenticated physical instance and original rollout producer, D01 target selection, A03, Plan68 version-specific receiving | A live Viewer fixture authenticated its issuer, refused a foreign issuer and detected installed event drift. Current v4 main has the exact activation consumer but lacks the production issuer and settler for the pending rollout nonce. Exact preview, stale refusal and activation remain. |
+| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The recorded-result rename passed its full journey. The optional codec passed on the original baseline. Two focused current-main xtask nextest controls passed for proposal postimage binding and clearing the inherited toolchain override. Exact source diagnostics and the v4 optional publication, syntax and predecessor-row receiving checks remain. |
+| E03 | blocked | D01 authenticated selection, A03, verified native rollout authority and Plan68 version-specific receiving. B02 standalone-tool recovery if selected. | A live Viewer fixture authenticated its issuer, refused a foreign issuer and detected installed event drift. The activation consumer exists. Complete the executable authority investigation, production issuer and settler, exact passive preview, refusal, interruption and activation controls. |
+| E04 | planned | Existing immutable source acquisition and structural query owner | A single coordinate index preserves UTF-8 capture and edit locations and bounded query behavior. |

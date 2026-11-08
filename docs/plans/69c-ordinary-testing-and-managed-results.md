@@ -156,9 +156,48 @@ retain their separate release routes. Do not migrate historical ledgers or recre
 Defer a SurrealDB index, expiry jobs over persistent history, and a maintained summary unless a
 named recurring query cannot be served adequately from compact owner records. A new decision
 would establish the query, real-role selection, durability, exact retirement and physical reuse.
+Changefeed retention governs mutation replay and durable-session TTL governs sessions. Any
+future compact database projection must retain the issuing owner's settlement, holds and
+disposal authority and establish its own retention and failure boundary.
 [Eligibility predicate](../../crates/pse-host/src/paths.rs) ·
 [Plan67 release](67e-resource-retirement-and-storage-verification.md#E03) ·
 [Plan68 history disposition](68d-surrealdb-v4-developer-and-test-receiving.md#d04--preserve-the-history-disposition)
+
+## C05 — Explain test selection and doctest ownership
+
+[I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04)
+adds an explanation to the existing C01/A01 receiving path. Report affected packages and
+their widening basis, guarded source candidates, Cargo-admitted targets, Nextest-enumerated
+identities, and original verdict as distinct facts. Use the existing Cargo metadata 0.23.1
+`Target` fields for target roles, `test`, `doctest`, and required features. The pinned
+Cargo unit graph establishes exact selected host and target compilation units. Preserve
+the existing Cargo-equivalent root predicate and advisory `ra_ap_ide` 0.0.358
+`runnables` and `related_tests` handoff, including current-source and target rechecks.
+Conservative widening remains the response to ambiguous or incomplete resolution.
+[Cargo target API](https://docs.rs/cargo_metadata/0.23.1/cargo_metadata/struct.Target.html) ·
+[Cargo unit graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph) ·
+[Pinned analyzer API](https://docs.rs/ra_ap_ide/0.0.358/ra_ap_ide/struct.Analysis.html#method.runnables)
+
+Route doc-only candidates to the existing `just doctest` lane. Cargo eligibility,
+rust-analyzer runnable identity, and rustdoc Format 2 example preprocessing are source
+or planning evidence. Nextest owns binary inventory, filter execution and verdict for
+its lane. Reuse its current demand-driven image selection and drain release. Check a
+doctest-only target, an optional edge absent from one resolved graph, and an integration
+helper outside the source match. On a scoped admission probe, require unavailable exact
+inventory with its reason until explicit build/list. Preserve the review's scoped
+compile-free `pse-host --lib` observation as evidence of admission only.
+[Doctest and Nextest lanes](../dev/validation-assessment.md) ·
+[Example preprocessing](../../crates/pse-host/src/api/doctests.rs) ·
+[Nextest inventory](https://nexte.st/docs/machine-readable/list/)
+
+Keep native Cargo unification and the existing affected traversal. Revisit Guppy
+`PackageGraph` or `CargoSet` only for a named richer explanation that can replace work
+and preserve optional, host, build and dev edges against the pinned Cargo graph.
+General source browsing needs a named consumer. Summaries, determinator, and retained
+timings need an actual comparison and a bounded retention policy. Keep permissive
+`Message::parse_stream` text fallback outside the strict build-observation boundary.
+[Dependency capabilities](../libraries/rust_analyzers/rust_dependency_tooling.md) ·
+[Pinned Cargo message parser](https://docs.rs/cargo_metadata/0.23.1/src/cargo_metadata/messages.rs.html)
 
 ## Packages
 
@@ -168,3 +207,4 @@ would establish the query, real-role selection, durability, exact retirement and
 | C02 | complete | C01, F01, A03 and Plan67 exact custody | The original failure remained readable after its executable was released. The live owner fixture ran exactly that identity with a fresh verdict and refused incomplete, changed and missing original evidence. Separate controls preserved the exact filters and rejected target or feature replacement. |
 | C03 | complete | A01–A03, existing inspection and history | The current managed CLI recovered exact and session-scoped original results, read bounded detail and logs, exported the selected view and refused an existing destination. Held, retired and unknown results use the existing expiry owner. |
 | C04 | complete | C03 and Plan67 release owner | The timer and foreground expiry class have live evidence. Detached and borrowed tests published their expiry clocks before explicit reconciliation. Separate drain witnesses preserved the original records. A settled interrupted foreground listing released its unpublished inventory while preserving the original result pair. |
+| C05 | planned | C01–C02 selection and verdict owners, A01 catalog | Each projected stage identifies its owner and availability. Focused controls preserve doctest routing, conservative reach, and exact Nextest inventory on explicit demand. |
