@@ -10,8 +10,8 @@ inlet would represent a different process. Candidate code and values are absent.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from idaes.core import FlowsheetBlock, MaterialBalanceType
 from idaes.core.util.model_statistics import degrees_of_freedom
@@ -37,6 +37,9 @@ from pyomo.opt import SolverResults, TerminationCondition
 
 from .ordinary_thermo import SPECIES, SpeciesInput, configuration, load_inputs
 from .reference_environment import ReferenceEnvironment
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)

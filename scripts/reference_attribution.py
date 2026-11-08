@@ -73,7 +73,7 @@ def check_btideal(source: str, bank: Path) -> None:
                 / reduced
             )
             ratios.append(row["pc"] * math.exp(log_ratio) / pressure)
-        # The Rachford–Rice residual decreases over 0 <= beta <= 1.
+        # The Rachford-Rice residual decreases over 0 <= beta <= 1.
         # A negative liquid endpoint or a positive vapor endpoint fixes the phase.
         liquid_residual = sum((k - 1) / 2 for k in ratios)
         vapor_residual = sum((1 - 1 / k) / 2 for k in ratios)

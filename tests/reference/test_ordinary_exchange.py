@@ -8,8 +8,8 @@ import math
 import os
 import tempfile
 import unittest
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from google.protobuf import message_factory
@@ -17,6 +17,9 @@ from google.protobuf.message import Message
 
 from oracles import ordinary_exchange as exchange
 from proto_exchange import reference_type
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 DESCRIPTORS = (
     exchange.ROOT / "crates/pse-runtime/src/generated/reference-exchange/descriptor.bin"
@@ -73,6 +76,7 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
     def test_artifact_population_uses_the_physical_root_and_package_document_layout(
         self,
     ) -> None:
+        """Include the selected physical package and exclude unrelated package files."""
         manifest = b"""
             [[runs]]
             name = "seed"
@@ -95,10 +99,12 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
                 (package_root / "models/selected.pse").touch()
             with patch.object(exchange, "ROOT", root):
                 paths = exchange.artifact_paths(manifest)
-            self.assertIn(
+            self.assertIn(  # noqa: PT009 - named unittest control
                 "packages/reference/distinct-physical/models/selected.pse", paths
             )
-            self.assertFalse(any(path.endswith("README.toml") for path in paths))
+            self.assertFalse(  # noqa: PT009 - named unittest control
+                any(path.endswith("README.toml") for path in paths)
+            )
 
     def test_absent_optional_identity_is_not_an_explicit_nil_identity(self) -> None:
         pool = reference_type(DESCRIPTORS.read_bytes()).DESCRIPTOR.file.pool
@@ -114,14 +120,15 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
         self.assertEqual(exchange._optional_identity(key, "basis"), bytes([0x31]) * 16)
 
     def test_scientific_input_refuses_oversized_bytes_before_parsing(self) -> None:
+        """Enforce the physical artifact budget before admitting any content."""
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / "property.tsv"
             artifact.write_bytes(b"12345")
             with (
                 patch.object(exchange, "_safe_path", return_value=artifact),
-                self.assertRaisesRegex(ValueError, "byte limit"),
+                self.assertRaisesRegex(ValueError, "byte limit"),  # noqa: PT027 - unittest
             ):
-                exchange._read_artifact("property.tsv", 4)
+                exchange._read_artifact("property.tsv", 4)  # noqa: SLF001 - bounded read seam
 
     def test_invalid_wire_contract_refuses_before_scientific_input_reads(self) -> None:
         descriptors = DESCRIPTORS.read_bytes()
@@ -445,12 +452,13 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
     def test_solve_uses_verified_property_bytes_despite_substitute_then_restore(
         self,
     ) -> None:
+        """Use verified input bytes while the checkout path holds a substitute."""
         contract = self.contract(exchange.CASE_NAMES[-1])
         path = exchange.PROPERTY_ARTIFACTS[0]
-        original_path = exchange._safe_path
+        original_path = exchange._safe_path  # noqa: SLF001 - exercise input acquisition
         verified = original_path(path).read_bytes()
         parse = exchange.parse_inputs
-        calculate = exchange._reference_outputs
+        calculate = exchange._reference_outputs  # noqa: SLF001 - wrap performing solve
 
         with tempfile.TemporaryDirectory() as directory:
             replacement = Path(directory) / "property.tsv"
@@ -460,7 +468,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 artifacts: Mapping[str, bytes],
             ) -> dict[str, exchange.SpeciesInput]:
                 replacement.write_bytes(b"substituted invalid property data")
-                self.assertEqual(artifacts[path], verified)
+                self.assertEqual(artifacts[path], verified)  # noqa: PT009 - unittest
                 return parse(artifacts)
 
             def solve_before_restoration(
@@ -469,7 +477,9 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 inputs: Mapping[str, exchange.SpeciesInput],
                 environment: exchange.ReferenceEnvironment,
             ) -> dict[str, float] | None:
-                self.assertNotEqual(replacement.read_bytes(), verified)
+                self.assertNotEqual(  # noqa: PT009 - named unittest control
+                    replacement.read_bytes(), verified
+                )
                 try:
                     return calculate(case_name, inputs=inputs, environment=environment)
                 finally:
@@ -500,8 +510,8 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 payload = exchange.produce_reference(
                     self.descriptors, contract.SerializeToString()
                 )
-            self.assertEqual(parsed.call_count, 1)
-            self.assertEqual(
+            self.assertEqual(parsed.call_count, 1)  # noqa: PT009 - unittest
+            self.assertEqual(  # noqa: PT009 - named unittest control
                 self.envelope_type.FromString(payload).outcome.failed.stage,
                 "overheated_tear",
             )

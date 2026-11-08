@@ -8,10 +8,12 @@ from pathlib import Path
 
 if __name__ == "__main__":
     if sys.flags.isolated != 1 or len(sys.argv) != 4:
-        raise ValueError("expected isolated oracle name, request and response paths")
+        message = "expected isolated oracle name, request and response paths"
+        raise ValueError(message)
     name = sys.argv.pop(1)
     if name not in {"covariance", "degeneracy", "pid", "sensitivity"}:
-        raise ValueError(f"unknown reference oracle {name}")
+        message = f"unknown reference oracle {name}"
+        raise ValueError(message)
     # Explicitly admit only this reference-tool directory under -I.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import_module(f"oracles.{name}").main()

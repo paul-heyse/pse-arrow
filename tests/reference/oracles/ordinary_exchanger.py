@@ -9,7 +9,7 @@ native/reference output mapping and complete comparison are separate consumers.
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 import idaes.logger as idaeslog
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
@@ -40,6 +40,9 @@ from pyomo.environ import (
 
 from .ordinary_thermo import SPECIES, SpeciesInput, configuration
 from .reference_environment import ReferenceEnvironment
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 def build_exchanger(

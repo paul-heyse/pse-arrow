@@ -1,20 +1,26 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Controls for separating independent scientific agreement from native policy."""
+# ruff: noqa: PT009, PT027 -- named reference recipes use standard-library unittest
 
 from __future__ import annotations
 
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import TYPE_CHECKING
 
-from oracles import covariance, legacy_exchange, sensitivity
+if TYPE_CHECKING:
+    from tests.reference.oracles import covariance, legacy_exchange, sensitivity
+else:
+    from oracles import covariance, legacy_exchange, sensitivity
 
 
 class LegacyAgreementTests(unittest.TestCase):
     """Exercise the independent comparison before any solver or candidate launch."""
 
     def test_oversized_response_metadata_is_refused_before_publication(self) -> None:
+        """Reject oversized diagnostics and population before writing the response."""
         response = covariance.Comparison("candidate", "failed", ["x" * 1025])
         with TemporaryDirectory() as directory:
             path = Path(directory) / "response.json"
@@ -25,6 +31,7 @@ class LegacyAgreementTests(unittest.TestCase):
                 legacy_exchange.response_limit(33)
 
     def test_covariance_rejects_nonfinite_and_inflated_native_allowance(self) -> None:
+        """Preserve scientific agreement with an independently set error limit."""
         case = covariance.LineCase(
             "weighted-line-known-sigma-v1",
             [1.0, 2.0, 3.0, 4.0, 5.0],
@@ -65,6 +72,7 @@ class LegacyAgreementTests(unittest.TestCase):
             )
 
     def test_sipopt_prediction_and_native_derivative_refuse_independently(self) -> None:
+        """Challenge the oracle's own prediction and the native Jacobian separately."""
         case = sensitivity.SensitivityCase(
             "active-bound-quadratic-response",
             {"a": 1.0, "b": 2.0},

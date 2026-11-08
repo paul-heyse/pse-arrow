@@ -12,13 +12,14 @@ import subprocess
 import sys
 import time
 import tomllib
-from collections.abc import Iterable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable, Mapping
+
     from pyomo.common.collections import Bunch
     from pyomo.opt.solver.shellcmd import SystemCallSolver
 
@@ -32,6 +33,7 @@ class ReferenceAdmissionError(ValueError):
     """A missing, stale or substituted prerequisite attributable to its stage."""
 
     def __init__(self, stage: str, reason: str) -> None:
+        """Bind the refusal to the stage that required the selected input."""
         self.stage = stage
         super().__init__(f"reference admission [{stage}]: {reason}")
 
@@ -97,16 +99,18 @@ class Executable:
             raise ReferenceAdmissionError(stage, f"executable is not absolute: {path}")
         try:
             selected = path.resolve(strict=True)
-            if not selected.is_file() or not os.access(selected, os.X_OK):
-                raise OSError("expected an executable file")
-            stamp = _file_stamp(selected)
-            image = cls(selected, stamp, _digest(selected))
-            image.verify(selected, stage)
+            if selected.is_file() and os.access(selected, os.X_OK):
+                stamp = _file_stamp(selected)
+                image = cls(selected, stamp, _digest(selected))
+                image.verify(selected, stage)
+                return image
         except OSError as error:
             raise ReferenceAdmissionError(
                 stage, f"unavailable executable {path}: {error}"
             ) from error
-        return image
+        raise ReferenceAdmissionError(
+            stage, f"unavailable executable {path}: expected an executable file"
+        )
 
     def verify(self, actual: Path, stage: str) -> None:
         """Refuse a different path or file before crediting a performed command."""
@@ -155,6 +159,13 @@ def _execute_solver(
 
     if "script" in command:
         raise ReferenceAdmissionError(stage, "selected solver unexpectedly needs stdin")
+    # Each selected Pyomo shell plugin supplies an argv list in its command Bunch.
+    argv = cast("list[str] | None", command.cmd)
+    if not argv:
+        raise ReferenceAdmissionError(stage, "performing plugin has no command")
+    image.verify(Path(argv[0]), stage)
+    environment = cast("Mapping[str, str] | None", command.env)
+    directory = cast("str | os.PathLike[str] | None", command.cwd)
     began = time.monotonic()
     timeout = solver._timelimit  # noqa: SLF001 - preserve pinned shell plugin timeout
     if timeout is not None:
@@ -169,18 +180,21 @@ def _execute_solver(
             raise ReferenceAdmissionError(stage, "substituted executable before launch")
         # The descriptor selects the observed executable. Keep Pyomo's argv
         # and its normal solver solution-file and result parsing protocols.
-        with subprocess.Popen(
-            command.cmd,
+        with subprocess.Popen(  # noqa: S603 - the checked descriptor selects the executable
+            argv,
             executable=f"/proc/self/fd/{fd}",
             pass_fds=(fd,),
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            env=command.env,
-            cwd=command.cwd if "cwd" in command else None,
+            env=environment,
+            cwd=directory,
         ) as child:
             try:
-                assert child.stdout is not None
+                if child.stdout is None:
+                    raise ReferenceAdmissionError(
+                        stage, "solver diagnostic pipe absent"
+                    )
                 stream = child.stdout.fileno()
                 while True:
                     remaining = deadline - time.monotonic()
@@ -197,7 +211,7 @@ def _execute_solver(
                     available = SOLVER_LOG_BYTES - len(log)
                     log.extend(chunk[:available])
                     if len(chunk) > available:
-                        print(log.decode("utf-8", errors="replace"), file=sys.stderr)
+                        sys.stderr.write(log.decode("utf-8", errors="replace") + "\n")
                         raise ReferenceAdmissionError(
                             stage, "solver diagnostics exceeded their byte limit"
                         )
@@ -214,7 +228,8 @@ def _execute_solver(
     solver._last_solve_time = time.monotonic() - began  # noqa: SLF001 - Pyomo result accounting
     output = log.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
     if solver._tee:  # noqa: SLF001 - preserve pinned shell plugin tee policy
-        print(output, end="", flush=True)
+        sys.stdout.write(output)
+        sys.stdout.flush()
     return status, output
 
 
@@ -222,6 +237,7 @@ class ReferenceEnvironment:
     """Case-owned environment and results observed on performing solver instances."""
 
     def __init__(self, interpreter: str, pins: Mapping[str, str]) -> None:
+        """Admit the running interpreter and observe the selected packages."""
         selected, actual = Path(interpreter), Path(sys.executable)
         if (
             not interpreter
@@ -294,15 +310,14 @@ class ReferenceEnvironment:
     ) -> SystemCallSolver:
         solver.set_executable(str(image.path))
 
-        def execute(command: Bunch) -> tuple[int, str]:
+        def execute(command: Bunch) -> list[int | str]:
             executable = solver.executable()
             if not executable:
                 raise ReferenceAdmissionError(
                     stage, "performing plugin has no executable"
                 )
             image.verify(Path(executable), stage)
-            image.verify(Path(command.cmd[0]), stage)
-            result = _execute_solver(solver, command, image, stage)
+            status, output = _execute_solver(solver, command, image, stage)
             image.verify(Path(executable), stage)
             count = self._counts.get(stage, 0)
             if count == 0:
@@ -321,7 +336,7 @@ class ReferenceEnvironment:
                 self.evidence[f"{stage}.sha256"] = image.sha256
             self._counts[stage] = count + 1
             self.evidence[f"{stage}.solves"] = str(count + 1)
-            return result
+            return [status, output]
 
         solver._execute_command = execute  # noqa: SLF001 - scoped to this performing instance
         return solver
@@ -337,7 +352,7 @@ class ReferenceEnvironment:
     @contextmanager
     def registration(
         self, plugin: str, stage: str, *, alias: str, executable: str | None = None
-    ) -> Iterator[None]:
+    ) -> Generator[None, None, None]:
         """Bind instances created indirectly through a scoped Pyomo factory name."""
         from pyomo.environ import SolverFactory
 

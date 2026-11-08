@@ -17,11 +17,10 @@ import stat
 import struct
 import sys
 import tomllib
-from collections.abc import Mapping
 from fractions import Fraction
 from importlib.metadata import version
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from google.protobuf import message_factory
 from google.protobuf.message import Message
@@ -40,6 +39,9 @@ from .ordinary_thermo import (
     parse_inputs,
 )
 from .reference_environment import ReferenceEnvironment
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 CASE_NAMES = (
     "ordinary_delivery.exchanger_design",
@@ -705,9 +707,11 @@ def produce_reference(
             )
             != 1.0
         ):
-            raise ValueError("independent original fixed input uses a different unit")
+            message = "independent original fixed input uses a different unit"
+            raise ValueError(message)
         if int(item.value) != float_bits(float(value(coordinate))):
-            raise ValueError(f"original fixed input value differs: {item.key}")
+            message = f"original fixed input value differs: {item.key}"
+            raise ValueError(message)
         _validate_physical(_message(item, "physical"), _type_for_key(item.key))
     for item in observables:
         _validate_physical(_message(item, "physical"), _type_for_key(item.key))
@@ -731,9 +735,10 @@ def produce_reference(
         if tuple(values) != keys or not all(
             math.isfinite(number) for number in values.values()
         ):
-            raise RuntimeError(
+            message = (
                 "independent reference output population is incomplete or nonfinite"
             )
+            raise RuntimeError(message)
         for contract_output in observables:
             physical = contract_output.physical
             key = physical.quantity.key
@@ -754,7 +759,8 @@ def _bounded_read(path: Path) -> bytes:
     with path.open("rb") as stream:
         content = stream.read(MAXIMUM_BYTES + 1)
     if len(content) > MAXIMUM_BYTES:
-        raise ValueError("reference input exceeds the selected binary byte bound")
+        message = "reference input exceeds the selected binary byte bound"
+        raise ValueError(message)
     return content
 
 
@@ -773,9 +779,8 @@ def main() -> None:
     )
     with arguments.output.open("xb") as stream:
         stream.write(payload)
-    print(
-        "ordinary_reference_environment " + json.dumps(evidence, sort_keys=True),
-        file=sys.stderr,
+    sys.stderr.write(
+        "ordinary_reference_environment " + json.dumps(evidence, sort_keys=True) + "\n"
     )
 
 

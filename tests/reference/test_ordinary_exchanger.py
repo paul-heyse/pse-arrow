@@ -9,16 +9,25 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from oracles.ordinary_exchanger import observations, solve_exchanger
-from oracles.reference_environment import ReferenceEnvironment, prepared_solver
+
+if TYPE_CHECKING:
+    from tests.reference.oracles.reference_environment import (
+        ReferenceEnvironment,
+        prepared_solver,
+    )
+else:
+    from oracles.reference_environment import ReferenceEnvironment, prepared_solver
 
 
 class OrdinaryExchangerReferenceTests(unittest.TestCase):
     """Complete calculations still need the separate native differential comparison."""
 
     def test_prepared_ipopt_reaches_the_initializer_and_direct_solves(self) -> None:
+        """The observed initializer and direct solver all bypass a PATH substitute."""
         environment = ReferenceEnvironment.from_process()
         prepared = prepared_solver("ipopt", "exchanger test")
         with tempfile.TemporaryDirectory() as temporary:
@@ -30,15 +39,17 @@ class OrdinaryExchangerReferenceTests(unittest.TestCase):
                 os.environ, {"PATH": f"{temporary}{os.pathsep}{os.environ['PATH']}"}
             ):
                 solve_exchanger(environment=environment)
-            self.assertFalse(marker.exists())
+            self.assertFalse(marker.exists())  # noqa: PT009 - named unittest control
         for stage, count in (("initializer", "14"), ("design", "1"), ("costing", "1")):
             name = f"exchanger.{stage}"
-            self.assertEqual(
+            self.assertEqual(  # noqa: PT009 - named unittest control
                 environment.evidence[f"{name}.executable"], str(prepared.path)
             )
-            self.assertEqual(environment.evidence[f"{name}.sha256"], prepared.sha256)
-            self.assertTrue(environment.evidence[f"{name}.release"])
-            self.assertEqual(environment.evidence[f"{name}.solves"], count)
+            self.assertEqual(  # noqa: PT009 - named unittest control
+                environment.evidence[f"{name}.sha256"], prepared.sha256
+            )
+            self.assertTrue(environment.evidence[f"{name}.release"])  # noqa: PT009 - unittest
+            self.assertEqual(environment.evidence[f"{name}.solves"], count)  # noqa: PT009 - unittest
 
     def test_reference_design_rating_and_arithmetic_keep_original_balances(
         self,
