@@ -192,9 +192,9 @@ worker-cli-unit-test *args:
     scripts/pse-env --native -- scripts/cargo-bin/cargo-pse-correctness nextest {{ nextest_action }} -p pse-runtime --bin pse-worker --locked --features product-operators,native-solvers "$@"
 
 [group('local')]
-[doc('Miri controls for the pure qualified scientific reconstruction authority')]
+[doc('Focused Miri controls for the pure qualified scientific reconstruction authority')]
 scientific-replay-miri:
-    cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
+    cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests -- --skip scientific_replay_large_logical_description_preserves_record_binding
 
 [group('discovery')]
 [doc('Native tool and host observations as structured output; never repairs prerequisites')]

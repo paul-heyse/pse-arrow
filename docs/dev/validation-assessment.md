@@ -120,6 +120,10 @@ just scientific-replay-miri
 just doctest
 ```
 
+The local Miri route exercises the focused scientific replay authority cases. Run the
+large-description stress case natively with
+`scripts/pse test pse-ids --lib -E 'test(=scientific_replay::tests::scientific_replay_large_logical_description_preserves_record_binding)'`.
+
 Nextest does not run doctests. `test-release` and `doctest-release` select the release profile;
 that profile alone establishes no production performance. The CLI's `--features` and actual
 target selection derive required capabilities and select their already prepared providers;
