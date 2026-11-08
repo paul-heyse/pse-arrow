@@ -164,6 +164,7 @@ Usage: pse project [OPTIONS] <COMMAND>
 Commands:
   targets           Authenticate configured target choices through their connection-only readers
   inspect-pack      Verify and inspect an existing project pack offline
+  export-status     Observe the exact original pack or study publication without opening a service
   metadata          Read one bounded metadata page from an existing canonical deployment
   show              Read an exact project header
   branches          Read one generation-fenced branch page for an exact project
@@ -180,7 +181,13 @@ Commands:
   import            Apply the exact issued import intent to the original pack
   import-recover    Recover only the original unsettled import artifact
   import-status     Observe the original receiving import and artifact checkpoint
+  import-open       Reopen the receiving branch from protected copied source after completed import
   import-forget     Release local custody once the original project import is complete
+  export            Publish a project pack and exact receipt to a fresh directory
+  export-cohort     Publish bounded NDJSON pages with the original protected cohort receipt
+  export-result     Publish one exact cohort member's Arrow result with its original receipt
+  export-analysis   Publish one registered output aggregate with the original cohort and coverage receipt
+  export-recover    Finish publishing an exact complete staged deliverable without recapturing data
 
 Options:
   -C <checkout>
@@ -287,6 +294,71 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export-status`
+
+~~~~text
+Observe the exact original pack or study publication without opening a service
+
+Usage: pse project export-status [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Exact original destination directory
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --operation <OPERATION>
+          Original publication operation key
+
+      --issuing-store <ISSUING_STORE>
+          Original issuing store
 
   -h, --help
           Print help (see a summary with '-h')
@@ -1630,12 +1702,413 @@ Options:
 
 ~~~~
 
+## `pse project import-open`
+
+~~~~text
+Reopen the receiving branch from protected copied source after completed import
+
+Usage: pse project import-open [OPTIONS] --operation <OPERATION>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Exact issued intent JSON from another checkout. Uses retained custody by default
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
 ## `pse project import-forget`
 
 ~~~~text
 Release local custody once the original project import is complete
 
 Usage: pse project import-forget [OPTIONS] --operation <OPERATION>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export`
+
+~~~~text
+Publish a project pack and exact receipt to a fresh directory
+
+Usage: pse project export [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Fresh destination directory
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Authored JSON with `request` and optional `physical`. Defaults to stdin
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export-cohort`
+
+~~~~text
+Publish bounded NDJSON pages with the original protected cohort receipt
+
+Usage: pse project export-cohort [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Fresh directory containing `cohort.ndjson` and its receipt
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Authored JSON with `request` and optional `maximum_bytes`. Defaults to stdin
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export-result`
+
+~~~~text
+Publish one exact cohort member's Arrow result with its original receipt
+
+Usage: pse project export-result [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Fresh directory containing `result.arrow` and its receipt
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Authored JSON with `request`, `member`, `relation`, `start`, `end` and optional `maximum_bytes`
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export-analysis`
+
+~~~~text
+Publish one registered output aggregate with the original cohort and coverage receipt
+
+Usage: pse project export-analysis [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Fresh directory containing the receipt and `analysis.arrow` when produced
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --issuing-store <ISSUING_STORE>
+          Expected issuing store reported by the original project read
+
+      --operation <OPERATION>
+          Original operation identity, retained across acknowledgement queries
+
+      --intent <INTENT>
+          Authored JSON with `request` and `kpi`. Defaults to stdin
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project export-recover`
+
+~~~~text
+Finish publishing an exact complete staged deliverable without recapturing data
+
+Usage: pse project export-recover [OPTIONS] --operation <OPERATION> <DESTINATION>
+
+Arguments:
+  <DESTINATION>
+          Exact original destination directory
 
 Options:
   -C <checkout>
@@ -1771,6 +2244,9 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --proposal <PATH>
+          Verify a reviewed semantic proposal's applied file digests from PATH or stdin (-)
 
   -h, --help
           Print help (see a summary with '-h')
@@ -4719,6 +5195,7 @@ Usage: pse tools [OPTIONS] <COMMAND>
 Commands:
   retire-host            Preview or release one completed checkout-local host tool generation
   retire-result          Preview or release one settled compact developer result
+  export-result          Export the selected compact result as bounded JSON to a fresh file
   hold-result            Set a named compact-result hold or clear it by omitting the condition
   sweep-results          Sweep eligible compact results under the selected checkout's owner guards
   prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
@@ -4828,6 +5305,58 @@ Options:
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools export-result`
+
+~~~~text
+Export the selected compact result as bounded JSON to a fresh file
+
+Usage: pse tools export-result [OPTIONS] --output <OUTPUT> <INVOCATION>
+
+Arguments:
+  <INVOCATION>
+          An exact invocation ID, unique prefix, or session-scoped latest
+
+Options:
+  -C <checkout>
+
+
+      --session <SESSION>
+
+
+      --detail <DETAIL>
+          Include this bounded detail from the original owner
+
+          Possible values:
+          - failures:   Bounded original diagnostic trees
+          - provenance: Originally captured environment and provider provenance
+          - outputs:    References to owner-managed artifacts and scientific outputs
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --output <OUTPUT>
+          Fresh destination file, relative to the selected checkout if not absolute
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -8824,6 +9353,8 @@ Options:
           Limit whole payload records; producer pages retain their omission and continuation facts
 
       --length <LENGTH>
+          Select at most 262144 original bytes in this window
+
           [default: 4096]
 
       --tail
@@ -9142,7 +9673,7 @@ Options:
           [default: default]
 
       --from-result <FROM_RESULT>
-          Validate a source witness, then select its current containing package as a test candidate
+          Validate a source witness and explain the current package or its explicitly selected target
 
       --admitted
 
