@@ -1009,7 +1009,7 @@ fn measure_retained(
         "scope":"exact retained trajectory, indexed output and complete bounded result-evidence graph reads",
         "timed_scope":"all three complete native selections, original row/digest assertions and graph-page completion",
         "untimed_scope":"source admission, preparation, one original simulation, analysis admission, oracle checks, observation output, explicit bounded result retirement and fixture teardown",
-        "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time; slow complete operations extend sampling",
+        "sampling":"Measurement configures 10 flat samples, 250 ms warmup and a 1 s target. Smoke executes one callback.",
         "memory_scope":"accounted pool peak during selections; process lifetime RSS includes untimed source/solve/analysis setup"});
     std::fs::write(
         output.join(format!("{name}-memory.json")),
@@ -1280,7 +1280,7 @@ fn measure_complete(
         "timed_scope":"fixture source loading, physical document stage/activation/protected reopen, modeling publication, simulation preparation, simulation and result publication, analysis activation, original scientific/transport oracle checks and three complete selections",
         "untimed_scope":"runtime and canonical fixture creation, observation output, explicit bounded retirement, runtime and fixture teardown",
         "phase_boundary":"simulation and publication share the public completion interface and are reported together",
-        "sampling":"10 flat Criterion samples, 250 ms warmup, 1 s target measurement time; slow complete operations extend sampling",
+        "sampling":"Measurement configures 10 flat samples, 250 ms warmup and a 1 s target. Smoke executes one callback.",
         "memory_scope":"accounted pool peak across each complete operation; process lifetime RSS also includes fixture creation and teardown"});
     std::fs::write(
         output.join(format!("{name}-memory.json")),

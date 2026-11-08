@@ -57,7 +57,7 @@ use pse_runtime::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Write,
+    io::Write as _,
     num::NonZeroUsize,
     path::PathBuf,
     time::{Duration, Instant},
@@ -268,12 +268,12 @@ fn process(c: &mut Criterion) {
     let capture = (inputs.canonical
         && inputs.authored.is_some()
         && std::env::var_os(pse_operations::native_fixture::SELECTION_ENV).is_none())
-    .then(fixture::capture_inputs_for_child);
+    .then(capture_inputs_for_child);
     // Validate the same bytes the case will consume. A re-executed fixture child
     // inherits the private snapshot instead of reopening the original path.
     match inputs.authored {
-        Some(admission::AuthoredInput::Physical) => fixture::require_physical_inputs(),
-        Some(admission::AuthoredInput::SeedTransport) => fixture::require_seed_inputs(),
+        Some(admission::AuthoredInput::Physical) => require_physical_inputs(),
+        Some(admission::AuthoredInput::SeedTransport) => require_seed_inputs(),
         None => {}
     }
     let snapshot = capture.map(|bytes| {

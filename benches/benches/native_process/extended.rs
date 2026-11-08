@@ -709,14 +709,14 @@ pub(super) fn measure(
         "retained_runtime_bytes":retained,"after_case_teardown_bytes":after_teardown,
         "after_retained_runtime_teardown_bytes":null,"workload":spec,
         "observations_file":format!("{name}-observations.jsonl"),
-        "observation_population":"all executed closures including warmup; Criterion statistics separate; membership unavailable",
+        "observation_population":"all executed callbacks, including warmup in measurement mode; Criterion statistics are separate",
         "threads":threads,"native_threads":if operation == "review-pounce-convex" { spec["workers"].clone() } else { json!(1) },
         "native_threads_scope":"configured native team width; actual active concurrency is not inferred",
         "effective_process_parallelism":std::thread::available_parallelism().unwrap().get(),
         "scope":"fresh runtime per iteration; public source/preparation/execution/analytic validation and teardown; value sweep retains one compiler for 1000 revisions; dynamic rebind retains initial preparation",
         "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },
         "phase_boundary":if operation == "shooting" { "one public shooting start/wait includes native optimization, fresh candidate trajectory and completion assessment; no manufactured repeat session; Cargo/native installation before benchmark entry is excluded" } else { "public preparation/execution completion boundaries" },
-        "start_policy":"NoPriorStart","sampling":"10 flat Criterion samples; warmup 250ms; target 1s extended for slow cases",
+        "start_policy":"NoPriorStart","sampling":"Actual callback count is iterations. Measurement configures 10 flat samples, 250 ms warmup and a 1 s target. Smoke executes one callback.",
         "memory_scope":"finite-pool reservations and independent process VmHWM; retained runtime before owner teardown reported separately",
         "teardown_observation":"one pool read per callback after native lane drain, fixture cleanup and runtime owner drop"
     })).unwrap()).unwrap();
