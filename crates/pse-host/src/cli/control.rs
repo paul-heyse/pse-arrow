@@ -57,10 +57,60 @@ pub(super) fn dispatch(
         })?;
 
     let directory = store.directory(&id)?;
-    if directory
-        .evidence_bytes(crate::invocation::InvocationEvidence::Launch)?
-        .is_none()
-        && let Some(result) = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?
+    if cancel && crate::build_admission::cancel_waiter(&root, &id)? {
+        let mut response = Envelope::response(
+            "cancel", "cancellation requested for the original waiting build",
+            ControlView { original_invocation: id, service: None, service_gone: false, result: None },
+        );
+        response.subject_state = envelope::SubjectState::Running;
+        response.settlement = envelope::Settlement::Unknown;
+        response.observation.scope = "queued_cargo_request".into();
+        response.observation.required = false;
+        return Ok(output.emit(response)?);
+    }
+    let foreground = directory.evidence_bytes(crate::invocation::InvocationEvidence::Launch)?.is_none()
+        && {
+            let metadata = store.metadata::<serde_json::Value>(&id)?;
+            metadata.selection.operation.get("detached").and_then(serde_json::Value::as_bool) == Some(false)
+                && crate::test_workflow::execute::Action::from_command(&metadata.selection.command).is_some()
+        };
+    let mut result = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?;
+    if foreground && !cancel && result.is_none() {
+        let (observed, interrupted) = runtime()?.block_on(async {
+            let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())?;
+            let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+            tokio::select! {
+                result = async {
+                    loop {
+                        if let Some(result) = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)? {
+                            return Ok::<_, HostError>((Some(result), false));
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+                } => result,
+                _ = tokio::time::sleep_until(deadline.into()) => Ok((None, false)),
+                _ = interrupt.recv() => Ok((None, true)),
+                _ = terminate.recv() => Ok((None, true)),
+            }
+        })?;
+        result = observed;
+        if result.is_none() {
+            let mut response = Envelope::response(
+                "wait", "observation ended before the original foreground result was available",
+                ControlView { original_invocation: id, service: None, service_gone: false, result: None },
+            );
+            response.subject_state = envelope::SubjectState::Unknown;
+            response.observation.timed_out = !interrupted;
+            response.observation.required = false;
+            response.settlement = envelope::Settlement::Unknown;
+            if interrupted {
+                response.outcome = envelope::CommandOutcome::Interrupted;
+            }
+            return Ok(output.emit(response)?);
+        }
+    }
+    if foreground
+        && let Some(result) = result
         && crate::test_workflow::execute::Action::from_command(&result.command).is_some()
         && let Ok(summary) =
             serde_json::from_str::<crate::managed::result::ManagedSummary>(result.payload.get())

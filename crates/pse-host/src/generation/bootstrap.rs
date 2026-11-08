@@ -104,6 +104,7 @@ fn build_environment(inputs: &Environment) -> Result<Environment, HostError> {
     for name in [
         "CARGO_TARGET_DIR",
         "CARGO_BUILD_TARGET_DIR",
+        "CARGO_BUILD_BUILD_DIR",
         "CARGO_BUILD_TARGET",
         "RUSTUP_TOOLCHAIN",
     ] {
@@ -503,6 +504,28 @@ pub fn bootstrap_from(
     )
 }
 
+/// Build a seed from a prepared entry, using the same output fence as native construction.
+pub(crate) fn bootstrap_seed(root: &Path) -> Result<i32, HostError> {
+    let root = root.canonicalize()?;
+    let environment = build_environment(&std::env::vars_os().collect())?;
+    let _build = crate::build_admission::Permit::acquire(
+        &root, crate::build_admission::Outputs::ordinary(&root)?, None,
+    )?;
+    build_local_tools(&root, &environment)
+}
+
+fn build_local_tools(root: &Path, environment: &Environment) -> Result<i32, HostError> {
+    let status = Command::new("cargo")
+        .args(["build", "--locked", "--package", "pse-host", "--bins",
+            "--config", "build.target-dir=\"target\"", "--config", "build.build-dir=\"target\""])
+        .current_dir(root)
+        .env_clear()
+        .envs(environment)
+        .status()?;
+    use std::os::unix::process::ExitStatusExt as _;
+    Ok(status.code().unwrap_or_else(|| 128 + status.signal().unwrap_or(1)))
+}
+
 struct CopySource {
     directory: PathBuf,
     manifest: GenerationManifest,
@@ -588,30 +611,32 @@ fn construct_selected(
     let lock = owned_file(&tools.join(".construction.lock"), true)?;
     rustix::fs::flock(&lock, rustix::fs::FlockOperation::LockExclusive)
         .map_err(std::io::Error::from)?;
-    let observe = || {
-        capture(
+    let observe_context = || {
+        observed_context(
             &root,
+            version(&root, environment, "rustc")?,
+            version(&root, environment, "cargo")?,
             environment,
-            observed_context(
-                &root,
-                version(&root, environment, "rustc")?,
-                version(&root, environment, "cargo")?,
-                environment,
-            )?,
         )
     };
-    let before = observe()?;
     if source.is_none()
         && let Ok(Some(directory)) = selected(&root)
         && let Ok(manifest) = GenerationManifest::load(&directory)
-        && manifest.source() == &before
         && TOOLS
             .iter()
             .all(|tool| manifest.binaries.contains_key(*tool))
     {
-        before.require_unchanged(&observe()?)?;
-        return Ok(BootstrapOutcome { exit_code: 0 });
+        let context = observe_context()?;
+        if manifest.source().matches_sources(&root, &context)? {
+            manifest.source().require_current_sources(&root, &observe_context()?)?;
+            return Ok(BootstrapOutcome { exit_code: 0 });
+        }
     }
+    if mode == BootstrapMode::CopyOnly && source.is_none() {
+        return Ok(BootstrapOutcome { exit_code: LOCAL_SEED_REQUIRED });
+    }
+    let observe = || capture(&root, environment, observe_context()?);
+    let before = observe()?;
     if let Some(source) = source.filter(|source| source.manifest.source() == &before) {
         let after = observe()?;
         let _publication = publication_lock(&tools)?;
@@ -640,16 +665,15 @@ fn construct_selected(
             "bootstrap-host: source generation does not match destination source/build inputs; building locally"
         )?;
     }
-    let result = Command::new("cargo")
-        .args(["build", "--locked", "--package", "pse-host", "--bins"])
-        .current_dir(&root)
-        .env_clear()
-        .envs(environment)
-        .status()?;
-    if !result.success() {
-        return Ok(BootstrapOutcome {
-            exit_code: result.code().unwrap_or(125),
-        });
+    let _build = crate::build_admission::Permit::acquire(
+        &root, crate::build_admission::Outputs::ordinary(&root)?, None,
+    )?;
+    if !before.matches_sources(&root, &before.context)? {
+        return Err(invalid("host source inputs changed before construction"));
+    }
+    let exit_code = build_local_tools(&root, environment)?;
+    if exit_code != 0 {
+        return Ok(BootstrapOutcome { exit_code });
     }
     let after = observe()?;
     let _publication = publication_lock(&tools)?;

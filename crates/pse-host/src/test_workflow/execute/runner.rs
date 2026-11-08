@@ -128,6 +128,7 @@ fn prepare_fixtures(
     environment: &Environment,
     destination: &Path,
     requirements: &[Requirement],
+    permit: Option<&crate::build_admission::Permit>,
 ) -> Result<Option<crate::fixtures::PreparedExecution>, WorkflowError> {
     let assessed = crate::fixtures::ExecutionInputs::assess(root, environment, requirements);
     if assessed.blocked() {
@@ -145,7 +146,8 @@ fn prepare_fixtures(
         report.outcome = Outcome::Pending;
         return Ok(None);
     }
-    Ok(Some(assessed.prepare(destination)?))
+    if let Some(permit) = permit { permit.stage(crate::build_admission::Stage::Building)?; }
+    Ok(Some(assessed.prepare_with_permit(destination, permit)?))
 }
 
 /// Run only inside the authenticated fixed helper's existing managed physical scope.
@@ -159,6 +161,25 @@ pub async fn run(
     destination: &Path,
     environment: Environment,
 ) -> Result<Report, WorkflowError> {
+    run_inner(input, checkout, destination, environment, false).await
+}
+
+pub(crate) async fn run_managed(
+    input: &Input,
+    checkout: &Path,
+    destination: &Path,
+    environment: Environment,
+) -> Result<Report, WorkflowError> {
+    run_inner(input, checkout, destination, environment, true).await
+}
+
+async fn run_inner(
+    input: &Input,
+    checkout: &Path,
+    destination: &Path,
+    environment: Environment,
+    coordinated: bool,
+) -> Result<Report, WorkflowError> {
     if !destination.is_absolute() {
         return Err(WorkflowError::Invalid(
             "workflow evidence destination must be absolute".into(),
@@ -166,19 +187,37 @@ pub async fn run(
     }
     directory(destination)?;
     let mut report = Report::new(input);
-    let result = perform(input, checkout, destination, environment, &mut report).await;
+    let result = perform(input, checkout, destination, environment, &mut report, coordinated).await;
     if let Err(error) = result {
         failed(&mut report, error, destination);
     }
     Ok(report)
 }
+
+async fn acquire_build(
+    checkout: &Path,
+    outputs: Option<crate::build_admission::Outputs>,
+    input: &Input,
+) -> Result<Option<crate::build_admission::Permit>, WorkflowError> {
+    let Some(outputs) = outputs else { return Ok(None) };
+    let root = checkout.to_owned();
+    let invocation = input.invocation.clone();
+    let permit = tokio::task::spawn_blocking(move || {
+        crate::build_admission::Permit::acquire(&root, outputs, Some(invocation))
+    }).await.map_err(crate::HostError::from)??
+      .ok_or(WorkflowError::BuildCancelled)?;
+    Ok(Some(permit))
+}
+
 async fn perform(
     input: &Input,
     checkout: &Path,
     destination: &Path,
     environment: Environment,
     report: &mut Report,
+    coordinated: bool,
 ) -> Result<(), WorkflowError> {
+    use crate::build_admission::{CALLBACK, Outputs, Stage};
     if input.version != 1 || input.profile.is_empty() {
         return Err(WorkflowError::Invalid(
             "unsupported workflow input or empty profile".into(),
@@ -245,6 +284,12 @@ async fn perform(
             "captured Cargo workspace differs from selected checkout".into(),
         ));
     }
+    let outputs = if coordinated {
+        let build_directory = metadata.build_directory.as_ref().ok_or_else(|| {
+            WorkflowError::Invalid("Cargo intermediate directory is missing".into())
+        })?;
+        Some(Outputs::new(metadata.target_directory.as_std_path(), build_directory.as_std_path())?)
+    } else { None };
     if input.action.is_compiler() {
         let mut admitted =
             test_workflow::CheckIntent::new(metadata, input.request.clone(), environment)?
@@ -259,6 +304,7 @@ async fn perform(
             }
             return Err(error);
         }
+        let mut permit = acquire_build(&checkout, outputs, input).await?;
         let prepared = admitted.prepare(&destination.join("check-control"))?;
         let mut groups = Vec::new();
         for group in 0..report.admission.len() {
@@ -272,6 +318,9 @@ async fn perform(
             )?;
             directory(&capture)?;
             let mut request = prepared.command(group)?;
+            if let Some(permit) = &permit {
+                request.environment.insert(CALLBACK.into(), permit.callback());
+            }
             if input.timings {
                 let end = request
                     .arguments
@@ -294,7 +343,15 @@ async fn perform(
                 )),
             ));
         }
-        execute_groups(input, destination, groups, report).await?;
+        if permit.is_some() {
+            // Each group uses the same observed Cargo output domain.
+            let serialized = (0..report.admission.len()).map(|group| {
+                (group, BTreeSet::from(["cargo output".to_owned()]))
+            }).collect();
+            execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
+        } else {
+            execute_groups(input, destination, groups, report).await?;
+        }
         // Check's original callback publishes its exact compiler-unit context too. Admission
         // alone cannot claim that later compilation used the same capability/feature closure.
         for group in 0..report.admission.len() {
@@ -305,6 +362,10 @@ async fn perform(
                     report.outcome = Outcome::Incomplete;
                 }
             }
+        }
+        if let Some(permit) = &mut permit {
+            if !report.required_capture_complete { permit.retain_for_drain(); }
+            permit.stage(Stage::Capturing)?;
         }
     } else {
         let mut admitted = test_workflow::Intent::new(
@@ -325,16 +386,28 @@ async fn perform(
             return Err(error);
         }
         let nextest = nextest(&admitted.context.environment)?;
-        let listed = admitted
-            .list(
+        let mut permit = acquire_build(&checkout, outputs, input).await?;
+        let listed = match admitted
+            .list_with_permit(
                 &nextest,
                 &destination.join("inventory"),
                 discovery::DiscoveryOptions {
                     policy: input.policy,
                     timings: input.timings,
                 },
+                permit.as_ref(),
             )
-            .await?;
+            .await {
+                Ok(listed) => listed,
+                Err(error) => {
+                    if let Some(permit) = &mut permit
+                        && matches!(&error, WorkflowError::Discovery(error) if error.capture_incomplete())
+                    {
+                        permit.retain_for_drain();
+                    }
+                    return Err(error);
+                }
+            };
         report.record_inventory(destination)?;
         report.fixture_requirements = listed.requirements.clone();
         report.selected_tests = Some(listed.inventory.selected_tests_iter().count());
@@ -363,10 +436,12 @@ async fn perform(
             &listed.context.environment,
             &destination.join("fixtures"),
             &requirements,
+            permit.as_ref(),
         )?
         else {
             return Ok(());
         };
+        if let Some(permit) = &permit { permit.stage(Stage::Listing)?; }
         let serialized = group_policy(input, destination, &listed, report).await?;
         let mut groups = Vec::new();
         for group in 0..listed.inventory.groups.len() {
@@ -430,6 +505,11 @@ async fn perform(
                 )?,
                 GroupObserver::Test(observer),
             ));
+        }
+        if let Some(permit) = &mut permit {
+            // Ordinary runtime can issue its own supervised build. Protect the owned
+            // compiler, capture and listing stages; preserve the original runtime boundary.
+            permit.release_to_runner()?;
         }
         execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
     }

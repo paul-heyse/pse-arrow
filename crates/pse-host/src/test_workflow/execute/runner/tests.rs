@@ -10,6 +10,10 @@ use nextest_metadata::{FilterMatch, MismatchReason, RustBinaryId, TestCaseName};
 use serde_json::{Value, json};
 use std::{os::unix::fs::PermissionsExt as _, time::Duration};
 
+#[path = "native_fixture.rs"]
+mod native_fixture;
+use native_fixture::NativeFixture;
+
 #[path = "rerun_tests.rs"]
 mod rerun_tests;
 
@@ -255,14 +259,6 @@ fn fixture_scope_rejects_conflicting_owners_and_mixed_companion_selection() {
 }
 
 #[test]
-fn rerun_controlled_failure_probe() {
-    assert!(
-        std::env::var_os("PSE_TEST_RERUN_FAILURE_PROBE").is_none(),
-        "explicit native rerun qualification failure"
-    );
-}
-
-#[test]
 fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
     let root = tempfile::tempdir().unwrap();
     let destination = root.path().join("must-not-be-created");
@@ -382,30 +378,20 @@ fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_g
 
 #[tokio::test]
 async fn simultaneous_native_producers_publish_distinct_private_completed_reports() {
-    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let evidence = tempfile::tempdir().unwrap();
+    let fixture = NativeFixture::new();
+    let checkout = &fixture.root;
     let mut first = input(Action::Test);
     first.profile = "default".into();
-    first.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_host".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features::default(),
-    }]);
-    first.request.filters.expressions = vec!["test(cli::testing::tests::managed_run_options_preserve_selection_and_do_not_leak_into_explain)".into()];
+    first.request.scope = NativeFixture::scope(true);
+    first.request.filters.expressions = vec!["test(=ordinary_case)".into()];
     first.request.filters.ignore_default_filter = true;
     let mut second = first.clone();
     second.invocation = CliInvocationId::new();
-    let a = evidence.path().join("first");
-    let b = evidence.path().join("second");
+    let a = fixture.scratch.path().join("first");
+    let b = fixture.scratch.path().join("second");
     let (left, right) = tokio::join!(
-        run(&first, checkout, &a, std::env::vars_os().collect()),
-        run(&second, checkout, &b, std::env::vars_os().collect()),
+        run(&first, checkout, &a, fixture.environment.clone()),
+        run(&second, checkout, &b, fixture.environment),
     );
     let left = left.unwrap();
     let right = right.unwrap();
@@ -656,35 +642,16 @@ async fn unsupported_input_retains_a_failed_report_without_metadata_or_build() {
     assert!(!root.path().join("evidence/metadata.stdout").exists());
 }
 #[tokio::test]
-async fn actual_workflow_runs_only_the_original_selected_pure_host_test() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let evidence = tempfile::tempdir().unwrap();
+async fn actual_workflow_runs_only_the_original_selected_pure_test() {
+    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
     let mut input = input(Action::Test);
-    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_host".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..selection::Features::default()
-        },
-    }]);
-    input.request.filters.words = vec![
-        "discovery::tests::official_metadata_preserves_duplicate_names_and_ignored_selection"
-            .into(),
-    ];
+    input.request.scope = NativeFixture::scope(true);
+    input.request.filters.words = vec!["ordinary_case".into()];
     input.request.filters.ignore_default_filter = true;
     let input: Input = serde_json::from_slice(&serde_json::to_vec(&input).unwrap()).unwrap();
     assert!(input.request.filters.ignore_default_filter);
     let destination = evidence.path().join("workflow");
-    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
-        .await
-        .unwrap();
+    let mut report = run(&input, &root, &destination, environment).await.unwrap();
     if report.outcome != Outcome::TestsSucceeded {
         let terminal = report.publish(&destination).unwrap();
         let evidence = evidence.keep();
@@ -876,26 +843,14 @@ fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch:
 
 #[tokio::test]
 async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_only_suite() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let evidence = tempfile::tempdir().unwrap();
+    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
     let mut input = input(Action::Test);
-    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: None,
-        features: selection::Features {
-            defaults: false,
-            ..selection::Features::default()
-        },
-    }]);
-    input.request.filters.expressions = vec!["test(=managed::workflow::tests::required_terminal_is_single_complete_correlated_and_never_generic_authority) | test(=managed::workflow::tests::original_report_requires_private_complete_unchanged_bytes_and_waited_status)".into()];
+    input.request.scope = NativeFixture::scope(false);
+    input.request.filters.expressions =
+        vec!["test(=ordinary_case) | test(=expected_refusal)".into()];
     input.request.filters.ignore_default_filter = true;
     let destination = evidence.path().join("workflow");
-    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
-        .await
-        .unwrap();
+    let mut report = run(&input, &root, &destination, environment).await.unwrap();
     if report.outcome != Outcome::TestsSucceeded {
         report.publish(&destination).unwrap();
         let evidence = evidence.keep();
@@ -938,25 +893,11 @@ async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_onl
 
 #[tokio::test]
 async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let evidence = tempfile::tempdir().unwrap();
+    let NativeFixture { scratch: evidence, root, environment } = NativeFixture::new();
     let mut input = input(Action::Check);
-    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-ids".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_ids".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..selection::Features::default()
-        },
-    }]);
+    input.request.scope = NativeFixture::scope(true);
     let destination = evidence.path().join("check");
-    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, &root, &destination, environment.clone())
         .await
         .unwrap();
     if report.outcome != Outcome::CheckSucceeded {
@@ -973,6 +914,10 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     assert!(report.inventory.is_none());
     assert_eq!(report.observations.len(), 1);
     assert!(report.required_capture_complete);
+    let metadata: cargo_metadata::Metadata =
+        serde_json::from_slice(&fs::read(destination.join("metadata.stdout")).unwrap()).unwrap();
+    assert_eq!(metadata.target_directory.as_std_path(), root.join("artifact"));
+    assert_eq!(metadata.build_directory.unwrap().as_std_path(), root.join("intermediate"));
     let terminal = report.publish(&destination).unwrap();
     assert_eq!(terminal.helper_exit(), 0);
     terminal.validate(&input.invocation, Action::Check).unwrap();
@@ -980,7 +925,7 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
     input.request.operation = selection::Operation::Test;
     input.request.filters.words = vec![format!("no-such-test-{}", input.invocation)];
     let destination = evidence.path().join("zero-list");
-    let mut report = run(&input, root, &destination, std::env::vars_os().collect())
+    let mut report = run(&input, &root, &destination, environment)
         .await
         .unwrap();
     if report.outcome != Outcome::ZeroMatch {
@@ -1001,29 +946,15 @@ async fn actual_check_and_zero_match_listing_keep_distinct_native_outcomes() {
 
 #[tokio::test]
 async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
-    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let evidence = tempfile::tempdir().unwrap();
+    let NativeFixture { scratch: evidence, root: checkout, environment } = NativeFixture::new();
     let mut input = input(Action::List);
-    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-ids".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_ids".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..selection::Features::default()
-        },
-    }]);
+    input.request.scope = NativeFixture::scope(true);
     let destination = evidence.path().join("list");
     let mut listed = run(
         &input,
-        checkout,
+        &checkout,
         &destination,
-        std::env::vars_os().collect(),
+        environment.clone(),
     )
     .await
     .unwrap();
@@ -1045,9 +976,9 @@ async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
     let destination = evidence.path().join("rustdoc");
     let mut documented = run(
         &input,
-        checkout,
+        &checkout,
         &destination,
-        std::env::vars_os().collect(),
+        environment,
     )
     .await
     .unwrap();

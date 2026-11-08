@@ -495,6 +495,19 @@ pub async fn list(
     environment: &crate::environment::Environment,
     options: DiscoveryOptions,
 ) -> Result<Inventory, DiscoveryError> {
+    list_with_permit(resolved, checkout, nextest, destination, runner_profile, environment, (options, None)).await
+}
+
+pub(crate) async fn list_with_permit(
+    resolved: &selection::Resolved,
+    checkout: &Path,
+    nextest: &Path,
+    destination: &Path,
+    runner_profile: &str,
+    environment: &crate::environment::Environment,
+    (options, permit): (DiscoveryOptions, Option<&crate::build_admission::Permit>),
+) -> Result<Inventory, DiscoveryError> {
+    use crate::build_admission::{CALLBACK, Stage};
     let policy = options.policy;
     if resolved.plan().operation() != Operation::Test {
         return Err(invalid("only test selections have a nextest inventory"));
@@ -569,6 +582,10 @@ pub async fn list(
                 .env_remove("NEXTEST_TEST_PHASE");
             if options.timings { build.arg("--timings"); }
             if resolved.plan().filters().ignore_default_filter {build.arg("--ignore-default-filter");}
+            if let Some(permit) = permit {
+                permit.stage(Stage::Building)?;
+                build.env(CALLBACK, permit.callback());
+            }
             let binary_output = output(
                 build,
                 &group_directory,
@@ -577,6 +594,7 @@ pub async fn list(
                 Some(index),
                 &mut phases,
             ).await?;
+            if let Some(permit) = permit { permit.stage(Stage::Capturing)?; }
             let mut binaries: BinaryListSummary = serde_json::from_slice(&binary_output.stdout)?;
             let mut captured: BuildCapture =
                 serde_json::from_slice(&fs::read(build_directory.join("build.json"))?)?;
@@ -623,6 +641,7 @@ pub async fn list(
                 .env_remove("NEXTEST_TEST_PHASE");
             enumerate.args(["--profile", runner_profile]);
             add_group_filters(&mut enumerate, resolved.plan(), index);
+            if let Some(permit) = permit { permit.stage(Stage::Listing)?; }
             let listing_output = output(enumerate, &group_directory, "list",policy,Some(index),&mut phases).await?;
             let listing: TestListSummary = serde_json::from_slice(&listing_output.stdout)?;
             validate_listing(&binaries, &listing, resolved.plan().ignored())?;

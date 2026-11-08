@@ -1088,6 +1088,15 @@ pub(crate) fn prepare_selected(
     environment: &Environment,
     installed_schema: bool,
 ) -> Result<ProductReaderSelection, ProductReaderError> {
+    prepare_with_permit(checkout, environment, installed_schema, None)
+}
+
+pub(crate) fn prepare_with_permit(
+    checkout: &Path,
+    environment: &Environment,
+    installed_schema: bool,
+    permit: Option<&crate::build_admission::Permit>,
+) -> Result<ProductReaderSelection, ProductReaderError> {
     let checkout = checkout.canonicalize()?;
     let state = CheckoutState::resolve(&checkout, environment)?;
     fs::DirBuilder::new()
@@ -1130,7 +1139,10 @@ pub(crate) fn prepare_selected(
             build_directory.clone().into_os_string(),
         );
         correctness.verify()?;
-        let command = source_build_command(&correctness, &checkout, &environment, installed_schema);
+        let mut command = source_build_command(&correctness, &checkout, &environment, installed_schema);
+        if let Some(permit) = permit {
+            command.env(crate::build_admission::CALLBACK, permit.callback());
+        }
         let output = execute(command, Vec::new(), STDERR_BYTES, None)?;
         if output.status != 0 {
             return Err(transport(

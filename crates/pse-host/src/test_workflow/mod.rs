@@ -57,6 +57,9 @@ pub enum WorkflowError {
         /// Original waited child exit, preserving signal encoding.
         exit: i32,
     },
+    /// The original queued request withdrew before any compiler child was started.
+    #[error("Cargo build cancelled while waiting for admission")]
+    BuildCancelled,
     /// Original selected-test record attribution and required protocol cause.
     #[error(transparent)]
     TestObservation(#[from] ObservationError),
@@ -104,7 +107,7 @@ pub enum WorkflowError {
 }
 pse_diagnostics::impl_diagnostic! {
     WorkflowError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
+    code(this) { Some(if matches!(this, Self::BuildCancelled) { pse_diagnostics::DiagnosticCode::RuntimeCancelled } else { pse_diagnostics::DiagnosticCode::RuntimeInfrastructure }) },
     forward(this) { match this { Self::Host(error)|Self::NativeReadiness(error) => Some(error), Self::Correctness(error) => Some(error), Self::Discovery(error) => Some(error), Self::Fixture(error) => Some(error), Self::Extraction(error) => Some(error),Self::TestObservation(error)=>Some(error),Self::CompilerObservation(error)=>Some(error), _ => None } },
     help(_this) { None }, related(this) { match this { Self::Settlement { operation, settlement } => { let errors: [&dyn pse_diagnostics::TypedDiagnostic; 2] = [operation.as_ref(), settlement]; Some(Box::new(errors.into_iter())) }, _ => None } }, source(_this) { None }
 }
@@ -554,15 +557,25 @@ impl Admitted {
         destination: &Path,
         options: discovery::DiscoveryOptions,
     ) -> Result<Listed, WorkflowError> {
+        self.list_with_permit(nextest, destination, options, None).await
+    }
+
+    pub(crate) async fn list_with_permit(
+        self,
+        nextest: &Path,
+        destination: &Path,
+        options: discovery::DiscoveryOptions,
+        permit: Option<&crate::build_admission::Permit>,
+    ) -> Result<Listed, WorkflowError> {
         self.context.verify()?;
-        let inventory = discovery::list(
+        let inventory = discovery::list_with_permit(
             &self.resolved,
             &self.context.checkout,
             nextest,
             destination,
             &self.context.profile,
             &self.context.environment,
-            options,
+            (options, permit),
         )
         .await?;
         self.context.verify()?;

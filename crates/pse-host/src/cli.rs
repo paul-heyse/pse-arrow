@@ -196,6 +196,8 @@ enum Command {
     HostGenerationBootstrap {
         #[arg(long)]
         from: Option<PathBuf>,
+        #[arg(long, hide = true, conflicts_with = "from")]
+        seed_only: bool,
     },
     /// Print the serialization schema of a command's actual detail view.
     Schema {
@@ -1170,12 +1172,15 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             }
             Ok(presentation.emit(response)?)
         }
-        Command::HostGenerationBootstrap { from } => {
-            // These synchronous ownership/path checks do not start construction.
-
-            let mode = crate::generation::bootstrap_mode(entry, from.as_deref())?;
+        Command::HostGenerationBootstrap { from, seed_only } => {
             let root = checkout_root(selected)?;
-
+            if seed_only {
+                if entry.checkout().as_deref() != Some(root.canonicalize()?.as_path()) {
+                    return Err(HostError::Ownership("seed build requires the destination's prepared entry".into()));
+                }
+                return crate::generation::bootstrap_seed(&root);
+            }
+            let mode = crate::generation::bootstrap_mode(entry, from.as_deref())?;
             let outcome = crate::generation::bootstrap_from(&root, from.as_deref(), mode)?;
 
             Ok(outcome.exit_code)
@@ -1352,7 +1357,13 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             presentation,
         )?),
         Command::Activity { unit } => runtime()?.block_on(async {
-            let value = crate::activity::ActivityObservation::read(unit.as_deref()).await;
+            let mut value = crate::activity::ActivityObservation::read(unit.as_deref()).await;
+            if let Ok(root) = checkout_root(selected) {
+                match crate::build_admission::activity(&root) {
+                    Ok(builds) => value.builds = Some(builds),
+                    Err(failure) => value.builds_unavailable = Some(failure.to_string()),
+                }
+            }
             let complete = value.complete();
             let mut response = Envelope::response(
                 "activity",
@@ -1374,6 +1385,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     .observation
                     .limitations
                     .extend(response.payload.observer.unavailable.iter().cloned());
+                response.observation.limitations.extend(response.payload.builds_unavailable.iter().cloned());
             }
             Ok(presentation.emit(response)?)
         }),
@@ -1524,6 +1536,9 @@ fn launch_managed_finalize(
     })?);
     if let Some((_, input)) = workflow {
         directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
+        if !detach {
+            writeln!(io::stderr(), "pse: managed build invocation {}", directory.id())?;
+        }
     }
     if !detach {
         let coordinator = crate::admission::Coordinator::open(&root, &environment)?;
@@ -2782,6 +2797,8 @@ mod tests {
                 requested_unit: Some("fixture.service".into()),
                 manager: None,
                 manager_unavailable: Some("fixture bus unavailable".into()),
+                builds: None,
+                builds_unavailable: None,
                 observer: crate::activity::ObserverFacts {
                     identity: None,
                     control_group: None,

@@ -27,6 +27,12 @@ pub struct ActivityObservation {
     pub manager_unavailable: Option<String>,
     /// Independently available observer facts; these grant no unit mutation rights.
     pub observer: ObserverFacts,
+    /// Live checkout-local Cargo requests, if an applicable checkout was inspected.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) builds: Option<Vec<crate::build_admission::Activity>>,
+    /// Failure to observe the selected checkout's live build queue.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) builds_unavailable: Option<String>,
 }
 
 fn unified_group(contents: &str) -> Result<String, &'static str> {
@@ -102,6 +108,8 @@ impl ActivityObservation {
             manager,
             manager_unavailable,
             observer,
+            builds: None,
+            builds_unavailable: None,
         }
     }
 
@@ -121,7 +129,7 @@ impl ActivityObservation {
 
     /// A partial observation is not a successfully observed manager unit.
     pub fn complete(&self) -> bool {
-        self.manager.is_some() && self.observer.unavailable.is_empty()
+        self.manager.is_some() && self.observer.unavailable.is_empty() && self.builds_unavailable.is_none()
     }
 }
 

@@ -14,6 +14,8 @@ the locked host tools locally, then atomically selects a completed immutable gen
 checkout `scripts/pse --help` exposes the preparation command without building. After
 preparation the same launcher exposes the native catalog and the preparation command
 returns an owner receipt identifying reuse, a matched source, or a local seed.
+Overlapping preparations of one checkout wait for the original publication and then
+verify the destination again. A matching waiter reuses the published generation.
 For a prepared generation that predates the `prepare` verb, run `scripts/bootstrap-host`
 once to publish the current command set. Help, activation and reads never rebuild.
 An effectful new-work command refreshes an existing stale host before admission.
@@ -290,10 +292,53 @@ external build-only flag configurations.
 ## Builds in one checkout
 
 Cargo's fine-grain build locking does not establish safe overlap for dirty graphs. Upstream
-[Cargo #17508](https://github.com/rust-lang/cargo/issues/17508) records a same-target deadlock;
-keep overlapping feature matrices and Clippy under one Cargo driver. Compiler width remains 32.
-Independent non-Cargo work can proceed. Isolated concurrent builds require separate checkouts
-and targets; do not create cold copies merely to split a matrix.
+[Cargo #17508](https://github.com/rust-lang/cargo/issues/17508) records a same-target deadlock.
+The native check and Nextest workflows and the correctness adapter admit one writer at a
+time for intersecting Cargo artifact and intermediate directories in a checkout. The first
+host seed joins the ordinary target's writer guard. Compiler width remains 32. Independent
+worktrees retain their own targets and share eligible sccache entries.
+
+`pse inspect invocation ID` includes live build activity for an original managed request.
+`just activity` includes the checkout's visible queue as well as its existing manager and
+kernel observations. The queue position counts preceding conflicting requests. A missing
+blocker ID means the observer could not attribute one to a managed invocation. `pse cancel ID`
+can withdraw a waiting build before it starts. Read the original result and settlement separately
+from the cancellation acknowledgement. Use the existing detached cancellation or foreground
+interruption path after admission. Cargo still controls package-cache locking and unmanaged
+commands. For an unexplained Cargo wait, inspect the original stderr and actual active work
+before submitting another build.
+
+The permit protects the native build, capture, listing and fixture preparation stages. It
+releases before tests execute so existing tests that issue a nested build can proceed. Some
+test runtimes still reach mutable Cargo outputs through loader and build-script paths. The
+[test handoff work](../plans/70e-preparation-and-verification-scope.md#e02) owns that remaining
+input boundary. Arbitrary `cargo run` payloads can also invoke Cargo and retain Cargo's own
+coordination. The repository-owned codegen routes participate in build admission.
+
+Managed recipe bundles and compatible combined filters avoid repeat work without reducing
+per-build or per-run parallelism. For example, run either command below.
+
+```bash
+scripts/pse run-all codegen-rust-contracts-check codegen-docs-check
+scripts/pse test pse-ids --lib -E 'test(canonical) | test(semantic)'
+```
+
+Use the same build, feature, profile and fixture selection when combining filters. Nextest
+owns the population and filter semantics. Cargo freshness still decides whether a separate
+request has to compile. A previously captured test image does not carry a current-source verdict.
+
+### Rust analyzer builds
+
+The repository's native analyzer routes already use the correctness adapter for explicit
+build-script and proc-macro preparation. An editor can opt into the same coordination via
+rust-analyzer's `check.overrideCommand` and `cargo.buildScripts.overrideCommand`. For the
+supported workspace-root invocation, use the prepared adapter with the editor's selected
+Cargo flags, including `check --workspace --all-targets --locked --message-format=json`.
+Both overrides consume Cargo JSON on stdout. Keep the editor's normal feature, target and
+build-script selection when configuring the overrides. A separately selected
+`cargo.targetDir` can isolate editor artifacts when measurements warrant its extra cache and
+disk cost. Check that Cargo also reports a separate `build_directory` before relying on isolation.
+[Rust analyzer integration](../libraries/rust_analyzers/rust-analyzer.md#18-external-build-system-and-command-integration)
 
 ## Worktrees
 

@@ -36,6 +36,12 @@ as issued. Keep the compact evidence needed for the decision and regenerate expi
 evidence for a named need. Ad hoc scratch follows the original producer's settlement and the
 [scratch closeout](../../../docs/dev/agent-environment.md#closing-ad-hoc-scratch).
 
+Before starting a duplicate Cargo command, inspect the original invocation or use `just activity`
+to see the checkout's live build queue. `pse cancel ID` can withdraw an original waiting build.
+Combine filters in one `pse test` when their build, profile and fixture settings agree. Use
+`pse run-all` for a sequence of compatible named recipes. The [build guidance](../../../docs/dev/agent-environment.md#builds-in-one-checkout)
+describes the coordination boundary and optional editor configuration.
+
 Native field selection and record budgets keep a read focused while preserving its exit status
 and diagnostics. `pse jq` can extract nested data from supported inspection reads when jq is
 available on `PATH`.

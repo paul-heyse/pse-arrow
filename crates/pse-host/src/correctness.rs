@@ -37,11 +37,14 @@ pub enum CorrectnessError {
     /// Native tool I/O failed.
     #[error("correctness tool I/O: {0}")]
     Io(#[from] io::Error),
+    /// Original build coordination or custody failure.
+    #[error(transparent)]
+    BuildAdmission(Box<crate::HostError>),
 }
 pse_diagnostics::impl_diagnostic! {
     CorrectnessError,
-    code(this) { Some(match this {Self::Json(_) => pse_diagnostics::DiagnosticCode::CorrectnessGraph, Self::Invalid(_) => pse_diagnostics::DiagnosticCode::CorrectnessAdmission, Self::Io(_) => pse_diagnostics::DiagnosticCode::CorrectnessIo}) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) { Some(match this {Self::Json(_) => pse_diagnostics::DiagnosticCode::CorrectnessGraph, Self::Invalid(_) | Self::BuildAdmission(_) => pse_diagnostics::DiagnosticCode::CorrectnessAdmission, Self::Io(_) => pse_diagnostics::DiagnosticCode::CorrectnessIo}) },
+    forward(this) { match this {Self::BuildAdmission(error) => Some(error.as_ref()), _ => None} }, help(_this) { None }, related(_this) { None }, source(_this) { None }
 }
 fn invalid(message: impl Into<String>) -> CorrectnessError {
     CorrectnessError::Invalid(message.into())
@@ -62,6 +65,10 @@ struct Metadata {
     packages: Vec<Package>,
     #[serde(default)]
     workspace_root: Option<PathBuf>,
+    #[serde(default)]
+    target_directory: Option<PathBuf>,
+    #[serde(default)]
+    build_directory: Option<PathBuf>,
 }
 #[derive(Debug, Deserialize)]
 struct Dependency {
@@ -351,7 +358,7 @@ fn graph_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, CorrectnessE
     Ok(graph)
 }
 fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, CorrectnessError> {
-    let position = mode_position(arguments)?;
+    mode_position(arguments)?;
     let mut result: Vec<OsString> = [
         "metadata",
         "--format-version",
@@ -362,7 +369,8 @@ fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, Correctne
     .into_iter()
     .map(Into::into)
     .collect();
-    let mut index = position + 1;
+    let mut index = 0;
+    let mut target_directory = None;
     while let Some(argument) = arguments.get(index) {
         if argument == "--" {
             break;
@@ -382,10 +390,23 @@ fn metadata_arguments(arguments: &[OsString]) -> Result<Vec<OsString>, Correctne
                         .clone(),
                 );
             }
+        } else if key == "--target-dir" {
+            target_directory = Some(if let Some((_, value)) = text.split_once('=') {
+                value
+            } else {
+                index += 1;
+                arguments.get(index).and_then(|arg| arg.to_str())
+                    .ok_or_else(|| invalid("Cargo target directory is missing"))?
+            });
         } else if ["--offline", "--frozen"].contains(&text) {
             result.push(argument.clone());
         }
         index += 1;
+    }
+    if let Some(directory) = target_directory {
+        // A private observation argument. Metadata does not accept --target-dir,
+        // and CARGO_TARGET_DIR takes precedence over a build.target-dir config override.
+        result.extend(["--target-dir".into(), directory.into()]);
     }
     Ok(result)
 }
@@ -663,6 +684,8 @@ pub(crate) struct AdmissionContext {
 struct PreparedMetadata {
     arguments: Vec<OsString>,
     workspace: Option<PathBuf>,
+    target_directory: Option<PathBuf>,
+    build_directory: Option<PathBuf>,
     packages: BTreeMap<String, Package>,
 }
 impl AdmissionContext {
@@ -691,6 +714,8 @@ impl AdmissionContext {
             self.metadata = Some(PreparedMetadata {
                 arguments: metadata_arguments,
                 workspace: metadata.workspace_root,
+                target_directory: metadata.target_directory,
+                build_directory: metadata.build_directory,
                 packages,
             });
         }
@@ -827,6 +852,59 @@ impl AdmissionContext {
             native_capabilities,
         })
     }
+
+    fn build_outputs(&self) -> Result<Option<(PathBuf, crate::build_admission::Outputs)>, CorrectnessError> {
+        use crate::build_admission::Outputs;
+        let Some(metadata) = &self.metadata else { return Ok(None) };
+        let Some(root) = metadata.workspace.as_ref()
+            .filter(|root| root.join(".config/diagnostic-tools.toml").is_file()) else { return Ok(None) };
+        let root = root.canonicalize()?;
+        let target = metadata.target_directory.as_deref().ok_or_else(|| invalid("Cargo target directory is missing"))?;
+        let build = metadata.build_directory.as_deref().ok_or_else(|| invalid("Cargo intermediate directory is missing"))?;
+        let outputs = Outputs::new(target, build).map_err(coordination)?;
+        Ok(Some((root, outputs)))
+    }
+}
+
+fn coordination(failure: crate::HostError) -> CorrectnessError {
+    CorrectnessError::BuildAdmission(Box::new(failure))
+}
+
+fn performing_resolution(
+    cargo: &OsStr,
+    arguments: &[OsString],
+) -> Result<(Resolution, Option<crate::build_admission::Permit>), CorrectnessError> {
+    use crate::build_admission::{self, CALLBACK, Permit};
+    let mut admission = AdmissionContext::default();
+    let resolution = admission.resolve_with(arguments, |args| capture(cargo, args))?;
+    let mode = mode_position(arguments)?;
+    // Cargo run can execute an arbitrary target that invokes another Cargo driver.
+    // The repository's codegen target has a known nonrecursive build path.
+    if arguments[mode] == "run" && !is_codegen_run(arguments) {
+        return Ok((resolution, None));
+    }
+    let Some((root, outputs)) = admission.build_outputs()? else { return Ok((resolution, None)) };
+    if let Some(callback) = std::env::var_os(CALLBACK) {
+        build_admission::authorize_callback(&root, &outputs, &callback).map_err(coordination)?;
+        return Ok((resolution, None));
+    }
+    let permit = Permit::acquire(&root, outputs.clone(), None).map_err(coordination)?;
+    if permit.as_ref().is_some_and(|permit| permit.waited) {
+        let mut current = AdmissionContext::default();
+        let resolution = current.resolve_with(arguments, |args| capture(cargo, args))?;
+        if current.build_outputs()? != Some((root, outputs)) {
+            return Err(invalid("Cargo output scope changed while queued; retry the original command"));
+        }
+        return Ok((resolution, permit));
+    }
+    Ok((resolution, permit))
+}
+
+fn is_codegen_run(arguments: &[OsString]) -> bool {
+    let Some(end) = arguments.iter().position(|arg| arg == "--") else { return false };
+    arguments.get(end + 1).is_some_and(|arg| arg == "codegen")
+        && (arguments[..end].iter().any(|argument| argument == "--bin=xtask")
+            || arguments[..end].windows(2).any(|pair| pair[0] == "--bin" && pair[1] == "xtask"))
 }
 
 /// Resolve real Cargo compiler actions without building, preparing providers or starting services.
@@ -871,6 +949,7 @@ fn native_command_with_rustflags(
         .args(arguments)
         .env("CARGO", cargo)
         .env_remove(ADAPTER)
+        .env_remove(crate::build_admission::CALLBACK)
         .env_remove(CARGO_HACK_ADAPTER);
     if diagnostic_cfg_selected(arguments) {
         // Cargo gives these channels precedence over target configuration, even
@@ -891,8 +970,20 @@ fn native_command_with_rustflags(
     }
     command
 }
+fn metadata_target(arguments: &[OsString]) -> (&[OsString], Option<&OsStr>) {
+    if let [mode, rest @ .., option, target] = arguments
+        && mode == "metadata" && option == "--target-dir"
+    {
+        return (&arguments[..rest.len() + 1], Some(target));
+    }
+    (arguments, None)
+}
+
 pub(crate) fn capture(cargo: &OsStr, arguments: &[OsString]) -> Result<Vec<u8>, CorrectnessError> {
-    capture_command(native_command(cargo, arguments)?)
+    let (arguments, target) = metadata_target(arguments);
+    let mut command = native_command(cargo, arguments)?;
+    if let Some(target) = target { command.env("CARGO_TARGET_DIR", target); }
+    capture_command(command)
 }
 /// Query the same native compiler policy in an explicit checkout/environment, without
 /// changing process-global state or weakening diagnostic Rustflags and adapter isolation.
@@ -902,6 +993,7 @@ pub(crate) fn capture_at(
     checkout: &Path,
     environment: &crate::environment::Environment,
 ) -> Result<Vec<u8>, CorrectnessError> {
+    let (arguments, target) = metadata_target(arguments);
     let environment = compiler_environment(checkout, environment)?;
     let mut command = native_command_with_rustflags(
         cargo,
@@ -923,6 +1015,7 @@ pub(crate) fn capture_at(
             command.env_remove(key);
         }
     }
+    if let Some(target) = target { command.env("CARGO_TARGET_DIR", target); }
     capture_command(command)
 }
 fn capture_command(mut command: Command) -> Result<Vec<u8>, CorrectnessError> {
@@ -1246,7 +1339,7 @@ fn execute_adapter(
     if arguments[position] == "locate-project" {
         return execute(cargo, arguments);
     }
-    let resolution = resolve_with(arguments, |args| capture(cargo, args))?;
+    let (resolution, _permit) = performing_resolution(cargo, arguments)?;
     if let Some(directory) = std::env::var_os(BUILD_OBSERVATION) {
         return crate::discovery::capture::observe_build(
             native_command(cargo, &resolution.arguments)?,
@@ -1342,7 +1435,7 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
                 .status()?,
         ));
     }
-    let resolution = resolve_with(&arguments, |args| capture(&cargo, args))?;
+    let (resolution, _permit) = performing_resolution(&cargo, &arguments)?;
 
     execute(&cargo, &resolution.arguments)
 }

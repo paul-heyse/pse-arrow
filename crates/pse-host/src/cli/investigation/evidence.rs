@@ -958,13 +958,31 @@ pub(super) fn inspect(
             let store = super::super::invocation_store(selected)?;
             let session =
                 crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            let response = crate::invocation_view::inspect(
+            let mut response = crate::invocation_view::inspect(
                 &store,
                 &invocation,
                 session.as_deref(),
                 detail,
                 &RedactionPolicy::from_environment(),
             )?;
+            if response.payload.response.is_none()
+                && let Some(id) = &response.payload.original_invocation
+            {
+                let root = super::super::checkout_root(selected)?;
+                match crate::build_admission::activity(&root) {
+                    Ok(rows) => {
+                        response.payload.build_activity = rows.into_iter().find(|row| row.invocation.as_ref() == Some(id));
+                        if response.payload.build_activity.is_some() {
+                            response.summary = "original Cargo workflow is active".into();
+                            response.subject_state = crate::envelope::SubjectState::Running;
+                        }
+                    }
+                    Err(failure) => {
+                        response.observation.completeness = Completeness::Partial;
+                        response.observation.limitations.push(failure.to_string());
+                    }
+                }
+            }
             Ok(output.emit_observation(response)?)
         }
         Action::Log {

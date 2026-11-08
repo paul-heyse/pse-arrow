@@ -271,6 +271,9 @@ pub struct InvocationInspection {
     pub retired: bool,
     /// The selected detail, if requested.
     pub detail: Option<InspectionDetail>,
+    /// Current build admission and phase, independent of the original terminal evidence.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) build_activity: Option<crate::build_admission::Activity>,
 }
 
 /// Observe only the selected invocation's compact summary or bounded owner detail.
@@ -346,6 +349,7 @@ pub fn inspect(
             response,
             retired,
             detail,
+            build_activity: None,
         },
     );
     observed.subject_state = state;

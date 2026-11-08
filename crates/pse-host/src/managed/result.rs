@@ -480,6 +480,7 @@ impl TerminalResult<ManagedSummary> {
                 self
             }
             Ok(Some(validated)) => {
+                let cancelled = validated.cancelled_before_build;
                 let (terminal, path, failures) = validated.into_parts();
                 self.response.failures.extend(failures);
                 self.response.summary = match terminal.outcome {
@@ -492,6 +493,11 @@ impl TerminalResult<ManagedSummary> {
                     Outcome::Incomplete => "native workflow required observation is incomplete",
                 }
                 .into();
+                if cancelled {
+                    self.response.outcome = CommandOutcome::Interrupted;
+                    self.response.subject_state = SubjectState::Cancelled;
+                    self.response.summary = "original build cancelled before compilation".into();
+                }
                 if terminal.outcome == Outcome::Listed
                     && self.response.outcome == CommandOutcome::Success
                 {

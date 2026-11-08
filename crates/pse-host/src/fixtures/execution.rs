@@ -302,6 +302,14 @@ impl ExecutionInputs {
     /// # Errors
     /// All original prerequisite failures, or the original helper preparation failure.
     pub fn prepare(self, destination: &Path) -> Result<PreparedExecution, FixtureError> {
+        self.prepare_with_permit(destination, None)
+    }
+
+    pub(crate) fn prepare_with_permit(
+        self,
+        destination: &Path,
+        permit: Option<&crate::build_admission::Permit>,
+    ) -> Result<PreparedExecution, FixtureError> {
         let Self {
             root,
             environment,
@@ -396,7 +404,7 @@ impl ExecutionInputs {
         }
         if demand.contains(&Input::ProductReader) {
             selected.reader = Some(
-                crate::product_reader::prepare(root, environment)
+                crate::product_reader::prepare_with_permit(root, environment, false, permit)
                     .map_err(|error| HostError::ProductReader(Box::new(error)))?,
             );
         }

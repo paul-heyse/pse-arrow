@@ -14,3 +14,4 @@ pub use report::{
     Pending, Phase, PhaseKind, Report, ReportObservation, ReportReference, TerminalRecord,
 };
 pub use runner::run;
+pub(crate) use runner::run_managed;

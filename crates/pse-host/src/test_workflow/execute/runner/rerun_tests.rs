@@ -76,33 +76,14 @@ fn publish(store: &InvocationStore, input: &Input, destination: &Path, report: &
 
 #[tokio::test]
 async fn actual_native_setup_failure_preserves_original_capture_without_assertion_rerun_grant() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let mut environment: Environment = std::env::vars_os().collect();
-    environment.insert(
-        "XDG_STATE_HOME".into(),
-        scratch.path().join("state").into_os_string(),
-    );
+    let NativeFixture { scratch, root, environment } = NativeFixture::new();
+    let root = root.as_path();
     let store =
         InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
     let mut input = input(Action::Test);
-    input.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_host".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..Default::default()
-        },
-    }]);
+    input.request.scope = NativeFixture::scope(true);
     input.request.filters.ignore_default_filter = true;
-    input.request.filters.words =
-        vec!["test_workflow::execute::runner::tests::rerun_controlled_failure_probe".into()];
+    input.request.filters.words = vec!["rerun_controlled_failure_probe".into()];
     let destination = begin(&store, &input);
     fs::create_dir(&destination).unwrap();
     fs::set_permissions(&destination, fs::Permissions::from_mode(0o700)).unwrap();
@@ -230,35 +211,15 @@ async fn actual_native_setup_failure_preserves_original_capture_without_assertio
 
 #[tokio::test]
 async fn actual_expected_refusal_success_has_original_evidence_and_zero_failed_rerun_is_nonpass() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let mut environment: Environment = std::env::vars_os().collect();
-    environment.insert(
-        "XDG_STATE_HOME".into(),
-        scratch.path().join("state").into_os_string(),
-    );
+    let fixture = NativeFixture::new();
+    let root = fixture.root.as_path();
+    let environment = fixture.environment;
     let store =
         InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
     let mut original = input(Action::Test);
-    original.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_host".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..Default::default()
-        },
-    }]);
+    original.request.scope = NativeFixture::scope(true);
     original.request.filters.ignore_default_filter = true;
-    original.request.filters.words = vec![
-        "fixtures::tests::exact_readiness_retains_all_refused_missing_and_owner_required_inputs"
-            .into(),
-    ];
+    original.request.filters.words = vec!["expected_refusal".into()];
     let destination = begin(&store, &original);
     let mut passed = run(&original, root, &destination, environment.clone())
         .await
@@ -325,33 +286,15 @@ async fn actual_expected_refusal_success_has_original_evidence_and_zero_failed_r
 
 #[tokio::test]
 async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_disposal() {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .ancestors()
-        .nth(2)
-        .unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let mut environment: Environment = std::env::vars_os().collect();
-    environment.insert(
-        "XDG_STATE_HOME".into(),
-        scratch.path().join("state").into_os_string(),
-    );
+    let fixture = NativeFixture::new();
+    let root = fixture.root.as_path();
+    let environment = fixture.environment;
     let store =
         InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
     let mut original = input(Action::Test);
-    original.request.scope = selection::Scope::Packages(vec![selection::PackageIntent {
-        package: "pse-host".into(),
-        target: Some(selection::TargetIntent {
-            name: "pse_host".into(),
-            kind: Some("lib".into()),
-        }),
-        features: selection::Features {
-            defaults: false,
-            ..Default::default()
-        },
-    }]);
+    original.request.scope = NativeFixture::scope(true);
     original.request.filters.ignore_default_filter = true;
-    original.request.filters.words =
-        vec!["test_workflow::execute::runner::tests::rerun_controlled_failure_probe".into()];
+    original.request.filters.words = vec!["rerun_controlled_failure_probe".into()];
     let destination = begin(&store, &original);
     let mut failing = environment.clone();
     failing.insert("PSE_TEST_RERUN_FAILURE_PROBE".into(), "1".into());

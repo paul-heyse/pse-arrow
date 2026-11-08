@@ -17,6 +17,7 @@ pub mod applicable_rules;
 pub mod artifacts;
 pub mod associations;
 pub mod boundary;
+mod build_admission;
 pub mod catalog;
 pub mod cli;
 /// Generated wire declarations and validators; provider and settlement authority stays native.

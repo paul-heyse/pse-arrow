@@ -2,7 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Cold seed checks. Native publication is exercised by generation::bootstrap tests.
 #![cfg(test)]
-use std::{fs, os::unix::fs::PermissionsExt, path::Path, process::Command};
+use std::{
+    fs,
+    os::unix::fs::PermissionsExt,
+    path::Path,
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
 
 fn executable(path: &Path, body: &str) {
     fs::write(path, body).unwrap();
@@ -37,7 +43,9 @@ fn seed(root: &Path) -> Command {
         .env("RUSTC_WORKSPACE_WRAPPER", "/missing/retired-python-wrapper")
         .env_remove("CARGO_TARGET_DIR")
         .env_remove("CARGO_BUILD_TARGET_DIR")
-        .env_remove("CARGO_BUILD_TARGET");
+        .env_remove("CARGO_BUILD_BUILD_DIR")
+        .env_remove("CARGO_BUILD_TARGET")
+        .env_remove("RUSTUP_TOOLCHAIN");
     command
 }
 fn launcher(root: &Path) -> Command {
@@ -55,7 +63,9 @@ fn launcher(root: &Path) -> Command {
         )
         .env_remove("CARGO_TARGET_DIR")
         .env_remove("CARGO_BUILD_TARGET_DIR")
-        .env_remove("CARGO_BUILD_TARGET");
+        .env_remove("CARGO_BUILD_BUILD_DIR")
+        .env_remove("CARGO_BUILD_TARGET")
+        .env_remove("RUSTUP_TOOLCHAIN");
     command
 }
 fn unchanged(root: &Path) {
@@ -69,7 +79,7 @@ fn failed_seed_construction_preserves_completed_selection() {
     let root = checkout();
     executable(
         &root.path().join("bin/cargo"),
-        "#!/bin/sh\n[ -z \"${RUSTC_WRAPPER+x}\" ] || exit 92\n[ -z \"${RUSTC_WORKSPACE_WRAPPER+x}\" ] || exit 93\nexit 47\n",
+        "#!/bin/sh\n[ \"${RUSTC_WRAPPER-missing}\" = '' ] || exit 92\n[ \"${RUSTC_WORKSPACE_WRAPPER-missing}\" = '' ] || exit 93\nexit 47\n",
     );
     let result = seed(root.path()).output().unwrap();
     assert_eq!(result.status.code(), Some(47));
@@ -78,10 +88,25 @@ fn failed_seed_construction_preserves_completed_selection() {
 #[test]
 fn seed_executes_only_fixed_native_construction_without_lock_inheritance() {
     let root = checkout();
-    executable(&root.path().join("bin/cargo"), "#!/bin/sh\nexit 0\n");
+    executable(
+        &root.path().join("bin/cargo"),
+        r#"#!/bin/sh
+[ "$#" = 9 ] && [ "$7" = 'build.target-dir="target"' ] && [ "$9" = 'build.build-dir="target"' ] || exit 90
+[ ! -e /proc/self/fd/9 ] || exit 91
+if flock -n build/.pse-cargo/default-writer.lock /bin/true; then exit 92; fi
+"#,
+    );
     executable(
         &root.path().join("target/debug/pse-host"),
-        "#!/bin/sh\n[ \"$#\" = 1 ] && [ \"$1\" = __host-generation-bootstrap ] || exit 90\n[ ! -e /proc/self/fd/9 ] || exit 91\n[ -z \"${RUSTC_WRAPPER+x}\" ] || exit 92\n[ -z \"${RUSTC_WORKSPACE_WRAPPER+x}\" ] || exit 93\nprintf 'native helper called\\n'\n",
+        r#"#!/bin/sh
+[ "$#" = 1 ] && [ "$1" = __host-generation-bootstrap ] || exit 90
+[ ! -e /proc/self/fd/9 ] || exit 91
+[ "${RUSTC_WRAPPER-missing}" = '' ] || exit 92
+[ "${RUSTC_WORKSPACE_WRAPPER-missing}" = '' ] || exit 93
+flock -n build/.pse-cargo/default-writer.lock /bin/true || exit 94
+if flock -n build/.pse-cargo/preparation.lock /bin/true; then exit 95; fi
+printf 'native helper called\n'
+"#,
     );
     let result = seed(root.path()).output().unwrap();
     assert!(
@@ -110,12 +135,11 @@ fn foreign_target_cannot_publish_or_enter_construction() {
         &root.path().join("bin/cargo"),
         "#!/bin/sh\ntouch entered-construction\n",
     );
-    let result = seed(root.path())
-        .env("CARGO_BUILD_TARGET", "foreign-target")
-        .output()
-        .unwrap();
-    assert_eq!(result.status.code(), Some(125));
-    assert!(!root.path().join("entered-construction").exists());
+    for name in ["CARGO_BUILD_TARGET", "CARGO_BUILD_BUILD_DIR", "RUSTUP_TOOLCHAIN"] {
+        let result = seed(root.path()).env(name, "foreign-target").output().unwrap();
+        assert_eq!(result.status.code(), Some(125));
+    }
+    assert!(!root.path().join("build/.pse-cargo").exists());
     unchanged(root.path());
 }
 
@@ -255,6 +279,7 @@ fn bootstrap_help_never_enters_copy_or_compilation() {
     assert!(result.status.success());
     assert!(String::from_utf8_lossy(&result.stdout).starts_with("Usage: scripts/bootstrap-host"));
     assert!(!root.path().join("target/host-tools/.update.lock").exists());
+    assert!(!root.path().join("build/.pse-cargo").exists());
     unchanged(root.path());
 }
 
@@ -291,6 +316,7 @@ fn cold_pse_help_and_invalid_preparation_leave_the_checkout_untouched() {
     }
     assert!(!path.join("entered-construction").exists());
     assert!(!path.join("target/host-tools/.construction.lock").exists());
+    assert!(!path.join("build/.pse-cargo").exists());
     unchanged(path);
 }
 
@@ -342,6 +368,67 @@ fn preparation_receipt_contains_only_the_owner_route_and_releases_construction_l
     assert!(result.status.success());
     assert_eq!(result.stdout, b"matching-source\n");
     assert!(String::from_utf8_lossy(&result.stderr).contains("source diagnostic"));
+}
+
+#[test]
+fn concurrent_preparation_reuses_publication_before_trying_the_selected_source() {
+    let root = checkout();
+    let path = root.path();
+    let source = source_checkout("#!/bin/sh\nexit 99\n");
+    executable(&path.join("bin/cargo"), "#!/bin/sh\nprintf x >> cargo-calls\n");
+    executable(
+        &path.join("target/debug/pse-host"),
+        r#"#!/bin/sh
+touch publishing
+timeout 5 sh -c 'while [ ! -e release ]; do sleep .01; done' || exit 94
+mkdir target/host-tools/generation.fixture
+cp /bin/true target/host-tools/generation.fixture/pse-host
+ln -s generation.fixture target/host-tools/current.new
+mv -T target/host-tools/current.new target/host-tools/current
+"#,
+    );
+    let first = seed(path)
+        .arg("--report-route")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(4);
+    while !path.join("publishing").exists() && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert!(path.join("publishing").exists());
+
+    let wait_log = path.join("wait.log");
+    let mut second = seed(path)
+        .args(["--report-route", "--from"])
+        .arg(source.path())
+        .stdout(Stdio::piped())
+        .stderr(fs::File::create(&wait_log).unwrap())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(4);
+    let waited = loop {
+        if fs::read_to_string(&wait_log)
+            .unwrap()
+            .contains("waiting for checkout host preparation")
+        {
+            break true;
+        }
+        if second.try_wait().unwrap().is_some() || Instant::now() >= deadline {
+            break false;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    fs::write(path.join("release"), []).unwrap();
+    let first = first.wait_with_output().unwrap();
+    let second = second.wait_with_output().unwrap();
+    assert!(waited);
+    assert!(first.status.success(), "{:?}", first);
+    assert!(second.status.success(), "{:?}", second);
+    assert_eq!(first.stdout, b"local-seed\n");
+    assert_eq!(second.stdout, b"verified-current\n");
+    assert_eq!(fs::read(path.join("cargo-calls")).unwrap(), b"x");
 }
 
 #[test]
