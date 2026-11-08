@@ -8,7 +8,6 @@ use crate::{
     managed::result::{ManagedSummary, WorkflowSummary},
     test_workflow::execute::ContentIdentity,
 };
-use std::os::unix::fs::PermissionsExt as _;
 
 fn begin(store: &InvocationStore, input: &Input) -> PathBuf {
     let (binding, encoded) = crate::managed::workflow::encode_input(input).unwrap();
