@@ -1,6 +1,6 @@
 ---
 title: "Plan70f: Conformance and benchmark execution"
-status: planned
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -273,8 +273,8 @@ admission counts, zero pool charge after each iteration and complete fixture set
 K4 now shares its exact source bytes while each callback constructs a fresh runtime and
 performs semantic admission. The comparison establishes phase and science equivalence.
 The PR-inline probe reached canonical source admission, returned an unknown server outcome
-on source edit and disposed its fixture after the failed child. Linked solver smoke remains
-separate receiving evidence.
+on source edit and disposed its fixture after the failed child. Linked solver smoke provides
+separate receiving evidence below.
 
 **Implemented.** Prepared process runs now drain native lanes explicitly and use one
 post-drain pool observation for both the per-case and aggregate records. The canonical

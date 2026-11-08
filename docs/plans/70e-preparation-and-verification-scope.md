@@ -1,6 +1,6 @@
 ---
 title: "Plan70e: Preparation and verification scope"
-status: planned
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -240,6 +240,15 @@ scientific-input controls passed with zero failures in
 selection passed 20 with zero failures in `01a1bc18-95fa-75bb-9f9c-c3145582c751`, using
 explicit force-validation through their selected development closures. The separately owned
 native campaign receipt is recorded in [F02](70f-conformance-and-benchmark-execution.md#f02).
+
+**Tested.** The shared catalog and capture use typed diagnostic sources. The scoped
+`scripts/pse check pse-host pse-compiler pse-modeling xtask --all-targets
+-F xtask/physical-admission` returned zero errors in `01a1bc87-6393-7735-b60d-4a8fe09fbdf8`.
+The `xtask:xtask` scientific input selection with `physical-admission` passed nine cases
+with zero failures and complete settlement in `01a1bc8d-aa84-7568-bba2-0d614d2bf5ec`,
+including the original source on version refusal. The ten selected host affected and group
+authentication controls also passed with zero failures and complete settlement in
+`01a1bc8e-5b5f-7509-88ed-315e058a1858`.
 
 **Implemented.** For an in-process `Listed` group, the owner already holds the binary list,
 same-build artifacts and selected metadata digests. Verify the two shared tool images and

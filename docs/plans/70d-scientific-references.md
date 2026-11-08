@@ -1,6 +1,6 @@
 ---
 title: "Plan70d: Scientific references"
-status: planned
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan

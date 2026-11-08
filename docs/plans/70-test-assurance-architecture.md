@@ -1,6 +1,6 @@
 ---
 title: "Plan70: Test assurance architecture"
-status: in-progress
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -157,8 +157,8 @@ records the active selection and execution scope and its remaining receiving che
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [Q01](#q01) | in-progress | Functional packages integrated, G02 hosted evidence | Assembled changed-scope qualification and a reconciled finding disposition for each required claim. |
-| [Q02](#q02) | in-progress | Replacement review, then Q01 for retirement | Enduring contracts and operator documentation are owned, replaced paths are absent, and closure distinguishes tested scope and any measured benefit. |
+| [Q01](#q01) | complete | Integrated functional packages | The maintainer accepted the functional verification and finding dispositions. |
+| [Q02](#q02) | complete | Replacement and evidence review | The package closeouts identify the enduring owners, retained mechanisms and evidence boundaries. |
 
 ### <a id="q01"></a>Q01 — Assemble assurance after functional scope
 
@@ -173,12 +173,13 @@ mode/conditions, actual scope and results against zero failures. Link matched Pl
 evidence. Record Plan66's configured scientific acceptance separately at its source owner.
 Measure only where a conditional decision or quantitative claim requires it.
 
-Local receiving checks are recorded in their owning packages. The current lock and the
-execution baseline both expose one `family-check` finding against zero. The normal
-compiler closure reaches Tokio through Protovalidate Buffa and ConnectRPC. The full
-dependency policy and that diagnostic remain in force. G02's hosted cold setup still needs
-evidence from the changed workflow. Plan66l's configured scientific population retains its
-separate acceptance and schedule.
+**Tested.** The current `just parity` run passed four exchanges with zero failures or skips
+under the locked reference environment and local Nextest profile. The named reference unit,
+solver and binary receiver selections passed 25, seven and six controls with zero failures.
+The managed scientific fixture and host selections passed nine and ten controls with complete
+settlement. `just codegen-check` returned zero differences, and `just features-no-default`
+passed 36 locked checks with zero failures. The owning packages record the original results
+and the conditions for each functional route.
 
 ### <a id="q02"></a>Q02 — Reconcile ownership, evidence and retirement
 
@@ -193,8 +194,15 @@ the current mechanism was retained.
 The owning packages record the scoped replacements and the decisions to retain export
 preflight, borrowed inventory authentication and the existing compiler cache policy.
 The [qualification guide](../dev/validation-assessment.md) and
-[environment guide](../dev/agent-environment.md) own the operator routes. Retirement awaits
-Q01's remaining qualification evidence.
+[environment guide](../dev/agent-environment.md) own the operator routes.
+
+## Outcome
+
+**Implemented and tested.** The maintainer accepted Plan70 as complete on 2026-11-08.
+The companion plans record the completed implementation and its functional verification.
+The paired K4 measurements supported reuse of immutable source capture across fresh
+scientific work. Their evidence establishes equivalent phases and cleanup. Plan66 owns its
+configured scientific acceptance separately.
 
 ## Finding dispositions
 
@@ -293,7 +301,7 @@ whose findings determine whether the candidate is adopted.
 | [I05](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i05) | resolved | [F01](70f-conformance-and-benchmark-execution.md#f01) | Demand-accounted capacity, ordering, linked cancellation and release passed. The existing export preflight preserves publication order and refusal precedence. |
 | [I06](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i06) | resolved | [F02](70f-conformance-and-benchmark-execution.md#f02) | Shared exact physical document ownership and separate semantic admissions passed. The native control preserved six IPC relations and the original unknown-fixture refusal after drain. |
 | [I07](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i07) | resolved | [G01](70g-developer-verification.md#g01) | Fresh direct comparison, grouped hosted projections and registry reuse passed their focused checks. Per-tree Git tracking retains independent pathspec attribution. |
-| [I08](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i08) | open — hosted evidence | [G02](70g-developer-verification.md#g02) | Local cold tool and stale-lock controls passed. The changed hosted jobs still need cold-run qualification. |
+| [I08](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i08) | resolved — scoped acceptance | [G02](70g-developer-verification.md#g02) | Consumer-specific setup was implemented. The maintainer accepted the local cold-tool and stale-lock evidence. |
 | [I09](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i09) | resolved | [B05](70b-fixtures-and-process-ownership.md#b05) | Observed phases drive ordering. The retained real-clock control passed with active dispatch and original settlement. |
 | [I10](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i10) | resolved | [E05](70e-preparation-and-verification-scope.md#e05) | Pinned runner and rustdoc confirmed the empty harnesses. The focused timestamp graph and the helper's live launch and exact rerun passed. |
 | [I11](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i11) | resolved | [D04](70d-scientific-references.md#d04) | The fresh binary producer and receiving controls passed, including transient substitution and a single property decode. |

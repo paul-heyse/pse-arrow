@@ -41,10 +41,9 @@ is complete for its adopted scope. The retained closeout records the CLI and nat
 evidence, repository qualification results, and the explicit deferral of configured schema
 rollout. Its companion plans remain available for dependent work and audit references.
 
-[Plan70: Test assurance architecture](70-test-assurance-architecture.md) proposes the changes
-from the November test design review and repository-wide efficiency review. It owns the series'
-finding and improvement dispositions and assembled verification. Plans66 and 69 retain their
-scientific population and native test/result obligations.
+[Plan70: Test assurance architecture](70-test-assurance-architecture.md) is complete. Its closeout
+records the November test design and efficiency changes, finding dispositions and functional
+verification. Plan66 owns configured scientific acceptance.
 
 - [70a · Selection and execution](70a-selection-and-execution.md)
 - [70b · Fixtures and process ownership](70b-fixtures-and-process-ownership.md)

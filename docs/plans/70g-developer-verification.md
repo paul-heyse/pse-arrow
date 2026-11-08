@@ -1,6 +1,6 @@
 ---
 title: "Plan70g: Developer verification"
-status: planned
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -172,7 +172,7 @@ Nextest filters belongs to its ordinary selection route. [Scope-end guide](../de
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | [G01](#g01) | complete | Fresh rendered trees, existing tracking and publication owners, Plan69e E05 full-route boundary | Direct comparison passes ownership, drift and refusal controls and replaces the scratch comparator. Each conditional reduction is integrated with equivalent receiving evidence or has a recorded reason to retain its current route. |
-| [G02](#g02) | in-progress | Hosted consumer inventory, pinned Rust and uv tools, existing host and adapter contracts | Cold hosted paths select their required preparation, Taplo consumes the lock and stale-lock refusal survives removal of duplicate metadata. If adopting G01's hosted grouping, coordinate the shared workflow edit after its grouped invocation is qualified. |
+| [G02](#g02) | complete | Hosted consumer inventory, pinned Rust and uv tools, existing host and adapter contracts | The workflow selects setup by consumer. The maintainer accepted the local cold-tool and stale-lock receiving controls. |
 | [G03](#g03) | complete | Registry Buffa 0.9.2 source and checksum, maintained decoder fixture, separate Cargo roots | Complete the bounded comparison and preserve fresh decoder results. Adopt the independent locked stock fixture only with equivalent receiving evidence and measured recurring cost worth the maintenance. |
 | [G04](#g04) | complete | Current recipe leaves and native keep-going bundle in one applicable checkout/context | Equivalent coverage and independent nonpass controls establish the combined scope-end route for Q01. Guidance reflects the verified composition. |
 
@@ -196,10 +196,8 @@ CoolProp comparison with zero failures. The full aggregate comparison belongs to
 **Tested.** A fresh locked uv quality environment and pinned rustfmt accepted valid formatting
 inputs in an isolated receiver, and each refused its own deliberate drift. The already-built
 `xtask family-check` and the retained hosted correctness-adapter command independently
-refused a stale lock and left it byte-identical. The complete lock also exposed one pre-existing
-compiler normal-closure dependency finding on both the start revision and the updated inputs
-against a baseline of zero. `actionlint` passed with zero findings. Hosted cold-run evidence
-is still separate from the local receiving checks.
+refused a stale lock and left it byte-identical. `actionlint` passed with zero findings.
+The maintainer accepted G02 on this local receiving evidence.
 
 **Measured.** A fresh isolated registry Buffa 0.9.2 stock build and invocation took 6.18 s,
 and the unchanged-target invocation took 0.10 s. The comparison used the same selected

@@ -1,6 +1,6 @@
 ---
 title: "Plan70a: Selection and execution"
-status: in-progress
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -138,7 +138,7 @@ that alter the compiled target population.
 ## Execution checkpoint
 
 Reconciled on 2026-11-08 against the combined implementation, Cargo coordination, and resumed
-native qualification. The remaining specialist dependencies are recorded below.
+native qualification.
 
 **Implemented.** A01 analyzes the reached unit graph once for each admitted argument set
 and compares complete unit records at the existing receiving boundaries. The generic
