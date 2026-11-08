@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Application-level case rebuilds; Cargo compilation is untimed cached setup.
+//! Named application-level process cases from `.config/process-cases.json`.
+//! Cargo compilation and prepared fixture admission precede Criterion's callbacks.
 // Match the runtime's finite depth for nested workflow auto-trait proofs.
 #![recursion_limit = "512"]
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
+    clippy::print_stdout,
     reason = "qualification workloads fail on invalid or incomplete execution"
 )]
+#[allow(
+    dead_code,
+    reason = "shared admission describes both benchmark targets"
+)]
+mod admission;
 #[path = "audit/mod.rs"]
 mod audit;
 #[path = "native_process/compact.rs"]
@@ -42,6 +49,7 @@ mod source_reuse;
 use criterion::{Criterion, criterion_group, criterion_main};
 use fixture::*;
 use pse_backend_native::solve::{Backend, Metric, Termination};
+use pse_benches::CriterionMode;
 use pse_model::generated::identities::DeclarationId;
 use pse_runtime::{
     CancelSource,
@@ -220,11 +228,58 @@ async fn heater_blocks(
 }
 fn process(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
+    let mode = CriterionMode::current();
+    let registered: serde_json::Value =
+        serde_json::from_str(include_str!("../../.config/process-cases.json")).unwrap();
+    let registered = registered["workloads"].as_array().unwrap();
+    let selected = std::env::var("PSE_PROCESS_COST_CASE").ok().map(|id| {
+        registered
+            .iter()
+            .find(|w| w["id"] == id.as_str())
+            .unwrap_or_else(|| panic!("unregistered native process workload {id}"))
+    });
+    if mode == CriterionMode::List {
+        let mut group = c.benchmark_group("process");
+        for workload in registered
+            .iter()
+            .filter(|workload| selected.is_none_or(|selected| *workload == selected))
+        {
+            group.bench_function(workload["id"].as_str().unwrap(), |_| {});
+        }
+        return;
+    }
+    let spec = selected.expect("select a native process workload using PSE_PROCESS_COST_CASE");
+    println!(
+        "{}",
+        admission::selection_record(
+            "native_process",
+            mode,
+            &[spec],
+            registered,
+            admission::process_inputs,
+        )
+    );
+    let output = PathBuf::from(
+        std::env::var_os("PSE_PROCESS_COST_OUTPUT")
+            .expect("native process benchmark output directory"),
+    );
+    let inputs = admission::process_inputs(spec);
+    // Bind the already prepared capsule through the same reader used during
+    // the case. Its process-local capture is retained through the callbacks.
+    match inputs.authored {
+        Some(admission::AuthoredInput::Physical) => fixture::require_physical_inputs(),
+        Some(admission::AuthoredInput::SeedTransport) => fixture::require_seed_inputs(),
+        None => {}
+    }
+    if admission::admit(inputs, mode, Some(&output))
+        .unwrap_or_else(|error| panic!("benchmark prerequisite refused: {error}"))
+    {
+        return;
+    }
+    std::fs::create_dir_all(&output).unwrap();
     let compiler_phases = phases::Phases::default();
-    let spec: serde_json::Value =
-        serde_json::from_str(&std::env::var("PSE_PROCESS_COST_SPEC").unwrap()).unwrap();
     let id = spec["id"].as_str().unwrap();
-    let mut audit = audit::Audit::start(id, &spec);
+    let mut audit = audit::Audit::start(id, spec);
     tracing_subscriber::registry()
         .with(compiler_phases.clone())
         .with(audit.capture_layer())
@@ -234,34 +289,33 @@ fn process(c: &mut Criterion) {
     let reuse = spec["reuse"].as_str().unwrap();
     let blocks = spec["blocks"].as_u64().unwrap() as usize;
     let threads = spec["threads"].as_u64().unwrap() as usize;
-    let output = PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap());
     if operation == "source-edit-copy" {
-        source_reuse::measure(c, &spec, &output, &compiler_phases);
+        source_reuse::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
     if operation == "result_analysis" {
-        results_analysis::measure(c, &spec, &output, &compiler_phases);
+        results_analysis::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
     if operation == "k4-study" {
-        k4_studies::measure(c, &spec, &output, &compiler_phases);
+        k4_studies::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
     if operation == "k4-restart" {
-        restart::measure(c, &spec, &output, &compiler_phases);
+        restart::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
     if operation == "k4-accuracy" {
-        k4_accuracy::measure(c, &spec, &output, &compiler_phases);
+        k4_accuracy::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
     if spec["extended"].as_bool() == Some(true) || matches!(operation, "vessel" | "fit") {
-        extended::measure(c, &spec, &output, &compiler_phases);
+        extended::measure(c, spec, &output, &compiler_phases);
         audit.complete();
         return;
     }
@@ -635,9 +689,12 @@ fn process(c: &mut Criterion) {
     audit.complete();
 }
 fn configuration() -> Criterion {
-    Criterion::default().output_directory(
-        &PathBuf::from(std::env::var("PSE_PROCESS_COST_OUTPUT").unwrap()).join("criterion"),
-    )
+    match std::env::var_os("PSE_PROCESS_COST_OUTPUT") {
+        Some(output) => {
+            Criterion::default().output_directory(&PathBuf::from(output).join("criterion"))
+        }
+        None => Criterion::default(),
+    }
 }
 criterion_group! {name=benches;config=configuration();targets=process}
 criterion_main!(benches);

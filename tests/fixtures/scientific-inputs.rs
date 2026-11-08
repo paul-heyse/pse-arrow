@@ -35,3 +35,75 @@ pub(crate) fn package_documents(logical_root: &str) -> BTreeMap<String, Vec<u8>>
 pub(crate) fn family_packages(name: &str) -> Vec<(String, BTreeMap<String, Vec<u8>>)> {
     capsule().family_packages(name)
 }
+
+/// Validate the retained transport consumed by the benchmark without cloning its bytes.
+pub(crate) fn require_package(logical_root: &str) {
+    let capture = capsule();
+    assert!(
+        capture
+            .families
+            .values()
+            .any(|family| family.packages.iter().any(|root| root == logical_root)),
+        "package is outside the captured scientific transport: {logical_root}"
+    );
+    assert!(
+        capture
+            .files
+            .contains_key(&format!("{logical_root}/package.toml")),
+        "captured package manifest: {logical_root}"
+    );
+    let registry = pse_schema::shared_registry().expect("captured document registry");
+    let mut documents = 0;
+    for document in registry.documents() {
+        let Some((directory, suffix)) = document.path_glob.split_once("/*") else {
+            continue;
+        };
+        let directory = format!("{logical_root}/{directory}");
+        let members = capture
+            .directories
+            .get(&directory)
+            .expect("captured package directory inventory");
+        for member in members
+            .iter()
+            .flatten()
+            .filter(|name| name.ends_with(suffix))
+        {
+            assert!(
+                capture.files.contains_key(&format!("{directory}/{member}")),
+                "captured package document: {directory}/{member}"
+            );
+            documents += 1;
+        }
+    }
+    assert!(
+        documents != 0,
+        "captured package has no transport inventory: {logical_root}"
+    );
+}
+
+/// Validate the actual ordered transport family consumed by a selected seed benchmark.
+pub(crate) fn require_transport_family(name: &str, expected_root: &str) {
+    let capture = capsule();
+    let family = capture
+        .families
+        .get(name)
+        .expect("captured scientific transport family");
+    assert_eq!(family.projection.as_deref(), Some("authentic-transport"));
+    assert!(
+        family.packages.iter().any(|root| root == expected_root),
+        "selected transport lacks its seed package: {expected_root}"
+    );
+    assert!(
+        !family.documents.is_empty(),
+        "selected transport lacks authored documents: {name}"
+    );
+    for root in &family.packages {
+        require_package(root);
+    }
+    for document in &family.documents {
+        assert!(
+            capture.files.contains_key(document),
+            "missing selected transport document: {document}"
+        );
+    }
+}

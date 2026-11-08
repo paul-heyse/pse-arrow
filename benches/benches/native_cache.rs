@@ -177,8 +177,10 @@ async fn prepared_rounds(rows: usize, rounds: usize) -> serde_json::Value {
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
-    // `cargo bench` passes `--bench`; `cargo test --benches` passes no mode flag.
-    let smoke = !std::env::args().any(|argument| argument == "--bench");
+    let smoke = !matches!(
+        pse_benches::CriterionMode::current(),
+        pse_benches::CriterionMode::Measure | pse_benches::CriterionMode::Profile
+    );
     tracing_subscriber::fmt()
         .with_env_filter("pse_rules=debug")
         .with_target(true)

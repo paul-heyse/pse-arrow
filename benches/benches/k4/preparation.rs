@@ -93,7 +93,11 @@ async fn stage(
     record["preparations"] = serde_json::to_value(preparation_counts).unwrap();
     (elapsed, record, prepared)
 }
-async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Duration, Value) {
+async fn preparation(
+    owner: &WorkflowRuntime,
+    sources: &pse_runtime::workflow::PackageSources,
+    phases: &phases::Phases,
+) -> (Duration, Value) {
     let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     owner.register_fixture(store.clone()).unwrap();
     let runtime = Runtime::from_shared(
@@ -109,9 +113,8 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
         ),
     )
     .unwrap();
-    let sources = support::sources(support::SOURCE);
     let setup = Instant::now();
-    let original = support::package(&runtime, owner, &sources).await;
+    let original = support::package(&runtime, owner, sources).await;
     let setup_seconds = setup.elapsed().as_secs_f64();
     let mut timed = Duration::ZERO;
     let mut records = Vec::new();
@@ -258,7 +261,7 @@ async fn preparation(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Durat
     );
     (
         timed,
-        json!({"source_admission_seconds":setup_seconds,"stages":records,"cache_reports":owner.runtime.math().report()}),
+        json!({"source_capture":"one immutable authored input per invocation","source_admission_seconds":setup_seconds,"stages":records,"cache_reports":owner.runtime.math().report()}),
     )
 }
 async fn pressure(
@@ -430,11 +433,19 @@ pub(super) fn measure(
     phases: &phases::Phases,
 ) {
     let name = spec["id"].as_str().unwrap();
-    let executor = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(1)
-        .enable_all()
-        .build()
-        .unwrap();
+    // This named experiment shares only raw authored inputs. Every callback
+    // iteration still owns its database, runtime, parsing and semantic admission.
+    let sources = (name == "k4-scalar-preparation").then(|| support::sources(support::SOURCE));
+    let mut executor = if spec["worker_permit_lifetime"] == true {
+        // Observe the original supervisor tail and subsequent admission on the
+        // same executor lane. Native worker and TLS teardown still use native threads.
+        tokio::runtime::Builder::new_current_thread()
+    } else {
+        let mut executor = tokio::runtime::Builder::new_multi_thread();
+        executor.worker_threads(1);
+        executor
+    };
+    let executor = executor.enable_all().build().unwrap();
     let mut records = Vec::new();
     let mut group = c.benchmark_group("modeling_preparation");
     group
@@ -466,7 +477,7 @@ pub(super) fn measure(
                     } else if spec["pressure"] == true {
                         executor.block_on(pressure(&owner, spec, phases))
                     } else {
-                        executor.block_on(preparation(&owner, phases))
+                        executor.block_on(preparation(&owner, sources.as_ref().unwrap(), phases))
                     }
                 });
                 record["pool_peak_bytes"] = owner.runtime.observation_peak_bytes().into();
@@ -500,7 +511,16 @@ pub(super) fn measure(
         })
     });
     group.finish();
-    let record = json!({"experiment":"modeling_preparation","id":name,"workload":spec,"threads":1,"native_threads":1,"pool_limit_bytes":64_u64<<30,"force_validation":"collector enables pse-relations/force-validate","iterations":records.len(),"scope":"actual source admission, specialization, solver-view resolution and derivative assembly; pressure uses bare semantic preparation without native solves; every iteration retains its own runtime only","sampling":"10 flat Criterion samples; ordinary preparation sums directly observed stage durations; pressure measures complete pressure/release path","records":records});
+    let mode = pse_benches::CriterionMode::current();
+    let sampling = match mode {
+        pse_benches::CriterionMode::Smoke => "one Criterion callback for the selected smoke case",
+        pse_benches::CriterionMode::Measure => {
+            "10 flat Criterion samples, separate from callback records including warm-up"
+        }
+        pse_benches::CriterionMode::Profile => "Criterion profiling callbacks",
+        pse_benches::CriterionMode::List => "Criterion registration listing",
+    };
+    let record = json!({"experiment":"modeling_preparation","id":name,"workload":spec,"threads":1,"native_threads":1,"pool_limit_bytes":64_u64<<30,"force_validation":"collector enables pse-relations/force-validate","mode":mode.label(),"iterations":records.len(),"scope":"actual source admission, specialization, solver-view resolution and derivative assembly; pressure uses bare semantic preparation without native solves; every iteration retains its own runtime only","sampling":sampling,"records":records});
     println!("{record}");
     if let Some(output) = output {
         std::fs::create_dir_all(output).unwrap();

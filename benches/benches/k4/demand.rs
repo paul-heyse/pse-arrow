@@ -215,7 +215,9 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
         let phase = Instant::now();
         let mut profile = Profile::default();
         if name == "second-refused" {
-            profile.evaluation.derivative_components = 2;
+            // The direct weighted Hessian constructs exact entries. Bound its
+            // symbolic work instead of assuming a dense Second Taylor layout.
+            profile.evaluation.operations = 1;
         }
         let before = artifact_counts(service);
         let executable = service
@@ -237,17 +239,18 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
             "orders share admitted arithmetic"
         );
         if name == "second-refused" {
-            let error = executable.unwrap_err();
+            let Err(error) = executable else {
+                panic!("the operation-limited Second request unexpectedly prepared");
+            };
             assert_eq!(
                 error
                     .boundary_diagnostic(pse_diagnostics::DiagnosticStage::Evaluation)
                     .class,
                 pse_model::diagnostic::BoundaryClass::ResourceLimit
             );
-            assert!(counters(phases, "compiled_artifact", "second", "attempts") > 0);
-            assert_eq!(
-                counters(phases, "compiled_artifact", "second", "successes"),
-                0
+            assert!(
+                after.1 > before.1,
+                "the refused request reaches artifact demand"
             );
             for (index, weaker) in retained.iter().enumerate() {
                 let values = values.clone();
@@ -267,7 +270,7 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
                     .await
                     .unwrap();
             }
-            stages.push(json!({"stage":name,"outcome":"refused","seconds":{"total":seconds},"allowance":{"derivative_components":2},"refusal":error.to_string(),"constructions":phases.constructions(),"artifact_requests":{"reuses":after.0-before.0,"misses":after.1-before.1},"pool_reserved_bytes":pool.reserved()}));
+            stages.push(json!({"stage":name,"outcome":"refused","seconds":{"total":seconds},"allowance":{"operations":1},"refusal":error.to_string(),"constructions":phases.constructions(),"artifact_requests":{"reuses":after.0-before.0,"misses":after.1-before.1},"pool_reserved_bytes":pool.reserved()}));
             continue;
         }
         let executable = executable.unwrap();
@@ -282,10 +285,6 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
                 "First demand constructs no stronger support"
             );
         }
-        if name == "second" {
-            assert!(counters(phases, "support", "second", "successes") > 0);
-            assert!(counters(phases, "compiled_order", "second", "successes") > 0);
-        }
         if name == "warm-first" {
             assert_eq!(
                 counters(phases, "compiled_artifact", "first", "attempts"),
@@ -298,6 +297,17 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
         }
         let constructions = phases.constructions();
         let entries = inventory(service, executable.clone()).await;
+        if name == "second" {
+            assert!(
+                entries.iter().any(|entry| {
+                    entry["order"] == "Second"
+                        && entry["kind"]
+                            .as_str()
+                            .is_some_and(|kind| kind.starts_with("compiled_"))
+                }),
+                "the exact-entry Hessian retains a compiled Second product"
+            );
+        }
         for entry in entries {
             let key = format!("{}:{}", entry["kind"], entry["identity"]);
             live.entry(key).or_insert(entry);

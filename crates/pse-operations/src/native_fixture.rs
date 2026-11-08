@@ -394,6 +394,83 @@ mod command {
         };
         Err(settle_child(&mut child, final_end, state, vec![failure]).await)
     }
+
+    /// Lend one authenticated disposable fixture to the original benchmark image.
+    ///
+    /// # Errors
+    /// Prepared inputs, child execution or independent physical settlement refuse.
+    pub async fn run_benchmark_fixture(
+        root: &Path,
+        helper_build: &Path,
+        outcome: PathBuf,
+    ) -> Result<ExitStatus, NativeServiceError> {
+        let root = root.canonicalize()?;
+        let build = pse_host::discovery::BuildCapture::read(helper_build)?;
+        let helper = build
+            .require_binary(
+                &root,
+                "pse-operations",
+                "pse-canonical-service",
+                "crates/pse-operations/src/bin/pse-canonical-service.rs",
+                &["native-service"],
+            )
+            .map_err(pse_host::HostError::from)?;
+        let receipt = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT").ok_or(
+            NativeServiceError::Refused("explicit prepared production module receipt required"),
+        )?;
+        let module = pse_host::study_module::select(
+            Path::new(&receipt),
+            pse_host::study_module::Variant::Production,
+        )?;
+        let server = pse_host::server::select(&std::env::vars_os().collect())?;
+        let (execution_end, final_end) =
+            deadlines(Duration::from_secs(14_400), Duration::from_secs(90))?;
+        if outcome.try_exists()? {
+            return Err(NativeServiceError::Refused(
+                "benchmark fixture outcome already exists",
+            ));
+        }
+        if let Some(parent) = outcome.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        // Linux resolves this to the currently executing image even if its Cargo
+        // output pathname was replaced while the original invocation is live.
+        let mut command = tokio::process::Command::new("/proc/self/exe");
+        command
+            .current_dir(std::env::current_dir()?)
+            .args(std::env::args_os().skip(1));
+        let service = NativeCanonicalService::new(NativeServiceSpec {
+            server,
+            helper: helper.captured,
+            module_source: crate::native_service::NativeModuleSource::Prepared(module),
+            state_parent: std::env::temp_dir(),
+        })?;
+        run_fixture_child(service, command, execution_end, final_end, Some(outcome)).await
+    }
+
+    fn deadlines(
+        execution: Duration,
+        settlement: Duration,
+    ) -> Result<(Instant, Instant), NativeServiceError> {
+        if execution.is_zero() || settlement.is_zero() {
+            return Err(NativeServiceError::Refused(
+                "native fixture requires positive execution and settlement allowances",
+            ));
+        }
+        let execution_end =
+            Instant::now()
+                .checked_add(execution)
+                .ok_or(NativeServiceError::Refused(
+                    "fixture execution clock overflow",
+                ))?;
+        let final_end =
+            execution_end
+                .checked_add(settlement)
+                .ok_or(NativeServiceError::Refused(
+                    "fixture settlement clock overflow",
+                ))?;
+        Ok((execution_end, final_end))
+    }
     impl NativeTestCommand {
         /// Adopt the host's same-invocation build/list capture without compiling again.
         /// The host owns source admission and immutable capture; this owner supplies only
@@ -506,23 +583,7 @@ mod command {
             settlement: Duration,
             report_path: Option<PathBuf>,
         ) -> Result<ExitStatus, NativeServiceError> {
-            if execution.is_zero() || settlement.is_zero() {
-                return Err(NativeServiceError::Refused(
-                    "native fixture requires positive execution and settlement allowances",
-                ));
-            }
-            let start = Instant::now();
-            let execution_end = start
-                .checked_add(execution)
-                .ok_or(NativeServiceError::Refused(
-                    "fixture execution clock overflow",
-                ))?;
-            let final_end =
-                execution_end
-                    .checked_add(settlement)
-                    .ok_or(NativeServiceError::Refused(
-                        "fixture settlement clock overflow",
-                    ))?;
+            let (execution_end, final_end) = deadlines(execution, settlement)?;
             use pse_host::study_module::Variant;
             let qualification =
                 std::env::var_os(pse_host::fixtures::QUALIFICATION_MODULE_RECEIPT_ENV);
@@ -537,92 +598,103 @@ mod command {
                 (None, Some(path)) => Some((path, Variant::LongHold)),
                 (None, None) => None,
             };
-            let mut service = if let Some((path, variant)) = selected {
+            let service = if let Some((path, variant)) = selected {
                 let receipt = pse_host::study_module::select(Path::new(&path), variant)?;
                 NativeCanonicalService::new_qualification_fixture(spec, receipt)?
             } else {
                 NativeCanonicalService::new(spec)?
             };
-            let premise = ChildExitPremise::default();
-            let child_premise = premise.clone();
-            let runner_exit = std::sync::Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
-            let observed_exit = runner_exit.clone();
-            let outcome = service
-                .run_until(execution_end, final_end, |service| {
-                    Box::pin(async move {
-                        service
-                            .launch(execution_end.min(Instant::now() + Duration::from_secs(90)))
-                            .await?;
-                        let selection = service.fixture_selection()?;
-                        let mut command = tokio::process::Command::new(&self.program);
-                        command
-                            .current_dir(&self.directory)
-                            .args(["nextest", "run", "--binaries-metadata"])
-                            .arg(&self.binaries)
-                            .arg("--cargo-metadata")
-                            .arg(&self.cargo)
-                            .args(&self.arguments)
-                            .env(SELECTION_ENV, selection.descriptor())
-                            .env("PSE_SURREAL_STATE", selection.state())
-                            .env_remove("PSE_TEST_INVOCATION")
-                            .env_remove("PSE_TEST_RESOURCE_PYTHON")
-                            .env_remove("PSE_TEST_EXECUTION_PROFILE")
-                            .env_remove("PSE_FIXTURE_CARGO_METADATA_CAPTURE")
-                            .kill_on_drop(true);
-                        let status = child_status(
-                            command,
-                            execution_end,
-                            final_end,
-                            service.state(),
-                            child_premise,
-                        )
+            let mut command = tokio::process::Command::new(&self.program);
+            command
+                .current_dir(&self.directory)
+                .args(["nextest", "run", "--binaries-metadata"])
+                .arg(&self.binaries)
+                .arg("--cargo-metadata")
+                .arg(&self.cargo)
+                .args(&self.arguments);
+            run_fixture_child(service, command, execution_end, final_end, report_path).await
+        }
+    }
+
+    async fn run_fixture_child(
+        mut service: NativeCanonicalService,
+        mut command: tokio::process::Command,
+        execution_end: Instant,
+        final_end: Instant,
+        report_path: Option<PathBuf>,
+    ) -> Result<ExitStatus, NativeServiceError> {
+        let premise = ChildExitPremise::default();
+        let child_premise = premise.clone();
+        let runner_exit = std::sync::Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));
+        let observed_exit = runner_exit.clone();
+        let outcome = service
+            .run_until(execution_end, final_end, |service| {
+                Box::pin(async move {
+                    service
+                        .launch(execution_end.min(Instant::now() + Duration::from_secs(90)))
                         .await?;
-                        if let Some(exit) = status.code() {
-                            observed_exit.store(exit, std::sync::atomic::Ordering::Release);
-                        }
-                        Ok(status)
-                    })
+                    let selection = service.fixture_selection()?;
+                    command
+                        .env(SELECTION_ENV, selection.descriptor())
+                        .env("PSE_SURREAL_STATE", selection.state())
+                        .env_remove("PSE_TEST_INVOCATION")
+                        .env_remove("PSE_TEST_RESOURCE_PYTHON")
+                        .env_remove("PSE_TEST_EXECUTION_PROFILE")
+                        .env_remove("PSE_FIXTURE_CARGO_METADATA_CAPTURE")
+                        .kill_on_drop(true);
+                    let status = child_status(
+                        command,
+                        execution_end,
+                        final_end,
+                        service.state(),
+                        child_premise,
+                    )
+                    .await?;
+                    if let Some(exit) = status.code() {
+                        observed_exit.store(exit, std::sync::atomic::Ordering::Release);
+                    }
+                    Ok(status)
                 })
-                .await;
-            if !premise.permits_disposal() {
-                let mut failures = vec![outcome.err().unwrap_or(NativeServiceError::Refused(
-                    "cancelled test process cannot prove native joins",
-                ))];
-                if let Err(error) = publish_run_report(
-                    report_path.as_deref(),
-                    runner_exit.load(std::sync::atomic::Ordering::Acquire),
-                    false,
-                ) {
-                    failures.push(error);
-                }
-                return Err(NativeServiceError::Settlement {
-                    state: service.state().to_owned(),
-                    failures,
-                });
-            }
-            let disposal = service.dispose();
-            let publication = publish_run_report(
+            })
+            .await;
+        if !premise.permits_disposal() {
+            let mut failures = vec![outcome.err().unwrap_or(NativeServiceError::Refused(
+                "cancelled test process cannot prove native joins",
+            ))];
+            if let Err(error) = publish_run_report(
                 report_path.as_deref(),
                 runner_exit.load(std::sync::atomic::Ordering::Acquire),
-                disposal.is_ok(),
-            );
-            let result = match (outcome, disposal) {
-                (Ok(status), Ok(())) => Ok(status),
-                (Err(error), Ok(())) => Err(error),
-                (Ok(_), Err(error)) => Err(error),
-                (Err(error), Err(cleanup)) => Err(NativeServiceError::Settlement {
-                    state: service.state().to_owned(),
-                    failures: vec![error, cleanup],
-                }),
-            };
-            match (result, publication) {
-                (Ok(status), Ok(())) => Ok(status),
-                (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
-                (Err(error), Err(publication)) => Err(NativeServiceError::Settlement {
-                    state: service.state().to_owned(),
-                    failures: vec![error, publication],
-                }),
+                false,
+            ) {
+                failures.push(error);
             }
+            return Err(NativeServiceError::Settlement {
+                state: service.state().to_owned(),
+                failures,
+            });
+        }
+        let disposal = service.dispose();
+        let publication = publish_run_report(
+            report_path.as_deref(),
+            runner_exit.load(std::sync::atomic::Ordering::Acquire),
+            disposal.is_ok(),
+        );
+        let result = match (outcome, disposal) {
+            (Ok(status), Ok(())) => Ok(status),
+            (Err(error), Ok(())) => Err(error),
+            (Ok(_), Err(error)) => Err(error),
+            (Err(error), Err(cleanup)) => Err(NativeServiceError::Settlement {
+                state: service.state().to_owned(),
+                failures: vec![error, cleanup],
+            }),
+        };
+        match (result, publication) {
+            (Ok(status), Ok(())) => Ok(status),
+            (Err(error), Ok(())) | (Ok(_), Err(error)) => Err(error),
+            (Err(error), Err(publication)) => Err(NativeServiceError::Settlement {
+                state: service.state().to_owned(),
+                failures: vec![error, publication],
+            }),
         }
     }
     fn publish_run_report(
@@ -848,7 +920,7 @@ mod command {
     }
 }
 #[cfg(feature = "native-service")]
-pub use command::NativeTestCommand;
+pub use command::{NativeTestCommand, run_benchmark_fixture};
 
 #[cfg(test)]
 mod tests {

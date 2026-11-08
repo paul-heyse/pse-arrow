@@ -4,14 +4,14 @@
 //! the seed PC-SAFT homogeneous state at N components and of the Peng–Robinson density root
 //! under its inline and nested realizations. Nothing is solved.
 //!
-//! Workloads are registered in `.config/preparation-cases.json`; `just bench-smoke` tests the
-//! `smoke` ones once. `PSE_PREPARATION_CASE` selects one workload (one case per process gives
+//! Workloads are registered in `.config/preparation-cases.json`. Ordinary smoke runs the two
+//! local scalar cases. `PSE_PREPARATION_CASE` selects one named workload (one case per process gives
 //! a per-case peak RSS) and `PSE_PREPARATION_OUTPUT` names a directory for the per-case
 //! records, which are also printed. Each iteration admits a fresh runtime and seed closure
 //! untimed, then measures cold, warm, value and structural preparations; the Symbolica formal
 //! pool persists. The timed path is solver-independent, so its derivative programs are
-//! first order; the nested realization needs the KINSOL capability (`native-process`), and
-//! without it that workload records an infrastructure refusal. A typed resource refusal,
+//! first order. Canonical cases borrow the prepared fixture, and the nested realization also
+//! needs KINSOL (`solver-kinsol`). A typed resource refusal,
 //! such as the formal-slot allowance, is a recorded result.
 #![recursion_limit = "256"]
 #![allow(
@@ -21,6 +21,11 @@
     clippy::print_stdout,
     reason = "a standalone measurement harness fails on invalid setup and emits its records"
 )]
+#[allow(
+    dead_code,
+    reason = "shared admission describes both benchmark targets"
+)]
+mod admission;
 #[path = "audit/mod.rs"]
 mod audit;
 #[path = "k4/preparation.rs"]
@@ -35,6 +40,7 @@ mod phases;
 mod workflow_runtime;
 
 use criterion::{Criterion, criterion_group, criterion_main};
+use pse_benches::CriterionMode;
 use pse_runtime::{
     CancelSource,
     workflow::{ModelingPackage, Runtime, WorkflowError},
@@ -298,7 +304,7 @@ fn members(bank: &[String], n: usize) -> Vec<String> {
 /// The bench package's documents: its manifest, whose dependency on `pse.physical` lets its
 /// model name the physical quantity types, and its authored model and tests for the
 /// registered workloads.
-fn bench_package(seed: &[String], workloads: &[Value]) -> BTreeMap<String, String> {
+fn bench_package(seed: &[String], workload: &Value) -> BTreeMap<String, String> {
     let manifest = format!(
         "[package]\n\
          package_id = \"{PACKAGE}\"\n\
@@ -320,16 +326,19 @@ fn bench_package(seed: &[String], workloads: &[Value]) -> BTreeMap<String, Strin
         ("package.toml".to_owned(), manifest),
         (
             "models/preparation.pse".to_owned(),
-            bench_source(seed, workloads),
+            bench_source(seed, workload),
         ),
     ])
 }
 
 /// Authored source of the bench package for the registered workloads.
-fn bench_source(seed: &[String], workloads: &[Value]) -> String {
+fn bench_source(seed: &[String], workload: &Value) -> String {
     let mut s = "package preparation_bench {\nuse chemistry @\"1.0.0\";\nuse chem @\"1.0.0\";\nuse helmholtz @\"1.0.0\";\nuse pcsaft_data @\"1.0.0\";\nuse bt_ideal @\"1.0.0\";\nuse peng_robinson @\"1.0.0\";\n".to_owned();
-    s.push_str(&format!(
-        "def PcSaftState(selected:Set<chemistry.species>) {{\n\
+    let name = test_name(workload);
+    match workload["model"].as_str().unwrap() {
+        "pcsaft" => {
+            s.push_str(&format!(
+                "def PcSaftState(selected:Set<chemistry.species>) {{\n\
          param components:Set<chemistry.species>=selected;\n\
          child phase:helmholtz.HelmholtzPhase=helmholtz.HomogeneousPhase(selected=selected,law=pcsaft_data.potential);\n\
          param pressure:Pressure={PRESSURE};\n\
@@ -341,40 +350,35 @@ fn bench_source(seed: &[String], workloads: &[Value]) -> String {
          annotation start phase.rho(34.5{{mol/m^3}});\n\
          annotation nominal phase.rho(40{{mol/m^3}});\n\
          }}\n"
-    ));
-    for workload in workloads {
-        let name = test_name(workload);
-        match workload["model"].as_str().unwrap() {
-            "pcsaft" => {
-                let n = workload["components"].as_u64().unwrap() as usize;
-                let selected = members(seed, n);
-                s.push_str(&format!(
-                    "set members_{n:02}:Set<chemistry.species>={{{}}};\n",
-                    selected.join(",")
-                ));
-                let amounts: String = selected
-                    .iter()
-                    .map(|j| format!("fix root.phase.amount[{j}]={}{{mol}};", 1.0 / n as f64))
-                    .collect();
-                s.push_str(&format!(
+            ));
+            let n = workload["components"].as_u64().unwrap() as usize;
+            let selected = members(seed, n);
+            s.push_str(&format!(
+                "set members_{n:02}:Set<chemistry.species>={{{}}};\n",
+                selected.join(",")
+            ));
+            let amounts: String = selected
+                .iter()
+                .map(|j| format!("fix root.phase.amount[{j}]={}{{mol}};", 1.0 / n as f64))
+                .collect();
+            s.push_str(&format!(
                     "test {name} fixture {{dof 0; route steady; procedure solve; fix root.phase.T={TEMPERATURE}; {amounts}}} {{\n\
                      child root:PcSaftState=PcSaftState(selected=members_{n:02});\n}}\n"
                 ));
-            }
-            "peng-robinson" => {
-                // The seed's `density_inline`/`density_nested` state: IDAES 2.13 BT_PR vapor.
-                let realization = match workload["realization"].as_str().unwrap() {
-                    "inline" => "InlineDensity",
-                    "nested" => "NestedDensity",
-                    other => panic!("unregistered realization {other}"),
-                };
-                s.push_str(&format!(
+        }
+        "peng-robinson" => {
+            // The seed's `density_inline`/`density_nested` state: IDAES 2.13 BT_PR vapor.
+            let realization = match workload["realization"].as_str().unwrap() {
+                "inline" => "InlineDensity",
+                "nested" => "NestedDensity",
+                other => panic!("unregistered realization {other}"),
+            };
+            s.push_str(&format!(
                     "test {name} fixture {{dof 0; route steady; procedure solve; fix root.T=450{{K}}; fix root.target_pressure={PRESSURE}; fix root.amount[chem.benzene]=0.5{{mol}}; fix root.amount[chem.toluene]=0.5{{mol}}; value root.density_lower=1; value root.density_upper=100; value root.density_start=27;}} {{\n\
                      child root:peng_robinson.DensityRoot=peng_robinson.{realization}(selected=bt_ideal.aromatics,pkg=eos_data.bt_pr_parameters,law=eos_data.potential);\n}}\n"
                 ));
-            }
-            other => panic!("unregistered model {other}"),
         }
+        other => panic!("unregistered model {other}"),
     }
     s.push_str("}\n");
     s
@@ -392,17 +396,19 @@ async fn case(
 ) -> pse_modeling::DeclarationId {
     let name = test_name(workload);
     let declarations = package.declarations(services).await.unwrap();
-    declarations
-        .iter()
-        .find(|r| {
-            r.name == name
-                && r.value.kind.as_str() == "test"
-                && declarations
-                    .iter()
-                    .any(|p| Some(p.declaration_id) == r.parent_id && p.name == "preparation_bench")
-        })
-        .unwrap()
-        .declaration_id
+    let mut fixtures = declarations.iter().filter(|r| {
+        r.value.kind.as_str() == "test"
+            && declarations
+                .iter()
+                .any(|p| Some(p.declaration_id) == r.parent_id && p.name == "preparation_bench")
+    });
+    let fixture = fixtures.next().unwrap();
+    assert_eq!(fixture.name, name);
+    assert!(
+        fixtures.next().is_none(),
+        "the package authors one selected fixture"
+    );
+    fixture.declaration_id
 }
 
 /// Integer observation of a finished or refused preparation.
@@ -572,80 +578,97 @@ async fn prepare(
 
 fn preparation(c: &mut Criterion) {
     use tracing_subscriber::prelude::*;
+    let mode = CriterionMode::current();
     let phases = phases::Phases::default();
-    let registered: Value = serde_json::from_str(
-        &std::fs::read_to_string(repository().join(".config/preparation-cases.json")).unwrap(),
-    )
-    .unwrap();
-    let workloads = registered["workloads"].as_array().unwrap().clone();
-    let selected = std::env::var("PSE_PREPARATION_CASE").ok();
-    if let Some(id) = &selected {
-        assert!(
-            workloads.iter().any(|w| w["id"] == id.as_str()),
-            "unregistered preparation workload {id}"
-        );
+    let registered: Value =
+        serde_json::from_str(include_str!("../../.config/preparation-cases.json")).unwrap();
+    let registered = registered["workloads"].as_array().unwrap();
+    let selected = std::env::var("PSE_PREPARATION_CASE").ok().map(|id| {
+        registered
+            .iter()
+            .find(|w| w["id"] == id.as_str())
+            .unwrap_or_else(|| panic!("unregistered preparation workload {id}"))
+    });
+    let workloads = if let Some(workload) = selected {
+        vec![workload]
+    } else {
+        registered
+            .iter()
+            .filter(|workload| {
+                workload["smoke"] == true && admission::preparation_inputs(workload).local()
+            })
+            .collect::<Vec<_>>()
+    };
+    if mode == CriterionMode::List {
+        let mut group = c.benchmark_group("modeling_preparation");
+        for workload in workloads {
+            group.bench_function(workload["id"].as_str().unwrap(), |_| {});
+        }
+        return;
     }
-    let mut audit = selected
-        .as_deref()
-        .and_then(|id| workloads.iter().find(|workload| workload["id"] == id))
-        .map(|workload| audit::Audit::start(workload["id"].as_str().unwrap(), workload));
+    println!(
+        "{}",
+        admission::selection_record(
+            "modeling_preparation",
+            mode,
+            &workloads,
+            registered,
+            admission::preparation_inputs,
+        )
+    );
+    let output = std::env::var_os("PSE_PREPARATION_OUTPUT").map(PathBuf::from);
+    if let Some(workload) = selected
+        && admission::admit(
+            admission::preparation_inputs(workload),
+            mode,
+            output.as_deref(),
+        )
+        .unwrap_or_else(|error| panic!("benchmark prerequisite refused: {error}"))
+    {
+        return;
+    }
+    let mut audit =
+        selected.map(|workload| audit::Audit::start(workload["id"].as_str().unwrap(), workload));
     tracing_subscriber::registry()
         .with(phases.clone())
         .with(audit.as_ref().and_then(|audit| audit.capture_layer()))
         .try_init()
         .unwrap();
     let _audit_context = audit.as_ref().and_then(|audit| audit.enter());
-    // Criterion measures under `--bench`; otherwise it tests each function once, and only
-    // the registered smoke workloads run unless one case is selected.
-    let measuring = std::env::args().any(|a| a == "--bench");
-    let output = std::env::var_os("PSE_PREPARATION_OUTPUT").map(PathBuf::from);
-    if let Some(workload) = selected
-        .as_deref()
-        .and_then(|id| workloads.iter().find(|w| w["id"] == id))
+    for workload in workloads
+        .iter()
+        .copied()
         .filter(|w| w["model"] == "scalar-k4")
     {
         k4_preparation::measure(c, workload, output.as_deref(), &phases);
+    }
+    let Some(workload) = workloads.into_iter().find(|w| w["model"] != "scalar-k4") else {
         if let Some(audit) = &mut audit {
             audit.complete();
         }
         return;
-    }
+    };
     let executor = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
-    if selected.is_none() {
-        for workload in workloads
-            .iter()
-            .filter(|w| w["model"] == "scalar-k4" && (measuring || w["smoke"] == true))
-        {
-            k4_preparation::measure(c, workload, output.as_deref(), &phases);
-        }
-    }
-    // Workloads take deterministic prefixes of one declared published bank.
-    let bench = {
+    // Only the selected PC-SAFT workload needs the published component bank.
+    let bank = if workload["model"] == "pcsaft" {
         let owner = WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap()).unwrap();
-        bench_package(
-            &bank_members(&owner),
-            &workloads
-                .iter()
-                .filter(|w| w["model"] != "scalar-k4")
-                .cloned()
-                .collect::<Vec<_>>(),
-        )
+        bank_members(&owner)
+    } else {
+        Vec::new()
     };
+    let bench = bench_package(&bank, workload);
     let mut group = c.benchmark_group("modeling_preparation");
     group
         .sample_size(10)
         .sampling_mode(criterion::SamplingMode::Flat)
         .warm_up_time(Duration::from_millis(1))
         .measurement_time(Duration::from_secs(1));
-    for workload in workloads.iter().filter(|w| match selected.as_deref() {
-        Some(id) => w["id"] == id,
-        None => (measuring || w["smoke"] == true) && w["model"] != "scalar-k4",
-    }) {
-        let id = workload["id"].as_str().unwrap();
+    let id = workload["id"].as_str().unwrap();
+    {
         let mut records = Vec::new();
         group.bench_function(id, |b| {
             b.iter_custom(|iterations| {
@@ -654,7 +677,8 @@ fn preparation(c: &mut Criterion) {
                     let owner =
                         WorkflowRuntime::with_threads(std::num::NonZeroUsize::new(1).unwrap())
                             .unwrap();
-                    let stages = audit::with_owner_sync(&owner, &executor, || {
+                    let pool = owner.runtime.pool();
+                    let (declaration, stages) = audit::with_owner_sync(&owner, &executor, || {
                         let (runtime, package) =
                             executor.block_on(audit::scope(seed(&owner, &bench)));
                         let case = executor.block_on(audit::scope(case(
@@ -676,45 +700,59 @@ fn preparation(c: &mut Criterion) {
                             timed += elapsed;
                             stages.push(record);
                         }
-                        stages
+                        (case, stages)
                     });
-                    records.push(
-                        json!({"experiment":"modeling_preparation", "id":id, "stages":stages}),
-                    );
                     // Teardown is outside every recorded preparation duration.
                     let cleanup = executor.block_on(owner.cleanup_fixtures());
                     audit::cleanup_result(cleanup.is_ok());
                     cleanup.unwrap();
+                    drop(owner);
+                    executor.block_on(tokio::task::yield_now());
+                    assert_eq!(
+                        pool.reserved(),
+                        0,
+                        "prepared benchmark sample drains its pool"
+                    );
+                    records.push(json!({
+                        "experiment":"modeling_preparation", "id":id, "declaration":declaration,
+                        "stages":stages, "after_runtime_teardown_bytes":pool.reserved(),
+                    }));
                 }
                 timed
             });
         });
         // Structure and outcome are deterministic; phase clocks average every iteration,
         // Criterion's warm-up included. Criterion's own report holds the timing statistics.
-        let mut record = records.last().unwrap().clone();
-        for (index, stage) in record["stages"]
-            .as_array_mut()
-            .unwrap()
-            .iter_mut()
-            .enumerate()
-        {
-            for (phase, value) in stage["seconds"].as_object_mut().unwrap() {
-                let clocks: Vec<_> = records
-                    .iter()
-                    .filter_map(|r| r["stages"][index]["seconds"][phase.as_str()].as_f64())
-                    .collect();
-                *value = (clocks.iter().sum::<f64>() / clocks.len() as f64).into();
+        if let Some(mut record) = records.last().cloned() {
+            for (index, stage) in record["stages"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .enumerate()
+            {
+                for (phase, value) in stage["seconds"].as_object_mut().unwrap() {
+                    let clocks: Vec<_> = records
+                        .iter()
+                        .filter_map(|r| r["stages"][index]["seconds"][phase.as_str()].as_f64())
+                        .collect();
+                    *value = (clocks.iter().sum::<f64>() / clocks.len() as f64).into();
+                }
             }
-        }
-        record["iterations"] = records.len().into();
-        println!("{record}");
-        if let Some(directory) = &output {
-            std::fs::create_dir_all(directory).unwrap();
-            std::fs::write(
-                directory.join(format!("{id}.json")),
-                serde_json::to_vec_pretty(&record).unwrap(),
-            )
-            .unwrap();
+            record["iterations"] = records.len().into();
+            record["mode"] = mode.label().into();
+            record["iteration_scope"] =
+                "callback iterations, including warm-up during measurement".into();
+            record["source_capture"] =
+                "per iteration outside the measured preparation stages".into();
+            println!("{record}");
+            if let Some(directory) = &output {
+                std::fs::create_dir_all(directory).unwrap();
+                std::fs::write(
+                    directory.join(format!("{id}.json")),
+                    serde_json::to_vec_pretty(&record).unwrap(),
+                )
+                .unwrap();
+            }
         }
     }
     group.finish();

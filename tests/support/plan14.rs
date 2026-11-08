@@ -17,6 +17,18 @@ use pse_runtime::math::solves::SolverProfile;
 use pse_runtime::workflow::{RunReport, RunResult, Runtime};
 use std::collections::BTreeMap;
 pub(crate) use workflow_runtime::WorkflowRuntime;
+const PHYSICAL_PACKAGE: &str = "packages/reference/physical";
+const SEED_PACKAGE: &str = "packages/reference/seed-data";
+const SEED_TRANSPORT: &str = "seed-transport";
+
+pub(crate) fn require_physical_inputs() {
+    scientific_inputs::require_package(PHYSICAL_PACKAGE);
+}
+
+pub(crate) fn require_seed_inputs() {
+    scientific_inputs::require_transport_family(SEED_TRANSPORT, SEED_PACKAGE);
+}
+
 pub(crate) fn fixture(name: &str) -> std::path::PathBuf {
     std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -55,7 +67,7 @@ pub(crate) async fn physical_on(
     owner: &WorkflowRuntime,
     runtime: &Runtime,
 ) -> pse_runtime::workflow::PhysicalContext {
-    let texts = scientific_inputs::package_documents("packages/reference/physical");
+    let texts = scientific_inputs::package_documents(PHYSICAL_PACKAGE);
     let pool = owner.runtime.pool();
     let bundle = pse_admission::authoring_driver::document::load_package_documents_owned(
         &texts,
@@ -147,7 +159,7 @@ pub(crate) async fn seed_package_on(
     };
 
     let pool = owner.runtime.pool();
-    let bundles = scientific_inputs::family_packages("seed-transport")
+    let bundles = scientific_inputs::family_packages(SEED_TRANSPORT)
         .into_iter()
         .map(|(_path, texts)| {
             load_package_documents_owned(

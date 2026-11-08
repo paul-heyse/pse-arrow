@@ -152,6 +152,29 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
         drained_pool, baseline,
         "join releases first attempt reservations"
     );
+    // The abandoned original's terminal error remains with its supervisor.
+    // Fresh admission harvests that error before admitting another callback.
+    let original = service
+        .with_worker(
+            executable.clone(),
+            BTreeMap::new(),
+            &CancelSource::new(),
+            |_| -> Result<(), MathRuntimeError> {
+                panic!("fresh callback entered before reconciling the abandoned worker")
+            },
+        )
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        &original,
+        MathRuntimeError::Settlement { operation, cleanup }
+            if matches!(operation.as_ref(), MathRuntimeError::Cancelled)
+                && matches!(cleanup.as_ref(), MathRuntimeError::Solve(
+                    pse_backend_native::ProblemError::Provider(pse_kernels::ProviderError::Cancelled)
+                ))
+    ));
+    assert_eq!(occupied_job_slots(service), 0);
+    assert_eq!(pool.reserved(), baseline);
     // This independent public call reacquires after drain. It is not an internal queue.
     let (second_tx, mut second_rx) = tokio::sync::oneshot::channel();
     let (second_release_tx, second_release_rx) = mpsc::channel();
@@ -186,8 +209,6 @@ pub(super) async fn run(owner: &WorkflowRuntime, phases: &phases::Phases) -> (Du
     drop(model);
     drop(revision);
     drop(workspace);
-    (
-        elapsed,
-        json!({"source_content_hash":pse_ids::encoding_checksum(demand::SOURCE.as_bytes()).content_hash(),"physical_context_hash":pse_compiler::workspace::physical_identity(&context.quantities,&context.preconditions),"stages":[{"stage":"worker-permit-lifetime","outcome":"prepared","seconds":{"total":elapsed.as_secs_f64()}}],"admission":{"cores":1,"worker_job_slots":1,"job_slot_observation":"math_native_active counts occupied admission slots, including waiters","concurrent_call_outcome":"typed-refusal","refusal":refusal.to_string(),"during_teardown_refusal":teardown_refusal.to_string(),"after_drain":"reacquired","internal_queue":false},"gates":["first-closure-entered","await-future-dropped","concurrent-call-refused","native-tls-teardown-entered","teardown-call-refused","native-thread-joined-and-admission-drained","second-worker-entered","second-worker-drained"],"pool_bytes":{"baseline":baseline,"first_entry":entered_pool,"after_future_drop":dropped_pool,"during_tls_teardown":teardown_pool,"after_first_drain":drained_pool,"second_entry":second_pool,"after_second_drain":final_pool},"after_products_release_bytes":pool.reserved(),"compiler_phases":phases.report(1),"constructions":phases.constructions()}),
-    )
+    let record = json!({"source_content_hash":pse_ids::encoding_checksum(demand::SOURCE.as_bytes()).content_hash(),"physical_context_hash":pse_compiler::workspace::physical_identity(&context.quantities,&context.preconditions),"stages":[{"stage":"worker-permit-lifetime","outcome":"prepared","seconds":{"total":elapsed.as_secs_f64()}}],"admission":{"cores":1,"worker_job_slots":1,"caller_executor":"current-thread","job_slot_observation":"math_native_active counts occupied admission slots, including waiters","concurrent_call_outcome":"typed-refusal","refusal":refusal.to_string(),"during_teardown_refusal":teardown_refusal.to_string(),"abandoned_original":original.to_string(),"after_drain":"reacquired","internal_queue":false},"gates":["first-closure-entered","await-future-dropped","concurrent-call-refused","native-tls-teardown-entered","teardown-call-refused","native-thread-joined-and-admission-drained","abandoned-original-reconciled","second-worker-entered","second-worker-drained"],"pool_bytes":{"baseline":baseline,"first_entry":entered_pool,"after_future_drop":dropped_pool,"during_tls_teardown":teardown_pool,"after_first_drain":drained_pool,"second_entry":second_pool,"after_second_drain":final_pool},"after_products_release_bytes":pool.reserved(),"compiler_phases":phases.report(1),"constructions":phases.constructions()});
+    (elapsed, record)
 }

@@ -35,6 +35,8 @@ force-validate = [
   "pse-testkit/force-validate",
 ]
 native-process = ["pse-runtime/native-solvers"]
+prepared-benchmark = ["pse-operations/native-service"]
+solver-kinsol = ["pse-runtime/solver-kinsol"]
 
 [dev-dependencies]
 pse-buildinfo.workspace = true
@@ -74,8 +76,8 @@ parquet.workspace = true
 [[bench]]
 name = "native_cache"
 # Criterion supplies its own main; the libtest harness would swallow the arguments.
-# `cargo bench` passes `--bench`; `cargo test --benches -p pse-benches` passes no mode flag,
-# and every target then runs once with no timing gate — the smoke check (`just bench-smoke`).
+# Ordinary smoke covers the local targets and selected local preparation cases.
+# The prepared route names one workload and its smoke or measurement mode.
 harness = false
 
 [[bench]]
@@ -87,7 +89,7 @@ name = "native_process"
 harness = false
 required-features = ["native-process"]
 
-# M1 preparation scaling (Plan 23 H2); no solver is linked or started.
+# M1 preparation scaling (Plan 23 H2). Only the nested case selects KINSOL.
 [[bench]]
 name = "modeling_preparation"
 harness = false
