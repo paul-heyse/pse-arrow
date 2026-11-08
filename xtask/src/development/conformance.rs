@@ -3,7 +3,8 @@
 //! Manifest-driven native conformance. Applications own runtime construction and shutdown.
 use anyhow::{Context, Result, ensure};
 use pse_admission::authoring_driver::document::{
-    OwnedDocumentSet, capture_package, load_package_documents_owned,
+    CapturedPackage, OwnedDocumentBundle, OwnedDocumentSet, capture_package,
+    load_package_documents_owned,
 };
 use pse_model::generated::{
     enums::{ConformanceExecution, ConformancePresolve},
@@ -18,6 +19,7 @@ use pse_runtime::{
         Runtime, conform_pure_request,
     },
 };
+use pse_schema::Registry;
 use std::{
     collections::BTreeMap,
     io::Read,
@@ -123,6 +125,12 @@ impl Campaign {
     ) -> Result<RunReport> {
         self.require_selected(run, ConformanceExecution::Native)?;
         providers.validate()?;
+        let selection = NativeSourceSelection::resolve(&self.parent, run)?;
+        let original = selection.capture_physical(runtime.registry())?;
+        ensure!(
+            selection == NativeSourceSelection::resolve(&self.parent, run)?,
+            "conformance package roots changed during capture"
+        );
         let source = runtime.source_services();
         let pool = source.preparation().pool();
         let validation = runtime.validation_context();
@@ -137,11 +145,10 @@ impl Campaign {
                 &validation,
             )?)
         };
-        let physical = OwnedDocumentSet::try_from_bundles(
-            vec![load(&documents(&self.parent.join(&run.physical))?)?],
-            &pool,
-            &token,
-        )?;
+        let physical_bundle = load(&original.files)?;
+        drop(original);
+        let physical =
+            OwnedDocumentSet::try_from_bundles(vec![physical_bundle.clone()], &pool, &token)?;
         let physical = runtime.physical_from_documents(&physical, &token).await?;
         let registrations = match providers {
             NativeProviders::None => BTreeMap::new(),
@@ -167,10 +174,7 @@ impl Campaign {
                 anyhow::bail!("selected coolprop8-water capability is unprepared in this build")
             }
         };
-        let bundles = std::iter::once(&run.package)
-            .chain(&run.dependencies)
-            .map(|path| load(&documents(&self.parent.join(path))?))
-            .collect::<Result<Vec<_>>>()?;
+        let bundles = selection.modeling_bundles(&physical_bundle, runtime.registry(), load)?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
         let package = runtime
             .modeling_from_documents_registered(&documents, physical, registrations, cancel)
@@ -265,6 +269,56 @@ impl Campaign {
             "conformance execution route differs from the authored run"
         );
         Ok(())
+    }
+}
+
+/// Resolved source occurrences for one native run, in authored modeling order.
+#[derive(Debug, PartialEq, Eq)]
+struct NativeSourceSelection {
+    physical: PathBuf,
+    modeling: Vec<PathBuf>,
+}
+
+impl NativeSourceSelection {
+    fn resolve(parent: &Path, run: &ConformanceRun) -> Result<Self> {
+        let resolve = |path: &str| {
+            let source = parent.join(path);
+            source
+                .canonicalize()
+                .with_context(|| format!("conformance package root {}", source.display()))
+        };
+        let physical = resolve(&run.physical)?;
+        let modeling = std::iter::once(&run.package)
+            .chain(&run.dependencies)
+            .map(|path| resolve(path))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(Self { physical, modeling })
+    }
+
+    fn capture_physical(&self, registry: &Registry) -> Result<CapturedPackage> {
+        let original = capture_package(&self.physical, registry, Default::default())?;
+        original.verify(&self.physical, registry)?;
+        Ok(original)
+    }
+
+    fn modeling_bundles(
+        &self,
+        physical: &OwnedDocumentBundle,
+        registry: &Registry,
+        load: impl Fn(&BTreeMap<String, Vec<u8>>) -> Result<OwnedDocumentBundle>,
+    ) -> Result<Vec<OwnedDocumentBundle>> {
+        self.modeling
+            .iter()
+            .map(|path| {
+                if *path == self.physical {
+                    // The actual root was resolved before capture. The clone retains
+                    // its original lease, parser results and exact document bytes.
+                    Ok(physical.clone())
+                } else {
+                    load(&capture_package(path, registry, Default::default())?.files)
+                }
+            })
+            .collect()
     }
 }
 
