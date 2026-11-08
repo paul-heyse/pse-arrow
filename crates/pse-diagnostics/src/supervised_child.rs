@@ -16,6 +16,9 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod capture;
+pub use capture::{CapturedOutput, CapturedStream};
+
 /// Unknown drain never silently releases compiler ownership.
 #[derive(Clone, Copy, Debug)]
 pub enum DrainFailurePolicy {
@@ -23,6 +26,8 @@ pub enum DrainFailurePolicy {
     Park,
     /// Refuse after this finite drain allowance and retry once on owner drop.
     Refuse(Duration),
+    /// Refuse at the original absolute settlement cutoff, including on drop.
+    RefuseUntil(Instant),
 }
 /// A bounded prefix reader; the caller prepays its stack and buffer before spawn.
 #[derive(Clone, Copy, Debug)]
@@ -71,6 +76,7 @@ pub struct SupervisedChild {
     finished: Option<ExitStatus>,
     reader: Option<std::thread::JoinHandle<io::Result<Vec<u8>>>>,
     stderr: Option<Vec<u8>>,
+    capture: Option<capture::Capture>,
     policy: DrainFailurePolicy,
     facts: ProcessReader,
 }
@@ -115,6 +121,7 @@ impl SupervisedChild {
             finished: None,
             reader: None,
             stderr: None,
+            capture: None,
             policy,
             facts,
         };
@@ -151,6 +158,49 @@ impl SupervisedChild {
             );
         }
         Ok(owner)
+    }
+    /// Reserve bounded stdout and stderr prefixes and spawn a finite, owned capture.
+    pub fn spawn_captured(
+        command: &mut Command,
+        stdout_bytes: usize,
+        stderr_bytes: usize,
+        settlement_end: Instant,
+    ) -> Result<Self, SupervisionError> {
+        check(None, Some(settlement_end))?;
+        let output = CapturedOutput::reserve(stdout_bytes, stderr_bytes)?;
+        command.stdout(Stdio::piped()).stderr(Stdio::piped());
+        let mut owner = Self::spawn(
+            command,
+            DrainFailurePolicy::RefuseUntil(settlement_end),
+            None,
+        )?;
+        owner.capture = Some(capture::Capture::new(&mut owner.child, output)?);
+        Ok(owner)
+    }
+
+    /// Service both output pipes until the leader exits, without reaping it.
+    pub fn wait_captured(
+        &mut self,
+        control: Option<&Cancellation>,
+        work_end: Instant,
+    ) -> Result<(), SupervisionError> {
+        if self.finished.is_some() {
+            return Ok(());
+        }
+        let fd = self
+            .process_fd
+            .as_ref()
+            .ok_or_else(|| SupervisionError::Identity("leader pidfd absent".into()))?;
+        self.capture
+            .as_mut()
+            .ok_or_else(|| SupervisionError::Reader("bounded capture absent".into()))?
+            .wait(Some(fd), control, work_end)?;
+        self.wait_ready(control, Some(work_end))
+    }
+
+    /// Output facts remain available after a refusal, separately from the original exit.
+    pub fn captured_output(&self) -> Option<&CapturedOutput> {
+        self.capture.as_ref().map(|capture| &capture.output)
     }
     fn admit(&mut self, inherited: &ProcessIdentity) -> Result<(), SupervisionError> {
         let before = present(self.facts.stat(self.pid()))?;
@@ -284,9 +334,19 @@ impl SupervisedChild {
     /// Wait for the leader, then independently drain every owned member.
     pub fn wait(&mut self) -> Result<ExitStatus, SupervisionError> {
         if let Some(status) = self.finished {
-            return Ok(status);
+            return if self.capture.is_some() {
+                self.drain()
+            } else {
+                Ok(status)
+            };
         }
-        self.wait_ready(None, None)?;
+        if self.capture.is_some()
+            && let DrainFailurePolicy::RefuseUntil(deadline) = self.policy
+        {
+            self.wait_captured(None, deadline)?;
+        } else {
+            self.wait_ready(None, None)?;
+        }
         self.drain()
     }
     /// Kill the owned group and await complete group drain before reaping its leader.
@@ -385,9 +445,6 @@ impl SupervisedChild {
     }
     /// Drain under the selected failure policy. Cancellation/deadline do not release issued work.
     pub fn drain(&mut self) -> Result<ExitStatus, SupervisionError> {
-        if let Some(status) = self.finished {
-            return Ok(status);
-        }
         let deadline = match self.policy {
             DrainFailurePolicy::Park => None,
             DrainFailurePolicy::Refuse(allowance) => Some(
@@ -395,9 +452,22 @@ impl SupervisedChild {
                     .checked_add(allowance)
                     .ok_or(SupervisionError::Drain)?,
             ),
+            DrainFailurePolicy::RefuseUntil(deadline) => Some(deadline),
         };
-        match self.drain_inner(deadline) {
-            Ok(status) => Ok(status),
+        let result = if let Some(status) = self.finished {
+            Ok(status)
+        } else {
+            self.drain_inner(deadline)
+        };
+        match result {
+            Ok(status) => {
+                if let Some(capture) = &mut self.capture
+                    && let Some(deadline) = deadline
+                {
+                    capture.wait(None, None, deadline)?;
+                }
+                Ok(status)
+            }
             Err(error)
                 if matches!(self.policy, DrainFailurePolicy::Park) && self.finished.is_none() =>
             {
@@ -553,8 +623,34 @@ fn wait_exit(
     control: Option<&Cancellation>,
     deadline: Option<Instant>,
 ) -> Result<(), SupervisionError> {
+    use rustix::event::{PollFd, PollFlags};
+    wait_poll(control, deadline, |signal, timeout| {
+        let mut descriptors = vec![PollFd::new(fd, PollFlags::IN)];
+        if let Some(signal) = signal {
+            descriptors.push(PollFd::new(signal, PollFlags::IN));
+        }
+        rustix::event::poll(&mut descriptors, timeout).map_err(io::Error::from)?;
+        check(control, deadline)?;
+        let ready = descriptors[0].revents();
+        if ready.intersects(PollFlags::NVAL | PollFlags::ERR) {
+            return Err(SupervisionError::Identity(
+                "pidfd exit notification unavailable".into(),
+            ));
+        }
+        Ok(ready.intersects(PollFlags::IN | PollFlags::HUP))
+    })
+}
+
+fn wait_poll(
+    control: Option<&Cancellation>,
+    deadline: Option<Instant>,
+    mut step: impl FnMut(
+        Option<&OwnedFd>,
+        Option<&rustix::event::Timespec>,
+    ) -> Result<bool, SupervisionError>,
+) -> Result<(), SupervisionError> {
     use rustix::{
-        event::{EventfdFlags, PollFd, PollFlags, Timespec},
+        event::{EventfdFlags, Timespec},
         io::Errno,
     };
     #[derive(Debug)]
@@ -583,24 +679,11 @@ fn wait_exit(
             .map(|deadline| Timespec::try_from(deadline.saturating_duration_since(Instant::now())))
             .transpose()
             .map_err(io::Error::other)?;
-        let mut descriptors = vec![PollFd::new(fd, PollFlags::IN)];
-        if let Some(signal) = &signal {
-            descriptors.push(PollFd::new(&signal.0, PollFlags::IN));
-        }
-        match rustix::event::poll(&mut descriptors, timeout.as_ref()) {
-            Err(Errno::INTR) => continue,
-            Err(error) => return Err(io::Error::from(error).into()),
-            Ok(_) => {}
-        }
-        check(control, deadline)?;
-        let ready = descriptors[0].revents();
-        if ready.intersects(PollFlags::NVAL | PollFlags::ERR) {
-            return Err(SupervisionError::Identity(
-                "pidfd exit notification unavailable".into(),
-            ));
-        }
-        if ready.intersects(PollFlags::IN | PollFlags::HUP) {
-            return Ok(());
+        match step(signal.as_ref().map(|signal| &signal.0), timeout.as_ref()) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(SupervisionError::Io(error)) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
         }
     }
 }

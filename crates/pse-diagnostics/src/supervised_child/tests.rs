@@ -163,6 +163,79 @@ fn supervised_child_bounded_stderr_drains_noise_and_joins_before_return() {
     assert!(child.reader.is_none());
 }
 #[test]
+fn supervised_child_finite_capture_keeps_zero_exit_and_both_overflows() {
+    let mut command = Command::new("/bin/sh");
+    command.args([
+        "-c",
+        "head -c 131072 /dev/zero & head -c 131072 /dev/zero >&2 & wait",
+    ]);
+    let start = Instant::now();
+    let mut child =
+        SupervisedChild::spawn_captured(&mut command, 17, 29, start + Duration::from_secs(6))
+            .unwrap();
+    child
+        .wait_captured(None, start + Duration::from_secs(3))
+        .unwrap();
+    assert!(child.retained_status().is_none());
+    assert!(child.drain().unwrap().success());
+    let output = child.captured_output().unwrap();
+    for (stream, size) in [(&output.stdout, 17), (&output.stderr, 29)] {
+        assert_eq!(stream.prefix, vec![0; size]);
+        assert!(stream.complete && stream.overflow);
+    }
+}
+
+#[test]
+fn supervised_child_finite_capture_reaps_a_group_with_an_inherited_writer() {
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "sleep 60 & printf reached"]);
+    let start = Instant::now();
+    let mut child =
+        SupervisedChild::spawn_captured(&mut command, 16, 16, start + Duration::from_secs(6))
+            .unwrap();
+    child
+        .wait_captured(None, start + Duration::from_secs(3))
+        .unwrap();
+    assert!(child.retained_status().is_none());
+    assert!(child.drain().unwrap().success());
+    let output = child.captured_output().unwrap();
+    assert_eq!(output.stdout.prefix, b"reached");
+    assert!(output.stdout.complete && output.stderr.complete);
+    assert!(!output.stdout.overflow && !output.stderr.overflow);
+}
+
+#[test]
+fn supervised_child_finite_capture_reports_an_unresolved_pipe_after_group_reap() {
+    use rustix::pipe::{PipeFlags, pipe_with};
+
+    let mut command = Command::new("/bin/sh");
+    command.args(["-c", "exit 0"]);
+    let start = Instant::now();
+    let mut child =
+        SupervisedChild::spawn_captured(&mut command, 16, 16, start + Duration::from_secs(6))
+            .unwrap();
+    child
+        .wait_captured(None, start + Duration::from_secs(3))
+        .unwrap();
+    // Keep an independent writer alive without starting an escaped process. EOF
+    // cannot be inferred from the verified reap of the original process group.
+    let (read, writer) = pipe_with(PipeFlags::CLOEXEC | PipeFlags::NONBLOCK).unwrap();
+    child
+        .capture
+        .as_mut()
+        .unwrap()
+        .replace_stdout_for_test(read);
+    let cutoff = Instant::now() + Duration::from_millis(500);
+    child.policy = DrainFailurePolicy::RefuseUntil(cutoff);
+    assert!(matches!(child.drain(), Err(SupervisionError::Deadline)));
+    assert!(child.retained_status().unwrap().success());
+    assert!(!child.captured_output().unwrap().stdout.complete);
+    drop(writer);
+    child.policy = DrainFailurePolicy::RefuseUntil(Instant::now() + Duration::from_secs(3));
+    assert!(child.drain().unwrap().success());
+    assert!(child.captured_output().unwrap().stdout.complete);
+}
+#[test]
 fn supervised_child_refuse_preserves_leader_and_drop_retries_drain() {
     let mut child = spawn("sleep 60 & wait");
     let leader = child.pid();
@@ -398,6 +471,7 @@ fn supervised_child_exited_before_admission_retains_leader_until_descendant_drai
             finished: None,
             reader: None,
             stderr: None,
+            capture: None,
             policy: DrainFailurePolicy::Refuse(Duration::from_secs(3)),
             facts: image.reader(),
         };

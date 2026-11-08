@@ -16,7 +16,10 @@ pub mod process_facts;
 #[cfg(target_os = "linux")]
 mod supervised_child;
 #[cfg(target_os = "linux")]
-pub use supervised_child::{DrainFailurePolicy, StderrCapture, SupervisedChild, SupervisionError};
+pub use supervised_child::{
+    CapturedOutput, CapturedStream, DrainFailurePolicy, StderrCapture, SupervisedChild,
+    SupervisionError,
+};
 
 pub mod boundary;
 pub mod inspection;
