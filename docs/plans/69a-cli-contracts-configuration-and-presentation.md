@@ -165,6 +165,6 @@ source, independent warnings, unsafe recovery operands, and a delegated cause.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A01 | in progress | Existing parser and catalog | Passive package candidates, typed effect annotations and runnable examples are attached to the parser. Assembled catalog and preparation parity remains. |
+| A01 | complete | Existing parser and catalog | Passive package candidates, typed effect annotations and runnable examples are attached to the parser. The current help snapshot control passed and the parser-owned reference regenerated. Current passive discovery exposed the project publication status route. |
 | A02 | in progress | Current identity and configuration owners | Private project settings resolve defaults, a selected profile and CLI overrides in one read. The settings projection and an ambiguous request with unavailable aliases stayed passive. Assembled unique and ambiguous authorized-target controls remain. |
 | A03 | in progress | Native envelope and original owner receipts | Preparation, project and source receivers carry owner state and exact operation identity. Live schema activation and assembled receiving controls remain. |
