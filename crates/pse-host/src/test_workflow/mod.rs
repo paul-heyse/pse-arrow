@@ -795,7 +795,7 @@ impl Listed {
             .arg("--cargo-metadata")
             .arg(directory.join("cargo-metadata.json"));
         discovery::add_group_filters(&mut command, &self.inventory.selection, group);
-        let mut environment = self.context.environment.clone();
+        let mut environment = correctness::captured_test_environment(&self.context.environment)?;
         environment.remove(std::ffi::OsStr::new("NEXTEST_EXPERIMENTAL_LIBTEST_JSON"));
         environment.remove(std::ffi::OsStr::new("NEXTEST_TEST_PHASE"));
         Ok(GroupCommand {

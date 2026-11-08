@@ -1076,10 +1076,24 @@ pub(crate) fn standalone_adapter_environment(
         BUILD_CAPTURE,
         BUILD_OBSERVATION,
         FIXTURE_METADATA_CAPTURE,
+        crate::build_admission::CALLBACK,
     ] {
         selected.remove(OsStr::new(key));
     }
     Ok(selected)
+}
+
+/// Run from a captured Nextest inventory without another build callback or setup grant.
+pub(crate) fn captured_test_environment(
+    environment: &crate::environment::Environment,
+) -> Result<crate::environment::Environment, CorrectnessError> {
+    let mut runtime = standalone_adapter_environment(environment)?;
+    let cargo = runtime
+        .remove(OsStr::new(REAL_CARGO))
+        .ok_or_else(|| invalid("selected real Cargo is unavailable"))?;
+    runtime.insert("CARGO".into(), cargo);
+    runtime.remove(OsStr::new("PSE_CORRECTNESS_EXECUTABLE"));
+    Ok(runtime)
 }
 /// Freeze the selected compiler executable before Cargo changes into dependency directories.
 /// Physical Cargo does not inject rustup's toolchain selection into its children.
