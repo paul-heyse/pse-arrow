@@ -60,6 +60,7 @@ host-contracts = ["dep:pse-host"]
 # Passive recorded-result declarations do not depend on their runtime consumers.
 recorded-result-contracts = ["dep:pse-model"]
 scientific-worker-contracts = ["dep:pse-kernels"]
+reference-contracts = ["dep:pse-model"]
 evidence-tools = [
   "dep:pse-operations",
   "dep:pse-engine",
@@ -101,6 +102,7 @@ physical-admission = [
 product-schemas = [
   "recorded-result-contracts",
   "scientific-worker-contracts",
+  "reference-contracts",
   "evidence-tools",
   "dep:pse-compiler",
   "dep:pse-admission",

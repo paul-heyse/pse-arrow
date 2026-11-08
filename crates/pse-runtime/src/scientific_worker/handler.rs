@@ -658,6 +658,7 @@ pub(super) fn evaluate(
             cotangents: &value.cotangents,
             weights: &value.weights,
             expected_linearization: None,
+            observe_selection: false,
         },
     )?;
     Ok(p::Values {

@@ -146,7 +146,7 @@ mod tests {
             for (kind, key) in [
                 ("document", "cases"),
                 ("document_section", "cases.fit_cases"),
-                ("relation", "authored.fit_cases@4"),
+                ("relation", "authored.fit_cases@5"),
             ] {
                 let record = rust
                     .relationships
@@ -170,7 +170,7 @@ mod tests {
         assert!(
             rust.relationships
                 .iter()
-                .any(|record| record.declaration_key == "authored.fit_cases@4"
+                .any(|record| record.declaration_key == "authored.fit_cases@5"
                     && record.output_path
                         == "crates/pse-model/src/generated/authored/fit_cases.rs"
                     && record.generator_symbol == "split")

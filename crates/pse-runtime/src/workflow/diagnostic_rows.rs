@@ -457,7 +457,11 @@ mod tests {
         child.causes = vec![leaf];
         diagnostic.causes = vec![child];
         let row = profile_points::Row {
-            original_assessment: None,
+            original_assessment: pse_model::generated::structures::FitOriginalAssessmentObservation {
+                complete: false,
+                experiments: vec![],
+                interruption: None,
+            },
             run_id: RunId::from(source),
             parameter_id: source,
             end: IntervalEnd::Lower,
@@ -466,7 +470,7 @@ mod tests {
             seed: Some(0),
             qualification: None,
             termination: Some(NativeTermination::Evaluation),
-            callback_terminal_failure: Some(true),
+            callback_terminal_failure: true,
             failures: vec![profile_failure(&diagnostic)],
             qualifiers: vec![],
             objective: None,

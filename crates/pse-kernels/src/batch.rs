@@ -35,6 +35,7 @@ impl ProviderBatchPoint {
             cotangents: &self.cotangents,
             weights: &self.weights,
             expected_linearization: None,
+            observe_selection: false,
         }
     }
     pub(super) fn bytes(&self) -> Result<usize, ProviderError> {

@@ -139,6 +139,7 @@ fn source_request(operation: &str) -> pb::EngineeringAdmitSource {
                 fit_source::AuthoredFitCasesFieldExperimentsItemBindingsItem {
                     parameter_id: identity(153),
                     path: "length".into(),
+                    schedule_start: None,
                 },
             ],
         }],

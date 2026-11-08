@@ -74,6 +74,8 @@ pub struct ProviderRuntime<'a> {
     pub weights: &'a [f64],
     /// Prior owner-sealed context; current effects must re-establish it.
     pub expected_linearization: Option<ProviderLinearizationToken>,
+    /// Capture a passive selected-regime fact from this exact fill.
+    pub observe_selection: bool,
 }
 
 /// Attempt-local proof of one provider owner's complete derivative context.
@@ -102,6 +104,121 @@ impl ProviderLinearizationToken {
             binding,
             context,
             inputs: hash.finish_hash(),
+        }
+    }
+}
+
+/// Scientific regularity established by the current mathematical selection.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ProviderSelectionRegularity {
+    /// The selection established a winner at the current point.
+    Point,
+    /// The selection established local derivative eligibility.
+    Local,
+    /// An admitted verifier supplied a local root chart.
+    CertifiedChart,
+}
+
+/// The selected provider's current mathematical fact. No variant claims physical stability.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProviderSelection {
+    /// Original authored selector.
+    pub selector: SemanticId,
+    /// Actual winning authored regime.
+    pub regime: SemanticId,
+    /// Admitted selector policy and implementation configuration.
+    pub policy: ContentHash,
+    /// Current numerical product, including its resolved alternative configurations.
+    pub product: ContentHash,
+    /// Order established by the selection, independently of the filled derivative product.
+    pub selection_order: DerivativeOrder,
+    /// Mathematical selection qualification actually observed.
+    pub regularity: ProviderSelectionRegularity,
+}
+
+/// Passive observation sealed by the actual successful provider binding.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProviderSelectionObservation {
+    binding: u64,
+    provider: ProviderKey,
+    invocation: ContentHash,
+    requested_order: DerivativeOrder,
+    selection: ProviderSelection,
+}
+impl ProviderSelectionObservation {
+    /// Actual bound provider interpretation, including its ordered ports.
+    pub fn provider(&self) -> ProviderKey {
+        self.provider
+    }
+
+    /// Whether two observations came from the same process-local binding.
+    pub fn same_binding(&self, other: &Self) -> bool {
+        self.binding == other.binding
+    }
+
+    /// Exact ordered input, request and action-seed interpretation of the fill.
+    pub fn invocation(&self) -> ContentHash {
+        self.invocation
+    }
+
+    /// Order of the requested and completed fill product.
+    pub fn requested_order(&self) -> DerivativeOrder {
+        self.requested_order
+    }
+
+    /// Supplier fact captured from this invocation.
+    pub fn selection(&self) -> ProviderSelection {
+        self.selection
+    }
+
+    fn seal(
+        binding: &ProviderBinding,
+        inputs: &[f64],
+        request: &PreparedProviderRequest,
+        runtime: ProviderRuntime<'_>,
+        selection: ProviderSelection,
+    ) -> Self {
+        let mut h = pse_ids::FramedHasher::new(pse_ids::Frame::ProviderConfigurationV1);
+        h.str("selected-provider-invocation-v1")
+            .hash(&binding.key.0)
+            .hash(&request.key.0)
+            .u64(request.order as u64)
+            .u64(request.outputs.len() as u64);
+        for &output in &request.outputs {
+            h.u64(output as u64);
+        }
+        match &request.demand {
+            ProviderDemand::CompleteJets => {
+                h.str("complete-jets");
+            }
+            ProviderDemand::SelectedColumns { columns } => {
+                h.str("selected-columns").u64(columns.len() as u64);
+                for &column in columns {
+                    h.u64(column as u64);
+                }
+            }
+            ProviderDemand::JacobianAction { directions } => {
+                h.str("forward").u64(*directions as u64);
+            }
+            ProviderDemand::TransposeAction { cotangents } => {
+                h.str("transpose").u64(*cotangents as u64);
+            }
+            ProviderDemand::WeightedSecondAction { directions } => {
+                h.str("weighted-second").u64(*directions as u64);
+            }
+        }
+        for values in [inputs, runtime.directions, runtime.cotangents, runtime.weights] {
+            h.u64(values.len() as u64);
+            for value in values {
+                h.u64(value.to_bits());
+            }
+        }
+        Self {
+            binding: binding.identity,
+            provider: binding.key,
+            invocation: h.finish_hash(),
+            requested_order: request.order,
+            selection,
         }
     }
 }
@@ -363,6 +480,8 @@ pub struct ProviderCompletion<'a> {
     pub hessians: &'a [f64],
     /// Complete derivative premise issued by this actual successful invocation.
     pub linearization: Option<ProviderLinearizationToken>,
+    /// Optional passive fact issued by this successful invocation.
+    pub selection: Option<ProviderSelectionObservation>,
 }
 
 /// Caller-owned admitted scratch; stale or partially filled cells have no read view.
@@ -412,6 +531,7 @@ pub struct ProviderBinding {
     spec: Arc<ProviderSpec>,
     key: ProviderKey,
     linearization_capability: bool,
+    selection_observation: bool,
     worker: Box<dyn Provider>,
 }
 impl ProviderBinding {
@@ -444,11 +564,13 @@ impl ProviderBinding {
     /// Pair fresh mutable implementation state with its immutable descriptor.
     pub fn new(spec: ProviderSpec, worker: Box<dyn Provider>) -> Self {
         let linearization_capability = worker.supports_linearization();
+        let selection_observation = worker.observes_selection();
         Self {
             identity: NEXT_BANK.fetch_add(1, Ordering::Relaxed),
             key: spec.key(),
             spec: Arc::new(spec),
             linearization_capability,
+            selection_observation,
             worker,
         }
     }
@@ -618,6 +740,16 @@ impl ProviderBinding {
     pub(super) fn completed_linearization(&self) -> Option<ContentHash> {
         self.worker.completed_linearization()
     }
+    pub(super) fn observes_selection(&self) -> bool {
+        self.selection_observation
+    }
+    pub(super) fn take_completed_selection(&mut self) -> Option<ProviderSelection> {
+        if self.observes_selection() {
+            self.worker.take_completed_selection()
+        } else {
+            None
+        }
+    }
     pub(super) fn prepare_demand(
         &mut self,
         request: &PreparedProviderRequest,
@@ -677,7 +809,13 @@ impl ProviderBinding {
         output.values.fill(f64::NAN);
         output.jacobian.fill(f64::NAN);
         output.hessians.fill(f64::NAN);
-        self.fill_inner(inputs, request, runtime, output.reborrow(), context)?;
+        let filled = self.fill_inner(inputs, request, runtime, output.reborrow(), context);
+        let selection = if runtime.observe_selection {
+            self.take_completed_selection()
+        } else {
+            None
+        };
+        filled?;
         context.check()?;
         if output
             .values
@@ -706,6 +844,9 @@ impl ProviderBinding {
             jacobian: output.jacobian,
             hessians: output.hessians,
             linearization,
+            selection: selection.map(|selection| {
+                ProviderSelectionObservation::seal(self, inputs, request, runtime, selection)
+            }),
         })
     }
 }
@@ -801,6 +942,12 @@ impl ProviderBindings {
         self.index
             .get(&key)
             .is_some_and(|&slot| self.slots[slot].1.supports_linearization())
+    }
+    /// Whether this exact bound provider can emit a selected-regime observation.
+    pub fn observes_selection(&self, key: ProviderKey) -> bool {
+        self.index
+            .get(&key)
+            .is_some_and(|&slot| self.slots[slot].1.observes_selection())
     }
     /// Validate a prepared request against a stable slot without exposing membership mutation.
     pub fn bind_request(

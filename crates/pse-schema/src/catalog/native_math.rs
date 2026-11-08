@@ -1675,7 +1675,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
         b,
         N::Authored,
         "fit_cases",
-        4,
+        5,
         S::Case,
         &["fit_id"],
         vec![
@@ -1699,7 +1699,11 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                     ("route", T::enumeration("ModelingAnalysisRoute")),
                     (
                         "bindings",
-                        T::list(record(vec![("parameter_id", T::id()), ("path", text())])),
+                        T::list(record(vec![
+                            ("parameter_id", T::id()),
+                            ("path", text()),
+                            ("schedule_start", real().optional()),
+                        ])),
                     ),
                 ])),
             ),
@@ -1722,7 +1726,7 @@ fn declare_dynamics_fitting(b: &mut RegistryBuilder) {
                 ])),
             ),
         ],
-        "Shared-parameter fitting over authored modeling cases. Each experiment binds shared parameter identities to local source paths in canonical physical units. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, full quantity conventions, uncertainty and provenance are selected from admitted typed record attributes; fit declarations carry only experiment and attribute selection intent.",
+        "Shared-parameter fitting over authored modeling cases. Each experiment binds fit parameter identities to local source paths in canonical physical units. An optional schedule_start selects the interval beginning at that exact authored schedule change in canonical model-clock seconds. Without it, a transient binding selects the initial interval. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, full quantity conventions, uncertainty and provenance are selected from admitted typed record attributes; fit declarations carry experiment, input and attribute selection intent.",
     );
     relation(
         b,
@@ -2368,7 +2372,7 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
         b,
         N::Runtime,
         "profile_points",
-        4,
+        5,
         S::Derived,
         &["run_id", "parameter_id", "end", "point"],
         vec![
@@ -2394,13 +2398,13 @@ fn declare_fit_uncertainty(b: &mut RegistryBuilder, local_validity: T) {
             column("qualification", T::enumeration("NativeQualification")).optional(),
             documented("qualifiers", T::list(T::enumeration("CandidateQualifier")), "The original pin completion qualifiers, without stronger certification."),
             column("termination", T::enumeration("NativeTermination")).optional(),
-            documented("callback_terminal_failure", flag(), "An actual terminal callback latch, absent in historical records that did not observe it.").optional(),
+            documented("callback_terminal_failure", flag(), "Whether the original pin's callback owner latched a terminal failure."),
             column("failures", T::list(T::structure(super::modeling_analysis::diagnostic_fields_with_causes()))),
             documented("original_assessment", record(vec![
                 ("complete", flag()),
                 ("experiments", T::list(T::structure(fit_experiment_assessment_fields()).named("FitExperimentAssessmentObservation"))),
                 ("interruption", T::structure(super::modeling_analysis::diagnostic_fields_with_causes()).named("FitExperimentAssessmentFailure").optional()),
-            ]).named("FitOriginalAssessmentObservation"), "Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. Absent historical records remain unavailable; this observation grants no use permission.").optional(),
+            ]).named("FitOriginalAssessmentObservation"), "Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. This observation grants no use permission."),
             documented(
                 "objective",
                 real(),

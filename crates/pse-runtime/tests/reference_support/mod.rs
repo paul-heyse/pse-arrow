@@ -11,18 +11,22 @@ use pse_runtime::{CancelSource, workflow::ModelingPackage};
 use std::{collections::BTreeMap, path::Path};
 
 impl NativeContext {
-    pub(super) fn package<'a>(&'a self, source: &'a str) -> BoxFuture<'a, Result<ModelingPackage>> {
+    pub(super) fn package<'a>(
+        &'a self,
+        source: &'a str,
+    ) -> BoxFuture<'a, Result<(ModelingPackage, BTreeMap<String, Vec<u8>>)>> {
         async move {
             let fixtures = root().join("tests/fixtures/packages");
-            let mut physical = BTreeMap::new();
+            let mut physical_inputs = BTreeMap::new();
             read_files(
                 &fixtures.join("physical-primitives"),
                 &fixtures.join("physical-primitives"),
-                &mut physical,
+                &mut physical_inputs,
             )?;
+            let original_manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))?;
             let manifest = manifest::named_model_manifest(
-                &std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))?,
-                physical
+                &original_manifest,
+                physical_inputs
                     .get("package.toml")
                     .ok_or("physical package manifest absent")?,
             )?;
@@ -49,16 +53,23 @@ impl NativeContext {
             };
             let physical = Box::pin(
                 self.runtime
-                    .physical_from_documents(&load(&physical)?, &token),
+                    .physical_from_documents(&load(&physical_inputs)?, &token),
             )
             .await?;
             let cancel = CancelSource::new();
-            Box::pin(
+            let package = Box::pin(
                 self.runtime
                     .modeling_from_documents(&load(&modeling)?, physical, &cancel),
             )
-            .await
-            .map_err(Into::into)
+            .await?;
+            let mut originals = BTreeMap::from([(
+                "tests/fixtures/packages/minimal_explicit/package.toml".into(),
+                original_manifest.into_bytes(),
+            )]);
+            originals.extend(physical_inputs.into_iter().map(|(relative, content)| {
+                (format!("tests/fixtures/packages/physical-primitives/{relative}"), content)
+            }));
+            Ok((package, originals))
         }
         .boxed()
     }

@@ -679,10 +679,13 @@ async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and
         .iter()
         .map(|pin| pin.grant_key().to_owned())
         .collect::<BTreeSet<_>>();
-    let sources = store
-        .analysis_run_sources("readable-fixture")
-        .await
-        .unwrap();
+    let read = &original._custody.as_ref().unwrap()._read;
+    let foreign = pse_operations::native_fixture::canonical_fixture_store().unwrap();
+    let error = foreign.result_source_revisions(read).await.unwrap_err();
+    assert!(error.to_string().contains("result source read belongs to another store"));
+    foreign.remove_isolated_fixture().await.unwrap();
+    let sources = store.result_source_revisions(read).await.unwrap();
+    assert!(sources.contains(read.source_revision()));
     let physical_revision = sources
         .iter()
         .find(|source| source.problem.starts_with("physical:context:"))
@@ -1661,7 +1664,7 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
     forged.usability = PackScientificState::Usable;
     let output = tempfile::tempdir().unwrap();
     let path = output.path().join("forged.arrow");
-    let mut acknowledged = 0;
+    let mut acknowledged = crate::workflow::portable_payload::IpcExportAcknowledgement::default();
     assert!(
         reader
             .export_ipc_acknowledged(
@@ -1674,7 +1677,8 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
             .await
             .is_err()
     );
-    assert_eq!(acknowledged, 0);
+    assert_eq!(acknowledged.bytes, 0);
+    assert!(acknowledged.stage.is_none());
     assert!(!path.exists());
     assert!(!output.path().join("forged.arrow.incomplete").exists());
     let mut diagnostic_rows = 0;

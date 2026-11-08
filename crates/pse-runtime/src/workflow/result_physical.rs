@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Exact original retained physical source selection for readable result pages.
+//! Exact original physical source selection for current result pages.
 use super::{PhysicalContext, RetainedDataServices, WorkflowError, contract};
 use pse_columnar::{CancellationToken, MemoryConsumer};
 use pse_operations::{canonical::Revision, canonical_results::ResultRead};
@@ -11,32 +11,21 @@ fn integrity(message: impl Into<String>) -> WorkflowError {
     WorkflowError::Integrity(message.into())
 }
 
-/// Physical publication records the full versioned RelationKey display, not a
-/// latest-version qualified-name selector. Recover the exact declared key before
+/// Require the full versioned locator of the current physical declaration before
 /// admitting the original Arrow schema and rows.
-fn retained_physical_relation<'a>(
+fn current_physical_relation<'a>(
     registry: &'a pse_schema::Registry,
     scope: &str,
 ) -> Result<&'a pse_schema::model::RelationSpec, WorkflowError> {
-    let (qualified, version) = scope
+    let (qualified, _) = scope
         .rsplit_once('@')
         .ok_or_else(|| integrity("original physical relation locator lacks its version"))?;
-    let family = registry
+    let relation = registry
         .relation(qualified)
         .ok_or_else(|| contract("original physical relation unavailable"))?;
-    let version = version
-        .parse::<u32>()
-        .map_err(|_| integrity("original physical relation version is invalid"))?;
-    let key = pse_schema::model::RelationKey {
-        version,
-        ..family.key
-    };
-    let relation = registry
-        .relation_by_key(key)
-        .ok_or_else(|| contract("original physical relation version unavailable"))?;
     if relation.key.to_string() != scope {
         return Err(integrity(
-            "original physical relation locator spelling differs",
+            "original physical relation locator differs from the current declaration",
         ));
     }
     Ok(relation)
@@ -56,7 +45,7 @@ impl RetainedDataServices {
         )?;
         let sources = pse_operations::canonical::response_ownership_scope(
             response.clone(),
-            store.analysis_run_sources(&read.run().key),
+            store.result_source_revisions(read),
         )
         .await?;
         let revisions: Vec<Revision> = sources
@@ -164,7 +153,7 @@ impl RetainedDataServices {
                     if object.kind != "physical:rows:v1" {
                         return Err(integrity("original physical row interpretation differs"));
                     }
-                    let spec = retained_physical_relation(self.registry(), &member.scope)?;
+                    let spec = current_physical_relation(self.registry(), &member.scope)?;
                     let mut stream = pse_columnar::ipc_stream::StreamReader::try_new(
                         std::io::Cursor::new(object.payload.as_slice()),
                         object.payload.len() as u64,
@@ -266,7 +255,7 @@ mod physical_relation_locator_unit {
             let original = registry.relation(name).unwrap();
             let published_scope = original.key.to_string();
             assert!(registry.relation(&published_scope).is_none());
-            let selected = retained_physical_relation(registry, &published_scope).unwrap();
+            let selected = current_physical_relation(registry, &published_scope).unwrap();
             assert_eq!(selected.key, original.key);
             assert_eq!(selected.id, original.id);
         }
@@ -284,7 +273,7 @@ mod physical_relation_locator_unit {
             format!("reference.absent@{}", original.key.version),
         ] {
             assert!(
-                retained_physical_relation(registry, &scope).is_err(),
+                current_physical_relation(registry, &scope).is_err(),
                 "{scope}"
             );
         }

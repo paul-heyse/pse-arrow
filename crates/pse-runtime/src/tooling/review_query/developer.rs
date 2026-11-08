@@ -104,7 +104,7 @@ pub struct Pattern {
     pub action: String,
     /// Original performing owner's reconciliation.
     pub outcome: String,
-    /// Source failure-tree kind; absent means no supplied /failures entry.
+    /// Source failure-tree kind, distinguishing operation and dependency capture causes.
     pub diagnostic_kind: Option<String>,
     /// Original native code, or unavailable.
     pub code: Option<String>,
@@ -201,8 +201,28 @@ impl Analysis {
         &self.document
     }
 }
-/// Maintained left join preserves empty supplied failure trees and all unknown groups.
-pub const SQL: &str = "SELECT i.action, i.outcome, c.kind AS diagnostic_kind, c.code, c.class, i.required_capture_complete, i.recorded_manager_settlement, i.recorded_native_lifetime_pending, COUNT(DISTINCT i.invocation) AS invocations, MIN(i.selected_tests) AS selected_tests_min, MAX(i.selected_tests) AS selected_tests_max, ARRAY_AGG(DISTINCT i.member) AS members, ARRAY_AGG(DISTINCT named_struct('member', i.member, 'pointer', c.pointer)) AS original_references FROM selected_invocations i LEFT JOIN selected_causes c ON i.invocation = c.invocation AND i.report_sha256 = c.report_sha256 GROUP BY i.action, i.outcome, c.kind, c.code, c.class, i.required_capture_complete, i.recorded_manager_settlement, i.recorded_native_lifetime_pending ORDER BY i.action, i.outcome, c.kind NULLS FIRST, c.code NULLS FIRST, c.class NULLS FIRST, i.required_capture_complete, i.recorded_manager_settlement NULLS FIRST, i.recorded_native_lifetime_pending NULLS FIRST";
+/// The original report reader requires the dependency account in version three
+/// and refuses it in predecessor interpretations. Use that coverage in empty joins.
+pub const SQL: &str = "WITH original_causes AS (
+    SELECT i.*, c.code, c.class,
+        CASE WHEN c.kind IS NULL AND i.report_version = 3
+             THEN 'evidence_causes_empty' ELSE c.kind END AS diagnostic_kind,
+        CASE WHEN c.kind IS NULL AND i.report_version = 3
+             THEN '/evidence' ELSE c.pointer END AS pointer
+    FROM selected_invocations i LEFT JOIN selected_causes c
+        ON i.invocation = c.invocation AND i.report_sha256 = c.report_sha256
+) SELECT action, outcome, diagnostic_kind, code, class, required_capture_complete,
+    recorded_manager_settlement, recorded_native_lifetime_pending,
+    COUNT(DISTINCT invocation) AS invocations,
+    MIN(selected_tests) AS selected_tests_min, MAX(selected_tests) AS selected_tests_max,
+    ARRAY_AGG(DISTINCT member) AS members,
+    ARRAY_AGG(DISTINCT named_struct('member', member, 'pointer', pointer)) AS original_references
+FROM original_causes
+GROUP BY action, outcome, diagnostic_kind, code, class, required_capture_complete,
+    recorded_manager_settlement, recorded_native_lifetime_pending
+ORDER BY action, outcome, diagnostic_kind NULLS FIRST, code NULLS FIRST, class NULLS FIRST,
+    required_capture_complete, recorded_manager_settlement NULLS FIRST,
+    recorded_native_lifetime_pending NULLS FIRST";
 /// A separate join avoids multiplying diagnostic causes by prerequisite inputs.
 pub const PREREQUISITE_SQL: &str = "SELECT i.action, i.outcome, p.pending_known, p.kind AS prerequisite_kind, p.capability, p.fixture, p.ownership, p.input, p.state, p.code, i.required_capture_complete, COUNT(DISTINCT i.invocation) AS invocations, MIN(p.pending_entries) AS pending_entries_min, MAX(p.pending_entries) AS pending_entries_max, ARRAY_AGG(DISTINCT i.member) AS members, ARRAY_AGG(DISTINCT named_struct('member', i.member, 'pointer', p.pointer)) AS original_references FROM selected_invocations i LEFT JOIN selected_prerequisites p ON i.invocation = p.invocation AND i.report_sha256 = p.report_sha256 GROUP BY i.action, i.outcome, p.pending_known, p.kind, p.capability, p.fixture, p.ownership, p.input, p.state, p.code, i.required_capture_complete ORDER BY i.action, i.outcome, p.pending_known, p.kind NULLS FIRST, p.capability NULLS FIRST, p.fixture NULLS FIRST, p.ownership NULLS FIRST, p.input NULLS FIRST, p.state NULLS FIRST, p.code NULLS FIRST, i.required_capture_complete";
 fn invalid(error: impl std::fmt::Display) -> Error {
@@ -368,6 +388,7 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             "This finite query summarizes supplied original observations; portable agreement does not authenticate producers or issue native verdicts or action permission.".into(),
             "These original portable roots do not record producer generation or source-clock coordinates. No duration, causal order or scientific run/attempt association is inferred.".into(),
             "Recorded manager settlement and pending state describe the original recorded-at-read observation, never present physical control or current readiness.".into(),
+            "Cause patterns use the original report's failure and dependency accounts. An empty join for a legacy report has no dependency coverage. A known-empty dependency cause group points to the original evidence account. Private runner and compiler outputs remain outside this observation.".into(),
             "The independent prerequisite question reads only the original pending account. Missing is unknown; a present empty list is known empty, not current readiness. Recorded paths/argv are not followed. Per-group private test/compiler outcomes remain outside this observation.".into(),
         ],
     }, _owners: owners })

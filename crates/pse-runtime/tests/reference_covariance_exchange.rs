@@ -16,114 +16,84 @@ mod reference_environment;
 mod reference_process;
 #[path = "reference_support/mod.rs"]
 mod reference_support;
+#[path = "reference_support/scalar.rs"]
+mod reference_scalar;
 #[path = "reference_covariance_support/mod.rs"]
 mod support;
 
 use futures_util::FutureExt;
-use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
-use support::{Candidate, CandidateReport, Covariance, LineCase, Result};
+use reference_scalar::{Inputs, Oracle};
+use std::{collections::BTreeMap, panic::AssertUnwindSafe, sync::Arc};
+use support::{Candidate, CandidateReport, LineCase, Result};
 
-#[derive(Serialize)]
-struct Request {
-    version: u32,
-    case: LineCase,
-    pins: BTreeMap<String, String>,
-    candidates: Vec<Candidate>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Comparison {
-    id: String,
-    status: String,
-    reasons: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Reference {
     estimates: BTreeMap<String, f64>,
-    covariance: Covariance,
+    covariance: Vec<f64>,
     inverse_information: Vec<f64>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Response {
-    version: u32,
-    case_id: String,
-    environment: BTreeMap<String, String>,
-    reference: Reference,
-    comparisons: Vec<Comparison>,
+fn exchange(
+    case: &LineCase,
+    inputs: Inputs,
+    pool: Arc<dyn pse_columnar::MemoryPool>,
+) -> Result<Reference> {
+    let values = reference_scalar::exchange(inputs, Oracle {
+        role: "PSE_COVARIANCE_REFERENCE_PYTHON",
+        driver: "covariance_reference_driver.py",
+        diagnostic_prefix: "covariance_reference_environment ",
+        provider: "IPOPT_DIR",
+        solver: "ipopt",
+        stages: &[("parmest.fit", 1..=1), ("parmest.covariance", 30..=30)],
+    }, pool)?;
+    let matrix = |kind: &str| case.parameters.iter().flat_map(|row| {
+        let values = &values;
+        case.parameters.iter().map(move |column| values[&format!("{kind}:{row}:{column}")])
+    }).collect();
+    Ok(Reference {
+        estimates: case.parameters.iter().map(|name| (name.clone(), values[&format!("estimate:{name}")])).collect(),
+        covariance: matrix("covariance"),
+        inverse_information: matrix("inverse_information"),
+    })
 }
 
-fn exchange(request: &Request) -> Result<Response> {
-    let python = reference_environment::interpreter("PSE_COVARIANCE_REFERENCE_PYTHON");
-    let interpreter_digest = reference_environment::image_digest(&python)?;
-    let solver = reference_environment::prepared("IPOPT_DIR", "ipopt")?;
-    let scratch = tempfile::tempdir()?;
-    let input = scratch.path().join("request.json");
-    let output = scratch.path().join("response.json");
-    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
-    std::fs::write(&input, serde_json::to_vec(request)?)?;
-    let mut command = Command::new(&python);
-    command
-        .arg("-I")
-        .arg(support::root().join("tests/reference/legacy_reference_driver.py"))
-        .arg("covariance")
-        .arg(&input)
-        .arg(&output)
-        .current_dir(scratch.path())
-        .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME");
-    let execution =
-        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
-    if let Some((phase, cause)) = &execution.refusal {
-        return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
+fn compare(report: &CandidateReport, case: &LineCase, reference: &Reference) -> std::result::Result<(), String> {
+    let require = |condition, reason: &str| if condition { Ok(()) } else { Err(reason.to_owned()) };
+    require(report.complete, "native fit incomplete")?;
+    let names = &case.parameters;
+    require(report.estimates.len() == names.len() && names.iter().all(|name| report.estimates.contains_key(name)), "native estimates are incomplete")?;
+    require(report.response_unit == case.response_unit, "response unit differs")?;
+    // The independently selected numerical allowance is distinct from engineering budgets.
+    for name in names {
+        let actual = report.estimates[name];
+        require(actual.is_finite() && (actual - reference.estimates[name]).abs() <= 1e-6,
+            &format!("estimate differs at {name}"))?;
     }
-    let response: Response = execution.decode_legacy(&output, limit)?;
-    assert_eq!(response.version, 1);
-    assert_eq!(response.case_id, request.case.id);
-    reference_environment::verify(
-        &response.environment,
-        &python,
-        &interpreter_digest,
-        &request.pins,
-    )
-    .map_err(|error| execution.failure("environment refused", error))?;
-    reference_environment::verify_stage(&response.environment, "parmest.fit", &solver, 1..=1)
-        .map_err(|error| execution.failure("solver evidence refused", error))?;
-    reference_environment::verify_stage(
-        &response.environment,
-        "parmest.covariance",
-        &solver,
-        30..=30,
-    )
-    .map_err(|error| execution.failure("solver evidence refused", error))?;
-    assert_eq!(
-        response
-            .reference
-            .estimates
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>(),
-        request.case.parameters
-    );
-    assert!(
-        response
-            .reference
-            .estimates
-            .values()
-            .all(|value| value.is_finite())
-    );
-    assert_eq!(
-        response.reference.covariance.parameters,
-        request.case.parameters
-    );
-    assert_eq!(response.reference.covariance.values.len(), 4);
-    assert_eq!(response.reference.inverse_information.len(), 4);
-    Ok(response)
+    require(report.estimate_allowances.len() == names.len() && names.iter().all(|name| {
+        report.estimate_allowances.get(name).is_some_and(|budget| budget.is_finite() && *budget > 0.0)
+    }), "native engineering estimate budgets are incomplete or invalid")?;
+    let covariance = &report.covariance;
+    require(covariance.parameters.len() == names.len() && names.iter().all(|name| covariance.parameters.contains(name)),
+        "covariance parameters are incomplete or duplicated")?;
+    require(covariance.values.len() == names.len() * names.len(), "covariance is incomplete")?;
+    require(covariance.coordinates == "physical", "covariance coordinates differ")?;
+    require(covariance.layout == "row_major", "covariance layout differs")?;
+    require(covariance.convention == case.covariance_convention, "covariance convention differs")?;
+    require(covariance.parameter_units == case.parameter_units, "covariance parameter units differ")?;
+    require(covariance.parameter_scales == [1.0, 1.0], "covariance parameter scales differ")?;
+    let close = |actual: f64, expected: f64| {
+        actual.is_finite() && expected.is_finite()
+            && (actual - expected).abs() <= (1e-6 * expected.abs()).max(1e-12)
+    };
+    let order = |name: &str| covariance.parameters.iter().position(|parameter| parameter == name).unwrap();
+    for (row, p) in names.iter().enumerate() {
+        for (column, q) in names.iter().enumerate() {
+            let actual = covariance.values[order(p) * names.len() + order(q)];
+            let position = row * names.len() + column;
+            require(close(actual, reference.covariance[position]), &format!("covariance differs at ({p}, {q})"))?;
+            require(close(actual, reference.inverse_information[position]), &format!("covariance differs from inverse information at ({p}, {q})"))?;
+        }
+    }
+    Ok(())
 }
 
 fn record(id: &str, report: Option<CandidateReport>) -> Candidate {
@@ -138,10 +108,12 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
     let native = reference_support::NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = LineCase::weighted();
-        let report = support::run(&native, &case).await?;
+        let (report, contract) = support::run(&native, &case).await?;
         let mut wrong_estimate = report.clone();
         *wrong_estimate.estimates.get_mut("a").unwrap() += 0.01;
         wrong_estimate.estimate_allowances.insert("a".into(), 1.0);
+        let mut nonfinite_estimate = report.clone();
+        *nonfinite_estimate.estimates.get_mut("a").unwrap() = f64::NAN;
         let mut invalid_engineering = report.clone();
         invalid_engineering.estimate_allowances.remove("a");
         let mut wrong_covariance = report.clone();
@@ -163,13 +135,10 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
         wrong_units.response_unit = "Pa".into();
         let mut wrong_convention = report.clone();
         wrong_convention.covariance.convention = "residual_variance_scaled".into();
-        let request = Request {
-            version: 1,
-            case,
-            pins: reference_environment::pins(&reference_support::root())?,
-            candidates: vec![
+        let candidates = [
                 record("native", Some(report.clone())),
                 record("wrong-estimate", Some(wrong_estimate)),
+                record("nonfinite-estimate", Some(nonfinite_estimate)),
                 record("missing-engineering-budget", Some(invalid_engineering)),
                 record("wrong-covariance", Some(wrong_covariance)),
                 record("missing", None),
@@ -180,12 +149,14 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
                 record("wrong-response-unit", Some(wrong_units)),
                 record("wrong-convention", Some(wrong_convention)),
                 record("native-after-failures", Some(report)),
-            ],
-        };
-        let response = tokio::task::spawn_blocking(move || exchange(&request)).await??;
+        ];
+        let reference_case = case.clone();
+        let pool = native.shared.pool();
+        let reference = tokio::task::spawn_blocking(move || exchange(&reference_case, contract, pool)).await??;
         let expected = [
             ("native", "passed", ""),
             ("wrong-estimate", "failed", "estimate differs"),
+            ("nonfinite-estimate", "failed", "estimate differs"),
             (
                 "missing-engineering-budget",
                 "failed",
@@ -209,21 +180,19 @@ async fn native_covariance_matches_parmest_and_rejects_bad_populations() -> Resu
             ),
             ("native-after-failures", "passed", ""),
         ];
-        assert_eq!(
-            response.comparisons.len(),
-            expected.len(),
-            "missing comparisons cannot disappear"
-        );
-        for (actual, (id, status, reason)) in response.comparisons.iter().zip(expected) {
-            assert_eq!(actual.id, id, "retain input order through mixed outcomes");
-            assert_eq!(actual.status, status, "{actual:?}");
-            assert_eq!(actual.reasons.is_empty(), status == "passed", "{actual:?}");
-            if status != "passed" {
-                assert!(
-                    actual.reasons.iter().any(|item| item.contains(reason)),
-                    "{actual:?}"
-                );
-            }
+        assert_eq!(candidates.len(), expected.len());
+        for (candidate, (id, status, reason)) in candidates.iter().zip(expected) {
+            let (actual, diagnostic) = match &candidate.report {
+                Some(report) => match compare(report, &case, &reference) {
+                    Ok(()) => ("passed", String::new()),
+                    Err(reason) => ("failed", reason),
+                },
+                None => ("missing", "native result missing".into()),
+            };
+            assert_eq!(candidate.id, id, "retain input order through mixed outcomes");
+            assert_eq!(actual, status, "{id}: {diagnostic}");
+            assert_eq!(diagnostic.is_empty(), status == "passed", "{id}: {diagnostic}");
+            assert!(diagnostic.contains(reason), "{id}: {diagnostic}");
         }
         Ok(())
     })

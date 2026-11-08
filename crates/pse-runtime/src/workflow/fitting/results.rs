@@ -955,7 +955,7 @@ async fn uncertainty(
                             qualification: point.qualification,
                             qualifiers: point.qualifiers.clone(),
                             termination: point.termination,
-                            callback_terminal_failure: Some(point.callback_terminal_failure),
+                            callback_terminal_failure: point.callback_terminal_failure,
                             failures: point
                                 .failures
                                 .iter()
@@ -965,7 +965,7 @@ async fn uncertainty(
                                     )
                                 })
                                 .collect(),
-                            original_assessment: Some(point.assessment.observation()?),
+                            original_assessment: point.assessment.observation()?,
                             objective: point.objective,
                             statistic: point.statistic,
                             accepted: point.accepted,

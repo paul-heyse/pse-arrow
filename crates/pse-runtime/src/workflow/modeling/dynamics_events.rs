@@ -116,7 +116,7 @@ impl ModelingPackage {
         profile: native::Profile,
         derivatives: DerivativeOrder,
         exact_parameters: &BTreeSet<SemanticId>,
-        forward_parameters: Option<&BTreeSet<SemanticId>>,
+        forward_targets: Option<&[IntegrationInputTarget]>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         prepared: Option<ModelingPreparation>,
         binding: Option<&crate::workflow::AdmittedBinding>,
@@ -211,14 +211,14 @@ impl ModelingPackage {
                         derivatives,
                         &modes,
                         exact_parameters,
-                        forward_parameters,
+                        forward_targets,
                         provisional_quadratures,
                         &snapshot,
                         base,
                         cancel,
                     )
                     .await?;
-                let original_profile = if pending.is_some() {
+                let mut original_profile = if pending.is_some() {
                     original_profile.with_coordinates(
                         simulation.profile.atol.clone(),
                         simulation.profile.out_atol.clone(),
@@ -227,6 +227,14 @@ impl ModelingPackage {
                 } else {
                     original_profile
                 };
+                let initial_forward_parameters = forward_targets
+                    .filter(|targets| targets.iter().all(|target| target.schedule_start.is_none()))
+                    .map(|targets| targets.iter().map(|target| target.member).collect());
+                if forward_targets.is_some() && initial_forward_parameters.is_none() {
+                    // The fit retains authored targets in its own constructor. This
+                    // underlying simulation retains the exact admitted physical axes.
+                    original_profile.forward_axes = simulation.profile.forward_axes.clone();
+                }
                 simulation.original_inputs =
                     Some(crate::workflow::replay::OriginalSimulationInputs::capture(
                         services,
@@ -239,7 +247,7 @@ impl ModelingPackage {
                         &original_profile,
                         derivatives,
                         exact_parameters,
-                        forward_parameters,
+                        initial_forward_parameters.as_ref(),
                         provisional_quadratures,
                         binding,
                     )?);
@@ -266,7 +274,7 @@ impl ModelingPackage {
         derivatives: DerivativeOrder,
         modes: &[FixtureMode],
         exact_parameters: &BTreeSet<SemanticId>,
-        forward_parameters: Option<&BTreeSet<SemanticId>>,
+        forward_targets: Option<&[IntegrationInputTarget]>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
         base: ModelingPreparation,
@@ -322,7 +330,7 @@ impl ModelingPackage {
                     index,
                     &names,
                     exact_parameters,
-                    forward_parameters,
+                    forward_targets,
                     provisional_quadratures,
                     snapshot,
                     cancel,

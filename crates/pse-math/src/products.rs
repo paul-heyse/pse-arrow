@@ -656,6 +656,7 @@ impl NumericFrame {
                     providers,
                     cancel,
                     trial,
+                    None,
                 )?;
                 if self.direct_product.is_none() {
                     let used = self
@@ -738,6 +739,7 @@ impl NumericFrame {
                         providers,
                         cancel,
                         trial,
+                        None,
                     )?;
                     scratch.fill(0.0);
                     let weights =

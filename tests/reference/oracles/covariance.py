@@ -4,27 +4,28 @@
 
 Preserves the original covariance parity experiment: known observation standard
 deviations, SSE_weighted, parmest estimates and finite-difference inverse Fisher
-information. No product package, generated contract or candidate fixture imports.
+information. The oracle consumes passive source-owned case facts and emits only its own results.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import msgspec
-
-from .legacy_exchange import admit_candidates, read_request, write_response
-from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
+from .reference_environment import ReferenceEnvironment
+from .scalar_case import ScalarCase, require
 
 if TYPE_CHECKING:
     from pyomo.core.base.var import ScalarVar
 
 
-class LineCase(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class LineCase:
     """The explicit original physical experiment, independent of candidate values."""
 
     id: str
@@ -37,80 +38,19 @@ class LineCase(msgspec.Struct, forbid_unknown_fields=True):
     covariance_convention: str
 
 
-class Covariance(msgspec.Struct, forbid_unknown_fields=True):
-    """Named physical row/column coordinates; values have parameter-unit products."""
-
-    parameters: list[str]
-    parameter_units: list[str]
-    parameter_scales: list[float]
-    coordinates: str
-    layout: str
-    convention: str
-    values: list[float]
-
-
-class CandidateReport(msgspec.Struct, forbid_unknown_fields=True):
-    """Explicit native observations, without an assumed scientific verdict."""
-
-    complete: bool
-    estimates: dict[str, float]
-    estimate_allowances: dict[str, float]
-    response_unit: str
-    covariance: Covariance
-
-
-class Candidate(msgspec.Struct, forbid_unknown_fields=True):
-    """An identified result or an explicitly missing result."""
-
-    id: str
-    report: CandidateReport | None
-
-
-class Request(msgspec.Struct, forbid_unknown_fields=True):
-    """One bounded exchange over the independently specified experiment."""
-
-    version: int
-    case: LineCase
-    pins: dict[str, str]
-    candidates: list[Candidate]
-
-
-class Comparison(msgspec.Struct, forbid_unknown_fields=True):
-    """One retained outcome in a possibly mixed population."""
-
-    id: str
-    status: str
-    reasons: list[str]
-
-
-class Reference(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class Reference:
     """Actual parmest results and the independent analytic information inverse."""
 
     estimates: dict[str, float]
-    covariance: Covariance
+    covariance: list[float]
     inverse_information: list[float]
 
 
-# This dimensionless linear fit has a well-conditioned two-column information
-# matrix. Allow one part in a million of a unit for the numerical fit, independent
-# of the candidate's engineering budget and the larger measurement error (0.5).
+# Independent absolute allowance for agreement with the analytic result.
 ESTIMATE_ABSOLUTE_ERROR = 1e-6
 
-
-class Response(msgspec.Struct, forbid_unknown_fields=True):
-    """The independent reference and every input candidate's comparison outcome."""
-
-    version: int
-    case_id: str
-    environment: dict[str, str]
-    reference: Reference
-    comparisons: list[Comparison]
-
-
-def require(condition: bool, reason: str) -> None:
-    """Checks remain active with Python optimization enabled."""
-    if not condition:
-        raise ValueError(reason)
+_PARAMETERS = ("a", "b")
 
 
 def covariance_close(observed: float, expected: float) -> bool:
@@ -232,129 +172,63 @@ def parmest_reference(case: LineCase, environment: ReferenceEnvironment) -> Refe
     )
     return Reference(
         estimates=estimates,
-        covariance=Covariance(
-            parameters=case.parameters,
-            parameter_units=case.parameter_units,
-            parameter_scales=[1.0, 1.0],
-            coordinates="physical",
-            layout="row_major",
-            convention=case.covariance_convention,
-            values=values,
-        ),
+        covariance=values,
         inverse_information=inverse,
     )
 
 
-def compare(candidate: Candidate, request: Request, reference: Reference) -> Comparison:
-    """Compare every result separately; keep missing, failed and passed outcomes."""
-    report = candidate.report
-    if report is None:
-        return Comparison(candidate.id, "missing", ["native result missing"])
-    try:
-        require(report.complete, "native fit incomplete")
-        names = request.case.parameters
-        require(set(report.estimates) == set(names), "native estimates are incomplete")
-        require(
-            report.response_unit == request.case.response_unit, "response unit differs"
-        )
-        for name in names:
-            actual = report.estimates[name]
-            require(
-                math.isfinite(actual)
-                and abs(actual - reference.estimates[name]) <= ESTIMATE_ABSOLUTE_ERROR,
-                f"estimate differs at {name}",
-            )
-        require(
-            set(report.estimate_allowances) == set(names)
-            and all(
-                math.isfinite(budget) and budget > 0.0
-                for budget in report.estimate_allowances.values()
-            ),
-            "native engineering estimate budgets are incomplete or invalid",
-        )
-        covariance = report.covariance
-        require(
-            len(covariance.parameters) == len(names)
-            and set(covariance.parameters) == set(names),
-            "covariance parameters are incomplete or duplicated",
-        )
-        require(len(covariance.values) == len(names) ** 2, "covariance is incomplete")
-        require(covariance.coordinates == "physical", "covariance coordinates differ")
-        require(covariance.layout == "row_major", "covariance layout differs")
-        require(
-            covariance.convention == request.case.covariance_convention,
-            "covariance convention differs",
-        )
-        require(
-            covariance.parameter_units == ["1", "1"],
-            "covariance parameter units differ",
-        )
-        require(
-            covariance.parameter_scales == [1.0, 1.0],
-            "covariance parameter scales differ",
-        )
-        order = {name: i for i, name in enumerate(covariance.parameters)}
-        for i, p in enumerate(names):
-            for j, q in enumerate(names):
-                actual = covariance.values[order[p] * len(names) + order[q]]
-                require(
-                    covariance_close(
-                        actual, reference.covariance.values[i * len(names) + j]
-                    ),
-                    f"covariance differs at ({p}, {q})",
-                )
-                require(
-                    covariance_close(
-                        actual, reference.inverse_information[i * len(names) + j]
-                    ),
-                    f"covariance differs from inverse information at ({p}, {q})",
-                )
-    except ValueError as error:
-        return Comparison(candidate.id, "failed", [str(error)])
-    return Comparison(candidate.id, "passed", [])
+def _case(original: ScalarCase) -> LineCase:
+    x_keys = [f"x:{index}" for index in range(5)]
+    y_keys = [f"y:{index}" for index in range(5)]
+    values = original.inputs([*x_keys, *y_keys, "sigma"])
+    case = LineCase(
+        id=original.contract.case_name,
+        x=[values[key] for key in x_keys],
+        y=[values[key] for key in y_keys],
+        sigma=values["sigma"],
+        parameters=list(_PARAMETERS),
+        response_unit="1",
+        parameter_units=["1", "1"],
+        covariance_convention="inverse_information_known_sigma",
+    )
+    validate_case(case)
+    return case
 
 
 def main() -> None:
-    """Publish one explicit response after real reference execution."""
-    require(len(sys.argv) == 3, "expected request and response paths")
-    require(sys.flags.isolated == 1, "oracle must run with the interpreter's -I option")
-    request = read_request(Path(sys.argv[1]), Request)
-    admit_candidates(
-        (candidate.id for candidate in request.candidates), len(request.candidates)
+    """Validate the exact received case before performing independent solver work."""
+    require(len(sys.argv) == 4, "expected descriptor, contract and response paths")
+    require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
+    original = ScalarCase.read(Path(sys.argv[1]), Path(sys.argv[2]))
+    case = _case(original)
+    expected_keys = (
+        [f"estimate:{name}" for name in _PARAMETERS]
+        + [
+            f"{matrix}:{row}:{column}"
+            for matrix in ("covariance", "inverse_information")
+            for row in _PARAMETERS
+            for column in _PARAMETERS
+        ]
     )
-    require(request.version == 1, "unsupported exchange version")
-    validate_case(request.case)
-    require(bool(request.candidates), "candidate population is empty")
-    ids = [candidate.id for candidate in request.candidates]
-    require(
-        all(ids) and len(set(ids)) == len(ids),
-        "candidate identities must be unique and nonempty",
-    )
-    # Library chatter belongs in diagnostics, never the exchange document.
+    original.outputs(expected_keys)
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
-            (*LEGACY_PACKAGES, "numpy", "pandas", "scipy"),
+            ("idaes-pse", "pyomo", "protobuf", "numpy", "pandas", "pint", "scipy"),
             role="PSE_COVARIANCE_REFERENCE_PYTHON",
-            declared=request.pins,
         )
-        reference = parmest_reference(request.case, environment)
+        reference = parmest_reference(case, environment)
     require(
         not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
         "reference execution imported the candidate product",
     )
-    response = Response(
-        version=1,
-        case_id=request.case.id,
-        environment=environment.evidence,
-        reference=reference,
-        comparisons=[
-            compare(candidate, request, reference) for candidate in request.candidates
-        ],
+    original.publish(
+        Path(sys.argv[3]),
+        [reference.estimates[name] for name in _PARAMETERS]
+        + reference.covariance
+        + reference.inverse_information,
     )
-    write_response(
-        Path(sys.argv[2]),
-        response,
-        len(request.candidates),
-        response.environment,
-        response.comparisons,
+    sys.stderr.write(
+        "covariance_reference_environment "
+        + json.dumps(environment.evidence, sort_keys=True)
+        + "\n"
     )

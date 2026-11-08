@@ -1004,6 +1004,160 @@ async fn adjoint_gradient_equals_forward_on_transient_fit() {
 }
 #[cfg(feature = "solver-ipopt")]
 #[tokio::test]
+async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments() {
+    let runtime = crate::workflow::tests::runtime_with_workspace(64 << 20);
+    let services = runtime.execution_services();
+    let text = r#"package fit_schedule {
+        def Ramp {
+            domain t: Time from 160{s} to 161{s};
+            discretize grid on t using integrated(elements=1,order=1);
+            param p: Scalar = 2;
+            var x[i in t]: Time;
+            eq rate[i in t]: d(x[i])/di == p;
+            eq initial: x[160{s}] == 10{s};
+            let y[i in t]: Time = x[i]+i-100{s};
+            annotation report y("measurement");
+        }
+        test Early fixture {
+            dof 0; route integrated; procedure integrate;
+            integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});
+            schedule root.p at(160.25{s}) values(2,5);
+        } { child root: Ramp = Ramp; }
+        test Late fixture {
+            dof 0; route integrated; procedure integrate;
+            integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});
+            schedule root.p at(160.75{s}) values(2,7);
+        } { child root: Ramp = Ramp; }
+        test Bare fixture {
+            dof 0; route integrated; procedure integrate;
+            integrate samples(160{s},161{s}) relative(global) normalized_absolute(global) step(1e-5{s});
+        } { child root: Ramp = Ramp; }
+        def Steady {
+            param p: Scalar = 2;
+            let y: Scalar = p;
+        }
+    }"#;
+    let mut rows = pse_authoring::language::parse(
+        text,
+        id(20),
+        pse_authoring::language::IdentityPolicy::Named,
+        pse_authoring::ParseBudget::default(),
+    )
+    .unwrap();
+    rows.extend(measured_rows(&[
+        (id(71), "Scalar", Some(2.), Some(1.)),
+        (id(72), "Time", Some(74.5), Some(1.)),
+        (id(73), "Time", Some(74.25), Some(1.)),
+    ]));
+    let case = |name| rows.iter().find(|row| row.name == name).unwrap().declaration_id;
+    let bare = case("Bare");
+    let fit_id = FitId::from(id(70));
+    let experiments = [74, 75, 76].map(|value| InstanceId::from(id(value)));
+    let mut declarations = FitDeclarations::default();
+    declarations.fits.push(serde_json::from_value(serde_json::json!({
+        "fit_id": fit_id,
+        "parameters": [
+            {"symbol_id":id(3),"fixed":false,"value":2.5,"lower":0.1,"upper":10.,"scale":1.},
+            {"symbol_id":id(4),"fixed":false,"value":3.0,"lower":0.1,"upper":10.,"scale":1.}
+        ],
+        "experiments": [
+            {"experiment_id":experiments[0],"case_id":case("Steady"),"route":"steady","bindings":[{"parameter_id":id(3),"path":"p"}]},
+            {"experiment_id":experiments[1],"case_id":case("Early"),"route":"integrated","bindings":[
+                {"parameter_id":id(3),"path":"root.p"},
+                {"parameter_id":id(4),"path":"root.p","schedule_start":160.25}
+            ]},
+            {"experiment_id":experiments[2],"case_id":case("Late"),"route":"integrated","bindings":[{"parameter_id":id(3),"path":"root.p"}]}
+        ],
+        "observations": [
+            {"observation_id":id(71),"experiment_id":experiments[0],"output_path":"y","value_attribute":"value","standard_deviation_attribute":"sigma","included":true,"importance":1.},
+            {"observation_id":id(72),"experiment_id":experiments[1],"output_path":"root.y[160{s}]","time":161.,"time_basis":"model_clock","value_attribute":"value","standard_deviation_attribute":"sigma","included":true,"importance":1.},
+            {"observation_id":id(73),"experiment_id":experiments[2],"output_path":"root.y[160{s}]","time":161.,"time_basis":"model_clock","value_attribute":"value","standard_deviation_attribute":"sigma","included":true,"importance":1.}
+        ]
+    })).unwrap());
+    let package = runtime
+        .modeling_package(rows, crate::workflow::tests::physical())
+        .await
+        .unwrap()
+        .with_fit_declarations(&runtime.source_services(), declarations.clone())
+        .await
+        .unwrap();
+    let cancel = crate::CancelSource::new();
+    let mut solver = crate::workflow::tests::profile();
+    solver.intent = SolveIntent::Optimize;
+    solver.selection = native::solve::SolverSelection::Explicit(Backend::Ipopt);
+    solver.controls.hessian = HessianMode::LimitedMemory;
+    let profile = FitProfile {
+        optimizer: FitOptimizer::NativeNlp,
+        solver,
+        simulations: BTreeMap::new(),
+        rank_tolerance: 1e-8,
+        max_cells: 100_000,
+        derivatives: FitDerivatives::Responses,
+        experiment_workers: pse_model::scalar!(PositiveCount(1)),
+        uncertainty: None,
+    };
+    let prepared = package
+        .prepare_fit(services.preparation(), fit_id, profile.clone(), compiler_profile(), Default::default(), &cancel)
+        .await
+        .unwrap();
+    let problem = prepared.problem.clone();
+    let allowances = affine_output_allowances(&problem, &prepared.assessments);
+    let result = prepared.start(&services).unwrap().wait().await.unwrap();
+    let crate::workflow::RunReport::Fit(report) = result.report().unwrap() else {
+        panic!("missing mixed fit")
+    };
+    assert!(report.estimate_qualified(), "{report:?}");
+    assert_eq!(report.rank, Some(2));
+    let candidate = report.candidate.as_ref().unwrap();
+    for (coordinate, (expected, parameter)) in [(2., id(3)), (4., id(4))].into_iter().enumerate() {
+        assert_action(candidate[coordinate], expected, parameter_allowance(&problem, parameter));
+    }
+    let responses = report.responses.as_ref().unwrap();
+    let expected = [candidate[0], 71. + 0.25 * candidate[0] + 0.75 * candidate[1], 71. + 0.75 * candidate[0] + 0.25 * 7.];
+    for (row, slopes) in [[1., 0.], [0.25, 0.75], [0.75, 0.]].iter().enumerate() {
+        assert_action(report.predictions[row].unwrap(), expected[row], allowances[row]);
+        for (column, slope) in slopes.iter().enumerate() {
+            assert_action(responses[(row, column)] * 0.5, slope * 0.5, allowances[row]);
+        }
+    }
+    let early = result.fit_trajectory(experiments[1]).unwrap();
+    let late = result.fit_trajectory(experiments[2]).unwrap();
+    assert_eq!(early.qualified_report().unwrap().forward_axes, [0, 1]);
+    assert_eq!(late.qualified_report().unwrap().forward_axes, [0]);
+    assert_eq!(early.parameters().unwrap(), candidate);
+    assert_eq!(late.parameters().unwrap(), [candidate[0], 7.]);
+
+    let mut caller_profile = package
+        .declared_simulation(services.preparation(), bare, compiler_profile(), None, Default::default(), &cancel)
+        .await
+        .unwrap()
+        .profile()
+        .clone();
+    caller_profile.schedule.push(native::dynamics::ScheduledInput {
+        parameter: 0,
+        times: vec![160.25],
+    });
+    let mut injected_profile = profile.clone();
+    injected_profile.simulations.insert(experiments[1], caller_profile);
+    let early_case = declarations.fits[0].experiments[1].case_id;
+    for (case, time, controls) in [(early_case, 160.5, profile), (bare, 160.25, injected_profile)] {
+        let mut invalid = declarations.clone();
+        invalid.fits[0].experiments[1].case_id = case;
+        invalid.fits[0].experiments[1].bindings[1].schedule_start = Some(time);
+        let changed = package.clone()
+            .with_fit_declarations(&runtime.source_services(), invalid)
+            .await
+            .unwrap();
+        let refused = changed
+            .prepare_fit(services.preparation(), fit_id, controls, compiler_profile(), Default::default(), &cancel)
+            .await
+            .unwrap_err();
+        assert!(refused.to_string().contains("not an exact authored interval start"), "{refused}");
+    }
+}
+
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
 async fn nonzero_clock_smooth_scheduled_and_state_reset_fits_share_response_contract() {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
     let services = runtime.execution_services();

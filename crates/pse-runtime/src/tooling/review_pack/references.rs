@@ -43,9 +43,9 @@ impl Resolver<'_> {
             )));
         }
         if !self.json.contains_key(member) {
-            let value = decode(
-                open_contained(self.directory, &supplied.relative_path)?
-                    .take(supplied.readable_bytes),
+            let value = decode_member(
+                self.directory,
+                supplied,
                 self.index.selection.maximum_document_bytes,
             )?;
             self.json.insert(member.to_owned(), value);
@@ -94,12 +94,14 @@ pub(super) fn validate(directory: &File, index: &PackIndex) -> Result<Vec<String
             .find(|m| m.selection.id == id && m.availability == PackAvailability::Available)
     };
     if let (Some(frozen), Some(analysis)) = (available("frozen"), available("analysis")) {
-        let frozen: FrozenEvidenceSet = decode(
-            open_contained(directory, &frozen.relative_path)?.take(frozen.readable_bytes),
+        let frozen: FrozenEvidenceSet = decode_member(
+            directory,
+            frozen,
             index.selection.maximum_document_bytes,
         )?;
-        let analysis: AnalysisDocument = decode(
-            open_contained(directory, &analysis.relative_path)?.take(analysis.readable_bytes),
+        let analysis: AnalysisDocument = decode_member(
+            directory,
+            analysis,
             index.selection.maximum_document_bytes,
         )?;
         frozen.validate().map_err(|e| invalid(e.to_string()))?;

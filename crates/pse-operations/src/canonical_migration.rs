@@ -23,8 +23,6 @@ pub const PRE_EPOCH_DECLARATION: &str = include_str!("migrations/substrate-v10-p
 pub const SCHEMA_V2_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v2.surql");
 /// Pinned v4 replay declaration for the pre-atomic-capture predecessor.
 pub const SCHEMA_V3_DECLARATION: &str = include_str!("migrations/substrate-v10-schema-v3.surql");
-#[path = "canonical_capture_legacy.rs"]
-mod legacy_capture;
 const VERSION: u64 = pse_schema::catalog::substrate::SCHEMA_VERSION;
 const V2_VERSION: u64 = pse_schema::catalog::substrate::SCHEMA_V2_VERSION;
 const V2_DIGEST: &str = pse_schema::catalog::substrate::SCHEMA_V2_DIGEST;
@@ -978,33 +976,6 @@ impl QuiescentSchemaMigration {
         if let Some(receipt) = self.maintenance.reconcile_receipt(request).await? {
             return Ok(receipt);
         }
-        if request.needs_legacy_capture_cutover() {
-            // The Quiescent constructor has already joined original native work
-            // and connections. Each bounded page rechecks its exact old owner.
-            let guard = if self.maintenance.checkpoint(request).await? {
-                VERIFY_V2_CHECKPOINT
-            } else {
-                APPLY_PREDECESSOR
-            };
-            let body = format!("{guard}\n{}", legacy_capture::body());
-            loop {
-                let page: legacy_capture::Page = self
-                    .maintenance
-                    .execute::<Option<legacy_capture::Page>>(
-                        &body,
-                        legacy_capture::RESULT,
-                        request.bindings()?,
-                    )
-                    .await?
-                    .ok_or(CanonicalError::IncompleteResponse)?;
-                if page.capture.is_none() {
-                    if !page.done {
-                        return Err(CanonicalError::IncompleteResponse);
-                    }
-                    break;
-                }
-            }
-        }
         if request.needs_v2_checkpoint() {
             self.advance_v2_checkpoint(false).await?;
         }
@@ -1274,9 +1245,9 @@ impl MigrationScript {
 }
 const MIGRATION_SNAPSHOT: &str = "{marker:(SELECT * FROM ONLY canonical_interpretations:current),pending:(SELECT * FROM ONLY canonical_maintenance_operations:current)}";
 const ATOMIC_CAPTURE_CUTOVER: &str = r#"
-LET $pse_capture_pending=SELECT key FROM canonical_study_captures WHERE state!='released' LIMIT 1;
+LET $pse_old_capture=SELECT key FROM canonical_study_captures LIMIT 1;
 LET $pse_capture_gate=SELECT * FROM ONLY type::record('canonical_study_capture_gate','current') FOR UPDATE;
-IF array::len($pse_capture_pending)!=0 OR $pse_capture_gate.capture!=NONE { THROW 'PSE_REFUSAL:study_capture_legacy_pending_not_drained'; };
+IF array::len($pse_old_capture)!=0 OR $pse_capture_gate.capture!=NONE { THROW 'PSE_REFUSAL:study_capture_predecessor_requires_fresh_catalog'; };
 LET $pse_other_gates=SELECT key FROM canonical_study_capture_gate WHERE key!='current' LIMIT 1;
 IF array::len($pse_other_gates)!=0 { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
 REMOVE FUNCTION IF EXISTS fn::pse_workbench_v1::open_capture;
@@ -1287,7 +1258,6 @@ REMOVE FIELD IF EXISTS incarnation ON canonical_study_captures;
 REMOVE FIELD IF EXISTS issued_expires_at ON canonical_study_captures;
 REMOVE EVENT IF EXISTS pse_sealed_canonical_study_captures_header_count ON canonical_study_captures;
 REMOVE EVENT IF EXISTS pse_sealed_canonical_study_captures_member_count ON canonical_study_captures;
-UPDATE canonical_study_captures UNSET incarnation,issued_expires_at RETURN NONE;
 LET $pse_publication_witness=SELECT * FROM ONLY type::record('canonical_guards','study-publication') FOR UPDATE;
 IF $pse_publication_witness=NONE { CREATE ONLY type::record('canonical_guards','study-publication') SET key='study-publication',generation=0dec,incarnation=<string>rand::uuid::v4(); };
 "#;

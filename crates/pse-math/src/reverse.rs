@@ -974,6 +974,7 @@ impl NumericFrame {
                 providers,
                 cancel,
                 trial,
+                None,
             )?;
             worker.adjoints.fill(0.);
             worker.tangents.fill(0.);

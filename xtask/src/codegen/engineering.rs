@@ -4,7 +4,7 @@
 
 use super::{
     contract_metadata::imports,
-    proto_projection::{ProjectionTarget, insert, producer, projection},
+    proto_projection::{ProjectionTarget, insert, producer},
 };
 use anyhow::{Context, Result, bail};
 use pse_codegen::codegen::{GeneratedTree, boundary_projection, provenance};
@@ -120,60 +120,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         provenance::sidecar(&producer("pse.engineering.v1"), &engineering.relationships)?.files,
     );
     super::proto_projection::merge_independent(&mut tree, engineering)?;
-    let reference_graph = reference_graph()?;
-    let mut reference = projection(
-        &reference_graph,
-        ProjectionTarget {
-            package: "pse.reference.v1",
-            file: "reference.proto",
-            destination: "crates/pse-runtime/src/generated/reference-exchange",
-            rust_module: "crate::reference_exchange::generated::pb",
-            document_root: super::ENGINEERING_DOCUMENT_ROOT,
-            generator_path: "xtask/src/codegen/proto_projection.rs",
-            generator_symbol: "projection",
-        },
-        &imports,
-    )?;
-    let reference_roots = ["ReferenceEnvelope", "ReferenceCaseContract"];
-    let reference_adapters = boundary_projection::native_adapters_retaining_wire(
-        &reference_graph,
-        &reference_roots,
-        "crate::reference_exchange::generated::pb::pse::reference::v1",
-        "pse_runtime",
-    )?;
-    insert(
-        &mut reference,
-        Path::new("crates/pse-runtime/src/generated/reference-exchange"),
-        "native-adapters.rs",
-        reference_adapters.as_bytes(),
-    )?;
-    for name in reference_roots {
-        let owner = reference_graph
-            .definitions()
-            .get(name)
-            .context("reference adapter owner absent")?;
-        reference
-            .relationships
-            .push(provenance::SourceRelationship {
-                declaration_key: name.into(),
-                declaration_kind: "native_projection_adapters".into(),
-                source_path: Some(owner.source.into()),
-                source_symbol: Some(owner.rust_type.into()),
-                source_role: "typed_owner".into(),
-                source_identity: None,
-                generator_path: "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs"
-                    .into(),
-                generator_symbol: "native_adapters_retaining_wire".into(),
-                output_path:
-                    "crates/pse-runtime/src/generated/reference-exchange/native-adapters.rs".into(),
-                direction: Some(format!("{:?}", owner.direction)),
-                contract_sections: vec!["blueprint §4.7".into()],
-                basis: "declared".into(),
-            });
-    }
-    reference.files.extend(
-        provenance::sidecar(&producer("pse.reference.v1"), &reference.relationships)?.files,
-    );
+    let reference = super::reference_exchange::generate(&imports)?;
     super::proto_projection::merge_independent(&mut tree, reference)?;
     Ok(tree)
 }
@@ -193,12 +140,6 @@ fn engineering_graph() -> Result<ProjectionGraph> {
     pse_runtime::host_operations::project::ProjectAction::preparation_discovery_projection(
         &mut graph,
     )?;
-    Ok(graph)
-}
-
-fn reference_graph() -> Result<ProjectionGraph> {
-    let mut graph = pse_model::reference_exchange::reference_projection()?;
-    graph.register::<pse_runtime::reference_exchange::ReferenceCaseContract>()?;
     Ok(graph)
 }
 
@@ -321,7 +262,7 @@ mod tests {
             (
                 "pse.reference.v1",
                 "reference.proto",
-                reference_graph().unwrap(),
+                super::super::reference_exchange::graph().unwrap(),
             ),
         ] {
             if let Err(error) =

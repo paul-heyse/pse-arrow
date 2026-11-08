@@ -16,92 +16,63 @@ mod reference_environment;
 mod reference_process;
 #[path = "reference_support/mod.rs"]
 mod reference_support;
+#[path = "reference_support/scalar.rs"]
+mod reference_scalar;
 #[path = "reference_sensitivity_support/mod.rs"]
 mod support;
 
 use futures_util::FutureExt;
-use reference_support::{Result, root};
-use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
+use reference_scalar::Oracle;
+use reference_support::Result;
+use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 use support::{Candidate, CandidateReport, NativeCandidate, SensitivityCase};
 
-#[derive(Serialize)]
-struct Request {
-    version: u32,
-    case: SensitivityCase,
-    pins: BTreeMap<String, String>,
-    candidates: Vec<Candidate>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Comparison {
-    id: String,
-    status: String,
-    reasons: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Response {
-    version: u32,
-    case_id: String,
-    environment: BTreeMap<String, String>,
-    reference: BTreeMap<String, f64>,
-    comparisons: Vec<Comparison>,
-}
-
-fn exchange(request: &Request) -> Result<Response> {
-    let python = reference_environment::interpreter("PSE_SENSITIVITY_REFERENCE_PYTHON");
-    let interpreter_digest = reference_environment::image_digest(&python)?;
-    let solver = reference_environment::prepared("IPOPT_DIR", "ipopt_sens")?;
-    let scratch = tempfile::tempdir()?;
-    let input = scratch.path().join("request.json");
-    let output = scratch.path().join("response.json");
-    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
-    std::fs::write(&input, serde_json::to_vec(request)?)?;
-    let mut command = Command::new(&python);
-    command
-        .arg("-I")
-        .arg(root().join("tests/reference/legacy_reference_driver.py"))
-        .arg("sensitivity")
-        .arg(&input)
-        .arg(&output)
-        .current_dir(scratch.path())
-        .env_remove("PYTHONPATH")
-        .env_remove("PYTHONHOME");
-    let execution =
-        reference_process::execute(&mut command, scratch, reference_process::DIAGNOSTIC_BYTES);
-    if let Some((phase, cause)) = &execution.refusal {
-        return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
+fn compare(
+    report: &CandidateReport,
+    case: &SensitivityCase,
+    reference: &BTreeMap<String, f64>,
+) -> std::result::Result<(), String> {
+    const DERIVATIVE_ERROR: f64 = 1e-7;
+    const INCREMENT_ERROR: f64 = 1e-8;
+    const NATIVE_POINT_ERROR: f64 = 5e-7;
+    const SIPOPT_POINT_ERROR: f64 = 5e-7;
+    let require = |condition, reason: &str| if condition { Ok(()) } else { Err(reason.to_owned()) };
+    let close = |actual: f64, expected: f64, allowance: f64, reason: &str| {
+        require(actual.is_finite() && expected.is_finite() && (actual - expected).abs() <= allowance, reason)
+    };
+    require(report.complete, "native response incomplete")?;
+    require(report.unit == case.unit, "native sensitivity unit differs")?;
+    require(report.coordinates == "physical", "native sensitivity coordinates differ")?;
+    require(report.quantities.len() == case.variables.len() && case.variables.iter().all(|name| report.quantities.contains_key(name)),
+        "native target population incomplete")?;
+    let parameters = ["a", "b"];
+    require(report.parameter_scales.len() == parameters.len() && parameters.iter().all(|name| report.parameter_scales.contains_key(*name)),
+        "native parameter scales incomplete")?;
+    require(report.parameter_scales.values().all(|value| value.is_finite() && *value > 0.0),
+        "invalid native parameter scale")?;
+    for name in &case.variables {
+        let quantity = &report.quantities[name];
+        require(quantity.derivative.len() == parameters.len() && parameters.iter().all(|name| quantity.derivative.contains_key(*name)),
+            "native derivative population incomplete")?;
+        for parameter in parameters {
+            close(quantity.derivative[parameter], reference[&format!("derivative:{name}:{parameter}")],
+                DERIVATIVE_ERROR, &format!("physical derivative differs for {name}/{parameter}"))?;
+        }
+        let nominal = reference[&format!("exact:nominal:{name}")];
+        let perturbed = reference[&format!("exact:prediction:{name}")];
+        close(quantity.base, nominal, NATIVE_POINT_ERROR, &format!("nominal solution differs for {name} ({:?} versus {nominal:?})", quantity.base))?;
+        close(quantity.increment, perturbed - nominal, INCREMENT_ERROR, &format!("physical increment differs for {name}"))?;
+        close(quantity.predicted, perturbed, NATIVE_POINT_ERROR, &format!("predicted solution differs for {name}"))?;
+        close(quantity.predicted, reference[&format!("sipopt:prediction:{name}")],
+            NATIVE_POINT_ERROR + SIPOPT_POINT_ERROR, &format!("native/sIPOPT difference for {name}"))?;
+        require(quantity.predicted == quantity.base + quantity.increment, &format!("incoherent prediction for {name}"))?;
+        let physical_increment = parameters.iter().map(|parameter| quantity.derivative[*parameter]
+            * (case.perturbed[*parameter] - case.nominal[*parameter])).sum();
+        close(quantity.increment, physical_increment, INCREMENT_ERROR, &format!("incoherent increment for {name}"))?;
+        require(quantity.allowance.is_finite() && quantity.allowance > 0.0, "invalid native engineering budget")?;
+        require(quantity.coordinate_scale.is_finite() && quantity.coordinate_scale > 0.0, "invalid native output scale")?;
     }
-    let response: Response = execution.decode_legacy(&output, limit)?;
-    assert_eq!(response.version, 1);
-    assert_eq!(response.case_id, request.case.id);
-    reference_environment::verify(
-        &response.environment,
-        &python,
-        &interpreter_digest,
-        &request.pins,
-    )
-    .map_err(|error| execution.failure("environment refused", error))?;
-    reference_environment::verify_stage(
-        &response.environment,
-        "sensitivity.sipopt",
-        &solver,
-        1..=1,
-    )
-    .map_err(|error| execution.failure("solver evidence refused", error))?;
-    assert_eq!(
-        response
-            .reference
-            .keys()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
-        ["x", "y", "z"]
-    );
-    assert!(response.reference.values().all(|value| value.is_finite()));
-    Ok(response)
+    Ok(())
 }
 
 fn record(id: &str, report: Option<CandidateReport>) -> Candidate {
@@ -116,7 +87,7 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
     let native = NativeCandidate::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = SensitivityCase::quadratic();
-        let report = native.run(&case).await?;
+        let (report, contract) = native.run(&case).await?;
         let mut wrong = report.clone();
         let x = wrong.quantities.get_mut("x").unwrap();
         // A coherent but wrong physical Jacobian must fail even if prediction=base+increment.
@@ -129,6 +100,8 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
             .map(|(p, derivative)| derivative * (case.perturbed[p] - case.nominal[p]))
             .sum();
         x.predicted = x.base + x.increment;
+        let mut nonfinite = report.clone();
+        *nonfinite.quantities.get_mut("x").unwrap().derivative.get_mut("a").unwrap() = f64::NAN;
         let mut incomplete = report.clone();
         incomplete.complete = false;
         let mut missing_target = report.clone();
@@ -158,13 +131,10 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
         wrong_unit.unit = "Pa".into();
         let mut wrong_coordinates = report.clone();
         wrong_coordinates.coordinates = "normalized".into();
-        let request = Request {
-            version: 1,
-            case,
-            pins: reference_environment::pins(&root())?,
-            candidates: vec![
+        let candidates = [
                 record("native", Some(report.clone())),
                 record("wrong-response", Some(wrong)),
+                record("nonfinite-response", Some(nonfinite)),
                 record("missing", None),
                 record("incomplete", Some(incomplete)),
                 record("missing-target", Some(missing_target)),
@@ -175,12 +145,27 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
                 record("wrong-unit", Some(wrong_unit)),
                 record("wrong-coordinates", Some(wrong_coordinates)),
                 record("native-after-failures", Some(report)),
-            ],
-        };
-        let response = tokio::task::spawn_blocking(move || exchange(&request)).await??;
+        ];
+        let pool = native.pool();
+        let reference = tokio::task::spawn_blocking(move || reference_scalar::exchange(contract, Oracle {
+            role: "PSE_SENSITIVITY_REFERENCE_PYTHON",
+            driver: "sensitivity_reference_driver.py",
+            diagnostic_prefix: "sensitivity_reference_environment ",
+            provider: "IPOPT_DIR",
+            solver: "ipopt_sens",
+            stages: &[("sensitivity.sipopt", 1..=1)],
+        }, pool)).await??;
+        for name in &case.variables {
+            for stage in ["nominal", "prediction"] {
+                let actual = reference[&format!("sipopt:{stage}:{name}")];
+                let expected = reference[&format!("exact:{stage}:{name}")];
+                assert!((actual - expected).abs() <= 5e-7, "sIPOPT {stage} differs for {name}");
+            }
+        }
         let expected = [
             ("native", "passed", ""),
             ("wrong-response", "failed", "physical derivative differs"),
+            ("nonfinite-response", "failed", "physical derivative differs"),
             ("missing", "missing", "native result missing"),
             ("incomplete", "failed", "native response incomplete"),
             (
@@ -204,24 +189,19 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
             ),
             ("native-after-failures", "passed", ""),
         ];
-        assert_eq!(
-            response.comparisons.len(),
-            expected.len(),
-            "missing comparisons cannot disappear"
-        );
-        for (actual, (id, status, reason)) in response.comparisons.iter().zip(expected) {
-            assert_eq!(
-                actual.id, id,
-                "input identity/order must survive mixed results"
-            );
-            assert_eq!(actual.status, status, "{actual:?}");
-            assert_eq!(actual.reasons.is_empty(), status == "passed", "{actual:?}");
-            if status != "passed" {
-                assert!(
-                    actual.reasons.iter().any(|text| text.contains(reason)),
-                    "{actual:?}"
-                );
-            }
+        assert_eq!(candidates.len(), expected.len());
+        for (candidate, (id, status, reason)) in candidates.iter().zip(expected) {
+            let (actual, diagnostic) = match &candidate.report {
+                Some(report) => match compare(report, &case, &reference) {
+                    Ok(()) => ("passed", String::new()),
+                    Err(reason) => ("failed", reason),
+                },
+                None => ("missing", "native result missing".into()),
+            };
+            assert_eq!(candidate.id, id, "retain input order through mixed outcomes");
+            assert_eq!(actual, status, "{id}: {diagnostic}");
+            assert_eq!(diagnostic.is_empty(), status == "passed", "{id}: {diagnostic}");
+            assert!(diagnostic.contains(reason), "{id}: {diagnostic}");
         }
         Ok(())
     })

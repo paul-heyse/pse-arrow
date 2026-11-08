@@ -52,7 +52,7 @@ for AuthoredFitCasesFieldParametersItem {
             >(
                 "AuthoredFitCasesFieldParametersItem",
                 "crates/pse-schema/src/catalog/native_math.rs",
-                4u32,
+                5u32,
                 pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
@@ -280,7 +280,7 @@ for AuthoredFitCasesFieldParametersItem {
 }
 impl pse_contract::boundary_projection::ProjectionRecord
 for AuthoredFitCasesFieldParametersItem {
-    const VERSION: u32 = 4u32;
+    const VERSION: u32 = 5u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "symbol_id"),
         (2u32, "fixed"),
@@ -372,11 +372,17 @@ pub struct AuthoredFitCasesFieldExperimentsItemBindingsItem {
     pub r#parameter_id: pse_ids::SemanticId,
     ///path
     pub r#path: String,
+    ///schedule_start
+    pub r#schedule_start: Option<f64>,
 }
 impl crate::SemanticEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
     fn semantic_eq(&self, other: &Self) -> bool {
         crate::SemanticEq::semantic_eq(&self.r#parameter_id, &other.r#parameter_id)
             && crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(
+                &self.r#schedule_start,
+                &other.r#schedule_start,
+            )
     }
 }
 impl PartialEq for AuthoredFitCasesFieldExperimentsItemBindingsItem {
@@ -398,7 +404,7 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
             >(
                 "AuthoredFitCasesFieldExperimentsItemBindingsItem",
                 "crates/pse-schema/src/catalog/native_math.rs",
-                4u32,
+                5u32,
                 pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
@@ -474,6 +480,44 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
                                         ]),
                                     )
                             },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "schedule_start",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "schedule_start",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"schedule_start\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                        ]),
+                                    )
+                            },
                         ],
                     ),
                 ),
@@ -482,25 +526,33 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
 }
 impl pse_contract::boundary_projection::ProjectionRecord
 for AuthoredFitCasesFieldExperimentsItemBindingsItem {
-    const VERSION: u32 = 4u32;
+    const VERSION: u32 = 5u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "parameter_id"),
         (2u32, "path"),
+        (3u32, "schedule_start"),
     ];
-    type Fields = (pse_ids::SemanticId, String);
+    type Fields = (pse_ids::SemanticId, String, Option<f64>);
     fn into_projection_fields(self) -> Self::Fields {
-        (self.r#parameter_id, self.r#path)
+        (self.r#parameter_id, self.r#path, self.r#schedule_start)
     }
     fn from_projection_fields(
-        (r#parameter_id, r#path): Self::Fields,
+        (r#parameter_id, r#path, r#schedule_start): Self::Fields,
     ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
-        Ok(Self { r#parameter_id, r#path })
+        Ok(Self {
+            r#parameter_id,
+            r#path,
+            r#schedule_start,
+        })
     }
 }
 impl pse_contract::boundary_projection::ValidateProjection
 for AuthoredFitCasesFieldExperimentsItemBindingsItem {
     const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
-        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+        || <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
     fn validate_at(
         &self,
         path: &str,
@@ -514,6 +566,11 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
             pse_contract::boundary_projection::validate_field(
                 &self.r#path,
                 &pse_contract::boundary_projection::field_path(path, "path"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#schedule_start,
+                &pse_contract::boundary_projection::field_path(path, "schedule_start"),
                 &[],
             )?;
         }
@@ -564,7 +621,7 @@ for AuthoredFitCasesFieldExperimentsItem {
             >(
                 "AuthoredFitCasesFieldExperimentsItem",
                 "crates/pse-schema/src/catalog/native_math.rs",
-                4u32,
+                5u32,
                 pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
@@ -713,7 +770,7 @@ for AuthoredFitCasesFieldExperimentsItem {
                                         std::collections::BTreeMap::from([
                                             (
                                                 "pse.codegen.native_field".into(),
-                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}"
+                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"schedule_start\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":5}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}"
                                                     .into(),
                                             ),
                                             ("pse.domain.boundary.tag".into(), "4".into()),
@@ -733,7 +790,7 @@ for AuthoredFitCasesFieldExperimentsItem {
 }
 impl pse_contract::boundary_projection::ProjectionRecord
 for AuthoredFitCasesFieldExperimentsItem {
-    const VERSION: u32 = 4u32;
+    const VERSION: u32 = 5u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "experiment_id"),
         (2u32, "case_id"),
@@ -870,7 +927,7 @@ for AuthoredFitCasesFieldObservationsItem {
             >(
                 "AuthoredFitCasesFieldObservationsItem",
                 "crates/pse-schema/src/catalog/native_math.rs",
-                4u32,
+                5u32,
                 pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
@@ -1251,7 +1308,7 @@ for AuthoredFitCasesFieldObservationsItem {
 }
 impl pse_contract::boundary_projection::ProjectionRecord
 for AuthoredFitCasesFieldObservationsItem {
-    const VERSION: u32 = 4u32;
+    const VERSION: u32 = 5u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "observation_id"),
         (2u32, "value_attribute"),
@@ -1445,7 +1502,7 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
             >(
                 "AuthoredFitCasesRow",
                 "crates/pse-schema/src/catalog/native_math.rs",
-                4u32,
+                5u32,
                 pse_contract::boundary_projection::Direction::Both,
                 &[],
                 &[],
@@ -1522,7 +1579,7 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                         std::collections::BTreeMap::from([
                                             (
                                                 "pse.codegen.native_field".into(),
-                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"symbol_id\",\"nullable\":false},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"fixed\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"value\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"lower\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"upper\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"scale\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"parameters\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"parameters\",\"nullable\":false}"
+                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"symbol_id\",\"nullable\":false},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"fixed\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"value\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\"},\"name\":\"lower\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"upper\",\"nullable\":true},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"scale\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":5}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"parameters\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"parameters\",\"nullable\":false}"
                                                     .into(),
                                             ),
                                             ("pse.domain.boundary.tag".into(), "2".into()),
@@ -1567,7 +1624,7 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                         std::collections::BTreeMap::from([
                                             (
                                                 "pse.codegen.native_field".into(),
-                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"case_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingAnalysisRoute\"},\"name\":\"route\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"experiments\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"experiments\",\"nullable\":false}"
+                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"case_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ModelingAnalysisRoute\"},\"name\":\"route\",\"nullable\":false},{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"parameter_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"path\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"schedule_start\",\"nullable\":true}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":5}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"bindings\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":5}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"experiments\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"experiments\",\"nullable\":false}"
                                                     .into(),
                                             ),
                                             ("pse.domain.boundary.tag".into(), "3".into()),
@@ -1612,7 +1669,7 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
                                         std::collections::BTreeMap::from([
                                             (
                                                 "pse.codegen.native_field".into(),
-                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"observation_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value_attribute\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"standard_deviation_attribute\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"output_path\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"time\",\"nullable\":true},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ObservationTimeBasis\"},\"name\":\"time_basis\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"time_unit_id\",\"nullable\":true},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\"},\"name\":\"included\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\"},\"name\":\"importance\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":4}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"observations\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"observations\",\"nullable\":false}"
+                                                "{\"data_type\":{\"List\":{\"data_type\":{\"Struct\":[{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"declaration\"},\"name\":\"observation_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\"},\"name\":\"value_attribute\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\"},\"name\":\"standard_deviation_attribute\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"instance\"},\"name\":\"experiment_id\",\"nullable\":false},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"5\"},\"name\":\"output_path\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"6\"},\"name\":\"time\",\"nullable\":true},{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"7\",\"pse.domain.extension\":\"pse.enum\",\"pse.domain.parameter\":\"ObservationTimeBasis\"},\"name\":\"time_basis\",\"nullable\":true},{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"8\",\"pse.domain.extension\":\"pse.semantic_id\"},\"name\":\"time_unit_id\",\"nullable\":true},{\"data_type\":\"Boolean\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"9\"},\"name\":\"included\",\"nullable\":false},{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"10\"},\"name\":\"importance\",\"nullable\":false}]},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.shape\":\"{\\\"alternatives\\\":[],\\\"direction\\\":\\\"both\\\",\\\"name\\\":null,\\\"reserved_names\\\":[],\\\"reserved_tags\\\":[],\\\"source\\\":\\\"crates/pse-schema/src/catalog/native_math.rs\\\",\\\"version\\\":5}\"},\"name\":\"item\",\"nullable\":false}},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"4\",\"pse.domain.doc\":\"observations\",\"pse.domain.role\":\"payload\",\"pse.semantic.collection\":\"{\\\"maximum\\\":null,\\\"minimum\\\":0,\\\"order\\\":\\\"sequence\\\",\\\"unique\\\":false}\"},\"name\":\"observations\",\"nullable\":false}"
                                                     .into(),
                                             ),
                                             ("pse.domain.boundary.tag".into(), "4".into()),
@@ -1633,7 +1690,7 @@ impl pse_contract::boundary_projection::ProjectionType for AuthoredFitCasesRow {
     }
 }
 impl pse_contract::boundary_projection::ProjectionRecord for AuthoredFitCasesRow {
-    const VERSION: u32 = 4u32;
+    const VERSION: u32 = 5u32;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
         (1u32, "fit_id"),
         (2u32, "parameters"),
@@ -1735,6 +1792,8 @@ impl crate::SemanticFrame for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         crate::SemanticFrame::frame(&self.r#parameter_id, hash);
         hash.str(stringify!(r#path));
         crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#schedule_start));
+        crate::SemanticFrame::frame(&self.r#schedule_start, hash);
     }
 }
 impl crate::HeapUsage for AuthoredFitCasesFieldExperimentsItemBindingsItem {
@@ -1742,6 +1801,7 @@ impl crate::HeapUsage for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         0usize
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#parameter_id))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#schedule_start))
     }
 }
 impl crate::SemanticFrame for AuthoredFitCasesFieldExperimentsItem {

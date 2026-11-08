@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Shared case correspondence; numerical candidates are exchanged separately.
-use crate::workflow::PhysicalQuantityDescription;
+use pse_quantity::boundary::PhysicalQuantityDescription;
 use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_ids::SemanticId;
-use pse_model::{document::Version, reference_exchange::ReferenceMeaning};
+use crate::{Bytes, document::Version, reference_exchange::ReferenceMeaning};
 
 const KEY: LocalRule = LocalRule::Utf8Bytes { min: 1, max: 1024 };
 const POPULATION: LocalRule = LocalRule::Length {
@@ -51,7 +51,7 @@ pse_contract::projection_struct! {
         /// Agreed checkout-relative artifact; the foreign consumer independently selects its allowlist.
         pub path: String => { tag: 1, direction: Direction::Output, rules: [LocalRule::Utf8Bytes { min: 1, max: 4096 }] };
         /// SHA256 of original bytes, distinct from native semantic/content hashing.
-        pub sha256: pse_model::Bytes => { tag: 2, direction: Direction::Output, rules: [LocalRule::Length { min: 32, max: 32 }] };
+        pub sha256: Bytes => { tag: 2, direction: Direction::Output, rules: [LocalRule::Length { min: 32, max: 32 }] };
     }
 }
 

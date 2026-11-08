@@ -12,8 +12,7 @@ use pse_kernels::Port;
 /// A consumer parameter's integration column and the conversion into its unit.
 #[derive(Clone, Debug)]
 pub(crate) struct Binding {
-    /// The integration column in effect at the start: a scheduled input's first interval,
-    /// whose later intervals keep their scheduled values (I6).
+    /// Exact integration column admitted for the initial or selected authored interval.
     pub(crate) local: usize,
     /// The consumer's parameter.
     pub(crate) parameter: usize,

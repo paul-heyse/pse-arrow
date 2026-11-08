@@ -4,6 +4,11 @@
 use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_ids::{ContentHash, SemanticId};
 
+mod case_contract;
+pub use case_contract::{
+    ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact, ReferenceObservableContract,
+};
+
 pse_contract::projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Complete scientific interpretation of the independently constructed case.
@@ -94,9 +99,58 @@ pse_contract::projection_struct! {
     }
 }
 
+pse_contract::projection_enum! {
+    #[derive(Clone, Debug, PartialEq)]
+    /// What the independent search reported for one original row support.
+    pub enum ReferenceDegenerateCertificate {
+        projection: { name: "ReferenceDegenerateCertificate", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        /// A performed solver search reported a certificate on these coordinates.
+        Reported {
+            /// Exact IEEE multipliers in the declared support order.
+            multipliers: Vec<f64> => { tag: 1, direction: Direction::Input, rules: [
+                LocalRule::Length { min: 2, max: 64 },
+                LocalRule::Float64Domain(pse_contract::boundary_projection::Float64Domain::Finite)
+            ] };
+            /// The original independent solver's irreducibility observation.
+            irreducible_at_tolerance: bool => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
+        } => 1;
+        /// The performed search did not report this support. This is not nonexistence evidence.
+        Unreported => 2;
+    }
+}
+
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug, PartialEq)]
+    /// One original ordered support and its independent search disposition.
+    pub struct ReferenceDegenerateSupport {
+        projection: { name: "ReferenceDegenerateSupport", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        /// Exact row coordinates declared by the original case contract.
+        pub rows: Vec<SemanticId> => { tag: 1, direction: Direction::Input, rules: [LocalRule::Length { min: 2, max: 64 }] };
+        /// Observed certificate or explicit unreported support.
+        pub certificate: ReferenceDegenerateCertificate => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
+    }
+}
+
+pse_contract::projection_struct! {
+    #[derive(Clone, Debug, PartialEq)]
+    /// Independent degenerate-Jacobian results in original unscaled row coordinates.
+    pub struct ReferenceDegeneracyResult {
+        projection: { name: "ReferenceDegeneracyResult", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+        /// Explicit result version, distinct from scientific interpretation.
+        pub version: u32 => { tag: 1, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: 1 }] };
+        /// Original case/source/formulation/physical/configuration correspondence.
+        pub meaning: ReferenceMeaning => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Complete selected support dispositions. Contextual coverage is checked by the receiver.
+        pub supports: Vec<ReferenceDegenerateSupport> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 64 }] };
+    }
+}
+
 /// Compiled structural schema, with no numerical reference implementation.
 pub fn reference_projection() -> Result<ProjectionGraph, ProjectionError> {
-    ProjectionGraph::of::<ReferenceEnvelope>()
+    let mut graph = ProjectionGraph::of::<ReferenceEnvelope>()?;
+    graph.register::<ReferenceDegeneracyResult>()?;
+    graph.register::<ReferenceCaseContract>()?;
+    Ok(graph)
 }
 
 /// One independently chosen observable's dimensional allowances.

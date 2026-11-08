@@ -59,7 +59,7 @@ refusals! {
     ControlRequestInvalid: "control_request_invalid" => (Admission, "control request shape, version or extent is invalid"),
     StudyCapturePublicationBusy: "study_capture_publication_busy" => (Fence, "publication is temporarily gated by an exact immutable capture"),
     StudyCapturePublicationWitnessUnavailable: "study_capture_publication_witness_unavailable" => (Fence, "preexisting study publication witness is unavailable"),
-    StudyCaptureLegacyPendingNotDrained: "study_capture_legacy_pending_not_drained" => (Fence, "legacy pending captures must settle and drain under their original owner before cutover"),
+    StudyCapturePredecessorRequiresFreshCatalog: "study_capture_predecessor_requires_fresh_catalog" => (Fence, "predecessor captures require a fresh catalog for atomic capture activation"),
     HistoryHasProtectedCaptures: "history_has_protected_captures" => (Fence, "immutable captured facts retain original result and history ownership"),
     StudyInstallationOriginalPageExpired: "study_installation_original_page_expired" => (Fence, "study installation original page expired"),
     StudyCapturePageKind: "study_capture_page_kind" => (Admission, "study capture page kind"),

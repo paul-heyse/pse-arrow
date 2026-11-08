@@ -635,6 +635,19 @@ type DynamicsHandle = crate::math::solves::SolveHandle<(
     Arc<pse_columnar::AllocationLease>,
 )>;
 impl ModelingSimulation {
+    pub(in crate::workflow) fn fit_input_column(
+        &self,
+        target: IntegrationInputTarget,
+    ) -> Result<usize, WorkflowError> {
+        target
+            .resolve(
+                &self.profile,
+                &self.contract.parameters,
+                self.model().compiled().model.fixtures.get(&self.solved.instance()),
+                self.coordinates.time_scale,
+            )
+            .map(|(_, column)| column)
+    }
     pub(in crate::workflow) fn retain_physical_request(
         &mut self,
         request: &super::super::PhysicalSimulationRequest,
@@ -1758,6 +1771,47 @@ fn authored_schedule<'f>(
         })
         .collect()
 }
+
+/// A fitted input on the original contract, optionally at an exact authored change.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::workflow) struct IntegrationInputTarget {
+    pub member: SemanticId,
+    pub schedule_start: Option<f64>,
+}
+impl IntegrationInputTarget {
+    fn resolve(
+        self,
+        profile: &native::Profile,
+        parameters: &[SemanticId],
+        fixture: Option<&pse_modeling::specialize::Fixture>,
+        time_scale: f64,
+    ) -> Result<(usize, usize), WorkflowError> {
+        let parameter = parameters
+            .iter()
+            .position(|id| *id == self.member)
+            .ok_or_else(|| contract("fitted dynamic member is not a sensitivity parameter"))?;
+        let time = self.schedule_start.unwrap_or(profile.start);
+        if self.schedule_start.is_some() {
+            let exact = |value: f64| value.to_bits() == time.to_bits();
+            let authored = fixture
+                .and_then(|fixture| fixture.integration.as_ref())
+                .is_some_and(|integration| {
+                    integration.schedules.iter().any(|schedule| {
+                        schedule.target == self.member
+                            && schedule.control.is_none()
+                            && schedule.times.iter().any(|change| exact(change * time_scale))
+                    })
+                });
+            let admitted = profile.schedule.iter().any(|schedule| {
+                schedule.parameter == parameter && schedule.times.iter().copied().any(exact)
+            });
+            if !time.is_finite() || time <= profile.start || time >= profile.end || !authored || !admitted {
+                return Err(contract("fitted schedule target is not an exact authored interval start"));
+            }
+        }
+        Ok((parameter, profile.columns_at(parameters.len(), time)[parameter]))
+    }
+}
 impl ModelingPackage {
     /// Bind an authored case directly to the integrated route and its integration controls.
     pub async fn declared_simulation(
@@ -2026,7 +2080,7 @@ impl ModelingPackage {
         mode: usize,
         mode_names: &[String],
         exact_parameters: &BTreeSet<SemanticId>,
-        forward_parameters: Option<&BTreeSet<SemanticId>>,
+        forward_targets: Option<&[IntegrationInputTarget]>,
         provisional_quadratures: &BTreeSet<SemanticId>,
         snapshot: &pse_backend_native::execution::Snapshot,
         cancel: &crate::CancelSource,
@@ -2757,23 +2811,21 @@ impl ModelingPackage {
                 .collect::<Vec<_>>(),
         );
         let first = profile.columns_at(parameters.len(), profile.start);
-        if let Some(selected) = forward_parameters {
-            if profile.sensitivity != native::DynamicSensitivity::Forward
-                || selected.iter().any(|id| !parameters.contains(id))
-            {
+        if let Some(selected) = forward_targets {
+            if profile.sensitivity != native::DynamicSensitivity::Forward {
                 return Err(contract(
                     "selected forward inputs require admitted physical parameters",
                 ));
             }
             // Resolve consumed semantic inputs only after the complete scheduled value
             // layout exists, before routing, native/result admission and identity.
-            profile.forward_axes = Some(
-                parameters
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(parameter, id)| selected.contains(id).then_some(first[parameter]))
-                    .collect(),
-            );
+            let fixture = product.model.fixtures.get(&instance);
+            let mut axes = selected
+                .iter()
+                .map(|target| target.resolve(&profile, &parameters, fixture, time_scale))
+                .collect::<Result<Vec<_>, _>>()?;
+            axes.sort_unstable();
+            profile.forward_axes = Some(axes.into_iter().map(|(_, axis)| axis).collect());
         }
         for (input, authored) in &authored {
             parameter_values

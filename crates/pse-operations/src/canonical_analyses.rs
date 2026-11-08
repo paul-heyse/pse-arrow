@@ -3,12 +3,13 @@
 
 //! Bounded immutable derived graphs with exact source and result lineage.
 
-use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
+use crate::canonical_script::{Envelope, GuardedScript, Recheck, ResultSlot};
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, Revision, bounded_query, protected_query},
     canonical_artifacts::ArtifactRead,
     canonical_codec as codec,
+    canonical_results::ResultRead,
     generated::surreal as wire,
 };
 use pse_ids::{Frame, FramedHasher};
@@ -18,6 +19,9 @@ pub use pse_model::generated::runtime::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use surrealdb_types::{Object, Value};
+
+const RUN_SOURCE_KEYS: &str =
+    "SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66";
 
 #[cfg(test)]
 #[path = "canonical_analyses/race_tests.rs"]
@@ -198,23 +202,65 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
             identity(run)?;
-            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, "SELECT VALUE revision FROM canonical_run_sources WHERE run=$run ORDER BY revision LIMIT 66;").bind(("run",run.to_owned()))).await?;
+            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, RUN_SOURCE_KEYS).bind(("run",run.to_owned()))).await?;
             let keys = response.take::<Vec<String>>(0)?;
-            if keys.is_empty() || keys.len() > 65 {
-                return Err(CanonicalError::PayloadLimit);
-            }
-            let mut sources = Vec::with_capacity(keys.len());
-            for key in keys {
-                sources.push(
-                    self.revision(&key)
-                        .await?
-                        .ok_or_else(|| invalid("analysis result source missing"))?,
-                );
-            }
-            Ok(sources)
+            self.resolve_run_source_revisions(keys).await
         }).await
             }).await
         }).await
+    }
+
+    /// Resolve the original source lineage through an exact issued result protection.
+    /// A matching run name from a different store cannot select these dependencies.
+    /// # Errors
+    /// Foreign/expired protection, incomplete source lineage or bounded native read refusal.
+    pub async fn result_source_revisions(
+        &self,
+        read: &ResultRead,
+    ) -> Result<Vec<Revision>, CanonicalError> {
+        if !read.belongs_to(self) {
+            return Err(invalid("result source read belongs to another store"));
+        }
+        let selection = read.protected_selection();
+        let activity = self.selection_activity(selection)?;
+        crate::canonical::request_custody_scope(selection.clone(), activity.scope(async {
+            within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
+                let mut response = self.protected_query(
+                    &read.run().problem,
+                    crate::canonical::QueryEffect::Read,
+                    "canonical_analyses::result_source_revisions",
+                    || {
+                        let script = GuardedScript::new(Envelope::ProtectedRead {
+                            selection,
+                            recheck: Recheck::PinOrTicket,
+                        }).returning::<Vec<String>>("", RUN_SOURCE_KEYS)?;
+                        Ok(self.db.metadata_script(crate::canonical::MetadataResponse::Selection, script)
+                            .bind(("run", read.run().key.clone())))
+                    },
+                ).await?;
+                let keys = ResultSlot::<Vec<String>>::returned().take(&mut response)?;
+                let sources = self.resolve_run_source_revisions(keys).await?;
+                if !sources.contains(read.source_revision()) {
+                    return Err(invalid("protected result source lineage lacks its original primary revision"));
+                }
+                Ok(sources)
+            }).await
+        })).await
+    }
+
+    async fn resolve_run_source_revisions(
+        &self,
+        keys: Vec<String>,
+    ) -> Result<Vec<Revision>, CanonicalError> {
+        if keys.is_empty() || keys.len() > 65 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut sources = Vec::with_capacity(keys.len());
+        for key in keys {
+            sources.push(self.revision(&key).await?
+                .ok_or_else(|| invalid("analysis result source missing"))?);
+        }
+        Ok(sources)
     }
 
     /// Persist admitted graph pages, then activate exact complete membership.

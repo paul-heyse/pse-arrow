@@ -5,7 +5,7 @@
 use crate::{
     MathError,
     binding::{CaseStructure, CaseValues, EvalBindings, Target},
-    execution::TrialEvaluation,
+    execution::{SelectionObserver, TrialEvaluation},
     guarded::{CompiledBody, PreparedBody, PreparedSupport, ProductKind, ProductValues, Worker},
     index::{Addend, Entry, GlobalCol, GlobalRow, Slot},
     jets::EvaluationLimits,
@@ -95,6 +95,17 @@ pub enum EvaluationDemand {
     TransposeDirectional,
     /// Weighted second derivative applied directly to one global direction.
     HessianAction,
+}
+
+/// A successful selected provider invocation at its active authored stage.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ProviderSelectionVisit {
+    /// Original case instance that evaluated the stage.
+    pub instance: SemanticId,
+    /// Original provider-stage occurrence.
+    pub source: SemanticId,
+    /// Checked observational completion of that invocation.
+    pub observation: pse_kernels::ProviderSelectionObservation,
 }
 #[derive(Clone, Debug)]
 struct Group {
@@ -3585,6 +3596,15 @@ impl CaseWorker {
         demand: EvaluationDemand,
         order: DerivativeOrder,
     ) -> Result<(), MathError> {
+        self.evaluate_observing(values, demand, order, None)
+    }
+    fn evaluate_observing(
+        &mut self,
+        values: EvalInputs<'_>,
+        demand: EvaluationDemand,
+        order: DerivativeOrder,
+        selections: Option<&mut Vec<ProviderSelectionVisit>>,
+    ) -> Result<(), MathError> {
         self.bind_observation();
         let _entered = self
             .observation
@@ -3594,7 +3614,7 @@ impl CaseWorker {
             .observation
             .as_ref()
             .map(|observation| observation.phase(demand));
-        let result = self.evaluate_inner(values, demand, order);
+        let result = self.evaluate_inner(values, demand, order, selections);
         if let Err(cause) = &result {
             self.refuse_trial(cause);
         }
@@ -3608,6 +3628,7 @@ impl CaseWorker {
         values: EvalInputs<'_>,
         demand: EvaluationDemand,
         order: DerivativeOrder,
+        mut selections: Option<&mut Vec<ProviderSelectionVisit>>,
     ) -> Result<(), MathError> {
         self.scope.check().map_err(crate::error::scope_error)?;
         values.check(&self.assembly)?;
@@ -3729,13 +3750,30 @@ impl CaseWorker {
                 .observation
                 .as_ref()
                 .and_then(|observation| observation.evaluation_started());
+            let mut capture = selections.as_deref_mut().map(|visits| {
+                move |source, observation| {
+                    if visits.len() == visits.capacity() {
+                        return Err(MathError::Limit("constraint selection capacity"));
+                    }
+                    visits.push(ProviderSelectionVisit {
+                        instance: binding.instance,
+                        source,
+                        observation,
+                    });
+                    Ok(())
+                }
+            });
+            let observe = capture
+                .as_mut()
+                .map(|capture| -> &mut SelectionObserver<'_> { capture });
             let evaluated = self.workers[group.request]
-                .evaluate_trial_into(
+                .evaluate_trial_observing_into(
                     &worker.inputs,
                     order,
                     &mut self.providers,
                     &self.cancel,
                     &mut worker.spare,
+                    observe,
                 )
                 .and_then(|()| self.scope.check().map_err(crate::error::scope_error));
             if let Some(observation) = &mut self.observation {
@@ -3865,10 +3903,52 @@ impl CaseWorker {
         &mut self,
         values: impl Into<EvalInputs<'a>>,
     ) -> Result<&[f64], MathError> {
-        self.evaluate(
-            values.into(),
+        self.constraints_inner(values.into(), None)
+    }
+    /// Maximum original stage occurrences in the selected value-only constraint program.
+    pub fn constraint_selection_capacity(&self) -> Result<usize, MathError> {
+        let mut count = Some(0usize);
+        for group in self.assembly.instances.iter().filter_map(|instance| {
+            instance.groups[EvaluationDemand::Constraints].as_ref()
+        }) {
+            self.assembly.programs[group.request].visit_provider_sources(
+                DerivativeOrder::Value,
+                |_, key| {
+                    if self.providers.observes_selection(key) {
+                        count = count.and_then(|count| count.checked_add(1));
+                    }
+                },
+            );
+        }
+        count.ok_or(MathError::Limit("constraint selection extent"))
+    }
+    /// Evaluate original constraint values once, capturing only the actually completed
+    /// selection stages into caller-owned, preadmitted storage. Refusal clears the observations.
+    pub fn constraints_observing_selections<'a>(
+        &mut self,
+        values: impl Into<EvalInputs<'a>>,
+        selections: &mut Vec<ProviderSelectionVisit>,
+    ) -> Result<&[f64], MathError> {
+        selections.clear();
+        if selections.capacity() < self.constraint_selection_capacity()? {
+            return Err(MathError::Limit("constraint selection capacity"));
+        }
+        let result = self.constraints_inner(values.into(), Some(selections));
+        if result.is_err() {
+            selections.clear();
+        }
+        result
+    }
+    fn constraints_inner(
+        &mut self,
+        values: EvalInputs<'_>,
+        selections: Option<&mut Vec<ProviderSelectionVisit>>,
+    ) -> Result<&[f64], MathError> {
+        self.evaluate_observing(
+            values,
             EvaluationDemand::Constraints,
             DerivativeOrder::Value,
+            selections,
         )?;
         if self.completion.reusable(
             AssembledProduct::Constraints,

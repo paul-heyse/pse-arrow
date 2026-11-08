@@ -6,7 +6,11 @@
 
 #[cfg(test)]
 use super::result_files;
-use super::{RetainedDataServices, Runtime, WorkflowError, contract, result_blocks};
+use super::{
+    RetainedDataServices, Runtime, WorkflowError, contract,
+    portable_payload::{IpcExportAcknowledgement, OwnedMemberStage},
+    result_blocks,
+};
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
@@ -293,7 +297,7 @@ impl CanonicalResultReader {
         destination: &std::path::Path,
         maximum_bytes: u64,
         cancel: &CancellationToken,
-        acknowledged: &mut u64,
+        acknowledged: &mut IpcExportAcknowledgement,
         selection: &super::PackResultSelection,
     ) -> Result<u64, WorkflowError> {
         self.reader
@@ -474,7 +478,7 @@ impl SelectedResultReader {
         destination: &std::path::Path,
         maximum_bytes: u64,
         cancel: &CancellationToken,
-        acknowledged: &mut u64,
+        acknowledged: &mut IpcExportAcknowledgement,
         selection: &super::PackResultSelection,
     ) -> Result<u64, WorkflowError> {
         self.reader
@@ -513,6 +517,7 @@ pub(super) struct BoundedExportFile {
     pub(super) written: u64,
     pub(super) cancel: CancellationToken,
 }
+
 impl Write for BoundedExportFile {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         self.cancel.checkpoint().map_err(std::io::Error::other)?;
@@ -1154,7 +1159,7 @@ impl ResultReader {
         destination: &std::path::Path,
         maximum_bytes: u64,
         cancel: &CancellationToken,
-        mut acknowledged: Option<&mut u64>,
+        acknowledged: Option<&mut IpcExportAcknowledgement>,
         expected_selection: Option<&super::PackResultSelection>,
     ) -> Result<u64, WorkflowError> {
         if self.consumed {
@@ -1180,11 +1185,13 @@ impl ResultReader {
         super::result_selection::publish_selection_metadata(&mut metadata, &selected)
             .map_err(io)?;
         let schema = Arc::new(self.schema.as_ref().clone().with_metadata(metadata));
-        let file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&staging)
-            .map_err(io)?;
+        let mut unobserved = None;
+        let (mut acknowledged, stage) = match acknowledged {
+            Some(output) => (Some(&mut output.bytes), &mut output.stage),
+            None => (None, &mut unobserved),
+        };
+        let stage = stage.insert(OwnedMemberStage::create(staging).map_err(io)?);
+        let file = stage.file().try_clone().map_err(io)?;
         let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
             BufWriter::new(BoundedExportFile {
                 file,
@@ -1233,8 +1240,7 @@ impl ResultReader {
         }
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         drop(writer);
-        std::fs::hard_link(&staging, destination).map_err(io)?;
-        std::fs::remove_file(staging).map_err(io)?;
+        stage.publish(destination).map_err(io)?;
         Ok(bytes)
     }
 
@@ -3388,10 +3394,11 @@ mod canonical_connected_results_server_unit {
         forged_window.usability = PackScientificState::Usable;
         let output = tempfile::tempdir().unwrap();
         let rejected = output.path().join("forged-window.arrow");
-        let mut acknowledged = 0;
+        let mut acknowledged = IpcExportAcknowledgement::default();
         let error = continued.export_ipc_acknowledged(&rejected, 1 << 20, &CancellationToken::new(), &mut acknowledged, &forged_window).await.unwrap_err();
         assert!(error.to_string().contains("declared review selection differs"));
-        assert_eq!(acknowledged, 0);
+        assert_eq!(acknowledged.bytes, 0);
+        assert!(acknowledged.stage.is_none());
         assert!(!rejected.exists());
         for coordinate in [63, 64] {
             let batch = continued.next_batch().await.unwrap().unwrap();
@@ -3496,10 +3503,11 @@ mod canonical_connected_results_server_unit {
                 let mut profile = profile_points::Builder::with_registry(runtime.registry(), 2, &validation).unwrap();
                 let profile_run = pse_operations::mint_id();
                 for point in 0..2 {
-                    profile.push(profile_points::Row {run_id: profile_run, parameter_id: parameter, original_assessment: None,
+                    profile.push(profile_points::Row {run_id: profile_run, parameter_id: parameter,
+                        original_assessment: pse_model::generated::structures::FitOriginalAssessmentObservation {complete: point == 0, experiments: vec![], interruption: None},
                         end: IntervalEnd::Lower, point, value: point as f64, seed: None,
                         qualification: (point == 0).then_some(NativeQualification::Stationary), qualifiers: vec![],
-                        termination: (point == 0).then_some(NativeTermination::Success), callback_terminal_failure: None,
+                        termination: (point == 0).then_some(NativeTermination::Success), callback_terminal_failure: false,
                         failures: vec![], objective: (point == 0).then_some(0.), statistic: (point == 0).then_some(0.),
                         accepted: point == 0, detail: None}).unwrap();
                 }
@@ -4522,8 +4530,21 @@ mod canonical_connected_results_server_unit {
                 let portable =
                     crate::tooling::review_pack::PackReader::open(&composed_path, 8 << 20).unwrap();
                 for (member, expected) in [("early", 2), ("late", 1)] {
+                    let mut sink = tempfile::tempfile().unwrap();
+                    let copied = portable
+                        .copy_member_verified(member, &mut sink, &CancellationToken::new())
+                        .unwrap();
+                    let indexed = composed
+                        .members
+                        .iter()
+                        .find(|item| item.selection.id == member)
+                        .unwrap();
+                    assert_eq!(copied.copied_bytes, indexed.readable_bytes);
+                    assert_eq!(Some(copied.digest), indexed.digest);
+                    assert_eq!(sink.metadata().unwrap().len(), copied.copied_bytes);
+                    std::io::Seek::rewind(&mut sink).unwrap();
                     let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                        portable.open_member(member).unwrap(),
+                        sink,
                         None,
                     )
                     .unwrap();
@@ -4531,15 +4552,7 @@ mod canonical_connected_results_server_unit {
                         stream.map(|batch| batch.unwrap().num_rows()).sum::<usize>(),
                         expected
                     );
-                    let declared = composed
-                        .members
-                        .iter()
-                        .find(|item| item.selection.id == member)
-                        .unwrap()
-                        .selection
-                        .result
-                        .as_ref()
-                        .unwrap();
+                    let declared = indexed.selection.result.as_ref().unwrap();
                     assert_eq!(declared.attempt, fence.attempt());
                     assert_eq!(declared.usability, PackScientificState::Unknown);
                 }
@@ -5243,6 +5256,37 @@ mod canonical_connected_results_server_unit {
             diagnostic_table: None,
             capture_scope: None,
         });
+        let collision_path = directory.path().join("collision-pack");
+        let mut collision_pack = PackSession::create(
+            &collision_path,
+            broken_selection.clone(),
+            CancellationToken::new(),
+        )
+        .unwrap();
+        collision_pack.add_frozen(&evidence).unwrap();
+        collision_pack.add_analysis(&analysis).unwrap();
+        let collision = collision_path.join(".staging/broken.incomplete");
+        std::fs::write(&collision, b"unrelated staging winner").unwrap();
+        let collision_reader = runtime
+            .results(
+                "malformed",
+                broken.attempt(),
+                "runtime.solve_metrics",
+                0,
+                5,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        assert!(matches!(
+            collision_pack.export_result("broken", collision_reader).await,
+            Err(crate::tooling::review_pack::PackError::Native(_))
+        ));
+        let collision_index = PackReader::open(&collision_path, 1 << 20).unwrap();
+        assert_eq!(collision_index.index().members[0].readable_bytes, 0);
+        assert!(collision_index.open_member("broken").is_err());
+        assert!(!collision_path.join(&collision_index.index().members[0].relative_path).exists());
+        assert_eq!(std::fs::read(collision).unwrap(), b"unrelated staging winner");
         let broken_pack_path = directory.path().join("broken-pack");
         let mut broken_pack = PackSession::create(
             &broken_pack_path,

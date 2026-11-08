@@ -6,6 +6,8 @@
 pub use pse_contract::BoundaryDirection as Direction;
 
 mod passive;
+mod physical_description;
+pub use physical_description::PhysicalQuantityDescription;
 pub use passive::{
     BoundaryAlternative, BoundaryAlternativeField, BoundaryAlternatives, BoundaryDocument,
     BoundaryFieldEncoding, PassiveFieldEncoding,

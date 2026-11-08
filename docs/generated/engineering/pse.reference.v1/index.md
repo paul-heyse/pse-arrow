@@ -130,7 +130,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `PhysicalQuantityDescription`
 
-Rust owner: `pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription`. Source: `crates/pse-runtime/src/workflow/physical_inspection.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_quantity::boundary::physical_description::PhysicalQuantityDescription`. Source: `crates/pse-quantity/src/boundary/physical_description.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -290,7 +290,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `ReferenceCaseContract`
 
-Rust owner: `pse_runtime::reference_exchange::case_contract::ReferenceCaseContract`. Source: `crates/pse-runtime/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_model::reference_exchange::case_contract::ReferenceCaseContract`. Source: `crates/pse-model/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -315,6 +315,41 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `quantity_type` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
 | `unit` | 3 | `Named("UnitId")` | `Both` | `[]` | `{}` |
 
+## `ReferenceDegeneracyResult`
+
+Rust owner: `pse_model::reference_exchange::ReferenceDegeneracyResult`. Source: `crates/pse-model/src/reference_exchange.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `version` | 1 | `Scalar(U32)` | `Input` | `[UnsignedRange { min: 1, max: 1 }]` | `{}` |
+| `meaning` | 2 | `Named("ReferenceMeaning")` | `Input` | `[Required]` | `{}` |
+| `supports` | 3 | `Repeated(Named("ReferenceDegenerateSupport"))` | `Input` | `[Length { min: 1, max: 64 }]` | `{}` |
+
+## `ReferenceDegenerateCertificate`
+
+Rust owner: `pse_model::reference_exchange::ReferenceDegenerateCertificate`. Source: `crates/pse-model/src/reference_exchange.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Reported (alternative tag 1).multipliers` | 1 | `Repeated(Scalar(F64Bits))` | `Input` | `[Length { min: 2, max: 64 }, Float64Domain(Finite)]` | `{}` |
+| `Reported (alternative tag 1).irreducible_at_tolerance` | 2 | `Scalar(Bool)` | `Input` | `[Required]` | `{}` |
+| `Unreported` | 2 | `Named("unit alternative")` | `Input` | `[Required]` | `{}` |
+
+## `ReferenceDegenerateSupport`
+
+Rust owner: `pse_model::reference_exchange::ReferenceDegenerateSupport`. Source: `crates/pse-model/src/reference_exchange.rs`. Interpretation version: 1. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `rows` | 1 | `Repeated(Scalar(SemanticId))` | `Input` | `[Length { min: 2, max: 64 }]` | `{}` |
+| `certificate` | 2 | `Named("ReferenceDegenerateCertificate")` | `Input` | `[Required]` | `{}` |
+
 ## `ReferenceEnvelope`
 
 Rust owner: `pse_model::reference_exchange::ReferenceEnvelope`. Source: `crates/pse-model/src/reference_exchange.rs`. Interpretation version: 1. Direction: `Both`.
@@ -330,7 +365,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `ReferenceFixedInput`
 
-Rust owner: `pse_runtime::reference_exchange::case_contract::ReferenceFixedInput`. Source: `crates/pse-runtime/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_model::reference_exchange::case_contract::ReferenceFixedInput`. Source: `crates/pse-model/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -342,7 +377,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `ReferenceInputArtifact`
 
-Rust owner: `pse_runtime::reference_exchange::case_contract::ReferenceInputArtifact`. Source: `crates/pse-runtime/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_model::reference_exchange::case_contract::ReferenceInputArtifact`. Source: `crates/pse-model/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -382,7 +417,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `ReferenceObservableContract`
 
-Rust owner: `pse_runtime::reference_exchange::case_contract::ReferenceObservableContract`. Source: `crates/pse-runtime/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_model::reference_exchange::case_contract::ReferenceObservableContract`. Source: `crates/pse-model/src/reference_exchange/case_contract.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 

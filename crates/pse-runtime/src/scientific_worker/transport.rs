@@ -558,7 +558,7 @@ impl NativeCompletion {
         response: p::Response,
         preparation: Option<p::Handle>,
         retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
-    ) -> Result<(), WorkerError> {
+    ) -> Result<bool, WorkerError> {
         settle_delivery(self.deliver(response), preparation, retire)
     }
 }
@@ -598,16 +598,16 @@ fn settle_delivery(
     observation: std::sync::mpsc::Receiver<DeliveryDisposition>,
     preparation: Option<p::Handle>,
     retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
-) -> Result<(), WorkerError> {
+) -> Result<bool, WorkerError> {
     match observation.recv().map_err(infrastructure)? {
-        DeliveryDisposition::Consumed => Ok(()),
+        DeliveryDisposition::Consumed => Ok(true),
         DeliveryDisposition::Abandoned(_work) => {
             // Local method departure is known, unlike a lost wire reply after
             // consumption. Hold returned admission through native retirement.
             if let Some(handle) = preparation {
                 retire(handle)?;
             }
-            Ok(())
+            Ok(false)
         }
     }
 }
@@ -962,6 +962,7 @@ pub(super) fn serve_with_preparation(
                     p::Request::Stop(handle) | p::Request::Close(handle) => Some(handle.clone()),
                     p::Request::Shutdown => None,
                 };
+                let mut retirement = None;
                 let mut result: Result<p::Response, WorkerError> = (|| match job.request {
                     p::Request::Prepare(value) => {
                         if drained.is_cancelled()
@@ -1015,6 +1016,7 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
+                        retirement = Some(("Stop", handle.clone()));
                         let retired = actual.stop();
                         sessions.remove(&handle.generation);
                         let mut failures: Vec<_> = retired.err().into_iter().collect();
@@ -1039,6 +1041,7 @@ pub(super) fn serve_with_preparation(
                             )
                             .into());
                         }
+                        retirement = Some(("Close", handle.clone()));
                         let retired = actual.close();
                         sessions.remove(&handle.generation);
                         let mut failures: Vec<_> = retired.err().into_iter().collect();
@@ -1075,6 +1078,7 @@ pub(super) fn serve_with_preparation(
                         if owner.state() != super::SessionState::Ready
                             && let Err(cleanup) = owner.stop()
                         {
+                            retirement = Some(("Stop", handle.clone()));
                             result = Err(match result {
                                 Err(cause) => WorkerError::Retirement {
                                     causes: vec![cause, cleanup],
@@ -1087,6 +1091,15 @@ pub(super) fn serve_with_preparation(
                         controls.handles.remove(&handle.generation);
                     }
                 }
+                #[cfg(test)]
+                if result.is_err()
+                    && let Some(("Close", handle)) = retirement.as_ref()
+                    && let Err(error) = observe_close_departure_for_test(&job.completion, handle)
+                {
+                    failures.push(error);
+                    break;
+                }
+                let mut unobserved_retirement = None;
                 let response = match result {
                     Ok(response) => response,
                     Err(error) if shutdown => {
@@ -1094,6 +1107,11 @@ pub(super) fn serve_with_preparation(
                         // process-wide retirement failure belongs to join.
                         let observation = handler::failure_observation(&error);
                         failures.push(error);
+                        p::Response::Failure(observation)
+                    }
+                    Err(error) if retirement.is_some() => {
+                        let observation = handler::failure_observation(&error);
+                        unobserved_retirement = Some(error);
                         p::Response::Failure(observation)
                     }
                     Err(error) => p::Response::Failure(handler::failure(error)),
@@ -1123,7 +1141,7 @@ pub(super) fn serve_with_preparation(
                     failures.push(error);
                     break;
                 }
-                if let Err(error) = job.completion.finish(response, preparation, |handle| {
+                let delivery = job.completion.finish(response, preparation, |handle| {
                     let mut failures = Vec::new();
                     if let Some(mut owner) = sessions.remove(&handle.generation)
                         && let Err(error) = owner.stop()
@@ -1145,9 +1163,21 @@ pub(super) fn serve_with_preparation(
                         result.is_ok(),
                     )?;
                     result
-                }) {
-                    failures.push(error);
+                });
+                if !matches!(&delivery, Ok(true))
+                    && let (Some((action, handle)), Some(cause)) =
+                        (retirement, unobserved_retirement)
+                {
+                    // A departed method could not receive the native failure.
+                    // Preserve it with the original joined owner and settle all
+                    // independent preparations before exposing a terminal reply.
+                    failures.push(WorkerError::Lifecycle {
+                        action,
+                        handle: Some(handle),
+                        cause: Box::new(cause),
+                    });
                 }
+                failures.extend(delivery.err());
                 if !failures.is_empty() {
                     break;
                 }
@@ -1361,6 +1391,27 @@ fn observe_shutdown_departure_for_test(completion: &NativeCompletion) -> Result<
     std::fs::write(marker.with_extension("shutdown-claimed"), b"retired")
         .map_err(infrastructure)?;
     wait_for_method_departure_for_test(completion)
+}
+
+#[cfg(test)]
+fn observe_close_departure_for_test(
+    completion: &NativeCompletion,
+    handle: &p::Handle,
+) -> Result<(), WorkerError> {
+    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("close-departure-retire-faults") {
+        return Ok(());
+    }
+    let marker = PathBuf::from(
+        std::env::var_os("PSE_SCIENCE_TEST_MARKER")
+            .ok_or_else(|| infrastructure("missing Close departure test marker"))?,
+    );
+    if marker.with_extension("close-claimed").exists() {
+        return Ok(());
+    }
+    let generation = handle.generation.to_string();
+    std::fs::write(marker.with_extension("close-claimed"), &generation).map_err(infrastructure)?;
+    wait_for_method_departure_for_test(completion)?;
+    std::fs::write(marker.with_extension("close-departed"), generation).map_err(infrastructure)
 }
 
 #[cfg(test)]

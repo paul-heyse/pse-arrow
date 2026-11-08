@@ -1316,12 +1316,16 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
         })
         .unwrap();
     let mut buffer = ProviderBuffer::new(&columns);
+    let unobserved = buffer
+        .fill(&mut provider, &parameters, &columns, Default::default(), &context)
+        .unwrap();
+    assert!(unobserved.selection.is_none());
     let actual = buffer
         .fill(
             &mut provider,
             &parameters,
             &columns,
-            Default::default(),
+            ProviderRuntime { observe_selection: true, ..Default::default() },
             &context,
         )
         .unwrap();
@@ -1336,6 +1340,14 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
         ],
     );
     let token = actual.linearization.unwrap();
+    let selected = actual.selection.unwrap();
+    assert_eq!(selected.provider(), factory.spec.key());
+    assert_eq!(selected.requested_order(), DerivativeOrder::Second);
+    assert_eq!(selected.selection().selector, factory.spec.id);
+    assert_eq!(selected.selection().regime, factory.alternatives[0].residual.spec.id);
+    assert_eq!(selected.selection().policy, factory.configuration_key());
+    assert_eq!(selected.selection().selection_order, DerivativeOrder::First);
+    assert_eq!(selected.selection().regularity, pse_kernels::ProviderSelectionRegularity::Local);
     for demand in [
         ProviderDemand::JacobianAction { directions: 1 },
         ProviderDemand::TransposeAction { cotangents: 1 },
@@ -1383,12 +1395,17 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
                         &[]
                     },
                     expected_linearization: Some(token),
+                    observe_selection: true,
                 },
                 &context,
             )
             .unwrap();
         close(actual.values, &expected.values);
         assert_eq!(actual.linearization, Some(token));
+        let observed = actual.selection.unwrap();
+        assert!(observed.same_binding(&selected));
+        assert_ne!(observed.invocation(), selected.invocation());
+        assert_eq!(observed.selection(), selected.selection());
         match demand {
             ProviderDemand::JacobianAction { .. } => close(
                 actual.jacobian,
@@ -1531,6 +1548,7 @@ fn implicit_recursive_nested_actions_compose_actual_child_linearizations() {
                         &[]
                     },
                     expected_linearization: token,
+                    observe_selection: false,
                 },
                 &context,
             )
@@ -1808,6 +1826,7 @@ fn wide_dense_implicit_value_source_prepares_only_consumed_parameter_products() 
                         &[]
                     },
                     expected_linearization: token,
+                    observe_selection: false,
                 },
                 &context,
             )

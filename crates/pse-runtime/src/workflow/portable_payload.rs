@@ -3,9 +3,10 @@
 //! Product-owned contained exchange and bounded scientific IPC admission.
 //! Callers retain selection, reader protection and final publication authority.
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{Read, Seek, SeekFrom, Write},
-    path::{Component, Path},
+    os::unix::fs::MetadataExt as _,
+    path::{Component, Path, PathBuf},
 };
 
 pub(crate) fn safe_relative(path: &str) -> std::io::Result<()> {
@@ -93,6 +94,153 @@ pub(crate) fn transfer_exact(
     checkpoint()
 }
 
+/// A staged output established by the actual exclusive file creation.
+pub(crate) struct OwnedMemberStage {
+    path: PathBuf,
+    file: File,
+}
+
+/// Original writer custody and the last complete IPC message it acknowledged.
+#[derive(Default)]
+pub(crate) struct IpcExportAcknowledgement {
+    pub(crate) bytes: u64,
+    pub(crate) stage: Option<OwnedMemberStage>,
+}
+
+impl OwnedMemberStage {
+    pub(crate) fn create(path: PathBuf) -> std::io::Result<Self> {
+        let file = OpenOptions::new().read(true).write(true).create_new(true).open(&path)?;
+        Ok(Self { path, file })
+    }
+
+    pub(crate) fn file(&mut self) -> &mut File {
+        &mut self.file
+    }
+
+    pub(crate) fn reader(&self) -> std::io::Result<File> {
+        let mut file = self.file.try_clone()?;
+        file.rewind()?;
+        Ok(file)
+    }
+
+    pub(crate) fn is_at(&self, path: &Path) -> bool {
+        self.path == path
+    }
+
+    fn require_entry(&self, path: &Path) -> std::io::Result<u64> {
+        let owned = self.file.metadata()?;
+        let entry = std::fs::symlink_metadata(path)?;
+        if !entry.is_file() || (entry.dev(), entry.ino()) != (owned.dev(), owned.ino()) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "staged member entry no longer names the original writer",
+            ));
+        }
+        Ok(owned.len())
+    }
+
+    /// Publish the exact staged inode at a fresh path and retain that path even
+    /// if independently removing the earlier staging entry fails.
+    pub(crate) fn publish(&mut self, destination: &Path) -> std::io::Result<u64> {
+        if self.path != destination {
+            self.require_entry(&self.path)?;
+            std::fs::hard_link(&self.path, destination)?;
+            let bytes = self.require_entry(destination)?;
+            let old = std::mem::replace(&mut self.path, destination.to_owned());
+            self.require_entry(&old)?;
+            std::fs::remove_file(old)?;
+            Ok(bytes)
+        } else {
+            self.require_entry(destination)
+        }
+    }
+}
+
+pub(crate) struct MemberTransfer {
+    pub bytes: u64,
+    pub digest: pse_ids::ContentHash,
+}
+
+pub(crate) struct MemberTransferFailure {
+    pub accepted_bytes: u64,
+    pub source: std::io::Error,
+}
+
+struct Accepted<'a, W> {
+    sink: &'a mut W,
+    bytes: u64,
+    digest: pse_ids::EncodingHasher,
+}
+
+impl<W: Write> Write for Accepted<'_, W> {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        let written = self.sink.write(bytes)?;
+        if written > bytes.len() {
+            return Err(std::io::Error::other("sink reported more bytes than supplied"));
+        }
+        self.digest.update(&bytes[..written]);
+        self.bytes += written as u64;
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.sink.flush()
+    }
+}
+
+/// Commit a newly staged member or verify one previously committed member in a single
+/// bounded pass. The caller owns containment, source authority and sink publication.
+pub(crate) fn transfer_member(
+    mut file: File,
+    sink: &mut impl Write,
+    bytes: u64,
+    expected: Option<pse_ids::ContentHash>,
+    mut checkpoint: impl FnMut() -> std::io::Result<()>,
+) -> Result<MemberTransfer, MemberTransferFailure> {
+    let mut accepted = Accepted {
+        sink,
+        bytes: 0,
+        digest: pse_ids::EncodingHasher::new(),
+    };
+    let transfer = (|| {
+        checkpoint()?;
+        let observe = |file: &File| {
+            pse_host::artifacts::descriptor_identity(file).map_err(std::io::Error::other)
+        };
+        let before = observe(&file)?;
+        if before.bytes != bytes {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "member extent differs from committed extent",
+            ));
+        }
+        transfer_exact(&mut file, &mut accepted, bytes, &mut checkpoint)?;
+        let mut extra = [0];
+        if file.read(&mut extra)? != 0 || observe(&file)? != before {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "member descriptor changed during transfer",
+            ));
+        }
+        let digest = accepted.digest.clone().finish().content_hash();
+        if expected.is_some_and(|expected| digest != expected) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "transferred bytes differ from the original member commitment",
+            ));
+        }
+        checkpoint()?;
+        Ok(MemberTransfer {
+            bytes: accepted.bytes,
+            digest,
+        })
+    })();
+    transfer.map_err(|source| MemberTransferFailure {
+        accepted_bytes: accepted.bytes,
+        source,
+    })
+}
+
 /// Write, synchronize and atomically publish one manifest after the caller's final checkpoint.
 /// Names are single contained relative paths supplied by the owning publication protocol.
 pub(crate) fn publish_document(
@@ -104,7 +252,7 @@ pub(crate) fn publish_document(
 ) -> std::io::Result<()> {
     safe_relative(temporary)?;
     safe_relative(destination)?;
-    let mut file = std::fs::OpenOptions::new()
+    let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(root.join(temporary))?;

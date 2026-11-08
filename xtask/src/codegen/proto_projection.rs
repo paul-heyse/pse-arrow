@@ -6,14 +6,16 @@
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 use anyhow::{Context, ensure};
 use anyhow::{Result, bail};
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 use buffa_descriptor::generated::descriptor::FileDescriptorSet;
 use pse_codegen::codegen::GeneratedTree;
@@ -21,14 +23,16 @@ use pse_codegen::codegen::GeneratedTree;
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 use pse_codegen::codegen::{boundary_projection, provenance};
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 use pse_contract::boundary_projection::ProjectionGraph;
 use std::{
@@ -42,7 +46,8 @@ pub(super) mod composition;
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 pub(super) struct ProjectionTarget<'a> {
     pub package: &'a str,
@@ -57,7 +62,8 @@ pub(super) struct ProjectionTarget<'a> {
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 pub(super) fn projection(
     graph: &ProjectionGraph,
@@ -81,7 +87,8 @@ pub(super) fn projection(
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 pub(super) fn publish_projection(
     graph: &ProjectionGraph,
@@ -97,7 +104,8 @@ pub(super) fn publish_projection(
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 pub(super) fn publish_projection_owned(
     graph: &ProjectionGraph,
@@ -199,7 +207,8 @@ pub(super) fn publish_projection_owned(
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 pub(super) fn producer(package: &str) -> String {
     package.replace(['.', '_'], "-")

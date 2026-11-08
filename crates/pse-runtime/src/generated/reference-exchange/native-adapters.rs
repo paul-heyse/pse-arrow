@@ -818,7 +818,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
-> for crate::workflow::PhysicalQuantityDescription {
+> for pse_quantity::boundary::PhysicalQuantityDescription {
     fn into_wire(
         self,
         path: &str,
@@ -827,8 +827,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),
@@ -947,14 +947,14 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
-> for crate::workflow::PhysicalQuantityDescription {
+> for pse_quantity::boundary::PhysicalQuantityDescription {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::PhysicalQuantityDescription,
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),
@@ -2015,7 +2015,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
-> for crate::reference_exchange::ReferenceCaseContract {
+> for pse_model::reference_exchange::ReferenceCaseContract {
     fn into_wire(
         self,
         path: &str,
@@ -2024,8 +2024,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "version"),
@@ -2099,14 +2099,14 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
-> for crate::reference_exchange::ReferenceCaseContract {
+> for pse_model::reference_exchange::ReferenceCaseContract {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceCaseContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "version"),
@@ -2265,6 +2265,367 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+> for pse_model::reference_exchange::ReferenceDegeneracyResult {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::reference_exchange::ReferenceDegeneracyResult as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegeneracyResult as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "version"), (2, "meaning"), (3, "supports")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult {
+            version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
+            meaning: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
+                >(field_1, &child_path(path, "meaning"))?,
+            ),
+            supports: {
+                let current_path = &child_path(path, "supports");
+                items(field_2)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+> for pse_model::reference_exchange::ReferenceDegeneracyResult {
+    fn from_wire(
+        wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        layout(
+            <pse_model::reference_exchange::ReferenceDegeneracyResult as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegeneracyResult as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "version"), (2, "meaning"), (3, "supports")],
+            path,
+        )?;
+        let fields = (
+            native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceMeaning,
+            >(
+                required(wire.meaning.into_option(), &child_path(path, "meaning"))?,
+                &child_path(path, "meaning"),
+            )?,
+            {
+                let current_path = &child_path(path, "supports");
+                let values = wire
+                    .supports
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+> for pse_model::reference_exchange::ReferenceDegenerateCertificate {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "multipliers"), (2, "irreducible_at_tolerance")],
+            path,
+        )?;
+        let value = match <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok((field_0, field_1)) => {
+                let alternative_path = child_path(path, "Reported");
+                let path = alternative_path.as_str();
+                return Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate {
+                    kind: Some(
+                        crate::reference_exchange::generated::pb::pse::reference::v1::__buffa::oneof::reference_degenerate_certificate::Kind::Reported(
+                            Box::new(crate::reference_exchange::generated::pb::pse::reference::v1::reference_degenerate_certificate::Alternative1 {
+                                multipliers: {
+                                    let current_path = &child_path(path, "multipliers");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                u64,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                irreducible_at_tolerance: Some(
+                                    native_into::<
+                                        _,
+                                        bool,
+                                    >(field_1, &child_path(path, "irreducible_at_tolerance"))?,
+                                ),
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate {
+                    kind: Some(
+                        crate::reference_exchange::generated::pb::pse::reference::v1::__buffa::oneof::reference_degenerate_certificate::Kind::Unreported(
+                            Box::new(crate::reference_exchange::generated::pb::pse::reference::v1::reference_degenerate_certificate::Alternative2 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+> for pse_model::reference_exchange::ReferenceDegenerateCertificate {
+    fn from_wire(
+        wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::reference_exchange::generated::pb::pse::reference::v1::__buffa::oneof::reference_degenerate_certificate::Kind::Reported(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Reported");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                layout(
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "multipliers"), (2, "irreducible_at_tolerance")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "multipliers");
+                        let values = wire
+                            .multipliers
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    u64,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                    native_from::<
+                        _,
+                        bool,
+                    >(
+                        required(
+                            wire.irreducible_at_tolerance,
+                            &child_path(path, "irreducible_at_tolerance"),
+                        )?,
+                        &child_path(path, "irreducible_at_tolerance"),
+                    )?,
+                );
+                Ok(
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::reference_exchange::generated::pb::pse::reference::v1::__buffa::oneof::reference_degenerate_certificate::Kind::Unreported(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Unreported");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                layout(
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+> for pse_model::reference_exchange::ReferenceDegenerateSupport {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+        AdapterError,
+    > {
+        layout(
+            <pse_model::reference_exchange::ReferenceDegenerateSupport as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegenerateSupport as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "rows"), (2, "certificate")],
+            path,
+        )?;
+        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport {
+            rows: items(field_0)
+                .map(
+                    pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
+                )
+                .collect::<Vec<_>>(),
+            certificate: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+                >(field_1, &child_path(path, "certificate"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+> for pse_model::reference_exchange::ReferenceDegenerateSupport {
+    fn from_wire(
+        wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateSupport,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        layout(
+            <pse_model::reference_exchange::ReferenceDegenerateSupport as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceDegenerateSupport as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "rows"), (2, "certificate")],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "rows");
+                let values = wire
+                    .rows
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                            value,
+                            &format!("{path}[{index}]", path = current_path),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegenerateCertificate,
+            >(
+                required(
+                    wire.certificate.into_option(),
+                    &child_path(path, "certificate"),
+                )?,
+                &child_path(path, "certificate"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceEnvelope,
 > for pse_model::reference_exchange::ReferenceEnvelope {
     fn into_wire(
@@ -2361,7 +2722,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
-> for crate::reference_exchange::ReferenceFixedInput {
+> for pse_model::reference_exchange::ReferenceFixedInput {
     fn into_wire(
         self,
         path: &str,
@@ -2370,8 +2731,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "value"), (3, "physical")],
             path,
@@ -2394,14 +2755,14 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
-> for crate::reference_exchange::ReferenceFixedInput {
+> for pse_model::reference_exchange::ReferenceFixedInput {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceFixedInput,
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceFixedInput as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "key"), (2, "value"), (3, "physical")],
             path,
@@ -2425,7 +2786,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
-> for crate::reference_exchange::ReferenceInputArtifact {
+> for pse_model::reference_exchange::ReferenceInputArtifact {
     fn into_wire(
         self,
         path: &str,
@@ -2434,8 +2795,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "path"), (2, "sha256")],
             path,
@@ -2454,14 +2815,14 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
-> for crate::reference_exchange::ReferenceInputArtifact {
+> for pse_model::reference_exchange::ReferenceInputArtifact {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceInputArtifact,
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceInputArtifact as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "path"), (2, "sha256")],
             path,
@@ -2695,7 +3056,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
-> for crate::reference_exchange::ReferenceObservableContract {
+> for pse_model::reference_exchange::ReferenceObservableContract {
     fn into_wire(
         self,
         path: &str,
@@ -2704,8 +3065,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "output"), (2, "key"), (3, "physical")],
             path,
@@ -2730,14 +3091,14 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
-> for crate::reference_exchange::ReferenceObservableContract {
+> for pse_model::reference_exchange::ReferenceObservableContract {
     fn from_wire(
         wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceObservableContract,
         path: &str,
     ) -> Result<Self, AdapterError> {
         layout(
-            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_model::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_model::reference_exchange::ReferenceObservableContract as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[(1, "output"), (2, "key"), (3, "physical")],
             path,
@@ -3513,7 +3874,7 @@ pub(super) fn decode_reference_envelope(
 }
 /// Encode the actual native `ReferenceCaseContract` and validate outgoing local rules.
 pub(super) fn encode_reference_case_contract(
-    native: crate::reference_exchange::ReferenceCaseContract,
+    native: pse_model::reference_exchange::ReferenceCaseContract,
 ) -> Result<
     crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
     BoundaryProjectionError,
@@ -3523,6 +3884,27 @@ pub(super) fn encode_reference_case_contract(
 /// Adopt known `ReferenceCaseContract` meaning under this package's declared unknown-field policy.
 pub(super) fn decode_reference_case_contract(
     wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceCaseContract,
-) -> Result<crate::reference_exchange::ReferenceCaseContract, BoundaryProjectionError> {
+) -> Result<
+    pse_model::reference_exchange::ReferenceCaseContract,
+    BoundaryProjectionError,
+> {
     decode_root(wire, "ReferenceCaseContract")
+}
+/// Encode the actual native `ReferenceDegeneracyResult` and validate outgoing local rules.
+pub(super) fn encode_reference_degeneracy_result(
+    native: pse_model::reference_exchange::ReferenceDegeneracyResult,
+) -> Result<
+    crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+    BoundaryProjectionError,
+> {
+    encode_root(native, "ReferenceDegeneracyResult")
+}
+/// Adopt known `ReferenceDegeneracyResult` meaning under this package's declared unknown-field policy.
+pub(super) fn decode_reference_degeneracy_result(
+    wire: crate::reference_exchange::generated::pb::pse::reference::v1::ReferenceDegeneracyResult,
+) -> Result<
+    pse_model::reference_exchange::ReferenceDegeneracyResult,
+    BoundaryProjectionError,
+> {
+    decode_root(wire, "ReferenceDegeneracyResult")
 }

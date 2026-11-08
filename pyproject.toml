@@ -30,7 +30,6 @@ test = [
 ]
 # IDAES 2.13.0 is the parity authority; Pyomo/Pint retain its qualified environment.
 parity = [
-  "msgspec==0.21.1",
   "protobuf==7.36.2",
   { include-group = "test" },
   "idaes-pse==2.13.0; python_full_version < '3.15'",
@@ -157,10 +156,6 @@ convention = "google"
 [tool.ruff.lint.flake8-annotations]
 mypy-init-return = true
 allow-star-arg-any = false
-
-[tool.ruff.lint.flake8-type-checking]
-# The independent reference wire evaluates msgspec fields at import time.
-runtime-evaluated-base-classes = ["msgspec.Struct"]
 
 [tool.ruff.lint.pep8-naming]
 # Literal fields of IDAES's NRTL state and teqp's coefficient API; protocols must

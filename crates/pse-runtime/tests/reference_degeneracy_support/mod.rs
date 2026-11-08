@@ -3,27 +3,27 @@
 //! Test-only local native science and explicit exchange values; no product adapter.
 
 use pse_backend_native::solve::SolveIntent;
+use crate::reference_scalar::{self, Inputs};
 use pse_runtime::{
     CancelSource,
     math::settings::SolveSettings,
     workflow::{DiagnosticOperation, JacobianDiagnosticControls, ModelingAnalysis},
 };
-use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     time::Duration,
 };
 
-pub(super) use crate::reference_support::{Result, root};
+pub(super) use crate::reference_support::Result;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct LinearRow {
     pub(super) name: String,
     pub(super) coefficients: Vec<f64>,
     pub(super) rhs: f64,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct LinearCase {
     pub(super) id: String,
     pub(super) variables: Vec<String>,
@@ -78,8 +78,7 @@ impl LinearCase {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub(super) struct RowSet {
     pub(super) rows: Vec<String>,
     /// Multipliers on original unscaled equations (native weight / physical row nominal).
@@ -87,14 +86,13 @@ pub(super) struct RowSet {
     pub(super) irreducible_at_tolerance: bool,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct CandidateReport {
     pub(super) complete: bool,
     pub(super) unavailable: Vec<String>,
     pub(super) sets: Vec<RowSet>,
 }
 
-#[derive(Serialize)]
 pub(super) struct Candidate {
     pub(super) id: String,
     pub(super) report: Option<CandidateReport>,
@@ -109,9 +107,9 @@ impl NativeCandidate {
             context: crate::reference_support::NativeContext::new()?,
         })
     }
-    pub(super) async fn run(&self, case: &LinearCase) -> Result<CandidateReport> {
+    pub(super) async fn run(&self, case: &LinearCase) -> Result<(CandidateReport, Inputs)> {
         let source_text = case.source();
-        let package = self.context.package(&source_text).await?;
+        let (package, originals) = self.context.package(&source_text).await?;
         let cancel = CancelSource::new();
         let services = self.context.runtime.execution_services();
         let declaration = package
@@ -174,6 +172,27 @@ impl NativeCandidate {
             names.values().cloned().collect::<BTreeSet<_>>(),
             case.rows.iter().map(|row| row.name.clone()).collect()
         );
+        let mut inputs = case.variables.iter().zip(&case.point)
+            .map(|(name, value)| (format!("point:{name}"), *value)).collect::<Vec<_>>();
+        let mut outputs = Vec::new();
+        for row in &case.rows {
+            inputs.extend(case.variables.iter().zip(&row.coefficients)
+                .map(|(name, coefficient)| (format!("row:{}:coefficient:{name}", row.name), *coefficient)));
+            inputs.push((format!("row:{}:rhs", row.name), row.rhs));
+            let id = names.iter().find(|(_, name)| *name == &row.name)
+                .map(|(id, _)| *id).ok_or("original row identity is unavailable")?;
+            outputs.push((format!("row:{}", row.name), id));
+        }
+        let configuration = pse_ids::preimage::hash(&serde_json::to_vec(&inputs.iter()
+            .map(|(key, value)| (key, value.to_bits())).collect::<Vec<_>>())?);
+        let contract = reference_scalar::bind(reference_scalar::Case {
+            name: &case.id,
+            identity: declaration.as_id(),
+            source: &source_text,
+            configuration,
+            inputs,
+            outputs,
+        }, package.physical_context(), originals)?;
         let nominals: BTreeMap<_, _> = source.row_nominals.iter().copied().collect();
         let values = prepared.model.values.clone();
         let native = package
@@ -210,11 +229,11 @@ impl NativeCandidate {
                 }
             })
             .collect();
-        Ok(CandidateReport {
+        Ok((CandidateReport {
             complete: native.evidence.complete,
             unavailable: native.evidence.unavailable.clone(),
             sets,
-        })
+        }, contract))
     }
 
     pub(super) async fn close(&self) -> Result<()> {

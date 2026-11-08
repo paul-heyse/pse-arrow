@@ -70,8 +70,9 @@ pub(super) fn orientation(
         .iter()
         .find(|m| m.selection.id == "frozen" && m.availability == PackAvailability::Available)
     {
-        let frozen: FrozenEvidenceSet = decode(
-            open_contained(directory, &member.relative_path)?.take(member.readable_bytes),
+        let frozen: FrozenEvidenceSet = decode_member(
+            directory,
+            member,
             index.selection.maximum_document_bytes,
         )?;
         for (i, context) in frozen.contexts.iter().take(20).enumerate() {
@@ -206,7 +207,8 @@ pub(super) fn orientation(
         if member.readable_bytes > index.selection.maximum_document_bytes as u64 {
             section.paragraphs.push("Table preview omitted: finalized IPC exceeds the report decode allowance. Indexed raw selected table remains available.".into());
         } else {
-            let file = open_contained(directory, &member.relative_path)?;
+            let mut bytes = Vec::new();
+            copy_member(directory, member, &mut bytes, || Ok(()))?;
             let limits = pse_columnar::ipc_stream::Limits {
                 message_bytes: index.selection.maximum_document_bytes,
                 metadata_bytes: index.selection.maximum_document_bytes,
@@ -214,7 +216,7 @@ pub(super) fn orientation(
             let pool = pse_columnar::ipc_stream::offline_pool(limits)
                 .map_err(|e| invalid(e.to_string()))?;
             let mut stream = pse_columnar::ipc_stream::StreamReader::try_new(
-                file,
+                std::io::Cursor::new(bytes),
                 member.readable_bytes,
                 limits,
                 pool,

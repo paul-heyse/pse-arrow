@@ -22,7 +22,8 @@ pub use batch::{ProviderBatchOutcome, ProviderBatchPoint, ProviderBatchResults};
 pub use provider::{
     PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,
     ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput,
-    ProviderRetirementFailure, ProviderRuntime,
+    ProviderRetirementFailure, ProviderRuntime, ProviderSelection, ProviderSelectionObservation,
+    ProviderSelectionRegularity,
 };
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
 pub use shape::{ProviderShape, ProviderShapes};
@@ -561,6 +562,14 @@ pub trait Provider: std::fmt::Debug + Send {
     fn completed_linearization(&self) -> Option<ContentHash> {
         None
     }
+    /// Whether this worker can supply a mathematical selection observation.
+    fn observes_selection(&self) -> bool {
+        false
+    }
+    /// Consume the authored regime fact from the just-completed fill.
+    fn take_completed_selection(&mut self) -> Option<ProviderSelection> {
+        None
+    }
     /// Compute one coherent state and requested partials.
     /// # Errors
     /// Recoverable trial rejection or terminal library failure.
@@ -870,6 +879,12 @@ impl Provider for ScopedProvider {
     fn completed_linearization(&self) -> Option<ContentHash> {
         self.inner.completed_linearization()
     }
+    fn take_completed_selection(&mut self) -> Option<ProviderSelection> {
+        self.inner.take_completed_selection()
+    }
+    fn observes_selection(&self) -> bool {
+        self.inner.observes_selection()
+    }
     fn fill(
         &mut self,
         inputs: &[f64],
@@ -966,6 +981,12 @@ impl Provider for Enveloped {
     }
     fn completed_linearization(&self) -> Option<ContentHash> {
         self.inner.completed_linearization()
+    }
+    fn take_completed_selection(&mut self) -> Option<ProviderSelection> {
+        self.inner.take_completed_selection()
+    }
+    fn observes_selection(&self) -> bool {
+        self.inner.observes_selection()
     }
     fn fill(
         &mut self,
@@ -1120,6 +1141,12 @@ impl Provider for ObservedProvider {
     }
     fn completed_linearization(&self) -> Option<ContentHash> {
         self.inner.completed_linearization()
+    }
+    fn take_completed_selection(&mut self) -> Option<ProviderSelection> {
+        self.inner.take_completed_selection()
+    }
+    fn observes_selection(&self) -> bool {
+        self.inner.observes_selection()
     }
     fn fill(
         &mut self,

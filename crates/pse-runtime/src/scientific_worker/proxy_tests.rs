@@ -106,7 +106,9 @@ impl Provider for ControlledNative {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
         if matches!(
             self.mode.as_str(),
-            "prepare-departure-retire-faults" | "shutdown-departure-retire-faults"
+            "prepare-departure-retire-faults"
+                | "shutdown-departure-retire-faults"
+                | "close-departure-retire-faults"
         ) {
             writeln!(
                 std::fs::OpenOptions::new()
@@ -1010,6 +1012,89 @@ fn actual_abandoned_shutdown_retains_original_native_retirement_failures() {
     assert_eq!(pool.reserved(), baseline + proxy.factory.registry_bytes);
     drop(proxy);
     assert_eq!(pool.reserved(), baseline);
+}
+
+#[test]
+fn actual_abandoned_close_preserves_original_native_retirement_failure() {
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let proxy = finish_proxy("close-departure-retire-faults", &marker, &service);
+    let closing = proxy.prepared[0].1.clone();
+    let survivor = proxy.prepared[1].1.clone();
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let io = remote.io.as_ref().unwrap();
+    let generation = closing.generation.to_string();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let mut exchange = Box::pin(io.departing_exchange(p::Request::Close(closing)).unwrap());
+        tokio::select! {
+            result = &mut exchange => panic!("gated Close unexpectedly replied: {result:?}"),
+            _ = preparation_witness(marker.with_extension("close-claimed"), &generation) => {},
+        }
+        drop(exchange);
+        preparation_witness(marker.with_extension("close-departed"), &generation).await;
+    });
+    drop(runtime);
+    let observed = io.exchange(
+        p::Request::Evaluate(p::Evaluate {
+            handle: survivor.clone(),
+            invocation: 1,
+            inputs: vec![500., 20.],
+            directions: vec![],
+            cotangents: vec![],
+            weights: vec![],
+        }),
+        &proxy.scope,
+        None,
+    );
+    let finished = Box::new(proxy).finish();
+    let mut actual: Vec<_> = std::fs::read_to_string(marker.with_extension("failed-finishes"))
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    actual.sort();
+    let mut expected = [generation.clone(), survivor.generation.to_string()];
+    expected.sort();
+    assert_eq!(actual, expected);
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
+    assert!(finished.is_err());
+    let p::Response::Failure(p::Failure::Retirement { causes }) = observed.unwrap() else {
+        panic!("original failed Close and independent retirement must reach the next observer");
+    };
+    assert_eq!(causes.len(), 2);
+    use pse_model::diagnostic::Observation;
+    for (cause, (action, generation)) in causes.iter().zip([
+        ("Close", generation),
+        ("Stop", survivor.generation.to_string()),
+    ]) {
+        let p::Failure::Diagnostic(detail) = cause else {
+            panic!("typed handle retirement facts required");
+        };
+        assert_eq!(detail.observations.get("action"), Some(&Observation::Text(action.into())));
+        assert_eq!(
+            detail.observations.get("generation"),
+            Some(&Observation::Text(generation.clone()))
+        );
+        assert_eq!(detail.causes.len(), 1);
+        assert_eq!(detail.causes[0].causes.len(), 1);
+        let keyed = &detail.causes[0].causes[0];
+        assert_eq!(keyed.causes.len(), 1);
+        assert_eq!(keyed.causes[0].code, pse_diagnostics::DiagnosticCode::KernelUnboundParameter);
+        assert_eq!(
+            keyed.causes[0].observations.get("detail"),
+            Some(&Observation::Text(format!("provider contract: controlled native retirement failure {generation}")))
+        );
+    }
 }
 
 fn receive_failed_retirement(immediate_parent_finish: bool) {

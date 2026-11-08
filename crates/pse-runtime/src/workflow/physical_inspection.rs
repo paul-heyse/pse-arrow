@@ -67,37 +67,8 @@ pub enum PhysicalInspectionQuery {
     } => 4;
 }
 }
-pse_contract::projection_struct! {
-/// Original selected quantity and its complete physical interpretation.
-#[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct PhysicalQuantityDescription {
-    projection: { name: "PhysicalQuantityDescription", rust_path: crate::workflow::PhysicalQuantityDescription,
-        version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
-    /// Exact original type including basis, datum, scale, shape and subject.
-    pub quantity: pse_quantity::QuantityType => { tag: 1, direction: Direction::Output, rules: [LocalRule::Required] };
-    /// What is measured, including exact rational dimension and arithmetic convention.
-    pub quantity_kind: pse_quantity::QuantityKind => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
-    /// Original canonical representation.
-    pub canonical_unit: pse_quantity::Unit => { tag: 3, direction: Direction::Output, rules: [LocalRule::Required] };
-    /// Selected representation; raw result values are never changed by inspection.
-    pub representation_unit: pse_quantity::Unit => { tag: 4, direction: Direction::Output, rules: [LocalRule::Required] };
-    /// Admitted conversion multiplier to canonical magnitude.
-    pub scale_to_canonical: f64 => { tag: 5, direction: Direction::Output, rules: [] };
-    /// Admitted conversion offset; difference quantities retain zero here.
-    pub offset_to_canonical: f64 => { tag: 6, direction: Direction::Output, rules: [] };
-    /// Exact original basis and its composition/rate/reference conventions.
-    pub basis: Option<pse_quantity::Basis> => { tag: 7, direction: Direction::Output, rules: [] };
-    /// Actual reference conditions required by a standard-volume or similar basis.
-    pub basis_reference_state: Option<pse_quantity::ReferenceState> => { tag: 8, direction: Direction::Output, rules: [] };
-    /// Exact original datum, including typed reference conditions.
-    pub reference_state: Option<pse_quantity::ReferenceState> => { tag: 9, direction: Direction::Output, rules: [] };
-    /// Declared ordered axis kinds.
-    pub shape: Vec<pse_quantity::EntityKind> => { tag: 10, direction: Direction::Output, rules: [] };
-    /// Declared subject kind.
-    pub subject: Option<pse_quantity::EntityKind> => { tag: 11, direction: Direction::Output, rules: [] };
-}
-}
+pub use pse_quantity::boundary::PhysicalQuantityDescription;
+
 pse_contract::projection_enum! {
 /// One immutable context page. An extent refusal never returns truncated meaning.
 #[derive(Clone, Debug, Serialize, Deserialize, schemars::JsonSchema)]

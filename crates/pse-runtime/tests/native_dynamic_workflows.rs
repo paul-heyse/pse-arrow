@@ -826,6 +826,7 @@ async fn public_integrated_fit_preserves_analytic_rate_response_and_observation_
                     authored_fit::AuthoredFitCasesFieldExperimentsItemBindingsItem {
                         parameter_id,
                         path: "root.rate".into(),
+                        schedule_start: None,
                     },
                 ],
             }],

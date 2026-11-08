@@ -658,9 +658,14 @@ impl Generator<'_> {
                     let tag = alternative.tag;
                     let alternative_name = &alternative.name;
                     let unknown = self.unknown_guard("wire", "path");
+                    let (binding, unpack) = if self.retained_wire && alternative.fields.is_empty() {
+                        ("_", "")
+                    } else {
+                        ("wire", "let wire = *wire;")
+                    };
                     let _ = writeln!(
                         out,
-                        "{kind}::{variant}(wire) => {{ let alternative_path = child_path(path, {alternative_name:?}); let path = alternative_path.as_str(); let wire = *wire; {unknown} {layout} let fields = {decode}; Ok(<{native} as pse_contract::boundary_projection::ProjectionAlternative<{tag}>>::from_projection_alternative(fields)) }},"
+                        "{kind}::{variant}({binding}) => {{ let alternative_path = child_path(path, {alternative_name:?}); let path = alternative_path.as_str(); {unpack} {unknown} {layout} let fields = {decode}; Ok(<{native} as pse_contract::boundary_projection::ProjectionAlternative<{tag}>>::from_projection_alternative(fields)) }},"
                     );
                 }
                 let _ = writeln!(out, "}} }} }}");

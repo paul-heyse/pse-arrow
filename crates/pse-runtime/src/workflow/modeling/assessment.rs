@@ -6,6 +6,7 @@
 use super::results::{AssessmentScope, CertifiedBound, assess_observations, assessment_units};
 use super::*;
 use crate::math::{ExecutableCase, WorkerBudget, solves::Outcome};
+use pse_math::assembly::ProviderSelectionVisit;
 use pse_math::binding::CaseValues;
 use pse_model::diagnostic::DiagnosticProjection;
 use pse_model::generated::identities::RunId;
@@ -87,6 +88,7 @@ pub(in crate::workflow) struct AssessedPoint {
     pub values: CaseValues,
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
+    pub provider_selections: Option<ProviderSelections>,
     pub error: Option<pse_model::diagnostic::BoundaryDiagnostic>,
     /// Actual failed operation that prevented a candidate from reaching original checks.
     pub(in crate::workflow) unavailable_cause: Option<Arc<pse_backend_native::ProblemError>>,
@@ -99,6 +101,12 @@ pub(in crate::workflow) struct AssessedPoint {
     /// Original physical/native permission, before optional goal composition.
     pub original: Option<crate::workflow::numerics::CandidateDecision>,
     pub canonical_fallback: bool,
+}
+
+#[derive(Debug)]
+pub(in crate::workflow) struct ProviderSelections {
+    pub(super) visits: Vec<ProviderSelectionVisit>,
+    _owner: Arc<pse_columnar::AllocationLease>,
 }
 impl AssessedPoint {
     /// Preserve the original scientific refusal instead of deriving it from native status.
@@ -276,6 +284,7 @@ impl Assessment {
             values: prepared.model.values.clone(),
             checks: vec![],
             reports: vec![],
+            provider_selections: None,
             error: None,
             unavailable_cause: None,
             complete: false,
@@ -347,7 +356,7 @@ impl Assessment {
             &mut point.checks,
             &mut point.reports,
         ) {
-            Ok(()) => {}
+            Ok(selections) => point.provider_selections = selections,
             Err(error) => point.error = Some(error.boundary_diagnostic()),
         }
         let policy = &prepared.solve.numerics().policy;
@@ -425,7 +434,7 @@ impl Assessment {
         evaluations: &mut u64,
         checks: &mut Vec<ModelingCheck>,
         reports: &mut Vec<ModelingReport>,
-    ) -> Result<(), WorkflowError> {
+    ) -> Result<Option<ProviderSelections>, WorkflowError> {
         let checkpoint = || {
             execution.check().map_err(|error| {
                 crate::math::MathRuntimeError::from(pse_backend_native::ProblemError::Provider(
@@ -450,7 +459,21 @@ impl Assessment {
         let report_start = reports.len();
         let assessed = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut applicability = Vec::new();
+        let mut selection = None;
         let observed = if let Some(evaluator) = evaluator.as_mut() {
+            let worker = evaluator.worker();
+            let capacity = worker.constraint_selection_capacity().map_err(crate::workflow::math)?;
+            if capacity != 0 {
+                let bytes = capacity
+                    .checked_mul(size_of::<ProviderSelectionVisit>())
+                    .ok_or_else(|| contract("original provider selection extent"))?;
+                let owner = self.math.reserve("modeling:provider-selections", bytes)?;
+                let mut visits = Vec::new();
+                visits.try_reserve_exact(capacity).map_err(|source| crate::math::MathRuntimeError::Allocation {
+                    operation: "original provider selections", source,
+                })?;
+                selection = Some(ProviderSelections { visits, _owner: owner });
+            }
             let observed = budget.evaluate(|| {
                 *evaluations =
                     evaluations
@@ -458,18 +481,13 @@ impl Assessment {
                         .ok_or(crate::math::MathRuntimeError::Limit(
                             "original assessment work counter overflow",
                         ))?;
-                evaluator
-                    .worker()
-                    .constraints(values)
-                    .map_err(crate::math::MathRuntimeError::from)
+                let values = match selection.as_mut() {
+                    Some(selection) => worker.constraints_observing_selections(values, &mut selection.visits),
+                    None => worker.constraints(values),
+                }?;
+                Ok(self.rows.iter().copied().zip(values.iter().copied()).collect())
             })?;
-            let observed = self
-                .rows
-                .iter()
-                .copied()
-                .zip(observed.iter().copied())
-                .collect();
-            applicability = evaluator.worker().applicability_observations();
+            applicability = worker.applicability_observations();
             observed
         } else {
             BTreeMap::new()
@@ -510,7 +528,7 @@ impl Assessment {
             checks.push(check);
         }
         checkpoint()?;
-        Ok(())
+        Ok(selection.filter(|selection| !selection.visits.is_empty()))
         })).unwrap_or_else(|payload| Err(WorkflowError::from(crate::math::MathRuntimeError::Panic(
             pse_diagnostics::panic::settle_payload(payload, "original assessment panic with opaque payload"),
         ))));

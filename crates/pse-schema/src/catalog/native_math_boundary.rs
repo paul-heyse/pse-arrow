@@ -92,7 +92,7 @@ const FIT_CASES: &[RecordLayout] = &[
     },
     RecordLayout {
         path: "experiments.bindings",
-        fields: &[("parameter_id", 1), ("path", 2)],
+        fields: &[("parameter_id", 1), ("path", 2), ("schedule_start", 3)],
         alternatives: &[],
     },
     RecordLayout {

@@ -10,12 +10,26 @@ use pse_runtime::{
 use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeMap,
-    io::Read as _,
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+#[derive(Default)]
+struct Sha256Sink(Sha256);
+
+impl std::io::Write for Sha256Sink {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.0.update(bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 fn wait(path: &Path) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(60);
     while !path.exists() {
@@ -36,8 +50,12 @@ fn verify_portable(root: &Path) -> Result<()> {
     let reader = PackReader::open(&root.join("portable-pack"), 16 << 20)?;
     let frozen = reader.read_frozen()?;
     let analysis = reader.read_analysis()?;
-    let mut raw = Vec::new();
-    reader.open_member("timeline")?.read_to_end(&mut raw)?;
+    let mut raw = Sha256Sink::default();
+    let copied = reader.copy_member_verified(
+        "timeline",
+        &mut raw,
+        &pse_runtime::CancelSource::new().token(),
+    )?;
     let mut original_paths_available = root.join("frozen.json").try_exists()?;
     for output in frozen.captures.iter().flat_map(|capture| &capture.outputs) {
         original_paths_available |= output.path.try_exists()?;
@@ -49,7 +67,7 @@ fn verify_portable(root: &Path) -> Result<()> {
             .extension()
             .is_some_and(|extension| extension == "json");
     }
-    if original_paths_available || raw.is_empty() {
+    if original_paths_available || copied.copied_bytes == 0 {
         return Err(std::io::Error::other("portable fixture requires absent original evidence paths and a nonempty selected raw member").into());
     }
     if !frozen
@@ -63,11 +81,11 @@ fn verify_portable(root: &Path) -> Result<()> {
         )
         .into());
     }
-    let digest: String = Sha256::digest(&raw)
+    let digest: String = raw.0.finalize()
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();
-    let response = serde_json::json!({"operation":analysis.request.operation,"captures":frozen.captures.len(),"raw_bytes":raw.len(),"raw_sha256":digest,"original_paths_available":original_paths_available});
+    let response = serde_json::json!({"operation":analysis.request.operation,"captures":frozen.captures.len(),"raw_bytes":copied.copied_bytes,"raw_sha256":digest,"original_paths_available":original_paths_available});
     std::fs::write(root.join("portable.ready"), serde_json::to_vec(&response)?)?;
     Ok(())
 }

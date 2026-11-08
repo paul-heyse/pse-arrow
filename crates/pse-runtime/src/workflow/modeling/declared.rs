@@ -165,6 +165,8 @@ struct DeclaredPreparation {
     source: ModelingPackage,
     root: DeclarationId,
     instance: InstanceId,
+    route: Route,
+    procedure: Procedure,
     bindings: Bindings,
     limits: Limits,
     model: ModelingPreparation,
@@ -245,6 +247,8 @@ impl DeclaredExecution {
             )
             || !Arc::ptr_eq(&source.providers, &package.providers)
             || !Arc::ptr_eq(&source.accelerators, &package.accelerators)
+            || self.route != original.route
+            || self.procedure.kind() != original.procedure
             || self.analysis.root != original.root
             || self.analysis.instance != original.instance
             || self.analysis.bindings != original.bindings
@@ -478,6 +482,8 @@ impl ModelingPackage {
                         source: self.clone(),
                         root,
                         instance,
+                        route: choice.route,
+                        procedure: choice.procedure,
                         bindings: analysis.bindings.clone(),
                         limits,
                         model: model.clone(),
@@ -874,6 +880,25 @@ mod tests {
                 .await
                 .is_err()
         );
+        let before = runtime.native().preparation_effects();
+        let mut relabeled = execution.clone();
+        relabeled.procedure = DeclaredProcedure::Solve;
+        assert!(
+            package
+                .prepare_declared(&runtime.preparation_services(), &relabeled, &cancel)
+                .await
+                .is_err()
+        );
+        let mut relabeled = execution.clone();
+        relabeled.route = Route::Simultaneous;
+        assert!(
+            package
+                .prepare_declared_diagnostics(&runtime.preparation_services(), &relabeled, &cancel)
+                .await
+                .is_err()
+        );
+        let effects = runtime.native().preparation_effects().since(before);
+        assert_eq!((effects.frontiers, effects.completions), (0, 0));
         let prepared = package
             .prepare_declared_diagnostics(&runtime.preparation_services(), &execution, &cancel)
             .await

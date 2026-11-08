@@ -354,7 +354,9 @@ def _reference_symbol(type_name: str) -> str:
     }[type_name]
 
 
-def _validate_physical(physical: Message, type_name: str) -> None:
+def _validate_physical(
+    physical: Message, type_name: str, *, original_unit_symbol: str | None = None
+) -> None:
     quantity = _message(physical, "quantity")
     key = _message(quantity, "key")
     kind = _message(physical, "quantity_kind")
@@ -370,10 +372,8 @@ def _validate_physical(physical: Message, type_name: str) -> None:
     if _identity(_message(quantity, "canonical_unit")) != _identity(canonical):
         raise ValueError("quantity canonical unit differs from its actual owner")
     _identity(representation)
-    if any(
-        unit.symbol != _reference_symbol(type_name) or unit.is_affine
-        for unit in (canonical, representation)
-    ):
+    symbol = _reference_symbol(type_name) if original_unit_symbol is None else original_unit_symbol
+    if any(unit.symbol != symbol or unit.is_affine for unit in (canonical, representation)):
         raise ValueError(
             "declared original unit spelling/affinity differs from the reference"
         )

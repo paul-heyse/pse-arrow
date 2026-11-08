@@ -1806,7 +1806,7 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
                 .unwrap();
             assert_eq!(
                 row.original_assessment,
-                Some(point.assessment.observation().unwrap())
+                point.assessment.observation().unwrap()
             );
             let document = serde_json::to_value(point).unwrap();
             assert_eq!(document["original_assessment"]["complete"], true);
@@ -1826,37 +1826,6 @@ async fn fitting_lm_profile_chains_record_actual_criteria_and_effective_caps() {
         panic!("actual residual method");
     };
     assert_eq!(execution.stopping, Some(estimate));
-    // An explicitly unavailable observation remains unavailable even when the
-    // pin itself was accepted. Missing old Arrow fields are not upgraded by the
-    // current generated native reader merely because the new field is optional.
-    let mut unavailable = exported[0].clone();
-    unavailable.original_assessment = None;
-    let registry = pse_schema::registry().unwrap();
-    let validation = pse_relations::validate::ValidationContext::local(registry).unwrap();
-    let mut builder = profile_points::Row::builder(registry, 1, &validation).unwrap();
-    profile_points::Row::push(&mut builder, unavailable).unwrap();
-    let unavailable = profile_points::Row::finish(builder).unwrap();
-    assert!(
-        profile_points::Row::rows(&unavailable).unwrap()[0]
-            .original_assessment
-            .is_none()
-    );
-    let fields = batch.batch().schema();
-    let indices = fields
-        .fields()
-        .iter()
-        .enumerate()
-        .filter_map(|(index, field)| (field.name() != "original_assessment").then_some(index))
-        .collect::<Vec<_>>();
-    let historical_shape = batch.batch().project(&indices).unwrap();
-    assert_eq!(historical_shape.num_rows(), batch.batch().num_rows());
-    assert!(
-        historical_shape
-            .schema()
-            .field_with_name("original_assessment")
-            .is_err()
-    );
-    assert!(profile_points::View::try_from_batch(&historical_shape, &validation).is_err());
 }
 
 /// SC01-SC03: authored affine calibration, immutable research selection, actual LM,

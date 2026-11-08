@@ -1100,3 +1100,1137 @@ The most important limitations are equally structural: no native doctest executi
 Bottom line: nextest is best understood as a specialized Rust test execution, scheduling, and observability layer, not simply a faster replacement command for `cargo test`. Its established features can substantially reduce custom test orchestration machinery; its experimental extensions suggest further opportunities, but should be treated separately from its stable execution and configuration interfaces.
 
 The official architecture, configuration, filterset, CI, and integration documentation cited throughout provides the primary technical reference for those distinctions.
+
+# cargo-nextest — Technical Capability Addendum
+
+Target version: cargo-nextest 0.9.151 (stable)\
+Research date: November 8, 2026\
+Companion document: cargo-nextest — Comprehensive Rust Test Runner Reference (originally targeting 0.9.150)
+
+This addendum extends the original reference with additional capabilities, operational semantics, and integration interfaces. Section references indicate where the material complements the existing guide. Established capabilities are distinguished from experimental functionality, and version-sensitive corrections are documented explicitly.
+
+## 1. Version updates and corrections to the existing reference
+
+### 1.1 Version 0.9.151: scheduler correctness and build reuse
+
+Version 0.9.151, released November 2, 2026, is the latest stable release listed in the upstream changelog as of this research date. It introduces two correctness fixes relevant to existing capabilities.
+
+Test-group scheduling correctness. When using named test groups together with `threads-required`, a test waiting for group capacity could previously be delayed after sufficient global capacity became available. This occurred when capacity was released by a test outside the waiting test's group. If no other test in the group remained active, the run could terminate without ever executing the waiting test.
+
+Version 0.9.151 corrects the wake-up and scheduling behavior so that eligible waiting tests are started once sufficient capacity becomes available.
+
+This is an important distinction from ordinary scheduler efficiency: the earlier defect could affect test-execution completeness, not merely execution order or elapsed time.
+
+Custom-target build reuse. Version 0.9.151 also fixes a panic when executing previously compiled tests through `--archive-file` or `--binaries-metadata` for certain custom targets supplied through `rustc --print=cfg`.
+
+This addresses a compatibility problem in the build-reuse execution path rather than changing the archive format itself.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+The security fix and recording-store compatibility changes introduced in 0.9.150 remain applicable.
+
+Official changelog: `https://nexte.st/changelog/`
+
+### 1.2 Corrections to defaults and companion versions
+
+Two existing details should be superseded:
+
+| Original guide location          | Corrected information                                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| §6.3 — Subprocess leak detection | The default test `leak-timeout` is 200 ms, not 100 ms. Setup scripts have a separate 100 ms default.                 |
+| §13.3 — Companion Rust crates    | `nextest-filtering` 0.23.0 supersedes the documented 0.22.0. The current nextest-runner dependency specifies 0.23.0. |
+
+The leak-timeout correction is significant because the test and setup-script phases have independent configuration defaults.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.nexte.st\&sz=32)
+
+cargo-nextest+3
+
+
+
+Sources:
+
+- Repository configuration reference: `https://nexte.st/docs/configuration/reference/`
+- Nextest-filtering crate manifest: `https://docs.rs/crate/nextest-filtering/latest/source/Cargo.toml.orig`
+
+## 2. Default-filter semantics and test-selection completeness
+
+Extends original §3.3 — Filtering composition and discovery optimization.
+
+### 2.1 The default filter is an implicit constraint on CLI selection
+
+A configured `default-filter` does more than determine which tests are selected when no explicit filter is supplied.
+
+Beginning with nextest 0.9.77, command-line filterset expressions are evaluated within the effective default-filter set unless the caller explicitly bypasses that constraint.
+
+For example:
+
+```
+[profile.default]
+default-filter = 'not package(special-tests)'
+
+[profile.ci]
+default-filter = 'all()'
+```
+
+Under the default profile:
+
+```
+cargo nextest run -E 'all()'
+```
+
+does not select tests from `special-tests`, even though `all()` matches the entire universe of discoverable tests when considered independently.
+
+The effective selection is conceptually:
+
+\\[ S\_{\text{selected}} = S\_{\text{CLI filtersets}} \cap S\_{\text{default filter}} \\]
+
+Additional restrictions from Cargo build scope, positional name filters, ignored-test handling, partition selection, and rerun selection can narrow the result further.
+
+This behavior means that `all()` is not necessarily a declaration of exhaustive test execution. It is only one component of the effective selection policy.
+
+### 2.2 `--ignore-default-filter` and `default()` have different meanings
+
+The following command bypasses the implicit default-filter constraint:
+
+```
+cargo nextest run \
+  -E 'all()' \
+  --ignore-default-filter
+```
+
+The flag does not change the meaning of the `default()` predicate. An expression that explicitly contains `default()` continues to evaluate against the configured default set.
+
+This creates an important distinction:
+
+| Mechanism                 | Effect                                                                                        |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| `default-filter`          | Establishes the profile's default test-selection set                                          |
+| `-E 'all()'`              | Selects all tests within the otherwise applicable CLI constraints                             |
+| `--ignore-default-filter` | Removes implicit intersection with the configured default filter                              |
+| `default()`               | Explicitly refers to the configured default set inside a filterset expression                 |
+| `--run-ignored all`       | Includes both normally runnable and `#[ignore]` tests; independent of default-filter handling |
+
+Consequently, bypassing the default filter alone does not automatically include ignored tests, and including ignored tests alone does not bypass the default filter.
+
+Even with both mechanisms enabled, execution remains limited to tests discoverable within the selected Cargo packages, targets, features, and platforms. It does not add unsupported doctest execution.
+
+### 2.3 Configuration expressions are evaluated differently from CLI expressions
+
+Filtersets specified within nextest configuration are not automatically intersected with `default-filter`.
+
+This applies, for example, to filtersets used for per-test overrides or setup-script selection. If such a rule needs to restrict itself to the default set, its filter expression must explicitly include `default()`.
+
+The distinction prevents recursive application of default-selection policy to configuration rules, but also means that an override can match a test that ordinary default-profile execution would exclude.
+
+This is useful when defining policies for test classes normally executed only in CI or specialized environments.
+
+### 2.4 Platform-specific default filters
+
+Nextest can replace a profile's default filter according to the host or target platform.
+
+For example:
+
+```
+[profile.default]
+default-filter = 'all()'
+
+[[profile.default.overrides]]
+platform = 'cfg(windows)'
+default-filter = 'not package(unix-integration)'
+```
+
+A `default-filter` override must specify `platform` and cannot simultaneously specify a test `filter`. This is a platform-level change to selection policy, not a per-test execution-setting override.
+
+### 2.5 Selection diagnostics
+
+Nextest reports the number of tests and binaries skipped because of the effective default filter.
+
+For programmatic consumers, `nextest-metadata` represents this distinction through `FilterMatch::Mismatch` and the `MismatchReason::DefaultFilter` variant, allowing tools to distinguish tests excluded by the default profile from tests excluded through an explicit filter expression or partition.
+
+This provides the basis for explaining why a discovered test was not selected without independently reimplementing the filterset algebra.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+2
+
+
+
+- Test selection: `https://nexte.st/docs/selecting/`
+- Filterset semantics: `https://nexte.st/docs/filtersets/`
+- Filterset DSL reference: `https://nexte.st/docs/filtersets/reference/`
+
+## 3. Configuration introspection, validation, and hierarchical composition
+
+Extends original §4 — Declarative configuration and policy resolution.
+
+### 3.1 Native configuration-inspection commands
+
+Nextest provides commands for inspecting specific resolved configuration properties without executing tests.
+
+```
+# Inspect matching tests and named test-group assignments.
+cargo nextest show-config test-groups
+
+# Inspect the installed version against configured requirements.
+cargo nextest show-config version
+
+# Display locally bundled configuration references.
+cargo nextest help repo-config
+cargo nextest help user-config
+
+# Display the filterset language reference.
+cargo nextest help filterset
+```
+
+`show-config test-groups` accepts the same test-selection options as `cargo nextest list`. It can therefore be scoped to a package, target, filterset, or profile.
+
+Its output associates group limits and selected tests with the override rules responsible for assigning those groups. This is useful for diagnosing unintentionally serialized tests, tests assigned to the wrong resource group, and conflicts between overlapping group-selection rules.
+
+The command provides visibility into the interaction between policy and discovered tests, rather than simply printing raw TOML.
+
+`show-config version` evaluates required and recommended minimum versions. It has distinctive exit semantics:
+
+- `0`: requirements satisfied or checks explicitly bypassed.
+- `10`: recommended minimum version not met.
+- `92`: required minimum version not met.
+
+Exit code `10` is advisory; it is not equivalent to a failed test run. An automation using `show-config version` must account for that distinction.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+1
+
+
+
+Sources:
+
+- Test-group inspection: `https://nexte.st/docs/configuration/test-groups/`
+- Version inspection: `https://nexte.st/docs/configuration/minimum-versions/`
+
+### 3.2 Machine-readable configuration schemas
+
+Nextest publishes JSON Schemas for both repository-level and user-level configuration.
+
+The installed executable can emit schemas corresponding to its own version:
+
+```
+cargo nextest self schema repo-config
+cargo nextest self schema user-config
+```
+
+The corresponding public URLs are:
+
+`https://nexte.st/schemas/repo-config.json`
+
+`https://nexte.st/schemas/user-config.json`
+
+The public URLs track the latest release, whereas schemas emitted by the local binary correspond to that binary's version.
+
+This makes it possible to validate configuration against the version actually executing tests, even when a repository intentionally uses an older nextest version.
+
+The two schemas cover different configuration domains:
+
+| Schema        | Scope                                                                                                                     |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `repo-config` | Profiles, test groups, per-test overrides, setup scripts, execution policies, and version requirements                    |
+| `user-config` | Progress presentation, pager behavior, interactive input, recording preferences, and platform-specific personal overrides |
+
+Both support schema-driven completion and validation through compatible editors.
+
+Official documentation identifies the Tombi TOML language server and RustRover as supported consumers. It identifies a crash bug in Taplo as preventing its use for this integration.
+
+Schema validation is stricter than nextest's runtime parser. Unknown configuration keys fail schema validation, while the application normally emits warnings for them.
+
+This distinction matters for forward compatibility: a configuration file may be accepted by a runner but rejected by a strict schema validator, especially when experimental or newly introduced settings are involved.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+1
+
+
+
+Sources:
+
+- Repository schema: `https://nexte.st/docs/configuration/reference/`
+- User schema: `https://nexte.st/docs/user-config/reference/`
+
+### 3.3 Tool-specific configuration as a lower-priority policy layer
+
+Tools invoking nextest can provide their own configuration files using:
+
+```
+cargo nextest run \
+  --tool-config-file my-tool:/absolute/path/to/nextest.toml
+```
+
+The argument has the form `TOOL:ABS_PATH`, permitting a higher-level tool to supply named defaults independently of the repository configuration.
+
+The hierarchy is more nuanced than simply loading configuration files in sequence.
+
+For an applicable setting, the main precedence is:
+
+1. Command-line arguments.
+2. Environment variables.
+3. Matching per-test overrides, evaluated through the selected profile and inheritance chain.
+4. Repository configuration for the selected profile.
+5. Tool-specific configuration for that profile.
+6. Corresponding repository and tool-specific settings inherited from parent profiles.
+7. Nextest's embedded defaults.
+
+Within a particular profile level, repository configuration takes precedence over tool-specific configuration. If multiple tool configuration files are supplied, earlier files take precedence over later ones.
+
+This architecture lets external tools establish execution defaults while preserving the repository's authority over its own policies.
+
+Minimum-version requirements are an exception. Nextest considers requirements from all repository and tool-specific configuration files, instead of allowing a lower-priority requirement to be masked by a higher-priority value. The strongest applicable minimum requirement must therefore be met.
+
+This is significant for integrations that depend on functionality introduced in specific nextest versions: the integration can declare its own minimum independently of the repository's configuration.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+1
+
+
+
+Sources:
+
+- Configuration hierarchy: `https://nexte.st/docs/configuration/`
+- Minimum-version requirements: `https://nexte.st/docs/configuration/minimum-versions/`
+
+## 4. Build-directory remapping and compiler-message interfaces
+
+Extends original §8.3 and §10.3 — Manual metadata-based execution and machine-readable interfaces.
+
+### 4.1 Separate Cargo target and build directories
+
+Cargo's `build.build-dir` configuration allows intermediate build artifacts to reside separately from the target directory containing final artifacts.
+
+Nextest supports this distinction through three independent relocation controls:
+
+| Option               | Relocated resource                                                                  |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `--workspace-remap`  | Workspace and source-tree location                                                  |
+| `--target-dir-remap` | Target directory containing compiled artifacts                                      |
+| `--build-dir-remap`  | Separate build directory containing intermediate outputs and build-script artifacts |
+
+`--build-dir-remap` becomes relevant when compiled tests are executed using reusable build metadata or relocated artifacts.
+
+If it is not provided, nextest falls back to the target-directory remapping.
+
+The distinction matters because a test executable and its runtime dependencies are not necessarily located in the same artifact tree. A test may rely on paths generated by build scripts, non-test binaries, dynamic libraries, or other build outputs.
+
+For example, a compilation environment might produce final binaries under one persistent artifact directory and intermediate build products under a separate cache volume. A remote execution environment must reconstruct both paths correctly.
+
+Nextest's remapping facilities allow those locations to be represented independently instead of requiring a custom mechanism to rewrite every path embedded in the build metadata.
+
+### 4.2 Dynamic-library resolution across Cargo artifact layouts
+
+Nextest reconstructs Cargo-compatible dynamic-library search paths from compiled artifact metadata.
+
+Depending on the platform, the effective search path is supplied through `PATH`, `DYLD_FALLBACK_LIBRARY_PATH`, or `LD_LIBRARY_PATH`.
+
+The reconstructed paths can include the final artifact directory, dependency directory, selected build-script linkage paths, and Rust sysroot library directories.
+
+Two distinctions are important.
+
+First, Cargo's target directory and build directory need not be identical. Under a split-directory configuration, final executables and dynamic libraries may reside outside the tree containing intermediate compiler outputs.
+
+Second, Cargo's build-directory layout v2 changes the traditional expectation that dynamically linked artifacts reside under a separate `deps` directory. Under that layout, the relevant libraries reside directly in the artifact directory.
+
+Consequently, any external system reconstructing a test execution environment from compiled metadata must account for the Cargo artifact layout as well as the host/target platform distinction.
+
+This is a reason to preserve nextest's structured build metadata rather than infer library paths solely from conventional `target/debug/deps` locations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+2
+
+
+
+Sources:
+
+- Archiving and build reuse: `https://nexte.st/docs/ci-features/archiving/`
+- Runtime environment reconstruction: `https://nexte.st/docs/configuration/env-vars/`
+
+### 4.3 Compilation-only operation
+
+The `--no-run` option allows nextest to invoke Cargo compilation without proceeding to test execution:
+
+```
+cargo nextest run --no-run
+```
+
+This separates compilation from the remainder of the execution workflow.
+
+It is distinct from obtaining a test inventory through `cargo nextest list`, because compiling the test targets does not itself provide the per-test enumeration and selection information required for execution scheduling.
+
+The separation is useful for build-validation workflows and external tools that need to control when test execution occurs independently from compilation.
+
+### 4.4 Cargo compiler messages versus nextest execution messages
+
+Nextest exposes two distinct mechanisms for controlling structured output.
+
+Cargo compilation diagnostics
+
+```
+cargo nextest run \
+  --no-run \
+  --cargo-message-format=json
+```
+
+Introduced in 0.9.123, `--cargo-message-format` accepts Cargo-compatible message-format options, including `human`, `short`, `json`, and diagnostic-rendering variants.
+
+It controls how messages from Cargo's build phase are reported, including forwarding structured JSON messages to standard output.
+
+Nextest test-execution events
+
+```
+NEXTEST_EXPERIMENTAL_LIBTEST_JSON=1 \
+  cargo nextest run \
+  --message-format libtest-json-plus
+```
+
+This is a separate interface for execution events. The `libtest-json` and `libtest-json-plus` formats remain experimental.
+
+The two interfaces have different producers and different schemas.
+
+| Interface                                  | Information represented                                   | Stability                              |
+| ------------------------------------------ | --------------------------------------------------------- | -------------------------------------- |
+| `--cargo-message-format=json`              | Cargo compilation artifacts and diagnostics               | Established Cargo-compatible interface |
+| `cargo nextest list --message-format json` | Discovered binaries, tests, and selection metadata        | Stable nextest interface               |
+| `--message-format libtest-json-plus`       | Test execution events and nextest-specific event metadata | Experimental                           |
+
+A system consuming multiple phases should distinguish compilation, discovery, and execution records rather than treating them as one uniform event stream.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/running/`
+
+## 5. Structured exit statuses and programmatic metadata
+
+Extends original §10.3 and §13.3.
+
+### 5.1 `NextestExitCode` as a typed failure taxonomy
+
+The `nextest-metadata` crate exposes `NextestExitCode`, a collection of documented exit-code constants describing expected outcomes and failure classes.
+
+The primary distinction is between a failure in the tested program and a failure in the infrastructure used to compile, discover, or execute that program.
+
+| Exit code | Constant                           | Meaning                                                     |
+| --------- | ---------------------------------- | ----------------------------------------------------------- |
+| `0`       | `OK`                               | Successful execution                                        |
+| `1`       | —                                  | Unexpected or unclassified error                            |
+| `4`       | `NO_TESTS_RUN`                     | No tests selected, under a policy treating this as an error |
+| `5`       | `RERUN_TESTS_OUTSTANDING`          | Executed rerun tests passed, but unresolved tests remain    |
+| `10`      | `RECOMMENDED_VERSION_NOT_MET`      | Advisory minimum-version check failure                      |
+| `70`      | `DOUBLE_SPAWN_ERROR`               | Failure during nextest process re-execution                 |
+| `80`      | `UPDATE_AVAILABLE`                 | Update detected by `self update --check`                    |
+| `81`      | `UPDATE_DOWNGRADE_NOT_PERFORMED`   | Requested downgrade not performed                           |
+| `82`      | `UPDATE_CANCELED`                  | User canceled the update                                    |
+| `90`      | `UPDATE_ERROR`                     | Error downloading an update                                 |
+| `92`      | `REQUIRED_VERSION_NOT_MET`         | Minimum required nextest version not satisfied              |
+| `93`      | `SELF_UPDATE_UNAVAILABLE`          | Self-update not available in the installed build            |
+| `94`      | `INVALID_FILTERSET`                | Invalid filterset expression                                |
+| `95`      | `EXPERIMENTAL_FEATURE_NOT_ENABLED` | Experimental functionality requested without activation     |
+| `96`      | `SETUP_ERROR`                      | Error configuring or preparing the invocation               |
+| `100`     | `TEST_RUN_FAILED`                  | One or more tests failed                                    |
+| `101`     | `BUILD_FAILED`                     | Cargo test compilation failed                               |
+| `102`     | `CARGO_METADATA_FAILED`            | Cargo metadata acquisition failed                           |
+| `103`     | `ARCHIVE_CREATION_FAILED`          | Compiled-test archive creation failed                       |
+| `104`     | `TEST_LIST_CREATION_FAILED`        | Test discovery or list construction failed                  |
+| `105`     | `SETUP_SCRIPT_FAILED`              | Setup-script execution failed                               |
+| `106`     | `INCOMPLETE_RUN`                   | Replay requested for an incomplete recording                |
+| `110`     | `WRITE_OUTPUT_ERROR`               | Failure writing to stdout or stderr                         |
+
+These constants are part of a publicly documented Rust metadata interface, rather than conventions inferred from terminal output.
+
+The taxonomy enables external orchestration to make several consequential distinctions.
+
+A compilation failure (`101`) is not a test failure (`100`). A failure to construct the test inventory (`104`) means the selected tests may not have been executed at all. A setup-script failure (`105`) indicates that the execution environment was not prepared successfully.
+
+Similarly, exit code `5` represents incomplete rerun-chain validation despite successful execution of the tests in the current invocation.
+
+An exit code of `0` indicates success under the applicable execution policy. It does not establish that every theoretically possible test was included, because selection scope, default filters, ignored-test handling, and Cargo target selection remain independent constraints.
+
+The documented constants can therefore support more precise CI reporting, retry classification, and failure attribution than treating all nonzero statuses as equivalent.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+Rust
+
+
+
+Source: `https://nexte.st/rustdoc/nextest_metadata/enum.NextestExitCode`
+
+### 5.2 `FilterMatch` and explicit mismatch reasons
+
+The `nextest-metadata` crate also exposes structured information explaining why discovered tests were included or excluded.
+
+The relevant types are:
+
+```
+pub enum FilterMatch {
+    Matches,
+    Mismatch {
+        reason: MismatchReason,
+    },
+}
+```
+
+`MismatchReason` distinguishes multiple exclusion mechanisms:
+
+| Variant              | Interpretation                                         |
+| -------------------- | ------------------------------------------------------ |
+| `NotBenchmark`       | Test excluded when selecting benchmarks                |
+| `Ignored`            | Test excluded by ignored-test handling                 |
+| `String`             | Test failed positional or substring-name filtering     |
+| `Expression`         | Test failed filterset-expression matching              |
+| `Partition`          | Test belongs to another selected partition             |
+| `RerunAlreadyPassed` | Test previously passed in the applicable rerun history |
+| `DefaultFilter`      | Test excluded by the configured default filter         |
+
+This is more expressive than a simple selected/skipped Boolean.
+
+For example, a test skipped because it belongs to a different CI partition should be interpreted differently from a test excluded because it does not satisfy the selected test expression.
+
+The former may be scheduled elsewhere in a distributed execution campaign. The latter may be outside the intended logical test set entirely.
+
+The `MismatchReason` enum is marked `#[non_exhaustive]`. Consumers must permit additional variants in future versions rather than assuming that the current set is closed.
+
+The documented reason also reflects nextest's mismatch-classification semantics, rather than necessarily enumerating every possible condition that could have excluded a test.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+Rust+1
+
+
+
+Sources:
+
+- `FilterMatch`: `https://nexte.st/rustdoc/nextest_metadata/enum.FilterMatch`
+- `MismatchReason`: `https://nexte.st/rustdoc/nextest_metadata/enum.MismatchReason`
+
+### 5.3 `RustBuildMetaSummary` and build-environment reconstruction
+
+`nextest-metadata::RustBuildMetaSummary` provides structured metadata for compiled Rust test artifacts.
+
+Its fields include:
+
+| Field                     | Information                                    |
+| ------------------------- | ---------------------------------------------- |
+| `target_directory`        | Cargo target directory                         |
+| `build_directory`         | Optional separate Cargo build directory        |
+| `base_output_directories` | Base directories containing build artifacts    |
+| `non_test_binaries`       | Executables available to integration tests     |
+| `build_script_out_dirs`   | Build-script output directories                |
+| `build_script_info`       | Additional build-script metadata               |
+| `linked_paths`            | Linked artifact search paths                   |
+| `platforms`               | Structured host/target platform metadata       |
+| `target_platforms`        | Target-platform information                    |
+| `target_platform`         | Legacy optional target-platform representation |
+
+These fields complement test-list metadata by describing the execution environment that produced the compiled test binaries.
+
+This matters for tooling that separates compilation from execution: a test binary's path alone is insufficient to reconstruct every runtime dependency or environment variable required to execute it correctly.
+
+The metadata structures make those requirements accessible without reconstructing Cargo's build behavior from filesystem conventions.
+
+A useful architectural distinction is that `nextest-metadata` exposes a supported representation of the build and discovery outputs, while `nextest-runner` remains an internal implementation crate without the same embedding-stability guarantee.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+Rust
+
+
+
+Source: `https://nexte.st/rustdoc/nextest_metadata/struct.RustBuildMetaSummary`
+
+## 6. Runtime environment compatibility and environment-variable safety
+
+Extends original §2.2 and §7.1.
+
+### 6.1 Cargo-compatible executable paths
+
+Since version 0.9.130, nextest provides `CARGO_BIN_EXE_<name>` at runtime for integration tests and benchmarks, matching Cargo's runtime executable-path convention.
+
+This complements `NEXTEST_BIN_EXE_<name>`.
+
+Both expose the absolute path to a compiled binary target, subject to the binary being built and available.
+
+For example, an integration test can locate a companion executable through:
+
+```
+use std::env;
+
+let executable = env::var("CARGO_BIN_EXE_my_program")
+    .expect("expected compiled executable path");
+```
+
+The exact variable name follows the Cargo binary target's name, so a binary containing hyphens can produce an environment variable whose name also contains hyphens.
+
+Nextest additionally exposes underscore-normalized variants of the `NEXTEST_BIN_EXE_*` variables, which can be more convenient for shells and tools that cannot reliably handle hyphens in variable names.
+
+When compiled artifacts are relocated, nextest updates these runtime paths to refer to the relocated target directory.
+
+An important distinction is that the runtime environment is reconstructed after compilation. Code using Rust's compile-time `env!` macro obtains the value embedded when the binary was compiled, which may refer to the original build environment. Code using `std::env::var` reads the runtime value and can therefore observe remapped paths.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+Source: `https://nexte.st/docs/configuration/env-vars/`
+
+### 6.2 Build-script outputs and Cargo package metadata
+
+Nextest recreates several additional Cargo-related runtime values:
+
+- `OUT_DIR`, when the test package has a build script.
+- `CARGO_MANIFEST_DIR`, reflecting workspace remapping when applicable.
+- `CARGO_PKG_*` variables derived from the package manifest.
+- Environment variables defined through Cargo's configuration.
+- Variables exported from build scripts through `cargo::rustc-env`.
+
+This is an important compatibility mechanism for integration tests that use compiled resources, generated files, or package metadata.
+
+However, Cargo discourages relying on `cargo::rustc-env` variables as a general runtime configuration mechanism. Their availability through nextest should not be confused with a guarantee that they constitute an appropriate or portable runtime configuration interface.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/configuration/env-vars/`
+
+### 6.3 Runtime metadata during the test-listing phase
+
+Beginning with version 0.9.138, several environment variables became available during test enumeration, not only when test cases are executed.
+
+These include:
+
+| Variable                      | Listing-phase purpose                                         |
+| ----------------------------- | ------------------------------------------------------------- |
+| `NEXTEST_RUN_ID`              | Correlates test discovery with the subsequent execution phase |
+| `NEXTEST_VERSION`             | Exposes the current runner version                            |
+| `NEXTEST_REQUIRED_VERSION`    | Exposes the configured required minimum version               |
+| `NEXTEST_RECOMMENDED_VERSION` | Exposes the recommended minimum version                       |
+| `NEXTEST_BINARY_ID`           | Identifies the binary being enumerated                        |
+| `NEXTEST_WORKSPACE_ROOT`      | Provides the applicable workspace location                    |
+
+Within one `cargo nextest run` invocation, test enumeration and execution share the same run ID.
+
+This allows custom harnesses and target runners to correlate their discovery-phase operations with the subsequent execution phase.
+
+A target runner that performs remote enumeration can therefore associate the enumeration request with the same logical run as the actual test invocation.
+
+These variables do not imply that all per-test runtime context is available during enumeration. For example, a test's retry attempt and execution slot are properties of an actual execution attempt rather than of binary discovery.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/configuration/env-vars/`
+
+### 6.4 Preserving dynamic-linker environment variables
+
+Nextest exposes `NEXTEST_LD_*` and `NEXTEST_DYLD_*` variables that replicate relevant `LD_*` and `DYLD_*` environment values.
+
+For example, `LD_PRELOAD` can have a corresponding `NEXTEST_LD_PRELOAD` value.
+
+These names provide a mechanism for preserving dynamic-linker-related configuration in environments where operating-system behavior may sanitize the original variables.
+
+This is particularly relevant on macOS, where System Integrity Protection can remove selected `DYLD_*` environment variables from subprocess environments.
+
+The mirrored variables are exposed on all supported platforms for consistency.
+
+They are not a general guarantee that dynamic-linker settings are restored automatically to their original effect. A wrapper or other consumer may need to interpret the preserved values and reconstruct the appropriate launch environment.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/configuration/env-vars/`
+
+### 6.5 Process isolation and Rust's unsafe environment mutation APIs
+
+Rust's `std::env::set_var` and `std::env::remove_var` can be unsafe when multiple threads access the process environment concurrently.
+
+On Linux and other Unix platforms where environment mutation is not generally thread-safe, this creates difficulties for conventional test execution when multiple tests share a process.
+
+Nextest's process-per-test architecture changes the analysis substantially.
+
+A standard `#[test]` executed under nextest normally has a dedicated test process containing a main harness thread and a separate test thread.
+
+Although that process is technically multithreaded, current `libtest` behavior does not access the environment from the main harness thread while the test thread is executing.
+
+Consequently, mutating the environment at the beginning of a standard test can satisfy the relevant safety requirements, provided the test has not created additional threads that may access the environment concurrently.
+
+This is a conditional property of the execution arrangement, not a guarantee that `set_var` is always safe inside nextest tests.
+
+Custom test harnesses may perform additional initialization or create threads before individual tests execute. Tests using procedural-macro wrappers, including asynchronous test frameworks, can introduce additional runtime behavior.
+
+The upstream documentation specifically considers:
+
+- Ordinary `#[test]` functions.
+- `libtest-mimic` and harnesses built on top of it.
+- `datatest-stable`.
+- `#[tokio::test]`, including the multithreaded runtime flavor.
+
+For Tokio tests, upstream documents circumstances in which beginning-of-test environment mutation remains safe because runtime worker threads are not concurrently accessing the environment. That conclusion depends on the runtime and test code maintaining those conditions.
+
+The important architectural advantage is that process isolation removes concurrency between different tests at the environment-variable level. It does not remove concurrency introduced within an individual test process.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/configuration/env-vars/`
+
+## 7. Setup-script capture, diagnostics, and JUnit representation
+
+Extends original §7.2 — Setup scripts.
+
+Feature status: Experimental.
+
+### 7.1 Separate capture policies for setup scripts
+
+Setup scripts support independent standard-output and standard-error capture controls:
+
+```
+[scripts.setup.prepare-environment]
+command = 'scripts/prepare.sh'
+
+capture-stdout = true
+capture-stderr = true
+
+slow-timeout = {
+    period = "30s",
+    terminate-after = 2
+}
+
+leak-timeout = "500ms"
+```
+
+Both `capture-stdout` and `capture-stderr` default to `false`.
+
+The default timeout policies also differ from those used for ordinary tests.
+
+| Setting          | Setup-script default |
+| ---------------- | -------------------- |
+| `slow-timeout`   | Unset                |
+| `leak-timeout`   | `100ms`              |
+| `capture-stdout` | `false`              |
+| `capture-stderr` | `false`              |
+
+A setup-script timeout cannot be configured as a successful outcome through `on-timeout = "pass"`. This preserves a distinction between intentionally time-bounded test behavior and incomplete environment preparation.
+
+### 7.2 Captured setup output in JUnit
+
+If JUnit reporting is enabled, setup scripts are represented as synthetic test suites.
+
+Each setup script has its own `<testsuite>` with a name beginning `@setup-script:` and a corresponding test case.
+
+When output capture is enabled, captured stdout and stderr can be represented through `<system-out>` and `<system-err>` elements.
+
+Setup scripts have independent JUnit retention settings:
+
+```
+[scripts.setup.prepare-environment]
+command = 'scripts/prepare.sh'
+
+capture-stdout = true
+capture-stderr = true
+
+junit.store-success-output = true
+junit.store-failure-output = true
+```
+
+Both JUnit output-retention settings default to `true` for setup scripts, unlike ordinary tests, where successful output is not retained by default.
+
+The distinction is that capture determines whether output is available, while JUnit retention determines whether captured output is included in the resulting report.
+
+JUnit also records setup-script command information and environment variables exported through the setup mechanism.
+
+For systems inspecting test infrastructure failures, these records provide a distinct source of diagnostic evidence from the application test cases themselves.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+Source: `https://nexte.st/docs/configuration/setup-scripts/`
+
+## 8. Interactive diagnostics and user-specific execution controls
+
+Extends original §10.1 — Terminal reporting and output control.
+
+### 8.1 Interactive inspection of active tests
+
+Nextest has a built-in terminal input handler that accepts keyboard commands while a test run is executing.
+
+| Input  | Effect                                                                    |
+| ------ | ------------------------------------------------------------------------- |
+| `t`    | Prints status and available captured output for currently running tests   |
+| Enter  | Prints a progress snapshot or current execution-state line                |
+| Ctrl-T | Requests status through `SIGINFO` on supported platforms, including macOS |
+
+The input handler makes long-running tests observable without terminating them or attaching a debugger.
+
+Its behavior is implemented through terminal input events coordinated with nextest's event-driven dispatcher.
+
+On Unix, nextest changes selected terminal settings to allow character-by-character input without echoing ordinary keystrokes. It preserves conventional signal handling for controls such as Ctrl-C and Ctrl-Z.
+
+The input handler operates only in appropriate interactive terminal contexts. It can be disabled through:
+
+```
+cargo nextest run --no-input-handler
+```
+
+or through user configuration:
+
+```
+[ui]
+input-handler = false
+```
+
+This is relevant when nextest is executed under another interactive program that needs to retain control of terminal input.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+Source: `https://nexte.st/docs/design/architecture/input-handling/`
+
+### 8.2 User-level UI configuration
+
+User configuration provides persistent settings for presentation behavior independently of the repository's execution policy.
+
+For example:
+
+```
+[ui]
+show-progress = "bar"
+max-progress-running = 16
+output-indent = true
+input-handler = true
+```
+
+`max-progress-running` controls how many currently executing tests are individually displayed in the progress interface.
+
+It accepts a positive integer, `0` to hide the individual running-test list, or `"infinite"` to display all running tests.
+
+This does not change the scheduler's concurrency limit. It changes only how much of the scheduler's active state is visible.
+
+### 8.3 Platform-specific user configuration
+
+Since version 0.9.120, user configuration supports platform-specific overrides.
+
+```
+[ui]
+show-progress = "auto"
+max-progress-running = 16
+
+[[overrides]]
+platform = "cfg(windows)"
+ui.max-progress-running = 4
+
+[[overrides]]
+platform = "cfg(target_os = \"macos\")"
+ui.show-progress = "bar"
+```
+
+Overrides are evaluated in declaration order, with the first matching override supplying each individual setting.
+
+An important distinction is that these user-level platform conditions are matched against the platform on which nextest itself was built.
+
+They are not the same as per-test platform overrides, which can distinguish the host and target platforms associated with compiled tests.
+
+The user-configuration precedence is:
+
+CLI argument → environment variable → matching user override → base user configuration → embedded default.
+
+This makes user presentation configurable independently from repository test policy.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://www.nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+Source: `https://nexte.st/docs/user-config/reference/`
+
+### 8.4 Pager integration
+
+Nextest supports both external and built-in pagers.
+
+Paging is available for commands such as:
+
+- `cargo nextest list`
+- `cargo nextest replay`
+- `cargo nextest store list`
+- `cargo nextest show-config test-groups`
+- Help output
+
+On Unix, the default pager is based on `less`; Windows uses a built-in pager.
+
+Paging is disabled automatically when standard output is noninteractive or a machine-readable output format is requested.
+
+The user configuration supports string, array, and structured command specifications:
+
+```
+[ui]
+pager = ["less", "-FRX"]
+paginate = "auto"
+```
+
+The built-in pager can be selected through `pager = ":builtin"` and customized using `[ui.streampager]` settings for wrapping, screen behavior, and ruler presentation.
+
+A significant integration detail is that nextest deliberately ignores the generic `PAGER` environment variable. Its pager behavior is controlled through nextest-specific configuration and CLI options.
+
+This avoids external pager preferences unexpectedly changing nextest's interactive output behavior.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+`https://nexte.st/docs/user-config/pager/`
+
+## 9. Native editor and IDE integrations
+
+Extends original §12 — Integrations with the Rust testing ecosystem.
+
+### 9.1 VS Code and rust-analyzer
+
+Nextest supports direct integration with VS Code through rust-analyzer's test runnable override facility.
+
+The relevant setting is:
+
+`rust-analyzer.runnables.test.overrideCommand`
+
+This replaces the command rust-analyzer uses to launch tests from its editor interface.
+
+The documented configuration uses argument placeholders such as `${package}`, `${target_arg}`, `${target}`, `${test_name}`, `${exact}`, and `${include_ignored}` to preserve the selected test's Cargo context.
+
+For example, the configured command begins:
+
+```
+{
+  "rust-analyzer.runnables.test.overrideCommand": [
+    "cargo",
+    "nextest",
+    "run",
+    "--package",
+    "${package}",
+    "${target_arg}",
+    "${target}",
+    "--",
+    "${test_name}",
+    "${exact}",
+    "${include_ignored}"
+  ]
+}
+```
+
+This lets editor-initiated test runs use nextest's execution infrastructure while retaining rust-analyzer's source-level test discovery and command construction.
+
+The current integration documentation identifies rust-analyzer 0.3.2862 or newer as a requirement.
+
+### 9.2 Debugging in VS Code with CodeLLDB
+
+Running tests through rust-analyzer and debugging them through an IDE are related but distinct operations.
+
+An ordinary VS Code debugging session does not automatically reconstruct nextest-specific environment variables or values produced by nextest setup scripts.
+
+For tests that depend on those values, nextest's debugger integration can be combined with CodeLLDB.
+
+The documented approach uses the `codelldb-launch` tool and CodeLLDB's RPC server to launch a test through nextest while allowing the IDE to control the debugging session.
+
+This preserves nextest's responsibility for selecting the test and constructing the execution environment.
+
+The distinction matters when the behavior being debugged depends on setup-generated configuration, dynamically located executables, or other runtime state specific to nextest.
+
+### 9.3 RustRover native integration
+
+RustRover 2026.1 and newer support selecting nextest as the Cargo test runner.
+
+The IDE can invoke nextest through its normal test execution interface.
+
+RustRover also supports automatic configuration validation and completion for nextest's repository and user configuration through published JSON Schemas.
+
+However, upstream currently documents that RustRover does not support debugging tests with nextest's execution environment configured.
+
+Thus, native test execution integration is not equivalent to complete debugger-environment integration.
+
+These capabilities belong to the IDE and its integrations with nextest; they are not separate Rust testing frameworks supplied by nextest itself.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest+1
+
+
+
+Sources:
+
+- VS Code: `https://nexte.st/docs/integrations/vscode/`
+- RustRover: `https://nexte.st/docs/integrations/rustrover/`
+- Debuggers and tracers: `https://nexte.st/docs/integrations/debuggers-tracers/`
+
+## 10. Self-update and distribution controls
+
+Extends original §14.1 — Distribution and toolchain requirements.
+
+### 10.1 Native self-update
+
+Nextest provides a built-in update mechanism:
+
+```
+cargo nextest self update
+```
+
+For compatible prebuilt installations, this retrieves and installs a newer cargo-nextest binary.
+
+The updater supports explicit versions, version ranges, and prerelease channels.
+
+```
+# Check whether a newer version is available.
+cargo nextest self update --check
+
+# Request a specific version.
+cargo nextest self update --version 0.9.151
+
+# Include beta releases.
+cargo nextest self update --beta
+
+# Include release candidates, but not betas.
+cargo nextest self update --rc
+```
+
+The `--beta` and `--rc` capabilities were introduced in version 0.9.120.
+
+If no appropriate newer prerelease exists, the corresponding channel operation can select the latest stable release.
+
+With `--check`, nextest exits with code `80` if an update is available and `0` if none is available.
+
+### 10.2 Distribution-specific behavior
+
+Self-update is not necessarily available in every distribution of nextest.
+
+Source installations can be updated through:
+
+```
+cargo install cargo-nextest --locked
+```
+
+Operating-system package installations generally use their distributor's package manager.
+
+For distribution builds, nextest provides the `default-no-update` Cargo feature, which enables its ordinary default features without including self-update support.
+
+The upstream-supported build pattern is:
+
+```
+cargo install cargo-nextest \
+  --locked \
+  --no-default-features \
+  --features default-no-update
+```
+
+This distinction allows distributors to retain control over binary updates rather than allowing the installed application to replace itself independently.
+
+It also explains why the availability of `cargo nextest self update` depends on how the executable was built or installed, not solely on its version.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://nexte.st\&sz=32)
+
+cargo-nextest
+
+
+
+Source: `https://nexte.st/docs/installation/updating/`
+
+## 11. Architectural implications of the additional capabilities
+
+The additions above reveal several further properties of nextest's architecture that are useful when evaluating its role as an execution and integration layer.
+
+### 11.1 Configuration is both executable policy and inspectable data
+
+Default filters, scoped overrides, configuration schemas, and native inspection commands form a declarative policy system with identifiable resolution semantics.
+
+The value extends beyond expressing policy in TOML. Tooling can validate configurations, identify test-selection exclusions, inspect group assignments, enforce version requirements, and reuse the filterset parser.
+
+This reduces the amount of custom logic required to explain why a test was selected, skipped, or assigned a particular execution constraint.
+
+A limitation remains: the documented inspection commands expose specific aspects of effective configuration, not a universal structured dump of every resolved per-test execution property. Tooling requiring more comprehensive introspection may still need to combine configuration interpretation with test metadata.
+
+### 11.2 Build reuse depends on preserving the execution environment, not only the executable
+
+Separate target/build-directory remapping, runtime Cargo environment variables, linked-library paths, and `RustBuildMetaSummary` show that nextest treats a compiled test as more than an executable path.
+
+A test can depend on build-script outputs, non-test executables, package metadata, dynamic libraries, and source-tree locations.
+
+The native metadata and remapping mechanisms make it possible to preserve that context across compilation and execution environments without requiring an external system to rediscover all of Cargo's behavior.
+
+They do not eliminate platform compatibility, ABI, source-revision, or external-resource dependencies.
+
+### 11.3 Execution outcomes have multiple independent dimensions
+
+A test execution campaign can be successful or unsuccessful along several axes:
+
+| Dimension                  | Relevant mechanism                                             |
+| -------------------------- | -------------------------------------------------------------- |
+| Build validity             | Cargo build diagnostics and build exit codes                   |
+| Discovery completeness     | Structured test inventories and discovery errors               |
+| Selection completeness     | Default filters, mismatch reasons, partitions, and rerun scope |
+| Environment preparation    | Setup-script results                                           |
+| Test correctness           | Test outcomes, flaky classifications, and timeouts             |
+| Campaign completeness      | Recorded-run and rerun-chain state                             |
+| Infrastructure correctness | Typed error statuses and artifact-reuse failures               |
+
+These dimensions explain why a single process exit status or an aggregate JUnit report may be insufficient for sophisticated test-analysis tooling.
+
+Nextest exposes several independent interfaces that can be combined to distinguish them, although the richer execution-event and recording interfaces remain experimental.
+
+### 11.4 Process isolation changes correctness assumptions as well as scheduling
+
+Process-per-test execution removes shared in-process state between separate tests, but it also changes the assumptions governing environment mutation, background threads, instrumentation, and custom harnesses.
+
+These effects can make tests easier to isolate and reproduce, while simultaneously hiding interactions that would have occurred under a shared-process test runner.
+
+The environment-variable safety analysis is a concrete example: process isolation reduces one source of concurrency, but does not automatically establish safety for all code executing within the individual test process.
+
+The resulting architectural opportunity is to use nextest's native isolation and environment reconstruction where those semantics are appropriate, without assuming they reproduce every behavior of Cargo's standard shared-process test execution model.
+
+Addendum status: All capabilities described here are documented for released nextest versions through 0.9.151, except where explicitly identified as experimental. The source URLs are direct upstream documentation or Rust API references. No tests or runtime measurements were performed as part of this research.

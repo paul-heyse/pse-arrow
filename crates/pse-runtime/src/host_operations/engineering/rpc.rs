@@ -519,6 +519,7 @@ pub async fn serve(
 ) -> Result<(), EngineeringServiceError> {
     use bindings::EngineeringServiceExt as _;
     if policy.maximum_connections == 0 || policy.connection_drain.is_zero() {
+        drop(listener);
         let refusal = EngineeringServiceError::Request(
             "connection retention extent and transport drain allowance must be positive".into(),
         );
@@ -540,6 +541,13 @@ pub async fn serve(
     let mut failures = Vec::new();
     loop {
         tokio::select! {
+            biased;
+            _ = stopping.cancelled() => break,
+            joined = connections.join_next(), if !connections.is_empty() => {
+                if let Some(error) = joined.and_then(|joined| connection_failure(joined, false)) {
+                    failures.push(error);
+                }
+            },
             accepted = listener.accept() => match accepted {
                 Err(error) => { failures.push(infrastructure(error)); break; },
                 Ok((stream, _)) => {
@@ -567,18 +575,15 @@ pub async fn serve(
                     });
                 }
             },
-            _ = stopping.cancelled() => break,
-            joined = connections.join_next(), if !connections.is_empty() => {
-                if let Some(error) = joined.and_then(|joined| connection_failure(joined, false)) {
-                    failures.push(error);
-                }
-            },
         }
     }
+    // Stop offering new kernel connections before awaiting any performing owner.
+    // Already accepted HTTP/2 connections continue polling their graceful drain.
+    drop(listener);
+    stopping.cancel();
     if let Err(error) = engine.shutdown().await {
         failures.push(error);
     }
-    stopping.cancel();
     let drained = tokio::time::timeout(connection_drain, async {
         while let Some(joined) = connections.join_next().await {
             if let Some(error) = connection_failure(joined, false) {

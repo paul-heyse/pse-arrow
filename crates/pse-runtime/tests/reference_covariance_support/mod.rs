@@ -16,17 +16,17 @@ use pse_runtime::{
     CancelSource,
     math::settings::SolveSettings,
     workflow::{
-        FitDeclarations, FitPreparationDocument, FitProfile, ModelingPackage, PreparationServices,
-        PreparedFit, SourceServices,
+        FitDeclarations, FitPreparationDocument, FitProfile, ModelingPackage, PhysicalContext,
+        PreparationServices, PreparedFit, SourceServices,
     },
 };
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::reference_support::NativeContext;
-pub(super) use crate::reference_support::{Result, root};
+use crate::reference_scalar::{self, Inputs};
+pub(super) use crate::reference_support::Result;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct LineCase {
     pub(super) id: String,
     pub(super) x: Vec<f64>,
@@ -76,8 +76,7 @@ impl LineCase {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug)]
 pub(super) struct Covariance {
     pub(super) parameters: Vec<String>,
     pub(super) parameter_units: Vec<String>,
@@ -88,7 +87,7 @@ pub(super) struct Covariance {
     pub(super) values: Vec<f64>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct CandidateReport {
     pub(super) complete: bool,
     pub(super) estimates: BTreeMap<String, f64>,
@@ -97,10 +96,40 @@ pub(super) struct CandidateReport {
     pub(super) covariance: Covariance,
 }
 
-#[derive(Serialize)]
 pub(super) struct Candidate {
     pub(super) id: String,
     pub(super) report: Option<CandidateReport>,
+}
+
+fn reference_contract(
+    case: &LineCase,
+    source: &str,
+    context: &PhysicalContext,
+    originals: BTreeMap<String, Vec<u8>>,
+) -> Result<Inputs> {
+    let inputs = [("x", case.x.as_slice()), ("y", case.y.as_slice())]
+        .into_iter()
+        .flat_map(|(axis, values)| values.iter().enumerate().map(move |(index, value)| (format!("{axis}:{index}"), *value)))
+        .chain([("sigma".into(), case.sigma)])
+        .collect::<Vec<_>>();
+    let mut outputs = case.parameters.iter().map(|name| format!("estimate:{name}")).collect::<Vec<_>>();
+    for matrix in ["covariance", "inverse_information"] {
+        for row in &case.parameters {
+            outputs.extend(case.parameters.iter().map(|column| format!("{matrix}:{row}:{column}")));
+        }
+    }
+    let configuration = pse_ids::preimage::hash(&serde_json::to_vec(&(
+        &case.parameters, &case.response_unit, &case.parameter_units, &case.covariance_convention,
+        inputs.iter().map(|(key, value)| (key, value.to_bits())).collect::<Vec<_>>(),
+    ))?);
+    reference_scalar::bind(reference_scalar::Case {
+        name: &case.id,
+        identity: id(158),
+        source,
+        configuration,
+        inputs,
+        outputs: outputs.into_iter().map(|key| (key.clone(), pse_ids::named_id(id(158), &key))).collect(),
+    }, context, originals)
 }
 
 fn id(byte: u8) -> SemanticId {
@@ -143,10 +172,10 @@ fn prepare<'a>(
 pub(super) fn run<'a>(
     native: &'a NativeContext,
     case: &'a LineCase,
-) -> BoxFuture<'a, Result<CandidateReport>> {
+) -> BoxFuture<'a, Result<(CandidateReport, Inputs)>> {
     Box::pin(async move {
         let source = case.source();
-        let package = native.package(&source).await?;
+        let (package, originals) = native.package(&source).await?;
         let services = native.runtime.execution_services();
         let declarations = package.declarations(services.preparation()).await?;
         let line = declarations
@@ -301,7 +330,8 @@ pub(super) fn run<'a>(
         assert_eq!(covariance.parameter_scales, vec![1.; 2]);
         assert_eq!(covariance.values.len(), 4);
         assert!(covariance.values.iter().all(|value| value.is_finite()));
-        Ok(CandidateReport {
+        let contract = reference_contract(case, &source, package.physical_context(), originals)?;
+        Ok((CandidateReport {
             complete: true,
             estimates,
             estimate_allowances,
@@ -319,6 +349,6 @@ pub(super) fn run<'a>(
                 convention: "inverse_information_known_sigma".into(),
                 values: covariance.values.clone(),
             },
-        })
+        }, contract))
     })
 }

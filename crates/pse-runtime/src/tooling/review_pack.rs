@@ -2,7 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Selected offline publication. The index alone authorizes local member reads.
 use crate::tooling::{frozen_inspection::FrozenEvidenceSet, review_analysis::AnalysisDocument};
-use crate::workflow::PackResultSelection;
+use crate::workflow::{PackResultSelection, WorkflowError, portable_payload};
+use portable_payload::{IpcExportAcknowledgement, OwnedMemberStage};
 use pse_columnar::CancellationToken;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
@@ -230,9 +231,9 @@ pub struct PackExportRequest {
 }
 impl PackExportRequest {
     /// Declare selected diagnostic tables from the single registry interpretation owner.
-    pub(crate) fn declare_tables(&mut self) -> Result<(), crate::workflow::WorkflowError> {
+    pub(crate) fn declare_tables(&mut self) -> Result<(), WorkflowError> {
         if self.tables.len() > 1024 {
-            return Err(crate::workflow::WorkflowError::Input(
+            return Err(WorkflowError::Input(
                 "review selects more than 1024 diagnostic tables".into(),
             ));
         }
@@ -243,12 +244,12 @@ impl PackExportRequest {
                 .iter()
                 .any(|member| member.id == table.member)
             {
-                return Err(crate::workflow::WorkflowError::Input(
+                return Err(WorkflowError::Input(
                     "diagnostic table member is declared twice".into(),
                 ));
             }
             let diagnostic = PackDiagnosticTable::new(table.request.clone())
-                .map_err(|error| crate::workflow::WorkflowError::Input(error.to_string()))?;
+                .map_err(|error| WorkflowError::Input(error.to_string()))?;
             self.selection.members.push(PackMemberSelection {
                 id: table.member.clone(),
                 role: PackMemberRole::Query,
@@ -298,6 +299,9 @@ pub struct PackMember {
     pub readable_bytes: u64,
     /// Whether the selected member writer completed and drained.
     pub finalized: bool,
+    /// Plain BLAKE3 commitment of the finalized bytes. Retained predecessors have no commitment.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub digest: Option<pse_ids::ContentHash>,
 }
 /// Publication state, independent from scientific and capture state.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -338,12 +342,133 @@ pub enum PackError {
     /// Selection, byte extent, codec or contained-path contract was violated.
     #[error("offline review pack contract: {0}")]
     Contract(String),
+    /// Selected member exceeds the remaining output allowance.
+    #[error("pack output allowance exhausted")]
+    OutputAllowance,
+    /// Moving the actual staged writer into its final member address failed.
+    #[error("review pack member publication: {0}")]
+    MemberPublication(#[source] std::io::Error),
+    /// Final manifest rename succeeded, but its directory durability is unknown.
+    #[error("review pack seal is visible with uncertain directory durability: {0}")]
+    DurabilityUnknown(#[source] std::io::Error),
+    /// Original protected scientific selection or transfer refusal.
+    #[error("protected review pack member: {0}")]
+    Native(#[source] Box<WorkflowError>),
+    /// A committed member did not complete delivery.
+    #[error(transparent)]
+    Copy(#[from] PackMemberCopyError),
+    /// Original publication failure and an independently failed settlement effect.
+    #[error("{operation}; review pack settlement also failed: {cleanup}")]
+    Settlement {
+        /// Original member transfer, source or publication error.
+        #[source]
+        operation: Box<PackError>,
+        /// Independent failed prefix retention or retained-index write.
+        cleanup: Box<PackError>,
+    },
 }
 pse_diagnostics::impl_diagnostic! {
     PackError,
-    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
-    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None }
+    code(this) {
+        match this {
+            PackError::Native(_) | PackError::Copy(_) | PackError::Settlement { .. } => None,
+            PackError::OutputAllowance => Some(pse_diagnostics::DiagnosticCode::RuntimeResourceLimit),
+            _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
+        }
+    },
+    forward(this) {
+        match this {
+            PackError::Native(error) => Some(error.as_ref()),
+            PackError::Copy(error) => Some(error),
+            PackError::Settlement { operation, .. } => Some(operation.as_ref()),
+            _ => None,
+        }
+    },
+    help(_this) { None },
+    related(this) {
+        match this {
+            PackError::Settlement { operation, cleanup } => {
+                let causes: [&dyn pse_diagnostics::TypedDiagnostic; 2] =
+                    [operation.as_ref(), cleanup.as_ref()];
+                Some(Box::new(causes.into_iter()))
+            }
+            _ => None,
+        }
+    },
+    source(_this) { None }
 }
+impl pse_model::diagnostic::DiagnosticProjection for PackError {
+    fn boundary_diagnostic(
+        &self,
+        stage: pse_diagnostics::DiagnosticStage,
+    ) -> pse_model::diagnostic::BoundaryDiagnostic {
+        use pse_model::diagnostic::DiagnosticProjection;
+        match self {
+            Self::Native(error) => DiagnosticProjection::boundary_diagnostic(error.as_ref(), stage),
+            Self::Copy(error) => DiagnosticProjection::boundary_diagnostic(error, stage),
+            Self::Settlement { operation, cleanup } => {
+                let mut diagnostic = operation.boundary_diagnostic(stage);
+                diagnostic.causes.push(cleanup.boundary_diagnostic(stage));
+                diagnostic
+            }
+            _ => pse_model::diagnostic::project_typed(self, stage),
+        }
+    }
+}
+
+impl PackError {
+    fn native(error: WorkflowError) -> Self {
+        Self::Native(Box::new(error))
+    }
+
+    fn settle(self, cleanup: Result<(), Self>) -> Self {
+        match cleanup {
+            Ok(()) => self,
+            Err(cleanup) => Self::Settlement {
+                operation: Box::new(self),
+                cleanup: Box::new(cleanup),
+            },
+        }
+    }
+}
+
+/// Complete sequential delivery of one indexed member.
+#[derive(Debug)]
+pub struct PackMemberCopy {
+    /// Exact selected member.
+    pub member: String,
+    /// Bytes accepted by the sink and verified against the original commitment.
+    pub copied_bytes: u64,
+    /// Original finalized member commitment.
+    pub digest: pse_ids::ContentHash,
+}
+
+/// A provisional prefix may have reached the sink before refusal.
+#[derive(Debug, thiserror::Error)]
+#[error("review pack member {member} delivery failed after {accepted_bytes} provisional bytes: {source}")]
+pub struct PackMemberCopyError {
+    /// Exact requested identity, even if absent from the index.
+    pub member: String,
+    /// Bytes accepted by the sink before verification or transfer failed.
+    pub accepted_bytes: u64,
+    /// Original read, sink, cancellation or commitment refusal.
+    #[source]
+    pub source: std::io::Error,
+}
+pse_diagnostics::impl_diagnostic! {
+    PackMemberCopyError,
+    code(_this) { Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) },
+    forward(_this) { None }, help(_this) { None }, related(_this) { None }, source(_this) { None },
+    facts(this) {
+        let mut facts = pse_diagnostics::DiagnosticFacts::default();
+        facts.observe("member", pse_diagnostics::DiagnosticObservation::Text(this.member.clone()));
+        facts.observe("accepted_bytes_decimal", pse_diagnostics::DiagnosticObservation::Text(this.accepted_bytes.to_string()));
+        facts.observe("io_error_kind", pse_diagnostics::DiagnosticObservation::Text(format!("{:?}", this.source.kind())));
+        facts
+    }
+}
+impl pse_model::diagnostic::DiagnosticProjection for PackMemberCopyError {}
+
 fn invalid(message: impl Into<String>) -> PackError {
     PackError::Contract(message.into())
 }
@@ -675,6 +800,7 @@ impl PackSession {
                 availability: PackAvailability::Pending,
                 readable_bytes: 0,
                 finalized: false,
+                digest: None,
             })
             .collect();
         let missing_context = selection.missing_context.clone();
@@ -710,13 +836,16 @@ impl PackSession {
         &self.index
     }
     fn persist(&mut self) -> Result<(), PackError> {
-        let result = self.persist_index();
+        let result = self.persist_index(File::sync_all);
         if result.is_err() {
             self.stopped = true;
         }
         result
     }
-    fn persist_index(&mut self) -> Result<(), PackError> {
+    fn persist_index(
+        &mut self,
+        sync_seal: impl FnOnce(&File) -> std::io::Result<()>,
+    ) -> Result<(), PackError> {
         let bytes = encoded(&self.index, self.index.selection.maximum_document_bytes)?;
         let temporary = self.root.join(format!(".index-{}", self.next_index));
         self.next_index += 1;
@@ -727,10 +856,22 @@ impl PackSession {
         file.write_all(&bytes)?;
         file.sync_all()?;
         drop(file);
-        if self.index.publication == PackPublication::Sealed {
+        let directory = if self.index.publication == PackPublication::Sealed {
+            // Persist the pack's name and its member directory before the
+            // manifest can advertise a finalized, complete publication.
+            let parent = self.root.parent().ok_or_else(|| invalid("pack parent absent"))?;
+            File::open(parent)?.sync_all()?;
+            File::open(self.root.join("members"))?.sync_all()?;
+            let directory = File::open(&self.root)?;
             self.checkpoint()?;
-        }
+            Some(directory)
+        } else {
+            None
+        };
         std::fs::rename(temporary, self.root.join(INDEX))?;
+        if let Some(directory) = directory {
+            sync_seal(&directory).map_err(PackError::DurabilityUnknown)?;
+        }
         Ok(())
     }
     fn position(&self, id: &str) -> Result<usize, PackError> {
@@ -751,64 +892,91 @@ impl PackSession {
         }
         self.cancel.checkpoint().map_err(|e| invalid(e.to_string()))
     }
-    fn fail(&mut self, pos: usize, error: &PackError) {
-        self.fail_at(pos, error, None);
-    }
-    fn fail_at(&mut self, pos: usize, error: &PackError, acknowledged: Option<u64>) {
+    fn fail_at(
+        &mut self,
+        pos: usize,
+        error: PackError,
+        stage: Option<&mut OwnedMemberStage>,
+        acknowledged: Option<u64>,
+    ) -> PackError {
         let member = &mut self.index.members[pos];
         let already_accounted = member.finalized;
         member.availability = PackAvailability::Failed {
             reason: error.to_string(),
         };
         member.finalized = false;
+        member.digest = None;
         // Acknowledged bytes already copied by our own writer can remain a readable
         // prefix, even though neither this member nor the enclosing pack completed.
         let destination = self.root.join(&member.relative_path);
-        for suffix in ["", ".incomplete"] {
-            let staging = self
-                .root
-                .join(".staging")
-                .join(format!("{}{suffix}", member.selection.id));
-            if staging.is_file() && !destination.exists() {
-                let _ = std::fs::hard_link(&staging, &destination);
+        let retain = match stage {
+            Some(stage)
+                if stage.is_at(&destination)
+                    || (acknowledged != Some(0)
+                        && !matches!(error, PackError::MemberPublication(_))) =>
+            {
+                stage.publish(&destination).map_err(PackError::MemberPublication)
             }
-        }
-        let actual = std::fs::metadata(&destination).map_or(0, |m| m.len());
+            _ => Ok(0),
+        };
+        let actual = retain.as_ref().copied().unwrap_or_default();
         member.readable_bytes = acknowledged.map_or(actual, |prefix| prefix.min(actual));
         if !already_accounted {
             self.written = self.written.saturating_add(actual);
         }
         self.index.errors.push(error.to_string());
+        if let Err(cleanup) = &retain {
+            self.index.errors.push(cleanup.to_string());
+        }
         self.stopped |= member.selection.required
             || self.cancel.checkpoint().is_err()
-            || error.to_string().contains("allowance");
-        let _ = self.persist();
+            || matches!(error, PackError::OutputAllowance);
+        error.settle(retain.map(|_| ())).settle(self.persist())
     }
-    fn finalize_member(&mut self, pos: usize, staging: &Path, bytes: u64) -> Result<(), PackError> {
+    fn finalize_member(
+        &mut self,
+        pos: usize,
+        stage: &mut OwnedMemberStage,
+        bytes: u64,
+    ) -> Result<(), PackError> {
         self.checkpoint()?;
-        let destination = self.root.join(&self.index.members[pos].relative_path);
-        std::fs::hard_link(staging, &destination)?;
-        std::fs::remove_file(staging)?;
-        self.written = self
+        let member = &self.index.members[pos];
+        validate_encoding(
+            member,
+            stage.reader()?,
+            bytes,
+            self.index.selection.maximum_document_bytes,
+        )?;
+        let digest = portable_payload::transfer_member(
+            stage.reader()?,
+            &mut std::io::sink(),
+            bytes,
+            None,
+            || self.checkpoint().map_err(std::io::Error::other),
+        )
+        .map_err(|error| error.source)?
+        .digest;
+        let written = self
             .written
             .checked_add(bytes)
             .ok_or_else(|| invalid("output byte overflow"))?;
+        let destination = self.root.join(&member.relative_path);
+        stage.publish(&destination).map_err(PackError::MemberPublication)?;
+        self.written = written;
         let member = &mut self.index.members[pos];
         member.readable_bytes = bytes;
         member.finalized = true;
         member.availability = PackAvailability::Available;
-        validate_encoding(
-            member,
-            File::open(destination)?,
-            self.index.selection.maximum_document_bytes,
-        )?;
+        member.digest = Some(digest);
         self.persist()
     }
     /// Retain an acquisition failure which occurred before the selected exporter opened.
-    pub fn fail_member(&mut self, id: &str, reason: String) -> Result<(), PackError> {
-        let pos = self.position(id)?;
-        self.fail(pos, &invalid(reason));
-        self.persist()
+    pub(crate) fn fail_result_acquisition(&mut self, id: &str, error: WorkflowError) -> PackError {
+        let error = PackError::native(error);
+        match self.position(id) {
+            Ok(pos) => self.fail_at(pos, error, None, Some(0)),
+            Err(cleanup) => error.settle(Err(cleanup)),
+        }
     }
     /// Known missing retention may be declared unavailable, including required context.
     /// It decreases completeness/self-containment without inventing a failed filesystem write.
@@ -852,8 +1020,7 @@ impl PackSession {
         if let Err(error) = validation {
             self.stopped = true;
             self.index.errors.push(error.to_string());
-            let _ = self.persist();
-            return Err(error);
+            return Err(error.settle(self.persist()));
         }
         for input in inputs {
             if let Err(error) = self.copy_file(input)
@@ -870,9 +1037,7 @@ impl PackSession {
         let file = match File::open(&input.path) {
             Ok(file) => file,
             Err(source) => {
-                let error = PackError::Io(source);
-                self.fail(pos, &error);
-                return Err(error);
+                return Err(self.fail_at(pos, PackError::Io(source), None, Some(0)));
             }
         };
         self.copy_prefix(&input.member, file, input.readable_prefix_bytes)
@@ -886,6 +1051,7 @@ impl PackSession {
         readable_bytes: u64,
     ) -> Result<(), PackError> {
         let pos = self.position(id)?;
+        let mut stage = None;
         let result = (|| {
             self.checkpoint()?;
             if matches!(
@@ -904,49 +1070,34 @@ impl PackSession {
                     .maximum_output_bytes
                     .saturating_sub(self.written)
             {
-                return Err(invalid("pack output allowance exhausted"));
+                return Err(PackError::OutputAllowance);
             }
             let staging = self.root.join(".staging").join(id);
-            let mut output = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&staging)?;
+            let stage = stage.insert(OwnedMemberStage::create(staging)?);
+            let output = stage.file();
             source.seek(SeekFrom::Start(0))?;
-            let mut remaining = readable_bytes;
-            let mut buffer = [0_u8; 64 * 1024];
-            while remaining > 0 {
-                self.checkpoint()?;
-                let requested = remaining.min(buffer.len() as u64) as usize;
-                let read = source.read(&mut buffer[..requested])?;
-                if read == 0 {
-                    return Err(invalid("source shorter than acknowledged readable prefix"));
-                }
-                output.write_all(&buffer[..read])?;
-                remaining -= read as u64;
-            }
+            portable_payload::transfer_exact(&mut source, output, readable_bytes, || {
+                self.checkpoint().map_err(std::io::Error::other)
+            })?;
             output.flush()?;
             output.sync_all()?;
-            drop(output);
-            self.finalize_member(pos, &staging, readable_bytes)
+            self.finalize_member(pos, stage, readable_bytes)
         })();
-        if let Err(error) = &result {
-            self.fail(pos, error);
-        }
-        result
+        result.map_err(|error| self.fail_at(pos, error, stage.as_mut(), None))
     }
     fn write_typed<T: Serialize>(&mut self, id: &str, value: &T) -> Result<(), PackError> {
         let bytes = match encoded(value, self.index.selection.maximum_document_bytes) {
             Ok(bytes) => bytes,
             Err(error) => {
                 let pos = self.position(id)?;
-                self.fail(pos, &error);
-                return Err(error);
+                return Err(self.fail_at(pos, error, None, Some(0)));
             }
         };
         self.write_bytes(id, &bytes)
     }
     fn write_bytes(&mut self, id: &str, bytes: &[u8]) -> Result<(), PackError> {
         let pos = self.position(id)?;
+        let mut stage = None;
         let result = (|| {
             self.checkpoint()?;
             if bytes.len() as u64
@@ -956,23 +1107,17 @@ impl PackSession {
                     .maximum_output_bytes
                     .saturating_sub(self.written)
             {
-                return Err(invalid("pack output allowance exhausted"));
+                return Err(PackError::OutputAllowance);
             }
             let staging = self.root.join(".staging").join(id);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&staging)?;
+            let stage = stage.insert(OwnedMemberStage::create(staging)?);
+            let file = stage.file();
             file.write_all(bytes)?;
             file.flush()?;
             file.sync_all()?;
-            drop(file);
-            self.finalize_member(pos, &staging, bytes.len() as u64)
+            self.finalize_member(pos, stage, bytes.len() as u64)
         })();
-        if let Err(error) = &result {
-            self.fail(pos, error);
-        }
-        result
+        result.map_err(|error| self.fail_at(pos, error, stage.as_mut(), None))
     }
     /// Validate and export only the explicitly supplied frozen facts.
     pub fn add_frozen(&mut self, evidence: &FrozenEvidenceSet) -> Result<(), PackError> {
@@ -993,15 +1138,15 @@ impl PackSession {
                     m.selection.id == "frozen" && m.availability == PackAvailability::Available
                 })
                 .ok_or_else(|| invalid("frozen facts must finalize before shared analysis"))?;
-            let frozen: serde_json::Value = decode(
-                File::open(self.root.join(&frozen.relative_path))?,
+            let frozen: serde_json::Value = decode_member(
+                &File::open(&self.root)?,
+                frozen,
                 self.index.selection.maximum_document_bytes,
             )?;
             validate_analysis_sources(analysis, &self.index, Some(&frozen))
         })();
         if let Err(error) = validation {
-            self.fail(pos, &error);
-            return Err(error);
+            return Err(self.fail_at(pos, error, None, Some(0)));
         }
         self.write_typed("analysis", analysis)?;
         Ok(())
@@ -1014,8 +1159,9 @@ impl PackSession {
             .iter()
             .find(|m| m.selection.id == "analysis" && m.availability == PackAvailability::Available)
             .ok_or_else(|| invalid("typed analysis missing before report publication"))?;
-        let analysis: AnalysisDocument = decode(
-            open_contained(&directory, &member.relative_path)?.take(member.readable_bytes),
+        let analysis: AnalysisDocument = decode_member(
+            &directory,
+            member,
             self.index.selection.maximum_document_bytes,
         )?;
         let sources = self
@@ -1053,6 +1199,7 @@ impl PackSession {
         request: &crate::tooling::review_query::ReviewTableRequest,
     ) -> Result<(), PackError> {
         let pos = self.position(id)?;
+        let mut stage = None;
         let result = (|| {
             self.checkpoint()?;
             let descriptor = self.index.members[pos]
@@ -1077,8 +1224,9 @@ impl PackSession {
                 })?;
             // The finalized frozen document has its own finite ingress allowance. The
             // requested table pool covers its Arrow projection, not this typed decode.
-            let retained: FrozenEvidenceSet = decode(
-                File::open(self.root.join(&supplied.relative_path))?.take(supplied.readable_bytes),
+            let retained: FrozenEvidenceSet = decode_member(
+                &File::open(&self.root)?,
+                supplied,
                 self.index.selection.maximum_document_bytes,
             )?;
             if !same_table_source(
@@ -1099,13 +1247,11 @@ impl PackSession {
                 .selection
                 .maximum_output_bytes
                 .saturating_sub(self.written);
-            let mut file = OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .open(&staging)?;
+            let stage = stage.insert(OwnedMemberStage::create(staging)?);
+            let file = stage.file();
             {
                 let mut bounded = pse_ids::BoundedSink::new(
-                    &mut file,
+                    &mut *file,
                     usize::try_from(maximum).map_err(|_| invalid("pack output extent overflow"))?,
                 )
                 .with_checkpoint(|| self.cancel.checkpoint().map_err(std::io::Error::other));
@@ -1120,13 +1266,9 @@ impl PackSession {
             file.flush()?;
             file.sync_all()?;
             let bytes = file.metadata()?.len();
-            drop(file);
-            self.finalize_member(pos, &staging, bytes)
+            self.finalize_member(pos, stage, bytes)
         })();
-        if let Err(error) = &result {
-            self.fail(pos, error);
-        }
-        result
+        result.map_err(|error| self.fail_at(pos, error, stage.as_mut(), None))
     }
     /// Consume the actual protected canonical reader; its borrowers drop before return.
     pub async fn export_result(
@@ -1135,7 +1277,7 @@ impl PackSession {
         mut reader: crate::workflow::CanonicalResultReader,
     ) -> Result<(), PackError> {
         let pos = self.position(id)?;
-        let mut acknowledged = 0;
+        let mut acknowledged = IpcExportAcknowledgement::default();
         let result = (async {
             self.checkpoint()?;
             let selection = self.index.members[pos]
@@ -1156,15 +1298,15 @@ impl PackSession {
                     selection,
                 )
                 .await
-                .map_err(|e| invalid(e.to_string()))?;
-            self.finalize_member(pos, &staging, bytes)
+                .map_err(PackError::native)?;
+            let stage = acknowledged.stage.as_mut().ok_or_else(|| invalid("result writer absent"))?;
+            self.finalize_member(pos, stage, bytes)
         })
         .await;
         drop(reader);
-        if let Err(error) = &result {
-            self.fail_at(pos, error, Some(acknowledged));
-        }
-        result
+        result.map_err(|error| {
+            self.fail_at(pos, error, acknowledged.stage.as_mut(), Some(acknowledged.bytes))
+        })
     }
     /// Output/field/range filtered protected reader; no separate unprotected materialization.
     pub async fn export_selected_result(
@@ -1173,7 +1315,7 @@ impl PackSession {
         mut reader: crate::workflow::SelectedResultReader,
     ) -> Result<(), PackError> {
         let pos = self.position(id)?;
-        let mut acknowledged = 0;
+        let mut acknowledged = IpcExportAcknowledgement::default();
         let result = (async {
             self.checkpoint()?;
             let selection = self.index.members[pos]
@@ -1194,23 +1336,22 @@ impl PackSession {
                     selection,
                 )
                 .await
-                .map_err(|e| invalid(e.to_string()))?;
-            self.finalize_member(pos, &staging, bytes)
+                .map_err(PackError::native)?;
+            let stage = acknowledged.stage.as_mut().ok_or_else(|| invalid("result writer absent"))?;
+            self.finalize_member(pos, stage, bytes)
         })
         .await;
         drop(reader);
-        if let Err(error) = &result {
-            self.fail_at(pos, error, Some(acknowledged));
-        }
-        result
+        result.map_err(|error| {
+            self.fail_at(pos, error, acknowledged.stage.as_mut(), Some(acknowledged.bytes))
+        })
     }
     /// Seal only after every selected member resolves and all required writes/reports drain.
     /// Known unavailable context remains explicitly non-self-contained in a valid seal.
     pub fn seal(mut self) -> Result<PackIndex, PackError> {
         if let Err(error) = self.checkpoint() {
             self.index.errors.push(error.to_string());
-            let _ = self.persist();
-            return Err(error);
+            return Err(error.settle(self.persist()));
         }
         let directory = File::open(&self.root)?;
         let missing = references::validate(&directory, &self.index)?;
@@ -1235,8 +1376,7 @@ impl PackSession {
             && let Err(error) = self.finalize_reports()
         {
             self.index.errors.push(error.to_string());
-            let _ = self.persist();
-            return Err(error);
+            return Err(error.settle(self.persist()));
         }
         self.checkpoint()?;
         self.index.membership_complete = self
@@ -1323,10 +1463,10 @@ impl PackReader {
                 {
                     return Err(invalid("indexed byte boundary differs from available file"));
                 }
-                validate_encoding(member, file, maximum_document_bytes)?;
+                validate_encoding(member, file, member.readable_bytes, maximum_document_bytes)?;
             } else {
-                if member.finalized {
-                    return Err(invalid("unavailable member advertises finalization"));
+                if member.finalized || member.digest.is_some() {
+                    return Err(invalid("unavailable member advertises a finalized commitment"));
                 }
                 if member.readable_bytes != 0 {
                     if !matches!(member.availability, PackAvailability::Failed { .. }) {
@@ -1413,14 +1553,39 @@ impl PackReader {
             .iter()
             .any(|m| m.selection.id == id && m.availability == PackAvailability::Available)
     }
-    /// Opens only the indexed acknowledged prefix. Descriptive paths are never followed.
-    pub fn open_member(&self, id: &str) -> Result<std::io::Take<File>, PackError> {
-        let member = self
-            .index
+    fn member(&self, id: &str) -> Result<&PackMember, PackError> {
+        self.index
             .members
             .iter()
             .find(|m| m.selection.id == id)
-            .ok_or_else(|| invalid("unindexed member"))?;
+            .ok_or_else(|| invalid("unindexed member"))
+    }
+    /// Transfer one complete committed member, with bounded scratch.
+    /// Bytes received by the sink are provisional until this returns successfully.
+    /// The caller owns all sink flushing, synchronization and publication.
+    pub fn copy_member_verified(
+        &self,
+        id: &str,
+        output: &mut impl Write,
+        cancel: &CancellationToken,
+    ) -> Result<PackMemberCopy, PackMemberCopyError> {
+        let rejected = |error| PackMemberCopyError {
+            member: id.into(),
+            accepted_bytes: 0,
+            source: std::io::Error::new(std::io::ErrorKind::InvalidInput, error),
+        };
+        pack_copy_checkpoint(cancel).map_err(|source| PackMemberCopyError {
+            member: id.into(),
+            accepted_bytes: 0,
+            source,
+        })?;
+        let member = self.member(id).map_err(|_| rejected("unindexed member"))?;
+        copy_member(&self.directory, member, output, || pack_copy_checkpoint(cancel))
+    }
+    /// Open the indexed acknowledged prefix for inspection or scientific decoding.
+    /// Use `copy_member_verified` for a complete delivery receipt.
+    pub fn open_member(&self, id: &str) -> Result<std::io::Take<File>, PackError> {
+        let member = self.member(id)?;
         if member.availability != PackAvailability::Available
             && !(matches!(member.availability, PackAvailability::Failed { .. })
                 && member.readable_bytes > 0)
@@ -1435,18 +1600,89 @@ impl PackReader {
     }
     /// Decode the indexed frozen set under the finite reader allowance.
     pub fn read_frozen(&self) -> Result<FrozenEvidenceSet, PackError> {
-        let evidence: FrozenEvidenceSet =
-            decode(self.open_member("frozen")?, self.maximum_document_bytes)?;
+        let evidence: FrozenEvidenceSet = decode_member(
+            &self.directory,
+            self.member("frozen")?,
+            self.maximum_document_bytes,
+        )?;
         evidence.validate().map_err(|e| invalid(e.to_string()))?;
         Ok(evidence)
     }
     /// Decode the shared typed analysis; never executes its next observations.
     pub fn read_analysis(&self) -> Result<AnalysisDocument, PackError> {
-        let analysis: AnalysisDocument =
-            decode(self.open_member("analysis")?, self.maximum_document_bytes)?;
+        let analysis: AnalysisDocument = decode_member(
+            &self.directory,
+            self.member("analysis")?,
+            self.maximum_document_bytes,
+        )?;
         analysis.validate().map_err(|e| invalid(e.to_string()))?;
         Ok(analysis)
     }
+}
+fn pack_copy_checkpoint(cancel: &CancellationToken) -> std::io::Result<()> {
+    cancel
+        .checkpoint()
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::Interrupted, error))
+}
+
+fn copy_member(
+    directory: &File,
+    member: &PackMember,
+    output: &mut impl Write,
+    checkpoint: impl FnMut() -> std::io::Result<()>,
+) -> Result<PackMemberCopy, PackMemberCopyError> {
+    let id = &member.selection.id;
+    let failure = |accepted_bytes, source| PackMemberCopyError {
+        member: id.clone(),
+        accepted_bytes,
+        source,
+    };
+    let digest = member
+        .digest
+        .filter(|_| member.availability == PackAvailability::Available && member.finalized)
+        .ok_or_else(|| {
+            failure(
+                0,
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "selected member lacks an original finalized commitment",
+                ),
+            )
+        })?;
+    let file = portable_payload::open_contained(directory, &member.relative_path)
+        .map_err(|source| failure(0, source))?;
+    let transferred = portable_payload::transfer_member(
+        file,
+        output,
+        member.readable_bytes,
+        Some(digest),
+        checkpoint,
+    )
+    .map_err(|error| failure(error.accepted_bytes, error.source))?;
+    Ok(PackMemberCopy {
+        member: id.clone(),
+        copied_bytes: transferred.bytes,
+        digest: transferred.digest,
+    })
+}
+
+fn decode_member<T: serde::de::DeserializeOwned>(
+    directory: &File,
+    member: &PackMember,
+    maximum: usize,
+) -> Result<T, PackError> {
+    if member.availability != PackAvailability::Available || member.readable_bytes > maximum as u64 {
+        return Err(invalid("typed member is unavailable or exceeds the document allowance"));
+    }
+    if member.digest.is_none() {
+        return decode(
+            open_contained(directory, &member.relative_path)?.take(member.readable_bytes),
+            maximum,
+        );
+    }
+    let mut bytes = Vec::new();
+    copy_member(directory, member, &mut bytes, || Ok(()))?;
+    serde_json::from_slice(&bytes).map_err(|error| invalid(error.to_string()))
 }
 fn missing_result_context(evidence: &FrozenEvidenceSet, index: &PackIndex) -> Vec<String> {
     // Build each retained association once. A large result membership never
@@ -1586,10 +1822,10 @@ fn contained_error(error: std::io::Error) -> PackError {
     }
 }
 fn safe_relative(path: &str) -> Result<(), PackError> {
-    crate::workflow::portable_payload::safe_relative(path).map_err(contained_error)
+    portable_payload::safe_relative(path).map_err(contained_error)
 }
 fn open_contained(directory: &File, relative: &str) -> Result<File, PackError> {
-    crate::workflow::portable_payload::open_contained(directory, relative).map_err(contained_error)
+    portable_payload::open_contained(directory, relative).map_err(contained_error)
 }
 fn decode<T: serde::de::DeserializeOwned>(
     input: impl Read,
@@ -1605,6 +1841,7 @@ fn decode<T: serde::de::DeserializeOwned>(
 fn validate_encoding(
     member: &PackMember,
     mut file: File,
+    bytes: u64,
     maximum_document_bytes: usize,
 ) -> Result<(), PackError> {
     if Path::new(&member.relative_path)
@@ -1652,7 +1889,7 @@ fn validate_encoding(
                 "selected JSONL header differs from declared original codec",
             ));
         }
-        file.seek(SeekFrom::Start(member.readable_bytes.saturating_sub(1)))?;
+        file.seek(SeekFrom::Start(bytes.saturating_sub(1)))?;
         let mut last = [0_u8; 1];
         file.read_exact(&mut last)?;
         if last != *b"\n" {
@@ -1662,9 +1899,9 @@ fn validate_encoding(
         }
     }
     if member.selection.format == PackFormat::ArrowIpcStream {
-        let schema = crate::workflow::portable_payload::finalized_ipc_schema(
+        let schema = portable_payload::finalized_ipc_schema(
             file,
-            member.readable_bytes,
+            bytes,
             maximum_document_bytes,
         )
         .map_err(contained_error)?;
@@ -1693,7 +1930,7 @@ fn validate_encoding(
             .result
             .as_ref()
             .ok_or_else(|| invalid("IPC stream lacks declared scientific lineage"))?;
-        crate::workflow::portable_payload::validate_scientific_lineage(schema.as_ref(), result)
+        portable_payload::validate_scientific_lineage(schema.as_ref(), result)
             .map_err(contained_error)?;
     }
     Ok(())

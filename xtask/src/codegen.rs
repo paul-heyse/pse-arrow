@@ -12,7 +12,8 @@ mod code_intelligence;
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "recorded-result-contracts",
-    feature = "scientific-worker-contracts"
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
 ))]
 mod contract_metadata;
 #[cfg(feature = "host-contracts")]
@@ -29,6 +30,8 @@ mod proto_projection;
 mod publication;
 #[cfg(feature = "recorded-result-contracts")]
 mod recorded_result;
+#[cfg(feature = "reference-contracts")]
+mod reference_exchange;
 #[cfg(feature = "surrealql-tools")]
 pub(super) mod source_change;
 
@@ -64,15 +67,12 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
     if only == Some(Target::HostedProjections) && !check {
         bail!("hosted-projections is a check-only selection");
     }
-    if matches!(
-        only,
-        Some(Target::RecordedResult | Target::ScientificWorker)
-    ) {
-        let tree = if only == Some(Target::RecordedResult) {
-            recorded_result_tree(root)?
-        } else {
-            scientific_worker_tree(root)?
-        };
+    if let Some(tree) = match only {
+        Some(Target::RecordedResult) => Some(recorded_result_tree(root)?),
+        Some(Target::ScientificWorker) => Some(scientific_worker_tree(root)?),
+        Some(Target::ReferenceExchange) => Some(reference_exchange_tree(root)?),
+        _ => None,
+    } {
         validate_tree(&tree)?;
         return if check {
             check_tree(root, &tree)
@@ -149,6 +149,7 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             | Target::Engineering
             | Target::RecordedResult
             | Target::ScientificWorker
+            | Target::ReferenceExchange
             | Target::DeveloperEvidence
             | Target::NativeRoot
             | Target::ScientificRecipe,
@@ -244,6 +245,15 @@ fn scientific_worker_tree(root: &Path) -> Result<GeneratedTree> {
 #[cfg(not(feature = "scientific-worker-contracts"))]
 fn scientific_worker_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("scientific-worker projections require scientific-worker-contracts")
+}
+
+#[cfg(feature = "reference-contracts")]
+fn reference_exchange_tree(root: &Path) -> Result<GeneratedTree> {
+    reference_exchange::generate(&contract_metadata::imports(root)?)
+}
+#[cfg(not(feature = "reference-contracts"))]
+fn reference_exchange_tree(_: &Path) -> Result<GeneratedTree> {
+    bail!("reference exchange projections require reference-contracts")
 }
 
 #[cfg(feature = "product-schemas")]

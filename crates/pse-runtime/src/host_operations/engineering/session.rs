@@ -1500,6 +1500,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn engineering_shutdown_closes_listener_before_original_work_settles() {
+        let (service, _spill) = service();
+        let key = EngineeringOperationKey {
+            operation: "shutdown-original".into(),
+        };
+        let (operation, fresh) = service.issue(&key.operation, Kind::Source, &key).unwrap();
+        assert!(fresh);
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let (release, waiting) = tokio::sync::oneshot::channel();
+        service
+            .spawn(operation.clone(), async move {
+                started.send(()).unwrap();
+                waiting.await.unwrap();
+                Ok(Outcome::Retained)
+            })
+            .unwrap();
+        entered.await.unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("engineering.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let stop = CancelSource::new();
+        let server = tokio::spawn(super::super::rpc::serve(
+            listener,
+            service.clone(),
+            super::super::rpc::LocalAccessPolicy {
+                uid: rustix::process::geteuid().as_raw(),
+                gid: None,
+                maximum_connections: 1,
+                connection_drain: Duration::from_secs(5),
+            },
+            stop.clone(),
+        ));
+        stop.cancel();
+        let shutdown_started = tokio::time::timeout(Duration::from_secs(5), async {
+            while !service.closing.load(Ordering::Acquire) {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await;
+        let work_still_owned = !server.is_finished();
+        let reconnect = tokio::time::timeout(
+            Duration::from_secs(5),
+            tokio::net::UnixStream::connect(&socket),
+        )
+        .await;
+        release.send(()).unwrap();
+        tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .unwrap()
+            .unwrap()
+            .unwrap();
+        assert!(shutdown_started.is_ok());
+        assert!(work_still_owned);
+        assert_eq!(reconnect.unwrap().unwrap_err().kind(), std::io::ErrorKind::ConnectionRefused);
+        assert!(matches!(operation.snapshot().unwrap(), Outcome::Retained));
+    }
+
+    #[tokio::test]
     async fn pending_run_cancellation_checks_original_issued_coordinates_before_acknowledgement() {
         let (service, _spill) = service();
         let input = EngineeringSubmitRun {

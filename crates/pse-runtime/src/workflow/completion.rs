@@ -1752,6 +1752,7 @@ mod tests {
                 values: prepared.model.values.clone(),
                 checks: vec![],
                 reports: vec![],
+                provider_selections: None,
                 error: None,
                 unavailable_cause: None,
                 complete: true,

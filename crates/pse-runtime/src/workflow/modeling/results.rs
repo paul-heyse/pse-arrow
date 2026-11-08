@@ -127,6 +127,7 @@ pub struct ModelingResultData {
     pub values: CaseValues,
     pub checks: Vec<ModelingCheck>,
     pub reports: Vec<ModelingReport>,
+    provider_selections: Option<assessment::ProviderSelections>,
     pub run_id: RunId,
     /// Actual zero-based original attempt supplied by the completion owner.
     pub(in crate::workflow) original_attempt: usize,
@@ -167,6 +168,14 @@ fn stamp_start(outcome: &mut Outcome, run: RunId, attempt: usize) {
     }
 }
 impl ModelingResult {
+    /// Selected provider facts from this result's actual original-coordinate assessment.
+    /// These observations are separate from the result's scientific-use decision.
+    pub fn provider_selections(&self) -> &[pse_math::assembly::ProviderSelectionVisit] {
+        self.provider_selections
+            .as_ref()
+            .map_or(&[], |selections| &selections.visits)
+    }
+
     /// Build explicit original-coordinate transport using this completed result facade's capability.
     pub fn primal_coordinates(&self) -> Result<crate::workflow::PrimalCoordinates, WorkflowError> {
         self.prepared.primal_coordinates(&self.services)
@@ -1050,6 +1059,7 @@ impl ModelingResult {
             values: point.values,
             checks: point.checks,
             reports: point.reports,
+            provider_selections: point.provider_selections,
             accepted: completion.permits_use(),
             completion,
             validation_error: point.error,

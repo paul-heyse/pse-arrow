@@ -6,10 +6,9 @@ use pse_contract::boundary_projection::{AdapterError, AdapterFailure, ValidatePr
 use pse_contract_proto::support::*;
 use pse_model::reference_exchange as native;
 
-mod case_contract;
 /// Source-generated messages and validators, with the complete imported descriptor world.
 pub mod generated;
-pub use case_contract::{
+pub use pse_model::reference_exchange::{
     ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact, ReferenceObservableContract,
 };
 use generated::pb::pse::reference::v1 as pb;
@@ -56,6 +55,27 @@ pub struct DecodedReference {
 pub struct DecodedCaseContract {
     native: ReferenceCaseContract,
     original: pb::ReferenceCaseContract,
+}
+
+/// Independent certificates and their retained original message.
+#[derive(Debug)]
+pub struct DecodedDegeneracyResult {
+    native: native::ReferenceDegeneracyResult,
+    original: pb::ReferenceDegeneracyResult,
+}
+
+impl DecodedDegeneracyResult {
+    /// Known row-support observations. Their scientific interpretation needs the original case.
+    pub fn known(&self) -> &native::ReferenceDegeneracyResult {
+        &self.native
+    }
+
+    /// Forward the original message including bounded unknown fields.
+    /// # Errors
+    /// Refuses if the original message exceeds the selected finite extent.
+    pub fn forward(&self, maximum_bytes: usize) -> Result<Vec<u8>, ExchangeError> {
+        encode_bounded_message(&self.original, maximum_bytes)
+    }
 }
 
 /// Admission of one original scalar population, independently of its values.
@@ -652,6 +672,17 @@ pub fn encode_case_contract(
     let wire = native_projection::encode_reference_case_contract(value)?;
     encode_bounded_message(&wire, maximum_bytes)
 }
+
+/// Encode typed independent degeneracy observations for exchange.
+/// # Errors
+/// Shared local rules, generated validation or finite extent refusal.
+pub fn encode_degeneracy_result(
+    value: native::ReferenceDegeneracyResult,
+    maximum_bytes: usize,
+) -> Result<Vec<u8>, ExchangeError> {
+    let wire = native_projection::encode_reference_degeneracy_result(value)?;
+    encode_bounded_message(&wire, maximum_bytes)
+}
 fn encode_message(
     value: &pb::ReferenceEnvelope,
     maximum_bytes: usize,
@@ -691,6 +722,18 @@ pub fn decode_case_contract(
     let original: pb::ReferenceCaseContract = decode_bounded_message(bytes, maximum_bytes)?;
     let native = native_projection::decode_reference_case_contract(original.clone())?;
     Ok(DecodedCaseContract { native, original })
+}
+
+/// Decode independent certificates under bounded byte, element and unknown-field allowances.
+/// # Errors
+/// Malformed wire, unsupported alternatives, local rules and extent refusal.
+pub fn decode_degeneracy_result(
+    bytes: &[u8],
+    maximum_bytes: usize,
+) -> Result<DecodedDegeneracyResult, ExchangeError> {
+    let original: pb::ReferenceDegeneracyResult = decode_bounded_message(bytes, maximum_bytes)?;
+    let native = native_projection::decode_reference_degeneracy_result(original.clone())?;
+    Ok(DecodedDegeneracyResult { native, original })
 }
 fn decode_bounded_message<M: buffa::Message>(
     bytes: &[u8],

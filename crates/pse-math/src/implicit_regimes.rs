@@ -258,8 +258,10 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
             self.spec.clone(),
             Box::new(SelectedProvider {
                 selection,
+                policy: self.configuration_key(),
                 cancel,
                 linearization: None,
+                completed_selection: None,
                 prepared: Vec::new(),
                 requested_output,
             }),
@@ -270,8 +272,10 @@ impl pse_kernels::ProviderFactory for RegimeFactory {
 struct SelectedProvider {
     requested_output: DerivativeOrder,
     selection: RegimeSelection,
+    policy: pse_ids::ContentHash,
     cancel: Arc<AtomicBool>,
     linearization: Option<pse_ids::ContentHash>,
+    completed_selection: Option<pse_kernels::ProviderSelection>,
     prepared: Vec<pse_kernels::ProviderRequest>,
 }
 impl pse_kernels::Provider for SelectedProvider {
@@ -300,6 +304,12 @@ impl pse_kernels::Provider for SelectedProvider {
     }
     fn completed_linearization(&self) -> Option<pse_ids::ContentHash> {
         self.linearization
+    }
+    fn take_completed_selection(&mut self) -> Option<pse_kernels::ProviderSelection> {
+        self.completed_selection.take()
+    }
+    fn observes_selection(&self) -> bool {
+        true
     }
     fn prepare_demand(
         &mut self,
@@ -381,6 +391,8 @@ impl pse_kernels::Provider for SelectedProvider {
         output: pse_kernels::ProviderOutput<'_>,
         context: &pse_kernels::EvaluationContext<'_>,
     ) -> Result<(), pse_kernels::ProviderError> {
+        self.linearization = None;
+        self.completed_selection = None;
         let started = Instant::now();
         let result = (|| {
             request.check_context(context)?;
@@ -404,7 +416,6 @@ impl pse_kernels::Provider for SelectedProvider {
                     "regime demand was not prepared on this binding".into(),
                 ));
             }
-            self.linearization = None;
             let complete = request.demand == pse_kernels::ProviderDemand::CompleteJets;
             let order = if complete {
                 request.order
@@ -516,7 +527,23 @@ impl pse_kernels::Provider for SelectedProvider {
                     self.linearization = Some(h.finish_hash());
                 }
             }
-
+            if runtime.observe_selection {
+                use pse_kernels::ProviderSelectionRegularity;
+                self.completed_selection = Some(pse_kernels::ProviderSelection {
+                    selector: self.selection.id,
+                    regime: selected.id,
+                    policy: self.policy,
+                    product: product.key,
+                    selection_order: product.order,
+                    regularity: if product.order == DerivativeOrder::Value {
+                        ProviderSelectionRegularity::Point
+                    } else if self.selection.chart.is_some() {
+                        ProviderSelectionRegularity::CertifiedChart
+                    } else {
+                        ProviderSelectionRegularity::Local
+                    },
+                });
+            }
             Ok(())
         })();
         if result.is_err() {
@@ -1904,8 +1931,10 @@ mod tests {
             Box::new(SelectedProvider {
                 requested_output: DerivativeOrder::Second,
                 selection,
+                policy: spec.identity(),
                 cancel: control.flag(),
                 linearization: None,
+                completed_selection: None,
                 prepared: Vec::new(),
             }),
         );
@@ -1927,11 +1956,15 @@ mod tests {
                 &mut provider,
                 &[-2.],
                 &request,
-                Default::default(),
+                ProviderRuntime { observe_selection: true, ..Default::default() },
                 &context,
             )
             .unwrap();
         assert_eq!(first.values, [-1.]);
+        let selected = first.selection.unwrap();
+        assert_eq!(selected.selection().regularity, pse_kernels::ProviderSelectionRegularity::CertifiedChart);
+        assert_eq!(selected.selection().selection_order, DerivativeOrder::First);
+        assert_eq!(selected.requested_order(), DerivativeOrder::Second);
         let token = first
             .linearization
             .expect("certified rival need not have a numerical factor");
@@ -1952,6 +1985,7 @@ mod tests {
                     weights: &[1.],
                     directions: &[3.],
                     expected_linearization: Some(token),
+                    observe_selection: true,
                     ..Default::default()
                 },
                 &context,
@@ -1959,6 +1993,10 @@ mod tests {
             .unwrap();
         assert_eq!(actual.linearization, Some(token));
         assert_eq!(actual.hessians, [0.]);
+        let weighted = actual.selection.unwrap();
+        assert!(selected.same_binding(&weighted));
+        assert_ne!(selected.invocation(), weighted.invocation());
+        assert_eq!(selected.selection(), weighted.selection());
         assert_eq!(
             proofs.load(Ordering::Relaxed),
             1,

@@ -372,6 +372,8 @@ enum Target {
     RecordedResult,
     /// Scientific worker contracts before compiling runtime adapter consumers.
     ScientificWorker,
+    /// Independent scientific reference contracts before compiling runtime adapters.
+    ReferenceExchange,
     /// Private scientific recipe messages and native adapters from compiler-owned data.
     ScientificRecipe,
     /// Native developer report/inventory observations and independent reader bundle.

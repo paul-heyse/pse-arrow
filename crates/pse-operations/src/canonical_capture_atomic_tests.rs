@@ -697,18 +697,4 @@ mod atomic_capture {
         store.remove_isolated_fixture().await.unwrap();
     }
 
-    #[tokio::test]
-    async fn capture_cutover_refuses_an_unsettled_legacy_gate() {
-        let (store, _, _) = fixture().await;
-        bounded_query(store.db.query("CREATE ONLY type::record('canonical_study_capture_gate','current') CONTENT {capture:'legacy-original-owner'};")).await.unwrap();
-        let refused=bounded_query(store.db.query("RETURN fn::pse_maintenance_v1::activate(time::micros()+30000000,NONE,'unissued','unissued','unissued','unissued','unissued','unissued','unissued',$request);").bind(("request",Bytes::from(vec![0])))).await.unwrap_err();
-        assert!(matches!(
-            refused,
-            CanonicalError::Refused {
-                code: crate::canonical::RefusalCode::StudyCaptureLegacyPendingNotDrained,
-                ..
-            }
-        ));
-        store.remove_isolated_fixture().await.unwrap();
-    }
 }

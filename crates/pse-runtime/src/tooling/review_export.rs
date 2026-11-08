@@ -9,7 +9,7 @@ use pse_columnar::CancellationToken;
 use std::path::Path;
 
 fn pack_error(error: PackError) -> WorkflowError {
-    contract(format!("review pack: {error}"))
+    WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
 }
 
 /// Publish an explicit finite host investigation through the original member custody owner.
@@ -110,9 +110,16 @@ pub async fn export_review_pack(
             let mut pack =
                 prepare_review_pack(destination, evidence, analysis, &request, cancel.clone())?;
             for selected in &request.scientific_results {
-                cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-                let outcome = if let Some(output) = &selected.output {
-                    let (minimum, maximum) = output.bounds()?;
+                cancel.checkpoint().map_err(|error| {
+                    pack_error(pack.fail_result_acquisition(
+                        &selected.member,
+                        pse_engine::EngineError::from(error).into(),
+                    ))
+                })?;
+                if let Some(output) = &selected.output {
+                    let (minimum, maximum) = output.bounds().map_err(|error| {
+                        pack_error(pack.fail_result_acquisition(&selected.member, error))
+                    })?;
                     match services
                         .output_results(
                             &selected.run,
@@ -132,9 +139,8 @@ pub async fn export_review_pack(
                     {
                         Ok(reader) => pack
                             .export_selected_result(&selected.member, reader)
-                            .await
-                            .map_err(pack_error),
-                        Err(error) => Err(error),
+                            .await,
+                        Err(error) => Err(pack.fail_result_acquisition(&selected.member, error)),
                     }
                 } else {
                     match services
@@ -150,15 +156,11 @@ pub async fn export_review_pack(
                     {
                         Ok(reader) => pack
                             .export_result(&selected.member, reader)
-                            .await
-                            .map_err(pack_error),
-                        Err(error) => Err(error),
+                            .await,
+                        Err(error) => Err(pack.fail_result_acquisition(&selected.member, error)),
                     }
-                };
-                if let Err(error) = outcome {
-                    let _ = pack.fail_member(&selected.member, error.to_string());
-                    return Err(error);
                 }
+                .map_err(pack_error)?;
             }
             pack.seal().map_err(pack_error)
         })

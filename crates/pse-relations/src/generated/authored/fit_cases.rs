@@ -11,8 +11,8 @@ pub use pse_model::generated::r#authored::r#fit_cases::{
 };
 /// The declared relation identity.
 pub const RELATION_ID: pse_ids::SemanticId = pse_ids::SemanticId::from_bytes([
-    159u8, 102u8, 219u8, 118u8, 20u8, 21u8, 204u8, 5u8, 49u8, 85u8, 109u8, 200u8, 220u8,
-    211u8, 102u8, 81u8,
+    0u8, 140u8, 111u8, 148u8, 9u8, 118u8, 188u8, 208u8, 25u8, 83u8, 224u8, 55u8, 42u8,
+    196u8, 38u8, 28u8,
 ]);
 /// The declared name within its namespace.
 pub const NAME: &str = "fit_cases";
@@ -21,12 +21,12 @@ pub const QUALIFIED_NAME: &str = "authored.fit_cases";
 /// The declared namespace.
 pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace::Authored;
 /// The schema generation.
-pub const VERSION: u32 = 4u32;
+pub const VERSION: u32 = 5u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    176u8, 102u8, 93u8, 103u8, 160u8, 180u8, 125u8, 38u8, 53u8, 159u8, 100u8, 223u8,
-    179u8, 178u8, 143u8, 76u8, 243u8, 129u8, 98u8, 10u8, 89u8, 37u8, 228u8, 111u8, 253u8,
-    90u8, 73u8, 126u8, 41u8, 16u8, 2u8, 182u8,
+    54u8, 114u8, 37u8, 236u8, 216u8, 182u8, 78u8, 46u8, 24u8, 32u8, 227u8, 38u8, 31u8,
+    141u8, 24u8, 147u8, 109u8, 65u8, 250u8, 156u8, 109u8, 191u8, 235u8, 194u8, 90u8,
+    42u8, 218u8, 255u8, 114u8, 200u8, 153u8, 170u8,
 ]);
 impl crate::columnar::ArrowValue for AuthoredFitCasesFieldParametersItem {
     fn append(
@@ -123,6 +123,10 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItemBinding
             children[0usize].as_mut(),
         )?;
         crate::columnar::ArrowValue::append(&self.r#path, children[1usize].as_mut())?;
+        crate::columnar::ArrowValue::append(
+            &self.r#schedule_start,
+            children[2usize].as_mut(),
+        )?;
         output.append(true);
         Ok(())
     }
@@ -137,6 +141,9 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItemBinding
             children[0usize].as_mut(),
         )?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        <Option<
+            f64,
+        > as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
         Ok(())
     }
@@ -153,6 +160,12 @@ impl crate::columnar::ArrowValue for AuthoredFitCasesFieldExperimentsItemBinding
             )?,
             r#path: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
+                index,
+            )?,
+            r#schedule_start: <Option<
+                f64,
+            > as crate::columnar::ArrowValue>::read(
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -549,10 +562,10 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        61_440_usize + size_of::<Self::Builder>()
+        63_488_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        480usize
+        496usize
     }
     fn allocation_size(&self) -> Result<usize, crate::RelationError> {
         let mut bytes = 0usize;
@@ -655,6 +668,17 @@ impl crate::columnar::RelationRow for AuthoredFitCasesRow {
                                                 bytes = crate::columnar::allocation_add(
                                                     bytes,
                                                     crate::columnar::allocation_add(8, ((item).r#path).len())?,
+                                                )?;
+                                                bytes = crate::columnar::allocation_add(
+                                                    bytes,
+                                                    if ((item).r#schedule_start).is_some() {
+                                                        crate::columnar::allocation_add(
+                                                            1,
+                                                            Ok::<usize, crate::RelationError>(8usize)?,
+                                                        )
+                                                    } else {
+                                                        Ok::<usize, crate::RelationError>(1)
+                                                    }?,
                                                 )?;
                                                 Ok::<usize, crate::RelationError>(bytes)
                                             }?,

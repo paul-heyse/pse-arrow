@@ -382,7 +382,7 @@ mod tests {
                 27,
             ),
             ("documents", "AuthoredDocumentsRow", 2),
-            ("fit_cases", "AuthoredFitCasesRow", 4),
+            ("fit_cases", "AuthoredFitCasesRow", 5),
             (
                 "numerical_requirements",
                 "AuthoredNumericalRequirementsRow",

@@ -4,6 +4,7 @@
 use super::*;
 use crate::math::modeling::ModelingPreparation;
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
+use crate::workflow::modeling::dynamics::IntegrationInputTarget;
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingOutput, Profile};
 use pse_model::generated::enums::ModelingAnalysisRoute as Route;
 use pse_model::generated::identities::RunId;
@@ -118,7 +119,7 @@ type FitSource = (
     Bindings,
     ModelingCaseBindings,
     ModelingPreparation,
-    BTreeMap<usize, SemanticId>,
+    BTreeMap<usize, IntegrationInputTarget>,
 );
 fn fit_binding_refusal(
     class: pse_model::diagnostic::BoundaryClass,
@@ -174,7 +175,7 @@ impl ModelingPackage {
                 })?;
             let (model, local) = sources
                 .iter()
-                .find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
+                .find_map(|(_, _, model, local)| local.get(&index).map(|target| (model, target.member)))
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
             let mut entry =
                 self.admit_target_quantity(model.compiled(), local, &assignment.value)?;
@@ -248,7 +249,7 @@ impl ModelingPackage {
             }
             let (model, local) = sources
                 .iter()
-                .find_map(|(_, _, model, local)| local.get(&index).map(|local| (model, *local)))
+                .find_map(|(_, _, model, local)| local.get(&index).map(|target| (model, target.member)))
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
             let mut local_entry = entry.clone();
             local_entry.member = local;
@@ -316,6 +317,10 @@ impl ModelingPackage {
                     .position(|parameter| parameter.symbol_id == binding.parameter_id)
                     .ok_or_else(|| contract("experiment binds an undeclared fit parameter"))?;
                 let member = member(&model, &binding.path)?;
+                let schedule_start = binding.schedule_start;
+                if schedule_start.is_some_and(|time| !time.is_finite() || experiment.route != Route::Integrated) {
+                    return Err(contract("fit schedule targets require a finite integrated model clock"));
+                }
                 let mut parameter_port = port(&model, member)?;
                 parameter_port.id = binding.parameter_id;
                 if ports[parameter]
@@ -325,7 +330,9 @@ impl ModelingPackage {
                     return Err(contract("shared parameter physical contract mismatch"));
                 }
                 ports[parameter] = Some(parameter_port);
-                if local.insert(parameter, member).is_some() || !local_ids.insert(member) {
+                if local.insert(parameter, IntegrationInputTarget { member, schedule_start }).is_some()
+                    || !local_ids.insert((member, schedule_start.map(f64::to_bits)))
+                {
                     return Err(contract("duplicate experiment parameter binding"));
                 }
             }
@@ -746,8 +753,10 @@ impl ModelingPackage {
                         if !local.contains_key(&parameter) {
                             return Err(contract("fit parameter binding inventory differs"));
                         }
-                        case.values
-                            .insert(binding.path.clone(), d.parameters[parameter].value);
+                        if binding.schedule_start.is_none() {
+                            case.values
+                                .insert(binding.path.clone(), d.parameters[parameter].value);
+                        }
                     }
                 }
                 // The actual admitted steady inventories prove this residual-only shape before
@@ -956,14 +965,14 @@ impl ModelingPackage {
                         } else {
                             DerivativeOrder::First
                         };
-                        let free_inputs = local
+                        let free_targets = local
                             .iter()
                             .filter(|(parameter, _)| parameter_columns[**parameter].is_some())
-                            .map(|(_, id)| *id)
-                            .collect::<BTreeSet<_>>();
-                        let forward_parameters = (integration.sensitivity
+                            .map(|(_, target)| *target)
+                            .collect::<Vec<_>>();
+                        let forward_targets = (integration.sensitivity
                             == native::dynamics::DynamicSensitivity::Forward)
-                            .then_some(&free_inputs);
+                            .then_some(free_targets.as_slice());
                         // The experiment's authored case declares its modes and events.
                         let mut simulation = self
                             .prepare_simulation_with_controls(
@@ -977,11 +986,11 @@ impl ModelingPackage {
                                 integration,
                                 transient_order,
                                 &if hessian == HessianMode::Exact {
-                                    free_inputs.clone()
+                                    free_targets.iter().map(|target| target.member).collect()
                                 } else {
                                     BTreeSet::new()
                                 },
-                                forward_parameters,
+                                forward_targets,
                                 &provisional_quadratures,
                                 None,
                                 None,
@@ -1004,37 +1013,21 @@ impl ModelingPackage {
                         bytes = bytes
                             .checked_add(simulation.bytes)
                             .ok_or_else(|| contract("fit transient extent"))?;
-                        // A fit parameter binds the integration column in effect at the start: a
-                        // scheduled input's first interval, whose later intervals keep their
-                        // scheduled values (I6).
-                        let start = simulation.profile().columns_at(
-                            simulation.contract().parameters.len(),
-                            simulation.profile().start,
-                        );
-                        let bindings =
-                            local
-                                .iter()
-                                .map(|(parameter, id)| {
-                                    let position = simulation
-                            .contract()
-                            .parameters
+                        let bindings = local
                             .iter()
-                            .position(|p| p == id)
-                            .ok_or_else(|| {
-                                contract("fitted dynamic member is not a sensitivity parameter")
-                            })?;
-                                    Ok(Binding {
-                                        local: start[position],
-                                        parameter: *parameter,
-                                        conversion: pse_quantity::UnitConvertSpec {
-                                            from: parameter_ports[*parameter].unit,
-                                            to: parameter_ports[*parameter].unit,
-                                            scale: 1.,
-                                            offset: 0.,
-                                        },
-                                    })
+                            .map(|(parameter, target)| {
+                                Ok(Binding {
+                                    local: simulation.fit_input_column(*target)?,
+                                    parameter: *parameter,
+                                    conversion: pse_quantity::UnitConvertSpec {
+                                        from: parameter_ports[*parameter].unit,
+                                        to: parameter_ports[*parameter].unit,
+                                        scale: 1.,
+                                        offset: 0.,
+                                    },
                                 })
-                                .collect::<Result<Vec<_>, WorkflowError>>()?;
+                            })
+                            .collect::<Result<Vec<_>, WorkflowError>>()?;
                         // The exact Hessian's second-order route is admitted before any native
                         // work: the adjoint profile limits, IDAS (Diffsol has no second-order
                         // adjoint), and its estimate against the math allowance.
@@ -1177,10 +1170,10 @@ impl ModelingPackage {
                             coordinates.push((v.port.id, OriginalCol::new(col)));
                         }
                         let local_states = coordinates.len();
-                        for (parameter, id) in &local {
-                            values.scalars.insert(*id, d.parameters[*parameter].value);
+                        for (parameter, target) in &local {
+                            values.scalars.insert(target.member, d.parameters[*parameter].value);
                             if let Some(col) = parameter_columns[*parameter] {
-                                coordinates.push((*id, col));
+                                coordinates.push((target.member, col));
                             }
                         }
                         for (id, value) in &values.scalars {

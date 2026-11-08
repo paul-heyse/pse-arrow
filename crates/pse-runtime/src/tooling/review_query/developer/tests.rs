@@ -6,7 +6,10 @@ use pse_contract_proto::support::native_into;
 use pse_host::{
     developer_evidence_contracts::{self as contracts, pb::pse::developer::evidence::v1 as pb},
     envelope::{ErrorRecord, RedactionPolicy, Settlement},
-    test_workflow::execute::{Action, Outcome, ReportObservation, ReportReference, TerminalRecord},
+    test_workflow::execute::{
+        Action, EvidenceFile, EvidenceOmission, EvidenceRole, EvidenceRoot, Outcome,
+        ReportObservation, ReportReference, TerminalRecord,
+    },
 };
 
 // Independent literal source documents challenge the generic query. These committed
@@ -28,7 +31,6 @@ fn member_pending(
     settled: bool,
     pending: Option<&str>,
 ) -> Member {
-    let id = CliInvocationId::new();
     let failures = if failure {
         let mut error = ErrorRecord::from_host(
             &pse_host::HostError::Ownership("original prerequisite refusal".into()),
@@ -42,7 +44,7 @@ fn member_pending(
     };
     let report = ReportObservation {
         version: 1,
-        invocation: id.clone(),
+        invocation: CliInvocationId::new(),
         action: Action::Test,
         outcome: Outcome::Incomplete,
         inventory: None,
@@ -52,6 +54,16 @@ fn member_pending(
         inventory_content: None,
         evidence: None,
     };
+    committed_member(root, report, settled, pending)
+}
+
+fn committed_member(
+    root: &std::path::Path,
+    report: ReportObservation,
+    settled: bool,
+    pending: Option<&str>,
+) -> Member {
+    let id = report.invocation.clone();
     let mut bytes = serde_json::to_vec(&report).unwrap();
     if let Some(pending) = pending {
         assert_eq!(bytes.pop(), Some(b'}'));
@@ -64,14 +76,14 @@ fn member_pending(
         protocol: "pse.test-workflow".into(),
         version: 1,
         invocation: id.clone(),
-        action: Action::Test,
-        outcome: Outcome::Incomplete,
+        action: report.action,
+        outcome: report.outcome,
         report: ReportReference {
             path: "report.json".into(),
             sha256: identity.sha256,
             byte_length: identity.byte_length,
         },
-        required_capture_complete: complete,
+        required_capture_complete: report.required_capture_complete,
     };
     let wire = pb::CapturedWorkflowReport {
         invocation: native_into(id.clone(), "invocation").unwrap().into(),
@@ -99,6 +111,121 @@ fn request(members: Vec<Member>) -> Request {
         members,
         memory_bytes: NonZeroUsize::new(64 << 20).unwrap(),
     }
+}
+
+#[tokio::test]
+async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_operation_failure() {
+    let root = tempfile::tempdir().unwrap();
+    let mut failure = ErrorRecord::from_host(
+        &pse_host::HostError::Ownership("original compiler-context capture refusal".into()),
+        &RedactionPolicy::default(),
+    );
+    failure.related.push(failure.clone());
+    failure.causes.push("original ordinary source".into());
+    let original = committed_member(
+        root.path(),
+        ReportObservation {
+            version: 3,
+            invocation: CliInvocationId::new(),
+            action: Action::Test,
+            outcome: Outcome::Incomplete,
+            inventory: None,
+            selected_tests: None,
+            required_capture_complete: false,
+            failures: vec![],
+            inventory_content: None,
+            evidence: Some(vec![
+                EvidenceFile {
+                    root: EvidenceRoot::Invocation,
+                    path: "workflow-input.json".into(),
+                    role: EvidenceRole::Input,
+                    group: None,
+                    content: None,
+                    omission: Some(EvidenceOmission::Unsettled),
+                    failure: None,
+                },
+                EvidenceFile {
+                    root: EvidenceRoot::Workflow,
+                    path: "explicit-original/compiler-context.json".into(),
+                    role: EvidenceRole::CompilerContext,
+                    group: Some(3),
+                    content: None,
+                    omission: Some(EvidenceOmission::Refused),
+                    failure: Some(failure),
+                },
+            ]),
+        },
+        false,
+        None,
+    );
+    let analysis = analyze(request(vec![original]), &CancellationToken::new())
+        .await
+        .unwrap();
+    let patterns = &analysis.document().patterns;
+    assert_eq!(patterns.len(), 2);
+    let typed = patterns
+        .iter()
+        .find(|pattern| pattern.diagnostic_kind.as_deref() == Some("evidence_diagnostic"))
+        .unwrap();
+    assert_eq!(typed.code.as_deref(), Some("host.ownership"));
+    assert_eq!(typed.invocations, 1);
+    assert_eq!(
+        typed.references,
+        [
+            Reference { member: 0, pointer: Some("/evidence/1/failure".into()) },
+            Reference { member: 0, pointer: Some("/evidence/1/failure/related/0".into()) },
+        ]
+    );
+    let ordinary = patterns
+        .iter()
+        .find(|pattern| pattern.diagnostic_kind.as_deref() == Some("evidence_ordinary_source"))
+        .unwrap();
+    assert_eq!(ordinary.code, None);
+    assert_eq!(
+        ordinary.references,
+        [Reference { member: 0, pointer: Some("/evidence/1/failure/causes/0".into()) }]
+    );
+}
+
+#[tokio::test]
+async fn empty_dependency_cause_account_remains_distinct_from_legacy_absence() {
+    let root = tempfile::tempdir().unwrap();
+    let legacy = member(root.path(), None, false, false, false);
+    let current = committed_member(
+        root.path(),
+        ReportObservation {
+            version: 3,
+            invocation: CliInvocationId::new(),
+            action: Action::Test,
+            outcome: Outcome::Incomplete,
+            inventory: None,
+            selected_tests: None,
+            required_capture_complete: false,
+            failures: vec![],
+            inventory_content: None,
+            evidence: Some(vec![EvidenceFile {
+                root: EvidenceRoot::Invocation,
+                path: "workflow-input.json".into(),
+                role: EvidenceRole::Input,
+                group: None,
+                content: None,
+                omission: Some(EvidenceOmission::Unsettled),
+                failure: None,
+            }]),
+        },
+        false,
+        None,
+    );
+    let analyzed = analyze(request(vec![legacy, current]), &CancellationToken::new())
+        .await
+        .unwrap();
+    let [legacy, current] = analyzed.document().patterns.as_slice() else {
+        panic!("known-empty and unavailable dependency coverage must remain separate")
+    };
+    assert_eq!(legacy.diagnostic_kind, None);
+    assert_eq!(legacy.references, [Reference { member: 0, pointer: None }]);
+    assert_eq!(current.diagnostic_kind.as_deref(), Some("evidence_causes_empty"));
+    assert_eq!(current.references, [Reference { member: 1, pointer: Some("/evidence".into()) }]);
 }
 
 const ORIGINAL_PENDING: &str = r#"[

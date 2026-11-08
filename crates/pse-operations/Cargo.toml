@@ -208,7 +208,6 @@ kind = "lib"
 required-features = ["canonical-maintenance"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
-scope.modules = ["canonical::migration::legacy_capture::tests"]
 scope.tests = [
   "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
   "canonical::maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events",

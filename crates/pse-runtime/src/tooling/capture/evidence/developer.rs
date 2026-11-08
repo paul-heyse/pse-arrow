@@ -102,6 +102,13 @@ struct Cause<'a> {
     code: Option<&'a str>,
     class: Option<&'a str>,
 }
+
+#[derive(Clone, Copy)]
+enum CauseAccount {
+    Operation,
+    Dependency,
+}
+
 fn add<'a>(rows: &mut Vec<Cause<'a>>, row: Cause<'a>) -> Result<(), CaptureError> {
     if rows.len() == 4096 {
         return Err(invalid(
@@ -117,16 +124,21 @@ fn diagnostic<'a>(
     facts: &'a InvocationFacts,
     error: &'a ErrorRecord,
     pointer: String,
+    account: CauseAccount,
     cancel: &CancellationToken,
 ) -> Result<(), CaptureError> {
     cancel.checkpoint()?;
+    let (kind, source_kind) = match account {
+        CauseAccount::Operation => ("diagnostic", "ordinary_source"),
+        CauseAccount::Dependency => ("evidence_diagnostic", "evidence_ordinary_source"),
+    };
     add(
         rows,
         Cause {
             member,
             facts,
             pointer: pointer.clone(),
-            kind: "diagnostic",
+            kind,
             code: error.code.as_deref(),
             class: error.class.as_deref(),
         },
@@ -138,7 +150,7 @@ fn diagnostic<'a>(
                 member,
                 facts,
                 pointer: format!("{pointer}/causes/{index}"),
-                kind: "ordinary_source",
+                kind: source_kind,
                 code: None,
                 class: None,
             },
@@ -151,6 +163,7 @@ fn diagnostic<'a>(
             facts,
             child,
             format!("{pointer}/children/{index}"),
+            account,
             cancel,
         )?;
     }
@@ -161,6 +174,7 @@ fn diagnostic<'a>(
             facts,
             child,
             format!("{pointer}/diagnostic_source"),
+            account,
             cancel,
         )?;
     }
@@ -171,6 +185,7 @@ fn diagnostic<'a>(
             facts,
             child,
             format!("{pointer}/related/{index}"),
+            account,
             cancel,
         )?;
     }
@@ -194,8 +209,23 @@ pub fn causes(
                 facts,
                 error,
                 format!("/failures/{index}"),
+                CauseAccount::Operation,
                 cancel,
             )?;
+        }
+        for (index, evidence) in facts.report.evidence.iter().flatten().enumerate() {
+            cancel.checkpoint()?;
+            if let Some(error) = &evidence.failure {
+                diagnostic(
+                    &mut rows,
+                    member as u64,
+                    facts,
+                    error,
+                    format!("/evidence/{index}/failure"),
+                    CauseAccount::Dependency,
+                    cancel,
+                )?;
+            }
         }
     }
     let ids = rows

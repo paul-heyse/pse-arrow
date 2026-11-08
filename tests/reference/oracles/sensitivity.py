@@ -2,30 +2,30 @@
 # Copyright (c) 2026 Paul Heyse
 """Isolated sIPOPT oracle for explicit native original-unit sensitivity results.
 
-No candidate fixture, product Python, or generated contract is imported. sIPOPT
-predicts the perturbed state independently; the analytic KKT branch distinguishes
-the derivative increment from the actual nominal candidate's engineering error.
+sIPOPT predicts the perturbed state independently. The analytic KKT branch
+supplies separate nominal, prediction and derivative observations.
 """
 
 from __future__ import annotations
 
 import contextlib
+import json
 import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import msgspec
-
-from .legacy_exchange import admit_candidates, read_request, write_response
-from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
+from .reference_environment import ReferenceEnvironment
+from .scalar_case import ScalarCase, require
 
 if TYPE_CHECKING:
     from pyomo.core.base.param import ScalarParam
     from pyomo.core.base.var import ScalarVar
 
 
-class SensitivityCase(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class SensitivityCase:
     """One dimensionless quadratic optimization and its parameter perturbation."""
 
     id: str
@@ -35,78 +35,19 @@ class SensitivityCase(msgspec.Struct, forbid_unknown_fields=True):
     unit: str
     initial: float
     z_bounds: tuple[float, float]
-    coupling: str
-    objective: str
+    coupling: tuple[float, float]
+    objective: tuple[float, float, float, float, float]
 
 
-class QuantityReport(msgspec.Struct, forbid_unknown_fields=True):
-    """Physical values and dx/dp; coordinate scales are normalization metadata."""
-
-    base: float
-    increment: float
-    predicted: float
-    allowance: float
-    coordinate_scale: float
-    derivative: dict[str, float]
-
-
-class CandidateReport(msgspec.Struct, forbid_unknown_fields=True):
-    """Native observations with explicit coverage."""
-
-    complete: bool
-    unit: str
-    coordinates: str
-    parameter_scales: dict[str, float]
-    quantities: dict[str, QuantityReport]
-
-
-class Candidate(msgspec.Struct, forbid_unknown_fields=True):
-    """Identified observation or an explicit missing native result."""
-
-    id: str
-    report: CandidateReport | None
-
-
-class Request(msgspec.Struct, forbid_unknown_fields=True):
-    """Scientific inputs, existing declared pins, and a mixed result population."""
-
-    version: int
-    case: SensitivityCase
-    pins: dict[str, str]
-    candidates: list[Candidate]
-
-
-class Comparison(msgspec.Struct, forbid_unknown_fields=True):
-    """A comparison retains its own pass/fail/missing result."""
-
-    id: str
-    status: str
-    reasons: list[str]
-
-
-class Response(msgspec.Struct, forbid_unknown_fields=True):
-    """Independent sIPOPT prediction and all comparison outcomes."""
-
-    version: int
-    case_id: str
-    environment: dict[str, str]
-    reference: dict[str, float]
-    comparisons: list[Comparison]
-
-
-# The exact branch is affine, so the physical increment has no Taylor truncation
-# error. Permit roundoff and numerical linear-system error separately from the
-# two solver point errors, which include the active lower-bound relaxation.
-DERIVATIVE_ABSOLUTE_ERROR = 1e-7
-INCREMENT_ABSOLUTE_ERROR = 1e-8
-NATIVE_VALUE_ABSOLUTE_ERROR = 5e-7
+_VARIABLES = ("x", "y", "z")
+_PARAMETERS = ("a", "b")
+_STAGES = ("sipopt:nominal", "sipopt:prediction", "exact:nominal", "exact:prediction")
+_INPUTS = (
+    "nominal:a", "nominal:b", "perturbed:a", "perturbed:b",
+    "initial", "z:lower", "z:upper", "coupling:x", "coupling:y",
+    "objective:x*x", "objective:y*y", "objective:-b*x", "objective:z*z", "objective:a*z",
+)
 SIPOPT_VALUE_ABSOLUTE_ERROR = 5e-7
-
-
-def require(condition: bool, message: str) -> None:
-    """An absent environment or invalid scientific premise fails, never skips."""
-    if not condition:
-        raise ValueError(message)
 
 
 def validate_case(case: SensitivityCase) -> None:
@@ -114,14 +55,14 @@ def validate_case(case: SensitivityCase) -> None:
     require(case.id == "active-bound-quadratic-response", "unknown sensitivity case")
     require(case.nominal == {"a": 1.0, "b": 2.0}, "unexpected nominal parameters")
     require(case.perturbed == {"a": 1.1, "b": 2.1}, "unexpected perturbed parameters")
-    require(case.variables == ["x", "y", "z"], "unexpected variables")
+    require(case.variables == list(_VARIABLES), "unexpected variables")
     require(case.unit == "dimensionless Scalar", "original Scalar units required")
     require(
         case.initial == 0.5 and case.z_bounds == (0.0, 10.0), "changed start/bounds"
     )
-    require(case.coupling == "x + y == a", "changed equality")
+    require(case.coupling == (1.0, 1.0), "changed equality")
     require(
-        case.objective == "0.5*x*x + y*y - b*x + 0.5*z*z + a*z",
+        case.objective == (0.5, 1.0, 1.0, 0.5, 1.0),
         "changed quadratic objective",
     )
     require(case.nominal["a"] > 0 and case.perturbed["a"] > 0, "active branch changed")
@@ -211,150 +152,60 @@ def check_sipopt(
             )
 
 
-def compare(
-    candidate: Candidate, case: SensitivityCase, reference: dict[str, float]
-) -> Comparison:
-    """Check physical increments apart from nominal solve error for every result."""
-    report = candidate.report
-    if report is None:
-        return Comparison(candidate.id, "missing", ["native result missing"])
-    nominal, perturbed = exact(case.nominal), exact(case.perturbed)
+def _case(original: ScalarCase) -> SensitivityCase:
+    values = original.inputs(_INPUTS)
+    case = SensitivityCase(
+        id=original.contract.case_name,
+        nominal={name: values[f"nominal:{name}"] for name in _PARAMETERS},
+        perturbed={name: values[f"perturbed:{name}"] for name in _PARAMETERS},
+        variables=list(_VARIABLES),
+        unit="dimensionless Scalar",
+        initial=values["initial"],
+        z_bounds=(values["z:lower"], values["z:upper"]),
+        coupling=(values["coupling:x"], values["coupling:y"]),
+        objective=(
+            values["objective:x*x"], values["objective:y*y"], values["objective:-b*x"],
+            values["objective:z*z"], values["objective:a*z"],
+        ),
+    )
+    validate_case(case)
+    return case
+
+
+def main() -> None:
+    """Check original physical inputs, run sIPOPT and publish typed observations."""
+    require(len(sys.argv) == 4, "expected descriptor, contract and response paths")
+    require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
+    original = ScalarCase.read(Path(sys.argv[1]), Path(sys.argv[2]))
+    case = _case(original)
+    original.outputs(
+        [f"{stage}:{name}" for stage in _STAGES for name in _VARIABLES]
+        + [f"derivative:{name}:{parameter}" for name in _VARIABLES for parameter in _PARAMETERS]
+    )
+    with contextlib.redirect_stdout(sys.stderr):
+        environment = ReferenceEnvironment.from_process(
+            ("idaes-pse", "pyomo", "protobuf", "pint"),
+            role="PSE_SENSITIVITY_REFERENCE_PYTHON",
+        )
+        nominal, predicted = sipopt_prediction(case, environment)
+        check_sipopt(case, nominal, predicted)
+    require(
+        not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
+        "reference execution imported the candidate product",
+    )
     jacobian = {
         "x": {"a": 2.0 / 3.0, "b": 1.0 / 3.0},
         "y": {"a": 1.0 / 3.0, "b": -1.0 / 3.0},
         "z": {"a": 0.0, "b": 0.0},
     }
-    try:
-        require(report.complete, "native response incomplete")
-        require(report.unit == case.unit, "native sensitivity unit differs")
-        require(
-            report.coordinates == "physical", "native sensitivity coordinates differ"
-        )
-        require(
-            set(report.quantities) == set(case.variables),
-            "native target population incomplete",
-        )
-        require(
-            set(report.parameter_scales) == {"a", "b"},
-            "native parameter scales incomplete",
-        )
-        require(
-            all(
-                math.isfinite(value) and value > 0
-                for value in report.parameter_scales.values()
-            ),
-            "invalid native parameter scale",
-        )
-        for name in case.variables:
-            quantity = report.quantities[name]
-            require(
-                set(quantity.derivative) == {"a", "b"},
-                "native derivative population incomplete",
-            )
-            for parameter in ("a", "b"):
-                close(
-                    quantity.derivative[parameter],
-                    jacobian[name][parameter],
-                    DERIVATIVE_ABSOLUTE_ERROR,
-                    f"physical derivative differs for {name}/{parameter}",
-                )
-            close(
-                quantity.base,
-                nominal[name],
-                NATIVE_VALUE_ABSOLUTE_ERROR,
-                f"nominal solution differs for {name} "
-                f"({quantity.base!r} versus {nominal[name]!r}, "
-                f"absolute allowance {NATIVE_VALUE_ABSOLUTE_ERROR:g})",
-            )
-            close(
-                quantity.increment,
-                perturbed[name] - nominal[name],
-                INCREMENT_ABSOLUTE_ERROR,
-                f"physical increment differs for {name}",
-            )
-            close(
-                quantity.predicted,
-                perturbed[name],
-                NATIVE_VALUE_ABSOLUTE_ERROR,
-                f"predicted solution differs for {name}",
-            )
-            # Each prediction has independently met its analytic physical allowance.
-            close(
-                quantity.predicted,
-                reference[name],
-                NATIVE_VALUE_ABSOLUTE_ERROR + SIPOPT_VALUE_ABSOLUTE_ERROR,
-                f"native/sIPOPT difference for {name}",
-            )
-            require(
-                quantity.predicted == quantity.base + quantity.increment,
-                f"incoherent prediction for {name}",
-            )
-            physical_increment = sum(
-                quantity.derivative[p] * (case.perturbed[p] - case.nominal[p])
-                for p in ("a", "b")
-            )
-            close(
-                quantity.increment,
-                physical_increment,
-                INCREMENT_ABSOLUTE_ERROR,
-                f"incoherent increment for {name}",
-            )
-            require(
-                math.isfinite(quantity.allowance) and quantity.allowance > 0,
-                "invalid native engineering budget",
-            )
-            require(
-                math.isfinite(quantity.coordinate_scale)
-                and quantity.coordinate_scale > 0,
-                "invalid native output scale",
-            )
-    except ValueError as error:
-        return Comparison(candidate.id, "failed", [str(error)])
-    return Comparison(candidate.id, "passed", [])
-
-
-def main() -> None:
-    """Execute independent science before consulting any candidate results."""
-    require(len(sys.argv) == 3, "expected request and response paths")
-    require(sys.flags.isolated == 1, "oracle must run with the interpreter's -I option")
-    request = read_request(Path(sys.argv[1]), Request)
-    admit_candidates(
-        (candidate.id for candidate in request.candidates), len(request.candidates)
+    solutions = (nominal, predicted, exact(case.nominal), exact(case.perturbed))
+    original.publish(
+        Path(sys.argv[3]),
+        [solution[name] for solution in solutions for name in _VARIABLES]
+        + [jacobian[name][parameter] for name in _VARIABLES for parameter in _PARAMETERS],
     )
-    require(request.version == 1, "unsupported exchange version")
-    validate_case(request.case)
-    require(bool(request.candidates), "empty candidate population")
-    ids = [candidate.id for candidate in request.candidates]
-    require(
-        all(ids) and len(set(ids)) == len(ids),
-        "candidate identities must be nonempty and unique",
-    )
-    with contextlib.redirect_stdout(sys.stderr):
-        environment = ReferenceEnvironment.from_process(
-            LEGACY_PACKAGES,
-            role="PSE_SENSITIVITY_REFERENCE_PYTHON",
-            declared=request.pins,
-        )
-        nominal, reference = sipopt_prediction(request.case, environment)
-        check_sipopt(request.case, nominal, reference)
-    require(
-        not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
-        "reference execution imported the candidate product",
-    )
-    response = Response(
-        version=1,
-        case_id=request.case.id,
-        environment=environment.evidence,
-        reference=reference,
-        comparisons=[
-            compare(candidate, request.case, reference)
-            for candidate in request.candidates
-        ],
-    )
-    write_response(
-        Path(sys.argv[2]),
-        response,
-        len(request.candidates),
-        response.environment,
-        response.comparisons,
+    sys.stderr.write(
+        "sensitivity_reference_environment "
+        + json.dumps(environment.evidence, sort_keys=True)
+        + "\n"
     )

@@ -3,6 +3,7 @@
 //! Public Rust KKT response in original Scalar coordinates, without Python candidates.
 
 use crate::reference_support::{NativeContext, Result};
+use crate::reference_scalar::{self, Inputs};
 use pse_backend_native::solve::{Backend, SolveIntent};
 use pse_ids::SemanticId;
 use pse_relations::{
@@ -17,10 +18,9 @@ use pse_runtime::{
     math::settings::{SensitivityRequest, SolveSettings},
     workflow::{ModelingAnalysis, RunResult},
 };
-use serde::Serialize;
 use std::collections::BTreeMap;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct SensitivityCase {
     pub(super) id: String,
     pub(super) nominal: BTreeMap<String, f64>,
@@ -29,8 +29,8 @@ pub(super) struct SensitivityCase {
     pub(super) unit: String,
     pub(super) initial: f64,
     pub(super) z_bounds: [f64; 2],
-    pub(super) coupling: String,
-    pub(super) objective: String,
+    pub(super) coupling: [f64; 2],
+    pub(super) objective: [f64; 5],
 }
 
 impl SensitivityCase {
@@ -43,23 +43,24 @@ impl SensitivityCase {
             unit: "dimensionless Scalar".into(),
             initial: 0.5,
             z_bounds: [0.0, 10.0],
-            coupling: "x + y == a".into(),
-            objective: "0.5*x*x + y*y - b*x + 0.5*z*z + a*z".into(),
+            coupling: [1., 1.],
+            objective: [0.5, 1., 1., 0.5, 1.],
         }
     }
 
     fn source(&self) -> String {
+        let [coupling_x, coupling_y] = self.coupling;
+        let [square_x, square_y, product_b_x, square_z, product_a_z] = self.objective;
         format!(
             "package parity {{ def Root {{
              param a: Scalar = {}; param b: Scalar = {};
              var x: Scalar; var y: Scalar; var z: Scalar;
-             eq coupling: {}; let cost: Scalar = {};
+             eq coupling: {coupling_x}*x + {coupling_y}*y == a;
+             let cost: Scalar = {square_x}*x*x + {square_y}*y*y - {product_b_x}*b*x + {square_z}*z*z + {product_a_z}*a*z;
              annotation objective cost(minimize); annotation bounds z({}, {});
              annotation start x({}); annotation start y({}); annotation start z({}); }} }}",
             self.nominal["a"],
             self.nominal["b"],
-            self.coupling,
-            self.objective,
             self.z_bounds[0],
             self.z_bounds[1],
             self.initial,
@@ -69,7 +70,7 @@ impl SensitivityCase {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct QuantityReport {
     pub(super) base: f64,
     pub(super) increment: f64,
@@ -80,7 +81,7 @@ pub(super) struct QuantityReport {
     pub(super) derivative: BTreeMap<String, f64>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct CandidateReport {
     pub(super) complete: bool,
     pub(super) unit: String,
@@ -89,7 +90,6 @@ pub(super) struct CandidateReport {
     pub(super) quantities: BTreeMap<String, QuantityReport>,
 }
 
-#[derive(Serialize)]
 pub(super) struct Candidate {
     pub(super) id: String,
     pub(super) report: Option<CandidateReport>,
@@ -116,9 +116,13 @@ impl NativeCandidate {
         })
     }
 
-    pub(super) async fn run(&self, case: &SensitivityCase) -> Result<CandidateReport> {
+    pub(super) fn pool(&self) -> std::sync::Arc<dyn pse_columnar::MemoryPool> {
+        self.context.shared.pool()
+    }
+
+    pub(super) async fn run(&self, case: &SensitivityCase) -> Result<(CandidateReport, Inputs)> {
         let source = case.source();
-        let package = self.context.package(&source).await?;
+        let (package, originals) = self.context.package(&source).await?;
         let services = self.context.runtime.execution_services();
         let cancel = CancelSource::new();
         let declarations = package.declarations(services.preparation()).await?;
@@ -127,6 +131,33 @@ impl NativeCandidate {
             .find(|row| row.name == "Root")
             .unwrap()
             .declaration_id;
+        let inputs = [
+            ("nominal:a", case.nominal["a"]), ("nominal:b", case.nominal["b"]),
+            ("perturbed:a", case.perturbed["a"]), ("perturbed:b", case.perturbed["b"]),
+            ("initial", case.initial), ("z:lower", case.z_bounds[0]), ("z:upper", case.z_bounds[1]),
+            ("coupling:x", case.coupling[0]), ("coupling:y", case.coupling[1]),
+            ("objective:x*x", case.objective[0]), ("objective:y*y", case.objective[1]),
+            ("objective:-b*x", case.objective[2]), ("objective:z*z", case.objective[3]),
+            ("objective:a*z", case.objective[4]),
+        ];
+        let mut outputs = Vec::new();
+        for stage in ["sipopt:nominal", "sipopt:prediction", "exact:nominal", "exact:prediction"] {
+            outputs.extend(case.variables.iter().map(|name| format!("{stage}:{name}")));
+        }
+        for name in &case.variables {
+            outputs.extend(["a", "b"].map(|parameter| format!("derivative:{name}:{parameter}")));
+        }
+        let configuration = pse_ids::preimage::hash(&serde_json::to_vec(&(
+            &case.variables, &case.unit, inputs.map(|(key, value)| (key, value.to_bits())),
+        ))?);
+        let contract = reference_scalar::bind(reference_scalar::Case {
+            name: &case.id,
+            identity: root.as_id(),
+            source: &source,
+            configuration,
+            inputs: inputs.into_iter().map(|(key, value)| (key.into(), value)).collect(),
+            outputs: outputs.into_iter().map(|key| (key.clone(), pse_ids::named_id(root.as_id(), &key))).collect(),
+        }, package.physical_context(), originals)?;
         let mut settings = SolveSettings {
             backend: Some(Backend::Ipopt),
             intent: SolveIntent::Optimize,
@@ -324,13 +355,13 @@ impl NativeCandidate {
                 },
             );
         }
-        Ok(CandidateReport {
+        Ok((CandidateReport {
             complete: true,
             unit: case.unit.clone(),
             coordinates: "physical".into(),
             parameter_scales,
             quantities,
-        })
+        }, contract))
     }
 
     pub(super) async fn close(&self) -> Result<()> {

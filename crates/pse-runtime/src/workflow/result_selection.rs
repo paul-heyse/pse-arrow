@@ -110,7 +110,7 @@ impl ValuePredicate {
 pub(super) const SELECTION_METADATA_KEY: &str = "pse.canonical.selection.proto.v1";
 const SELECTION_METADATA_PREFIX: &str = "pse.canonical.selection.proto.";
 const MAX_SELECTION_BYTES: u32 = 65_536;
-const LEGACY_KEYS: [&str; 17] = [
+const RETIRED_METADATA_KEYS: [&str; 17] = [
     "pse.canonical.run",
     "pse.canonical.attempt",
     "pse.canonical.relation",
@@ -161,151 +161,48 @@ pub(super) fn selection_metadata(selection: &PackResultSelection) -> std::io::Re
     }
     Ok(base64::engine::general_purpose::STANDARD.encode(bytes))
 }
-/// New exports retain unrelated metadata but replace every reserved predecessor key.
+fn incompatible_selection_key(key: &str) -> bool {
+    RETIRED_METADATA_KEYS.contains(&key)
+        || key != SELECTION_METADATA_KEY && key.starts_with(SELECTION_METADATA_PREFIX)
+}
+
+/// New exports retain unrelated metadata and require a single current interpretation.
 pub(super) fn publish_selection_metadata(
     metadata: &mut std::collections::HashMap<String, String>,
     selection: &PackResultSelection,
 ) -> std::io::Result<()> {
     if metadata
         .keys()
-        .any(|key| key != SELECTION_METADATA_KEY && key.starts_with(SELECTION_METADATA_PREFIX))
+        .any(|key| incompatible_selection_key(key))
     {
         return Err(metadata_error(
             "unsupported inherited selected-result metadata interpretation",
         ));
     }
     let encoded = selection_metadata(selection)?;
-    metadata.retain(|key, _| !LEGACY_KEYS.contains(&key.as_str()) && key != SELECTION_METADATA_KEY);
     metadata.insert(SELECTION_METADATA_KEY.into(), encoded);
     Ok(())
 }
-/// Exact passive artifact/manifest agreement. This constructs no native owner and
-/// never falls back after observing a present versioned representation.
+/// Exact passive artifact/manifest agreement under the current interpretation.
 pub(super) fn validate_selection_metadata(
     metadata: &std::collections::HashMap<String, String>,
     selection: &PackResultSelection,
 ) -> std::io::Result<()> {
-    if let Some(encoded) = metadata.get(SELECTION_METADATA_KEY) {
-        if encoded.len() > maximum_selection_text()?
-            || metadata.keys().any(|key| {
-                LEGACY_KEYS.contains(&key.as_str())
-                    || key != SELECTION_METADATA_KEY && key.starts_with(SELECTION_METADATA_PREFIX)
-            })
-        {
-            return Err(metadata_error(
-                "selected-result metadata extent or mixed interpretations",
-            ));
-        }
-        if encoded != &selection_metadata(selection)? {
-            return Err(metadata_error(
-                "IPC selection observation differs from original manifest",
-            ));
-        }
-        return Ok(());
-    }
-    if metadata
-        .keys()
-        .any(|key| key.starts_with(SELECTION_METADATA_PREFIX))
+    let encoded = metadata.get(SELECTION_METADATA_KEY)
+        .ok_or_else(|| metadata_error("current selected-result metadata is required"))?;
+    if encoded.len() > maximum_selection_text()?
+        || metadata.keys().any(|key| incompatible_selection_key(key))
     {
         return Err(metadata_error(
-            "unsupported selected-result metadata interpretation",
+            "selected-result metadata extent or mixed interpretations",
         ));
     }
-    for (key, expected) in LegacyScientificMetadata::from(selection).entries() {
-        if metadata.get(key) != expected.as_ref() {
-            return Err(metadata_error(format!(
-                "historical IPC lineage differs from selected {key}"
-            )));
-        }
+    if encoded != &selection_metadata(selection)? {
+        return Err(metadata_error(
+            "IPC selection observation differs from original manifest",
+        ));
     }
     Ok(())
-}
-
-/// Deliberate reader for retained predecessor artifacts, with no production writer.
-struct LegacyScientificMetadata<'a> {
-    run: &'a str,
-    attempt: &'a str,
-    relation: &'a str,
-    schema_version: u32,
-    row_start: u64,
-    row_end: u64,
-    field: Option<&'a str>,
-    terminal_class: &'a str,
-    predicate: Option<PredicateMetadata<'a>>,
-    extra: Option<&'a PackResultContext>,
-}
-struct PredicateMetadata<'a> {
-    output: &'a str,
-    partition: &'a str,
-    minimum_bits: Option<u64>,
-    maximum_bits: Option<u64>,
-    missing: Option<bool>,
-}
-impl<'a> From<&'a PackResultSelection> for LegacyScientificMetadata<'a> {
-    fn from(value: &'a PackResultSelection) -> Self {
-        Self {
-            run: &value.run,
-            attempt: &value.attempt,
-            relation: &value.relation,
-            schema_version: value.schema_version,
-            row_start: value.row_start,
-            row_end: value.row_end,
-            field: value.field.as_deref(),
-            terminal_class: &value.terminal_class,
-            predicate: value.predicate.as_ref().map(|predicate| PredicateMetadata {
-                output: &predicate.output,
-                partition: &predicate.partition,
-                minimum_bits: predicate.minimum_bits,
-                maximum_bits: predicate.maximum_bits,
-                missing: predicate.missing,
-            }),
-            extra: value.context.as_ref(),
-        }
-    }
-}
-impl LegacyScientificMetadata<'_> {
-    fn entries(&self) -> Vec<(&'static str, Option<String>)> {
-        let mut out = Vec::with_capacity(17);
-        out.extend([
-            (LEGACY_KEYS[0], Some(self.run.to_owned())),
-            (LEGACY_KEYS[1], Some(self.attempt.to_owned())),
-            (LEGACY_KEYS[2], Some(self.relation.to_owned())),
-            (LEGACY_KEYS[3], Some(self.schema_version.to_string())),
-            (LEGACY_KEYS[4], Some(self.row_start.to_string())),
-            (LEGACY_KEYS[5], Some(self.row_end.to_string())),
-            (LEGACY_KEYS[6], Some(self.terminal_class.to_owned())),
-            (LEGACY_KEYS[7], self.field.map(str::to_owned)),
-        ]);
-        if let Some(predicate) = &self.predicate {
-            out.extend([
-                (LEGACY_KEYS[8], Some(predicate.output.to_owned())),
-                (LEGACY_KEYS[9], Some(predicate.partition.to_owned())),
-                (
-                    LEGACY_KEYS[10],
-                    predicate.minimum_bits.map(|bits| bits.to_string()),
-                ),
-                (
-                    LEGACY_KEYS[11],
-                    predicate.maximum_bits.map(|bits| bits.to_string()),
-                ),
-                (
-                    LEGACY_KEYS[12],
-                    predicate.missing.map(|missing| missing.to_string()),
-                ),
-            ]);
-        } else {
-            out.push((LEGACY_KEYS[8], None));
-        }
-        if let Some(extra) = &self.extra {
-            out.extend([
-                (LEGACY_KEYS[13], Some(extra.problem.to_owned())),
-                (LEGACY_KEYS[14], Some(extra.revision.to_owned())),
-                (LEGACY_KEYS[15], Some(extra.manifest.to_owned())),
-                (LEGACY_KEYS[16], Some(extra.interpretation.to_owned())),
-            ]);
-        }
-        out
-    }
 }
 
 /// DataFusion 55.1's bounded scientific expression uses finite comparisons,
@@ -412,64 +309,7 @@ mod tests {
         }
     }
     #[test]
-    fn historical_metadata_preserves_declared_keys_and_exact_predicate_bits() {
-        let selected = selected_observation();
-        let values = LegacyScientificMetadata::from(&selected)
-            .entries()
-            .into_iter()
-            .filter_map(|(key, value)| value.map(|value| (key, value)))
-            .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(
-            values,
-            [
-                ("pse.canonical.run", "run"),
-                ("pse.canonical.attempt", "attempt"),
-                ("pse.canonical.relation", "runtime.fit_parameters"),
-                ("pse.canonical.relation-version", "1"),
-                ("pse.canonical.row-start", "4"),
-                ("pse.canonical.row-end", "9"),
-                ("pse.canonical.terminal-class", "converged"),
-                ("pse.canonical.field", "value"),
-                ("pse.canonical.output", "owner"),
-                ("pse.canonical.partition", "0"),
-                ("pse.canonical.minimum-bits", "9223372036854775808"),
-                ("pse.canonical.maximum-bits", "0"),
-                ("pse.canonical.missing", "false"),
-                ("pse.canonical.problem", "problem"),
-                ("pse.canonical.revision", "revision"),
-                ("pse.canonical.manifest", "manifest"),
-                ("pse.canonical.interpretation", "original-policy"),
-            ]
-            .into_iter()
-            .map(|(key, value)| (key, value.to_owned()))
-            .collect()
-        );
-        let mut historical = serde_json::to_value(&selected).unwrap();
-        assert_eq!(historical["field"], "value");
-        historical.as_object_mut().unwrap().remove("context");
-        let historical: PackResultSelection = serde_json::from_value(historical).unwrap();
-        assert!(historical.context.is_none());
-        assert_ne!(historical, selected);
-        assert!(
-            !LegacyScientificMetadata::from(&historical)
-                .entries()
-                .iter()
-                .any(|(key, _)| *key == "pse.canonical.interpretation")
-        );
-        let mut metadata = LegacyScientificMetadata::from(&historical)
-            .entries()
-            .into_iter()
-            .filter_map(|(key, value)| value.map(|value| (key.into(), value)))
-            .collect::<std::collections::HashMap<_, _>>();
-        validate_selection_metadata(&metadata, &historical).unwrap();
-        metadata.insert(
-            SELECTION_METADATA_KEY.into(),
-            "invalid-present-version".into(),
-        );
-        assert!(validate_selection_metadata(&metadata, &historical).is_err());
-    }
-    #[test]
-    fn versioned_selection_metadata_keeps_exact_bytes_and_replaces_only_reserved_keys() {
+    fn versioned_selection_metadata_requires_exact_current_representation() {
         use base64::Engine as _;
         use buffa::Message as _;
         let selected = selected_observation();
@@ -478,11 +318,10 @@ mod tests {
         // This is a retained payload contract, not a descriptor identity assertion.
         const ORIGINAL_V1: &str = "CgNydW4SB2F0dGVtcHQaFnJ1bnRpbWUuZml0X3BhcmFtZXRlcnMgASgEMAk6BXZhbHVlQgljb252ZXJnZWRKGQoFb3duZXISATAYgICAgICAgICAASAAKABSAgoAWi4KB3Byb2JsZW0SCHJldmlzaW9uGghtYW5pZmVzdCIPb3JpZ2luYWwtcG9saWN5";
         assert_eq!(selection_metadata(&selected).unwrap(), ORIGINAL_V1);
-        let mut metadata = LEGACY_KEYS
-            .into_iter()
-            .map(|key| (key.into(), "inherited-old-value".into()))
-            .collect::<std::collections::HashMap<_, _>>();
-        metadata.insert("pse.canonical.annotation".into(), "retained".into());
+        let mut metadata = std::collections::HashMap::from([
+            ("pse.canonical.annotation".into(), "retained".into()),
+        ]);
+        assert!(validate_selection_metadata(&metadata, &selected).is_err());
         publish_selection_metadata(&mut metadata, &selected).unwrap();
         assert_eq!(metadata.len(), 2);
         assert_eq!(metadata["pse.canonical.annotation"], "retained");
@@ -518,9 +357,10 @@ mod tests {
             assert!(validate_selection_metadata(&metadata, &selected).is_err());
         }
         metadata = original.clone();
-        for key in LEGACY_KEYS {
+        for key in RETIRED_METADATA_KEYS {
             metadata.insert(key.into(), "present".into());
             assert!(validate_selection_metadata(&metadata, &selected).is_err());
+            assert!(publish_selection_metadata(&mut metadata, &selected).is_err());
             metadata.remove(key);
         }
         for coordinate in 0..4 {

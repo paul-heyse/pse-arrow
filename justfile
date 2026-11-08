@@ -293,12 +293,14 @@ codegen-rust-contracts:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
     sh scripts/source-change-codegen scientific-worker
+    sh scripts/source-change-codegen reference-exchange
 
 [group('local')]
 codegen-rust-contracts-check:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts --check
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result --check
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features scientific-worker-contracts --locked -- codegen --only scientific-worker --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features reference-contracts --locked -- codegen --only reference-exchange --check
 
 [group('mutating')]
 [doc('Generate physical fixtures through lower admission, without Runtime or solver construction')]
@@ -853,6 +855,7 @@ codegen-contracts:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
     sh scripts/source-change-codegen scientific-worker
+    sh scripts/source-change-codegen reference-exchange
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features host-contracts --locked -- codegen --only docs
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
 
@@ -1131,7 +1134,7 @@ reference-unit: reference-environment
     cd tests/reference
     exec "$reference_python" -E -s -m unittest \
         test_proto_exchange.ForeignProtoExchangeTests \
-        test_legacy_agreement.LegacyAgreementTests \
+        test_reference_agreement.ReferenceAgreementTests \
         test_reference_environment.ReferenceEnvironmentTests \
         test_ordinary_exchange.OrdinaryExchangeUnitTests \
         test_ordinary_thermo.OrdinaryThermodynamicReferenceTests

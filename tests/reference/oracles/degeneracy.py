@@ -1,31 +1,29 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Test-only IDAES oracle for explicit native degenerate-Jacobian case/results.
-
-Run directly with the selected reference interpreter's -I option. This file does
-not import a product package, generated contracts, or fixture adapters. Scientific
-comparison failures are individual results; unavailable reference execution is a
-process failure, never a skipped or passing comparison.
-"""
+"""Independent IDAES oracle for original degenerate-Jacobian row supports."""
 
 from __future__ import annotations
 
 import contextlib
+import json
 import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import msgspec
+from google.protobuf import message_factory
 
-from .legacy_exchange import admit_candidates, read_request, write_response
-from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
+from .ordinary_exchange import _message, float_bits
+from .reference_environment import ReferenceEnvironment
+from .scalar_case import ScalarCase, require
 
 if TYPE_CHECKING:
     from pyomo.core.base.var import ScalarVar
 
 
-class LinearRow(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class LinearRow:
     """One original unscaled linear equation."""
 
     name: str
@@ -33,7 +31,8 @@ class LinearRow(msgspec.Struct, forbid_unknown_fields=True):
     rhs: float
 
 
-class LinearCase(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class LinearCase:
     """Explicit scientific inputs shared with the native test."""
 
     id: str
@@ -42,54 +41,13 @@ class LinearCase(msgspec.Struct, forbid_unknown_fields=True):
     rows: list[LinearRow]
 
 
-class RowSet(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class RowSet:
     """Row support and multipliers in original equation coordinates."""
 
     rows: list[str]
     multipliers: dict[str, float]
     irreducible_at_tolerance: bool
-
-
-class CandidateReport(msgspec.Struct, forbid_unknown_fields=True):
-    """Native observations, without an assumed passing verdict."""
-
-    complete: bool
-    unavailable: list[str]
-    sets: list[RowSet]
-
-
-class Candidate(msgspec.Struct, forbid_unknown_fields=True):
-    """An identified result or an explicitly missing result."""
-
-    id: str
-    report: CandidateReport | None
-
-
-class Request(msgspec.Struct, forbid_unknown_fields=True):
-    """The entire bounded exchange, independent of Python product state."""
-
-    version: int
-    case: LinearCase
-    pins: dict[str, str]
-    candidates: list[Candidate]
-
-
-class Comparison(msgspec.Struct, forbid_unknown_fields=True):
-    """One outcome, retained even when adjacent candidates pass or fail."""
-
-    id: str
-    status: str
-    reasons: list[str]
-
-
-class Response(msgspec.Struct, forbid_unknown_fields=True):
-    """Reference observations and every candidate's comparison outcome."""
-
-    version: int
-    case_id: str
-    environment: dict[str, str]
-    reference: list[RowSet]
-    comparisons: list[Comparison]
 
 
 # Independent algebraic answers retained from test_degeneracy_parity.py:
@@ -104,12 +62,6 @@ EXPECTED = {
     },
 }
 Sets = dict[frozenset[str], dict[str, float]]
-
-
-def require(condition: bool, reason: str) -> None:
-    """Fail independently of Python's assertion optimization setting."""
-    if not condition:
-        raise ValueError(reason)
 
 
 def validate_case(case: LinearCase) -> None:
@@ -215,57 +167,45 @@ def indexed(sets: list[RowSet]) -> Sets:
     return found
 
 
-def compare(candidate: Candidate, reference: Sets) -> Comparison:
-    """Retain pass/fail/missing separately across the entire supplied population."""
-    report = candidate.report
-    if report is None:
-        return Comparison(candidate.id, "missing", ["native result missing"])
-    try:
-        require(report.complete, "native all-anchor analysis incomplete")
-        require(
-            not report.unavailable, f"native analysis unavailable: {report.unavailable}"
-        )
-        found = indexed(report.sets)
-        require(
-            set(found) == set(EXPECTED),
-            "native result must contain both constructed sets",
-        )
-        require(
-            set(reference) <= set(found), "IDAES support missing from native result"
-        )
-        for rows, multipliers in reference.items():
-            proportional(found[rows], multipliers)
-        for rows, multipliers in EXPECTED.items():
-            proportional(found[rows], multipliers)
-    except ValueError as error:
-        return Comparison(candidate.id, "failed", [str(error)])
-    return Comparison(candidate.id, "passed", [])
+def _case(original: ScalarCase) -> LinearCase:
+    variables = list("abcde")
+    rows = ("first", "second", "third", "fourth", "fifth")
+    point = [f"point:{name}" for name in variables]
+    inputs = list(point)
+    for row in rows:
+        inputs.extend(f"row:{row}:coefficient:{name}" for name in variables)
+        inputs.append(f"row:{row}:rhs")
+    values = original.inputs(inputs)
+    original.outputs([f"row:{row}" for row in rows])
+    case = LinearCase(
+        id=original.contract.case_name,
+        variables=variables,
+        point=[values[key] for key in point],
+        rows=[
+            LinearRow(
+                row,
+                [values[f"row:{row}:coefficient:{name}"] for name in variables],
+                values[f"row:{row}:rhs"],
+            )
+            for row in rows
+        ],
+    )
+    validate_case(case)
+    return case
 
 
 def main() -> None:
-    """Read one exchange and publish one response only after reference execution."""
-    require(len(sys.argv) == 3, "expected request and response paths")
-    require(sys.flags.isolated == 1, "oracle must run with the interpreter's -I option")
-    request = read_request(Path(sys.argv[1]), Request)
-    admit_candidates(
-        (candidate.id for candidate in request.candidates), len(request.candidates)
-    )
-    require(request.version == 1, "unsupported exchange version")
-    validate_case(request.case)
-    require(bool(request.candidates), "candidate population is empty")
-    ids = [candidate.id for candidate in request.candidates]
-    require(
-        all(ids) and len(set(ids)) == len(ids),
-        "candidate identities must be unique and nonempty",
-    )
-    # Library chatter is diagnostic output, never part of the result document.
+    """Publish the original sparse certificates with explicit unreported supports."""
+    require(len(sys.argv) == 4, "expected descriptor, contract and response paths")
+    require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
+    original = ScalarCase.read(Path(sys.argv[1]), Path(sys.argv[2]))
+    case = _case(original)
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
-            (*LEGACY_PACKAGES, "numpy", "scipy"),
+            ("idaes-pse", "pyomo", "protobuf", "numpy", "pint", "scipy"),
             role="PSE_DEGENERACY_REFERENCE_PYTHON",
-            declared=request.pins,
         )
-        raw_reference = reference_sets(request.case, environment)
+        raw_reference = reference_sets(case, environment)
     reference = indexed(raw_reference)
     require(set(reference) <= set(EXPECTED), "IDAES found an unexpected row support")
     for rows, multipliers in reference.items():
@@ -274,17 +214,26 @@ def main() -> None:
         not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
         "reference execution imported the candidate product",
     )
-    response = Response(
-        version=1,
-        case_id=request.case.id,
-        environment=environment.evidence,
-        reference=raw_reference,
-        comparisons=[compare(candidate, reference) for candidate in request.candidates],
+    pool = original.envelope.DESCRIPTOR.file.pool
+    result_type = message_factory.GetMessageClass(
+        pool.FindMessageTypeByName("pse.reference.v1.ReferenceDegeneracyResult")
     )
-    write_response(
-        Path(sys.argv[2]),
-        response,
-        len(request.candidates),
-        response.environment,
-        response.comparisons,
+    result = result_type(version=1)
+    result.meaning.CopyFrom(_message(original.contract, "meaning"))
+    row_ids = {item.key: item.output for item in original.contract.observables}
+    for support, expected in EXPECTED.items():
+        # Dict insertion order is the independently declared original row order.
+        members = result.supports.add()
+        members.rows.extend(row_ids[f"row:{row}"] for row in expected)
+        if support in reference:
+            reported = members.certificate.reported
+            reported.multipliers.extend(float_bits(reference[support][row]) for row in expected)
+            reported.irreducible_at_tolerance = True
+        else:
+            members.certificate.unreported.SetInParent()
+    original.publish_result(Path(sys.argv[3]), result, 64 << 10)
+    sys.stderr.write(
+        "degeneracy_reference_environment "
+        + json.dumps(environment.evidence, sort_keys=True)
+        + "\n"
     )

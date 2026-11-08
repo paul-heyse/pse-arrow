@@ -12,20 +12,6 @@ use std::{
 
 pub(crate) const DIAGNOSTIC_BYTES: usize = 1 << 20;
 
-/// Budget the fixed scientific and environment records plus each case candidate's comparison.
-#[allow(
-    dead_code,
-    reason = "ordinary reference has its own binary wire extent"
-)]
-pub(crate) fn legacy_response_limit(candidates: usize) -> io::Result<usize> {
-    if !(1..=32).contains(&candidates) {
-        return Err(io::Error::other(
-            "reference candidate population outside its finite extent",
-        ));
-    }
-    Ok((64 << 10) + candidates * (8 << 10))
-}
-
 pub(crate) struct Execution {
     pub(crate) diagnostics: String,
     pub(crate) refusal: Option<(&'static str, String)>,
@@ -45,19 +31,6 @@ impl Execution {
         format!("reference {phase}: {error}\n{}", self.diagnostics).into()
     }
 
-    #[allow(
-        dead_code,
-        reason = "the ordinary reference decodes the binary wire format"
-    )]
-    pub(crate) fn decode_legacy<T: serde::de::DeserializeOwned>(
-        &self,
-        path: &Path,
-        limit: usize,
-    ) -> Result<T, Box<dyn std::error::Error + Send + Sync>> {
-        let payload =
-            read_response(path, limit).map_err(|error| self.failure("response refused", error))?;
-        serde_json::from_slice(&payload).map_err(|error| self.failure("response refused", error))
-    }
 }
 
 pub(crate) fn execute(

@@ -8,6 +8,7 @@ use crate::{
     workflow::tests as fixture,
 };
 use pse_backend_native::solve::{Backend, SolverSelection};
+use pse_kernels::{DerivativeOrder, ProviderSelectionRegularity};
 use std::collections::BTreeSet;
 
 fn replace_once(source: &str, original: &str, replacement: &str) -> String {
@@ -79,6 +80,72 @@ async fn conform_reference(name: &str) -> ModelingConformanceReport {
         .unwrap()
         .declaration_id;
     conform_admitted(&runtime, &package, selected).await
+}
+
+#[tokio::test]
+async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations() {
+    let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package(false)
+        .await
+        .unwrap();
+    let declarations = package
+        .declarations(&runtime.preparation_services())
+        .await
+        .unwrap();
+    let ideal = declarations
+        .iter()
+        .find(|row| row.name == "IdealFlash")
+        .unwrap();
+    let split = declarations
+        .iter()
+        .find(|row| row.name == "split" && row.parent_id == Some(ideal.declaration_id))
+        .unwrap();
+    for (fixture, branch) in [
+        ("nested_liquid", "liquid_only"),
+        ("nested_two_phase", "two_phase"),
+        ("nested_vapor", "vapor_only"),
+    ] {
+        let selected = declarations
+            .iter()
+            .find(|row| row.name == fixture)
+            .unwrap()
+            .declaration_id;
+        let authored_regime = declarations
+            .iter()
+            .find(|row| row.name == branch && row.parent_id == Some(split.declaration_id))
+            .unwrap()
+            .declaration_id;
+        let report = conform_admitted(&runtime, &package, selected).await;
+        assert!(
+            report.complete && report.passed(),
+            "{fixture}: {:?}; {:?}", report.checks, report.failures
+        );
+        let result = &report.results[&selected];
+        let compiled = result.prepared.model.model.compiled();
+        let (selector, expected) = compiled
+            .model
+            .regimes
+            .iter()
+            .find_map(|(selector, selection)| {
+                selection.alternatives.iter()
+                    .find(|alternative| alternative.declaration == authored_regime)
+                    .map(|alternative| (selector.as_id(), alternative.id))
+            })
+            .unwrap();
+        let mut visits = result
+            .provider_selections()
+            .iter()
+            .filter(|visit| visit.observation.selection().selector == selector)
+            .peekable();
+        assert!(visits.peek().is_some(), "{fixture} original invocation absent");
+        for visit in visits {
+            let observed = visit.observation.selection();
+            assert_ne!(visit.source, SemanticId::NIL);
+            assert_eq!(observed.regime, expected, "{fixture}");
+            assert_eq!(visit.observation.requested_order(), DerivativeOrder::Value);
+            assert_eq!(observed.selection_order, DerivativeOrder::Value);
+            assert_eq!(observed.regularity, ProviderSelectionRegularity::Point);
+        }
+    }
 }
 
 async fn conform_admitted(

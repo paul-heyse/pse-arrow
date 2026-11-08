@@ -3584,6 +3584,9 @@ pub(crate) struct ProviderVisit {
     pub linearization: Option<ProviderLinearizationToken>,
 }
 
+pub(crate) type SelectionObserver<'a> =
+    dyn FnMut(SemanticId, pse_kernels::ProviderSelectionObservation) -> Result<(), MathError> + 'a;
+
 /// Operation-local result. First and second partials retain support-indexed layouts.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TrialEvaluation {
@@ -3923,6 +3926,18 @@ impl Worker {
         self.numeric
             .evaluate_trial_into(inputs, order, providers, cancelled, result)
     }
+    pub(crate) fn evaluate_trial_observing_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut ProviderBindings,
+        cancelled: &Arc<AtomicBool>,
+        result: &mut TrialEvaluation,
+        observe: Option<&mut SelectionObserver<'_>>,
+    ) -> Result<(), MathError> {
+        self.numeric
+            .evaluate_trial_observing_into(inputs, order, providers, cancelled, result, observe)
+    }
     /// Evaluate a directional derivative without assembling selected partials.
     pub fn evaluate_directional(
         &mut self,
@@ -4103,13 +4118,26 @@ impl NumericFrame {
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
     ) -> Result<(), MathError> {
+        self.evaluate_trial_observing_into(inputs, order, providers, cancelled, result, None)
+    }
+
+    fn evaluate_trial_observing_into(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+        providers: &mut ProviderBindings,
+        cancelled: &Arc<AtomicBool>,
+        result: &mut TrialEvaluation,
+        observe: Option<&mut SelectionObserver<'_>>,
+    ) -> Result<(), MathError> {
         result.clear();
         if self.template.product != ProductKind::SelectedPartials {
             return Err(MathError::Contract(
                 "product artifact requires its runtime bindings".into(),
             ));
         }
-        let evaluated = self.evaluate_seeded(inputs, order, None, providers, cancelled, result);
+        let evaluated =
+            self.evaluate_seeded(inputs, order, None, providers, cancelled, result, observe);
         if evaluated.is_err() {
             result.clear();
         }
@@ -4162,12 +4190,14 @@ impl NumericFrame {
             providers,
             cancelled,
             result,
+            None,
         );
         if evaluated.is_err() {
             result.clear();
         }
         evaluated
     }
+    #[expect(clippy::too_many_arguments, reason = "the compiled evaluator borrows separately admitted trial buffers and optional selection custody")]
     fn evaluate_seeded(
         &mut self,
         inputs: &[f64],
@@ -4176,6 +4206,7 @@ impl NumericFrame {
         providers: &mut ProviderBindings,
         cancelled: &Arc<AtomicBool>,
         result: &mut TrialEvaluation,
+        mut observe: Option<&mut SelectionObserver<'_>>,
     ) -> Result<(), MathError> {
         result.clear();
         self.check_scope()?;
@@ -4236,6 +4267,7 @@ impl NumericFrame {
             &mut result.applicability,
             &mut result.spare_witnesses,
             &mut result.provider_visits,
+            &mut observe,
         )?;
         context.check().map_err(|cause| MathError::Provider {
             source_id: SemanticId::NIL,
@@ -6665,6 +6697,7 @@ fn evaluate_stages(
     observations: &mut Vec<ApplicabilityWitness>,
     spare_witnesses: &mut Vec<ApplicabilityWitness>,
     provider_visits: &mut Vec<ProviderVisit>,
+    observe_selection: &mut Option<&mut SelectionObserver<'_>>,
 ) -> Result<(), MathError> {
     for stage in stages {
         if context.cancelled.load(Ordering::Relaxed) {
@@ -6693,6 +6726,7 @@ fn evaluate_stages(
                     observations,
                     spare_witnesses,
                     provider_visits,
+                    observe_selection,
                 )?;
                 if predicates
                     .iter()
@@ -6770,6 +6804,7 @@ fn evaluate_stages(
                     observations,
                     spare_witnesses,
                     provider_visits,
+                    observe_selection,
                 )?;
                 if !Condition::Positive.permits(local[*argument]) {
                     return Err(MathError::Validity(Box::new(lineage.as_ref().clone())));
@@ -6863,6 +6898,7 @@ fn evaluate_stages(
                     observations,
                     spare_witnesses,
                     provider_visits,
+                    observe_selection,
                 )?;
             }
             CompiledStage::Provider {
@@ -6906,12 +6942,18 @@ fn evaluate_stages(
                 }
                 let runtime = ProviderRuntime {
                     directions: direction,
+                    observe_selection: observe_selection.is_some(),
                     ..Default::default()
                 };
                 let values = providers
                     .fill(slot, buffer, arguments, request, runtime, context)
                     .map_err(error)?;
                 *linearization = values.linearization;
+                if let Some(observe) = observe_selection
+                    && let Some(selection) = values.selection
+                {
+                    observe(*source, selection)?;
+                }
                 provider_visits.push(ProviderVisit {
                     source: *source,
                     provider: request.key(),

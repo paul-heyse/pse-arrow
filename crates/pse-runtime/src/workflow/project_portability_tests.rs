@@ -126,28 +126,32 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         ipc::writer::StreamWriter,
     };
     let (root, mut manifest) = bundle().await;
-    let metadata = std::collections::HashMap::from([
-        ("pse.canonical.run".into(), "original-run".into()),
-        ("pse.canonical.attempt".into(), "original-attempt".into()),
-        ("pse.canonical.relation".into(), "original-relation".into()),
-        ("pse.canonical.relation-version".into(), "1".into()),
-        ("pse.canonical.row-start".into(), "0".into()),
-        ("pse.canonical.row-end".into(), "0".into()),
-        ("pse.canonical.terminal-class".into(), "completed".into()),
-        ("pse.canonical.problem".into(), "original-problem".into()),
-        ("pse.canonical.revision".into(), "original-revision".into()),
-        ("pse.canonical.manifest".into(), "original-manifest".into()),
-        (
-            "pse.canonical.interpretation".into(),
-            "original-interpretation".into(),
-        ),
-    ]);
-    let schema = Schema::new_with_metadata(Vec::<Field>::new(), metadata);
-    let mut bytes = Vec::new();
-    {
-        let mut writer = StreamWriter::try_new(&mut bytes, &schema).unwrap();
-        writer.finish().unwrap();
+    fn ipc(metadata: std::collections::HashMap<String, String>) -> Vec<u8> {
+        let schema = Schema::new_with_metadata(Vec::<Field>::new(), metadata);
+        let mut writer = StreamWriter::try_new(Vec::new(), &schema).unwrap();
+        writer.into_inner().unwrap()
     }
+    let result = workflow::PackResultSelection {
+        run: "original-run".into(),
+        attempt: "original-attempt".into(),
+        relation: "original-relation".into(),
+        schema_version: 1,
+        row_start: 0,
+        row_end: 0,
+        field: None,
+        terminal_class: "completed".into(),
+        predicate: None,
+        usability: workflow::PackScientificState::Unknown,
+        context: Some(workflow::PackResultContext {
+            problem: "original-problem".into(),
+            revision: "original-revision".into(),
+            manifest: "original-manifest".into(),
+            interpretation: "original-interpretation".into(),
+        }),
+    };
+    let mut metadata = std::collections::HashMap::new();
+    workflow::result_selection::publish_selection_metadata(&mut metadata, &result).unwrap();
+    let bytes = ipc(metadata);
     let path = "members/scientific-result.arrow";
     std::fs::write(root.path().join(path), &bytes).unwrap();
     manifest.members.push(ProjectBundleMember {
@@ -156,24 +160,7 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         codec: "arrow-ipc-stream.v1".into(),
         copied_bytes: bytes.len() as u64,
         digest: pse_ids::encoding_checksum(&bytes).content_hash().to_hex(),
-        result: Some(workflow::PackResultSelection {
-            run: "original-run".into(),
-            attempt: "original-attempt".into(),
-            relation: "original-relation".into(),
-            schema_version: 1,
-            row_start: 0,
-            row_end: 0,
-            field: None,
-            terminal_class: "completed".into(),
-            predicate: None,
-            usability: workflow::PackScientificState::Unknown,
-            context: Some(workflow::PackResultContext {
-                problem: "original-problem".into(),
-                revision: "original-revision".into(),
-                manifest: "original-manifest".into(),
-                interpretation: "original-interpretation".into(),
-            }),
-        }),
+        result: Some(result),
         artifact: None,
         artifact_metadata: None,
     });
@@ -234,21 +221,32 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         ProjectBundleReader::open(root.path(), 16 << 20).is_err(),
         "a result cannot bypass lineage checks by relabelling its codec"
     );
-    let mut unknown = Vec::new();
-    {
-        let mut writer = StreamWriter::try_new(&mut unknown, &Schema::empty()).unwrap();
-        writer.finish().unwrap();
+    let retired = std::collections::HashMap::from([
+        ("pse.canonical.run".into(), "original-run".into()),
+        ("pse.canonical.attempt".into(), "original-attempt".into()),
+        ("pse.canonical.relation".into(), "original-relation".into()),
+        ("pse.canonical.relation-version".into(), "1".into()),
+        ("pse.canonical.row-start".into(), "0".into()),
+        ("pse.canonical.row-end".into(), "0".into()),
+        ("pse.canonical.terminal-class".into(), "completed".into()),
+        ("pse.canonical.problem".into(), "original-problem".into()),
+        ("pse.canonical.revision".into(), "original-revision".into()),
+        ("pse.canonical.manifest".into(), "original-manifest".into()),
+        ("pse.canonical.interpretation".into(), "original-interpretation".into()),
+    ]);
+    for metadata in [std::collections::HashMap::new(), retired] {
+        let unqualified = ipc(metadata);
+        std::fs::write(root.path().join(path), &unqualified).unwrap();
+        let mut no_current_lineage = original.clone();
+        let member = no_current_lineage.members.last_mut().unwrap();
+        member.copied_bytes = unqualified.len() as u64;
+        member.digest = pse_ids::encoding_checksum(&unqualified).content_hash().to_hex();
+        save(root.path(), &no_current_lineage);
+        assert!(
+            ProjectBundleReader::open(root.path(), 16 << 20).is_err(),
+            "finalized and checksummed IPC requires current scientific lineage"
+        );
     }
-    std::fs::write(root.path().join(path), &unknown).unwrap();
-    let mut no_lineage = original;
-    let member = no_lineage.members.last_mut().unwrap();
-    member.copied_bytes = unknown.len() as u64;
-    member.digest = pse_ids::encoding_checksum(&unknown).content_hash().to_hex();
-    save(root.path(), &no_lineage);
-    assert!(
-        ProjectBundleReader::open(root.path(), 16 << 20).is_err(),
-        "a finalized checksummed stream without original scientific lineage is unknown"
-    );
     let mut unfinished = bytes;
     unfinished.truncate(unfinished.len() - 8);
     std::fs::write(root.path().join(path), &unfinished).unwrap();

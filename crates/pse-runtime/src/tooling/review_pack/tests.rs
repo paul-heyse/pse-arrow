@@ -112,6 +112,160 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
 }
 
 #[test]
+fn verified_pack_copy_keeps_accepted_prefix_and_refuses_changed_or_legacy_members() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let original = b"original selected member";
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![raw("raw", true, PackMemberRole::Capture)],
+            ..Default::default()
+        },
+        CancellationToken::new(),
+    )
+    .unwrap();
+    session
+        .copy_prefix("raw", source(root.path(), original), original.len() as u64)
+        .unwrap();
+    let index = session.seal().unwrap();
+    let member = path.join(&index.members[0].relative_path);
+    let reader = PackReader::open(&path, 1 << 20).unwrap();
+    let cancel = CancellationToken::new();
+    let mut output = Vec::new();
+    let copy = reader.copy_member_verified("raw", &mut output, &cancel).unwrap();
+    assert_eq!(output, original);
+    assert_eq!(copy.copied_bytes, original.len() as u64);
+    assert_eq!(copy.digest, pse_ids::encoding_checksum(original).content_hash());
+
+    let mut short = [0_u8; 3];
+    let error = reader
+        .copy_member_verified("raw", &mut short.as_mut_slice(), &cancel)
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, 3);
+    assert_eq!(short, original[..3]);
+    assert_eq!(error.source.kind(), std::io::ErrorKind::WriteZero);
+
+    let replacement = b"altered selected member!";
+    assert_eq!(replacement.len(), original.len());
+    std::fs::write(&member, replacement).unwrap();
+    output.clear();
+    let error = reader.copy_member_verified("raw", &mut output, &cancel).unwrap_err();
+    assert_eq!(error.accepted_bytes, replacement.len() as u64);
+    assert_eq!(error.source.kind(), std::io::ErrorKind::InvalidData);
+    assert_eq!(output, replacement);
+
+    patch_index(&path, |index| {
+        index["members"][0].as_object_mut().unwrap().remove("digest");
+    });
+    let legacy = PackReader::open(&path, 1 << 20).unwrap();
+    assert!(legacy.open_member("raw").is_ok());
+    assert_eq!(
+        legacy.copy_member_verified("raw", &mut std::io::sink(), &cancel)
+            .unwrap_err().accepted_bytes,
+        0
+    );
+}
+
+#[test]
+fn verified_pack_copy_refuses_final_cancellation_and_preserves_collision_winner() {
+    struct StopOnWrite(CancellationToken);
+    impl Write for StopOnWrite {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.cancel();
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            panic!("verified copy must leave sink flush to its owner")
+        }
+    }
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let cancel = CancellationToken::new();
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![
+                raw("first", true, PackMemberRole::Capture),
+                raw("second", false, PackMemberRole::Capture),
+            ],
+            ..Default::default()
+        },
+        cancel.clone(),
+    )
+    .unwrap();
+    session.copy_prefix("first", source(root.path(), b"first"), 5).unwrap();
+    let collision = path.join(&session.index().members[1].relative_path);
+    std::fs::write(&collision, b"unrelated destination").unwrap();
+    session.copy_prefix("second", source(root.path(), b"second"), 6).unwrap_err();
+    let index = session.seal().unwrap();
+    assert_eq!(std::fs::read(collision).unwrap(), b"unrelated destination");
+    assert_eq!(index.members[1].readable_bytes, 0);
+    assert_eq!(index.members[1].digest, None);
+
+    let reader = PackReader::open(&path, 1 << 20).unwrap();
+    let error = reader.copy_member_verified("first", &mut StopOnWrite(cancel.clone()), &cancel)
+        .unwrap_err();
+    assert_eq!(error.accepted_bytes, 5);
+    assert_eq!(error.source.kind(), std::io::ErrorKind::Interrupted);
+}
+
+#[test]
+fn pack_prefix_retention_requires_the_original_staging_writer() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![raw("raw", true, PackMemberRole::Capture)],
+            ..Default::default()
+        },
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let staging = path.join(".staging/raw");
+    std::fs::write(&staging, b"unrelated staged bytes").unwrap();
+    let error = session.copy_prefix("raw", source(root.path(), b"original"), 8).unwrap_err();
+    assert!(matches!(error, PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    assert_eq!(std::fs::read(staging).unwrap(), b"unrelated staged bytes");
+    let member = &session.index().members[0];
+    assert_eq!(member.readable_bytes, 0);
+    assert!(!path.join(&member.relative_path).exists());
+    assert!(PackReader::open(&path, 1 << 20).unwrap().open_member("raw").is_err());
+}
+
+#[test]
+fn pack_prefix_link_and_index_failures_remain_independent_of_original_copy() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![raw("raw", true, PackMemberRole::Capture)],
+            ..Default::default()
+        },
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let member = path.join(&session.index().members[0].relative_path);
+    std::fs::write(&member, b"unrelated member").unwrap();
+    std::fs::write(path.join(format!(".index-{}", session.next_index)), b"unrelated index").unwrap();
+    let error = session.copy_prefix("raw", source(root.path(), b"raw"), 4).unwrap_err();
+    let PackError::Settlement { operation, cleanup } = error else {
+        panic!("incomplete index write failure required");
+    };
+    assert!(matches!(cleanup.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    let PackError::Settlement { operation, cleanup } = operation.as_ref() else {
+        panic!("independent prefix publication failure required");
+    };
+    assert!(matches!(operation.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof));
+    assert!(matches!(cleanup.as_ref(), PackError::MemberPublication(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    assert_eq!(std::fs::read(member).unwrap(), b"unrelated member");
+    assert_eq!(session.index().members[0].readable_bytes, 0);
+}
+
+#[test]
 fn review_pack_rejects_historical_caller_asserted_scientific_interpretation() {
     let mut selection = serde_json::to_value(PackSelection::default()).unwrap();
     selection["version"] = serde_json::json!(2);
@@ -868,6 +1022,100 @@ fn offline_pack_required_index_publication_failure_latches_incomplete() {
 }
 
 #[test]
+fn protected_member_refusal_keeps_original_cause_and_independent_index_failure() {
+    use pse_diagnostics::{DiagnosticCode, TypedDiagnostic as _};
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![raw("selected", true, PackMemberRole::Context)],
+            ..Default::default()
+        },
+        CancellationToken::new(),
+    )
+    .unwrap();
+    let collision = path.join(format!(".index-{}", session.next_index));
+    std::fs::write(&collision, b"independent destination collision").unwrap();
+    let error = session.fail_result_acquisition(
+        "selected",
+        WorkflowError::Resource("original reader allocation".into()),
+    );
+    assert_eq!(error.diagnostic_code(), Some(DiagnosticCode::RuntimeResourceLimit));
+    let PackError::Settlement { operation, cleanup } = error else {
+        panic!("independent incomplete-index failure required");
+    };
+    assert!(matches!(
+        operation.as_ref(),
+        PackError::Native(error) if matches!(error.as_ref(), WorkflowError::Resource(reason) if reason == "original reader allocation")
+    ));
+    assert!(matches!(
+        cleanup.as_ref(),
+        PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists
+    ));
+    assert_eq!(std::fs::read(collision).unwrap(), b"independent destination collision");
+    assert_eq!(
+        PackReader::open(&path, 1 << 20).unwrap().index().publication,
+        PackPublication::Incomplete
+    );
+}
+
+#[test]
+fn pack_boundary_projection_retains_canonical_settlement_and_pack_cleanup() {
+    use pse_model::diagnostic::Observation;
+    use pse_operations::canonical::CanonicalError;
+    let native = PackError::native(WorkflowError::Canonical(
+        CanonicalError::SettlementUnresolved {
+            owner: "original-owner",
+            operation: "original-operation".into(),
+            request: b"private-request".to_vec(),
+            source: Box::new(CanonicalError::Timeout),
+            readback: Some(Box::new(CanonicalError::IncompleteResponse)),
+        },
+    ));
+    let pack = native.settle(Err(PackError::Io(std::io::Error::other("index failure"))));
+    let public = WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(pack))
+        .boundary_diagnostic();
+    assert_eq!(public.observations.get("canonical_operation"), Some(&Observation::Text("original-operation".into())));
+    assert_eq!(public.observations.get("publication_effect"), Some(&Observation::Text("unresolved".into())));
+    assert_eq!(public.causes.len(), 3);
+    assert!(matches!(public.causes[2].observations.get("detail"), Some(Observation::Text(detail)) if detail.contains("index failure")));
+    assert!(!serde_json::to_string(&public).unwrap().contains("private-request"));
+}
+
+#[test]
+fn pack_final_sync_failure_leaves_visible_seal_and_refuses_replacement() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let selection = PackSelection {
+        members: vec![raw("raw", true, PackMemberRole::Capture)],
+        ..Default::default()
+    };
+    let mut session =
+        PackSession::create_members(&path, selection.clone(), CancellationToken::new()).unwrap();
+    session.copy_prefix("raw", source(root.path(), b"raw"), 3).unwrap();
+    session.index.publication = PackPublication::Sealed;
+    session.index.membership_complete = true;
+    session.index.self_contained = true;
+    let error = session
+        .persist_index(|_| {
+            let visible = PackReader::open(&path, 1 << 20).unwrap();
+            assert_eq!(visible.index().publication, PackPublication::Sealed);
+            Err(std::io::Error::other("controlled final directory sync failure"))
+        })
+        .unwrap_err();
+    assert!(matches!(error, PackError::DurabilityUnknown(source)
+        if source.to_string() == "controlled final directory sync failure"));
+    assert!(PackSession::create_members(&path, selection, CancellationToken::new()).is_err());
+    let reader = PackReader::open(&path, 1 << 20).unwrap();
+    let mut transferred = Vec::new();
+    reader
+        .copy_member_verified("raw", &mut transferred, &CancellationToken::new())
+        .unwrap();
+    assert_eq!(transferred, b"raw");
+}
+
+#[test]
 fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
     use pse_diagnostics::observation::{ObservationHub, Outcome, Policy};
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1154,7 +1402,7 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
             availability: None,
         }],
     };
-    let evidence = FrozenEvidenceSet {
+    let mut evidence = FrozenEvidenceSet {
         detail_pages: vec![crate::observation_detail::DetailRecordPage {
             version: Version,
             records: vec![record],
@@ -1179,16 +1427,14 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
     let version = schema.metadata()[pse_schema::arrow::KEY_CONTRACT_VERSION]
         .parse::<u32>()
         .unwrap();
-    for invalid_schema in [false, true] {
-        let path = root
-            .path()
-            .join(if invalid_schema { "invalid" } else { "valid" });
+    for mode in ["valid", "invalid", "mutated"] {
+        let path = root.path().join(mode);
         let mut member = raw("diagnostic", true, PackMemberRole::Detail);
         member.format = PackFormat::ArrowIpcStream;
         member.diagnostic_table = Some(PackDiagnosticTable {
             request: request.clone(),
             relation: relation.into(),
-            schema_version: if invalid_schema { version + 1 } else { version },
+            schema_version: if mode == "invalid" { version + 1 } else { version },
             source: PackSourceReference {
                 member: "frozen".into(),
                 pointer: crate::tooling::review_query::table_source(&request),
@@ -1199,7 +1445,7 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
         let mut session = PackSession::create(&path, selection, CancellationToken::new()).unwrap();
         session.add_frozen(&evidence).unwrap();
         session.add_analysis(&document).unwrap();
-        if invalid_schema {
+        if mode == "invalid" {
             assert!(
                 session
                     .export_table("diagnostic", &evidence, &request)
@@ -1211,6 +1457,28 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
         session
             .export_table("diagnostic", &evidence, &request)
             .unwrap();
+        if mode == "mutated" {
+            evidence.detail_pages[0].records[0].values[0].value = Value::Count(u64::MAX - 1);
+            let batch = crate::tooling::review_query::table_arrow(
+                &evidence, &request, &CancellationToken::new(),
+            ).unwrap();
+            let member = &session.index().members[0];
+            let file = File::create(path.join(&member.relative_path)).unwrap();
+            let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
+                file,
+                batch.schema().as_ref(),
+            ).unwrap();
+            writer.write(&batch).unwrap();
+            writer.finish().unwrap();
+            assert_eq!(writer.get_ref().metadata().unwrap().len(), member.readable_bytes);
+            drop(writer);
+            assert!(matches!(session.seal(), Err(PackError::Copy(_))));
+            assert_eq!(
+                PackReader::open(&path, 1 << 20).unwrap().index().publication,
+                PackPublication::Incomplete
+            );
+            continue;
+        }
         session.seal().unwrap();
         let reader = PackReader::open(&path, 1 << 20).unwrap();
         let mut html = String::new();
@@ -1535,7 +1803,7 @@ fn finalized_portable_schema_refuses_hostile_metadata_before_stock_decode() {
     bytes.extend_from_slice(&[255, 255, 255, 255, 0, 0, 0, 0]);
     std::fs::write(&path, &bytes).unwrap();
     assert!(
-        crate::workflow::portable_payload::finalized_ipc_schema(
+        portable_payload::finalized_ipc_schema(
             File::open(path).unwrap(),
             bytes.len() as u64,
             1 << 20,

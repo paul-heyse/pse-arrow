@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 ROOT = Path(__file__).resolve().parents[3]
 ORDINARY_PACKAGES = ("idaes-pse", "pyomo", "pint", "pyarrow", "protobuf")
-LEGACY_PACKAGES = ("idaes-pse", "pyomo", "msgspec")
 SOLVER_LOG_BYTES = 128 << 10
 
 

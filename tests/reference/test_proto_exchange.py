@@ -5,7 +5,7 @@
 import unittest
 from pathlib import Path
 
-from google.protobuf import descriptor_pb2
+from google.protobuf import descriptor_pb2, message_factory
 from google.protobuf.message import DecodeError
 
 from proto_exchange import decode_reference, encode_reference, reference_type
@@ -72,3 +72,24 @@ class ForeignProtoExchangeTests(unittest.TestCase):
 
     def test_descriptor_worlds_and_imports(self) -> None:
         private_descriptor_worlds_and_incomplete_imports_remain_distinct(self)
+
+    def test_degenerate_certificate_retains_unreported_and_explicit_false(self) -> None:
+        """Decode independently specified support alternatives and exact multiplier bits."""
+        envelope = reference_type(DESCRIPTORS.read_bytes())
+        pool = envelope.DESCRIPTOR.file.pool
+        certificate = message_factory.GetMessageClass(
+            pool.FindMessageTypeByName("pse.reference.v1.ReferenceDegenerateCertificate")
+        )
+        unreported = certificate.FromString(b"\x12\x00")
+        assert unreported.WhichOneof("kind") == "unreported"
+        assert certificate().WhichOneof("kind") is None
+
+        # The repeated fixed64 field is packed. A signed zero remains a distinct
+        # bit pattern and false is explicitly present in the Reported alternative.
+        bits = [1 << 63, 0x3FF0000000000000]
+        packed = b"".join(value.to_bytes(8, "little") for value in bits)
+        reported = certificate.FromString(b"\x0a\x14\x0a\x10" + packed + b"\x10\x00")
+        assert reported.WhichOneof("kind") == "reported"
+        assert list(reported.reported.multipliers) == bits
+        assert reported.reported.HasField("irreducible_at_tolerance")
+        assert not reported.reported.irreducible_at_tolerance
