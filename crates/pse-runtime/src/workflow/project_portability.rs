@@ -4,6 +4,7 @@
 use super::portable_payload;
 use super::{PhysicalContext, ProjectSelection, Runtime, WorkflowError, contract};
 use pse_model::document::Version;
+use pse_operations::canonical::CanonicalStore;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -264,10 +265,16 @@ fn decode<T: serde::de::DeserializeOwned>(
         .take(maximum as u64 + 1)
         .read_to_end(&mut bytes)
         .map_err(io)?;
+    decode_bytes(&bytes, maximum)
+}
+fn decode_bytes<T: serde::de::DeserializeOwned>(
+    bytes: &[u8],
+    maximum: usize,
+) -> Result<T, WorkflowError> {
     if bytes.len() > maximum {
         return Err(contract("project document allowance exhausted"));
     }
-    serde_json::from_slice(&bytes).map_err(|e| contract(format!("project codec: {e}")))
+    serde_json::from_slice(bytes).map_err(|e| contract(format!("project codec: {e}")))
 }
 /// One source traversal targets either contained staging or a checksum/count sink.
 /// Receipts are compact; encoded documents are borrowed only for the current emission.
@@ -401,17 +408,15 @@ impl ProjectBundleReader {
             .map_err(std::io::Error::from)
             .map_err(io)?,
         );
-        let manifest_file =
-            portable_payload::open_contained(&directory, "project.json").map_err(io)?;
-        let (_, digest) = checksum(
-            manifest_file.try_clone().map_err(io)?,
-            maximum_document_bytes as u64,
-        )?;
-        // try_clone shares the open description offset; reopen the manifest for decoding.
-        let manifest: ProjectManifest = decode(
-            portable_payload::open_contained(&directory, "project.json").map_err(io)?,
-            maximum_document_bytes,
-        )?;
+        let mut bytes = Vec::new();
+        portable_payload::open_contained(&directory, "project.json")
+            .map_err(io)?
+            .take(maximum_document_bytes as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(io)?;
+        let manifest: ProjectManifest = decode_bytes(&bytes, maximum_document_bytes)?;
+        let digest = pse_ids::encoding_checksum(&bytes).content_hash().to_hex();
+        drop(bytes);
         validate_manifest(&manifest)?;
         for member in &manifest.members {
             let file =
@@ -967,7 +972,7 @@ impl Runtime {
             request.maximum_document_bytes,
         );
         let mut closure = self
-            .project_boxed(self.resolve_project_closure(request, physical, cancel, &mut sources))?
+            .resolve_project_closure(request, physical, cancel, &mut sources)
             .await?;
         let root = sources.root()?;
         let token = cancel.token();
@@ -1177,6 +1182,19 @@ pub struct ProjectImportRecoveryReport {
     pub state: ProjectImportRecoveryState,
 }
 impl ProjectBundleReader {
+    pub(crate) fn validate_import_intent(
+        &self,
+        intent: &ProjectImportIntent,
+    ) -> Result<(), WorkflowError> {
+        intent.validate()?;
+        if self.digest() != intent.bundle_digest()
+            || encode(&self.inspect().origin, 131072)?.as_slice() != intent.origin_bytes()
+        {
+            return Err(contract("import intent bundle digest differs"));
+        }
+        Ok(())
+    }
+
     fn manifest_bytes(&self) -> Result<Vec<u8>, WorkflowError> {
         let mut bytes = Vec::new();
         portable_payload::open_contained(&self.directory, "project.json")
@@ -1295,6 +1313,46 @@ fn import_report(
         project_complete: row.complete,
     })
 }
+/// Issue one immutable receiving intent under its caller's original operation identity.
+pub(crate) fn project_import_issue(
+    store: &CanonicalStore,
+    operation: &str,
+    bundle: &ProjectBundleReader,
+    title: &str,
+    branch_name: &str,
+) -> Result<ProjectImportIntent, WorkflowError> {
+    let _ = bundle.manifest_bytes()?;
+    if !bundle.inspect().executable_complete {
+        return Err(contract(
+            "bundle is descriptive or has unsupported executable closure",
+        ));
+    }
+    let fresh = || pse_operations::mint_id::<pse_ids::SemanticId>().to_string();
+    Ok(store.project_import_intent(
+        operation,
+        &fresh(),
+        &fresh(),
+        &fresh(),
+        bundle.digest(),
+        encode(&bundle.inspect().origin, 131072)?,
+        title,
+        branch_name,
+    )?)
+}
+
+/// Observe the original import checkpoint using only its canonical owner.
+pub(crate) async fn project_import_status(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+) -> Result<Option<ProjectImportReport>, WorkflowError> {
+    store
+        .project_import_record(intent)
+        .await?
+        .as_ref()
+        .map(import_report)
+        .transpose()
+}
+
 impl Runtime {
     /// Issue one immutable receiving intent with fresh project, branch, source and operation IDs.
     pub async fn project_import_issue(
@@ -1303,36 +1361,20 @@ impl Runtime {
         title: &str,
         branch_name: &str,
     ) -> Result<ProjectImportIntent, WorkflowError> {
-        let _ = bundle.manifest_bytes()?;
-        if !bundle.inspect().executable_complete {
-            return Err(contract(
-                "bundle is descriptive or has unsupported executable closure",
-            ));
-        }
-        let store = self.canonical_store()?;
-        let fresh = || pse_operations::mint_id::<pse_ids::SemanticId>().to_string();
-        Ok(store.project_import_intent(
-            &fresh(),
-            &fresh(),
-            &fresh(),
-            &fresh(),
-            bundle.digest(),
-            encode(&bundle.inspect().origin, 131072)?,
+        project_import_issue(
+            self.canonical_store()?,
+            &pse_operations::mint_id::<pse_ids::SemanticId>().to_string(),
+            bundle,
             title,
             branch_name,
-        )?)
+        )
     }
     /// Observe the original import checkpoint without making a new effect or consulting current heads.
     pub async fn project_import_status(
         &self,
         intent: &ProjectImportIntent,
     ) -> Result<Option<ProjectImportReport>, WorkflowError> {
-        self.canonical_store()?
-            .project_import_record(intent)
-            .await?
-            .as_ref()
-            .map(import_report)
-            .transpose()
+        project_import_status(self.canonical_store()?, intent).await
     }
     /// Stage copied bytes and ordinary admission, then settle this exact guarded source/artifact activation.
     pub async fn project_import(
@@ -1341,12 +1383,7 @@ impl Runtime {
         intent: &ProjectImportIntent,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectImportReport, WorkflowError> {
-        intent.validate()?;
-        if bundle.digest() != intent.bundle_digest()
-            || encode(&bundle.inspect().origin, 131072)?.as_slice() != intent.origin_bytes()
-        {
-            return Err(contract("import intent bundle digest differs"));
-        }
+        bundle.validate_import_intent(intent)?;
         let store = self.canonical_store()?;
         // Settle the original source effect before any mutable preflight or renewed artifact intent.
         let prior = store.project_import_record(intent).await?;
@@ -1538,59 +1575,71 @@ impl Runtime {
         original: &pse_operations::canonical_artifacts::Artifact,
         cancel: &crate::CancelSource,
     ) -> Result<ProjectImportRecoveryReport, WorkflowError> {
-        intent.validate()?;
-        super::study::creation_checkpoint(cancel)?;
-        let store = self.canonical_store()?;
-        let row = store
-            .project_import_record(intent)
-            .await?
-            .ok_or_else(|| contract("import source has not acknowledged"))?;
-        let report = import_report(&row)?;
-        if report.retired_originals.iter().any(|a| a == original) {
-            return Ok(ProjectImportRecoveryReport {
-                import: report,
-                state: ProjectImportRecoveryState::OriginalCollected,
-            });
-        }
-        if report.artifact_intent.as_ref() != Some(original) {
+        project_import_recover(self.canonical_store()?, intent, original, &cancel.token()).await
+    }
+}
+
+/// Reconcile the original artifact using its exact receiving canonical owner.
+pub(crate) async fn project_import_recover(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+    original: &pse_operations::canonical_artifacts::Artifact,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<ProjectImportRecoveryReport, WorkflowError> {
+    intent.validate()?;
+    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+    let row = store
+        .project_import_record(intent)
+        .await?
+        .ok_or_else(|| contract("import source has not acknowledged"))?;
+    let report = import_report(&row)?;
+    if report.retired_originals.iter().any(|a| a == original) {
+        return Ok(ProjectImportRecoveryReport {
+            import: report,
+            state: ProjectImportRecoveryState::OriginalCollected,
+        });
+    }
+    if report.artifact_intent.as_ref() != Some(original) {
+        return Err(contract(
+            "recovery requires the unchanged original import artifact intent",
+        ));
+    }
+    if row.complete {
+        return Ok(ProjectImportRecoveryReport {
+            import: report,
+            state: ProjectImportRecoveryState::ProjectComplete,
+        });
+    }
+    let status = store.artifact_creation_status(original).await?;
+    if let Some(header) = status.header.as_ref().filter(|a| a.active) {
+        if header.retiring {
             return Err(contract(
-                "recovery requires the unchanged original import artifact intent",
+                "active retiring artifact requires its explicit owner settlement",
             ));
         }
-        if row.complete {
-            return Ok(ProjectImportRecoveryReport {
-                import: report,
-                state: ProjectImportRecoveryState::ProjectComplete,
-            });
-        }
-        let status = store.artifact_creation_status(original).await?;
-        if let Some(header) = status.header.as_ref().filter(|a| a.active) {
-            if header.retiring {
-                return Err(contract(
-                    "active retiring artifact requires its explicit owner settlement",
-                ));
-            }
-            let complete = store.finish_project_import(intent).await?;
-            return Ok(ProjectImportRecoveryReport {
-                import: import_report(&complete)?,
-                state: ProjectImportRecoveryState::ProjectComplete,
-            });
-        }
-        if status.window_open || !store.collect_artifact(original).await? {
-            return Ok(ProjectImportRecoveryReport {
-                import: report,
-                state: ProjectImportRecoveryState::OriginalCleanupPending,
-            });
-        }
-        super::study::creation_checkpoint(cancel)?;
-        let settled = store
-            .project_import_retire_artifact(intent, original)
-            .await?;
-        Ok(ProjectImportRecoveryReport {
-            import: import_report(&settled)?,
-            state: ProjectImportRecoveryState::OriginalCollected,
-        })
+        let complete = store.finish_project_import(intent).await?;
+        return Ok(ProjectImportRecoveryReport {
+            import: import_report(&complete)?,
+            state: ProjectImportRecoveryState::ProjectComplete,
+        });
     }
+    if status.window_open || !store.collect_artifact(original).await? {
+        return Ok(ProjectImportRecoveryReport {
+            import: report,
+            state: ProjectImportRecoveryState::OriginalCleanupPending,
+        });
+    }
+    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+    let settled = store
+        .project_import_retire_artifact(intent, original)
+        .await?;
+    Ok(ProjectImportRecoveryReport {
+        import: import_report(&settled)?,
+        state: ProjectImportRecoveryState::OriginalCollected,
+    })
+}
+
+impl Runtime {
     /// Reopen current copied local source and physical closure after completed import, without the supplied pack.
     pub async fn project_import_open(
         &self,

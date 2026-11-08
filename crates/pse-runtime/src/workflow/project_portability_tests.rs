@@ -649,13 +649,30 @@ fn project_portability_interrupted_final_manifest_publication_leaves_only_partia
 
 #[tokio::test]
 async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_fresh_destination() {
+    use crate::host_operations::project::handler;
     let runtime = workflow::durable_tests::durable_runtime();
     let cancel = crate::CancelSource::new();
     let (root, _) = bundle().await;
     let reader = ProjectBundleReader::open(root.path(), 16 << 20).unwrap();
-    let intent = Box::pin(runtime.project_import_issue(&reader, "Recovered import", "main"))
-        .await
-        .unwrap();
+    let store = runtime.canonical_store().unwrap();
+    let intent = handler::issue_project_import(
+        store,
+        "original-import-with-expired-artifact",
+        root.path(),
+        "Recovered import",
+        "main",
+        16 << 20,
+    )
+    .unwrap();
+    assert_eq!(intent.operation(), "original-import-with-expired-artifact");
+    assert_eq!(intent.issuing_store(), store.issuing_store().unwrap());
+    assert_eq!(intent.bundle_digest(), reader.digest());
+    assert!(
+        handler::observe_project_import(store, &intent)
+            .await
+            .unwrap()
+            .is_none()
+    );
     let local = runtime
         .clone()
         .with_durability(workflow::DurabilitySelection::Ephemeral)
@@ -674,7 +691,6 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
             .await
             .unwrap();
     let revision = source.canonical_revision().unwrap().clone();
-    let store = runtime.canonical_store().unwrap();
     // An authenticated original occurrence that never began copying can already be expired.
     // Its original identity is issued before any effect; no live header/clock is edited.
     let bytes = b"interrupted original copy".to_vec();
@@ -727,7 +743,7 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
             .is_err(),
         "an expired original is not silently renewed"
     );
-    let collected = Box::pin(runtime.project_import_recover(&intent, &original, &cancel))
+    let collected = handler::recover_project_import(store, &intent, &original, &cancel.token())
         .await
         .unwrap();
     assert_eq!(
@@ -737,9 +753,17 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     assert_eq!(collected.import.retired_originals, vec![original.clone()]);
     assert!(!collected.import.project_complete);
     assert!(collected.import.artifact_intent.is_none());
-    let imported = Box::pin(runtime.project_import(&reader, &intent, &cancel))
-        .await
-        .unwrap();
+    let applied = Box::pin(handler::apply_project_import(
+        store,
+        root.path(),
+        &intent,
+        16 << 20,
+        &cancel,
+    ))
+    .await
+    .unwrap();
+    assert!(applied.cleanup.is_none());
+    let imported = applied.result.unwrap();
     assert!(imported.project_complete);
     assert_ne!(imported.artifact_intent.as_ref().unwrap().key, original.key);
     assert_eq!(imported.project, intent.destinations().0);
@@ -1054,6 +1078,10 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
 #[tokio::test]
 async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads()
 {
+    use crate::tooling::reader::{
+        self, Access, ProjectRead, ProjectReadSelection, Protocol, ReaderRequest, Request,
+    };
+    use pse_host::investigation::NativePath;
     let runtime = workflow::durable_tests::durable_runtime();
     let cancel = crate::CancelSource::new();
     let (physical_documents, documents) =
@@ -1166,6 +1194,25 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
         assert!(Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.is_err(),"metadata path requires explicit descriptive selection");
         request.descriptive_only=true;
         let explanation=Box::pin(runtime.project_closure_metadata(&request,&cancel)).await.unwrap();assert!(explanation.manifest.members.is_empty());
+        let transport = serde_json::to_vec(&ReaderRequest {
+            protocol: Protocol::ProductReader,
+            version: Version,
+            correlation: "descriptive-closure".into(),
+            access: Access::Passive,
+            request: Request::Project {
+                canonical: ProjectReadSelection {
+                    state: NativePath::from(store.deployment_state().to_path_buf()),
+                    database: Some(store.database().into()),
+                    expected_issuer: Some(store.issuing_store().unwrap().into()),
+                    timeout_ms: None,
+                },
+                query: ProjectRead::Closure { request: Box::new(request.clone()) },
+            },
+        }).unwrap();
+        let read = tokio::task::spawn_blocking(move || reader::encode(&transport, &pse_columnar::CancellationToken::new()).unwrap()).await.unwrap();
+        let response: serde_json::Value = serde_json::from_slice(read.bytes()).unwrap();
+        assert_eq!(read.exit_code(), 0, "{response}");
+        assert_eq!(response["payload"]["result"]["explanation"], serde_json::to_value(explanation).unwrap());
         Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()
     }).await.unwrap();
     let restored = store.read_artifact(&artifact.key).await.unwrap();

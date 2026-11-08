@@ -19,8 +19,15 @@ use surrealdb_sql::{
 };
 use surrealdb_types::{Object, ToSql, Value};
 
+#[path = "canonical_maintenance/catalog.rs"]
+mod catalog;
+pub use catalog::{
+    CatalogComparison, CatalogDefinition, CatalogObservation, CatalogRead, CatalogTarget,
+    inspect_catalog,
+};
+
 /// Exact predecessor, distinct from the generated target and beta schema hash.
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
 pub struct Marker {
     /// Original interpretation.
     pub interpretation: String,
@@ -137,8 +144,15 @@ fn normalize_control_access(
 }
 
 fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
+    parse_definition_input(input, false)
+}
+
+fn parse_definition_input(input: &str, one_statement: bool) -> Result<Definitions, CanonicalError> {
     let ast = surrealdb_syn::parse(input)
         .map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
+    if one_statement && ast.expressions.len() != 1 {
+        return Err(invalid("catalog entry must contain one declaration"));
+    }
     let mut definitions = BTreeMap::new();
     for expression in ast.expressions {
         let TopLevelExpr::Expr(Expr::Define(statement)) = expression else {
@@ -196,31 +210,106 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
     Ok(definitions)
 }
 
-fn catalog_map(info: &Object, category: &str) -> Result<Object, CanonicalError> {
+fn catalog_map<'a>(info: &'a Object, category: &str) -> Result<&'a Object, CanonicalError> {
     match info.get(category) {
-        Some(Value::Object(values)) => Ok(values.clone()),
+        Some(Value::Object(values)) => Ok(values),
         _ => Err(invalid(format!(
             "catalog {category} is absent or malformed"
         ))),
     }
 }
 
-fn append_catalog(definitions: &mut Definitions, values: &Object) -> Result<(), CanonicalError> {
-    for value in values.values() {
+#[derive(Default)]
+struct ManagedCatalog {
+    definitions: Definitions,
+    declaration_bytes: usize,
+}
+
+fn managed_table_names(info: &Object) -> Result<Vec<&str>, CanonicalError> {
+    let names = catalog_map(info, "tables")?
+        .keys()
+        .filter(|name| name.starts_with("canonical_"))
+        .map(String::as_str)
+        .collect::<Vec<_>>();
+    if names.len() > 256 {
+        return Err(CanonicalError::PayloadLimit);
+    }
+    if names.iter().any(|name| {
+        name.len() > 128
+            || !name
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+    }) {
+        return Err(invalid("managed table identifier differs"));
+    }
+    Ok(names)
+}
+
+impl ManagedCatalog {
+    fn from_database(info: &Object) -> Result<Self, CanonicalError> {
+        let mut catalog = Self::default();
+        for (category, kind, prefix) in [
+            ("tables", "table", "canonical_"),
+            ("functions", "function", "pse_"),
+            ("apis", "api", "/pse/"),
+            ("accesses", "access", "pse_"),
+        ] {
+            for (name, value) in catalog_map(info, category)? {
+                let name = if kind == "function" {
+                    name.trim_start_matches("fn::")
+                } else {
+                    name
+                };
+                if name.starts_with(prefix) {
+                    catalog.append(kind, "", value)?;
+                }
+            }
+        }
+        Ok(catalog)
+    }
+
+    fn append_table(&mut self, name: &str, info: &Object) -> Result<(), CanonicalError> {
+        for (category, kind) in [
+            ("fields", "field"),
+            ("indexes", "index"),
+            ("events", "event"),
+        ] {
+            for value in catalog_map(info, category)?.values() {
+                self.append(kind, name, value)?;
+            }
+        }
+        match info.get("lives") {
+            None => Ok(()),
+            Some(Value::Object(entries)) if entries.is_empty() => Ok(()),
+            _ => Err(invalid(format!(
+                "unowned or malformed lives on managed table {name}"
+            ))),
+        }
+    }
+
+    fn append(&mut self, kind: &str, table: &str, value: &Value) -> Result<(), CanonicalError> {
         let Value::String(sql) = value else {
             return Err(invalid("catalog definition is not a string"));
         };
-        let parsed = parse_definitions(sql.as_str())?;
-        if parsed.len() != 1 {
+        self.declaration_bytes = self.declaration_bytes.saturating_add(sql.len());
+        if self.declaration_bytes > super::PAYLOAD_BYTES || self.definitions.len() >= 8192 {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let mut parsed = parse_definition_input(sql.as_str(), true)
+            .map_err(|_| invalid("installed managed declaration is malformed"))?;
+        let Some((key, definition)) = parsed.pop_first() else {
             return Err(invalid("catalog entry must contain one declaration"));
+        };
+        if key.0 != kind || key.1 != table {
+            return Err(invalid(
+                "catalog entry does not match its definition family and table",
+            ));
         }
-        for (key, definition) in parsed {
-            if definitions.insert(key, definition).is_some() {
-                return Err(invalid("duplicate installed declaration"));
-            }
+        if self.definitions.insert(key, definition).is_some() {
+            return Err(invalid("duplicate installed declaration"));
         }
+        Ok(())
     }
-    Ok(())
 }
 
 fn compare(expected: &Definitions, observed: &Definitions) -> Result<(), CanonicalError> {
@@ -366,58 +455,17 @@ impl CanonicalStore {
                         .database_inventory()
                         .await?
                         .ok_or_else(|| invalid("selected database absent"))?;
-                    let tables = catalog_map(&info, "tables")?;
-                    let functions = catalog_map(&info, "functions")?;
-                    let mut observed = BTreeMap::new();
-                    let managed_tables: Object = tables
-                        .iter()
-                        .filter(|(name, _)| name.starts_with("canonical_"))
-                        .map(|(name, value)| (name.clone(), value.clone()))
-                        .collect();
-                    append_catalog(&mut observed, &managed_tables)?;
-                    let managed_functions: Object = functions
-                        .iter()
-                        .filter(|(name, _)| name.trim_start_matches("fn::").starts_with("pse_"))
-                        .map(|(name, value)| (name.clone(), value.clone()))
-                        .collect();
-                    append_catalog(&mut observed, &managed_functions)?;
-                    let apis = catalog_map(&info, "apis")?;
-                    let accesses = catalog_map(&info, "accesses")?;
-                    let managed_apis: Object = apis
-                        .iter()
-                        .filter(|(name, _)| name.starts_with("/pse/"))
-                        .map(|(name, value)| (name.clone(), value.clone()))
-                        .collect();
-                    let managed_accesses: Object = accesses
-                        .iter()
-                        .filter(|(name, _)| name.starts_with("pse_"))
-                        .map(|(name, value)| (name.clone(), value.clone()))
-                        .collect();
-                    append_catalog(&mut observed, &managed_apis)?;
-                    append_catalog(&mut observed, &managed_accesses)?;
-                    for name in managed_tables.keys() {
-                        if !name
-                            .bytes()
-                            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
-                        {
-                            return Err(invalid("managed table identifier differs"));
-                        }
+                    let mut observed = ManagedCatalog::from_database(&info)?;
+                    for name in managed_table_names(&info)? {
                         self.maintenance_config()?;
                         let mut response =
                             bounded_query(self.db.query(format!("INFO FOR TABLE {name};"))).await?;
                         let Value::Object(table_info) = response.take::<Value>(0)? else {
                             return Err(CanonicalError::IncompleteResponse);
                         };
-                        append_catalog(&mut observed, &catalog_map(&table_info, "fields")?)?;
-                        append_catalog(&mut observed, &catalog_map(&table_info, "indexes")?)?;
-                        append_catalog(&mut observed, &catalog_map(&table_info, "events")?)?;
-                        if let Some(Value::Object(entries)) = table_info.get("lives")
-                            && !entries.is_empty()
-                        {
-                            return Err(invalid(format!("unowned lives on managed table {name}")));
-                        }
+                        observed.append_table(name, &table_info)?;
                     }
-                    compare(&expected, &observed)?;
+                    compare(&expected, &observed.definitions)?;
                     let previous_marker = self.maintenance_marker().await?;
                     if self.maintenance_config()? != config {
                         return Err(CanonicalError::Quiesced);
@@ -712,15 +760,29 @@ mod tests {
         entries.insert("terminal_seed", sql);
         let mut table = Object::new();
         table.insert("events", entries);
-        let mut observed = Definitions::new();
-        append_catalog(&mut observed, &catalog_map(&table, "events").unwrap()).unwrap();
-        compare(&parse_definitions(sql).unwrap(), &observed).unwrap();
+        table.insert("fields", Object::new());
+        table.insert("indexes", Object::new());
+        let mut observed = ManagedCatalog::default();
+        observed.append_table("canonical_probe", &table).unwrap();
+        compare(&parse_definitions(sql).unwrap(), &observed.definitions).unwrap();
+        assert!(
+            ManagedCatalog::default()
+                .append_table("canonical_other", &table)
+                .is_err()
+        );
+        assert!(observed.append_table("canonical_probe", &table).is_err());
         assert!(catalog_map(&Object::new(), "events").is_err());
         table.insert("events", true);
         assert!(catalog_map(&table, "events").is_err());
-        let mut data_effect = Object::new();
-        data_effect.insert("terminal_seed", "CREATE canonical_probe:one;");
-        assert!(append_catalog(&mut Definitions::new(), &data_effect).is_err());
+        assert!(
+            ManagedCatalog::default()
+                .append(
+                    "event",
+                    "canonical_probe",
+                    &Value::String("CREATE canonical_probe:one;".into())
+                )
+                .is_err()
+        );
     }
 
     #[tokio::test]
@@ -906,6 +968,37 @@ mod tests {
             uuid::Uuid::new_v4().simple()
         );
         let store = crate::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
+        let target = CatalogTarget {
+            endpoint: options.endpoint.clone(),
+            namespace: options.namespace.clone(),
+            database: options.database.clone(),
+            issuing_store: uuid::Uuid::parse_str(store.issuing_store().unwrap()).unwrap(),
+        };
+        let foreign = CatalogTarget {
+            issuing_store: uuid::Uuid::new_v4(),
+            ..target.clone()
+        };
+        assert!(matches!(
+            inspect_catalog(Path::new(&state), &foreign).await,
+            Err(CanonicalError::Configuration(_))
+        ));
+        let installed = inspect_catalog(Path::new(&state), &target).await.unwrap();
+        assert_eq!(installed.target, target);
+        assert!(
+            installed.comparison.missing.is_empty(),
+            "{:?}",
+            installed.comparison.missing
+        );
+        assert!(
+            installed.comparison.changed.is_empty(),
+            "{:?}",
+            installed.comparison.changed
+        );
+        assert!(
+            installed.comparison.unexpected.is_empty(),
+            "{:?}",
+            installed.comparison.unexpected
+        );
         let expected: Definitions = parse_definitions(wire::SCHEMA)
             .unwrap()
             .into_iter()
@@ -923,9 +1016,13 @@ mod tests {
             let Value::Object(info) = response.take::<Value>(0).unwrap() else {
                 panic!("native table catalog must be an object")
             };
-            let mut definitions = Definitions::new();
-            append_catalog(&mut definitions, &catalog_map(&info, "events").unwrap()).unwrap();
-            definitions
+            let mut catalog = ManagedCatalog::default();
+            catalog.append_table("canonical_attempts", &info).unwrap();
+            catalog
+                .definitions
+                .into_iter()
+                .filter(|(key, _)| key.0 == "event")
+                .collect()
         }
         compare(&expected, &observed(&store).await).unwrap();
         let mut original = expected.values().next().unwrap().clone();
@@ -936,6 +1033,12 @@ mod tests {
         event.kind = DefineKind::Overwrite;
         bounded_query(store.db.query(format!("DEFINE EVENT OVERWRITE {event_name} ON canonical_attempts WHEN false THEN {{ RETURN true; }};"))).await.unwrap();
         assert!(compare(&expected, &observed(&store).await).is_err());
+        let changed = inspect_catalog(Path::new(&state), &target)
+            .await
+            .unwrap()
+            .comparison;
+        assert_eq!(changed.changed.len(), 1);
+        assert_eq!(changed.changed[0].name, event_name);
         bounded_query(store.db.query(format!("{};", original.to_sql())))
             .await
             .unwrap();
@@ -946,6 +1049,12 @@ mod tests {
         .await
         .unwrap();
         assert!(compare(&expected, &observed(&store).await).is_err());
+        let extra = inspect_catalog(Path::new(&state), &target)
+            .await
+            .unwrap()
+            .comparison;
+        assert_eq!(extra.unexpected.len(), 1);
+        assert_eq!(extra.unexpected[0].name, "unexpected_catalog_event");
         store.remove_isolated_fixture().await.unwrap();
     }
 }

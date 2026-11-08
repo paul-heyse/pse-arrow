@@ -20,6 +20,45 @@ fn request(correlation: &str, request: Request) -> Vec<u8> {
 }
 
 #[test]
+fn canonical_refusal_redacts_the_native_message_and_ordinary_causes() {
+    let secret = "original-private-canonical-password";
+    let policy =
+        pse_host::envelope::RedactionPolicy::new([("CANONICAL_PASSWORD".into(), secret.into())]);
+    let error = ReaderError::Canonical(Box::new(
+        pse_operations::canonical::CanonicalError::SettlementUnresolved {
+            owner: "project",
+            operation: "original-operation".into(),
+            request: Vec::new(),
+            source: Box::new(pse_operations::canonical::CanonicalError::Configuration(
+                secret.into(),
+            )),
+            readback: None,
+        },
+    ));
+    let encoded = encode_response(response_with_policy(
+        "canonical-refusal".into(),
+        Err(error),
+        &policy,
+    ))
+    .unwrap();
+    let value: serde_json::Value = serde_json::from_slice(encoded.bytes()).unwrap();
+    let failure = &value["payload"]["failure"];
+    assert_eq!(failure["code"], "request.refused");
+    assert_eq!(failure["message"], failure["native"]["message"]);
+    assert_eq!(failure["causes"], failure["native"]["causes"]);
+    assert!(
+        !std::str::from_utf8(encoded.bytes())
+            .unwrap()
+            .contains(secret)
+    );
+    assert!(
+        failure
+            .to_string()
+            .contains("<redacted:CANONICAL_PASSWORD>")
+    );
+}
+
+#[test]
 fn managed_launch_candidate_is_transport_only_and_mismatch_never_relabels_selected_process() {
     use pse_diagnostics::process_facts::{ManagedInvocationCandidate, ProcessRead, ProcessReader};
     let directory = tempfile::tempdir().unwrap();

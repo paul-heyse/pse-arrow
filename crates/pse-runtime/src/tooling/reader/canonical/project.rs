@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Connection-only reads using the canonical project owner's native selections and pages.
-use super::{MAXIMUM_READ_MILLIS, canonical, connected};
-use crate::tooling::reader::{EncodedResponse, Payload, ReaderError, encode_response, response};
+use super::{MAXIMUM_READ_MILLIS, canonical, canonical_redaction_policy, connected, workflow};
+use crate::tooling::reader::{
+    EncodedResponse, Payload, ReaderError, encode_response, response_with_policy,
+};
+use crate::workflow::{
+    ProjectClosureExplanation, ProjectExportRequest, ProjectImportIntent, ProjectImportReport,
+    ResearchReadRequest, ResearchReadResult, project_closure_metadata, project_import_status,
+    research_read,
+};
+use pse_host::envelope::RedactionPolicy;
 use pse_host::investigation::NativePath;
 use pse_operations::{
-    canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
+    canonical::{CanonicalOptions, CanonicalStore},
     canonical_control::{StudyWorkbenchPage, StudyWorkbenchRequest},
     canonical_projects::{
         Branch, BranchPage, Draft, Project, ProjectCursor, ProjectMetadataPage,
@@ -24,6 +32,8 @@ pub struct ProjectReadSelection {
     pub state: NativePath,
     /// Existing database override; absence selects the database named by the deployment.
     pub database: Option<String>,
+    /// Require this installation identity before reading any selected records.
+    pub expected_issuer: Option<String>,
     /// Optional observer allowance in 1..=25000ms, including connection and drain.
     pub timeout_ms: Option<u64>,
 }
@@ -47,6 +57,8 @@ impl ProjectReadSelection {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProjectRead {
+    /// Authenticate the opened store without reading project records.
+    Target,
     /// Read bounded metadata for the selected collection and owner.
     Metadata {
         /// Existing canonical metadata request.
@@ -79,6 +91,21 @@ pub enum ProjectRead {
         /// Original predicates, row limit and issuer-bound continuation.
         request: StudyWorkbenchRequest,
     },
+    /// Browse or read exact canonical research metadata.
+    ResearchRead {
+        /// Original dataset seek bounds or exact immutable key.
+        request: ResearchReadRequest,
+    },
+    /// Explain an already-issued project selection using descriptive metadata only.
+    Closure {
+        /// The original finite closure selection. Executable requests refuse.
+        request: Box<ProjectExportRequest>,
+    },
+    /// Observe the receiving checkpoint for this exact original import intent.
+    ImportStatus {
+        /// The immutable issued intent, unchanged from preparation.
+        intent: Box<ProjectImportIntent>,
+    },
 }
 
 /// Authenticated coordinates observed by the original opened canonical owner.
@@ -93,6 +120,8 @@ pub struct ProjectTarget {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProjectReadView {
+    /// The store identity is in the enclosing authenticated target.
+    Target,
     /// Canonical metadata page.
     Metadata {
         /// Up to 64 rows and their original continuation.
@@ -123,32 +152,79 @@ pub enum ProjectReadView {
         /// Original headers and continuation, with no scientific payloads opened.
         page: StudyWorkbenchPage,
     },
+    /// Original research metadata. Measurement payloads are never opened.
+    ResearchRead {
+        /// The original dataset page or exact research descriptor.
+        result: ResearchReadResult,
+    },
+    /// Authenticated descriptive closure with no source or result payload authority.
+    Closure {
+        /// The original closure explanation.
+        explanation: Box<ProjectClosureExplanation>,
+    },
+    /// The original receiving checkpoint. Absence alone does not prove rollback.
+    ImportStatus {
+        /// Original source and project membership settlement facts, when present.
+        report: Option<Box<ProjectImportReport>>,
+    },
 }
 
 async fn read(
     store: &CanonicalStore,
     query: ProjectRead,
-) -> Result<ProjectReadView, CanonicalError> {
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<ProjectReadView, ReaderError> {
     Ok(match query {
+        ProjectRead::Target => ProjectReadView::Target,
         ProjectRead::Metadata { request } => ProjectReadView::Metadata {
             page: store
                 .project_metadata(request.kind, &request.owner, request.cursor.as_ref())
-                .await?,
+                .await
+                .map_err(canonical)?,
         },
         ProjectRead::Show { project } => ProjectReadView::Show {
-            project: store.project(&project).await?,
+            project: store.project(&project).await.map_err(canonical)?,
         },
         ProjectRead::Branches { project, cursor } => ProjectReadView::Branches {
-            page: store.project_branches(&project, cursor.as_ref()).await?,
+            page: store
+                .project_branches(&project, cursor.as_ref())
+                .await
+                .map_err(canonical)?,
         },
         ProjectRead::Branch { branch } => ProjectReadView::Branch {
-            branch: store.project_branch(&branch).await?,
+            branch: store.project_branch(&branch).await.map_err(canonical)?,
         },
         ProjectRead::DraftShow { key } => ProjectReadView::DraftShow {
-            draft: store.project_draft(&key).await?,
+            draft: store.project_draft(&key).await.map_err(canonical)?,
         },
         ProjectRead::StudyWorkbench { request } => ProjectReadView::StudyWorkbench {
-            page: store.control_study_workbench_page(request).await?,
+            page: store
+                .control_study_workbench_page(request)
+                .await
+                .map_err(canonical)?,
+        },
+        ProjectRead::ResearchRead { request } => ProjectReadView::ResearchRead {
+            result: research_read(store, &request).await.map_err(workflow)?,
+        },
+        ProjectRead::Closure { request } => {
+            let registry = pse_schema::registry().map_err(|error| {
+                super::engine(pse_engine::EngineError::Semantic(std::sync::Arc::new(
+                    error,
+                )))
+            })?;
+            ProjectReadView::Closure {
+                explanation: Box::new(
+                    project_closure_metadata(store, registry, &request, cancel)
+                        .await
+                        .map_err(workflow)?,
+                ),
+            }
+        }
+        ProjectRead::ImportStatus { intent } => ProjectReadView::ImportStatus {
+            report: project_import_status(store, &intent)
+                .await
+                .map_err(workflow)?
+                .map(Box::new),
         },
     })
 }
@@ -160,6 +236,7 @@ pub(in crate::tooling::reader) fn encode(
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<EncodedResponse, ReaderError> {
     let deadline = Instant::now() + Duration::from_millis(selection.timeout_ms());
+    let mut policy = RedactionPolicy::from_environment();
     let result = (|| {
         cancel.checkpoint()?;
         let options = CanonicalOptions::from_state_for_database(
@@ -167,28 +244,37 @@ pub(in crate::tooling::reader) fn encode(
             selection.database.as_deref(),
         )
         .map_err(canonical)?;
+        policy = canonical_redaction_policy(&options);
         connected(&options, deadline, cancel, async |store| {
+            let issuing_store = store.issuing_store().map_err(canonical)?;
+            if selection
+                .expected_issuer
+                .as_deref()
+                .is_some_and(|expected| expected != issuing_store)
+            {
+                return Err(super::super::invalid(
+                    "opened store differs from the expected project issuer",
+                ));
+            }
             let target = ProjectTarget {
                 namespace: store.namespace().into(),
                 database: store.database().into(),
-                issuing_store: store.issuing_store().map_err(canonical)?.into(),
+                issuing_store: issuing_store.into(),
             };
-            let view = cancel
-                .until_cancelled(read(store, query))
-                .await?
-                .map_err(canonical)?;
+            let view = cancel.until_cancelled(read(store, query, cancel)).await??;
             cancel.checkpoint()?;
-            encode_response(response(
+            encode_response(response_with_policy(
                 correlation.clone(),
                 Ok(Payload::Project {
                     target,
                     result: Box::new(view),
                 }),
+                &policy,
             ))
         })
     })();
     match result {
         Ok(output) => Ok(output),
-        Err(error) => encode_response(response(correlation, Err(error))),
+        Err(error) => encode_response(response_with_policy(correlation, Err(error), &policy)),
     }
 }

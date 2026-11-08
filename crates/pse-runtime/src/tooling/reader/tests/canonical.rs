@@ -22,6 +22,7 @@ fn project_reader_refuses_invalid_target_before_preparation() {
                 canonical: ProjectReadSelection {
                     state: NativePath::from(path),
                     database: None,
+                    expected_issuer: None,
                     timeout_ms: timeout,
                 },
                 query: ProjectRead::Show {
@@ -47,6 +48,7 @@ fn project_reader_refuses_invalid_target_before_preparation() {
 #[test]
 fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor() {
     use super::super::{ProjectRead, ProjectReadSelection, Request, encode};
+    use crate::workflow::ResearchReadRequest;
     use pse_host::investigation::NativePath;
     use pse_operations::{
         canonical_control::StudyWorkbenchRequest, native_fixture::canonical_fixture_store,
@@ -55,22 +57,17 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
     let store = canonical_fixture_store().unwrap();
     let issuing_store = store.issuing_store().unwrap();
     let cancel = pse_columnar::CancellationToken::new();
-    let query = |cursor| {
+    let query = |expected_issuer: &str, query| {
         let bytes = super::request(
             "study-workbench-read",
             Request::Project {
                 canonical: ProjectReadSelection {
                     state: NativePath::from(store.deployment_state().to_owned()),
                     database: Some(store.database().into()),
+                    expected_issuer: Some(expected_issuer.into()),
                     timeout_ms: None,
                 },
-                query: ProjectRead::StudyWorkbench {
-                    request: StudyWorkbenchRequest {
-                        filter: Default::default(),
-                        maximum: 1,
-                        cursor,
-                    },
-                },
+                query,
             },
         );
         let result = encode(&bytes, &cancel).unwrap();
@@ -78,7 +75,14 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
         assert_eq!(value["correlation"], "study-workbench-read");
         (result.exit_code(), value["payload"].clone())
     };
-    let (exit, payload) = query(None);
+    let browse = |cursor| ProjectRead::StudyWorkbench {
+        request: StudyWorkbenchRequest {
+            filter: Default::default(),
+            maximum: 1,
+            cursor,
+        },
+    };
+    let (exit, payload) = query(issuing_store, browse(None));
     assert_eq!(exit, 0, "{payload}");
     assert_eq!(payload["kind"], "project");
     assert_eq!(payload["target"]["issuing_store"], issuing_store);
@@ -94,10 +98,47 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
         "after": "a",
     }))
     .unwrap();
-    let (exit, payload) = query(Some(foreign));
+    let (exit, payload) = query(issuing_store, browse(Some(foreign)));
     assert_eq!(exit, 2, "{payload}");
     assert_eq!(payload["kind"], "refusal");
     assert!(payload.to_string().contains("workbench cursor identity"));
+
+    let (exit, payload) = query(issuing_store, ProjectRead::Target);
+    assert_eq!(exit, 0, "{payload}");
+    assert_eq!(payload["target"]["issuing_store"], issuing_store);
+    assert_eq!(payload["result"]["kind"], "target");
+
+    let (exit, payload) = query("different-store", ProjectRead::Target);
+    assert_eq!(exit, 2, "{payload}");
+    assert_eq!(payload["kind"], "refusal");
+    assert!(payload.to_string().contains("expected project issuer"));
+
+    let (exit, payload) = query(
+        issuing_store,
+        ProjectRead::ResearchRead {
+            request: ResearchReadRequest::Dataset {
+                key: "absent".into(),
+            },
+        },
+    );
+    assert_eq!(exit, 0, "{payload}");
+    assert_eq!(payload["result"]["kind"], "research_read");
+    assert_eq!(payload["result"]["result"]["kind"], "dataset");
+    assert!(payload["result"]["result"]["row"].is_null());
+    assert!(payload["result"]["result"]["members"].is_null());
+
+    let (exit, payload) = query(
+        issuing_store,
+        ProjectRead::ResearchRead {
+            request: ResearchReadRequest::Datasets {
+                project: "p".into(),
+                after: String::new(),
+                limit: 129,
+            },
+        },
+    );
+    assert_eq!(exit, 2, "{payload}");
+    assert!(payload.to_string().contains("bounded protocol batch"));
 }
 
 #[test]

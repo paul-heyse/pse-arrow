@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One configured connection and its protected typed page through encoding and joined drain.
-use super::{EncodedResponse, Payload, ReaderError, encode_response, response};
+use super::{EncodedResponse, Payload, ReaderError, encode_response, response_with_policy};
 use crate::workflow::{
     AttemptObservationRequest, RetainedDataServices, StudyObservationCursor,
     StudyObservationRequest,
@@ -13,6 +13,7 @@ use datafusion::execution::{
     session_state::SessionStateBuilder,
 };
 use pse_engine::session::{BoundModel, EngineFactory};
+use pse_host::envelope::RedactionPolicy;
 use pse_operations::canonical::{CanonicalOptions, CanonicalStore};
 use std::{
     num::NonZeroUsize,
@@ -22,7 +23,7 @@ use std::{
 };
 pub(super) mod project;
 
-const MAXIMUM_READ_MILLIS: u64 = 25_000;
+pub(super) const MAXIMUM_READ_MILLIS: u64 = 25_000;
 
 /// Explicit existing canonical deployment and this observer's finite read allocation.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
@@ -65,6 +66,31 @@ fn workflow(error: crate::workflow::WorkflowError) -> ReaderError {
 fn canonical(error: pse_operations::canonical::CanonicalError) -> ReaderError {
     ReaderError::Canonical(Box::new(error))
 }
+
+/// Redact both original configured credentials along with the operator's environment inputs.
+pub fn canonical_redaction_policy(options: &CanonicalOptions) -> RedactionPolicy {
+    redaction_policy_with_credentials([
+        ("PSE_CANONICAL_PASSWORD", options.password.as_str()),
+        (
+            "PSE_CANONICAL_SELECTION_PASSWORD",
+            options.selection_password.as_str(),
+        ),
+    ])
+}
+
+pub(super) fn redaction_policy_with_credentials<'a>(
+    credentials: impl IntoIterator<Item = (&'a str, &'a str)>,
+) -> RedactionPolicy {
+    let mut environment: pse_host::environment::Environment = std::env::vars_os().collect();
+    for (name, value) in credentials {
+        let mut name = std::ffi::OsString::from(name);
+        while environment.contains_key(&name) {
+            name.push("_");
+        }
+        environment.insert(name, value.into());
+    }
+    RedactionPolicy::from_inputs(&environment)
+}
 pub(super) fn model(bytes: NonZeroUsize) -> Result<BoundModel, ReaderError> {
     let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(bytes.get()));
     let environment = RuntimeEnvBuilder::new()
@@ -97,6 +123,7 @@ pub(super) fn encode(
     cancel: &pse_columnar::CancellationToken,
 ) -> Result<EncodedResponse, ReaderError> {
     let deadline = Instant::now() + Duration::from_millis(selection.timeout_ms);
+    let mut policy = RedactionPolicy::from_environment();
     let result = (|| {
         cancel.checkpoint()?;
         let options = CanonicalOptions::from_state_for_database(
@@ -104,6 +131,7 @@ pub(super) fn encode(
             selection.database.as_deref(),
         )
         .map_err(canonical)?;
+        policy = canonical_redaction_policy(&options);
         let model = model(selection.memory_bytes)?;
         connected(&options, deadline, cancel, async |store| {
             let services = RetainedDataServices::new(store.clone(), model).map_err(workflow)?;
@@ -136,7 +164,11 @@ pub(super) fn encode(
                 };
                 cancel.checkpoint()?;
                 // The original page's protected read/capture/allocation is live here.
-                encode_response(response(correlation.clone(), Ok(payload)))
+                encode_response(response_with_policy(
+                    correlation.clone(),
+                    Ok(payload),
+                    &policy,
+                ))
             }
             .await;
             // The typed page was encoded and dropped before closing admission.
@@ -147,7 +179,7 @@ pub(super) fn encode(
     })();
     match result {
         Ok(output) => Ok(output),
-        Err(error) => encode_response(response(correlation, Err(error))),
+        Err(error) => encode_response(response_with_policy(correlation, Err(error), &policy)),
     }
 }
 

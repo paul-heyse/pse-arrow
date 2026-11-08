@@ -4,21 +4,138 @@
 //!
 //! The JSON values here are the existing native operator presentation. Generated
 //! service responses select their typed owner results at their own boundary.
-use super::{ProjectAction as Action, ProjectOperationRequest as Request};
+use super::{
+    PROJECT_OPERATOR_DEFAULTS, ProjectAction as Action, ProjectOperationRequest as Request,
+    default_batch_size, project_operator_budget,
+};
 use crate::{
     CancelSource, SharedRuntime,
     workflow::{
         CanonicalDeployment, ModelingPackage, OuterAttestation, PhysicalContext,
-        ProjectBundleReader, ProjectDraftDocuments, Runtime,
+        ProjectBundleReader, ProjectDraftDocuments, ProjectImportIntent,
+        ProjectImportRecoveryReport, ProjectImportReport, Runtime, WorkflowError,
+        project_import_issue, project_import_recover, project_import_status,
     },
 };
 use pse_operations::{canonical::CanonicalStore, canonical_contexts::ContextSelection};
 use serde::Serialize;
-use std::{collections::BTreeMap, io::Read, path::PathBuf, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    io::Read,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 mod error;
 pub use error::ProjectOperationError;
 use error::{Context, Result, ensure};
+
+/// Observe the actual operator executable for source admission lineage.
+/// # Errors
+/// The current executable could not be opened or read completely.
+pub fn project_operator_attestation() -> std::io::Result<OuterAttestation> {
+    let mut artifact = std::fs::File::open(std::env::current_exe()?)?;
+    let mut digest = pse_ids::EncodingHasher::new();
+    std::io::copy(&mut artifact, &mut digest)?;
+    Ok(OuterAttestation {
+        source: None,
+        build: digest.finish().content_hash(),
+    })
+}
+
+fn build_project_runtime(
+    store: &CanonicalStore,
+    budget: crate::ResourceBudget,
+    attestation: OuterAttestation,
+) -> Result<(Arc<SharedRuntime>, Runtime)> {
+    let shared = SharedRuntime::build(budget)?;
+    let registry = pse_schema::shared_registry()?;
+    let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
+    let runtime = Runtime::from_shared(
+        shared.clone(),
+        sessions.bind_model(registry)?,
+        CanonicalDeployment::new(store.clone(), attestation, None),
+    )?;
+    Ok((shared, runtime))
+}
+
+/// Issue an exact receiving intent for a verified executable pack.
+/// # Errors
+/// Original pack, receiving authority or intent refusal.
+pub fn issue_project_import(
+    store: &CanonicalStore,
+    operation: &str,
+    input: &Path,
+    title: &str,
+    branch_name: &str,
+    maximum_document_bytes: usize,
+) -> Result<ProjectImportIntent, WorkflowError> {
+    let bundle = ProjectBundleReader::open(input, maximum_document_bytes)?;
+    project_import_issue(store, operation, &bundle, title, branch_name)
+}
+
+/// Original import result and independently attempted native-lane drain.
+#[derive(Debug)]
+pub struct AppliedProjectImport {
+    /// Acknowledged original checkpoint, or the exact failure after invoking apply.
+    pub result: Result<ProjectImportReport, WorkflowError>,
+    /// Native drain may fail even when project membership already completed.
+    pub cleanup: Option<crate::math::MathRuntimeError>,
+}
+
+/// Invoke only the original exact import action with private operator-owned spill.
+/// # Errors
+/// Errors here precede any invocation of the original canonical apply action.
+pub async fn apply_project_import(
+    store: &CanonicalStore,
+    input: &Path,
+    intent: &ProjectImportIntent,
+    maximum_document_bytes: usize,
+    cancel: &CancelSource,
+) -> Result<AppliedProjectImport, ProjectOperationError> {
+    let prepared: Result<_> = (|| {
+        cancel.checkpoint()?;
+        let bundle = ProjectBundleReader::open(input, maximum_document_bytes)?;
+        bundle.validate_import_intent(intent)?;
+        cancel.checkpoint()?;
+        let spill = tempfile::tempdir()?;
+        let budget = project_operator_budget(
+            spill.path().to_owned(),
+            PROJECT_OPERATOR_DEFAULTS,
+            default_batch_size(),
+        )?;
+        let attestation = project_operator_attestation()?;
+        let (shared, runtime) = build_project_runtime(store, budget, attestation)?;
+        Ok((bundle, spill, shared, runtime))
+    })();
+    let (bundle, _spill, shared, runtime) = prepared.map_err(ProjectOperationError::action)?;
+    let result = Box::pin(runtime.project_import(&bundle, intent, cancel)).await;
+    runtime.close();
+    let cleanup = shared.math().shutdown_native_lanes().await.err();
+    Ok(AppliedProjectImport { result, cleanup })
+}
+
+/// Recover or collect only the exact original artifact under its issued import intent.
+/// # Errors
+/// Original canonical recovery failure or unchanged-header refusal.
+pub async fn recover_project_import(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+    original: &pse_operations::canonical_artifacts::Artifact,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<ProjectImportRecoveryReport, WorkflowError> {
+    project_import_recover(store, intent, original, cancel).await
+}
+
+/// Observe the original import checkpoint for reconciliation after an attempted handoff.
+/// # Errors
+/// The original intent, receiving store or checkpoint decode was refused.
+pub async fn observe_project_import(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+) -> Result<Option<ProjectImportReport>, WorkflowError> {
+    project_import_status(store, intent).await
+}
 
 fn value<T: Serialize>(value: T) -> Result<serde_json::Value> {
     Ok(serde_json::to_value(value)?)
@@ -185,7 +302,7 @@ fn require_physical(physical: &Option<PhysicalContext>) -> Result<PhysicalContex
         .clone()
         .context("physical documents required for scientific action")
 }
-fn bytes(path: &std::path::Path, limit: usize) -> Result<Vec<u8>> {
+fn bytes(path: &Path, limit: usize) -> Result<Vec<u8>> {
     let file = std::fs::File::open(path)?;
     ensure!(file.metadata()?.is_file(), "regular body file required");
     let limit = u64::try_from(limit)?
@@ -246,20 +363,8 @@ pub async fn execute_project_operation(
     {
         return Ok(response);
     }
-    let build: Result<(Arc<SharedRuntime>, Runtime)> = async {
-        let shared = SharedRuntime::build(budget)?;
-        let registry = pse_schema::shared_registry()?;
-        let sessions =
-            Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-        let runtime = Runtime::from_shared(
-            shared.clone(),
-            sessions.bind_model(registry)?,
-            CanonicalDeployment::new(store.clone(), attestation, None),
-        )?;
-        Ok((shared, runtime))
-    }
-    .await;
-    let (shared, runtime) = build.map_err(ProjectOperationError::action)?;
+    let (shared, runtime) =
+        build_project_runtime(store, budget, attestation).map_err(ProjectOperationError::action)?;
     let result = dispatch(&runtime, &shared, store, request, cancel).await;
     runtime.close();
     let cleanup = shared.math().shutdown_native_lanes().await;

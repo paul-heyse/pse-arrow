@@ -9,14 +9,23 @@ use pse_host::{
 use pse_model::document::Version;
 use pse_operations::{
     canonical::{CanonicalError, CanonicalOptions, CanonicalStore, operation_scope},
+    canonical_artifacts::Artifact,
     canonical_projects::{Project, ProjectAcknowledgement, ProjectNavigationRequest},
+};
+use pse_runtime::{
+    CancelSource,
+    host_operations::project::{DEFAULT_BRANCH, DEFAULT_DOCUMENT_BYTES, handler},
+    tooling::reader::canonical_redaction_policy,
+    workflow::{
+        ProjectImportIntent, ProjectImportRecoveryReport, ProjectImportReport, WorkflowError,
+    },
 };
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const REQUEST_BYTES: usize = 1024 * 1024;
-const RESPONSE_BYTES: usize = 256 * 1024;
+const RESPONSE_BYTES: usize = REQUEST_BYTES;
 const MAX_TIMEOUT_MS: u64 = 25_000;
 const DELIVERY_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_OPERATION_BYTES: usize = 4096;
@@ -60,6 +69,21 @@ enum Action {
         request: ProjectNavigationRequest,
     },
     Acknowledgement,
+    ImportIssue {
+        input: NativePath,
+        title: String,
+        branch_name: Option<String>,
+        maximum_document_bytes: Option<usize>,
+    },
+    Import {
+        input: NativePath,
+        intent: Box<ProjectImportIntent>,
+        maximum_document_bytes: Option<usize>,
+    },
+    ImportRecover {
+        intent: Box<ProjectImportIntent>,
+        original: Box<Artifact>,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -94,10 +118,29 @@ impl From<ProjectAcknowledgement> for Acknowledgement {
 #[derive(Debug, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum Outcome {
-    Acknowledged { acknowledgement: Acknowledgement },
+    Acknowledged {
+        acknowledgement: Acknowledgement,
+    },
     Absent,
-    Refused { failure: Box<ErrorRecord> },
-    Unresolved { failure: Box<ErrorRecord> },
+    ImportIssued {
+        intent: Box<ProjectImportIntent>,
+    },
+    Imported {
+        report: Box<ProjectImportReport>,
+    },
+    ImportRecovered {
+        report: Box<ProjectImportRecoveryReport>,
+    },
+    Refused {
+        failure: Box<ErrorRecord>,
+    },
+    Unresolved {
+        failure: Box<ErrorRecord>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        import_status: Option<Box<ProjectImportReport>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        readback_failure: Option<Box<ErrorRecord>>,
+    },
 }
 
 #[derive(Debug, Serialize)]
@@ -123,7 +166,14 @@ impl Response {
 
     fn exit_code(&self) -> i32 {
         if self.cleanup.is_none()
-            && matches!(self.outcome, Outcome::Acknowledged { .. } | Outcome::Absent)
+            && matches!(
+                self.outcome,
+                Outcome::Acknowledged { .. }
+                    | Outcome::Absent
+                    | Outcome::ImportIssued { .. }
+                    | Outcome::Imported { .. }
+                    | Outcome::ImportRecovered { .. }
+            )
         {
             0
         } else {
@@ -140,8 +190,15 @@ impl Response {
                 limited.facts.clone_from(&error.facts);
                 *error = limited;
             };
-            if let Outcome::Refused { failure } | Outcome::Unresolved { failure } =
+            if let Outcome::Refused { failure } | Outcome::Unresolved { failure, .. } =
                 &mut self.outcome
+            {
+                reduced(failure);
+            }
+            if let Outcome::Unresolved {
+                readback_failure: Some(failure),
+                ..
+            } = &mut self.outcome
             {
                 reduced(failure);
             }
@@ -183,6 +240,15 @@ enum HandoffError {
     #[error("project acknowledgement coordinates differ from the original request")]
     #[diagnostic(code(runtime::infrastructure))]
     AcknowledgementIdentity,
+    #[error("project import requires an absolute original pack path")]
+    #[diagnostic(code(validation::invariant))]
+    ImportPath,
+    #[error("project import intent differs from the requested operation or receiving issuer")]
+    #[diagnostic(code(validation::invariant))]
+    ImportIdentity,
+    #[error("project import recovery requires the unchanged original artifact intent")]
+    #[diagnostic(code(validation::invariant))]
+    ImportArtifact,
     #[error("the project effect response exceeded its transport extent")]
     #[diagnostic(code(runtime::infrastructure))]
     ResponseExtent,
@@ -243,24 +309,196 @@ async fn execute(
     operation: &str,
     action: Action,
     policy: &RedactionPolicy,
+    cancel: &CancelSource,
+) -> (Outcome, Option<ErrorRecord>) {
+    let outcome = match action {
+        Action::Create { project, title } => observed_outcome(
+            store
+                .create_project(operation, &project, &title)
+                .await
+                .map(Some),
+            operation,
+            Some(&project),
+            policy,
+        ),
+        Action::Navigate { project, request } => observed_outcome(
+            store
+                .project_navigate(operation, &project, &request.action)
+                .await
+                .map(Some),
+            operation,
+            Some(project.key.as_str()),
+            policy,
+        ),
+        Action::Acknowledgement => observed_outcome(
+            store.project_acknowledgement(operation).await,
+            operation,
+            None,
+            policy,
+        ),
+        Action::ImportIssue {
+            input,
+            title,
+            branch_name,
+            maximum_document_bytes,
+        } => {
+            let input = input.to_path_buf();
+            if !input.is_absolute() {
+                return (
+                    refused(local_diagnostic(&HandoffError::ImportPath, policy)),
+                    None,
+                );
+            }
+            let prior =
+                store
+                    .project_acknowledgement(operation)
+                    .await
+                    .and_then(|acknowledgement| {
+                        if acknowledgement.is_some() {
+                            Err(CanonicalError::OperationReused)
+                        } else {
+                            Ok(())
+                        }
+                    });
+            if let Err(error) = prior {
+                return (refused(canonical_diagnostic(&error, policy)), None);
+            }
+            match handler::issue_project_import(
+                store,
+                operation,
+                &input,
+                &title,
+                branch_name.as_deref().unwrap_or(DEFAULT_BRANCH),
+                maximum_document_bytes.unwrap_or(DEFAULT_DOCUMENT_BYTES),
+            ) {
+                Ok(intent) => Outcome::ImportIssued {
+                    intent: Box::new(intent),
+                },
+                Err(error) => refused(workflow_diagnostic(&error, policy)),
+            }
+        }
+        Action::Import {
+            input,
+            intent,
+            maximum_document_bytes,
+        } => {
+            let input = input.to_path_buf();
+            if !input.is_absolute() {
+                return (
+                    refused(local_diagnostic(&HandoffError::ImportPath, policy)),
+                    None,
+                );
+            }
+            if let Err(failure) = validate_import_identity(store, operation, &intent, policy) {
+                return (Outcome::Refused { failure }, None);
+            }
+            if let Err(error) = handler::observe_project_import(store, &intent).await {
+                // The exact acknowledgement lookup authenticates a previously used
+                // key before this invocation can start a new source/artifact effect.
+                return (refused(workflow_diagnostic(&error, policy)), None);
+            }
+            return match handler::apply_project_import(
+                store,
+                &input,
+                &intent,
+                maximum_document_bytes.unwrap_or(DEFAULT_DOCUMENT_BYTES),
+                cancel,
+            )
+            .await
+            {
+                Ok(applied) => {
+                    let outcome = match applied.result {
+                        Ok(report) => Outcome::Imported {
+                            report: Box::new(report),
+                        },
+                        Err(error) => unresolved_import(store, &intent, &error, policy).await,
+                    };
+                    let cleanup = applied
+                        .cleanup
+                        .map(|error| ErrorRecord::from_typed(&error, policy));
+                    (outcome, cleanup)
+                }
+                Err(error) => (refused(ErrorRecord::from_typed(&error, policy)), None),
+            };
+        }
+        Action::ImportRecover { intent, original } => {
+            if let Err(failure) = validate_import_identity(store, operation, &intent, policy) {
+                return (Outcome::Refused { failure }, None);
+            }
+            match handler::observe_project_import(store, &intent).await {
+                Ok(Some(report))
+                    if report.artifact_intent.as_ref() == Some(original.as_ref())
+                        || report
+                            .retired_originals
+                            .iter()
+                            .any(|header| header == original.as_ref()) =>
+                {
+                    match handler::recover_project_import(
+                        store,
+                        &intent,
+                        &original,
+                        &cancel.token(),
+                    )
+                    .await
+                    {
+                        Ok(report) => Outcome::ImportRecovered {
+                            report: Box::new(report),
+                        },
+                        Err(error) => unresolved_import(store, &intent, &error, policy).await,
+                    }
+                }
+                Ok(_) => refused(local_diagnostic(&HandoffError::ImportArtifact, policy)),
+                Err(error) => refused(workflow_diagnostic(&error, policy)),
+            }
+        }
+    };
+    (outcome, None)
+}
+
+fn workflow_diagnostic(error: &WorkflowError, policy: &RedactionPolicy) -> ErrorRecord {
+    match error {
+        WorkflowError::Canonical(error) => canonical_diagnostic(error, policy),
+        _ => ErrorRecord::from_typed(error, policy),
+    }
+}
+
+fn validate_import_identity(
+    store: &CanonicalStore,
+    operation: &str,
+    intent: &ProjectImportIntent,
+    policy: &RedactionPolicy,
+) -> std::result::Result<(), Box<ErrorRecord>> {
+    intent
+        .validate()
+        .map_err(|error| Box::new(canonical_diagnostic(&error, policy)))?;
+    let issuing_store = store
+        .issuing_store()
+        .map_err(|error| Box::new(canonical_diagnostic(&error, policy)))?;
+    if intent.operation() != operation || intent.issuing_store() != issuing_store {
+        return Err(Box::new(local_diagnostic(
+            &HandoffError::ImportIdentity,
+            policy,
+        )));
+    }
+    Ok(())
+}
+
+async fn unresolved_import(
+    store: &CanonicalStore,
+    intent: &ProjectImportIntent,
+    error: &WorkflowError,
+    policy: &RedactionPolicy,
 ) -> Outcome {
-    let project = match &action {
-        Action::Create { project, .. } => Some(project.as_str()),
-        Action::Navigate { project, .. } => Some(project.key.as_str()),
-        Action::Acknowledgement => None,
-    };
-    let result = match &action {
-        Action::Create { project, title } => store
-            .create_project(operation, project, title)
-            .await
-            .map(Some),
-        Action::Navigate { project, request } => store
-            .project_navigate(operation, project, &request.action)
-            .await
-            .map(Some),
-        Action::Acknowledgement => store.project_acknowledgement(operation).await,
-    };
-    observed_outcome(result, operation, project, policy)
+    let (import_status, readback_failure) =
+        match handler::observe_project_import(store, intent).await {
+            Ok(report) => (report.map(Box::new), None),
+            Err(error) => (None, Some(Box::new(workflow_diagnostic(&error, policy)))),
+        };
+    Outcome::Unresolved {
+        failure: Box::new(workflow_diagnostic(error, policy)),
+        import_status,
+        readback_failure,
+    }
 }
 
 fn observed_outcome(
@@ -282,6 +520,8 @@ fn observed_outcome(
                 &HandoffError::AcknowledgementIdentity,
                 policy,
             )),
+            import_status: None,
+            readback_failure: None,
         },
         Ok(None) => Outcome::Absent,
         Err(error) => {
@@ -289,6 +529,8 @@ fn observed_outcome(
             if project.is_none() || error.effect_is_unknown() {
                 Outcome::Unresolved {
                     failure: Box::new(failure),
+                    import_status: None,
+                    readback_failure: None,
                 }
             } else {
                 refused(failure)
@@ -297,7 +539,7 @@ fn observed_outcome(
     }
 }
 
-async fn perform(request: Request, cancel: &pse_columnar::CancellationToken) -> Response {
+async fn perform(request: Request, cancel: &CancelSource) -> Response {
     let Request {
         operation,
         target,
@@ -317,7 +559,7 @@ async fn perform(request: Request, cancel: &pse_columnar::CancellationToken) -> 
         Some(HandoffError::Target)
     } else if !(1..=MAX_TIMEOUT_MS).contains(&timeout_ms) {
         Some(HandoffError::Allowance)
-    } else if cancel.is_cancelled() {
+    } else if cancel.token().is_cancelled() {
         Some(HandoffError::StoppedBeforeSubmission)
     } else {
         None
@@ -330,6 +572,7 @@ async fn perform(request: Request, cancel: &pse_columnar::CancellationToken) -> 
     }
 
     let deadline = Instant::now() + Duration::from_millis(timeout_ms);
+    let cancel = cancel.with_deadline(Some(deadline));
     operation_scope(deadline, async {
         let options =
             match CanonicalOptions::from_state_for_database(&state, target.database.as_deref()) {
@@ -341,21 +584,7 @@ async fn perform(request: Request, cancel: &pse_columnar::CancellationToken) -> 
                     );
                 }
             };
-        let mut environment: pse_host::environment::Environment = std::env::vars_os().collect();
-        for (name, value) in [
-            ("PSE_PROJECT_CANONICAL_PASSWORD", &options.password),
-            (
-                "PSE_PROJECT_CANONICAL_SELECTION_PASSWORD",
-                &options.selection_password,
-            ),
-        ] {
-            let mut name = std::ffi::OsString::from(name);
-            while environment.contains_key(&name) {
-                name.push("_");
-            }
-            environment.insert(name, value.as_str().into());
-        }
-        let policy = RedactionPolicy::from_inputs(&environment);
+        let policy = canonical_redaction_policy(&options);
         let store = match CanonicalStore::connect(&options).await {
             Ok(store) => store,
             Err(error) => {
@@ -366,36 +595,47 @@ async fn perform(request: Request, cancel: &pse_columnar::CancellationToken) -> 
             }
         };
         let selection = store.open().await.and_then(|()| store.issuing_store());
-        let (selected, outcome) = match selection {
+        let (selected, outcome, native_cleanup) = match selection {
             Ok(issuing_store) if issuing_store == target.issuing_store => {
                 let selected = Target {
                     issuing_store: issuing_store.to_owned(),
                     namespace: store.namespace().to_owned(),
                     database: store.database().to_owned(),
                 };
-                let outcome = if cancel.is_cancelled() {
-                    refused(local_diagnostic(
-                        &HandoffError::StoppedBeforeSubmission,
-                        &policy,
-                    ))
+                let (outcome, cleanup) = if cancel.token().is_cancelled() {
+                    (
+                        refused(local_diagnostic(
+                            &HandoffError::StoppedBeforeSubmission,
+                            &policy,
+                        )),
+                        None,
+                    )
                 } else {
                     // Once submitted, the original request keeps its task and deadline
                     // through canonical settlement and the subsequent connection drain.
-                    execute(&store, &operation, action, &policy).await
+                    execute(&store, &operation, action, &policy, &cancel).await
                 };
-                (Some(selected), outcome)
+                (Some(selected), outcome, cleanup)
             }
             Ok(_) => (
                 None,
                 refused(local_diagnostic(&HandoffError::WrongIssuer, &policy)),
+                None,
             ),
-            Err(error) => (None, refused(canonical_diagnostic(&error, &policy))),
+            Err(error) => (None, refused(canonical_diagnostic(&error, &policy)), None),
         };
-        let cleanup = store
+        let canonical_cleanup = store
             .drain_owned_connection_until(tokio::time::Instant::from_std(deadline))
             .await
             .err()
             .map(|error| canonical_diagnostic(&error, &policy));
+        let cleanup = match (native_cleanup, canonical_cleanup) {
+            (Some(mut native), Some(canonical)) => {
+                native.related.push(canonical);
+                Some(native)
+            }
+            (native, canonical) => native.or(canonical),
+        };
         Response {
             target: selected,
             cleanup,
@@ -432,15 +672,22 @@ fn decode(bytes: &[u8]) -> std::result::Result<Request, HandoffError> {
     })
 }
 
-async fn transfer(
-    input: Reader,
-    output: Writer,
-    cancel: &pse_columnar::CancellationToken,
-) -> Result<i32> {
-    let bytes = read_request(&input, cancel).await?;
+async fn transfer(input: Reader, output: Writer, cancel: &CancelSource) -> Result<i32> {
+    let bytes = read_request(&input, &cancel.token()).await?;
     let policy = RedactionPolicy::from_environment();
     let mut response = match decode(&bytes) {
-        Ok(request) => perform(request, cancel).await,
+        Ok(request) => {
+            let cancel = cancel.clone();
+            // Pack verification and archive transfer can use synchronous contained
+            // I/O. Keep the process signal listener runnable and join the owner.
+            tokio::task::spawn_blocking(move || {
+                let executor = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()?;
+                Ok::<_, std::io::Error>(executor.block_on(perform(request, &cancel)))
+            })
+            .await??
+        }
         Err(error) => Response::new(None, refused(local_diagnostic(&error, &policy))),
     };
     let bytes = response.encode(&policy)?;
@@ -455,12 +702,12 @@ pub(super) fn run() -> Result<i32> {
         .enable_all()
         .build()?;
     executor.block_on(async {
-        let stop = pse_runtime::CancelSource::new();
+        let stop = CancelSource::new();
         let signal = super::signals::ProcessInterrupt::new(stop.clone())?;
         let result = async {
             let input = Reader::new(std::io::stdin())?;
             let output = Writer::new(std::io::stdout())?;
-            transfer(input, output, &stop.token()).await
+            transfer(input, output, &stop).await
         }
         .await;
         signal.finish().await;
@@ -505,7 +752,7 @@ mod tests {
             "original",
             json!({"kind": "create", "project": "target", "title": "title"}),
         );
-        let mut response = perform(original, &pse_columnar::CancellationToken::new()).await;
+        let mut response = perform(original, &CancelSource::new()).await;
         let bytes = response.encode(&RedactionPolicy::default()).unwrap();
         let payload: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(response.exit_code(), 2);
@@ -522,6 +769,27 @@ mod tests {
             decode(&vec![b' '; REQUEST_BYTES + 1]),
             Err(HandoffError::RequestExtent)
         ));
+
+        let root = tempfile::tempdir().unwrap();
+        let absent = root.path().join("no-configured-service");
+        let issue = request(
+            &NativePath::from(absent.clone()),
+            None,
+            "074e38e9-7afe-4832-9770-3c98a1c0435b",
+            "exact-import",
+            json!({"kind": "import_issue", "input": NativePath::from(root.path().join("pack")), "title": "Original"}),
+        );
+        assert!(matches!(
+            &issue.action,
+            Action::ImportIssue {
+                maximum_document_bytes: None,
+                ..
+            }
+        ));
+        let response = perform(issue, &CancelSource::new()).await;
+        assert!(matches!(response.outcome, Outcome::Refused { .. }));
+        assert!(response.target.is_none());
+        assert!(!absent.exists());
     }
 
     #[test]
@@ -568,7 +836,7 @@ mod tests {
         let state = NativePath::from(fixture.state().to_path_buf());
         let issuer = store.issuing_store().unwrap();
         let database = Some(store.database());
-        let cancel = pse_columnar::CancellationToken::new();
+        let cancel = CancelSource::new();
         let create =
             json!({"kind": "create", "project": "original-project", "title": "original title"});
 
@@ -703,5 +971,66 @@ mod tests {
         )
         .await;
         assert!(matches!(absent.outcome, Outcome::Absent));
+
+        let original_import = store
+            .project_import_intent(
+                "original-import",
+                "receiving-project",
+                "receiving-branch",
+                "receiving-problem",
+                &"a".repeat(64),
+                b"{}".to_vec(),
+                "Original",
+                DEFAULT_BRANCH,
+            )
+            .unwrap();
+        let original_intent = serde_json::to_value(&original_import).unwrap();
+        assert_eq!(
+            original_intent["publication"]["operation"],
+            "original-import"
+        );
+        assert_eq!(original_intent["publication"]["issuing_store"], issuer);
+        let input = tempfile::tempdir().unwrap();
+        let missing_pack = input.path().join("absent");
+        let reused_issue = perform(
+            request(&state, database, issuer, "original-create", json!({
+                "kind": "import_issue", "input": NativePath::from(missing_pack.clone()), "title": "Changed",
+            })), &cancel,
+        ).await;
+        let Outcome::Refused { failure } = reused_issue.outcome else {
+            panic!("reused import issue key: {reused_issue:?}");
+        };
+        assert!(matches!(
+            failure.facts.observations.get("operation_reused"),
+            Some(ObservationValue::Boolean(true))
+        ));
+        let import = json!({
+            "kind": "import", "input": NativePath::from(missing_pack.clone()),
+            "intent": original_intent,
+        });
+        let wrong_identity = perform(
+            request(&state, database, issuer, "different-import", import.clone()),
+            &cancel,
+        )
+        .await;
+        let Outcome::Refused { failure } = wrong_identity.outcome else {
+            panic!("wrong import identity: {wrong_identity:?}");
+        };
+        assert!(failure.message.contains("intent differs"));
+        let missing_input = perform(
+            request(&state, database, issuer, "original-import", import),
+            &cancel,
+        )
+        .await;
+        assert!(matches!(missing_input.outcome, Outcome::Refused { .. }));
+        assert!(!missing_pack.exists());
+        assert!(
+            store
+                .project_import_record(&original_import)
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(store.project("receiving-project").await.unwrap().is_none());
     }
 }

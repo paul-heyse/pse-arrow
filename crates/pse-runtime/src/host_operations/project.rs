@@ -45,6 +45,42 @@ pub const PROJECT_OPERATOR_DEFAULTS: ProjectOperatorDefaults = ProjectOperatorDe
     max_spill_bytes: 16 * 1024 * 1024 * 1024,
 };
 
+/// Resolve the original one-shot operator settings with an explicitly owned spill directory.
+/// # Errors
+/// Invalid resource values or spill directory.
+pub fn project_operator_budget(
+    spill_dir: PathBuf,
+    policy: ProjectOperatorDefaults,
+    batch_size: usize,
+) -> Result<crate::ResourceBudget, crate::RuntimeError> {
+    macro_rules! field {
+        (memory_limit_bytes, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            $policy.memory_limit_bytes
+        };
+        (threads, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            $policy.threads
+        };
+        (spill_dir, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            $spill_dir
+        };
+        (max_spill_bytes, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            $policy.max_spill_bytes
+        };
+        (batch_size, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            $batch_size
+        };
+        ($name:ident, $policy:ident, $spill_dir:ident, $batch_size:ident) => {
+            None
+        };
+    }
+    macro_rules! input {
+        ($budget:ident; $($name:ident:$ty:ty,$hint:literal $(,$default:expr)? =>$out:ty,$read:expr;)*) => {
+            crate::settings::EngineSettingsInput { $($name: field!($name, policy, spill_dir, batch_size),)* }
+        };
+    }
+    crate::engine_settings_fields!(input, unused).resolve(None)
+}
+
 /// Existing operator spelling projects the shared document extent owner.
 pub use DEFAULT_DOCUMENT_BYTES as PROJECT_DOCUMENT_BYTES;
 /// Reuse the original engine setting default, preserving the historical 8192 rows.

@@ -4,12 +4,12 @@
 use super::operator_error::Result;
 use clap::Args;
 use pse_operations::canonical::CanonicalStore;
+use pse_runtime::CancelSource;
 #[cfg(test)]
 use pse_runtime::workflow::{
     PreparationDiscoveryRequest, ProjectDraftDocuments, ResearchReadRequest, StudyCohortRequest,
     StudyWorkbenchRequest,
 };
-use pse_runtime::{CancelSource, workflow::OuterAttestation};
 #[cfg(test)]
 use std::collections::BTreeMap;
 use std::{path::PathBuf, time::Instant};
@@ -18,8 +18,11 @@ pub(super) use pse_runtime::host_operations::project::PROJECT_DOCUMENT_BYTES;
 #[cfg(test)]
 use pse_runtime::host_operations::project::ProjectAction as Action;
 use pse_runtime::host_operations::project::{
-    PROJECT_OPERATOR_DEFAULTS, ProjectOperationRequest as Request,
-    handler::{execute_project_operation, operational_project_operation},
+    PROJECT_OPERATOR_DEFAULTS, ProjectOperationRequest as Request, ProjectOperatorDefaults,
+    handler::{
+        execute_project_operation, operational_project_operation, project_operator_attestation,
+    },
+    project_operator_budget,
 };
 
 #[derive(Debug, Args)]
@@ -39,31 +42,16 @@ pub(crate) struct RuntimeArgs {
     #[arg(long, default_value_t = pse_runtime::host_operations::project::default_batch_size())]
     batch_size: usize,
 }
-macro_rules! field {
-    (memory_limit_bytes,$args:ident) => {
-        $args.memory_limit_bytes
-    };
-    (threads,$args:ident) => {
-        $args.threads
-    };
-    (spill_dir,$args:ident) => {
-        $args.spill_dir.clone()
-    };
-    (max_spill_bytes,$args:ident) => {
-        $args.max_spill_bytes
-    };
-    (batch_size,$args:ident) => {
-        $args.batch_size
-    };
-    ($name:ident,$args:ident) => {
-        None
-    };
-}
 fn settings(args: &RuntimeArgs) -> Result<pse_runtime::ResourceBudget> {
-    macro_rules! input { ($budget:ident; $($name:ident:$ty:ty,$hint:literal $(,$default:expr)? =>$out:ty,$read:expr;)*)=>{
-        pse_runtime::settings::EngineSettingsInput{$($name:field!($name,args),)*}
-    }; }
-    Ok(pse_runtime::engine_settings_fields!(input, unused).resolve(None)?)
+    Ok(project_operator_budget(
+        args.spill_dir.clone(),
+        ProjectOperatorDefaults {
+            memory_limit_bytes: args.memory_limit_bytes,
+            threads: args.threads,
+            max_spill_bytes: args.max_spill_bytes,
+        },
+        args.batch_size,
+    )?)
 }
 pub(crate) async fn run(
     store: &CanonicalStore,
@@ -77,13 +65,7 @@ pub(crate) async fn run(
         return Ok(response);
     }
     let budget = settings(&args)?;
-    let mut artifact = std::fs::File::open(std::env::current_exe()?)?;
-    let mut digest = pse_ids::EncodingHasher::new();
-    std::io::copy(&mut artifact, &mut digest)?;
-    let attestation = OuterAttestation {
-        source: None,
-        build: digest.finish().content_hash(),
-    };
+    let attestation = project_operator_attestation()?;
     let cancel = CancelSource::new().with_deadline(Some(deadline));
     let signal = super::signals::ProcessInterrupt::new(cancel.clone())?;
     let result = execute_project_operation(store, request, budget, attestation, &cancel).await;

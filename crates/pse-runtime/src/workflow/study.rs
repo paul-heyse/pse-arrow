@@ -541,6 +541,76 @@ fn stored_diagnostic(
     }
 }
 
+/// Freeze original scientific definitions without treating historical execution receipts as new work.
+pub(super) async fn portable_study_definition(
+    store: &pse_operations::canonical::CanonicalStore,
+    key: &str,
+    cancel: &pse_columnar::CancellationToken,
+    allowance: &mut super::project_closure::DescriptiveAllowance,
+) -> Result<StudyDefinition, WorkflowError> {
+    let study = store
+        .canonical_study(key)
+        .await?
+        .ok_or_else(|| contract("selected study unavailable"))?;
+    let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice())
+        .map_err(|e| contract(format!("study metadata codec: {e}")))?;
+    let mut definition = StudyDefinition {
+        research: metadata.research,
+        context: metadata.context,
+        version: Version,
+        physical: metadata.physical,
+        modeling_revision: study.revision,
+        variants: metadata.variants,
+        points: Vec::new(),
+    };
+    // Include the enclosing study key, the definition fields, and their array delimiters.
+    #[derive(serde::Serialize)]
+    struct StudyHeader<'a> {
+        key: &'a str,
+        definition: &'a StudyDefinition,
+    }
+    allowance.charge(&StudyHeader {
+        key,
+        definition: &definition,
+    })?;
+    if definition.variants.is_none() {
+        let mut after = None;
+        loop {
+            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
+            let page = store.study_definition_page(key, after).await?;
+            if page.is_empty() {
+                break;
+            }
+            for point in page {
+                if point.ordinal != definition.points.len() as u64
+                    || definition.points.len() >= MAXIMUM_STUDY_POINTS
+                {
+                    return Err(contract(
+                        "study definition membership incomplete or excessive",
+                    ));
+                }
+                after = Some(point.ordinal);
+                let point_definition = optional_definition(
+                    point.descriptor.as_slice(),
+                    point.admission.as_ref(),
+                    point.policy,
+                )?
+                .ok_or_else(|| contract("selected scientific admission absent or refused"))?;
+                if point
+                    .admitted_seed_need
+                    .is_some_and(|need| need != point_definition.policy.seed_need)
+                {
+                    return Err(contract("stored scientific admission capability differs"));
+                }
+                allowance.retain(&mut definition.points, point_definition)?;
+            }
+        }
+        if definition.points.len() as u64 != study.point_count {
+            return Err(contract("study definition membership incomplete"));
+        }
+    }
+    Ok(definition)
+}
 impl Runtime {
     /// Actual recording/read owner, independent of default scientific execution durability.
     pub(crate) fn operations(&self) -> Result<&Operations, WorkflowError> {
@@ -549,65 +619,6 @@ impl Runtime {
             .ok_or(WorkflowError::RecordingUnavailable)
     }
 
-    /// Freeze original scientific definitions without treating historical execution receipts as new work.
-    pub(in crate::workflow) async fn portable_study_definition(
-        &self,
-        key: &str,
-        cancel: &crate::CancelSource,
-    ) -> Result<StudyDefinition, WorkflowError> {
-        let store = self.canonical_store()?;
-        let study = store
-            .canonical_study(key)
-            .await?
-            .ok_or_else(|| contract("selected study unavailable"))?;
-        let metadata: StudyMetadata = serde_json::from_slice(study.metadata.as_slice())
-            .map_err(|e| contract(format!("study metadata codec: {e}")))?;
-        let mut points = Vec::new();
-        if metadata.variants.is_none() {
-            let mut after = None;
-            loop {
-                creation_checkpoint(cancel)?;
-                let page = store.study_definition_page(key, after).await?;
-                if page.is_empty() {
-                    break;
-                }
-                for point in page {
-                    if point.ordinal != points.len() as u64 || points.len() >= MAXIMUM_STUDY_POINTS
-                    {
-                        return Err(contract(
-                            "study definition membership incomplete or excessive",
-                        ));
-                    }
-                    after = Some(point.ordinal);
-                    let definition = optional_definition(
-                        point.descriptor.as_slice(),
-                        point.admission.as_ref(),
-                        point.policy,
-                    )?
-                    .ok_or_else(|| contract("selected scientific admission absent or refused"))?;
-                    if point
-                        .admitted_seed_need
-                        .is_some_and(|need| need != definition.policy.seed_need)
-                    {
-                        return Err(contract("stored scientific admission capability differs"));
-                    }
-                    points.push(definition);
-                }
-            }
-            if points.len() as u64 != study.point_count {
-                return Err(contract("study definition membership incomplete"));
-            }
-        }
-        Ok(StudyDefinition {
-            research: metadata.research,
-            context: metadata.context,
-            version: Version,
-            physical: metadata.physical,
-            modeling_revision: study.revision,
-            variants: metadata.variants,
-            points,
-        })
-    }
     /// Publish the exact retained scientific inputs, without repeating admission or
     /// expanding lazy variants. Missing byte owners or sinks refuse before effects.
     pub async fn record_study(

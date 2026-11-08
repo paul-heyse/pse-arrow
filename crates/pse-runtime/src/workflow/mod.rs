@@ -259,6 +259,7 @@ mod lifecycle;
 pub(crate) mod modeling;
 pub(crate) mod portable_payload;
 mod project_closure;
+pub(crate) use project_closure::project_closure_metadata;
 mod project_contexts;
 mod project_portability;
 mod projects;
@@ -266,6 +267,7 @@ pub use lifecycle::*;
 pub use project_portability::*;
 mod research;
 mod research_publication;
+pub(crate) use research::research_read;
 pub use research::{
     ResearchDataObject, ResearchDatasetRequest, ResearchObservation, ResearchReadRequest,
     ResearchReadResult, ResearchSelectionRequest, ResearchSource,

@@ -291,6 +291,7 @@ impl Drop for GenerationUse {
 struct State {
     address: SocketAddr,
     message_bytes: usize,
+    reconnect: bool,
     generation: tokio::sync::Mutex<Arc<Generation>>,
     acknowledged: Mutex<Vec<Setup>>,
     setup: Arc<tokio::sync::Mutex<()>>,
@@ -315,6 +316,11 @@ impl State {
             return Err(connection("Canonical connection is closing"));
         }
         if !current.driver.accepting() {
+            if !self.reconnect {
+                return Err(connection(
+                    "Canonical observation lost its original connection",
+                ));
+            }
             if context.was_dispatched() {
                 return Err(context.interruption_error());
             }
@@ -403,6 +409,23 @@ impl std::fmt::Debug for Client {
 impl Client {
     /// Connect an authenticated-loopback transport under the enclosing clock.
     pub async fn connect(address: SocketAddr, message_bytes: usize) -> EngineResult<Self> {
+        Self::connect_with_replay(address, message_bytes, true).await
+    }
+
+    /// Keep an observation on one physical connection, with no credential replay.
+    #[cfg(feature = "canonical-maintenance")]
+    pub(crate) async fn connect_pinned(
+        address: SocketAddr,
+        message_bytes: usize,
+    ) -> EngineResult<Self> {
+        Self::connect_with_replay(address, message_bytes, false).await
+    }
+
+    async fn connect_with_replay(
+        address: SocketAddr,
+        message_bytes: usize,
+        reconnect: bool,
+    ) -> EngineResult<Self> {
         if !address.ip().is_loopback() || message_bytes == 0 {
             return Err(Error::configuration(
                 "Bounded canonical transport requires loopback and a positive envelope".into(),
@@ -425,6 +448,7 @@ impl Client {
                 state: Arc::new(State {
                     address,
                     message_bytes,
+                    reconnect,
                     generation: tokio::sync::Mutex::new(generation),
                     acknowledged: Mutex::new(Vec::new()),
                     setup: Arc::new(tokio::sync::Mutex::new(())),

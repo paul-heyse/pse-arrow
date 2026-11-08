@@ -241,6 +241,9 @@ impl ProjectPublication {
     pub fn operation(&self) -> &str {
         &self.operation
     }
+    pub(crate) fn issuing_store(&self) -> &str {
+        &self.issuing_store
+    }
     /// Saved draft identity and generation required by this original intent.
     pub fn draft(&self) -> Option<(&str, u64)> {
         self.draft.as_deref().zip(self.draft_generation)

@@ -56,6 +56,10 @@ impl ProjectImportIntent {
     pub fn operation(&self) -> &str {
         self.publication.operation()
     }
+    /// Exact installation incarnation authorized by this original intent.
+    pub fn issuing_store(&self) -> &str {
+        self.publication.issuing_store()
+    }
     /// Original receiving authority, bundle and destination commitment are validated before effects.
     pub fn validate(&self) -> Result<(), CanonicalError> {
         self.publication.validate()?;

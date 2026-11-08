@@ -5,6 +5,7 @@ use super::{ModelingPackage, Runtime, WorkflowError, contract};
 use pse_ids::SemanticId;
 use pse_model::generated::identities::{DeclarationId, FitId};
 use pse_operations::{
+    canonical::CanonicalStore,
     canonical_contexts::ContextSelection,
     canonical_projects::Project,
     canonical_research::{ResearchDataset, ResearchSelection},
@@ -109,7 +110,7 @@ pub enum ResearchReadRequest {
         project: String,
         #[doc = "Exclusive immutable key."]
         after: String,
-        #[doc = "At most128metadata records."]
+        #[doc = "At most 128 metadata records."]
         limit: usize,
     },
     /// One exact version.
@@ -160,35 +161,41 @@ fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
         .map_err(pse_engine::EngineError::from)?;
     Ok(())
 }
+/// Read the original research metadata from an already-open canonical owner.
+pub(crate) async fn research_read(
+    store: &CanonicalStore,
+    request: &ResearchReadRequest,
+) -> Result<ResearchReadResult, WorkflowError> {
+    Ok(match request {
+        ResearchReadRequest::Datasets {
+            project,
+            after,
+            limit,
+        } => ResearchReadResult::Datasets {
+            rows: store.research_datasets(project, after, *limit).await?,
+        },
+        ResearchReadRequest::Dataset { key } => {
+            let row = store.research_dataset(key).await?;
+            let members = row.as_ref().map(|r| decoded(&r.members)).transpose()?;
+            ResearchReadResult::Dataset { row, members }
+        }
+        ResearchReadRequest::Selection { key } => {
+            let row = store.research_selection(key).await?;
+            let selection = row
+                .as_ref()
+                .map(|r| decoded(&r.selection).map(Box::new))
+                .transpose()?;
+            ResearchReadResult::Selection { row, selection }
+        }
+    })
+}
 impl Runtime {
     /// Indexed compact discovery; no measurement/result payload is decoded.
     pub async fn research_read(
         &self,
         request: &ResearchReadRequest,
     ) -> Result<ResearchReadResult, WorkflowError> {
-        let store = self.canonical_store()?;
-        Ok(match request {
-            ResearchReadRequest::Datasets {
-                project,
-                after,
-                limit,
-            } => ResearchReadResult::Datasets {
-                rows: store.research_datasets(project, after, *limit).await?,
-            },
-            ResearchReadRequest::Dataset { key } => {
-                let row = store.research_dataset(key).await?;
-                let members = row.as_ref().map(|r| decoded(&r.members)).transpose()?;
-                ResearchReadResult::Dataset { row, members }
-            }
-            ResearchReadRequest::Selection { key } => {
-                let row = store.research_selection(key).await?;
-                let selection = row
-                    .as_ref()
-                    .map(|r| decoded(&r.selection).map(Box::new))
-                    .transpose()?;
-                ResearchReadResult::Selection { row, selection }
-            }
-        })
+        research_read(self.canonical_store()?, request).await
     }
     /// Explicitly reopen selected data through its original protected source/physical owners.
     pub async fn research_dataset_open(

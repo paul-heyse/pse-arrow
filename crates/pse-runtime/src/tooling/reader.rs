@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Product-owned observations and explicit diagnostic investigation, without scientific execution.
 mod canonical;
+#[cfg(feature = "product-operators")]
+mod catalog;
 mod follow;
 mod investigation;
 use super::inspection::{
@@ -15,6 +17,7 @@ use crate::{
     },
 };
 pub use canonical::CanonicalReadSelection;
+pub use canonical::canonical_redaction_policy;
 pub use canonical::project::{ProjectRead, ProjectReadSelection, ProjectReadView, ProjectTarget};
 pub use follow::{Continuity as FollowContinuity, FollowCursor, FollowSample, ProducerPosition};
 pub use investigation::{Request as InvestigationRequest, ResultView as InvestigationResult};
@@ -154,6 +157,18 @@ pub enum Request {
         /// Original typed project metadata, branch or draft query.
         query: ProjectRead,
     },
+    /// Observe existing managed definitions under the exact selected issuing store.
+    #[cfg(feature = "product-operators")]
+    InspectCanonicalCatalog {
+        /// Existing private deployment state directory.
+        state: NativePath,
+        /// Explicit existing database, or the deployment default.
+        database: Option<String>,
+        /// Required persistent canonical issuing-store UUID.
+        expected_issuer: String,
+        /// Bounded observer allowance in milliseconds.
+        timeout_ms: Option<std::num::NonZeroU64>,
+    },
     /// Existing checkpoint catalogue; only selected process images are decoded.
     Processes {
         /// Explicit existing diagnostic checkpoint directory.
@@ -261,15 +276,19 @@ pub struct Failure {
 }
 impl Failure {
     fn capture(code: &str, error: &dyn std::error::Error) -> Self {
+        let policy = pse_host::envelope::RedactionPolicy::from_environment();
         let mut causes = Vec::new();
         let mut cause = error.source();
-        while let Some(error) = cause {
-            causes.push(error.to_string());
+        for _ in 0..16 {
+            let Some(error) = cause else {
+                break;
+            };
+            causes.push(policy.redact(&error.to_string()));
             cause = error.source();
         }
         Self {
             code: code.into(),
-            message: error.to_string(),
+            message: policy.redact(&error.to_string()),
             causes,
             native: None,
         }
@@ -400,6 +419,9 @@ pub enum Payload {
         /// Fixed, separately admitted project-effect protocol in this captured executable.
         #[serde(skip_serializing_if = "Option::is_none")]
         project_perform: Option<u32>,
+        /// Fixed exact project import issue, apply and recovery actions.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        project_import: Option<u32>,
     },
     /// Native directional schema document; it validates representation, not scientific meaning.
     Schema {
@@ -422,6 +444,12 @@ pub enum Payload {
         target: ProjectTarget,
         /// Original typed metadata page or header.
         result: Box<ProjectReadView>,
+    },
+    /// Passive managed catalog and generated-definition comparison.
+    #[cfg(feature = "product-operators")]
+    CanonicalCatalog {
+        /// Exact selected issuer, observed marker and redacted managed identities.
+        observation: Box<pse_operations::canonical::maintenance::CatalogObservation>,
     },
     /// Existing native catalogue and explicit cursor/source boundaries.
     Processes {
@@ -596,6 +624,13 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
         Request::Discover | Request::Schema { .. } => {}
         Request::InspectProjectPack { input, .. } => absolute(&input.to_path_buf())?,
         Request::Project { canonical, .. } => canonical.validate()?,
+        #[cfg(feature = "product-operators")]
+        Request::InspectCanonicalCatalog {
+            state, timeout_ms, ..
+        } => {
+            absolute(&state.to_path_buf())?;
+            catalog::timeout(*timeout_ms)?;
+        }
         Request::Processes {
             directory,
             limit: requested,
@@ -813,6 +848,7 @@ fn handle(
             request_bytes: REQUEST_BYTES,
             response_bytes: RESPONSE_BYTES,
             project_perform: cfg!(feature = "product-reader").then_some(1),
+            project_import: cfg!(feature = "product-reader").then_some(1),
         }),
         Request::Schema { contract } => Ok(Payload::Schema {
             identity: match contract {
@@ -1084,6 +1120,10 @@ fn handle(
         Request::Study { .. } | Request::Attempt { .. } | Request::Project { .. } => Err(invalid(
             "canonical requests require their owned encoding boundary",
         )),
+        #[cfg(feature = "product-operators")]
+        Request::InspectCanonicalCatalog { .. } => Err(invalid(
+            "canonical requests require their owned encoding boundary",
+        )),
     }
 }
 fn correlation(bytes: &[u8]) -> String {
@@ -1108,14 +1148,28 @@ fn decode(bytes: &[u8]) -> Result<ReaderRequest, ReaderError> {
     Ok(request)
 }
 fn response(correlation: String, result: Result<Payload, ReaderError>) -> ReaderResponse {
+    response_with_policy(
+        correlation,
+        result,
+        &pse_host::envelope::RedactionPolicy::from_environment(),
+    )
+}
+
+fn response_with_policy(
+    correlation: String,
+    result: Result<Payload, ReaderError>,
+    policy: &pse_host::envelope::RedactionPolicy,
+) -> ReaderResponse {
     let (category, payload, original_failure) = match result {
         Ok(payload) => (Category::Success, payload, None),
         Err(error) => {
-            let mut failure = Failure::capture("request.refused", &error);
-            failure.native = Some(pse_host::envelope::ErrorRecord::from_typed(
-                &error,
-                &pse_host::envelope::RedactionPolicy::from_environment(),
-            ));
+            let native = pse_host::envelope::ErrorRecord::from_typed(&error, policy);
+            let failure = Failure {
+                code: "request.refused".into(),
+                message: native.message.clone(),
+                causes: native.causes.clone(),
+                native: Some(native),
+            };
             (
                 Category::Refused,
                 Payload::Refusal { failure },
@@ -1292,6 +1346,25 @@ pub fn encode(
             request: Request::Project { canonical, query },
             ..
         }) => canonical::project::encode(correlation, canonical, query, cancel),
+        #[cfg(feature = "product-operators")]
+        Ok(ReaderRequest {
+            correlation,
+            request:
+                Request::InspectCanonicalCatalog {
+                    state,
+                    database,
+                    expected_issuer,
+                    timeout_ms,
+                },
+            ..
+        }) => catalog::encode(
+            correlation,
+            state,
+            database,
+            &expected_issuer,
+            timeout_ms,
+            cancel,
+        ),
         Ok(ReaderRequest {
             correlation,
             request,

@@ -660,6 +660,33 @@ impl CanonicalOptions {
         state: &Path,
         database: Option<&str>,
     ) -> Result<Self, CanonicalError> {
+        let (mut options, connection) = Self::read_connection_options(state, database)?;
+        options.initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
+        let admission = WriteAdmission::read(state)?;
+        if admission.derived_rebuild_pending.is_some()
+            || admission.surrealkit_rollout_pending.is_some()
+        {
+            admission.require_initializer(
+                state,
+                &options.namespace,
+                &options.database,
+                options.initializer_nonce.as_deref(),
+            )?;
+        }
+        if connection.schema_interpretation != wire::INTERPRETATION {
+            return Err(CanonicalError::Interpretation {
+                expected: wire::INTERPRETATION,
+                observed: connection.schema_interpretation,
+            });
+        }
+        study_module::StudyModuleReceipt::read(state)?;
+        Ok(options)
+    }
+
+    fn read_connection_options(
+        state: &Path,
+        database: Option<&str>,
+    ) -> Result<(Self, crate::deployment::CanonicalConnectionSettings), CanonicalError> {
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         struct Credentials {
@@ -715,7 +742,44 @@ impl CanonicalOptions {
                     return Err(CanonicalError::Configuration("canonical configuration and credentials must be private and share the state owner".into()));
                 }
             }
-            std::fs::read(path).map_err(|error| CanonicalError::Configuration(error.to_string()))
+            use std::io::Read as _;
+            let mut options = std::fs::OpenOptions::new();
+            options.read(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt as _;
+                options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+            }
+            let configuration_error =
+                |error: std::io::Error| CanonicalError::Configuration(error.to_string());
+            let file = options.open(path).map_err(configuration_error)?;
+            let opened = file.metadata().map_err(configuration_error)?;
+            if !opened.is_file() || opened.len() > max_bytes {
+                return Err(CanonicalError::Configuration(
+                    "canonical configuration must be a bounded real file".into(),
+                ));
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::MetadataExt as _;
+                if opened.dev() != metadata.dev()
+                    || opened.ino() != metadata.ino()
+                    || opened.uid() != metadata.uid()
+                    || opened.mode() & 0o077 != 0
+                {
+                    return Err(CanonicalError::Configuration(
+                        "canonical private configuration changed while opening".into(),
+                    ));
+                }
+            }
+            let mut bytes = Vec::new();
+            file.take(max_bytes + 1)
+                .read_to_end(&mut bytes)
+                .map_err(configuration_error)?;
+            if bytes.len() as u64 > max_bytes {
+                return Err(CanonicalError::PayloadLimit);
+            }
+            Ok(bytes)
         };
         let configuration = read(
             &state.join("config.json"),
@@ -741,46 +805,30 @@ impl CanonicalOptions {
             }
             deployment.database = database.to_owned();
         }
-        let initializer_nonce = std::env::var(INITIALIZER_AUTHORITY).ok();
-        let admission = WriteAdmission::read(state)?;
-        if admission.derived_rebuild_pending.is_some()
-            || admission.surrealkit_rollout_pending.is_some()
-        {
-            admission.require_initializer(
-                state,
-                &deployment.namespace,
-                &deployment.database,
-                initializer_nonce.as_deref(),
-            )?;
-        }
-        if connection.schema_interpretation != wire::INTERPRETATION {
-            return Err(CanonicalError::Interpretation {
-                expected: wire::INTERPRETATION,
-                observed: connection.schema_interpretation,
-            });
-        }
         if connection.max_message_bytes != MESSAGE_BYTES {
             return Err(CanonicalError::Configuration(
                 "unsupported protocol bound".into(),
             ));
         }
-        study_module::StudyModuleReceipt::read(state)?;
         let credentials: Credentials = serde_json::from_slice(&read(
             Path::new(&connection.credentials_file),
             CREDENTIALS_FILE_BYTES,
         )?)
-        .map_err(|error| CanonicalError::Configuration(error.to_string()))?;
-        Ok(Self {
-            endpoint: deployment.endpoint,
-            namespace: deployment.namespace,
-            database: deployment.database,
-            username: credentials.username,
-            password: credentials.password,
-            selection_username: credentials.selection_username,
-            selection_password: credentials.selection_password,
-            state_path: state.to_owned(),
-            initializer_nonce,
-        })
+        .map_err(|_| CanonicalError::Configuration("invalid canonical credential record".into()))?;
+        Ok((
+            Self {
+                endpoint: deployment.endpoint,
+                namespace: deployment.namespace,
+                database: deployment.database,
+                username: credentials.username,
+                password: credentials.password,
+                selection_username: credentials.selection_username,
+                selection_password: credentials.selection_password,
+                state_path: state.to_owned(),
+                initializer_nonce: None,
+            },
+            connection,
+        ))
     }
 }
 
