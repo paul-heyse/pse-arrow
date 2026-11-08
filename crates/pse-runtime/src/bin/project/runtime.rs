@@ -480,7 +480,11 @@ mod tests {
     async fn configured_project_cli_preserves_the_live_issuer_and_original_acknowledgement() {
         use pse_operations::native_fixture::{FixtureSelection, canonical_fixture_store};
         use serde_json::Value;
-        use std::process::Command;
+        use std::{
+            io::Write as _,
+            process::{Command, Stdio},
+            time::Duration,
+        };
 
         let fixture = FixtureSelection::selected().unwrap();
         let store = canonical_fixture_store().unwrap();
@@ -496,13 +500,16 @@ mod tests {
                 "[targets.{alias}]\nstate = {state}\ndatabase = {database:?}\nissuing_store = {issuer:?}\nreader = {reader:?}\n"
             )
         };
-        let run = |action: &str, arguments: &[&str]| {
-            let output = Command::new(&launcher)
+        let command = |action: &str, arguments: &[&str]| {
+            let mut command = Command::new(&launcher);
+            command
                 .args(["--format", "json", "project", action, "--context-file"])
                 .arg(settings.path())
-                .args(arguments)
-                .output()
-                .unwrap();
+                .args(arguments);
+            command
+        };
+        let run = |action: &str, arguments: &[&str]| {
+            let output = command(action, arguments).output().unwrap();
             let bytes = if output.stdout.is_empty() {
                 &output.stderr
             } else {
@@ -527,6 +534,53 @@ mod tests {
         let (status, recovered) = run("acknowledgement", &["--operation", "cli-create"]);
         assert!(status.success(), "{recovered}");
         assert_eq!(recovered["payload"], original["payload"]);
+
+        // Prevent delivery of the CLI reply while the original owner can still commit.
+        let (unread, mut blocked) = std::io::pipe().unwrap();
+        let capacity = rustix::pipe::fcntl_getpipe_size(&blocked).unwrap();
+        blocked.write_all(&vec![0; capacity]).unwrap();
+        let mut interrupted = tokio::process::Command::from(command(
+            "create",
+            &[
+                "--operation",
+                "lost-reply",
+                "lost-reply-project",
+                "Committed",
+            ],
+        ));
+        let mut child = interrupted
+            .stdout(Stdio::from(blocked))
+            .stderr(Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                if store
+                    .project_acknowledgement("lost-reply")
+                    .await
+                    .unwrap()
+                    .is_some()
+                {
+                    break;
+                }
+                assert!(child.try_wait().unwrap().is_none());
+                tokio::time::sleep(Duration::from_millis(25)).await;
+            }
+        })
+        .await
+        .expect("original operation should commit while its reply is blocked");
+        assert!(child.try_wait().unwrap().is_none());
+        child.kill().await.unwrap();
+        drop(unread);
+        let (status, recovered) = run("acknowledgement", &["--operation", "lost-reply"]);
+        assert!(status.success(), "{recovered}");
+        assert_eq!(recovered["payload"]["acknowledgement"]["key"], "lost-reply");
+        assert_eq!(
+            recovered["payload"]["acknowledgement"]["project"],
+            "lost-reply-project"
+        );
+
         let (status, changed) = run(
             "create",
             &["--operation", "cli-create", "configured", "Different title"],
