@@ -232,6 +232,15 @@ observation supplies no current scientific admission or original-context restora
 [Recorded-result generator](../../xtask/src/codegen/recorded_result.rs) ·
 [Independent host comparator](../../crates/pse-host/src/schema/compare/semantics.rs)
 
+**Tested, selected:** `scripts/pse test pse-contract-proto pse-host --lib` with the
+acquired comparison and host semantic filters passed seven controls with zero
+failures, 16 build warnings and complete settlement in
+`01a1bd39-3eb1-747b-86ff-addefb6fdee5`. The native comparison reuses each exact
+acquired Buffa pool for its file-scoped original policy and preserves the
+original file occurrence inventory when acquisition deduplicates identical files.
+The selected recorded-result CLI comparison reported compatible native coverage.
+[Acquired descriptor comparison](../../crates/pse-contract-proto/src/lib.rs)
+
 ### B03 — Finish finite source-to-consumer migrations
 
 The migration population is the current selected engineering requests/responses/edits/progress,

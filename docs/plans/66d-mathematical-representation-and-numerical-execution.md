@@ -116,6 +116,29 @@ unavailable symbolic/higher-precision products. Any broader supplier extension n
 preconstruction admission and registration custody, following the scope discipline in the existing
 [bounded-root maintenance contract](../../vendor/symbolica-bounded-roots.md).
 
+The binary recipe receiver is exercised only in tests and invokes the same
+`reconstruct_recipe` as JSON v3. The native [typed admission](../../crates/pse-compiler/src/typed_math/direct.rs)
+uses Symbolica normalization during body construction and shared partials. The
+[formal pool](../../crates/pse-math/src/library.rs) can register a full symbol chunk
+while resolving a slot. Restricting a recipe to already registered slots would
+leave coefficient, normalization and derivative construction without enforceable
+preconstruction admission. No current canonical consumer can use an atom-only restriction
+or the compiled Value/First product in place of its admitted symbolic body. Keep
+canonical binary activation open and retain JSON v3.
+
+### D03 response selection for current consumers
+
+**Interface-checked.** Keep retained factors for the existing root predictor and
+the direct weighted-response SVD for fitting. The four-cell 31/61-point H03
+controls exercise refinement and accuracy without requesting a response. The
+known-area and confounded exchanger fits exercise rank and withholding over one or
+two fit columns. The existing sparse predictor is a small authored root control.
+None supplies a large repeated-right-hand-side workload for an LSMR comparison.
+Revisit when a named large sparse response has an admitted original-coordinate
+forward and transpose operator, a preconditioner candidate and a useful repeated
+solve workload. [Root predictor control](../../crates/pse-runtime/src/workflow/modeling/root_response_tests.rs) ·
+[Exchanger fitting controls](../../crates/pse-runtime/src/workflow/fitting/scientific_equipment_tests.rs)
+
 ## First demanded mathematical correction — November6
 
 H03's single aqueous cell reached a 610-coordinate simultaneous formulation and passed its
@@ -227,7 +250,7 @@ native quality check was weakened. The source controls are
 | --- | --- | --- | --- |
 | D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
 | D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. Continue other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
-| D03 | planned | A selected large-response consumer; current direct factor/SVD route | Decide factors versus faer actions using correctness, convergence/preconditioner, scratch and whole-operation evidence. Deliver the action route only if justified; otherwise retain factors with the comparison and revisit trigger. |
+| D03 | in-progress | A selected large-response consumer; current direct factor/SVD route | Retain factors and SVD for the traced current consumers. A large-response comparison is pending a named workload and an admitted operator/preconditioner. |
 | D04 | planned | Changed maintained arithmetic/provider consumers | Complete receiving controls for actual SCIP/Diffsol/KINSOL/NLP/native-root closures affected by changes; add missing invocation-bound regime/selection observation under ADR-0251's selected contract. Source/preparation logs cannot stand in for winning observations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
 

@@ -173,7 +173,7 @@ is unresolved. The separate standalone sampled-value control passed under native
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Original experiment assessment, fit/standalone native-member permission and selected protected trajectory interpretation are integrated. The steady partial-buffer control retains completed rows, typed retirement causes and unattempted successors through original export. Point/product authority, wider member consumers and authentic historical adoption remain open. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers now share exact sampled-output lookup under original member permission. The steady partial-buffer control retains completed rows, typed retirement causes and unattempted successors through original export. Broader point/product authority, Study receiving and authentic historical adoption remain open. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
 | A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
@@ -182,6 +182,15 @@ Packages consume narrow working prerequisites rather than entire companions. In 
 ordinary steady analysis does not wait for distributed or specialized physics.
 
 ## Verification and outcome
+
+**Tested, selected:** the original fit-member and standalone-member controls passed
+in native runtime invocation `01a1bd26-6f64-7207-8da5-08ef8c807c89`, selected with
+`scripts/pse test pse-runtime --lib --features native-service,engineering-service,property-coolprop,solver-diffsol,solver-ipopt,solver-kinsol,solver-root-isolation`.
+`FitTrajectory::qualified_output_at` retains the original attempt and member with the
+sample, including exact original time and authored output identity for two outputs
+of the same quantity. Unavailable or ambiguous original products withhold use.
+The combined selection returned 33 passes and one aqueous source staging failure
+against zero, with 11 build warnings and complete settlement. [Fit sample owner](../../crates/pse-runtime/src/workflow/fitting/trajectory.rs)
 
 **Proposed verification:** exercise two same-quantity products at different points/members,
 foreign attempts, duplicate steps, failed siblings and zero-member Analyze. Change a value
