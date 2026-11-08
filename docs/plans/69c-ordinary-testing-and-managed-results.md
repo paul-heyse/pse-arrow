@@ -71,13 +71,19 @@ effective test selection, admitted population, and verdict as separate facts.
   `--cargo-metadata` to enumerate an existing build. The current adapter copies every
   Cargo executable event before knowing the binary membership. One interrupted
   listing retained about 12 GB of such copies. First establish the required images
-  from nextest membership and its auxiliary dependencies. Then test borrowing the
-  existing prepared controls. When a test outlives the build's custody, share a
+  from nextest membership and its auxiliary dependencies. The pinned runner's
+  `BinaryListBuilder` classifies Cargo messages without reading executable contents.
+  Its `BIN_EXE` helpers are exposed to integration tests and benchmarks. Prefer the
+  existing binary-list JSON boundary. Consider the builder if classification must
+  happen while the Cargo artifact producer still holds custody. Then test borrowing
+  the existing prepared controls. When a test outlives the build's custody, share a
   content-addressed immutable copy by digest, with leases through actual drain. A
   metadata-only listing can borrow a build if its owner establishes stable image identity
   through enumeration. This workstation's ext4 probe refused reflinking. Compare bytes
   copied and retained, exact test and filter parity, and replacement or cancellation
   behavior on a small selection with a normal integration helper. [Nextest machine-readable listing](https://nexte.st/docs/machine-readable/list/) ·
+  [Pinned runner binary-list source](https://docs.rs/crate/nextest-runner/0.124.0/source/src/list/binary_list.rs) ·
+  [Pinned helper mapping](https://docs.rs/crate/nextest-runner/0.124.0/source/src/list/test_list.rs) ·
   [Current capture](../../crates/pse-host/src/discovery/capture.rs)
 
 ## C02 — Test outcome and exact failed rerun
