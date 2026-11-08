@@ -5,23 +5,45 @@
     dead_code,
     reason = "different test binaries consume different capsule projections"
 )]
-use std::{collections::BTreeMap, sync::OnceLock};
+use std::{collections::BTreeMap, ffi::OsString, sync::OnceLock};
 
 #[path = "scientific-input-data.rs"]
 mod data;
 use data::Capsule;
 
+static CAPTURE: OnceLock<Capsule> = OnceLock::new();
+
+fn capture_path() -> OsString {
+    std::env::var_os("PSE_SCIENTIFIC_INPUTS").expect(
+        "scientific inputs require explicit preparation: scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --features physical-admission --locked -- scientific-inputs tests/fixtures/scientific-inputs.toml <output>; bind PSE_SCIENTIFIC_INPUTS to that capsule",
+    )
+}
+
+fn decode_capsule(bytes: &[u8]) -> Capsule {
+    let input: Capsule = serde_json::from_slice(bytes).expect("decode scientific capsule");
+    assert_eq!(
+        input.schema,
+        data::SCHEMA,
+        "unknown scientific input contract"
+    );
+    input
+}
+
 fn capsule() -> &'static Capsule {
-    static CAPTURE: OnceLock<Capsule> = OnceLock::new();
     CAPTURE.get_or_init(|| {
-        let path = std::env::var_os("PSE_SCIENTIFIC_INPUTS").expect(
-            "scientific inputs require explicit preparation: scripts/pse-env -- scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --features physical-admission --locked -- scientific-inputs tests/fixtures/scientific-inputs.toml <output>; bind PSE_SCIENTIFIC_INPUTS to that capsule",
-        );
-        let bytes = std::fs::read(path).expect("read captured scientific inputs");
-        let input: Capsule = serde_json::from_slice(&bytes).expect("decode scientific capsule");
-        assert_eq!(input.schema, data::SCHEMA, "unknown scientific input contract");
-        input
+        let bytes = std::fs::read(capture_path()).expect("read captured scientific inputs");
+        decode_capsule(&bytes)
     })
+}
+
+/// Bind the capsule for this process's preflight and return those same bytes for its child.
+pub(crate) fn capture_for_child() -> Vec<u8> {
+    let bytes = std::fs::read(capture_path()).expect("read captured scientific inputs");
+    assert!(
+        CAPTURE.set(decode_capsule(&bytes)).is_ok(),
+        "capture child inputs before binding any scientific input"
+    );
+    bytes
 }
 
 pub(crate) fn file_bytes(logical_path: &str) -> Vec<u8> {

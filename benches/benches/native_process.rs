@@ -57,6 +57,7 @@ use pse_runtime::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::Write,
     num::NonZeroUsize,
     path::PathBuf,
     time::{Duration, Instant},
@@ -264,15 +265,31 @@ fn process(c: &mut Criterion) {
             .expect("native process benchmark output directory"),
     );
     let inputs = admission::process_inputs(spec);
-    // Bind the already prepared capsule through the same reader used during
-    // the case. Its process-local capture is retained through the callbacks.
+    let capture = (inputs.canonical
+        && inputs.authored.is_some()
+        && std::env::var_os(pse_operations::native_fixture::SELECTION_ENV).is_none())
+    .then(fixture::capture_inputs_for_child);
+    // Validate the same bytes the case will consume. A re-executed fixture child
+    // inherits the private snapshot instead of reopening the original path.
     match inputs.authored {
         Some(admission::AuthoredInput::Physical) => fixture::require_physical_inputs(),
         Some(admission::AuthoredInput::SeedTransport) => fixture::require_seed_inputs(),
         None => {}
     }
-    if admission::admit(inputs, mode, Some(&output))
-        .unwrap_or_else(|error| panic!("benchmark prerequisite refused: {error}"))
+    let snapshot = capture.map(|bytes| {
+        let mut snapshot = tempfile::NamedTempFile::new().expect("private scientific capsule");
+        snapshot
+            .write_all(&bytes)
+            .expect("retain scientific capsule");
+        snapshot
+    });
+    if admission::admit(
+        inputs,
+        mode,
+        Some(&output),
+        snapshot.as_ref().map(|snapshot| snapshot.path()),
+    )
+    .unwrap_or_else(|error| panic!("benchmark prerequisite refused: {error}"))
     {
         return;
     }

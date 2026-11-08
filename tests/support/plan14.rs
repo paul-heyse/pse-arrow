@@ -21,6 +21,10 @@ const PHYSICAL_PACKAGE: &str = "packages/reference/physical";
 const SEED_PACKAGE: &str = "packages/reference/seed-data";
 const SEED_TRANSPORT: &str = "seed-transport";
 
+pub(crate) fn capture_inputs_for_child() -> Vec<u8> {
+    scientific_inputs::capture_for_child()
+}
+
 pub(crate) fn require_physical_inputs() {
     scientific_inputs::require_package(PHYSICAL_PACKAGE);
 }

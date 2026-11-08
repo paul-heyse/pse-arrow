@@ -678,24 +678,26 @@ pub(super) fn measure(
             let pool = owner.runtime.pool();
             retained = retained.max(pool.reserved());
             let _teardown = audit::stage("fixture_teardown");
-            let cleanup = executor.block_on(owner.cleanup_fixtures());
-            audit::cleanup_result(cleanup.is_ok());
-            cleanup.unwrap();
+            let native_drain = executor.block_on(owner.runtime.math().shutdown_native_lanes());
+            let fixture_cleanup = executor.block_on(owner.cleanup_fixtures());
+            audit::cleanup_result(native_drain.is_ok() && fixture_cleanup.is_ok());
+            assert!(
+                native_drain.is_ok() && fixture_cleanup.is_ok(),
+                "extended benchmark teardown: {native_drain:?}, {fixture_cleanup:?}"
+            );
             drop(owner);
-            executor.block_on(async {
-                tokio::task::yield_now().await;
-            });
-            after_teardown = after_teardown.max(pool.reserved());
+            let after_runtime_teardown_bytes = pool.reserved();
+            after_teardown = after_teardown.max(after_runtime_teardown_bytes);
             if operation == "shooting" {
                 assert_eq!(
-                    pool.reserved(),
+                    after_runtime_teardown_bytes,
                     0,
                     "one-shot shooting escaped runtime teardown"
                 );
             }
             records.push(json!({"seconds":invocation_begin.elapsed().as_secs_f64(),"numerical_observations":observations.json(),
                 "compiler_phases":compiler_phases.report(1),"compiler_constructions":compiler_phases.constructions(),
-                "start_role":"NoPriorStart","after_runtime_teardown_bytes":pool.reserved(),
+                "start_role":"NoPriorStart","after_runtime_teardown_bytes":after_runtime_teardown_bytes,
                 "clock_scope":"whole executed closure; task-local preparations cover source/preparation/execution and assessment"}));
             iterations += 1;
         })
@@ -715,6 +717,7 @@ pub(super) fn measure(
         "timed_scope":if operation == "shooting" { "fresh runtime, original source/physical admission, IDAS simulation preparation, single-shooting preparation, one native solve, original scientific/transport assessment, fixture and runtime teardown" } else { "complete extended public operation and teardown" },
         "phase_boundary":if operation == "shooting" { "one public shooting start/wait includes native optimization, fresh candidate trajectory and completion assessment; no manufactured repeat session; Cargo/native installation before benchmark entry is excluded" } else { "public preparation/execution completion boundaries" },
         "start_policy":"NoPriorStart","sampling":"10 flat Criterion samples; warmup 250ms; target 1s extended for slow cases",
-        "memory_scope":"finite-pool reservations and independent process VmHWM; retained runtime before owner teardown reported separately"
+        "memory_scope":"finite-pool reservations and independent process VmHWM; retained runtime before owner teardown reported separately",
+        "teardown_observation":"one pool read per callback after native lane drain, fixture cleanup and runtime owner drop"
     })).unwrap()).unwrap();
 }

@@ -396,6 +396,7 @@ mod command {
     }
 
     /// Lend one authenticated disposable fixture to the original benchmark image.
+    /// The caller keeps the optional private scientific capsule through settlement.
     ///
     /// # Errors
     /// Prepared inputs, child execution or independent physical settlement refuse.
@@ -403,6 +404,7 @@ mod command {
         root: &Path,
         helper_build: &Path,
         outcome: PathBuf,
+        scientific_inputs: Option<&Path>,
     ) -> Result<ExitStatus, NativeServiceError> {
         let root = root.canonicalize()?;
         let build = pse_host::discovery::BuildCapture::read(helper_build)?;
@@ -439,6 +441,9 @@ mod command {
         command
             .current_dir(std::env::current_dir()?)
             .args(std::env::args_os().skip(1));
+        if let Some(scientific_inputs) = scientific_inputs {
+            command.env("PSE_SCIENTIFIC_INPUTS", scientific_inputs);
+        }
         let service = NativeCanonicalService::new(NativeServiceSpec {
             server,
             helper: helper.captured,

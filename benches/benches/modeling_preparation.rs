@@ -622,6 +622,7 @@ fn preparation(c: &mut Criterion) {
             admission::preparation_inputs(workload),
             mode,
             output.as_deref(),
+            None,
         )
         .unwrap_or_else(|error| panic!("benchmark prerequisite refused: {error}"))
     {

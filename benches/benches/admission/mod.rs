@@ -113,6 +113,7 @@ pub(crate) fn admit(
     inputs: Inputs,
     mode: CriterionMode,
     output: Option<&Path>,
+    scientific_inputs: Option<&Path>,
 ) -> Result<bool, Box<dyn Error>> {
     if inputs.local() || mode == CriterionMode::List {
         return Ok(false);
@@ -153,11 +154,20 @@ pub(crate) fn admit(
     let helper_build = std::env::var_os(CANONICAL_BUILD).ok_or_else(|| {
         io::Error::other("canonical benchmark requires a prepared service helper capture")
     })?;
-    launch_fixture(Path::new(&helper_build), output)
+    if inputs.authored.is_some() && scientific_inputs.is_none() {
+        return Err(
+            io::Error::other("canonical benchmark requires a retained scientific capsule").into(),
+        );
+    }
+    launch_fixture(Path::new(&helper_build), output, scientific_inputs)
 }
 
 #[cfg(feature = "prepared-benchmark")]
-fn launch_fixture(helper_build: &Path, output: &Path) -> Result<bool, Box<dyn Error>> {
+fn launch_fixture(
+    helper_build: &Path,
+    output: &Path,
+    scientific_inputs: Option<&Path>,
+) -> Result<bool, Box<dyn Error>> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .ok_or_else(|| io::Error::other("benchmark checkout root unavailable"))?;
@@ -168,6 +178,7 @@ fn launch_fixture(helper_build: &Path, output: &Path) -> Result<bool, Box<dyn Er
             root,
             helper_build,
             output.join("fixture-outcome.json"),
+            scientific_inputs,
         ))?;
     if status.success() {
         Ok(true)
@@ -177,7 +188,11 @@ fn launch_fixture(helper_build: &Path, output: &Path) -> Result<bool, Box<dyn Er
 }
 
 #[cfg(not(feature = "prepared-benchmark"))]
-fn launch_fixture(_helper_build: &Path, _output: &Path) -> Result<bool, Box<dyn Error>> {
+fn launch_fixture(
+    _helper_build: &Path,
+    _output: &Path,
+    _scientific_inputs: Option<&Path>,
+) -> Result<bool, Box<dyn Error>> {
     Err(
         io::Error::other("canonical fixture owner requires Cargo feature prepared-benchmark")
             .into(),
