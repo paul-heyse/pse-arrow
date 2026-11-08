@@ -6,18 +6,31 @@ use anyhow::{Context, Result, bail};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, Permissions},
-    io::{self, Read as _, Write as _},
+    io::{self, Write as _},
     path::{Path, PathBuf},
 };
 
-type Identity = [u8; 32];
+pub(super) type Identity = [u8; 32];
 
-struct ObservedFile {
-    identity: Identity,
+pub(super) struct ObservedFile {
+    pub(super) identity: Identity,
     permissions: Permissions,
 }
 
-fn observe(root: &Path, relative: &Path) -> Result<Option<ObservedFile>> {
+pub(super) fn digest(mut input: impl io::Read) -> Result<Identity> {
+    let mut digest = Sha256::new();
+    let mut buffer = [0; 32 * 1024];
+    loop {
+        let count = input.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        digest.update(&buffer[..count]);
+    }
+    Ok(digest.finalize().into())
+}
+
+pub(super) fn observe(root: &Path, relative: &Path) -> Result<Option<ObservedFile>> {
     reject_symlinks(root, relative)?;
     let path = root.join(relative);
     let metadata = match fs::symlink_metadata(&path) {
@@ -29,31 +42,22 @@ fn observe(root: &Path, relative: &Path) -> Result<Option<ObservedFile>> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error).with_context(|| format!("inspecting {}", path.display())),
     };
-    let mut file = File::open(&path).with_context(|| format!("reading {}", path.display()))?;
-    let mut digest = Sha256::new();
-    let mut buffer = [0; 32 * 1024];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        digest.update(&buffer[..count]);
-    }
+    let file = File::open(&path).with_context(|| format!("reading {}", path.display()))?;
     Ok(Some(ObservedFile {
-        identity: digest.finalize().into(),
+        identity: digest(file)?,
         permissions: metadata.permissions(),
     }))
 }
 
-struct Entry<'a> {
-    relative: PathBuf,
-    before: Option<Identity>,
-    after: Option<StagedFile<'a>>,
+pub(super) struct Entry<'a> {
+    pub(super) relative: PathBuf,
+    pub(super) before: Option<Identity>,
+    pub(super) after: Option<StagedFile<'a>>,
 }
 
-struct StagedFile<'a> {
-    identity: Identity,
-    bytes: &'a [u8],
+pub(super) struct StagedFile<'a> {
+    pub(super) identity: Identity,
+    pub(super) bytes: &'a [u8],
 }
 
 impl Entry<'_> {
@@ -71,7 +75,7 @@ impl Entry<'_> {
         )
     }
 
-    fn publish(&self, root: &Path) -> Result<()> {
+    pub(super) fn publish(&self, root: &Path) -> Result<()> {
         let current = observe(root, &self.relative)?;
         if !self.pending(current.as_ref())? {
             return Ok(());
@@ -80,8 +84,12 @@ impl Entry<'_> {
         let parent = destination
             .parent()
             .context("generated file has no parent")?;
+        #[cfg(unix)]
+        let mut created = Vec::new();
         match &self.after {
             Some(file) => {
+                #[cfg(unix)]
+                created.extend(parent.ancestors().take_while(|path| !path.exists()));
                 fs::create_dir_all(parent)?;
                 let mut builder = tempfile::Builder::new();
                 #[cfg(unix)]
@@ -113,7 +121,17 @@ impl Entry<'_> {
             None => fs::remove_file(&destination)?,
         }
         #[cfg(unix)]
-        File::open(parent)?.sync_all()?;
+        {
+            File::open(parent)?.sync_all()?;
+            for directory in created {
+                File::open(
+                    directory
+                        .parent()
+                        .context("new generated directory has no parent")?,
+                )?
+                .sync_all()?;
+            }
+        }
         Ok(())
     }
 }
@@ -176,14 +194,16 @@ impl<'a> Delta<'a> {
     }
 }
 
-pub(super) fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
+pub(super) fn lease(root: &Path) -> Result<File> {
     // Serialize generator publications in this checkout without a tracked lock file.
+    let directory = File::open(root)?;
     #[cfg(unix)]
-    let _lease = {
-        let directory = File::open(root)?;
-        directory.lock()?;
-        directory
-    };
+    directory.lock()?;
+    Ok(directory)
+}
+
+pub(super) fn write_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
+    let _lease = lease(root)?;
     Delta::stage(root, tree)?.apply(root)
 }
 

@@ -1,0 +1,41 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT OR Apache-2.0
+# Copyright (c) 2026 Paul Heyse
+# The ordinary and isolated generation workflows use the same ordered stages.
+set -eu
+stages() {
+    printf '%s\n' rust-contracts recorded-result surreal full-codegen
+}
+case "${1-}" in
+    --stages)
+        stages
+        ;;
+    '')
+        scripts/pse-env --native=compiler,solver -- /bin/true
+        stages | while IFS= read -r stage; do
+            sh "$0" "$stage"
+        done
+        ;;
+    rust-contracts)
+        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
+        ;;
+    recorded-result)
+        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
+        ;;
+    surreal)
+        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+        ;;
+    full-codegen)
+        exec scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
+        ;;
+    native-identity)
+        # The native owner has already verified the immutable selected providers.
+        rustc -vV
+        printf 'solver-prefix=%s\nclang=%s\nlibclang=%s\n' "${IPOPT_DIR:?}" "${CLANG_PATH-}" "${LIBCLANG_PATH-}"
+        sha256sum "$IPOPT_DIR/.complete.json"
+        ;;
+    *)
+        printf 'unknown generator stage\n' >&2
+        exit 2
+        ;;
+esac

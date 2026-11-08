@@ -784,13 +784,9 @@ fmt:
 [doc('Regenerate native relations, JSON schemas, documentation, canonical codecs and Ipopt bindings')]
 [script("bash", "scripts/pse-env", "--recipe-default-class", "functional", "--", "bash", "-euo", "pipefail")]
 codegen:
-    scripts/pse-env --native=compiler,solver -- /bin/true
     # Contracts and the canonical schema first: the full generator's package loader
     # compiles against them, so a registry change never needs a separate bootstrap.
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
-    scripts/pse-env --native=compiler,solver -- scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --features full-codegen,force-validate --locked -- codegen
+    exec sh scripts/source-change-codegen
 
 
 [group('mutating')]
@@ -865,6 +861,14 @@ upgrade +packages:
             print("\n".join(moved))
     PY
     just family-check
+
+[group('mutating')]
+[doc('Refresh named dependency pins, then prepare the host for that checkout')]
+[positional-arguments]
+[script]
+upgrade-host +packages:
+    just upgrade "$@"
+    scripts/pse prepare host
 
 [group('mutating')]
 [doc('Install the pse.slice user unit: CPU weight below the editor, memory-pressure monitoring (machine-local)')]

@@ -28,6 +28,7 @@ mod proto_projection;
 mod publication;
 #[cfg(feature = "recorded-result-contracts")]
 mod recorded_result;
+pub(super) mod source_change;
 
 #[cfg(feature = "native-abi")]
 mod coolprop;
@@ -509,8 +510,27 @@ fn check_tree(root: &Path, tree: &GeneratedTree) -> Result<()> {
 
 #[cfg(feature = "native-abi")]
 fn native_abi(root: &Path, check: bool) -> Result<()> {
-    ipopt::run(root, check)?;
-    coolprop::run(root, check)
+    let mut failures = Vec::new();
+    type AbiGenerator = fn(&Path) -> Result<GeneratedTree>;
+    let generators: [(&str, AbiGenerator); 2] = [
+        ("Ipopt bindings", ipopt::tree),
+        ("CoolProp bindings", coolprop::tree),
+    ];
+    for (label, generate) in generators {
+        check_result(
+            &mut failures,
+            label,
+            generate(root).and_then(|tree| {
+                if check {
+                    check_tree(root, &tree)
+                } else {
+                    write_tree(root, &tree)
+                }
+            }),
+        );
+    }
+    anyhow::ensure!(failures.is_empty(), "native ABI:\n{}", failures.join("\n"));
+    Ok(())
 }
 
 #[cfg(not(feature = "native-abi"))]

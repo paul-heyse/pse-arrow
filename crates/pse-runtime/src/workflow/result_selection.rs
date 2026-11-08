@@ -445,6 +445,7 @@ mod tests {
             .collect()
         );
         let mut historical = serde_json::to_value(&selected).unwrap();
+        assert_eq!(historical["field"], "value");
         historical.as_object_mut().unwrap().remove("context");
         let historical: PackResultSelection = serde_json::from_value(historical).unwrap();
         assert!(historical.context.is_none());
@@ -597,6 +598,9 @@ mod tests {
         let message = world
             .message_index("pse.engineering.v1.RecordedResultSelection")
             .unwrap();
+        let field = world.message(message).field(7).unwrap();
+        assert_eq!(field.name(), "field");
+        assert_eq!(field.json_name(), "field");
         let independent = DynamicMessage::decode(world, message, &bytes).unwrap();
         assert_eq!(
             independent.field_by_number(5),

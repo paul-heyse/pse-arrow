@@ -1,0 +1,58 @@
+diff --git a/crates/pse-schema/src/catalog/projects.rs b/crates/pse-schema/src/catalog/projects.rs
+--- a/crates/pse-schema/src/catalog/projects.rs
++++ b/crates/pse-schema/src/catalog/projects.rs
+@@ -143,6 +143,7 @@
+             vec![
+                 column("key", text()).with_canonical_key(crate::model::CanonicalKeyKind::Project),
+                 column("title", text()),
++                column("description", text()).optional(),
+                 column("deleted", T::native(D::Boolean)),
+                 column("generation", uint()),
+             ],
+diff --git a/crates/pse-operations/src/canonical_transport_tests.rs b/crates/pse-operations/src/canonical_transport_tests.rs
+--- a/crates/pse-operations/src/canonical_transport_tests.rs
++++ b/crates/pse-operations/src/canonical_transport_tests.rs
+@@ -989,6 +989,7 @@
+                     &crate::canonical_projects::Project {
+                         key: "original-project".into(),
+                         title: "Original".into(),
++                        description: None,
+                         deleted: false,
+                         generation: 7,
+                     },
+diff --git a/crates/pse-operations/src/canonical_projects.rs b/crates/pse-operations/src/canonical_projects.rs
+--- a/crates/pse-operations/src/canonical_projects.rs
++++ b/crates/pse-operations/src/canonical_projects.rs
+@@ -1315,6 +1315,32 @@
+         reason = "isolated native project fixtures assert exact owned effects"
+     )]
+     use super::*;
++
++    #[test]
++    fn optional_project_description_preserves_historical_and_explicit_rows() {
++        let mut historical = Object::new();
++        historical.insert("key", Value::String("historical-project".into()));
++        historical.insert("title", Value::String("Historical title".into()));
++        historical.insert("deleted", Value::Bool(false));
++        historical.insert("generation", codec::encode_uint(7).unwrap());
++
++        let previous = wire::decode_canonical_projects(historical.clone()).unwrap();
++        assert_eq!(previous.key, "historical-project");
++        assert_eq!(previous.title, "Historical title");
++        assert_eq!(previous.generation, 7);
++        assert_eq!(previous.description, None);
++
++        historical.insert("description", Value::String("Independent metadata".into()));
++        let explicit = wire::decode_canonical_projects(historical).unwrap();
++        assert_eq!(explicit.description.as_deref(), Some("Independent metadata"));
++        assert_eq!(
++            wire::decode_canonical_projects(wire::encode_canonical_projects(&explicit).unwrap())
++                .unwrap()
++                .description,
++            explicit.description
++        );
++    }
++
+     #[tokio::test]
+     async fn pending_import_is_unavailable_through_public_project_research_and_context_reads() {
+         let store = fixture().await;

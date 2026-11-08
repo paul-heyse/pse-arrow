@@ -21,7 +21,7 @@ const HEADERS: [&str; 6] = [
     "IpReturnCodes_inc.h",
 ];
 
-pub(super) fn run(root: &Path, check: bool) -> Result<()> {
+pub(super) fn tree(root: &Path) -> Result<super::GeneratedTree> {
     let scratch = tempfile::tempdir().context("creating Ipopt generation directory")?;
     let headers = if let Some(prefix) = std::env::var_os("IPOPT_DIR") {
         PathBuf::from(prefix).join("include/coin-or")
@@ -29,38 +29,10 @@ pub(super) fn run(root: &Path, check: bool) -> Result<()> {
         extract_headers(root, scratch.path())?;
         scratch.path().to_owned()
     };
-    let text = generate(&headers)?;
-    let output = root.join(super::BINDINGS);
-    if check {
-        let mut failures = Vec::new();
-        let comparison = (|| {
-            super::reject_symlinks(root, Path::new(super::BINDINGS))?;
-            if fs::read_to_string(&output).context("reading committed Ipopt bindings")? != text {
-                bail!(
-                    "Ipopt bindings differ from actual regenerated headers; run just codegen --only bindgen"
-                );
-            }
-            Ok(())
-        })();
-        super::check_result(&mut failures, "comparison", comparison);
-        super::check_result(
-            &mut failures,
-            "tracking",
-            super::untracked_check(root, &[PathBuf::from(super::BINDINGS)]),
-        );
-        super::finish_checks(failures)?;
-    } else if !matches!(fs::read_to_string(&output), Ok(previous) if previous == text) {
-        fs::write(output, text).context("writing generated Ipopt bindings")?;
-    }
-    println!(
-        "codegen: Ipopt bindings {}",
-        if check {
-            "regeneration matches"
-        } else {
-            "generated"
-        }
-    );
-    Ok(())
+    let path = PathBuf::from(super::BINDINGS);
+    let mut tree = super::GeneratedTree::empty(vec![path.clone()]);
+    tree.files.insert(path, generate(&headers)?.into_bytes());
+    Ok(tree)
 }
 
 fn generate(headers: &Path) -> Result<String> {

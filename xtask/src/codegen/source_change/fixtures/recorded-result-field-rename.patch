@@ -1,0 +1,139 @@
+diff --git a/crates/pse-model/src/recorded_result.rs b/crates/pse-model/src/recorded_result.rs
+--- a/crates/pse-model/src/recorded_result.rs
++++ b/crates/pse-model/src/recorded_result.rs
+@@ -25,7 +25,8 @@
+     /// Exclusive original row coordinate, before selected filtering.
+     pub row_end: u64 => { tag: 6, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+     /// Optional original field/output selection; schema remains the original typed relation.
+-    pub field: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
++    #[serde(rename = "field")]
++    pub selected_field: Option<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [], wire_name: "field" };
+     /// Original closed attempt classification, independent of publication.
+     pub terminal_class: String => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+     #[serde(default)]
+diff --git a/crates/pse-runtime/src/workflow/result_selection.rs b/crates/pse-runtime/src/workflow/result_selection.rs
+--- a/crates/pse-runtime/src/workflow/result_selection.rs
++++ b/crates/pse-runtime/src/workflow/result_selection.rs
+@@ -250,7 +250,7 @@
+             schema_version: value.schema_version,
+             row_start: value.row_start,
+             row_end: value.row_end,
+-            field: value.field.as_deref(),
++            field: value.selected_field.as_deref(),
+             terminal_class: &value.terminal_class,
+             predicate: value.predicate.as_ref().map(|predicate| PredicateMetadata {
+                 output: &predicate.output,
+@@ -393,7 +393,7 @@
+             schema_version: 1,
+             row_start: 4,
+             row_end: 9,
+-            field: Some("value".into()),
++            selected_field: Some("value".into()),
+             terminal_class: "converged".into(),
+             predicate: Some(PackResultPredicate {
+                 output: "owner".into(),
+@@ -556,9 +556,9 @@
+         );
+         metadata = original.clone();
+         let mut empty_field = selected.clone();
+-        empty_field.field = Some(String::new());
++        empty_field.selected_field = Some(String::new());
+         let mut absent_field = empty_field.clone();
+-        absent_field.field = None;
++        absent_field.selected_field = None;
+         assert_ne!(
+             selection_metadata(&empty_field).unwrap(),
+             selection_metadata(&absent_field).unwrap()
+@@ -586,7 +586,7 @@
+         let mut selected = selected_observation();
+         selected.row_start = u64::MAX - 1;
+         selected.row_end = u64::MAX;
+-        selected.field = Some(String::new());
++        selected.selected_field = Some(String::new());
+         selected.usability = PackScientificState::Unusable;
+         let encoded = selection_metadata(&selected).unwrap();
+         let bytes = base64::engine::general_purpose::STANDARD
+diff --git a/crates/pse-runtime/src/workflow/connected_results.rs b/crates/pse-runtime/src/workflow/connected_results.rs
+--- a/crates/pse-runtime/src/workflow/connected_results.rs
++++ b/crates/pse-runtime/src/workflow/connected_results.rs
+@@ -770,7 +770,7 @@
+             schema_version: spec.key.version,
+             row_start: self.start,
+             row_end: self.end,
+-            field: self.output.as_ref().map(|o| o.field.clone()),
++            selected_field: self.output.as_ref().map(|o| o.field.clone()),
+             terminal_class: self
+                 .read
+                 .attempt()
+@@ -1843,7 +1843,7 @@
+                 schema_version: spec.key.version,
+                 row_start: request.row_start,
+                 row_end: request.row_end,
+-                field,
++                selected_field: field,
+                 terminal_class: terminal_class.clone(),
+                 predicate,
+                 usability: PackScientificState::Unknown,
+@@ -4452,7 +4452,7 @@
+                     .unwrap();
+                 let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
+                 let selected_coordinates = selected_reader.pack_selection().await.unwrap();
+-                assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
++                assert_eq!(selected_coordinates.selected_field.as_deref(), Some("value"));
+                 assert_eq!(
+                     selected_coordinates
+                         .predicate
+@@ -4590,7 +4590,7 @@
+                     .result
+                     .as_ref()
+                     .unwrap();
+-                assert_eq!(declared.field.as_deref(), Some("value"));
++                assert_eq!(declared.selected_field.as_deref(), Some("value"));
+                 let mut times = Vec::new();
+                 for batch in stream {
+                     let batch = batch.unwrap();
+diff --git a/crates/pse-runtime/src/workflow/project_portability_tests.rs b/crates/pse-runtime/src/workflow/project_portability_tests.rs
+--- a/crates/pse-runtime/src/workflow/project_portability_tests.rs
++++ b/crates/pse-runtime/src/workflow/project_portability_tests.rs
+@@ -163,7 +163,7 @@
+             schema_version: 1,
+             row_start: 0,
+             row_end: 0,
+-            field: None,
++            selected_field: None,
+             terminal_class: "completed".into(),
+             predicate: None,
+             usability: workflow::PackScientificState::Unknown,
+@@ -203,7 +203,7 @@
+             "version" => result.schema_version = 2,
+             "range" => result.row_end = 1,
+             "terminal" => result.terminal_class = "failed".into(),
+-            "field" => result.field = Some("another-field".into()),
++            "field" => result.selected_field = Some("another-field".into()),
+             "predicate" => {
+                 result.predicate = Some(workflow::PackResultPredicate {
+                     output: "another-output".into(),
+diff --git a/crates/pse-runtime/src/tooling/review_pack.rs b/crates/pse-runtime/src/tooling/review_pack.rs
+--- a/crates/pse-runtime/src/tooling/review_pack.rs
++++ b/crates/pse-runtime/src/tooling/review_pack.rs
+@@ -448,7 +448,7 @@
+                     result.schema_version,
+                     result.row_start,
+                     result.row_end,
+-                    &result.field,
++                    &result.selected_field,
+                     &result.predicate,
+                 ),
+                 selection.maximum_document_bytes,
+diff --git a/crates/pse-runtime/src/tooling/review_analysis/tests.rs b/crates/pse-runtime/src/tooling/review_analysis/tests.rs
+--- a/crates/pse-runtime/src/tooling/review_analysis/tests.rs
++++ b/crates/pse-runtime/src/tooling/review_analysis/tests.rs
+@@ -1732,7 +1732,7 @@
+             schema_version: 1,
+             row_start: 0,
+             row_end: 1,
+-            field: None,
++            selected_field: None,
+             terminal_class: "failed".into(),
+             predicate: None,
+             usability: PackScientificState::Unusable,

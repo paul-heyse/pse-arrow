@@ -299,6 +299,8 @@ enum Cmd {
         #[arg(long, value_enum, value_name = "TARGET")]
         only: Option<Target>,
     },
+    /// Preview or publish an authored source-model change through the original generator.
+    SourceChange(codegen::source_change::Selection),
     /// The full governance gate: governance tests, codegen diff, family check.
     Governance,
     /// Resolve backticked API paths in `docs/**` against the extracted facts.
@@ -891,6 +893,9 @@ fn main() -> Result<()> {
             }
         }
         Cmd::Codegen { check, only } => codegen(&root, check, only),
+        Cmd::SourceChange(selection) => {
+            std::process::exit(codegen::source_change::run(&root, selection)?);
+        }
         Cmd::Governance => governance(&root),
         Cmd::DocLint => {
             println!("doc-lint: not implemented in phase 0 (see docs/adr/register.md)");

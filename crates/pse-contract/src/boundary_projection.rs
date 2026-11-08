@@ -1458,6 +1458,7 @@ fn validate_fields(
 /// Declare an actual record and its stable boundary metadata in one source declaration.
 /// `construction: ObservationOnly` emits borrowed selected-field snapshots without
 /// an inverse constructor; omitted construction is ordinary reconstructible data.
+/// `wire_name` preserves a field's boundary name across an authored Rust rename.
 /// Observation `@local` custody has no initializer or implicit validation. An
 /// optional `=> check:` borrows that local field under the owner's actual rule.
 #[macro_export]
@@ -1470,7 +1471,7 @@ macro_rules! projection_struct {
             $(construction: $construction:ident,)?
             reserved_tags: [$($reserved:expr),* $(,)?], reserved_names: [$($reserved_name:expr),* $(,)?] };
         $($(#[$field_meta:meta])* $field_vis:vis $field:ident : $ty:ty => {
-            tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, representation: $representation:expr)? $(, adapter: $adapter:ty)? };)*
+            tag: $tag:expr, direction: $field_direction:expr, rules: [$($rule:expr),* $(,)?] $(, wire_name: $wire_name:literal)? $(, representation: $representation:expr)? $(, adapter: $adapter:ty)? };)*
         $(@local {
             $($(#[$local_meta:meta])* $local_vis:vis $local:ident: $local_ty:ty $(= $local_default:expr)? $(=> check: $local_check:expr)?;)*
         })?
@@ -1486,7 +1487,7 @@ macro_rules! projection_struct {
                 let root = graph.declare::<Self>($wire, file!(), $version, $direction, &[$($reserved),*], &[$($reserved_name),*], |graph| {
                     let _ = &graph;
                     Ok($crate::boundary_projection::Shape::Record(vec![$(
-                        $crate::boundary_projection::Field::of::<$crate::projection_struct!(@ty $ty $(, $adapter)?)>(graph, stringify!($field), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
+                        $crate::boundary_projection::Field::of::<$crate::projection_struct!(@ty $ty $(, $adapter)?)>(graph, $crate::projection_struct!(@name $field $(, $wire_name)?), $tag, $field_direction, vec![$($rule),*])? $(.representation($representation)?)?,
                     )*]))
                 })?;
                 $( graph.public_path::<Self>(&root, stringify!($public))?; )?
@@ -1498,14 +1499,14 @@ macro_rules! projection_struct {
             fn validate_at(&self, path: &str) -> ::core::result::Result<(), $crate::boundary_projection::ValidationError> {
                 let _ = path;
                 $( $crate::projection_struct!(@validate &self.$field,
-                    &$crate::boundary_projection::field_path(path, stringify!($field)), &[$($rule),*] $(, $adapter)?)?; )*
+                    &$crate::boundary_projection::field_path(path, $crate::projection_struct!(@name $field $(, $wire_name)?)), &[$($rule),*] $(, $adapter)?)?; )*
                 $($( $( ($local_check)(&self.$local,
                     &$crate::boundary_projection::field_path(path, stringify!($local)))?; )? )*)?
                 Ok(())
             }
         }
         $crate::projection_struct!(@access $($construction)?; $name, $version; {
-            $($field: $ty $(, $adapter)? => $tag;)*
+            $($field: $ty $(, $adapter)? => $tag $(, $wire_name)?;)*
         } @local { $($($local $(= $local_default)? $(=> check: $local_check)?;)*)? });
     };
     (@role $graph:ident, $root:expr, $owner:ty) => {};
@@ -1515,11 +1516,11 @@ macro_rules! projection_struct {
     };
     (@access ; $($body:tt)*) => { $crate::projection_struct!(@access Data; $($body)*); };
     (@access Data; $name:ident, $version:expr; {
-        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr;)*
+        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr $(, $wire_name:literal)?;)*
     } @local { $($local:ident = $local_default:expr => check: $local_check:expr;)* }) => {
         impl $crate::boundary_projection::ProjectionRecord for $name {
             const VERSION: u32 = $version;
-            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, $crate::projection_struct!(@name $field $(, $wire_name)?))),*];
             type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
             $crate::projection_struct!(@into_fields $($field $(, $adapter)?;)*);
             fn from_projection_fields(fields: Self::Fields) -> ::core::result::Result<Self, $crate::boundary_projection::AdapterError> {
@@ -1529,17 +1530,19 @@ macro_rules! projection_struct {
         }
     };
     (@access ObservationOnly; $name:ident, $version:expr; {
-        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr;)*
+        $($field:ident: $ty:ty $(, $adapter:ty)? => $tag:expr $(, $wire_name:literal)?;)*
     } @local { $($local:ident $(= $local_default:expr)? $(=> check: $local_check:expr)?;)* }) => {
         impl $crate::boundary_projection::ProjectionObservationRecord for $name {
             const VERSION: u32 = $version;
-            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, stringify!($field))),*];
+            const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[$(($tag, $crate::projection_struct!(@name $field $(, $wire_name)?))),*];
             type Fields = ($($crate::projection_struct!(@ty $ty $(, $adapter)?),)*);
             fn observation_fields(&self) -> ::core::result::Result<Self::Fields, $crate::boundary_projection::AdapterError> {
                 Ok(($($crate::projection_struct!(@into ::core::clone::Clone::clone(&self.$field) $(, $adapter)?),)*))
             }
         }
     };
+    (@name $field:ident, $wire_name:literal) => { $wire_name };
+    (@name $field:ident) => { stringify!($field) };
     (@ty $ty:ty, $adapter:ty) => { $crate::boundary_projection::Adapted<$ty, $adapter> };
     (@ty $ty:ty) => { $ty };
     (@into_fields) => { fn into_projection_fields(self) -> Self::Fields {} };

@@ -23,7 +23,7 @@ crate::projection_struct! {
         projection: { name: "NativeObserved", version: 3, direction: Direction::Both,
             construction: ObservationOnly, reserved_tags: [], reserved_names: [] };
         recorded: String => { tag: 7, direction: Direction::Output,
-            rules: [LocalRule::Length { min: 1, max: 8 }] };
+            rules: [LocalRule::Length { min: 1, max: 8 }], wire_name: "original" };
         @local {
             custody: Custody => check: check_custody;
             retained: std::marker::PhantomPinned;
@@ -49,7 +49,11 @@ fn observation_struct_borrows_nonclone_drop_owner_and_keeps_local_custody() {
         graph.definitions()["NativeObserved"].construction,
         ConstructionRole::ObservationOnly
     );
-    assert_eq!(NativeObserved::FIELD_LAYOUT, &[(7, "recorded")]);
+    assert!(matches!(
+        &graph.definitions()["NativeObserved"].shape,
+        Shape::Record(fields) if fields[0].name == "original" && fields[0].tag == 7
+    ));
+    assert_eq!(NativeObserved::FIELD_LAYOUT, &[(7, "original")]);
     assert_eq!(native.observation_fields().unwrap(), ("actual".to_owned(),));
     assert_eq!(drops.load(Ordering::SeqCst), 0);
     assert_eq!(
@@ -66,7 +70,7 @@ fn observation_struct_borrows_nonclone_drop_owner_and_keeps_local_custody() {
     drops.store(0, Ordering::SeqCst);
     native.recorded.clear();
     assert!(
-        native.validate_projection().is_err(),
+        matches!(native.validate_projection(), Err(ValidationError::Rule { path, .. }) if path == "original"),
         "one source declaration still owns local rules"
     );
     drop(native);
