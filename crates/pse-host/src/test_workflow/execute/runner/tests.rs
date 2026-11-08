@@ -1014,3 +1014,83 @@ async fn actual_list_and_rustdoc_preserve_population_and_compiler_meanings() {
     assert_eq!(terminal.helper_exit(), 0);
     assert!(terminal.validate(&input.invocation, Action::Check).is_err());
 }
+
+#[test]
+fn actual_rustdoc_refuses_an_unvalidated_dev_leaf_before_execution() {
+    let NativeFixture {
+        scratch,
+        root,
+        mut environment,
+    } = NativeFixture::new();
+    // Use a local leaf to keep this pinned Cargo and rustdoc control offline.
+    fs::create_dir_all(root.join("leaf/src")).unwrap();
+    fs::write(
+        root.join("leaf/Cargo.toml"),
+        "[package]\nname = 'arrow-data'\nversion = '0.0.0'\nedition = '2024'\n\
+         [features]\nforce_validate = []\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("leaf/src/lib.rs"),
+        "pub fn value() -> u32 { 3 }\n",
+    )
+    .unwrap();
+    let manifest = fs::read_to_string(root.join("Cargo.toml")).unwrap();
+    let manifest = format!("{manifest}\n[dev-dependencies]\narrow-data = {{ path = 'leaf' }}\n");
+    let write_manifest = |features| {
+        fs::write(
+            root.join("Cargo.toml"),
+            format!("{manifest}\n[features]\nforce-validate = {features}\n"),
+        )
+        .unwrap();
+    };
+    write_manifest("[]");
+    fs::write(
+        root.join("Cargo.lock"),
+        "version = 4\n\n[[package]]\nname = 'arrow-data'\nversion = '0.0.0'\n\
+         \n[[package]]\nname = 'native-workflow-control'\nversion = '0.0.0'\n\
+         dependencies = ['arrow-data']\n",
+    )
+    .unwrap();
+    fs::write(
+        root.join("src/lib.rs"),
+        r#"
+/// ```
+/// assert_eq!(arrow_data::value(), 3);
+/// std::fs::write(std::env::var_os("PSE_TEST_DOCTEST_WITNESS").unwrap(), b"rustdoc").unwrap();
+/// ```
+pub fn documented() {}
+"#,
+    )
+    .unwrap();
+    let witness = scratch.path().join("doctest-executed");
+    environment.insert(
+        "PSE_TEST_DOCTEST_WITNESS".into(),
+        witness.clone().into_os_string(),
+    );
+    let cargo = |arguments: &[&str]| {
+        std::process::Command::new(root.join("target/host-tools/current/cargo-pse-correctness"))
+            .current_dir(&root)
+            .env_clear()
+            .envs(&environment)
+            .args(arguments)
+            .arg("--locked")
+            .output()
+            .unwrap()
+    };
+
+    let check = cargo(&["check", "--lib"]);
+    assert!(check.status.success(), "{check:?}");
+    let refused = cargo(&["test", "--doc"]);
+    assert!(!refused.status.success(), "{refused:?}");
+    assert!(
+        String::from_utf8_lossy(&refused.stderr).contains("arrow-data lacks force_validate"),
+        "{refused:?}"
+    );
+    assert!(!witness.exists());
+
+    write_manifest("['arrow-data/force_validate']");
+    let documented = cargo(&["test", "--doc"]);
+    assert!(documented.status.success(), "{documented:?}");
+    assert_eq!(fs::read(witness).unwrap(), b"rustdoc");
+}
