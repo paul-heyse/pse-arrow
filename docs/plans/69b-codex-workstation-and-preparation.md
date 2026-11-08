@@ -92,6 +92,6 @@ authenticate and settle its owners reliably, bring the combined mutation to R-56
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | in progress | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. A cold checkout's help and catalog refusal left its target absent. Selected-mode receiving evidence remains. |
+| B01 | complete | Existing Codex shell, bridge and native admission | The launcher authenticates manager membership and enters a waiting-parent scope when unplaced. Cold help and catalog refusal left the target absent. Current activated foreground probes observed the configured unbounded mode and the explicit light mode's 2 GiB ancestor limit, with complete settlement in both cases. |
 | B02 | in progress | B01 placement, A02 and A03 for prepared context and recovery, F01 for the prepared argument boundary | Preparation returned the authenticated generation, and a prior equivalent checkout accepted a verified seed. The current CLI returned a typed missing-fixture refusal and exact preparation command. Incompatible-seed and selected-mode receiving qualification remain. |
 | B03 | in progress | B01, A03, and existing scratch and retirement owners | The Study fixture owns a short private scratch path and checks it before launch. `just upgrade-host` composes targeted dependency refresh and host preparation. The assembled drain and bounded recovery controls remain. |
