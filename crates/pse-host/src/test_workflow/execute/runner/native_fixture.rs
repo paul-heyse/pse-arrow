@@ -150,6 +150,39 @@ store-failure-output = true
         }
     }
 
+    pub(super) fn with_rerun_helper(self) -> Self {
+        use std::io::Write as _;
+
+        writeln!(
+            fs::OpenOptions::new()
+                .append(true)
+                .open(self.root.join("Cargo.toml"))
+                .unwrap(),
+            "\n[[bin]]\nname = 'rerun-helper'\npath = 'src/helper.rs'\ntest = false"
+        )
+        .unwrap();
+        fs::write(
+            self.root.join("src/helper.rs"),
+            r#"fn main() { println!("ordinary helper"); }"#,
+        )
+        .unwrap();
+        fs::write(
+            self.root.join("tests/rerun.rs"),
+            r#"
+#[test]
+fn rerun_controlled_helper_failure_probe() {
+    let helper = std::env::var_os("CARGO_BIN_EXE_rerun-helper").expect("captured helper");
+    let output = std::process::Command::new(helper).output().unwrap();
+    assert!(output.status.success());
+    assert_eq!(output.stdout, b"ordinary helper\n");
+    assert!(std::env::var_os("PSE_TEST_RERUN_FAILURE_PROBE").is_none(), "explicit native rerun qualification failure");
+}
+"#,
+        )
+        .unwrap();
+        self
+    }
+
     pub(super) fn scope(only_lib: bool) -> selection::Scope {
         selection::Scope::Packages(vec![selection::PackageIntent {
             package: "native-workflow-control".into(),

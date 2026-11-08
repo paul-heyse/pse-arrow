@@ -290,15 +290,15 @@ async fn actual_expected_refusal_success_has_original_evidence_and_zero_failed_r
 
 #[tokio::test]
 async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_disposal() {
-    let fixture = NativeFixture::new();
+    let fixture = NativeFixture::new().with_rerun_helper();
     let root = fixture.root.as_path();
     let environment = fixture.environment;
     let store =
         InvocationStore::new(crate::paths::CheckoutState::resolve(root, &environment).unwrap());
     let mut original = input(Action::Test);
-    original.request.scope = NativeFixture::scope(true);
+    original.request.scope = NativeFixture::scope(false);
     original.request.filters.ignore_default_filter = true;
-    original.request.filters.words = vec!["rerun_controlled_failure_probe".into()];
+    original.request.filters.words = vec!["rerun_controlled_helper_failure_probe".into()];
     let destination = begin(&store, &original);
     let mut failing = environment.clone();
     failing.insert("PSE_TEST_RERUN_FAILURE_PROBE".into(), "1".into());
@@ -318,6 +318,21 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
         })
         .collect();
     assert_eq!(failed.len(), 1);
+    let binaries = &captured.inventory.groups[failed[0].group].binaries;
+    assert!(
+        binaries
+            .rust_binaries
+            .values()
+            .all(|binary| binary.binary_name != "rerun-helper")
+    );
+    assert!(
+        binaries
+            .rust_build_meta
+            .non_test_binaries
+            .values()
+            .flatten()
+            .any(|binary| binary.name == "rerun-helper")
+    );
     let old_executable = captured
         .inventory
         .test(&failed[0])

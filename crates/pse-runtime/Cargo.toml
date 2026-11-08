@@ -414,7 +414,12 @@ scope.tests = [
 id = "library-borrowed-aqueous-inventory"
 target = "pse_runtime"
 kind = "lib"
-required-features = ["solver-diffsol", "solver-ipopt", "solver-kinsol", "solver-root-isolation"]
+required-features = [
+  "solver-diffsol",
+  "solver-ipopt",
+  "solver-kinsol",
+  "solver-root-isolation",
+]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
@@ -653,6 +658,7 @@ required-features = [
 [[bin]]
 name = "pse-deployment"
 path = "src/bin/pse-deployment.rs"
+test = false
 
 [[bin]]
 name = "pse-worker"
