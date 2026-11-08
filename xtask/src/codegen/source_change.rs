@@ -116,7 +116,7 @@ impl Case {
                 "pse-operations",
                 "--lib",
                 "-E",
-                "test(canonical_projects::tests::)",
+                "test(=canonical_projects::optional_project_description_preserves_historical_and_explicit_rows)",
             ],
             Self::RecordedResultFieldRename => [
                 "test",

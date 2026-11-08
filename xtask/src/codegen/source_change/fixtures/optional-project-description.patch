@@ -23,36 +23,34 @@ diff --git a/crates/pse-operations/src/canonical_transport_tests.rs b/crates/pse
 diff --git a/crates/pse-operations/src/canonical_projects.rs b/crates/pse-operations/src/canonical_projects.rs
 --- a/crates/pse-operations/src/canonical_projects.rs
 +++ b/crates/pse-operations/src/canonical_projects.rs
-@@ -1315,6 +1315,32 @@
-         reason = "isolated native project fixtures assert exact owned effects"
-     )]
-     use super::*;
+@@ -1310,3 +1310,30 @@
++#[cfg(test)]
++#[test]
++#[allow(clippy::unwrap_used, reason = "the row codec fixture requires exact round trips")]
++fn optional_project_description_preserves_historical_and_explicit_rows() {
++    let mut historical = Object::new();
++    historical.insert("key", Value::String("historical-project".into()));
++    historical.insert("title", Value::String("Historical title".into()));
++    historical.insert("deleted", Value::Bool(false));
++    historical.insert("generation", codec::encode_uint(7).unwrap());
 +
-+    #[test]
-+    fn optional_project_description_preserves_historical_and_explicit_rows() {
-+        let mut historical = Object::new();
-+        historical.insert("key", Value::String("historical-project".into()));
-+        historical.insert("title", Value::String("Historical title".into()));
-+        historical.insert("deleted", Value::Bool(false));
-+        historical.insert("generation", codec::encode_uint(7).unwrap());
++    let previous = wire::decode_canonical_projects(historical.clone()).unwrap();
++    assert_eq!(previous.key, "historical-project");
++    assert_eq!(previous.title, "Historical title");
++    assert_eq!(previous.generation, 7);
++    assert_eq!(previous.description, None);
 +
-+        let previous = wire::decode_canonical_projects(historical.clone()).unwrap();
-+        assert_eq!(previous.key, "historical-project");
-+        assert_eq!(previous.title, "Historical title");
-+        assert_eq!(previous.generation, 7);
-+        assert_eq!(previous.description, None);
++    historical.insert("description", Value::String("Independent metadata".into()));
++    let explicit = wire::decode_canonical_projects(historical).unwrap();
++    assert_eq!(explicit.description.as_deref(), Some("Independent metadata"));
++    assert_eq!(
++        wire::decode_canonical_projects(wire::encode_canonical_projects(&explicit).unwrap())
++            .unwrap()
++            .description,
++        explicit.description
++    );
++}
 +
-+        historical.insert("description", Value::String("Independent metadata".into()));
-+        let explicit = wire::decode_canonical_projects(historical).unwrap();
-+        assert_eq!(explicit.description.as_deref(), Some("Independent metadata"));
-+        assert_eq!(
-+            wire::decode_canonical_projects(wire::encode_canonical_projects(&explicit).unwrap())
-+                .unwrap()
-+                .description,
-+            explicit.description
-+        );
-+    }
-+
-     #[tokio::test]
-     async fn pending_import_is_unavailable_through_public_project_research_and_context_reads() {
-         let store = fixture().await;
+ #[cfg(test)]
+ mod tests {
+     #![allow(
