@@ -351,12 +351,32 @@ async fn package(
     let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
     )?;
-    let admitted = runtime
-        .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
-        .await;
+    let cancel = crate::CancelSource::new();
+    let admission = runtime.modeling_from_documents(&closure, physical, &cancel);
+    let admitted = if canonical {
+        use tracing::instrument::WithSubscriber as _;
+
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_test_writer()
+            .with_env_filter("pse_operations=warn")
+            .finish();
+        admission.with_subscriber(subscriber).await
+    } else {
+        admission.await
+    };
     match admitted {
         Ok(package) => Ok((runtime, package, spill)),
         Err(error) => {
+            if let WorkflowError::Canonical(
+                pse_operations::canonical::CanonicalError::SourceEditUnsettled {
+                    problem, operation, ..
+                },
+            ) = &error
+            {
+                let original = runtime.source_settlement(problem, operation).await;
+                eprintln!("original package publication settlement: {original:?}");
+            }
             if let Ok(store) = runtime.canonical_store() {
                 runtime.close();
                 if let Err(cleanup) = store
@@ -366,7 +386,7 @@ async fn package(
                     .await
                 {
                     eprintln!("original package admission failed: {error}");
-                    return Err(crate::workflow::WorkflowError::Settlement {
+                    return Err(WorkflowError::Settlement {
                         operation: Box::new(error),
                         cleanup: Box::new(cleanup.into()),
                     }

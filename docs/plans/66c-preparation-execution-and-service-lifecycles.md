@@ -217,6 +217,20 @@ duplicate request and lost submit ACK. Delete replaced mechanical adapters, hand
 method/effect/health mirrors and duplicate polling translations as each family moves. Native
 checked edit and parent/membership guards remain.
 
+The selected aqueous receiving case exposed a source-publication failure before
+native science. The retained `01a1bd26-6f64-7207-8da5-08ef8c807c89` trace locates
+the dispatched failure in `stage_small_edits`. A read of the original operation
+before fixture teardown found no acknowledgement. The edit remains unproved.
+The staging change batches eight bounded edits, uses the existing exact version
+indexes for closure counts and attempts receipt readback on uncertain staging
+failure within the original operation clock. The full aqueous journey remains a
+separate acceptance case. [Source staging owner](../../crates/pse-operations/src/canonical_staging.rs)
+
+The exact maximal staging request envelope, concurrent same-request replay and
+lost close acknowledgement controls passed in `01a1bd44-67f1-7536-bb01-a0420dfe44d1`.
+That invocation included the atomic-capture selection and its independent fixture
+and scale failures. [66e capture evidence](66e-protected-data-and-result-delivery.md#migration-recovery-and-acceptance)
+
 ### C03 — Close performing owners and worker sessions
 
 Actual authenticated HTTP/2 receiving now drops an in-flight generated Prepare method on the

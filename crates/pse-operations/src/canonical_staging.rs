@@ -42,11 +42,11 @@ pub(crate) const IDENTITY_BYTES: usize = 4096;
 #[cfg(test)]
 const MUTATION_CONFLICT_ATTEMPTS: usize = 32;
 const STAGE_LIFETIME: Duration = Duration::from_secs(300);
-// Four small edits, each with at most sixteen bounded references and 64 KiB
+// Eight small edits, each with at most sixteen bounded references and 64 KiB
 // of bytes, fit below the 3 MiB submission budget even at the identity limit.
 // They use the same immutable guards and declarations as separately blocked
 // versions, but share one durable transaction and transport round trip.
-const SMALL_STAGE_EDITS: usize = 4;
+const SMALL_STAGE_EDITS: usize = 8;
 const SMALL_STAGE_BYTES: usize = 64 * 1024;
 const SMALL_STAGE_REFERENCES: usize = 16;
 
@@ -582,12 +582,28 @@ impl CanonicalStore {
                     }
                     StageOutcome::Closed(token) => token,
                 };
-                crate::canonical::transport::within_clock(
+                let staged = crate::canonical::transport::within_clock(
                     deadline,
                     self.stage_plan(&token, &plan, edits),
                 )
-                .await?;
-                Ok(StageOutcome::Closed(token))
+                .await;
+                match staged {
+                    Ok(()) => Ok(StageOutcome::Closed(token)),
+                    Err(error) if error.effect_is_unknown() => {
+                        crate::canonical::settlement::settle_exact(
+                            "source-staging",
+                            operation,
+                            &plan.request,
+                            Err(error),
+                            self.source_edit_receipt(operation, &plan),
+                            |revision| revision.request.as_slice() == plan.request.as_slice(),
+                            |_| false,
+                        )
+                        .await
+                        .map(StageOutcome::Acknowledged)
+                    }
+                    Err(error) => Err(error),
+                }
             })
             .await
     }
@@ -1948,8 +1964,8 @@ const CLOSE_VERSION: &str = r#"LET $version_guard = type::record('canonical_guar
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
 IF $header = NONE { THROW 'PSE_REFUSAL:source_manifest_unavailable'; };
-LET $blocks = SELECT count() AS n FROM canonical_payload_blocks WHERE version = $version GROUP ALL;
-LET $references = SELECT count() AS n FROM canonical_edges WHERE source_version = $version GROUP ALL;
+LET $blocks = SELECT count() AS n FROM canonical_payload_blocks WITH INDEX payload_blocks WHERE version = $version GROUP ALL;
+LET $references = SELECT count() AS n FROM canonical_edges WITH INDEX edge_source WHERE source_version = $version GROUP ALL;
 IF ($blocks[0].n ?? 0) != $header.block_count OR ($references[0].n ?? 0) != $header.reference_count { THROW 'PSE_REFUSAL:immutable_source_manifest_incomplete'; };
 UPDATE type::record('canonical_version_manifests', $version) SET closed = true;
 UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
@@ -2159,6 +2175,57 @@ fn describe(
 mod canonical_staging_unit {
     use super::*;
     use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn full_width_small_edit_batch_stays_inside_the_native_request_envelope() {
+        use surrealdb_protocol::proto::v1 as proto;
+        use surrealdb_types::prost::Message as _;
+
+        let identity = "x".repeat(IDENTITY_BYTES);
+        let edits = (0..SMALL_STAGE_EDITS)
+            .map(|ordinal| {
+                let logical = format!("{ordinal}{}", &identity[1..]);
+                ObjectEdit {
+                    logical: logical.clone(),
+                    scope: identity.clone(),
+                    name: identity.clone(),
+                    references: vec![
+                        (identity.clone(), identity.clone());
+                        SMALL_STAGE_REFERENCES
+                    ],
+                    version: Some(ObjectVersion {
+                        key: logical.clone(),
+                        logical,
+                        kind: identity.clone(),
+                        payload: vec![1; SMALL_STAGE_BYTES].into(),
+                        interpretation: wire::INTERPRETATION.into(),
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
+        let plan = plan(&identity, Some(&identity), &edits).unwrap();
+        let stage = ClosedStage {
+            problem: identity.clone(),
+            expected: Some(identity.clone()),
+            operation: identity,
+            generation: 1,
+            request: plan.request.clone(),
+            request_digest: plan.request_digest.clone(),
+            lifetime_micros: STAGE_LIFETIME.as_micros().try_into().unwrap(),
+        };
+        let items = plan
+            .changes
+            .iter()
+            .zip(&edits)
+            .enumerate()
+            .map(|(ordinal, (change, edit))| {
+                staging_item(&stage, ordinal, change, edit).unwrap().unwrap()
+            })
+            .collect::<Vec<_>>();
+        let items = proto::Value::try_from(Value::Array(items.into())).unwrap();
+        // Reserve space for the guarded SQL, stage bindings and RPC framing.
+        assert!(items.encoded_len() + 64 * 1024 <= crate::canonical::PAYLOAD_BYTES);
+    }
 
     fn rejected_mutation() -> CanonicalError {
         surrealdb_types::Error::query(
