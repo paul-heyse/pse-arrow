@@ -80,6 +80,24 @@ fn usage_errors_have_structured_context_in_the_requested_format() {
         "invalid arguments must acquire no runtime or retained-state effects"
     );
 }
+
+#[test]
+fn settings_field_projection_is_passive_and_keeps_the_selected_schema() {
+    let state = tempfile::tempdir().unwrap();
+    let output = pse()
+        .env("XDG_STATE_HOME", state.path())
+        .env("XDG_CONFIG_HOME", state.path())
+        .args(["--fields", "checkout", "inspect", "settings"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let value = json(&output);
+    assert_eq!(value["command"], "inspect settings");
+    assert!(value["payload"]["checkout"].is_string());
+    assert_eq!(value["payload"].as_object().unwrap().len(), 1);
+    assert_eq!(value["artifacts"], serde_json::json!([]));
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
+}
 #[test]
 fn env_projection_retains_full_evidence_and_matches_its_projected_schema() {
     let state = tempfile::tempdir().unwrap();

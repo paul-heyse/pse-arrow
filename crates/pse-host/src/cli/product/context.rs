@@ -337,7 +337,7 @@ pub(in crate::cli) fn explain(
     origins
         .entry("timeout_ms")
         .or_insert_with(|| "product owner default".into());
-    Ok(output.emit(Envelope::response(
+    let mut response = Envelope::response(
         "inspect settings",
         "effective CLI settings; target identity has not been observed",
         View {
@@ -355,7 +355,14 @@ pub(in crate::cli) fn explain(
                 .map_or(25_000, NonZeroU64::get),
             origins,
         },
-    ))?)
+    );
+    response.invocation_id = output.invocation_id.clone();
+    Ok(crate::envelope::write(
+        io::stdout().lock(),
+        response,
+        output.format,
+        &output.presentation,
+    )?)
 }
 
 #[cfg(test)]

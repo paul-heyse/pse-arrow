@@ -732,6 +732,13 @@ fn emit_project_targets(
     if !response.payload.unavailable.is_empty() {
         response.observation.completeness = envelope::Completeness::Partial;
     }
+    if ambiguous {
+        // These are required decision inputs from a different response schema.
+        // A field selection for the original operation cannot suppress them.
+        let mut decision = output.clone();
+        decision.presentation = envelope::Presentation::default();
+        return Ok(decision.emit(response)?);
+    }
     Ok(output.emit(response)?)
 }
 pub(super) fn project_dispatch(
