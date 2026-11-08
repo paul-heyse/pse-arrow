@@ -152,6 +152,8 @@ pub enum Request {
     },
     /// Observe the exact original local publication without contacting its issuing service.
     ProjectExportStatus {
+        /// Original existing private canonical deployment state, read without connecting.
+        state: NativePath,
         /// Exact authored absolute native destination.
         destination: NativePath,
         /// Original publication key.
@@ -643,10 +645,18 @@ fn validate(request: &ReaderRequest) -> Result<(), ReaderError> {
     match &request.request {
         Request::Discover | Request::Schema { .. } => {}
         Request::InspectProjectPack { input, .. } => absolute(&input.to_path_buf())?,
-        Request::ProjectExportStatus { destination, key, issuing_store } => {
+        Request::ProjectExportStatus {
+            state,
+            destination,
+            key,
+            issuing_store,
+        } => {
+            absolute(&state.to_path_buf())?;
             absolute(&destination.to_path_buf())?;
             if !(1..=4096).contains(&key.len()) || !(1..=4096).contains(&issuing_store.len()) {
-                return Err(invalid("original publication key and issuer must be nonempty and bounded"));
+                return Err(invalid(
+                    "original publication key and issuer must be nonempty and bounded",
+                ));
             }
         }
         Request::Project { canonical, .. } => canonical.validate()?,
@@ -905,10 +915,23 @@ fn handle(
                 manifest_digest,
             })
         }
-        Request::ProjectExportStatus { destination, key, issuing_store } => {
-            let status = crate::host_operations::project::exchange::publication_status(destination, &key, &issuing_store, cancel)
-                .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
-            Ok(Payload::ProjectExportStatus { status: Box::new(status) })
+        Request::ProjectExportStatus {
+            state,
+            destination,
+            key,
+            issuing_store,
+        } => {
+            let status = crate::host_operations::project::exchange::publication_status(
+                &state.to_path_buf(),
+                destination,
+                &key,
+                &issuing_store,
+                cancel,
+            )
+            .map_err(|error| ReaderError::Workflow(Box::new(error)))?;
+            Ok(Payload::ProjectExportStatus {
+                status: Box::new(status),
+            })
         }
         Request::Follow {
             source,

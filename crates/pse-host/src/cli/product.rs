@@ -101,15 +101,14 @@ pub(super) enum ProjectAction {
     /// Observe the exact original pack or study publication without opening a service.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
     ExportStatus {
-        /// Exact reader identifier returned by `pse observe prepare`.
-        #[arg(long)]
-        reader: String,
+        #[command(flatten)]
+        source: ProjectSource,
         /// Original publication operation key.
         #[arg(long)]
         operation: String,
         /// Original issuing store.
         #[arg(long)]
-        issuing_store: String,
+        issuing_store: Option<String>,
         /// Exact original destination directory.
         destination: PathBuf,
     },
@@ -225,6 +224,16 @@ impl ProjectSource {
         environment: &Environment,
         output: &OutputOptions,
     ) -> Result<Result<context::ResolvedSource, i32>, HostError> {
+        self.resolve_with_observation(root, selected, environment, Some(output))
+    }
+
+    fn resolve_with_observation(
+        self,
+        root: &Path,
+        selected: Option<&Path>,
+        environment: &Environment,
+        observe_ambiguity: Option<&OutputOptions>,
+    ) -> Result<Result<context::ResolvedSource, i32>, HostError> {
         if self
             .timeout_ms
             .is_some_and(|timeout| timeout.get() > 25_000)
@@ -261,6 +270,11 @@ impl ProjectSource {
                 "configure a named product target or select --state and --reader".into(),
             ));
         }
+        let output = observe_ambiguity.ok_or_else(|| {
+            HostError::Ownership(
+                "offline publication status requires one configured target; select --target".into(),
+            )
+        })?;
         Ok(Err(emit_project_targets(
             root,
             environment,
@@ -555,19 +569,47 @@ impl ProjectAction {
                     project_pack_request(resolve(input)?, maximum_document_bytes)?,
                 )));
             }
-            Self::ExportStatus { reader, operation, issuing_store, destination } => {
+            Self::ExportStatus {
+                source,
+                operation,
+                issuing_store,
+                destination,
+            } => {
+                let source =
+                    match source.resolve_with_observation(root, selected, environment, None)? {
+                        Ok(source) => source,
+                        Err(code) => return Ok(Err(code)),
+                    };
+                if let (Some(configured), Some(explicit)) = (&source.issuing_store, &issuing_store)
+                    && configured != explicit
+                {
+                    return Err(HostError::Ownership(
+                        "explicit issuing store differs from the configured target".into(),
+                    ));
+                }
+                let issuing_store = source.issuing_store.or(issuing_store).ok_or_else(|| {
+                    HostError::Ownership(
+                        "standalone publication status requires the original --issuing-store"
+                            .into(),
+                    )
+                })?;
                 #[derive(Serialize)]
                 struct Request {
                     operation: &'static str,
+                    state: NativePath,
                     destination: NativePath,
                     key: String,
                     issuing_store: String,
                 }
                 let request = serde_json::value::to_raw_value(&Request {
-                    operation: "project_export_status", destination: resolve(destination)?.into(),
-                    key: operation, issuing_store,
-                }).map_err(io::Error::other)?;
-                return Ok(Ok(("project export-status", reader, request)));
+                    operation: "project_export_status",
+                    destination: resolve(destination)?.into(),
+                    state: source.state.into(),
+                    key: operation,
+                    issuing_store,
+                })
+                .map_err(io::Error::other)?;
+                return Ok(Ok(("project export-status", source.reader, request)));
             }
             Self::Metadata {
                 source,
@@ -812,15 +854,20 @@ fn emit_project_read(
         )?;
     }
     let (category, text) = match (reply.category(), command) {
-        (product_reader::Category::Success, "project inspect-pack") => ("success", "offline project pack verified"),
+        (product_reader::Category::Success, "project inspect-pack") => {
+            ("success", "offline project pack verified")
+        }
         (product_reader::Category::Refused, "project inspect-pack") => {
             ("refused", "offline project pack inspection refused")
         }
-        (product_reader::Category::Success, "project export-status") => ("success", "original project publication observed"),
-        (product_reader::Category::Refused, "project export-status") => ("refused", "original project publication observation refused"),
-        (product_reader::Category::Success, _) => {
-            ("success", "canonical project data observed")
+        (product_reader::Category::Success, "project export-status") => {
+            ("success", "original project publication observed")
         }
+        (product_reader::Category::Refused, "project export-status") => (
+            "refused",
+            "original project publication observation refused",
+        ),
+        (product_reader::Category::Success, _) => ("success", "canonical project data observed"),
         (product_reader::Category::Refused, _) => ("refused", "canonical project read refused"),
     };
     let mut response = Envelope::response(
@@ -861,6 +908,18 @@ fn emit_project_read(
             response.failures.push(native);
         }
         response.outcome = envelope::CommandOutcome::Usage;
+    } else if command == "project export-status" {
+        #[derive(Deserialize)]
+        struct PublishedStatus {
+            status: effect::ExportStatus,
+        }
+        let observed: PublishedStatus =
+            serde_json::from_str(reply.payload().get()).map_err(io::Error::other)?;
+        (
+            response.subject_state,
+            response.settlement,
+            response.summary,
+        ) = observed.status.observation();
     }
     Ok(output.emit(response)?)
 }

@@ -183,8 +183,12 @@ pub(in crate::cli) struct Selection {
 impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
-            Self::Acknowledgement { .. } | Self::ImportStatus { .. } | Self::ImportOpen { .. } => GenerationIntent::Passive,
-            Self::ImportForget { .. } | Self::ExportRecover { .. } => GenerationIntent::ExistingControl,
+            Self::Acknowledgement { .. } | Self::ImportStatus { .. } | Self::ImportOpen { .. } => {
+                GenerationIntent::Passive
+            }
+            Self::ImportForget { .. } | Self::ExportRecover { .. } => {
+                GenerationIntent::ExistingControl
+            }
             _ => GenerationIntent::NewWork,
         }
     }
@@ -215,18 +219,33 @@ enum RequestAction {
         intent: Box<RawValue>,
         original: Box<RawValue>,
     },
-    ImportOpen { intent: Box<RawValue> },
-    Export { destination: NativePath, request: ExportRequest },
-    ExportRecover { destination: NativePath },
+    ImportOpen {
+        intent: Box<RawValue>,
+    },
+    Export {
+        destination: NativePath,
+        request: ExportRequest,
+    },
+    ExportRecover {
+        destination: NativePath,
+    },
 }
 
 #[derive(Clone, Copy)]
-enum ExportKind { Pack, Cohort, Result, Analysis }
+enum ExportKind {
+    Pack,
+    Cohort,
+    Result,
+    Analysis,
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "snake_case")]
 enum ExportRequest {
-    Pack(Box<RawValue>), Cohort(Box<RawValue>), Result(Box<RawValue>), Analysis(Box<RawValue>),
+    Pack(Box<RawValue>),
+    Cohort(Box<RawValue>),
+    Result(Box<RawValue>),
+    Analysis(Box<RawValue>),
 }
 
 impl ExportKind {
@@ -278,6 +297,7 @@ enum Disposition {
     ImportOpened,
     PublicationUnknown,
     PublicationPending,
+    PublicationFailed,
     PublicationReady,
     Published,
     ImportForgotten,
@@ -287,17 +307,54 @@ enum Disposition {
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
-enum ExportStatus { Unknown, Pending, Ready, Published }
+pub(super) enum ExportStatus {
+    Unknown,
+    Pending,
+    Failed,
+    Ready,
+    Published,
+}
 
 impl ExportStatus {
     fn presentation(self) -> (Disposition, SubjectState, Settlement, String) {
         let (disposition, subject, settlement, summary) = match self {
-            Self::Unknown => (Disposition::PublicationUnknown, SubjectState::Unknown, Settlement::Unknown, "no exact original publication was observed"),
-            Self::Pending => (Disposition::PublicationPending, SubjectState::Unknown, Settlement::Incomplete, "the original publication has no complete staged deliverable"),
-            Self::Ready => (Disposition::PublicationReady, SubjectState::Unknown, Settlement::Incomplete, "the original complete deliverable is staged"),
-            Self::Published => (Disposition::Published, SubjectState::Succeeded, Settlement::Complete, "the original deliverable and receipt are published"),
+            Self::Unknown => (
+                Disposition::PublicationUnknown,
+                SubjectState::Unknown,
+                Settlement::Unknown,
+                "no exact original publication was observed",
+            ),
+            Self::Pending => (
+                Disposition::PublicationPending,
+                SubjectState::Unknown,
+                Settlement::Incomplete,
+                "the original publication has no complete staged deliverable",
+            ),
+            Self::Failed => (
+                Disposition::PublicationFailed,
+                SubjectState::Failed,
+                Settlement::Complete,
+                "the original producer failed and released its incomplete output",
+            ),
+            Self::Ready => (
+                Disposition::PublicationReady,
+                SubjectState::Unknown,
+                Settlement::Incomplete,
+                "the original complete deliverable is staged",
+            ),
+            Self::Published => (
+                Disposition::Published,
+                SubjectState::Succeeded,
+                Settlement::Complete,
+                "the original deliverable and receipt are published",
+            ),
         };
         (disposition, subject, settlement, summary.into())
+    }
+
+    pub(super) fn observation(self) -> (SubjectState, Settlement, String) {
+        let (_, subject, settlement, summary) = self.presentation();
+        (subject, settlement, summary)
     }
 }
 #[derive(Serialize, JsonSchema)]
@@ -576,25 +633,48 @@ fn original_lookup(
 }
 
 fn export_lookup(
-    root: &Path, source: &ResolvedSource, issuer: &str, operation: &str, destination: &Path,
-    policy: &RedactionPolicy, ready: bool,
+    root: &Path,
+    source: &ResolvedSource,
+    issuer: &str,
+    operation: &str,
+    destination: &Path,
+    policy: &RedactionPolicy,
+    ready: bool,
 ) -> Option<NextAction> {
     let mut argv = vec![
-        root.join("scripts/pse").to_str()?.into(), "-C".into(), root.to_str()?.into(), "project".into(),
-        if ready { "export-recover".into() } else { "export-status".into() },
-        format!("--reader={}", source.reader), format!("--issuing-store={issuer}"),
+        root.join("scripts/pse").to_str()?.into(),
+        "-C".into(),
+        root.to_str()?.into(),
+        "project".into(),
+        if ready {
+            "export-recover".into()
+        } else {
+            "export-status".into()
+        },
+        format!("--reader={}", source.reader),
+        format!("--issuing-store={issuer}"),
         format!("--operation={operation}"),
+        format!("--state={}", source.state.to_str()?),
     ];
     if ready {
-        argv.push(format!("--state={}", source.state.to_str()?));
-        if let Some(database) = &source.database { argv.push(format!("--database={database}")); }
-        if let Some(timeout) = source.timeout_ms { argv.push(format!("--timeout-ms={timeout}")); }
+        if let Some(database) = &source.database {
+            argv.push(format!("--database={database}"));
+        }
+        if let Some(timeout) = source.timeout_ms {
+            argv.push(format!("--timeout-ms={timeout}"));
+        }
     }
     argv.push(destination.to_str()?.into());
-    argv.iter().all(|word| policy.redact(word) == *word).then_some(NextAction::Command {
-        argv, reason: if ready { "publish only the already complete original staged deliverable".into() }
-        else { "read the exact original publication before considering recovery".into() },
-    })
+    argv.iter()
+        .all(|word| policy.redact(word) == *word)
+        .then_some(NextAction::Command {
+            argv,
+            reason: if ready {
+                "publish only the already complete original staged deliverable".into()
+            } else {
+                "read the exact original publication before considering recovery".into()
+            },
+        })
 }
 
 pub(super) fn dispatch(
@@ -658,13 +738,54 @@ pub(super) fn dispatch(
         Action::ImportStatus { target, intent } => {
             ("project import-status", target, Input::ImportStatus(intent))
         }
-        Action::ImportOpen { target, intent } => ("project import-open", target, Input::ImportOpen(intent)),
+        Action::ImportOpen { target, intent } => {
+            ("project import-open", target, Input::ImportOpen(intent))
+        }
         Action::ImportForget { target } => ("project import-forget", target, Input::ImportForget),
-        Action::Export { target, destination, intent } => ("project export", target, Input::Export(ExportKind::Pack, destination, intent)),
-        Action::ExportCohort { target, destination, intent } => ("project export-cohort", target, Input::Export(ExportKind::Cohort, destination, intent)),
-        Action::ExportResult { target, destination, intent } => ("project export-result", target, Input::Export(ExportKind::Result, destination, intent)),
-        Action::ExportAnalysis { target, destination, intent } => ("project export-analysis", target, Input::Export(ExportKind::Analysis, destination, intent)),
-        Action::ExportRecover { target, destination } => ("project export-recover", target, Input::ExportRecover(destination)),
+        Action::Export {
+            target,
+            destination,
+            intent,
+        } => (
+            "project export",
+            target,
+            Input::Export(ExportKind::Pack, destination, intent),
+        ),
+        Action::ExportCohort {
+            target,
+            destination,
+            intent,
+        } => (
+            "project export-cohort",
+            target,
+            Input::Export(ExportKind::Cohort, destination, intent),
+        ),
+        Action::ExportResult {
+            target,
+            destination,
+            intent,
+        } => (
+            "project export-result",
+            target,
+            Input::Export(ExportKind::Result, destination, intent),
+        ),
+        Action::ExportAnalysis {
+            target,
+            destination,
+            intent,
+        } => (
+            "project export-analysis",
+            target,
+            Input::Export(ExportKind::Analysis, destination, intent),
+        ),
+        Action::ExportRecover {
+            target,
+            destination,
+        } => (
+            "project export-recover",
+            target,
+            Input::ExportRecover(destination),
+        ),
     };
     if command == "project import-status" {
         output.validate_for::<super::ProductView<'static>>(command)?;
@@ -698,10 +819,14 @@ pub(super) fn dispatch(
     let reader =
         ProductReaderSelection::open(&root, environment, &source.reader).map_err(product_error)?;
     let resolve_path = |path| -> Result<PathBuf, HostError> {
-        Ok(std::path::absolute(super::super::source_path(selected, path)?)?)
+        Ok(std::path::absolute(super::super::source_path(
+            selected, path,
+        )?)?)
     };
     let export_destination = match &request {
-        Input::Export(_, destination, _) | Input::ExportRecover(destination) => Some(resolve_path(destination.clone())?),
+        Input::Export(_, destination, _) | Input::ExportRecover(destination) => {
+            Some(resolve_path(destination.clone())?)
+        }
         _ => None,
     };
     let is_import = matches!(
@@ -812,9 +937,7 @@ pub(super) fn dispatch(
         response.settlement = Settlement::Complete;
         return Ok(output.emit(response)?);
     }
-    let resolve_pack = |path| -> Result<NativePath, HostError> {
-        Ok(resolve_path(path)?.into())
-    };
+    let resolve_pack = |path| -> Result<NativePath, HostError> { Ok(resolve_path(path)?.into()) };
     let request = match request {
         Input::Ready(request) => request,
         Input::Navigation(intent) => {
@@ -841,11 +964,16 @@ pub(super) fn dispatch(
             input: resolve_pack(input)?,
             intent: load_intent(intent)?,
         },
-        Input::ImportOpen(intent) => RequestAction::ImportOpen { intent: load_intent(intent)? },
-        Input::Export(kind, destination, intent) => RequestAction::Export {
-            destination: resolve_pack(destination)?, request: kind.request(original_input(selected, intent)?),
+        Input::ImportOpen(intent) => RequestAction::ImportOpen {
+            intent: load_intent(intent)?,
         },
-        Input::ExportRecover(destination) => RequestAction::ExportRecover { destination: resolve_pack(destination)? },
+        Input::Export(kind, destination, intent) => RequestAction::Export {
+            destination: resolve_pack(destination)?,
+            request: kind.request(original_input(selected, intent)?),
+        },
+        Input::ExportRecover(destination) => RequestAction::ExportRecover {
+            destination: resolve_pack(destination)?,
+        },
         Input::ImportRecover(Some(receipt)) => {
             let ImportRecovery { intent, original } = serde_json::from_str(
                 original_input(selected, Some(receipt))?.get(),
@@ -995,9 +1123,15 @@ pub(super) fn dispatch(
                     response.subject_state = SubjectState::Succeeded;
                 }
                 ProjectEffectOutcome::Export { status } => {
-                    let observed: ExportStatus = serde_json::from_str(status.get()).map_err(io::Error::other)?;
+                    let observed: ExportStatus =
+                        serde_json::from_str(status.get()).map_err(io::Error::other)?;
                     export_status = Some(observed);
-                    (response.payload.disposition, response.subject_state, response.settlement, response.summary) = observed.presentation();
+                    (
+                        response.payload.disposition,
+                        response.subject_state,
+                        response.settlement,
+                        response.summary,
+                    ) = observed.presentation();
                     response.payload.publication = safe_original(&status, &policy);
                 }
                 ProjectEffectOutcome::Unresolved {
@@ -1010,8 +1144,14 @@ pub(super) fn dispatch(
                     response.payload.import = import_status
                         .as_deref()
                         .and_then(|value| safe_original(value, &policy));
-                    response.payload.publication = publication_status.as_deref().and_then(|value| safe_original(value, &policy));
-                    export_status = publication_status.as_deref().map(|value| serde_json::from_str(value.get())).transpose().map_err(io::Error::other)?;
+                    response.payload.publication = publication_status
+                        .as_deref()
+                        .and_then(|value| safe_original(value, &policy));
+                    export_status = publication_status
+                        .as_deref()
+                        .map(|value| serde_json::from_str(value.get()))
+                        .transpose()
+                        .map_err(io::Error::other)?;
                     response.failures.push(*failure);
                     response
                         .failures
@@ -1044,18 +1184,47 @@ pub(super) fn dispatch(
         }
     }
     if matches!(response.payload.disposition, Disposition::Unresolved) {
-        response.summary = "original project operation settlement is unresolved".into();
-        response.outcome = CommandOutcome::BoundaryFailure;
-        response.subject_state = SubjectState::Unknown;
-        response.settlement = if matches!(export_status, Some(ExportStatus::Pending | ExportStatus::Ready)) {
-            Settlement::Incomplete
-        } else { Settlement::Unknown };
-        response.observation.completeness = Completeness::Partial;
+        if matches!(export_status, Some(ExportStatus::Failed)) {
+            (
+                response.payload.disposition,
+                response.subject_state,
+                response.settlement,
+                response.summary,
+            ) = ExportStatus::Failed.presentation();
+            response.outcome = CommandOutcome::Failure;
+        } else {
+            response.summary = "original project operation settlement is unresolved".into();
+            response.outcome = CommandOutcome::BoundaryFailure;
+            response.subject_state = SubjectState::Unknown;
+            response.settlement = if matches!(
+                export_status,
+                Some(ExportStatus::Pending | ExportStatus::Ready)
+            ) {
+                Settlement::Incomplete
+            } else {
+                Settlement::Unknown
+            };
+            response.observation.completeness = Completeness::Partial;
+        }
     }
     if let Some(destination) = &export_destination {
-        if matches!(response.payload.disposition, Disposition::Unresolved | Disposition::PublicationUnknown | Disposition::PublicationPending | Disposition::PublicationReady)
-            || response.settlement == Settlement::Unknown {
-            response.next.extend(export_lookup(&root, &source, &issuer, &target.operation, destination, &policy, matches!(export_status, Some(ExportStatus::Ready))));
+        if matches!(
+            response.payload.disposition,
+            Disposition::Unresolved
+                | Disposition::PublicationUnknown
+                | Disposition::PublicationPending
+                | Disposition::PublicationReady
+        ) || response.settlement == Settlement::Unknown
+        {
+            response.next.extend(export_lookup(
+                &root,
+                &source,
+                &issuer,
+                &target.operation,
+                destination,
+                &policy,
+                matches!(export_status, Some(ExportStatus::Ready)),
+            ));
         }
     } else if matches!(
         response.payload.disposition,

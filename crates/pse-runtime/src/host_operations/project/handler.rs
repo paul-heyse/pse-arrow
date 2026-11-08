@@ -59,10 +59,14 @@ fn build_project_runtime(
     Ok((shared, runtime))
 }
 
-pub(super) fn prepared_runtime(store: &CanonicalStore) -> Result<(tempfile::TempDir, Arc<SharedRuntime>, Runtime)> {
+pub(super) fn prepared_runtime(
+    store: &CanonicalStore,
+) -> Result<(tempfile::TempDir, Arc<SharedRuntime>, Runtime)> {
     let spill = tempfile::tempdir()?;
     let budget = project_operator_budget(
-        spill.path().to_owned(), PROJECT_OPERATOR_DEFAULTS, default_batch_size(),
+        spill.path().to_owned(),
+        PROJECT_OPERATOR_DEFAULTS,
+        default_batch_size(),
     )?;
     let (shared, runtime) = build_project_runtime(store, budget, project_operator_attestation()?)?;
     Ok((spill, shared, runtime))
@@ -85,9 +89,9 @@ pub fn issue_project_import(
 
 /// Original project action result and independently attempted native-lane drain.
 #[derive(Debug)]
-pub struct PreparedProjectOutcome<T, E = WorkflowError> {
+pub struct PreparedProjectOutcome<T> {
     /// Acknowledged original checkpoint, or the exact failure after invoking apply.
-    pub result: Result<T, E>,
+    pub result: Result<T, WorkflowError>,
     /// Native drain may fail even when project membership already completed.
     pub cleanup: Option<crate::math::MathRuntimeError>,
 }
@@ -142,16 +146,24 @@ pub async fn open_project_import(
     intent: &ProjectImportIntent,
     cancel: &CancelSource,
 ) -> Result<PreparedProjectOutcome<OpenedProjectImport>, ProjectOperationError> {
-    let (_spill, shared, runtime) = prepared_runtime(store).map_err(ProjectOperationError::action)?;
-    let result = Box::pin(runtime.project_import_open(intent, cancel)).await.and_then(|package| {
-        let revision = package.canonical_revision().ok_or_else(|| crate::workflow::contract("import reopen did not retain a canonical revision"))?;
-        let (project, branch, _) = intent.destinations();
-        Ok(OpenedProjectImport {
-            project: project.into(), branch: branch.into(), revision_id: package.revision_id().into(),
-            canonical_revision: revision.key.clone(), canonical_problem: revision.problem.clone(),
-            physical_context: package.physical_context().identity(),
-        })
-    });
+    let (_spill, shared, runtime) =
+        prepared_runtime(store).map_err(ProjectOperationError::action)?;
+    let result = Box::pin(runtime.project_import_open(intent, cancel))
+        .await
+        .and_then(|package| {
+            let revision = package.canonical_revision().ok_or_else(|| {
+                crate::workflow::contract("import reopen did not retain a canonical revision")
+            })?;
+            let (project, branch, _) = intent.destinations();
+            Ok(OpenedProjectImport {
+                project: project.into(),
+                branch: branch.into(),
+                revision_id: package.revision_id().into(),
+                canonical_revision: revision.key.clone(),
+                canonical_problem: revision.problem.clone(),
+                physical_context: package.physical_context().identity(),
+            })
+        });
     runtime.close();
     let cleanup = shared.math().shutdown_native_lanes().await.err();
     Ok(PreparedProjectOutcome { result, cleanup })

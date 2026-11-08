@@ -754,9 +754,16 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     assert!(!collected.import.project_complete);
     assert!(collected.import.artifact_intent.is_none());
     let incomplete = Box::pin(handler::open_project_import(store, &intent, &cancel))
-        .await.unwrap();
+        .await
+        .unwrap();
     assert!(incomplete.cleanup.is_none());
-    assert!(incomplete.result.unwrap_err().to_string().contains("membership is incomplete"));
+    assert!(
+        incomplete
+            .result
+            .unwrap_err()
+            .to_string()
+            .contains("membership is incomplete")
+    );
     let applied = Box::pin(handler::apply_project_import(
         store,
         root.path(),
@@ -793,8 +800,7 @@ async fn project_portability_expired_original_recovery_keeps_exact_receipt_and_f
     assert!(reopened.cleanup.is_none());
     let reopened = reopened.result.unwrap();
     assert_eq!(
-        reopened.canonical_revision,
-        imported.revision,
+        reopened.canonical_revision, imported.revision,
         "current copied artifact/source ownership is independent of supplied bundle lifetime"
     );
     assert_eq!(reopened.project, imported.project);
@@ -1087,7 +1093,9 @@ async fn project_portability_artifact_original_codec_digest_and_scientific_exten
 #[tokio::test]
 async fn project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads()
 {
-    use crate::host_operations::project::exchange::{self, Deliverable, ExchangeRequest, PublicationStatus};
+    use crate::host_operations::project::exchange::{
+        self, Deliverable, ExchangeRequest, PublicationStatus,
+    };
     use crate::tooling::reader::{
         self, Access, ProjectRead, ProjectReadSelection, Protocol, ReaderRequest, Request,
     };
@@ -1238,7 +1246,12 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
         assert!(Box::pin(exchange::export(store, "original-descriptive-export", prepared_path.clone().into(), ExchangeRequest::Pack {
             request: changed, physical: None,
         }, &cancel)).await.is_err());
-        let readback = exchange::publication_status(prepared_path.clone().into(), "original-descriptive-export", store.issuing_store().unwrap(), &cancel.token()).unwrap();
+        let readback = exchange::publication_status(store.deployment_state(), prepared_path.clone().into(), "original-descriptive-export", store.issuing_store().unwrap(), &cancel.token()).unwrap();
+        let changed_destination = output.path().join("different");
+        assert!(Box::pin(exchange::export(store, "original-descriptive-export", changed_destination.clone().into(), ExchangeRequest::Pack {
+            request: request.clone(), physical: None,
+        }, &cancel)).await.is_err());
+        assert!(!changed_destination.exists());
         let PublicationStatus::Published { receipt: recovered } = readback else { unreachable!("lost publication response recovers the original"); };
         assert_eq!(serde_json::to_vec(&receipt).unwrap(), serde_json::to_vec(&recovered).unwrap());
         Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()

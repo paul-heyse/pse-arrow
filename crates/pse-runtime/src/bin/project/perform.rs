@@ -14,7 +14,11 @@ use pse_operations::{
 };
 use pse_runtime::{
     CancelSource,
-    host_operations::project::{DEFAULT_BRANCH, DEFAULT_DOCUMENT_BYTES, exchange::{self, ExchangeRequest, PublicationStatus}, handler},
+    host_operations::project::{
+        DEFAULT_BRANCH, DEFAULT_DOCUMENT_BYTES,
+        exchange::{self, ExchangeRequest, PublicationStatus},
+        handler,
+    },
     tooling::reader::canonical_redaction_policy,
     workflow::{
         ProjectImportIntent, ProjectImportRecoveryReport, ProjectImportReport, WorkflowError,
@@ -478,22 +482,51 @@ async fn execute(
             return match handler::open_project_import(store, &intent, cancel).await {
                 Ok(opened) => {
                     let outcome = match opened.result {
-                        Ok(source) => Outcome::ImportOpened { source: Box::new(source) },
+                        Ok(source) => Outcome::ImportOpened {
+                            source: Box::new(source),
+                        },
                         Err(error) => refused(workflow_diagnostic(&error, policy)),
                     };
-                    (outcome, opened.cleanup.map(|error| ErrorRecord::from_typed(&error, policy)))
+                    (
+                        outcome,
+                        opened
+                            .cleanup
+                            .map(|error| ErrorRecord::from_typed(&error, policy)),
+                    )
                 }
                 Err(error) => (refused(ErrorRecord::from_typed(&error, policy)), None),
             };
         }
-        Action::Export { destination, request } => {
-            return match exchange::export(store, operation, destination.clone(), *request, cancel).await {
+        Action::Export {
+            destination,
+            request,
+        } => {
+            return match exchange::export(store, operation, destination.clone(), *request, cancel)
+                .await
+            {
                 Ok(exported) => {
                     let outcome = match exported.result {
-                        Ok(status) => Outcome::Export { status: Box::new(status) },
-                        Err(error) => unresolved_publication(store, operation, destination, ErrorRecord::from_typed(&error, policy), policy, &cancel.token()),
+                        Ok(status) => Outcome::Export {
+                            status: Box::new(status),
+                        },
+                        Err(error) => unresolved_publication(
+                            store,
+                            operation,
+                            destination,
+                            ErrorRecord::from_typed(&error, policy),
+                            policy,
+                            &cancel.token(),
+                        ),
                     };
-                    (outcome, exported.cleanup.map(|error| ErrorRecord::from_typed(&error, policy)))
+                    let cleanup = exported
+                        .cleanup
+                        .map(|error| ErrorRecord::from_typed(&error, policy))
+                        .or_else(|| {
+                            exported
+                                .publication_cleanup
+                                .map(|error| workflow_diagnostic(&error, policy))
+                        });
+                    (outcome, cleanup)
                 }
                 Err(error) => (refused(ErrorRecord::from_typed(&error, policy)), None),
             };
@@ -503,9 +536,24 @@ async fn execute(
                 Ok(issuer) => issuer,
                 Err(error) => return (refused(canonical_diagnostic(&error, policy)), None),
             };
-            match exchange::recover_publication(destination.clone(), operation, issuer, &cancel.token()) {
-                Ok(status) => Outcome::Export { status: Box::new(status) },
-                Err(error) => unresolved_publication(store, operation, destination, workflow_diagnostic(&error, policy), policy, &cancel.token()),
+            match exchange::recover_publication(
+                store.deployment_state(),
+                destination.clone(),
+                operation,
+                issuer,
+                &cancel.token(),
+            ) {
+                Ok(status) => Outcome::Export {
+                    status: Box::new(status),
+                },
+                Err(error) => unresolved_publication(
+                    store,
+                    operation,
+                    destination,
+                    workflow_diagnostic(&error, policy),
+                    policy,
+                    &cancel.token(),
+                ),
             }
         }
     };
@@ -513,17 +561,34 @@ async fn execute(
 }
 
 fn unresolved_publication(
-    store: &CanonicalStore, operation: &str, destination: NativePath, failure: ErrorRecord,
-    policy: &RedactionPolicy, cancel: &pse_columnar::CancellationToken,
+    store: &CanonicalStore,
+    operation: &str,
+    destination: NativePath,
+    failure: ErrorRecord,
+    policy: &RedactionPolicy,
+    cancel: &pse_columnar::CancellationToken,
 ) -> Outcome {
-    let readback = store.issuing_store().map_err(WorkflowError::from)
-        .and_then(|issuer| exchange::publication_status(destination, operation, issuer, cancel));
+    let readback = store
+        .issuing_store()
+        .map_err(WorkflowError::from)
+        .and_then(|issuer| {
+            exchange::publication_status(
+                store.deployment_state(),
+                destination,
+                operation,
+                issuer,
+                cancel,
+            )
+        });
     let (publication_status, readback_failure) = match readback {
         Ok(status) => (Some(Box::new(status)), None),
         Err(error) => (None, Some(Box::new(workflow_diagnostic(&error, policy)))),
     };
     Outcome::Unresolved {
-        failure: Box::new(failure), import_status: None, publication_status, readback_failure,
+        failure: Box::new(failure),
+        import_status: None,
+        publication_status,
+        readback_failure,
     }
 }
 
