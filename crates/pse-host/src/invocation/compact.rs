@@ -1064,7 +1064,10 @@ mod tests {
             store.observe_compact(id).unwrap().0,
             CompactObservation::Retired
         ));
-        assert_eq!(export("retired.json").subject_state, SubjectState::Unavailable);
+        assert_eq!(
+            export("retired.json").subject_state,
+            SubjectState::Unavailable
+        );
         assert!(!temporary.path().join("retired.json").exists());
         assert!(directory.path().join("result.json").exists());
         assert_eq!(

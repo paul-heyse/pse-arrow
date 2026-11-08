@@ -362,8 +362,11 @@ fn preparation_receipt_preserves_original_failure_status() {
     fs::write(path.join(".config/diagnostic-tools.toml"), "").unwrap();
     fs::create_dir(path.join(".cargo")).unwrap();
     fs::write(path.join(".cargo/config.toml"), "").unwrap();
-    fs::write(path.join("rust-toolchain.toml"), include_str!("../../../rust-toolchain.toml"))
-        .unwrap();
+    fs::write(
+        path.join("rust-toolchain.toml"),
+        include_str!("../../../rust-toolchain.toml"),
+    )
+    .unwrap();
     fs::write(
         path.join("Cargo.toml"),
         "[package]\nname = 'pse-host'\nversion = '0.0.1'\nedition = '2024'\n",
@@ -392,8 +395,9 @@ fn preparation_receipt_preserves_original_failure_status() {
     let generation = path.join("target/host-tools/generation.fixture");
     fs::create_dir(&generation).unwrap();
     executable(&generation.join("pse"), "#!/bin/sh\nexit 0\n");
-    let manifest = GenerationManifest::capture(&generation, fingerprint.clone(), &fingerprint, &["pse"])
-        .unwrap();
+    let manifest =
+        GenerationManifest::capture(&generation, fingerprint.clone(), &fingerprint, &["pse"])
+            .unwrap();
     manifest.write(&generation).unwrap();
     fs::remove_file(&selected).unwrap();
     std::os::unix::fs::symlink("generation.fixture", &selected).unwrap();
@@ -417,8 +421,14 @@ fn preparation_receipt_preserves_original_failure_status() {
     assert!(prepared.status.success());
     let response: serde_json::Value = serde_json::from_slice(&prepared.stdout).unwrap();
     assert_eq!(response["payload"]["route"], "verified_current");
-    assert_eq!(response["payload"]["selected_generation"]["generation"], "generation.fixture");
-    assert_eq!(response["payload"]["selected_generation"]["manifest_digest"], manifest.digest().unwrap());
+    assert_eq!(
+        response["payload"]["selected_generation"]["generation"],
+        "generation.fixture"
+    );
+    assert_eq!(
+        response["payload"]["selected_generation"]["manifest_digest"],
+        manifest.digest().unwrap()
+    );
     let repeated = invoke().output().unwrap();
     assert!(repeated.status.success());
     let repeated: serde_json::Value = serde_json::from_slice(&repeated.stdout).unwrap();
@@ -434,7 +444,10 @@ fn preparation_receipt_preserves_original_failure_status() {
     let missing = invoke().output().unwrap();
     assert!(!missing.status.success());
     let diagnostic = String::from_utf8_lossy(&missing.stderr);
-    assert!(diagnostic.contains("preparation did not leave an authenticated generation"), "{diagnostic}");
+    assert!(
+        diagnostic.contains("preparation did not leave an authenticated generation"),
+        "{diagnostic}"
+    );
 
     executable(&path.join("scripts/bootstrap-host"), "#!/bin/sh\nexit 79\n");
     let failed = invoke().output().unwrap();

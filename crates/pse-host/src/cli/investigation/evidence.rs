@@ -930,7 +930,11 @@ fn selection_emit(
         "native {kind} {:?} intent; no source build, runtime preparation or test listing performed",
         explanation.stage
     );
-    fn mark<T>(mut response: Envelope<T>, from_source: bool, next: Option<Vec<String>>) -> Envelope<T> {
+    fn mark<T>(
+        mut response: Envelope<T>,
+        from_source: bool,
+        next: Option<Vec<String>>,
+    ) -> Envelope<T> {
         if from_source {
             response.observation.limitations.push("Current test candidate in the containing package from a validated source witness. Cargo checks any explicit target selection. This does not establish dependency impact, a listed population, coverage or a verdict.".into());
         }

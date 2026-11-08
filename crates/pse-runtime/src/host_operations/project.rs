@@ -3,10 +3,10 @@
 //! Existing typed native project operator actions and effect declarations.
 //! This is an interface to existing typed owners, not a workflow interpreter.
 
-/// Shared implementations used by native project adapters.
-pub mod handler;
 /// Exact local publication and recovery for the prepared project operator.
 pub mod exchange;
+/// Shared implementations used by native project adapters.
+pub mod handler;
 
 use crate::workflow::{
     PreparationDiscoveryRequest, ProjectDraftDocuments, ProjectDraftSaveIntent,

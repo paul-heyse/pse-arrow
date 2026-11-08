@@ -69,9 +69,18 @@ fn reviewed_handoff_hashes_exact_selected_whole_file_postimages() {
         EditCandidate::new(second.identity().clone(), 0..3, "unselected".into()),
     ];
     let mut proposal = ChangeProposal::new(
-        ProducerContext::Semantic { backend: "selected analyzer".into(), configuration: "selected target".into(), synchronized_generation: "7".into() },
-        vec![first.clone(), second.clone()], candidates, vec![1, 2, 0], vec![], vec![],
-    ).unwrap();
+        ProducerContext::Semantic {
+            backend: "selected analyzer".into(),
+            configuration: "selected target".into(),
+            synchronized_generation: "7".into(),
+        },
+        vec![first.clone(), second.clone()],
+        candidates,
+        vec![1, 2, 0],
+        vec![],
+        vec![],
+    )
+    .unwrap();
     assert!(proposal.bind_handoff(Path::new("/source"), "a".repeat(64), "b".repeat(40)));
     let receipt = serde_json::to_value(&proposal).unwrap();
     let handoff = &receipt["handoff"];
@@ -80,11 +89,26 @@ fn reviewed_handoff_hashes_exact_selected_whole_file_postimages() {
     assert_eq!(files.len(), 2);
     assert_eq!(files[0]["path"], "first.rs");
     assert_eq!(files[0]["before_sha256"], first.identity().source_sha256());
-    assert_eq!(files[0]["after_sha256"], source("/source/first.rs", "// μ\nrenamed();\n// exact\n").identity().source_sha256());
-    assert_eq!(files[1]["after_sha256"], source("/source/second.rs", "renamed()\n").identity().source_sha256());
+    assert_eq!(
+        files[0]["after_sha256"],
+        source("/source/first.rs", "// μ\nrenamed();\n// exact\n")
+            .identity()
+            .source_sha256()
+    );
+    assert_eq!(
+        files[1]["after_sha256"],
+        source("/source/second.rs", "renamed()\n")
+            .identity()
+            .source_sha256()
+    );
     assert!(!handoff.to_string().contains("renamed"));
     assert!(!proposal.bind_handoff(Path::new("/foreign"), "a".repeat(64), "b".repeat(40)));
-    assert!(serde_json::to_value(proposal).unwrap().get("handoff").is_none());
+    assert!(
+        serde_json::to_value(proposal)
+            .unwrap()
+            .get("handoff")
+            .is_none()
+    );
 }
 
 #[test]

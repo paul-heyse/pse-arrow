@@ -194,40 +194,71 @@ fn proposal_input(mut input: impl std::io::Read, checkout_id: &str) -> Result<Ve
         },
     }
     let mut bytes = Vec::new();
-    input.by_ref().take(STATUS_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+    input
+        .by_ref()
+        .take(STATUS_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)?;
     if bytes.len() > STATUS_BYTES {
-        return Err(HostError::Ownership("source-change proposal input exceeds its byte limit".into()));
+        return Err(HostError::Ownership(
+            "source-change proposal input exceeds its byte limit".into(),
+        ));
     }
     let decoded: Input = serde_json::from_slice(&bytes).map_err(|_| {
-        HostError::Ownership("expected a reviewed source-change handoff or a semantic proposal containing one".into())
+        HostError::Ownership(
+            "expected a reviewed source-change handoff or a semantic proposal containing one"
+                .into(),
+        )
     })?;
     let projection = match decoded {
         Input::Projection(projection) => projection,
-        Input::Envelope { record, command, outcome, payload }
-            if record == "response" && command == "propose entity" && outcome == "success" => payload.proposal.handoff,
-        Input::Envelope { .. } => return Err(HostError::Ownership("source-change proposal envelope is not a successful semantic edit".into())),
+        Input::Envelope {
+            record,
+            command,
+            outcome,
+            payload,
+        } if record == "response" && command == "propose entity" && outcome == "success" => {
+            payload.proposal.handoff
+        }
+        Input::Envelope { .. } => {
+            return Err(HostError::Ownership(
+                "source-change proposal envelope is not a successful semantic edit".into(),
+            ));
+        }
     };
-    projection.validate().map_err(|message| HostError::Ownership(message.into()))?;
+    projection
+        .validate()
+        .map_err(|message| HostError::Ownership(message.into()))?;
     if projection.checkout_id != checkout_id {
-        return Err(HostError::Ownership("source-change proposal belongs to a different checkout".into()));
+        return Err(HostError::Ownership(
+            "source-change proposal belongs to a different checkout".into(),
+        ));
     }
     let projected = serde_json::to_vec(&projection).map_err(std::io::Error::other)?;
     if projected.len() > handoff::MAX_BYTES {
-        return Err(HostError::Ownership("source-change proposal handoff exceeds its byte limit".into()));
+        return Err(HostError::Ownership(
+            "source-change proposal handoff exceeds its byte limit".into(),
+        ));
     }
     Ok(projected)
 }
 
-fn read_proposal(path: PathBuf, selected: Option<&Path>, checkout_id: &str) -> Result<Vec<u8>, HostError> {
+fn read_proposal(
+    path: PathBuf,
+    selected: Option<&Path>,
+    checkout_id: &str,
+) -> Result<Vec<u8>, HostError> {
     if path == Path::new("-") {
         return proposal_input(std::io::stdin().lock(), checkout_id);
     }
     use std::os::unix::fs::OpenOptionsExt as _;
-    let file = std::fs::OpenOptions::new().read(true)
+    let file = std::fs::OpenOptions::new()
+        .read(true)
         .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
         .open(super::source_path(selected, path)?)?;
     if !file.metadata()?.is_file() {
-        return Err(HostError::Ownership("source-change proposal PATH must be a regular file".into()));
+        return Err(HostError::Ownership(
+            "source-change proposal PATH must be a regular file".into(),
+        ));
     }
     proposal_input(file, checkout_id)
 }

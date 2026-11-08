@@ -468,7 +468,9 @@ fn emit(status: &Status, code: i32) -> Result<i32> {
 
 fn read_proposal(input: impl Read) -> Result<ProposalHandoff> {
     let mut bytes = Vec::new();
-    input.take(handoff::MAX_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+    input
+        .take(handoff::MAX_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)?;
     ensure!(
         bytes.len() <= handoff::MAX_BYTES,
         "source-change proposal handoff exceeds its byte limit"

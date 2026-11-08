@@ -121,9 +121,15 @@ fn missing_fixture_readiness_keeps_owner_diagnostic_and_exact_preparation() {
         let diagnostic: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
         assert_eq!(diagnostic["subject_state"], "unprepared");
         assert_eq!(diagnostic["failures"][0]["code"], "fixture.unprepared");
-        assert_eq!(diagnostic["next"][0]["argv"], serde_json::json!([
-            checkout().join("scripts/pse"), "fixture", "prepare", fixture,
-        ]));
+        assert_eq!(
+            diagnostic["next"][0]["argv"],
+            serde_json::json!([
+                checkout().join("scripts/pse"),
+                "fixture",
+                "prepare",
+                fixture,
+            ])
+        );
     }
     assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 }
@@ -141,7 +147,9 @@ fn retained_result_cli_reads_and_exports_one_selected_original() {
     let state = tempfile::tempdir().unwrap();
     let selection = CheckoutState::resolve(
         checkout(),
-        &[("XDG_STATE_HOME".into(), state.path().into())].into_iter().collect(),
+        &[("XDG_STATE_HOME".into(), state.path().into())]
+            .into_iter()
+            .collect(),
     )
     .unwrap();
     let root = selection.root.clone();
@@ -179,25 +187,76 @@ fn retained_result_cli_reads_and_exports_one_selected_original() {
         command.env("XDG_STATE_HOME", state.path());
         command
     };
-    let history = json(&invoke().args(["history", "--session", "export-fixture", "--fields", "records"]).output().unwrap());
-    assert_eq!(history["payload"]["records"][0]["invocation_id"], id.as_str());
-    let observed = json(&invoke().args([
-        "inspect", "invocation", "latest", "--session", "export-fixture", "--detail",
-        "provenance", "--fields", "detail",
-    ]).output().unwrap());
-    assert_eq!(observed["payload"]["detail"]["environment_digest"], "b".repeat(64));
+    let history = json(
+        &invoke()
+            .args([
+                "history",
+                "--session",
+                "export-fixture",
+                "--fields",
+                "records",
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        history["payload"]["records"][0]["invocation_id"],
+        id.as_str()
+    );
+    let observed = json(
+        &invoke()
+            .args([
+                "inspect",
+                "invocation",
+                "latest",
+                "--session",
+                "export-fixture",
+                "--detail",
+                "provenance",
+                "--fields",
+                "detail",
+            ])
+            .output()
+            .unwrap(),
+    );
+    assert_eq!(
+        observed["payload"]["detail"]["environment_digest"],
+        "b".repeat(64)
+    );
     assert_eq!(observed["artifacts"], serde_json::json!([]));
-    let log = json(&invoke().args([
-        "inspect", "log", id.as_str(), "--offset", "1", "--length", "3", "--fields", "content",
-    ]).output().unwrap());
+    let log = json(
+        &invoke()
+            .args([
+                "inspect",
+                "log",
+                id.as_str(),
+                "--offset",
+                "1",
+                "--length",
+                "3",
+                "--fields",
+                "content",
+            ])
+            .output()
+            .unwrap(),
+    );
     assert!(log["payload"]["content"].to_string().contains("123"));
     assert!(!root.join("artifacts").exists());
 
     let destination = state.path().join("result-export.json");
     let export = || {
-        invoke().args([
-            "tools", "export-result", id.as_str(), "--detail", "provenance", "--output",
-        ]).arg(&destination).output().unwrap()
+        invoke()
+            .args([
+                "tools",
+                "export-result",
+                id.as_str(),
+                "--detail",
+                "provenance",
+                "--output",
+            ])
+            .arg(&destination)
+            .output()
+            .unwrap()
     };
     let receipt = json(&export());
     assert_eq!(receipt["payload"]["original_invocation"], id.as_str());

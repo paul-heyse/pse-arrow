@@ -154,7 +154,11 @@ fn diagnostic_capture_drains_without_retaining_unbounded_child_output() {
 #[test]
 fn isolated_bootstrap_reselects_the_pinned_checkout_toolchain() {
     let command = snapshot::isolated_command(Path::new("/snapshot"), "scripts/bootstrap-host");
-    assert!(command.get_envs().any(|(name, value)| name == "RUSTUP_TOOLCHAIN" && value.is_none()));
+    assert!(
+        command
+            .get_envs()
+            .any(|(name, value)| name == "RUSTUP_TOOLCHAIN" && value.is_none())
+    );
 }
 
 #[test]
@@ -165,7 +169,10 @@ fn generation_failure_resumes_same_snapshot_and_publishes_cross_generated_delta(
     let root = checkout.path();
     fixture(root, true);
     let case = Case::OptionalProjectDescription;
-    assert_eq!(preview(root, &state, case, Vec::new(), None, None).unwrap(), 1);
+    assert_eq!(
+        preview(root, &state, case, Vec::new(), None, None).unwrap(),
+        1
+    );
     assert!(!root.join("fixture-generated/new.rs").exists());
     let (id, operation) = only_operation(&state);
     let mut record = operation.read(root, &id).unwrap();
@@ -219,7 +226,10 @@ fn authored_edit_after_preview_refuses_with_zero_output_writes() {
     let root = checkout.path();
     fixture(root, false);
     let case = Case::OptionalProjectDescription;
-    assert_eq!(preview(root, &state, case, Vec::new(), None, None).unwrap(), 0);
+    assert_eq!(
+        preview(root, &state, case, Vec::new(), None, None).unwrap(),
+        0
+    );
     let (id, operation) = only_operation(&state);
     let mut record = operation.read(root, &id).unwrap();
     write(root, case.consumer(), b"intervening authored edit\n");
@@ -257,8 +267,16 @@ fn reviewed_postimages_are_required_before_generation_and_bound_into_the_receipt
     let expected_bytes = b"//! Reviewed change.\n";
     let expected_sha256 = hex(&Sha256::digest(expected_bytes));
     let projection = || ProposalHandoff {
-        version: handoff::VERSION, checkout_id: checkout_id.clone(), checkout_revision: snapshot::revision(root).unwrap(),
-        files: vec![ProposalFile { path: relative.into(), before_sha256: snapshot::head_file_identity(root, relative).unwrap().unwrap(), after_sha256: expected_sha256.clone() }],
+        version: handoff::VERSION,
+        checkout_id: checkout_id.clone(),
+        checkout_revision: snapshot::revision(root).unwrap(),
+        files: vec![ProposalFile {
+            path: relative.into(),
+            before_sha256: snapshot::head_file_identity(root, relative)
+                .unwrap()
+                .unwrap(),
+            after_sha256: expected_sha256.clone(),
+        }],
     };
     let stale = preview(root, &state, case, Vec::new(), None, Some(projection())).unwrap_err();
     assert!(stale.to_string().contains("reviewed proposal postimage"));
@@ -268,15 +286,32 @@ fn reviewed_postimages_are_required_before_generation_and_bound_into_the_receipt
     fs::write(root.join(relative), expected_bytes).unwrap();
     let mut foreign = projection();
     foreign.checkout_revision = "b".repeat(40);
-    assert!(preview(root, &state, case, Vec::new(), None, Some(foreign)).unwrap_err().to_string().contains("checkout or revision"));
+    assert!(
+        preview(root, &state, case, Vec::new(), None, Some(foreign))
+            .unwrap_err()
+            .to_string()
+            .contains("checkout or revision")
+    );
     assert!(fs::read_dir(&state).unwrap().next().is_none());
     let projected = serde_json::to_vec(&projection()).unwrap();
     let proposal = read_proposal(projected.as_slice()).unwrap();
-    assert_eq!(preview(root, &state, case, Vec::new(), None, Some(proposal)).unwrap(), 0);
+    assert_eq!(
+        preview(root, &state, case, Vec::new(), None, Some(proposal)).unwrap(),
+        0
+    );
     let (id, operation) = only_operation(&state);
     let record = operation.read(root, &id).unwrap();
-    assert_eq!(record.status.proposal.unwrap().files[0].after_sha256, expected_sha256);
-    assert!(record.status.authored.iter().any(|entry| entry.path == relative && entry.working_sha256 == expected_sha256));
+    assert_eq!(
+        record.status.proposal.unwrap().files[0].after_sha256,
+        expected_sha256
+    );
+    assert!(
+        record
+            .status
+            .authored
+            .iter()
+            .any(|entry| entry.path == relative && entry.working_sha256 == expected_sha256)
+    );
     assert!(!root.join("fixture-generated/new.rs").exists());
 }
 

@@ -54,7 +54,9 @@ impl ProposalHandoff {
             let path = &file.path;
             if path.as_os_str().is_empty()
                 || path.to_str().is_none()
-                || !path.components().all(|part| matches!(part, Component::Normal(_)))
+                || !path
+                    .components()
+                    .all(|part| matches!(part, Component::Normal(_)))
                 || path.as_os_str() != path.components().collect::<PathBuf>().as_os_str()
                 || !paths.insert(path)
             {
@@ -64,7 +66,9 @@ impl ProposalHandoff {
                 || !hex(&file.after_sha256, 64)
                 || file.before_sha256 == file.after_sha256
             {
-                return Err("proposal handoff requires distinct original and proposed SHA-256 identities");
+                return Err(
+                    "proposal handoff requires distinct original and proposed SHA-256 identities",
+                );
             }
         }
         Ok(())

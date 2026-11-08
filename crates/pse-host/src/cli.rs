@@ -830,7 +830,10 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "project research selection" => {
             envelope::schema::<product::ProductView<'static>>("project research", view)
         }
-        "project describe-closure" | "project import-status" | "project installed-schema" | "project export-status" => {
+        "project describe-closure"
+        | "project import-status"
+        | "project installed-schema"
+        | "project export-status" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
         "project inspect-pack"
@@ -1007,7 +1010,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     response.subject_state = envelope::SubjectState::Unavailable;
                     if matches!(&error, crate::fixtures::FixtureError::Unprepared(_)) {
                         response.subject_state = envelope::SubjectState::Unprepared;
-                        if let Ok(launcher) = root.join("scripts/pse").into_os_string().into_string()
+                        if let Ok(launcher) =
+                            root.join("scripts/pse").into_os_string().into_string()
                             && policy.redact(&launcher) == launcher
                         {
                             response.next.push(envelope::NextAction::Command {
@@ -1017,7 +1021,8 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                                     "prepare".into(),
                                     fixture.argument().into(),
                                 ],
-                                reason: "prepare the missing input through its original owner".into(),
+                                reason: "prepare the missing input through its original owner"
+                                    .into(),
                             });
                         }
                     }
@@ -1339,12 +1344,14 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     "history limit exceeds this platform",
                 )
             })?;
-            Ok(presentation.emit_observation(crate::invocation_view::history(
-                &store,
-                session.as_deref(),
-                limit,
-                &RedactionPolicy::from_environment(),
-            )?)?)
+            Ok(
+                presentation.emit_observation(crate::invocation_view::history(
+                    &store,
+                    session.as_deref(),
+                    limit,
+                    &RedactionPolicy::from_environment(),
+                )?)?,
+            )
         }
         Command::Run {
             command,
@@ -2421,8 +2428,14 @@ mod tests {
             assert!(Cli::try_parse_from(arguments).is_err());
         }
         let parsed = Cli::try_parse_from([
-            "pse", "tools", "export-result", "latest", "--output", "chosen.json",
-            "--detail", "failures",
+            "pse",
+            "tools",
+            "export-result",
+            "latest",
+            "--output",
+            "chosen.json",
+            "--detail",
+            "failures",
         ])
         .unwrap();
         assert_eq!(

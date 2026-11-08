@@ -395,7 +395,12 @@ pub(crate) fn export(
     }
 
     let mut bytes = Vec::new();
-    crate::envelope::write(&mut bytes, inspected, OutputFormat::Json, &Presentation::default())?;
+    crate::envelope::write(
+        &mut bytes,
+        inspected,
+        OutputFormat::Json,
+        &Presentation::default(),
+    )?;
     let (Some(parent), Some(name)) = (destination.parent(), destination.file_name()) else {
         return Err(HostError::Ownership(
             "export requires a fresh destination file".into(),

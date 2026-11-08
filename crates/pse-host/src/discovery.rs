@@ -504,7 +504,9 @@ pub async fn list(
     }
     let checkout = checkout.canonicalize()?;
     let entry = generation::EntryGuard::acquire_current()?;
-    let borrowed = entry.prepared().filter(|_| entry.checkout().as_ref() == Some(&checkout));
+    let borrowed = entry
+        .prepared()
+        .filter(|_| entry.checkout().as_ref() == Some(&checkout));
     let prepared = match borrowed {
         Some(reference) => reference.clone(),
         None => generation::prepared(&checkout)?
@@ -706,9 +708,17 @@ fn unique_artifact<T>(
     let mut entries = entries.filter(|entry| {
         let artifact = cargo(entry);
         let kinds = &artifact.target.kind;
-        let matches_kind = if test && kinds.iter().any(|kind| matches!(kind,
-            TargetKind::Lib | TargetKind::RLib | TargetKind::DyLib | TargetKind::CDyLib | TargetKind::StaticLib
-        )) {
+        let matches_kind = if test
+            && kinds.iter().any(|kind| {
+                matches!(
+                    kind,
+                    TargetKind::Lib
+                        | TargetKind::RLib
+                        | TargetKind::DyLib
+                        | TargetKind::CDyLib
+                        | TargetKind::StaticLib
+                )
+            }) {
             kind == "lib"
         } else if test {
             kinds.first().is_some_and(|value| value.to_string() == kind)
@@ -719,11 +729,18 @@ fn unique_artifact<T>(
             && artifact.package_id.repr == package
             && artifact.target.name == name
             && matches_kind
-            && artifact.executable.as_deref().is_some_and(|original| original.as_std_path() == path)
+            && artifact
+                .executable
+                .as_deref()
+                .is_some_and(|original| original.as_std_path() == path)
     });
-    let selected = entries.next().ok_or_else(|| invalid("listed binary has no same-build captured Cargo artifact"))?;
+    let selected = entries
+        .next()
+        .ok_or_else(|| invalid("listed binary has no same-build captured Cargo artifact"))?;
     if entries.next().is_some() {
-        return Err(invalid("listed binary has ambiguous captured Cargo artifacts"));
+        return Err(invalid(
+            "listed binary has ambiguous captured Cargo artifacts",
+        ));
     }
     Ok(selected)
 }
@@ -738,23 +755,41 @@ fn acquire_binaries(
 
     // The pinned runner exposes BIN_EXE only for integration and benchmark suites.
     // Preserve other runtime metadata, including dynamic libraries and build-script output.
-    let helper_packages: BTreeSet<_> = binaries.rust_binaries.values()
-        .filter(|binary| binary.kind == RustTestBinaryKind::TEST || binary.kind == RustTestBinaryKind::BENCH)
+    let helper_packages: BTreeSet<_> = binaries
+        .rust_binaries
+        .values()
+        .filter(|binary| {
+            binary.kind == RustTestBinaryKind::TEST || binary.kind == RustTestBinaryKind::BENCH
+        })
         .map(|binary| binary.package_id.clone())
         .collect();
-    binaries.rust_build_meta.non_test_binaries.retain(|package, files| {
-        if !helper_packages.contains(package) {
-            files.retain(|file| file.kind != RustNonTestBinaryKind::BIN_EXE);
-        }
-        !files.is_empty()
-    });
+    binaries
+        .rust_build_meta
+        .non_test_binaries
+        .retain(|package, files| {
+            if !helper_packages.contains(package) {
+                files.retain(|file| file.kind != RustNonTestBinaryKind::BIN_EXE);
+            }
+            !files.is_empty()
+        });
     let mut observed: Vec<_> = observed.artifacts.into_iter().map(Some).collect();
     pin_selected(binaries, |test, package, name, kind, path| {
         let selected = unique_artifact(
-            observed.iter().enumerate().filter_map(|(index, value)| value.as_ref().map(|value| (index, value))),
-            |(_, value)| &value.cargo, test, package, name, kind, path,
-        )?.0;
-        let artifact = observed[selected].take().ok_or_else(|| invalid("Cargo artifact already acquired"))?
+            observed
+                .iter()
+                .enumerate()
+                .filter_map(|(index, value)| value.as_ref().map(|value| (index, value))),
+            |(_, value)| &value.cargo,
+            test,
+            package,
+            name,
+            kind,
+            path,
+        )?
+        .0;
+        let artifact = observed[selected]
+            .take()
+            .ok_or_else(|| invalid("Cargo artifact already acquired"))?
             .capture(directory, captured.artifacts.len())?;
         let path = artifact.executable.captured.clone();
         captured.artifacts.push(artifact);
@@ -763,9 +798,20 @@ fn acquire_binaries(
 }
 
 #[cfg(test)]
-fn pin_binaries(binaries: &mut BinaryListSummary, captured: &BuildCapture) -> Result<(), DiscoveryError> {
+fn pin_binaries(
+    binaries: &mut BinaryListSummary,
+    captured: &BuildCapture,
+) -> Result<(), DiscoveryError> {
     pin_selected(binaries, |test, package, name, kind, path| {
-        let artifact = unique_artifact(captured.artifacts.iter(), |entry| &entry.cargo, test, package, name, kind, path)?;
+        let artifact = unique_artifact(
+            captured.artifacts.iter(),
+            |entry| &entry.cargo,
+            test,
+            package,
+            name,
+            kind,
+            path,
+        )?;
         artifact.executable.verify()?;
         Ok(artifact.executable.captured.clone())
     })
@@ -781,8 +827,16 @@ fn pin_selected(
                 "nextest binary map key differs from its embedded identity",
             ));
         }
-        let selected = acquire(true, &binary.package_id, &binary.binary_name, binary.kind.as_str(), binary.binary_path.as_std_path())?;
-        binary.binary_path = selected.try_into().map_err(|_| invalid("captured binary path is not UTF-8"))?;
+        let selected = acquire(
+            true,
+            &binary.package_id,
+            &binary.binary_name,
+            binary.kind.as_str(),
+            binary.binary_path.as_std_path(),
+        )?;
+        binary.binary_path = selected
+            .try_into()
+            .map_err(|_| invalid("captured binary path is not UTF-8"))?;
     }
     // Nextest supplies runtime CARGO_BIN_EXE_*/NEXTEST_BIN_EXE_* from this native map.
     // Keep package, kind and original path tied to the same compiler-artifact capture,
@@ -800,12 +854,10 @@ fn pin_selected(
                     return Ok(binary);
                 }
                 let original = target_directory.join(&binary.path);
-                let selected = acquire(false, package, &binary.name, "bin", original.as_std_path())?;
-                let relative = pathdiff::diff_paths(
-                    &selected,
-                    target_directory.as_std_path(),
-                )
-                .ok_or_else(|| invalid("captured non-test binary cannot be made relative"))?;
+                let selected =
+                    acquire(false, package, &binary.name, "bin", original.as_std_path())?;
+                let relative = pathdiff::diff_paths(&selected, target_directory.as_std_path())
+                    .ok_or_else(|| invalid("captured non-test binary cannot be made relative"))?;
                 binary.path = relative
                     .to_str()
                     .ok_or_else(|| invalid("captured non-test binary path is not UTF-8"))?

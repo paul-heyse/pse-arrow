@@ -404,7 +404,11 @@ impl ChangeProposal {
         }
         let mut groups: BTreeMap<_, Vec<_>> = BTreeMap::new();
         for &index in &self.selected {
-            if self.unresolved_placeholders.iter().any(|placeholder| placeholder.candidate == index) {
+            if self
+                .unresolved_placeholders
+                .iter()
+                .any(|placeholder| placeholder.candidate == index)
+            {
                 return None;
             }
             let edit = self.candidates.get(index)?;
@@ -416,7 +420,10 @@ impl ChangeProposal {
         let mut files = Vec::with_capacity(groups.len());
         for (path, mut edits) in groups {
             let relative = path.strip_prefix(root).ok()?;
-            let source = self.sources.iter().find(|source| source.identity().path() == path)?;
+            let source = self
+                .sources
+                .iter()
+                .find(|source| source.identity().path() == path)?;
             if !matches!(source.identity().origin(), SourceOrigin::Working) {
                 return None;
             }
@@ -433,10 +440,19 @@ impl ChangeProposal {
             files.push(handoff::ProposalFile {
                 path: relative.to_owned(),
                 before_sha256: source.identity().source_sha256().into(),
-                after_sha256: digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect(),
+                after_sha256: digest
+                    .finalize()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect(),
             });
         }
-        let handoff = handoff::ProposalHandoff { version: handoff::VERSION, checkout_id, checkout_revision, files };
+        let handoff = handoff::ProposalHandoff {
+            version: handoff::VERSION,
+            checkout_id,
+            checkout_revision,
+            files,
+        };
         handoff.validate().ok()?;
         (serde_json::to_vec(&handoff).ok()?.len() <= handoff::MAX_BYTES).then_some(handoff)
     }

@@ -192,19 +192,35 @@ fn result_export_publishes_only_the_bounded_original_view_to_a_fresh_path() {
     let receipt = perform("latest", &output).unwrap();
     assert_eq!(receipt.subject_state, SubjectState::Available);
     assert_eq!(receipt.invocation_id, receipt_id);
-    assert_eq!(receipt.payload.original_invocation.as_ref(), Some(original.id()));
+    assert_eq!(
+        receipt.payload.original_invocation.as_ref(),
+        Some(original.id())
+    );
     let published = receipt.payload.published.unwrap();
     let bytes = fs::read(&output).unwrap();
     assert_eq!(published.bytes, bytes.len());
     assert_eq!(published.sha256, crate::managed::workflow::digest(&bytes));
-    assert_eq!(fs::metadata(&output).unwrap().permissions().mode() & 0o777, 0o600);
+    assert_eq!(
+        fs::metadata(&output).unwrap().permissions().mode() & 0o777,
+        0o600
+    );
     let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(document["invocation_id"], receipt_id.as_str());
     assert_eq!(document["payload"]["response"]["outcome"], "failure");
     assert_eq!(document["payload"]["response"]["child_exit"], 3);
-    assert_eq!(document["payload"]["response"]["summary"], "original <redacted:TOKEN>");
-    assert_eq!(document["payload"]["detail"]["environment_digest"], "b".repeat(64));
-    assert!(!String::from_utf8(bytes.clone()).unwrap().contains("opaque owner data"));
+    assert_eq!(
+        document["payload"]["response"]["summary"],
+        "original <redacted:TOKEN>"
+    );
+    assert_eq!(
+        document["payload"]["detail"]["environment_digest"],
+        "b".repeat(64)
+    );
+    assert!(
+        !String::from_utf8(bytes.clone())
+            .unwrap()
+            .contains("opaque owner data")
+    );
     assert!(perform("latest", &output).is_err());
     assert_eq!(fs::read(&output).unwrap(), bytes);
     assert_eq!(fs::read(&result_path).unwrap(), original_bytes);
