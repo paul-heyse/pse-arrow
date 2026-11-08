@@ -95,10 +95,13 @@ pub enum RuntimeOperationRequest {
     },
 }
 fn projection_refusal(reason: &str) -> WorkflowError {
+    projection_refusal_at(reason, None)
+}
+fn projection_refusal_at(reason: &str, case: Option<DeclarationId>) -> WorkflowError {
     let mut diagnostic = pse_model::diagnostic::BoundaryDiagnostic::new(
         pse_model::diagnostic::BoundaryClass::Unsupported,
         pse_diagnostics::DiagnosticStage::StudyAdmission,
-        [],
+        case.map(|id| id.as_id()),
         pse_diagnostics::DiagnosticRule::StudyOperationUnsupported,
     );
     diagnostic.observations.insert(
@@ -345,8 +348,13 @@ impl ModelingPackage {
                     PreparedInitializationOperation::new(self.clone(), execution)?,
                 )))
             }
-            _ => Err(projection_refusal(
-                "selected authored procedure or initialization input binding is unsupported",
+            DeclaredProcedure::Integrate(_) => Err(projection_refusal_at(
+                "authored integration requires a Simulation operation and its integration controls",
+                Some(case),
+            )),
+            _ => Err(projection_refusal_at(
+                "selected authored procedure is unsupported by a Case operation",
+                Some(case),
             )),
         }
     }

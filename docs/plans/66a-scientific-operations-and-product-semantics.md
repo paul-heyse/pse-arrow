@@ -160,6 +160,14 @@ quantity/unit. The projected row index follows the native coordinate. Missing, f
 refused or passively decoded member proof cannot select a qualified value. Independent
 point-product accuracy and derivative permission still need their own original evidence.
 
+The Case entry now identifies the authored case when its integration procedure requires the
+Simulation entry and integration controls. Its paired control is in the aqueous protected
+journey. Current receiving stops during canonical source publication with `SourceEditUnsettled`
+after the driver reports `ConnectionFailed` and an unknown server outcome. Explicit setup
+settlement exposes that original error, which was previously masked by fallback fixture drain.
+The scientific assertions in this receiving run remain pending while original source publication
+is unresolved. The separate standalone sampled-value control passed under native Diffsol.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |

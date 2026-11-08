@@ -1022,6 +1022,28 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         .unwrap()
         .declaration_id;
     let cancel = crate::CancelSource::new();
+    let wrong_route = Box::pin(original.prepare_operation(
+        services.preparation(),
+        &crate::workflow::OperationSource::of(&original),
+        &preparation,
+        crate::workflow::RuntimeOperationRequest::DeclaredCase {
+            case,
+            settings: Box::new(crate::math::settings::SolveSettings::default()),
+        },
+        None,
+        &cancel,
+    ))
+    .await
+    .unwrap_err();
+    let WorkflowError::Boundary(wrong_route) = wrong_route else {
+        panic!("the Case operation must attribute the unsupported authored procedure");
+    };
+    assert_eq!(wrong_route.sources, vec![case.as_id()]);
+    assert!(matches!(
+        wrong_route.observations.get("reason"),
+        Some(pse_model::diagnostic::Observation::Text(reason))
+            if reason.contains("requires a Simulation operation")
+    ));
     let operation = Box::pin(original.prepare_operation(
         services.preparation(),
         &crate::workflow::OperationSource::of(&original),
@@ -1482,4 +1504,10 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         portable.is_finished(),
         "independent portable read must consume the complete export"
     );
+    drop(services);
+    runtime.close();
+    runtime.shared.math().shutdown_native_lanes().await.unwrap();
+    let fixture = store.clone();
+    drop(runtime);
+    fixture.remove_isolated_fixture().await.unwrap();
 }

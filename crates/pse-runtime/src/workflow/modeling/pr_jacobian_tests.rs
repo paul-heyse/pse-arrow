@@ -351,10 +351,31 @@ async fn package(
     let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
     )?;
-    let package = runtime
+    let admitted = runtime
         .modeling_from_documents(&closure, physical, &crate::CancelSource::new())
-        .await?;
-    Ok((runtime, package, spill))
+        .await;
+    match admitted {
+        Ok(package) => Ok((runtime, package, spill)),
+        Err(error) => {
+            if let Ok(store) = runtime.canonical_store() {
+                runtime.close();
+                if let Err(cleanup) = store
+                    .drain_owned_connection_until(
+                        tokio::time::Instant::now() + pse_operations::canonical::REQUEST_TIMEOUT,
+                    )
+                    .await
+                {
+                    eprintln!("original package admission failed: {error}");
+                    return Err(crate::workflow::WorkflowError::Settlement {
+                        operation: Box::new(error),
+                        cleanup: Box::new(cleanup.into()),
+                    }
+                    .into());
+                }
+            }
+            Err(error.into())
+        }
+    }
 }
 
 /// The current authored seed closure, shared with focused initialization controls.
