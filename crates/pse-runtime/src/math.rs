@@ -247,6 +247,11 @@ pub enum MathRuntimeError {
     Infrastructure(String),
 }
 impl MathRuntimeError {
+    fn is_cancellation(&self) -> bool {
+        use pse_diagnostics::{DiagnosticCode, TypedDiagnostic};
+        self.diagnostic_code() == Some(DiagnosticCode::RuntimeCancelled)
+    }
+
     pub(crate) fn settle<T>(
         operation: Result<T, Self>,
         cleanup: Result<(), Self>,
@@ -1227,10 +1232,19 @@ impl MathService {
             Ok(value)
         });
         tokio::pin!(operation);
-        tokio::select! {result=&mut operation=>result,()=driver.cancelled()=>{
-            control.cancel();
-            MathRuntimeError::settle(Err(MathRuntimeError::Cancelled), operation.await.map(|_| ()))
-        }}
+        tokio::select! {
+            result = &mut operation => result,
+            () = driver.cancelled() => {
+                control.cancel();
+                match operation.await {
+                    Err(error) if error.is_cancellation() => Err(error),
+                    result => MathRuntimeError::settle(
+                        Err(MathRuntimeError::Cancelled),
+                        result.map(|_| ()),
+                    ),
+                }
+            }
+        }
     }
     /// Opt into exclusive reuse only on the actual native session owner thread.
     /// Ordinary workers (including independent original assessments) remain cold.

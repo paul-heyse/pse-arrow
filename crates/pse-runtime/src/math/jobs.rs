@@ -1836,7 +1836,7 @@ impl MathService {
                         if let Err(error) = &result { crate::tooling::telemetry::diagnostic(error, "native.worker.execute"); }
                         interval.finish(match &result {
                             Ok(_) => crate::invocation::InvocationOutcome::Completed,
-                            Err(MathRuntimeError::Cancelled) => crate::invocation::InvocationOutcome::Cancelled,
+                            Err(error) if error.is_cancellation() => crate::invocation::InvocationOutcome::Cancelled,
                             Err(_) => crate::invocation::InvocationOutcome::Failed,
                         });
                         result
@@ -1873,8 +1873,9 @@ impl MathService {
                 let result = match (stopped, joined) {
                     (None, joined) => joined,
                     (Some(stopped), Ok((value, _))) => MathRuntimeError::settle(Err(stopped), retire_unpublished(&mut finish, value)),
-                    // The native callback's plain cancellation acknowledges this
-                    // stop; independent action/cleanup failures remain separate.
+                    // The callback can acknowledge the same stop through a typed supplier error.
+                    // Preserve that witness and keep independent failures separate.
+                    (Some(MathRuntimeError::Cancelled), Err(error)) if error.is_cancellation() => Err(error),
                     (Some(stopped), Err(MathRuntimeError::Cancelled)) => Err(stopped),
                     (Some(stopped), Err(error)) => MathRuntimeError::settle(Err(stopped), Err(error)),
                 };

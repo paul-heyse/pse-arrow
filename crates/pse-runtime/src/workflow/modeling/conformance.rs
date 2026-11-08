@@ -1174,7 +1174,7 @@ impl ModelingConformanceReport {
     pub fn table(&self) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
         self.export(&self.checks)
     }
-    fn export<T: RelationRow + pse_model::HeapUsage + Clone>(
+    fn export<T: RelationRow + HeapUsage + Clone>(
         &self,
         rows: &[T],
     ) -> Result<pse_relations::columnar::FieldCheckedBatch, WorkflowError> {
@@ -1182,12 +1182,7 @@ impl ModelingConformanceReport {
         let scratch =
             pse_columnar::MemoryConsumer::new("conformance:row-copy").register(&self.pool);
         scratch
-            .try_grow(
-                rows.iter()
-                    .map(pse_model::HeapUsage::owned_bytes)
-                    .max()
-                    .unwrap_or(0),
-            )
+            .try_grow(rows.iter().map(HeapUsage::owned_bytes).max().unwrap_or(0))
             .map_err(pse_columnar::CanonError::from)
             .map_err(pse_relations::RelationError::from)
             .map_err(relation)?;
@@ -1734,7 +1729,7 @@ impl ModelingPackage {
                             None
                         } else {
                             initialization.failure.clone().or_else(|| {
-                                Some(pse_model::diagnostic::BoundaryDiagnostic::new(
+                                Some(BoundaryDiagnostic::new(
                                     pse_model::diagnostic::BoundaryClass::ResourceLimit,
                                     pse_diagnostics::DiagnosticStage::Initialization,
                                     [fixture.as_id()],
@@ -3279,18 +3274,24 @@ mod tests {
         );
         assert_eq!(report.fixture_statuses.len(), 20);
         for fixture in &order[..16] {
-            assert_eq!(report.fixture_statuses[fixture], Status::Cancelled);
+            assert_eq!(
+                report.fixture_statuses[fixture],
+                Status::Cancelled,
+                "{fixture}: {}",
+                report_summary(&report)
+            );
         }
         for fixture in &order[16..] {
             assert_eq!(report.fixture_statuses[fixture], Status::Unattempted);
             assert!(!report.results.contains_key(fixture));
         }
         assert_eq!(report.failures.len(), 16);
-        for check in report
+        let cancelled = report
             .checks
             .iter()
-            .filter(|row| row.status == Status::Cancelled)
-        {
+            .filter(|row| row.status == Status::Cancelled);
+        assert_eq!(cancelled.clone().count(), 16);
+        for check in cancelled {
             let diagnostic = &report.failures[check.failure_ordinal.unwrap() as usize];
             assert_eq!(
                 diagnostic.class,
@@ -3303,6 +3304,18 @@ mod tests {
         );
         drop(report);
         drop(package);
+        // The deployment still owns compiler and native reserves after the
+        // issued workers join. Retire that owner before checking its pool.
+        runtime.close();
+        services
+            .preparation()
+            .math()
+            .shutdown_native_lanes()
+            .await
+            .unwrap();
+        runtime.clear_program_cache();
+        drop(services);
+        drop(runtime);
         assert_eq!(
             pool.reserved(),
             0,
