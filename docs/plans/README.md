@@ -25,11 +25,10 @@ complete. Its retained closeout records the incident cleanup, native executable 
 SurrealKit and Rust fixture cutover, compiler reuse and owner-issued retirement. Plan68
 consumes its decisions and evidence.
 
-[Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) proposes one exact v4 release
-across the active database routes after Plan67 completes. Its companions own supplier and
-runtime preparation, schema and transport, current query opportunities, developer and test
-receiving, and fresh generation and cutover. Plan66 remains the owner of scientific work
-and its outstanding acceptance.
+[Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md#current-status) records the completed
+v4 cutover on `main` and the remaining qualification, benefit comparisons and historical custody.
+Its [Plan66 dependencies](68-surrealdb-v4-cutover.md#dependencies-on-plan-66) identify which
+follow-up evidence needs additional scientific or developer consumers.
 
 - [68a · Supplier, runtime and extension](68a-surrealdb-v4-supplier-runtime-and-extension.md)
 - [68b · Schema, transport and authority](68b-surrealdb-v4-schema-transport-and-authority.md)

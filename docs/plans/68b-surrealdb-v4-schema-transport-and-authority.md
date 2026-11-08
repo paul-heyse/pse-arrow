@@ -234,11 +234,11 @@ Plan68e owns the assembled receiving and recovery campaigns.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| B01 | planned | Approved release boundary for generation. A's privately prepared v4 server and extension receipt for live attestation | Active parsers, generators and maintenance share the exact v4 release. Actual installed semantics and activation refusal controls pass. |
-| B02 | planned | Exact protocol artifacts and A's receiving gRPC behavior | Generated preflight, terminal slots, ownership and typed errors pass on independent fixtures and the native v4 endpoint. |
-| B03 | planned | B02 wire contract and existing Plan 66 readers | Native value round trips and protected result readback preserve original evidence and interpretation. |
-| B04 | planned | B01 emitted definitions, B02 native transport and A's rollback control | Actual HTTP routes attest effective authority and prove denied or failed actions leave no unauthorized effects. |
-| B05 | planned | B01 managed definitions, B03 value boundaries and a verified shared field/function use | Adopt one equivalently typed shared constraint or record the evidence that retains the current form. |
+| B01 | Complete for deployed definitions | ADR-0257, A's prepared v4 server and extension receipt | The v4 parsers, generator and maintenance witness are on `main`. Fresh installation, current activation and ingress reconstruction, and exact checkpoint restart/readback ran on the prepared pair. Additional protected-original receiving belongs to E. |
+| B02 | In progress for remaining qualification | Exact protocol artifacts and A's receiving gRPC behavior | Protocol 0.14.1 and the generated bounded preflight are in use. Targeted wire and native session-ownership controls ran. Reconcile remaining malformed and partial response, transport-loss, saturation and plain/TLS settlement coverage with A02. |
+| B03 | In progress for additional reader families | B02 wire contract and the [Plan66 reader dependencies](68-surrealdb-v4-cutover.md#dependencies-on-plan-66) | Native v4 value/codec controls ran with the existing scientific representation. E02 records the selected independent Arrow/Proto readback. Extend coverage when 66b and 66e deliver the actual family, descriptors and protected reader, with assembled evidence under 66l. |
+| B04 | In progress for remaining qualification | B01 emitted definitions, B02 native transport and A's rollback control | Explicit definer authority is generated on `main`. The exact v4 HTTP actor grant and original envelope control ran. Reconcile the remaining paired refusal and enclosing rollback controls with A02/E02. |
+| B05 | In progress for optional comparison | B01 managed definitions and the existing private evidence count guard | The production decimal guard remains. Supplier `u64` probes are recorded above. Compare the exact bounded gRPC representation and shared field/function constraint on the existing lane, then adopt or record why the current form wins. Plan66 is a prerequisite only for extending an adopted constraint into a newly delivered scientific family. |
 
 For local verification select the schema expression and CLI parser controls, the generator
 and `just codegen-surreal-check`, and the affected `pse-operations` maintenance, codec,
@@ -246,7 +246,7 @@ transport and control tests. Use the native force-validated correctness route wh
 Arrow-consuming closure is selected. Independent wire fixtures check the protocol and the
 owned v4 endpoint checks its actual effects. Pass both before claiming parity. E owns the
 assembled protected scientific and developer receiving journeys and their zero-baseline
-result. This plan records proposed work and interface evidence.
+result. The package table separates deployed behavior, selected evidence and open work.
 
 [O01]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O01
 [O08]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O08
@@ -282,8 +282,9 @@ now use v4 local bindings, extension names and explicit API definer
 security. Each replay has its own pinned byte checksum. Historical
 schema/codec identifiers and the archived v3 declaration bytes still
 identify the original contracts. The exact v4 gRPC server committed each
-replay into a disposable catalog. The complete recovery test also checks
-checkpoint settlement, restart and activation.
+replay into a disposable catalog. The targeted native recovery selection
+passed checkpoint settlement, restart and activation with the original
+receipt, alongside the frozen-v2 identity and original-request controls.
 The v4 checkpoint uses named `MIGRATE EXISTING ROWS` clauses to add the
 required version, epoch and closed admission fields to the existing marker.
 The epoch comes from the validated original migration request. The three

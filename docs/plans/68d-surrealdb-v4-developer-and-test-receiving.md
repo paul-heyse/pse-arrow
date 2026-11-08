@@ -123,9 +123,9 @@ durability, and physical reuse. O03's current receiving work is D03.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | Complete privately | Completed 67c/d preparation owner, A exact release tuple | Exact source-built tool and locked gRPC SDK receipt select on v4, with stale and foreign selections refused. |
-| D02 | Complete privately | D01 and B's usable generated declarations and activation witness | Native fixture exercises sync and rollout parity, named actor and database outcomes, report/refusal distinctions, and actual disposal. |
-| D03 | In progress | Completed Plan67, v3 baseline before cutover, D02 and the scoped v4 evidence route | Current working-report rerun, fresh evidence regeneration, exact native settlement and matched build/retention observations reach E. |
+| D01 | Complete | Completed 67c/d preparation owner, A exact release tuple | The SurrealKit RC.1 source pin and locked gRPC closure are on `main`. The exact binary selected on v4 and the stale and foreign selection controls passed. |
+| D02 | Complete for the selected lane | D01 and B's generated definitions and activation witness | Production-schema sync and the managed sync/rollout fixture passed on the exact prepared server. The selected lane exercised setup/seed refusal, drift and settled disposal. B01 separately owns the live canonical activation witness. |
+| D03 | In progress for matched measurements and broader receiving | Completed Plan67, retained v3 baseline, D02 and scoped v4 evidence store | The controlled original failure and rerun settled on the v3 baseline. The exact exported report was received by the regenerated v4 evidence/knowledge store under its scoped-role and cursor controls. Matched dependency-unit inspection is recorded below. Comparable warm/cold cache and retained allocation measurements remain. Broader report and rerun coverage follows [66f F02–F04](66f-developer-operations-clients-and-evidence.md#packages) and [66e E07](66e-protected-data-and-result-delivery.md#packages) as those consumers land. |
 | D04 | Deferred | Named persistent consumer and separate retention decision | Reassess the recorded v4 held-prefix evidence only when the owner and lifetime justify persistent history. |
 
 ## Private candidate checkpoint — November 7
@@ -144,8 +144,9 @@ and seed failures and interruption controls. The force-validated native
 pse-operations/native-service` completed with zero failures. A live B
 definition witness requires the canonical maintenance owner and Study
 extension. The suite's logical test database supplies its own sync and
-rollout parity observations. The assembled receiving run still needs the
-B witness on its canonical catalog.
+rollout parity observations. The selected canonical receiving run subsequently
+exercised the installed B01 witness through the actual migration and ingress
+controls. [68b](68b-surrealdb-v4-schema-transport-and-authority.md#private-candidate-checkpoint)
 
 The standalone RC.1 sync on the exact persistent v4 server passed all 19
 production-schema cases. The first managed full suite timed out in a later

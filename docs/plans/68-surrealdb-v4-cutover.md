@@ -11,6 +11,48 @@ review_sources: [docs/functional_reviews/surrealdb-v4-cutover-2026-11-07.md]
 
 # SurrealDB v4 cutover
 
+## Current status
+
+**Implemented.** The fresh-default cutover under [ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+is complete. GitHub and workstation `main` use the exact SurrealDB 4.0.0 family.
+The workstation launcher selects the verified server release through the normal
+`server select` route. Fresh catalog installation, selected original-operation
+recovery, and the developer fixtures were exercised on that release. [68e](68e-surrealdb-v4-fresh-generation-and-acceptance.md#e03--select-open-writes-and-release)
+owns the deployment and receiving evidence.
+
+The plan remains **in progress** for three kinds of work after the cutover:
+
+- Finish or explicitly defer the scheduled schema, access-path, graph, ranking
+  and resource investigations. The existing v4 paths are usable today. A claimed
+  benefit needs its own matched workload and evidence. [68b](68b-surrealdb-v4-schema-transport-and-authority.md#packages) · [68c](68c-surrealdb-v4-query-improvements.md#packages)
+- Reconcile the remaining platform qualification and matched build/cache and
+  allocation observations. Current receiving evidence covers named cases. The
+  earlier workspace `just hygiene` run reported eight failed recipes against the
+  zero target, and broader requalification was stopped at the maintainer's direction.
+  [68a](68a-surrealdb-v4-supplier-runtime-and-extension.md#packages) · [68d](68d-surrealdb-v4-developer-and-test-receiving.md#packages)
+- Identify any historical protected original that a current reader still needs.
+  Preserve it through its existing reader or an owned one-time transfer where
+  required. Release historical v3 generations only after the custody owners
+  verify their consumers, holds and physical settlement. [68e](68e-surrealdb-v4-fresh-generation-and-acceptance.md#packages)
+
+## Dependencies on Plan 66
+
+Plan66 supplies selected consuming routes and owns their domain semantics and
+acceptance. The platform cutover has already landed. Only the following work
+depends on the corresponding consumer being ready.
+
+| Plan68 work | Plan66 dependency and when to act |
+| --- | --- |
+| B03 and C02 protected-value and access-path verification | When [66b](66b-contracts-generation-and-interpretation.md#packages) supplies the generated interpretation for a selected result family and [66e E02–E03](66e-protected-data-and-result-delivery.md#packages) supplies its protected reader, exercise the actual permissions, original Arrow/Proto values, and bounded result pages before crediting v4 pushdown or lower read work for that family. Existing workbench, readiness and private evidence paths can be compared now. |
+| C03–C04 expanded graph or ranked discovery | The existing private knowledge corpus can support the bounded predicate and ranking comparisons today. Wider product graph or discovery adoption needs an actual scoped graph, result or evidence consumer from [66e E07/E09](66e-protected-data-and-result-delivery.md#packages) or [66f F04](66f-developer-operations-clients-and-evidence.md#packages), with a useful query and expected authorized results. |
+| D03 expanded original-evidence coverage | The selected regeneration, original-report projection and rerun evidence is in place. Extend the receiving matrix as [66f F02–F04](66f-developer-operations-clients-and-evidence.md#packages) supplies additional independently acquired reports or rerun consumers and [66e E07](66e-protected-data-and-result-delivery.md#packages) supplies their factual projections. D03's matched cache and allocation comparison can proceed on the existing lane. |
+| E02 assembled scientific acceptance | [66l L02–L03](66l-required-population-and-assembled-acceptance.md#packages) owns the aqueous fixture drain and the wider scientific population. Use its settled workflows to extend receiving evidence for the v4 paths they actually consume. |
+
+B05's private evidence count-guard experiment, C05's spill and mixed-load
+qualification, and historical inventory and custody can proceed with their
+existing owners and inputs. A protected artifact identified during Plan66 work
+enters E01 through its named reader and custody owner.
+
 ## Target and baseline
 
 **Proposed.** Cut over every active SurrealDB route to one exact 4.0.0
@@ -20,15 +62,12 @@ authoritative selection. Keep Plan66 moving. Its available scientific and
 developer routes supply the receiving tests. Its unfinished consumers gate
 only the additional functionality that actually needs them.
 
-The inspected source is main `6da5f6289` and the November 7 working tree.
-It selects patched SurrealDB 3.3.4, persistent SurrealMX 1.0.0, protocol
-0.13.1 and Surrealism 0.6.4. Refresh the inventory at execution start
-against completed Plan67 and the then-current Plan66 baseline. The
-Plan67 premise is its current regeneration and working-report policy.
-The persistent history pilot was withdrawn in `b3ee69f14`. The v4
-review's four isolated memory probes are **Tested** in their stated
-conditions. They provide design leads. The local v4 source-built
-foundation, actual receiving tests and measured benefits are open.
+The pre-cutover comparison baseline was main `6da5f6289` and the November 7
+working tree with patched SurrealDB 3.3.4, persistent SurrealMX 1.0.0, protocol
+0.13.1 and Surrealism 0.6.4. The completed Plan67 regeneration and working-report
+policy governs the comparison. The persistent history pilot was withdrawn in
+`b3ee69f14`. The functional review's isolated memory probes provide candidate
+designs and document the conditions of their supplier evidence.
 [Functional review](../functional_reviews/surrealdb-v4-cutover-2026-11-07.md) ·
 [Plan66 baseline](66-integrated-simulation-target.md) ·
 [Plan67 decisions](67-storage-lifecycle-and-build-reuse.md#decisions-and-boundaries)
@@ -120,16 +159,16 @@ improvement.
 
 | Review reference | Disposition | Owning intervention |
 | --- | --- | --- |
-| O01 | Planned investigation | B qualifies one shared generated named constraint only after finding equivalent field and callable contracts. |
-| O02 | Planned | C qualifies protected and graph reads, then trials current read-only snapshots on the existing pure knowledge consumer. Extra graph representation changes follow C's measured gates. |
-| O03 | Planned receiving, persistent history deferred | D receives regenerated evidence and current rerun. A named recurring consumer plus a separate retention decision can reopen the held-expiry probe. |
-| O04 | Planned | D receives the completed native suite lane on the exact RC tool, with original in-run JSON and disposal evidence. |
-| O05 | Planned | C compares the real query paths, count and index readiness. E requires current-result equivalence. |
-| O06 | Planned | A qualifies write isolation, retry and engine controls. C qualifies spill and query resources on owned scratch. Narrowing the witness needs measured contention and absent/future predicate coverage. |
-| O07 | Planned investigation | C tests exact lexical and bounded ranking/graph candidates. Defer persistent views, vector/hybrid and geospatial search until a named consumer supplies freshness, relevance and custody needs. |
-| O08 | Planned cutover, new encodings deferred | B receives native typed gRPC and independent interpretation. Reopen shaped CBOR, alternate encodings or incremental delivery for a named receiver with a fidelity or memory gap. |
-| O09 | Planned | A ports the pure extension. B qualifies current control API authority and rollback. Transaction-capable exports, typed bindings and invoker routes require a specific consumer and a fresh authority assessment. |
-| O10 | Planned | E regenerates, preserves named originals and proves recovery on MX. Separate KV or distributed topology requires an independently scoped capacity, durability or failure-domain objective. |
+| O01 | Open | B05 keeps the production decimal guard and owns the shared named-type and bounded gRPC comparison. B01 already uses named field migration for the replay checkpoint. |
+| O02 | Open after adoption | C01 adopted the current read-only knowledge snapshot. C03 added bounded graph diagnostics and retains the existing traversal while inline predicates and any wider graph projection await their scoped comparison. |
+| O03 | Open for broader receiving | D03 exercised regenerated evidence and original-report readback, alongside the baseline failed-rerun control. Broader consumers and matched build/retention observations remain. Persistent history is deferred pending a named recurring consumer and retention decision. |
+| O04 | Resolved | D01–D02 received the locked SurrealKit RC.1 and managed sync/rollout lane on the exact v4 server with settled disposal. |
+| O05 | Open for matched evidence | C02 exercised selected v4 catalog and count paths, and C03 exercised the graph reader. Compare equivalent v3/v4 plans and work before crediting an index or executor benefit, and extend protected-result coverage when the named readers are ready. |
+| O06 | Open for resource qualification | A02 exercised selected serializable writes and original-operation recovery. C05 owns live spill, mixed-load and physical allocation observations. A narrower publication witness requires an actual contention case and absent/future predicate evidence. |
+| O07 | Open for comparison | C04 retains existing scoped lexical discovery. Compare bounded ranking against the current corpus. Persistent views, vector/hybrid and geospatial search need a named workload and evidence of usefulness and custody. |
+| O08 | Open for broader reader receiving | B02–B03 landed native typed gRPC and exercised selected wire/value contracts. Additional independent scientific readers depend on their Plan66 families. Alternative encodings or incremental delivery are deferred pending a named fidelity or memory gap. |
+| O09 | Open for remaining qualification | A03 landed and exercised the pure ABI 4 extension. B04 exercised selected HTTP authority and original envelopes. Remaining paired controls stay with A/B. Transaction-capable exports, typed bindings and invoker routes require a specific consumer and authority assessment. |
+| O10 | Open for historical custody | E exercised fresh initialization and selected original-operation recovery on MX and completed default selection. Inventory, protected-original custody and historical release remain. Separate KV or distributed topology requires its own capacity, durability or failure-domain objective. |
 | O11 | Deferred | A bounded protected reverse lookup or an actual observer with continuity requirements can reopen materialized references or changefeed delivery. Preserve existing occurrence identity and synchronous authority. |
 | O12 | Deferred | A named external SQL client or UI that replaces meaningful work can reopen a separate read-only interface and its isolation tests. |
 

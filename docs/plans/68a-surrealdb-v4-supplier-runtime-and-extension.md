@@ -216,10 +216,10 @@ or blocks private qualification when a conforming port is unavailable.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| A01 | complete privately | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
-| A02 | in progress | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
-| A03 | in progress | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
-| A04 | Implemented privately | A02 and A03 tested replacements, actual consumers identified | The candidate source retains the active v4 patches. The frozen v3 source and release remain selectable through the rollback owner. |
+| A01 | Complete | Plan67 handoff, ADR-0257, exact tag and pinned toolchain | The source-built server and extension builder passed preparation and import controls. The verified pair is now selected in the workstation default tool root. [68e E03](68e-surrealdb-v4-fresh-generation-and-acceptance.md#e03--select-open-writes-and-release) records the handoff. |
+| A02 | In progress for remaining qualification | A01 source and build recipe, B's agreed wire and API contract | Persistent MX 1.1.0 and the v4 runtime controls are on `main`. Selected SSI, connection-ownership and original recovery cases ran on the exact server. Reconcile the remaining paired plain/TLS ownership, loss and cleanup, durability, runtime bounds and rollback coverage with B02/B04 and E02. |
+| A03 | In progress for remaining qualification | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness is built, installed and exercised on the exact server. Selected guest fault, capacity and cancellation controls completed. Reconcile the rest of the overlap, memory, cold-path timeout and drain matrix against the same artifact and runtime contract. ABI 5 remains conditional on an actual typed-binding consumer. |
+| A04 | Complete for source replacement | A02 and A03 selected replacement evidence, ADR-0257 | `main` carries the v4 patch set and removed the superseded v3 build patches. 68e owns release of the isolated historical tool and state generations. |
 
 ## Verification boundary
 
@@ -267,8 +267,9 @@ rehearsal tool root. Both executable digests, the Cargo lock and the original
 build receipt matched. The normal Study preparation owner built the ABI 4
 production artifact from that builder. The first live native service tests
 opened the generated catalog and exercised the installed Study readiness
-check. Qualification of resource refusal, deadlines and physical drain
-continues on the separate guest artifact.
+check. Selected capacity, guest fault and cancellation controls on the
+separate qualification artifacts completed against the same prepared server.
+The A03 package records the remaining matrix.
 
 **Tested, alternate compiler diagnostic.** The same release pair built in
 scratch on the supplier's tagged Rust 1.95.0 without the VM workaround.

@@ -149,7 +149,7 @@ process, recovery and developer disposal tests completed their own drains.
 
 The isolated pre-write rehearsal selected the exact v4 server, returned to
 the frozen v3 source and receipt, then reselected the same v4 generation.
-The workstation has no default catalog and no active SurrealDB service.
+At cutover, the workstation had no default catalog and no active SurrealDB service.
 The historical catalogs and v3 rollback release remain in isolated custody.
 
 [ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md) landed
@@ -159,6 +159,8 @@ the active workstation `main` while preserving its later work. The server
 owner imported the original build receipt from the rehearsal release into
 the workstation default tool root. `server select` chose the imported
 generation, whose executable reported `4.0.0+pse.mx.1.1.0.482afb739a0ca349`.
+The rebuilt workstation launcher verified that selection from the normal
+`main` checkout.
 
 Freeze the admitted v3 selection, close old write admission and verify
 physical settlement, including outstanding readers, native operations and
@@ -185,9 +187,9 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
-| E02 | Platform receiving verified | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Current v4 storage, recovery, developer and query behavior qualified for fresh source selection. The aqueous fixture drain remains with Plan66. |
-| E03 | Main and default selection verified | Scoped platform receiving and governing decision route | The active `main` and its default server select v4. Keep historical v3 custody until its own release conditions hold. |
+| E01 | In progress for historical inventory | A/B prepared generation, completed Plan67 state owners | Fresh level-4 candidate and initial read-only inventory are in place. Confirm current historical consumers and holds with their owners. Receive a named protected original through its existing portable reader or an owned one-time transfer where required. |
+| E02 | In progress for remaining assembled evidence | Selected A/B native controls, C receiving, D02/D03 and current [66l](66l-required-population-and-assembled-acceptance.md#packages) journeys | Fresh startup, selected canonical recovery, graph, developer and fit receiving support the deployed platform. Reconcile the remaining assembled platform evidence against the package above. The aqueous fixture teardown and the wider scientific denominator stay with 66l L02–L03. |
+| E03 | In progress for historical release | Scoped platform receiving and ADR-0257 completed for default selection. E01 custody disposition for historical release. | **Cutover complete.** Local and GitHub `main` use v4 and the workstation launcher selects the verified v4 default. The isolated v3 rollback rehearsal is complete. Release historical generations only through their settled custody owners, with allocation verification where applicable. |
 
 ## Verification and outcome boundary
 

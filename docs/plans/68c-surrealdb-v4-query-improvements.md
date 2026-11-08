@@ -227,8 +227,8 @@ supported route. An unselected tuning option does not hold the cutover.
 selected query-memory values as positive integer byte counts and forwards
 only those values across its cleared environment. It checks the private
 scratch directory and a small synced write before starting the server.
-Live spill, cancellation, mixed load and allocation readback remain open
-pending the prepared 68a generation.
+The prepared 68a generation is now available. Live spill, cancellation,
+mixed load and allocation readback remain open on that generation.
 
 **Tested.** Native `pse test pse-operations --lib -F
 pse-operations/native-service -E
@@ -242,11 +242,11 @@ settlement. It covers byte-setting validation and original record readback.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| C01 | In progress | 68b bounded client on private v4, current scoped knowledge fixture | Snapshot request and status, identical pages and authority, write refusal and terminal settlement verified. A supplier limitation closes the optional read-only change only if the existing v4 behavior qualifies. |
-| C02 | In progress | Matched v3 baseline, 68b definitions, 68d fixture selection | Existing catalog receiving matrix passes with exact rows, refusal, ordering and custody. Index readiness established. Optional layout changes carry their own equivalence and work evidence. |
-| C03 | In progress | C02 graph fixture and same-bound plan output | Six exact native graph paths pass. Existing projection reports actual graph counters without inventing coverage. Knowledge inline candidate receives an explicit adopt or retain disposition. |
-| C04 | In progress | C01 qualified private read, C02 analyzer and index readiness | Existing lexical search passes. A named ranked candidate receives an explicit adopt or retain disposition with evidence. |
-| C05 | In progress | 68a owned v4 runtime and Plan67 retirement controls | Spill, cancellation, crash residuals, cleanup and safe coexistence qualified. Scheduler tuning adopted only on matched benefit. |
+| C01 | Complete for the scoped snapshot adoption | 68b bounded client, current private knowledge fixture | `BEGIN READ ONLY` is in use on `main`. The snapshot-status and terminal-slot control and the live scoped-role and cursor-fence selection exercised the existing knowledge path. Broader consumer coverage follows the owning query packages. |
+| C02 | In progress for matched evidence | Matched v3 baseline, 68b definitions, 68d fixture selection | Selected v4 catalog, index and count controls ran. Compare equivalent access paths and measured work on the existing lanes. Expand protected-result cases as [66e E02–E03](66e-protected-data-and-result-delivery.md#packages) supplies the actual reader and [66b](66b-contracts-generation-and-interpretation.md#packages) its interpretation. |
+| C03 | In progress for optional graph comparison | Existing scoped canonical and private knowledge readers | The native graph receiving control and bounded `Values` counter projection ran on the existing paths. Compare an inline predicate on the current private corpus. Wider product traversal, materialized references or GQL needs an actual scoped consumer and equivalence evidence. See the [Plan66 dependency map](68-surrealdb-v4-cutover.md#dependencies-on-plan-66). |
+| C04 | In progress for optional ranking | Current private corpus, C01 snapshot, C02 index readiness | The selected v4 lexical controls exercised the current scoped search. Compare deterministic BM25 top-K on the same corpus and decide whether it improves the named workflow. Wider product or developer discovery needs its own ready consumer. |
+| C05 | In progress for live qualification | Available 68a runtime and Plan67 retirement controls | The launcher's explicit query-memory and scratch wiring is implemented, and the byte-limit control passed. Exercise spill, cancellation, crash residuals, cleanup and mixed load before crediting a resource benefit or adopting non-default scheduler tuning. |
 
 Use targeted `pse` selections for the existing canonical graph-explanation,
 study-candidate and analysis controls in `pse-operations` and the native scoped
@@ -263,8 +263,8 @@ receiving outcomes separately from optional query choices and measured benefits.
 and validates the BEGIN and COMMIT slots. The existing native fixtures
 now request evidence count and lexical and graph plan observations. The
 canonical graph projection retains allowlisted counters on `Values`
-without assuming predicate placement. Existing graph and lexical query
-shapes remain selected while the matched v4 runs are pending.
+without assuming predicate placement. The deployed graph and lexical shapes
+are the current comparison baselines for the remaining benefit work.
 
 **Tested, supplier interface.** The official v4.0.0 embedded memory CLI
 returned one matching member and an explicit zero for a missing prefix
@@ -280,6 +280,9 @@ All four tests passed with zero failures against the zero target.
 **Tested, compile.** The native `pse check pse-operations xtask --all-targets
 -F pse-operations/native-service,pse-operations/canonical-maintenance,xtask/evidence-tools,xtask/host-contracts`
 selection passed with explicit Arrow force-validation, zero errors and
-warnings against the zero target, and complete settlement. Live query
-equivalence, resource observations and any optional adoption still depend
-on the private prepared generation.
+warnings against the zero target, and complete settlement. Selected live
+catalog, lexical and graph controls then ran on the exact prepared release.
+The graph fixture separated catalog installation from permission and read
+assertions, and its targeted rerun passed. The live private knowledge read
+is covered by [68d](68d-surrealdb-v4-developer-and-test-receiving.md#private-candidate-checkpoint--november-7).
+The package table owns the remaining matched comparisons and live resource work.
