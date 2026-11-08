@@ -4,10 +4,10 @@
 use super::{complete_capture, digest, host, invalid, release_original_images};
 use crate::{
     HostError, HostManager,
-    envelope::{CliInvocationId, Settlement},
+    envelope::{CliInvocationId, RedactionPolicy, Settlement},
     environment::Environment,
     foreground::ForegroundCustody,
-    invocation::{InvocationDirectory, InvocationEvidence, InvocationStore},
+    invocation::{DeferredTestDrain, InvocationDirectory, InvocationEvidence, InvocationStore},
     manager::UnitBinding,
     paths::CheckoutState,
 };
@@ -125,7 +125,16 @@ fn release_recorded(
             "original foreground workflow capture is incomplete",
         )));
     }
-    release_original_images(store, directory, workflow.terminal.action)
+    let released = release_original_images(store, directory, workflow.terminal.action)?;
+    if borrowed {
+        released.publish_compact(
+            store,
+            directory,
+            DeferredTestDrain::Borrowed,
+            &RedactionPolicy::from_environment(),
+        )?;
+    }
+    Ok(())
 }
 
 fn custody(directory: &InvocationDirectory) -> Result<ForegroundCustody, HostError> {

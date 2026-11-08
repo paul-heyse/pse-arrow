@@ -11,9 +11,13 @@ use crate::{
     envelope::{CliInvocationId, Envelope, RedactionPolicy, Settlement, SubjectState},
     environment::Environment,
     invocation_view::ResultSummary,
-    managed::result::{ManagedSummary, TerminalResult},
+    managed::{
+        result::{ManagedSummary, TerminalResult},
+        workflow,
+    },
     paths::{CheckoutState, RetentionClass, RetentionEvidence},
-    selection::IgnoredPolicy,
+    selection::{IgnoredPolicy, Scope},
+    test_inventory::{CapturedReport, captured_inventory, captured_report_at_limit},
     test_workflow::execute::{Action, Input, Outcome, ReportReference},
 };
 use rustix::fs::{FlockOperation, OFlags, flock};
@@ -37,6 +41,38 @@ const CLASSIFICATION: &str = "compact-presentation.json";
 const COMPACT_LIMIT: u64 = 64 * 1024;
 const SWEEP_LIMIT: usize = 128;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(crate) enum DeferredTestDrain {
+    Detached,
+    Borrowed,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TestSettlementWitness {
+    invocation: CliInvocationId,
+    drain: DeferredTestDrain,
+    report: ReportReference,
+    paired_result_sha256: String,
+    settled_unix_ms: u64,
+}
+
+impl TestSettlementWitness {
+    fn require_same_settlement(&self, expected: &Self) -> Result<(), HostError> {
+        if self.invocation != expected.invocation
+            || self.drain != expected.drain
+            || !same_report(&self.report, &expected.report)
+            || self.paired_result_sha256 != expected.paired_result_sha256
+        {
+            return Err(invalid(
+                "test settlement witness differs from original released evidence",
+            ));
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
@@ -52,6 +88,8 @@ enum RecordState {
         settled_unix_ms: u64,
         summary: Box<ResultSummary>,
         original_report: ReportReference,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        deferred_drain: Option<DeferredTestDrain>,
         holds: BTreeMap<String, String>,
     },
     Retired {
@@ -184,7 +222,7 @@ fn lock_root(
     Ok(Some(opened))
 }
 
-fn settled_test(result: &Envelope<ManagedSummary>) -> Option<&ReportReference> {
+fn test_report(result: &Envelope<ManagedSummary>) -> Option<&ReportReference> {
     let workflow = result.payload.workflow.as_ref()?;
     (workflow.terminal.action == Action::Test
         && matches!(
@@ -192,14 +230,46 @@ fn settled_test(result: &Envelope<ManagedSummary>) -> Option<&ReportReference> {
             Outcome::TestsSucceeded | Outcome::Failed
         )
         && workflow.terminal.required_capture_complete
-        && result.settlement == Settlement::Complete
-        && result.payload.native_lifetime_pending == Some(false)
-        && !result.payload.borrowed_reservation
         && matches!(
             result.subject_state,
             SubjectState::Succeeded | SubjectState::Failed
         ))
     .then_some(&workflow.terminal.report)
+}
+
+fn foreground_settled(result: &Envelope<ManagedSummary>) -> bool {
+    result.settlement == Settlement::Complete
+        && result.payload.native_lifetime_pending == Some(false)
+        && !result.payload.borrowed_reservation
+}
+
+fn deferred_drain(result: &Envelope<ManagedSummary>) -> Option<DeferredTestDrain> {
+    if !workflow::complete_capture(result) {
+        return None;
+    }
+    match (
+        result.settlement,
+        result.payload.native_lifetime_pending,
+        result.payload.borrowed_reservation,
+    ) {
+        (Settlement::Unknown, Some(true), false) => Some(DeferredTestDrain::Detached),
+        (Settlement::Complete, Some(false), true) => Some(DeferredTestDrain::Borrowed),
+        _ => None,
+    }
+}
+
+fn same_report(left: &ReportReference, right: &ReportReference) -> bool {
+    left.path == right.path && left.sha256 == right.sha256 && left.byte_length == right.byte_length
+}
+
+fn paired_test(
+    original: &InvocationDirectory,
+) -> Result<(Envelope<ManagedSummary>, String), HostError> {
+    let bytes = original.paired_settlement_bytes()?;
+    let result = serde_json::from_slice(&bytes)
+        .map_err(|error| invalid(format!("invalid original settlement: {error}")))?;
+    super::validate_result(original.id(), &original.command, &result)?;
+    Ok((result, workflow::digest(&bytes)))
 }
 
 impl InvocationStore {
@@ -235,6 +305,37 @@ impl InvocationStore {
         Ok(original)
     }
 
+    fn ordinary_test(
+        &self,
+        input: &Input,
+        released: Option<&CapturedReport>,
+    ) -> Result<bool, HostError> {
+        if !matches!(input.request.scope, Scope::RerunFailed { .. }) {
+            return Ok(input.profile == "default"
+                && !input.request.filters.ignore_default_filter
+                && input.request.ignored == IgnoredPolicy::Default);
+        }
+        // Rerun input carries the parser default. Its actual profile and filters
+        // belong to the original admitted inventory.
+        let maximum = Some(crate::developer_evidence::MAX_INPUT_BYTES);
+        let captured;
+        let report = match released {
+            Some(released) => released,
+            None => {
+                captured =
+                    captured_report_at_limit(self, input.invocation.as_str(), None, maximum)?;
+                &captured
+            }
+        };
+        if report.observation.inventory.is_none() {
+            return Ok(false);
+        }
+        let (inventory, _) = captured_inventory(report, maximum)?;
+        Ok(inventory.runner_profile == "default"
+            && !inventory.selection.filters().ignore_default_filter
+            && inventory.selection.ignored() == IgnoredPolicy::Default)
+    }
+
     /// Publish the disposable presentation of a positively settled original test.
     /// The original ledger and report remain with the performing owner.
     pub fn publish_compact_test_result(
@@ -244,7 +345,7 @@ impl InvocationStore {
         policy: &RedactionPolicy,
     ) -> Result<(), HostError> {
         let response = terminal.response();
-        let Some(report) = settled_test(response) else {
+        let Some(report) = test_report(response).filter(|_| foreground_settled(response)) else {
             return Ok(());
         };
         if self.directory(original.id())?.path != original.path {
@@ -258,37 +359,142 @@ impl InvocationStore {
         input
             .validate_original(original.id(), &original.command)
             .map_err(|error| invalid(error.to_string()))?;
-        if input.profile != "default"
-            || input.request.filters.ignore_default_filter
-            || input.request.ignored != IgnoredPolicy::Default
-        {
+        if !self.ordinary_test(&input, None)? {
             return Ok(());
         }
-        Self::require_original_report(original, report)?;
+        let (paired, _) = paired_test(original)?;
+        if !foreground_settled(&paired)
+            || !test_report(&paired).is_some_and(|observed| same_report(observed, report))
+        {
+            return Err(invalid(
+                "original foreground settlement differs from compact classification",
+            ));
+        }
         self.publish_compact(
             original,
             ResultSummary::from_terminal(response, policy),
             report.clone(),
             unix_millis(SystemTime::now())?,
+            None,
+        )
+    }
+
+    /// Record the original owner's exact deferred drain and release after both have succeeded.
+    /// Callers supply the same report used to authenticate the released executable selection.
+    pub(crate) fn publish_released_compact_test_result(
+        &self,
+        original: &InvocationDirectory,
+        released: &CapturedReport,
+        drain: DeferredTestDrain,
+        released_pair_sha256: &str,
+        policy: &RedactionPolicy,
+    ) -> Result<(), HostError> {
+        let Some(report) = test_report(&released.original) else {
+            return Ok(());
+        };
+        if &released.id != original.id() || self.directory(original.id())?.path != original.path {
+            return Err(invalid("released test differs from compact result owner"));
+        }
+        let input =
+            workflow::retained_input(self, original.id(), Action::Test, &released.observation)?;
+        if !self.ordinary_test(&input, Some(released))? {
+            return Ok(());
+        }
+        self.publish_deferred_test(
+            original,
+            report,
+            drain,
+            released_pair_sha256,
+            policy,
+            unix_millis(SystemTime::now())?,
+        )
+    }
+
+    fn publish_deferred_test(
+        &self,
+        original: &InvocationDirectory,
+        report: &ReportReference,
+        drain: DeferredTestDrain,
+        released_pair_sha256: &str,
+        policy: &RedactionPolicy,
+        settled_unix_ms: u64,
+    ) -> Result<(), HostError> {
+        let (result, paired_result_sha256) = paired_test(original)?;
+        if paired_result_sha256 != released_pair_sha256
+            || deferred_drain(&result) != Some(drain)
+            || !test_report(&result).is_some_and(|observed| same_report(observed, report))
+        {
+            return Err(invalid(
+                "deferred test is missing original terminal or capture evidence",
+            ));
+        }
+        let expected = TestSettlementWitness {
+            invocation: original.id().clone(),
+            drain,
+            report: report.clone(),
+            paired_result_sha256,
+            settled_unix_ms,
+        };
+        let evidence = InvocationEvidence::TestPresentationSettlement;
+        let recorded = match original.publish_evidence(evidence, &expected) {
+            Ok(()) => expected,
+            Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                let recorded: TestSettlementWitness = original
+                    .evidence(evidence)?
+                    .ok_or_else(|| invalid("original test settlement witness disappeared"))?;
+                recorded.require_same_settlement(&expected)?;
+                synchronize_publication_parent(
+                    original.path(),
+                    &original.path.join(evidence.filename()),
+                )?;
+                recorded
+            }
+            Err(error) => return Err(error),
+        };
+        self.publish_compact(
+            original,
+            ResultSummary::from_terminal(&result, policy),
+            recorded.report,
+            recorded.settled_unix_ms,
+            Some(drain),
         )
     }
 
     fn require_original_report(
         original: &InvocationDirectory,
         report: &ReportReference,
+        settled_unix_ms: u64,
+        deferred: Option<DeferredTestDrain>,
     ) -> Result<(), HostError> {
-        let result: Envelope<ManagedSummary> =
-            serde_json::from_slice(&original.paired_settlement_bytes()?)
-                .map_err(|error| invalid(format!("invalid original settlement: {error}")))?;
-        super::validate_result(original.id(), &original.command, &result)?;
-        let observed = settled_test(&result)
-            .ok_or_else(|| invalid("original test is no longer a positively settled terminal"))?;
-        if observed.path != report.path
-            || observed.sha256 != report.sha256
-            || observed.byte_length != report.byte_length
-        {
+        let (result, paired_result_sha256) = paired_test(original)?;
+        if !test_report(&result).is_some_and(|observed| same_report(observed, report)) {
             return Err(invalid(
                 "original settled test report differs from compact classification",
+            ));
+        }
+        let Some(drain) = deferred else {
+            return foreground_settled(&result).then_some(()).ok_or_else(|| {
+                invalid("original foreground test is no longer a positively settled terminal")
+            });
+        };
+        if deferred_drain(&result) != Some(drain) {
+            return Err(invalid(
+                "original deferred test is missing terminal or capture evidence",
+            ));
+        }
+        let witness: TestSettlementWitness = original
+            .evidence(InvocationEvidence::TestPresentationSettlement)?
+            .ok_or_else(|| invalid("original test settlement witness is absent"))?;
+        witness.require_same_settlement(&TestSettlementWitness {
+            invocation: original.id().clone(),
+            drain,
+            report: report.clone(),
+            paired_result_sha256,
+            settled_unix_ms,
+        })?;
+        if witness.settled_unix_ms != settled_unix_ms {
+            return Err(invalid(
+                "compact settlement clock differs from original test settlement witness",
             ));
         }
         Ok(())
@@ -300,6 +506,7 @@ impl InvocationStore {
         summary: ResultSummary,
         original_report: ReportReference,
         settled_unix_ms: u64,
+        deferred_drain: Option<DeferredTestDrain>,
     ) -> Result<(), HostError> {
         let root = self.compact_root();
         let _guard = lock_root(&root, FlockOperation::LockExclusive, true)?
@@ -307,15 +514,18 @@ impl InvocationStore {
         let id = original.id();
         let classified: Option<CliInvocationId> = read(&original.path.join(CLASSIFICATION))?;
         if classified.as_ref() == Some(id) {
-            return Ok(());
+            return synchronize_publication_parent(
+                &original.path,
+                &original.path.join(CLASSIFICATION),
+            );
         }
         if classified.is_some() {
             return Err(invalid(
                 "compact presentation class is bound to a different original",
             ));
         }
-        if self.read_compact(id)?.is_none() {
-            publish(
+        match self.read_compact(id)?.map(|record| record.state) {
+            None => publish(
                 &root,
                 &format!("{id}.json"),
                 &Record {
@@ -325,11 +535,28 @@ impl InvocationStore {
                         settled_unix_ms,
                         summary: Box::new(summary),
                         original_report,
+                        deferred_drain,
                         holds: BTreeMap::new(),
                     },
                 },
                 Some(COMPACT_LIMIT),
-            )?;
+            )?,
+            Some(RecordState::Active {
+                settled_unix_ms: observed_clock,
+                original_report: observed_report,
+                deferred_drain: observed_drain,
+                ..
+            }) if same_report(&observed_report, &original_report)
+                && observed_drain == deferred_drain
+                && (deferred_drain.is_none() || observed_clock == settled_unix_ms) =>
+            {
+                synchronize_publication_parent(&root, &self.compact_path(id))?;
+            }
+            Some(_) => {
+                return Err(invalid(
+                    "interrupted compact publication differs from original settlement",
+                ));
+            }
         }
         publish(&original.path, CLASSIFICATION, id, Some(META_LIMIT))
     }
@@ -373,6 +600,7 @@ impl InvocationStore {
         if let RecordState::Active {
             settled_unix_ms,
             original_report,
+            deferred_drain,
             holds,
             ..
         } = &record.state
@@ -389,7 +617,12 @@ impl InvocationStore {
                 owner_retains: !holds.is_empty(),
             }) {
                 let original = self.require_compact_class(&record.invocation)?;
-                Self::require_original_report(&original, original_report)?;
+                Self::require_original_report(
+                    &original,
+                    original_report,
+                    *settled_unix_ms,
+                    *deferred_drain,
+                )?;
                 let encoded = serde_json::to_vec(record)
                     .map_err(|error| invalid(format!("compact record encoding failed: {error}")))?;
                 result.disposition = "eligible";
@@ -551,11 +784,35 @@ impl InvocationStore {
 mod tests {
     use super::*;
     use crate::{
-        invocation::InvocationSpec, managed::result::WorkflowSummary,
+        invocation::InvocationSpec,
+        managed::result::{StreamSummary, WorkflowSummary},
         test_workflow::execute::TerminalRecord,
     };
 
     fn fixture() -> (tempfile::TempDir, InvocationStore, InvocationDirectory, u64) {
+        let (temporary, store, directory, original) = paired_fixture(None);
+        let report = test_report(&original).unwrap().clone();
+        let settled = unix_millis(SystemTime::now()).unwrap() - WEEK_MS - 1_000;
+        store
+            .publish_compact(
+                &directory,
+                ResultSummary::from_terminal(&original, &RedactionPolicy::default()),
+                report,
+                settled,
+                None,
+            )
+            .unwrap();
+        (temporary, store, directory, settled)
+    }
+
+    fn paired_fixture(
+        deferred: Option<DeferredTestDrain>,
+    ) -> (
+        tempfile::TempDir,
+        InvocationStore,
+        InvocationDirectory,
+        Envelope<ManagedSummary>,
+    ) {
         let temporary = tempfile::tempdir().unwrap();
         let environment = Environment::from([(
             "XDG_STATE_HOME".into(),
@@ -590,12 +847,19 @@ mod tests {
             sha256: "c".repeat(64),
             byte_length: 12,
         };
+        let stream = StreamSummary {
+            bytes_read: 12,
+            bytes_retained: 12,
+            eof: true,
+            complete: true,
+            io_unresolved: false,
+        };
         let mut original = Envelope::response(
             "test",
-            "original terminal",
+            "original terminal with private-token",
             ManagedSummary {
                 bundle: None,
-                native_lifetime_pending: Some(false),
+                native_lifetime_pending: Some(deferred == Some(DeferredTestDrain::Detached)),
                 workflow: Some(WorkflowSummary {
                     terminal: TerminalRecord {
                         protocol: "pse.test-workflow".into(),
@@ -609,28 +873,155 @@ mod tests {
                     report: "owner report reference".into(),
                 }),
                 child_exit: Some(0),
-                stdout: None,
-                stderr: None,
-                borrowed_reservation: false,
+                stdout: Some(stream.clone()),
+                stderr: Some(stream),
+                borrowed_reservation: deferred == Some(DeferredTestDrain::Borrowed),
                 service_result: None,
             },
         );
         original.invocation_id = invocation;
         original.subject_state = SubjectState::Succeeded;
-        original.settlement = Settlement::Complete;
+        original.settlement = if deferred == Some(DeferredTestDrain::Detached) {
+            Settlement::Unknown
+        } else {
+            Settlement::Complete
+        };
         for name in ["settlement.json", "result.json"] {
             publish(directory.path(), name, &original, Some(META_LIMIT)).unwrap();
         }
-        let settled = unix_millis(SystemTime::now()).unwrap() - WEEK_MS - 1_000;
+        (temporary, store, directory, original)
+    }
+
+    #[test]
+    fn deferred_test_classification_needs_the_matching_released_original() {
+        for drain in [DeferredTestDrain::Detached, DeferredTestDrain::Borrowed] {
+            let (_temporary, store, directory, original) = paired_fixture(Some(drain));
+            let report = test_report(&original).unwrap();
+            let settled = 500;
+            let policy = RedactionPolicy::new([("TOKEN".into(), "private-token".into())]);
+            let paired = directory.paired_settlement_bytes().unwrap();
+            let digest = workflow::digest(&paired);
+            let wrong_drain = match drain {
+                DeferredTestDrain::Detached => DeferredTestDrain::Borrowed,
+                DeferredTestDrain::Borrowed => DeferredTestDrain::Detached,
+            };
+            assert!(matches!(
+                store.observe_compact(directory.id()).unwrap().0,
+                CompactObservation::Original
+            ));
+            assert!(
+                store
+                    .publish_deferred_test(
+                        &directory,
+                        report,
+                        wrong_drain,
+                        &digest,
+                        &policy,
+                        settled
+                    )
+                    .is_err()
+            );
+            assert!(
+                store
+                    .publish_deferred_test(&directory, report, drain, "different", &policy, settled)
+                    .is_err()
+            );
+            assert!(
+                store
+                    .publish_deferred_test(
+                        &directory,
+                        &ReportReference {
+                            byte_length: report.byte_length + 1,
+                            ..report.clone()
+                        },
+                        drain,
+                        &digest,
+                        &policy,
+                        settled,
+                    )
+                    .is_err()
+            );
+            assert!(
+                directory
+                    .evidence_bytes(InvocationEvidence::TestPresentationSettlement)
+                    .unwrap()
+                    .is_none()
+            );
+            store
+                .publish_deferred_test(&directory, report, drain, &digest, &policy, settled)
+                .unwrap();
+            assert_eq!(directory.paired_settlement_bytes().unwrap(), paired);
+            let compact = fs::read_to_string(store.compact_path(directory.id())).unwrap();
+            assert!(compact.contains("<redacted:TOKEN>"));
+            assert!(!compact.contains("private-token"));
+            assert_eq!(store.sweep_at(settled + WEEK_MS - 1).unwrap().released, 0);
+            assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().released, 1);
+        }
+    }
+
+    #[test]
+    fn deferred_retry_keeps_first_clock_and_release_rechecks_exact_pair() {
+        let drain = DeferredTestDrain::Detached;
+        let (_temporary, store, directory, mut original) = paired_fixture(Some(drain));
+        let report = test_report(&original).unwrap().clone();
+        let policy = RedactionPolicy::default();
+        let settled = 500;
+        let paired = directory.paired_settlement_bytes().unwrap();
+        let digest = workflow::digest(&paired);
+        fs::write(store.compact_root(), b"interrupted compact publication").unwrap();
+        assert!(
+            store
+                .publish_deferred_test(&directory, &report, drain, &digest, &policy, settled)
+                .is_err()
+        );
+        let witness = directory
+            .evidence_bytes(InvocationEvidence::TestPresentationSettlement)
+            .unwrap()
+            .unwrap();
+        fs::remove_file(store.compact_root()).unwrap();
         store
-            .publish_compact(
-                &directory,
-                ResultSummary::from_terminal(&original, &RedactionPolicy::default()),
-                report,
-                settled,
+            .publish_deferred_test(&directory, &report, drain, &digest, &policy, settled + 1000)
+            .unwrap();
+        assert_eq!(
+            directory
+                .evidence_bytes(InvocationEvidence::TestPresentationSettlement)
+                .unwrap(),
+            Some(witness)
+        );
+
+        original.settlement = Settlement::Complete;
+        original.payload.native_lifetime_pending = Some(false);
+        for name in ["settlement.json", "result.json"] {
+            fs::write(
+                directory.path().join(name),
+                serde_json::to_vec(&original).unwrap(),
             )
             .unwrap();
-        (temporary, store, directory, settled)
+        }
+        assert!(store.sweep_at(settled + WEEK_MS).is_err());
+        for name in ["settlement.json", "result.json"] {
+            fs::write(directory.path().join(name), &paired).unwrap();
+        }
+        let witness = directory
+            .path()
+            .join(InvocationEvidence::TestPresentationSettlement.filename());
+        let original_witness = fs::read(&witness).unwrap();
+        let mut changed: TestSettlementWitness = serde_json::from_slice(&original_witness).unwrap();
+        changed.settled_unix_ms -= 1;
+        fs::write(&witness, serde_json::to_vec(&changed).unwrap()).unwrap();
+        assert!(store.sweep_at(settled + WEEK_MS).is_err());
+        fs::remove_file(&witness).unwrap();
+        assert!(store.sweep_at(settled + WEEK_MS).is_err());
+        use std::io::Write as _;
+        OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&witness)
+            .unwrap()
+            .write_all(&original_witness)
+            .unwrap();
+        assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().released, 1);
     }
 
     #[test]

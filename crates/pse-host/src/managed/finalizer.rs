@@ -8,11 +8,12 @@ use super::{
 use crate::{
     HostError,
     envelope::{CliInvocationId, ErrorRecord, RedactionPolicy},
-    invocation::InvocationEvidence,
+    invocation::{DeferredTestDrain, InvocationEvidence},
 };
 use pse_diagnostics::process_facts::{ProcessRead, ProcessReader};
 use serde::Serialize;
 use std::{
+    io::Write as _,
     path::{Path, PathBuf},
     time::Instant,
 };
@@ -91,6 +92,7 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
     };
     let mut workflow_images_released = None;
     let mut workflow_release_failure = None;
+    let mut released_workflow = None;
     let original_workflow = prior
         .as_ref()
         .filter(|result| result.payload.workflow.is_some());
@@ -112,7 +114,10 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
                     &context.directory,
                     result,
                 ) {
-                    Ok(released) => workflow_images_released = Some(released),
+                    Ok(released) => {
+                        workflow_images_released = Some(released.is_some());
+                        released_workflow = released;
+                    }
                     Err(error) => {
                         workflow_images_released = Some(false);
                         workflow_release_failure = Some(ErrorRecord::from_typed(&error, &policy));
@@ -155,6 +160,19 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
     let finalization_failed = finalized.is_err();
     if let Err(error) = finalized {
         errors.push(error);
+    } else if let Some(released) = released_workflow
+        && let Err(error) = released.publish_compact(
+            &context.store,
+            &context.directory,
+            DeferredTestDrain::Detached,
+            &policy,
+        )
+    {
+        let _ = writeln!(
+            std::io::stderr().lock(),
+            "pse-host: settled compact result remains pending: {}",
+            policy.redact(&error.to_string())
+        );
     }
     if prior.is_some() {
         return errors

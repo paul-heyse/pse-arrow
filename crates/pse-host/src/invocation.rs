@@ -22,7 +22,7 @@ const META_LIMIT: u64 = 4 * 1024 * 1024;
 
 mod compact;
 mod session;
-pub(crate) use compact::CompactObservation;
+pub(crate) use compact::{CompactObservation, DeferredTestDrain};
 pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
 mod compact_timer;
 pub use compact_timer::{CompactTimer, prepare_compact_timer};
@@ -109,6 +109,8 @@ pub enum InvocationEvidence {
     Custody,
     /// The actual resource owner's settlement facts, separate from a terminal projection.
     Settlement,
+    /// Positive native drain and private executable release for a deferred test.
+    TestPresentationSettlement,
 }
 impl InvocationEvidence {
     fn filename(self) -> &'static str {
@@ -120,6 +122,7 @@ impl InvocationEvidence {
             Self::Finalization => "finalization.json",
             Self::Custody => "custody.json",
             Self::Settlement => "settlement.json",
+            Self::TestPresentationSettlement => "test-presentation-settlement.json",
         }
     }
 }
@@ -807,10 +810,7 @@ impl InvocationDirectory {
     ) -> Result<Option<Vec<u8>>, HostError> {
         self.read_record_bytes(record.filename())
     }
-    pub(crate) fn require_paired_settlement(&self) -> Result<(), HostError> {
-        self.paired_settlement_bytes().map(|_| ())
-    }
-    fn paired_settlement_bytes(&self) -> Result<Vec<u8>, HostError> {
+    pub(crate) fn paired_settlement_bytes(&self) -> Result<Vec<u8>, HostError> {
         let settlement = self
             .evidence_bytes(InvocationEvidence::Settlement)?
             .ok_or_else(|| invalid("original settlement evidence is absent"))?;

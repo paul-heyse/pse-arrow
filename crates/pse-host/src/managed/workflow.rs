@@ -4,10 +4,11 @@
 use super::{payload::PayloadCommand, supervisor};
 use crate::{
     HostError, HostManager,
-    envelope::{CliInvocationId, Completeness, Envelope, Settlement},
+    envelope::{CliInvocationId, Completeness, Envelope, RedactionPolicy, Settlement},
     generation::{HostTool, PreparedGeneration},
-    invocation::{InvocationDirectory, InvocationEvidence},
+    invocation::{DeferredTestDrain, InvocationDirectory, InvocationEvidence, InvocationStore},
     stream_records::{Frame, RecordFramer},
+    test_inventory::CapturedReport,
     test_workflow::{
         WorkflowError,
         execute::{Action, Input, ReportObservation, TerminalRecord},
@@ -59,17 +60,40 @@ fn invalid(message: impl Into<String>) -> WorkflowOwnerError {
 fn host(error: impl Into<WorkflowOwnerError>) -> HostError {
     HostError::WorkflowOwner(Box::new(error.into()))
 }
-fn digest(bytes: &[u8]) -> String {
+pub(crate) fn digest(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
 }
 
+pub(super) struct ReleasedWorkflow {
+    captured: CapturedReport,
+    paired_result_sha256: String,
+}
+
+impl ReleasedWorkflow {
+    pub(super) fn publish_compact(
+        self,
+        store: &InvocationStore,
+        directory: &InvocationDirectory,
+        drain: DeferredTestDrain,
+        policy: &RedactionPolicy,
+    ) -> Result<(), HostError> {
+        store.publish_released_compact_test_result(
+            directory,
+            &self.captured,
+            drain,
+            &self.paired_result_sha256,
+            policy,
+        )
+    }
+}
+
 /// Retire only private workflow controls after the original foreground owner has
 /// published the reconciled result and proved the entire workload drained.
 pub(crate) fn release_foreground_images(
-    store: &crate::invocation::InvocationStore,
+    store: &InvocationStore,
     directory: &InvocationDirectory,
     terminal: &super::result::TerminalResult<super::result::ManagedSummary>,
 ) -> Result<(), HostError> {
@@ -84,18 +108,18 @@ pub(crate) fn release_foreground_images(
     {
         return Ok(());
     }
-    release_original_images(store, directory, workflow.terminal.action)
+    release_original_images(store, directory, workflow.terminal.action).map(drop)
 }
 
 /// After the finalizer or recorded control proves native worker drain, authenticate
 /// original completion independently. The paired records remain immutable.
-pub(crate) fn release_detached_images(
-    store: &crate::invocation::InvocationStore,
+pub(super) fn release_detached_images(
+    store: &InvocationStore,
     directory: &InvocationDirectory,
     result: &Envelope<super::result::ManagedSummary>,
-) -> Result<bool, HostError> {
+) -> Result<Option<ReleasedWorkflow>, HostError> {
     let Some(workflow) = &result.payload.workflow else {
-        return Ok(false);
+        return Ok(None);
     };
     if &result.invocation_id != directory.id()
         || result.settlement != Settlement::Unknown
@@ -104,26 +128,31 @@ pub(crate) fn release_detached_images(
         || !complete_capture(result)
         || !workflow.terminal.required_capture_complete
     {
-        return Ok(false);
+        return Ok(None);
     }
-    release_original_images(store, directory, workflow.terminal.action)?;
-    Ok(true)
+    release_original_images(store, directory, workflow.terminal.action).map(Some)
 }
 
 pub(crate) fn release_reconciled_images(
-    store: &crate::invocation::InvocationStore,
+    store: &InvocationStore,
     id: &CliInvocationId,
 ) -> Result<(), HostError> {
     let directory = store.directory(id)?;
     if let Some(result) =
         store.result::<serde::de::IgnoredAny, super::result::ManagedSummary>(id)?
+        && let Some(released) = release_detached_images(store, &directory, &result)?
     {
-        release_detached_images(store, &directory, &result)?;
+        released.publish_compact(
+            store,
+            &directory,
+            DeferredTestDrain::Detached,
+            &RedactionPolicy::from_environment(),
+        )?;
     }
     Ok(())
 }
 
-fn complete_capture(result: &Envelope<super::result::ManagedSummary>) -> bool {
+pub(crate) fn complete_capture(result: &Envelope<super::result::ManagedSummary>) -> bool {
     result.payload.child_exit.is_some()
         && result.observation.completeness == Completeness::Complete
         && [&result.payload.stdout, &result.payload.stderr]
@@ -136,11 +165,11 @@ fn complete_capture(result: &Envelope<super::result::ManagedSummary>) -> bool {
 }
 
 fn release_original_images(
-    store: &crate::invocation::InvocationStore,
+    store: &InvocationStore,
     directory: &InvocationDirectory,
     action: Action,
-) -> Result<(), HostError> {
-    directory.require_paired_settlement()?;
+) -> Result<ReleasedWorkflow, HostError> {
+    let paired_result_sha256 = digest(&directory.paired_settlement_bytes()?);
     let maximum = Some(crate::developer_evidence::MAX_INPUT_BYTES);
     let original = crate::test_inventory::captured_report_at_limit(
         store,
@@ -191,11 +220,15 @@ fn release_original_images(
         inventory.as_ref(),
         fixture_settled,
         &unlisted,
-    )
+    )?;
+    Ok(ReleasedWorkflow {
+        captured: original,
+        paired_result_sha256,
+    })
 }
 
 fn unlisted_builds(
-    original: &crate::test_inventory::CapturedReport,
+    original: &CapturedReport,
 ) -> Result<Vec<(usize, crate::discovery::BuildCapture)>, HostError> {
     use crate::test_workflow::execute::{EvidenceRole, EvidenceRoot, Outcome, evidence};
 
@@ -271,9 +304,7 @@ fn unlisted_builds(
         .collect()
 }
 
-fn require_fixture_settlement(
-    original: &crate::test_inventory::CapturedReport,
-) -> Result<(), HostError> {
+fn require_fixture_settlement(original: &CapturedReport) -> Result<(), HostError> {
     use crate::test_workflow::execute::{EvidenceRole, evidence};
 
     if original.observation.action != Action::Test {
@@ -533,7 +564,7 @@ fn bound_input(
 /// Read original retained input through its original metadata commitment. This is
 /// observation/selection data, not a fresh admission or a process-control capability.
 pub(crate) fn retained_input(
-    store: &crate::invocation::InvocationStore,
+    store: &InvocationStore,
     id: &CliInvocationId,
     action: Action,
     report: &ReportObservation,
@@ -561,10 +592,7 @@ pub(crate) fn retained_input(
 /// Internal entry: authenticate the actual original payload leader before any compilation.
 pub(crate) async fn run(root: PathBuf, id: CliInvocationId) -> Result<i32, HostError> {
     let environment = std::env::vars_os().collect();
-    let store = crate::invocation::InvocationStore::new(crate::paths::CheckoutState::resolve(
-        &root,
-        &environment,
-    )?);
+    let store = InvocationStore::new(crate::paths::CheckoutState::resolve(&root, &environment)?);
     let directory = Arc::new(store.directory(&id)?);
     let metadata = if directory
         .evidence::<serde_json::Value>(InvocationEvidence::Launch)?
@@ -667,7 +695,7 @@ impl Observer {
         )
     }
     pub(crate) fn for_operation(
-        store: &crate::invocation::InvocationStore,
+        store: &InvocationStore,
         directory: &Arc<InvocationDirectory>,
         root: &Path,
         program: &Path,
@@ -1122,7 +1150,7 @@ mod tests {
             &environment,
         )
         .unwrap();
-        let store = crate::invocation::InvocationStore::new(state);
+        let store = InvocationStore::new(state);
         for operation in [
             serde_json::json!("generic operation"),
             serde_json::json!([1, 2, 3]),
@@ -1400,7 +1428,7 @@ mod tests {
         );
         let failure = crate::envelope::ErrorRecord::from_typed(
             &HostError::Ownership("original fixture prerequisite unavailable".into()),
-            &crate::envelope::RedactionPolicy::from_environment(),
+            &RedactionPolicy::from_environment(),
         );
         let failed = report_bytes(Outcome::Failed, vec![failure], None);
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
