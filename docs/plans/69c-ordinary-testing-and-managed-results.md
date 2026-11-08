@@ -46,6 +46,40 @@ that coverage and its freshness. A candidate is advisory. Keep grammar discovery
 effective test selection, admitted population, and verdict as separate facts.
 [Catalog contract](69a-cli-contracts-configuration-and-presentation.md#a01--one-parser-tree-for-intent-and-discovery)
 
+### Analyzer and capture boundaries
+
+- **Workspace and feature admission.** Use `cargo_metadata` 0.23.1 for declared
+  target roles, `test`, `doctest` and required features. Use the pinned Cargo unit graph
+  for the selected operation's exact roots and feature-bearing host and target units.
+  The ordinary workspace check matched Cargo's 128 roots and 1,245 units after recording
+  the benchmark-only package as an explicit exclusion. This check requires no build or
+  test enumeration. [Cargo target metadata](https://docs.rs/cargo_metadata/0.23.1/cargo_metadata/struct.Target.html) ·
+  [Cargo unit graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph)
+- **Likely tests for a source change.** The prepared native snapshot already exposes
+  `ra_ap_ide` 0.0.358 `runnables` and `related_tests` through `inspect entity --view tests`.
+  A useful extension is to hand a selected, guarded runnable to the current
+  `inspect test-selection --from-result` route, which currently resolves the containing
+  package. `discover_tests_in_crate` and `discover_tests_in_file` can supply source test
+  names without compiling when a consumer needs browsing. Keep conservative package reach
+  for incomplete configuration, macro coverage or custom harnesses. Resolve the candidate
+  to an exact target and verify its filter through nextest before narrowing execution.
+  Guppy's `PackageGraph` can simplify broader package-set queries if a consumer justifies
+  replacing the current traversal. [Pinned analyzer API](https://docs.rs/ra_ap_ide/0.0.358/ra_ap_ide/struct.Analysis.html#method.related_tests) ·
+  [Runnable receiver](../../crates/pse-host/src/semantic/native/runnables.rs) ·
+  [Dependency tooling](../libraries/rust_analyzers/rust_dependency_tooling.md)
+- **Exact enumeration and working bytes.** Nextest can use `--binaries-metadata` with
+  `--cargo-metadata` to enumerate an existing build. The current adapter copies every
+  Cargo executable event before knowing the binary membership. One interrupted
+  listing retained about 12 GB of such copies. First establish the required images
+  from nextest membership and its auxiliary dependencies. Then test borrowing the
+  existing prepared controls. When a test outlives the build's custody, share a
+  content-addressed immutable copy by digest, with leases through actual drain. A
+  metadata-only listing can borrow a build if its owner establishes stable image identity
+  through enumeration. This workstation's ext4 probe refused reflinking. Compare bytes
+  copied and retained, exact test and filter parity, and replacement or cancellation
+  behavior on a small selection with a normal integration helper. [Nextest machine-readable listing](https://nexte.st/docs/machine-readable/list/) ·
+  [Current capture](../../crates/pse-host/src/discovery/capture.rs)
+
 ## C02 — Test outcome and exact failed rerun
 
 Return a separate verdict and settlement state and the original invocation reference. Use
@@ -115,7 +149,7 @@ would establish the query, real-role selection, durability, exact retirement and
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| C01 | in progress | A01 and current Cargo, Nextest and fixture contracts | Bare tests select the workspace ordinary profile and the managed primary has its own profile. The complete admitted workspace journey remains. |
+| C01 | complete | A01 and current Cargo, Nextest and fixture contracts | The bare default admitted the 35 ordinary workspace packages with Cargo-equivalent root and feature coverage. Focused nextest controls passed. Qualification used the graph and scoped native tests in place of full workspace enumeration. |
 | C02 | complete | C01, F01, A03 and Plan67 exact custody | The original failure remained readable after its executable was released. The live owner fixture ran exactly that identity with a fresh verdict and refused incomplete, changed and missing original evidence. Separate controls preserved the exact filters and rejected target or feature replacement. |
 | C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. A prepared CLI recovered both live test results by ID. Remaining receivers and deliberate export stay open. |
-| C04 | complete | C03 and Plan67 release owner | The enabled timer and foreground expiry class have live evidence. Detached and borrowed test runs both published the expiry clock before explicit reconciliation. Their separate drain witnesses preserved the original paired records, and the targeted controls exercised expiry, holds and exact-pair release. |
+| C04 | complete | C03 and Plan67 release owner | The timer and foreground expiry class have live evidence. Detached and borrowed tests published their expiry clocks before explicit reconciliation. Separate drain witnesses preserved the original records. A settled interrupted foreground listing released its unpublished inventory while preserving the original result pair. |

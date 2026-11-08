@@ -116,6 +116,22 @@ Complete the real authored-case journeys before retiring the manual route.
 [Ownership map](../../xtask/src/codegen/ownership.rs) ·
 [Ipopt writer](../../xtask/src/codegen/ipopt.rs) · [CoolProp writer](../../xtask/src/codegen/coolprop.rs)
 
+**Interface-checked.** Compose the existing guarded semantic rename and SSR proposals
+with source-change preview when their selected Rust world resolves the authored symbol
+and its consumers. `ra_ap_ide` 0.0.358 returns a structured `SourceChange`; use its exact
+file edits as preview inputs. Tree-sitter and ast-grep can provide cheaper structural
+anchors for declarative patterns. The generator still owns schema, wire-name and
+compatibility decisions, and the receiving checks own the resulting behavior.
+For a public API change, compare the existing rustdoc-backed API capture when that
+projection answers a distinct compatibility question.
+[Pinned rename API](https://docs.rs/ra_ap_ide/0.0.358/ra_ap_ide/struct.Analysis.html#method.rename) ·
+[Rust syntax guide](../libraries/rust_analyzers/tree-sitter-rust.md) ·
+[Public API guide](../libraries/rust_analyzers/rustdoc-types.md)
+
+Clap owns CLI argument discovery, and the project and maintenance owners supply their
+effect identities and installed state. Compiler internals, MIR and expanded Rust capture
+remain focused diagnostic tools for a question that needs that evidence.
+
 ## E03 — Inspect, preview, apply and recover live schema
 
 Use D01’s authenticated target selection. Inspect installed definitions passively. A rollout

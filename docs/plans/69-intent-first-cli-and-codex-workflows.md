@@ -119,6 +119,9 @@ selected generation.
 
 Detached and borrowed test presentations can enter the compact expiry class after the
 owner proves native drain and image release. The original settlement bytes stay immutable.
+Bare ordinary test admission now has a compile-free Cargo graph check. Exact scoped test
+enumeration and execution use nextest. The current executable capture and analyzer opportunities
+are tracked with the test owner. [Analyzer and capture boundaries](69c-ordinary-testing-and-managed-results.md#analyzer-and-capture-boundaries)
 Source-change preview uses an isolated checkout with one retained snapshot per checkout.
 It publishes the staged generator delta and recovers by exact file identity. The
 installed-catalog observer uses an authenticated Viewer connection and shares the
@@ -176,7 +179,7 @@ conditions or retained-byte observations when making a time or storage claim.
 
 | Journey | Completion evidence |
 |---|---|
-| Bare ordinary tests and exact rerun | Catalog syntax and effective selection are distinct. Owner reports the complete admitted ordinary population, including integration tests, and a nonpass for a missing prerequisite. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
+| Bare ordinary tests and exact rerun | Catalog syntax and effective selection are distinct. Compare admitted workspace roots and feature-bearing units with the pinned Cargo graph, including integration targets. Exercise exact nextest inventory, missing prerequisites and verdicts on a scoped selection. A full test-name census requires a separate use case. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
 | Retrieve and expire a result | A returned ID opens a compact result and bounded detail with diagnostic relationships and provenance where captured. Holds block release. The owner releases settled disposable records under the enabled policy. Retired and unknown differ within the witness lifetime. |
 | Ambiguous product target | Typed choices appear before mutation. The authenticated selection and original acknowledgement survive dispatch. Any export counter describes only its observed stage. |
 | Source model change | Supported change yields coherent preview, generated consumers, affected checks and findings with exact file and byte coordinates. Stale inputs refuse before edits and partial publication retains exact recovery. |
