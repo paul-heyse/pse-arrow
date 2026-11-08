@@ -27,9 +27,12 @@ mod docs;
 mod investigation;
 mod placement;
 mod prepare;
+mod private_state;
 mod probe;
 mod product;
 mod selection;
+mod source_change;
+mod terminal;
 mod testing;
 mod tools;
 mod worktree;
@@ -86,6 +89,11 @@ enum Command {
         #[command(subcommand)]
         action: product::ProjectAction,
     },
+    /// Preview or publish generated consequences of an authored source-model change.
+    SourceChange {
+        #[command(subcommand)]
+        action: source_change::Action,
+    },
     /// Run the fixed original Study coordinator in this application scope using prepared images.
     QualifyStudy(crate::study_qualification::LaunchArgs),
     /// Find source, text, Rust entities and relationships through one typed query.
@@ -112,6 +120,7 @@ enum Command {
     /// Explicitly build/list the actual selected native test population.
     Tests(testing::Tests),
     /// Build, execute and reconcile the actual selected native tests.
+    #[command(add(crate::catalog::Examples(&[&[], &["pse-host", "--lib"]])))]
     Test(testing::Tests),
     /// Check the selected source through the correctness and compiler observation owners.
     Check(testing::Check),
@@ -290,6 +299,7 @@ impl Command {
             Self::Docs(args) => args.intent(),
             Self::Code { action } => action.intent(),
             Self::Project { action } => action.intent(),
+            Self::SourceChange { action } => action.intent(),
             Self::Prepare(_)
             | Self::HostGenerationBootstrap { .. }
             | Self::Supervise(_)
@@ -779,6 +789,7 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "inspect tests failures" => {
             envelope::schema::<crate::test_inventory::FailurePage>(command, view)
         }
+        "inspect settings" => envelope::schema::<product::context::View>(command, view),
         "inspect invocation" => {
             envelope::schema::<crate::invocation_view::InvocationInspection>(command, view)
         }
@@ -808,6 +819,16 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "observe query" | "observe discover" | "observe investigate" => {
             envelope::schema::<product::ProductView<'static>>(command, view)
         }
+        "project targets" => envelope::schema::<product::ProjectTargetsView>(command, view),
+        "project research"
+        | "project research datasets"
+        | "project research dataset"
+        | "project research selection" => {
+            envelope::schema::<product::ProductView<'static>>("project research", view)
+        }
+        "project describe-closure" | "project import-status" | "project installed-schema" => {
+            envelope::schema::<product::ProductView<'static>>(command, view)
+        }
         "project inspect-pack"
         | "project show"
         | "project branches"
@@ -824,9 +845,18 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         | "project metadata diagnostics" => {
             envelope::schema::<product::ProductView<'static>>("project metadata", view)
         }
-        "project create" | "project navigate" | "project acknowledgement" => {
-            envelope::schema::<product::ProjectEffectView>(command, view)
-        }
+        "project create"
+        | "project navigate"
+        | "project acknowledgement"
+        | "project import-issue"
+        | "project import"
+        | "project import-recover"
+        | "project import-forget" => envelope::schema::<product::ProjectEffectView>(command, view),
+        "source-change preview"
+        | "source-change status"
+        | "source-change apply"
+        | "source-change recover"
+        | "source-change discard" => envelope::schema::<source_change::View>(command, view),
         "observe follow" => envelope::schema::<product::FollowView<'static>>(command, view),
         "docs" => envelope::schema::<ManagedReply>(command, view),
         "compiler generate" | "compiler probe" => envelope::schema::<ManagedReply>(command, view),
@@ -963,6 +993,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
         }
         Command::Prepare(args) => prepare::dispatch(args, selected, presentation),
         Command::Project { action } => product::project_dispatch(action, selected, presentation),
+        Command::SourceChange { action } => source_change::dispatch(action, selected, presentation),
         Command::RunAll(options) => bundle::start(options, selected, entry, presentation),
         Command::Bundle(args) => bundle::run(args, selected, entry),
         Command::FixturePrepare { fixture } => {
@@ -2159,11 +2190,9 @@ fn failure(
         && let Some(native) = native
     {
         let mut rendered = String::new();
-        let result = if io::stderr().is_terminal()
-            && std::env::var_os("NO_GRAPHICS").is_none()
-            && !std::env::var_os("TERM").is_some_and(|value| value == "dumb")
-        {
-            let graphical = if std::env::var_os("NO_COLOR").is_some_and(|value| !value.is_empty()) {
+        let terminal = terminal::Policy::stderr(presentation.format);
+        let result = if terminal.interactive {
+            let graphical = if !terminal.color {
                 miette::GraphicalReportHandler::new_themed(miette::GraphicalTheme::unicode_nocolor())
                     .with_links(false)
             } else {

@@ -27,6 +27,15 @@ pub(super) enum EvidenceLayout {
 /// Explicit evidence kinds never guess whether an operand is a file or invocation.
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Explain effective CLI settings without preparing or connecting.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Settings {
+        #[command(flatten)]
+        options: crate::cli::product::context::Options,
+        /// Resolve this configured target alias.
+        #[arg(long)]
+        target: Option<String>,
+    },
     /// Observe written references to exact Cargo package IDs in a prepared native world.
     DependencyUsage(dependency_usage::Args),
     /// Compare explicitly addressed source, API, retained context or native world evidence.
@@ -190,6 +199,8 @@ pub(super) enum Action {
         page_bytes: NonZeroUsize,
     },
     /// Explain real native test selection; no binary listing or test execution occurs.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    #[command(add(crate::catalog::Examples(&[&[], &["pse-host", "--lib"]])))]
     TestSelection {
         #[command(flatten)]
         tests: super::super::selection::TestArgs,
@@ -202,6 +213,7 @@ pub(super) enum Action {
         full: bool,
     },
     /// Explain selected native check declarations or admitted compiler units without compiling.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     CheckSelection {
         #[command(flatten)]
         selection: super::super::selection::SelectionArgs,
@@ -212,6 +224,7 @@ pub(super) enum Action {
     },
     /// Read the original managed result without waiting, cancellation or resubmission.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
+    #[command(add(crate::catalog::Examples(&[&["latest"]])))]
     Invocation {
         invocation: String,
         #[arg(long)]
@@ -222,6 +235,7 @@ pub(super) enum Action {
     },
     /// Read original retained stdout/stderr byte ranges.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
+    #[command(add(crate::catalog::Examples(&[&["latest", "--stderr", "--tail"]])))]
     Log {
         invocation: String,
         #[arg(long)]
@@ -309,6 +323,9 @@ pub(super) fn inspect(
         super::super::checkout_root(selected)?
     };
     match action {
+        Action::Settings { options, target } => {
+            crate::cli::product::context::explain(&root, &options, target, output)
+        }
         Action::Comparison(args) => super::comparison::dispatch(args, selected, output),
         Action::Schema(args) => schema::inspect(args, &root, output),
         Action::Payload(mut args) => {

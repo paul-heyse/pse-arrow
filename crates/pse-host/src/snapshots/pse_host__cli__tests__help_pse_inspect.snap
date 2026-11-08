@@ -9,6 +9,7 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  settings                   Explain effective CLI settings without preparing or connecting
   dependency-usage           Observe written references to exact Cargo package IDs in a prepared native world
   comparison                 Compare explicitly addressed source, API, retained context or native world evidence
   schema                     Navigate an explicitly supplied complete descriptor set, or compare schema worlds
@@ -94,6 +95,7 @@ Usage: pse inspect [OPTIONS] <--result <RESULT>|--source <SOURCE>>
        pse inspect <COMMAND>
 
 Commands:
+  settings                   Explain effective CLI settings without preparing or connecting
   dependency-usage           Observe written references to exact Cargo package IDs in a prepared native world
   comparison                 Compare explicitly addressed source, API, retained context or native world evidence
   schema                     Navigate an explicitly supplied complete descriptor set, or compare schema worlds

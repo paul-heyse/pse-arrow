@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read bookmark headers by project key
 
-Usage: pse project metadata --reader <READER> --state <STATE> bookmarks [OPTIONS] <PROJECT>
+Usage: pse project metadata bookmarks [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -19,7 +19,7 @@ Options:
 --help
 Read bookmark headers by project key
 
-Usage: pse project metadata --reader <READER> --state <STATE> bookmarks [OPTIONS] <PROJECT>
+Usage: pse project metadata bookmarks [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>

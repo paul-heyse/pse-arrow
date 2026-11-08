@@ -15,6 +15,11 @@ use description::{
     Source, Window,
 };
 use sha2::Digest as _;
+
+/// Runnable example suffixes attached to their typed parser command.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Examples(pub(crate) &'static [&'static [&'static str]]);
+impl clap::builder::CommandExt for Examples {}
 /// An explicitly selected retained metadata snapshot, never produced by passive discovery.
 #[derive(Debug)]
 pub struct MetadataSnapshot {
@@ -306,10 +311,22 @@ pub fn command_tree() -> Command {
         }
         let mut example = path.clone();
         example.push("--help".into());
+        let examples = command
+            .get::<Examples>()
+            .into_iter()
+            .flat_map(|examples| examples.0)
+            .map(|suffix| {
+                path.iter()
+                    .cloned()
+                    .chain(suffix.iter().map(ToString::to_string))
+                    .collect()
+            })
+            .chain(std::iter::once(example))
+            .collect();
         let mut route = vec!["pse".into()];
         route.extend(path.clone());
         command = command.add(description::CommandMetadata {
-            examples: vec![example],
+            examples,
             output_schemas: schemas,
             invocation_route: route,
             features: Vec::new(),

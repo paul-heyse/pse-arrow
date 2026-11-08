@@ -7,9 +7,8 @@ use crate::envelope::{
 };
 use std::{
     ffi::OsString,
-    os::unix::process::ExitStatusExt as _,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
 };
 
 #[derive(Debug, clap::Args)]
@@ -21,6 +20,7 @@ pub(super) struct PrepareArgs {
 #[derive(Debug, clap::Subcommand)]
 enum Action {
     /// Prepare native tools, or copy a matching prepared source generation.
+    #[command(add(crate::catalog::Examples(&[&[]])))]
     Host {
         /// Checkout with an explicitly prepared, equivalent source generation.
         #[arg(long, value_name = "CHECKOUT")]
@@ -39,6 +39,7 @@ enum Route {
 #[derive(Debug, serde::Serialize, schemars::JsonSchema)]
 pub(super) struct HostPreparation {
     route: Option<Route>,
+    selected_generation: Option<crate::generation::PreparedGeneration>,
 }
 
 pub(super) fn dispatch(
@@ -66,13 +67,10 @@ pub(super) fn dispatch(
         argument.push(from);
         bootstrap.arg(argument);
     }
-    let result = bootstrap.stderr(Stdio::inherit()).output()?;
-    let status = result.status;
-    let code = status
-        .code()
-        .or_else(|| status.signal().map(|signal| 128 + signal))
-        .unwrap_or(125);
-    if status.success() {
+    let result = crate::product_reader::execute(bootstrap, Vec::new(), 64, None)
+        .map_err(super::product::product_error)?;
+    let code = result.status;
+    if code == 0 && result.stdout_bytes <= 64 {
         let route = match result.stdout.as_slice() {
             b"verified-current\n" => Route::VerifiedCurrent,
             b"matching-source\n" => Route::MatchingSource,
@@ -83,20 +81,32 @@ pub(super) fn dispatch(
                 ));
             }
         };
-        return Ok(output.emit(Envelope::response(
+        let selected_generation = crate::generation::prepared(&root)?.ok_or_else(|| {
+            HostError::Ownership("preparation did not leave an authenticated generation".into())
+        })?;
+        let mut response = Envelope::response(
             verb,
             "native host preparation completed",
-            HostPreparation { route: Some(route) },
-        ))?);
+            HostPreparation {
+                route: Some(route),
+                selected_generation: Some(selected_generation),
+            },
+        );
+        response.settlement = crate::envelope::Settlement::Complete;
+        return Ok(output.emit(response)?);
     }
     let policy = RedactionPolicy::from_environment();
+    let details = policy.redact(&String::from_utf8_lossy(&result.stderr));
     let error = HostError::Ownership(format!(
-        "host preparation refused or failed with status {code}"
+        "host preparation failed with status {code}. {details}"
     ));
     let mut response = Envelope::response(
         verb,
         "native host preparation did not complete",
-        HostPreparation { route: None },
+        HostPreparation {
+            route: None,
+            selected_generation: None,
+        },
     );
     response.outcome = CommandOutcome::BoundaryFailure;
     response.child_exit = Some(code);
@@ -125,5 +135,5 @@ pub(super) fn dispatch(
         });
     }
     output.emit(response)?;
-    Ok(code)
+    Ok(if code == 0 { 1 } else { code })
 }

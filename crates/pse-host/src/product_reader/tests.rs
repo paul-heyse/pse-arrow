@@ -411,7 +411,7 @@ fn actual_captured_adapter_build_retains_original_product_artifact() {
         build_directory.clone().into_os_string(),
     );
     let output = execute(
-        source_build_command(&control, scratch.path(), &environment),
+        source_build_command(&control, scratch.path(), &environment, false),
         Vec::new(),
         STDERR_BYTES,
         None,

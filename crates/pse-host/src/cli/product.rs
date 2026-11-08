@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Opaque product delegation; scientific request types remain in the selected product.
+pub(super) mod context;
 mod effect;
 use super::{GenerationIntent, HostError, OutputOptions, checkout_root};
 use crate::{
@@ -12,7 +13,7 @@ use crate::{
 use clap::{Args, Subcommand, ValueEnum};
 pub(super) use effect::ProjectEffectView;
 use schemars::JsonSchema;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::value::RawValue;
 use std::{
     io::{self, Read, Write},
@@ -25,7 +26,11 @@ use std::{
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
     /// Explicitly build and capture a product reader; never performed by passive reads.
-    Prepare,
+    Prepare {
+        /// Include the normalized installed-schema observer.
+        #[arg(long)]
+        installed_schema: bool,
+    },
     /// Discover the operations and schema associations of one captured reader.
     Discover {
         #[arg(long)]
@@ -74,7 +79,15 @@ pub(super) enum Action {
 }
 #[derive(Debug, Subcommand)]
 pub(super) enum ProjectAction {
+    /// Authenticate configured target choices through their connection-only readers.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    #[command(add(crate::catalog::Examples(&[&[]])))]
+    Targets {
+        #[command(flatten)]
+        context: context::Options,
+    },
     /// Verify and inspect an existing project pack offline.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     InspectPack {
         /// Exact reader identifier returned by `pse observe prepare`.
         #[arg(long)]
@@ -86,6 +99,7 @@ pub(super) enum ProjectAction {
         maximum_document_bytes: Option<NonZeroUsize>,
     },
     /// Read one bounded metadata page from an existing canonical deployment.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Metadata {
         #[command(flatten)]
         source: ProjectSource,
@@ -96,6 +110,7 @@ pub(super) enum ProjectAction {
         collection: ProjectCollection,
     },
     /// Read an exact project header.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Show {
         #[command(flatten)]
         source: ProjectSource,
@@ -103,6 +118,7 @@ pub(super) enum ProjectAction {
         project: String,
     },
     /// Read one generation-fenced branch page for an exact project.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Branches {
         #[command(flatten)]
         source: ProjectSource,
@@ -113,6 +129,7 @@ pub(super) enum ProjectAction {
         cursor: Option<ProjectCursor>,
     },
     /// Read an exact branch header.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     Branch {
         #[command(flatten)]
         source: ProjectSource,
@@ -120,6 +137,7 @@ pub(super) enum ProjectAction {
         branch: String,
     },
     /// Read an exact draft head and version descriptor.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     DraftShow {
         #[command(flatten)]
         source: ProjectSource,
@@ -127,11 +145,38 @@ pub(super) enum ProjectAction {
         key: String,
     },
     /// Browse one bounded page of compact study headers.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
     StudyWorkbench {
         #[command(flatten)]
         source: ProjectSource,
         #[command(flatten)]
         request: StudyWorkbenchQuery,
+    },
+    /// Read bounded research metadata without opening protected results.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Research {
+        #[command(flatten)]
+        source: ProjectSource,
+        #[command(subcommand)]
+        selection: ResearchQuery,
+    },
+    /// Describe the closure of an already-issued project selection.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    DescribeClosure {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Authored closure request, read from stdin when omitted.
+        #[arg(long)]
+        intent: Option<PathBuf>,
+    },
+    /// Observe installed canonical schema through the selected Viewer connection.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    InstalledSchema {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Expected installed-store issuer. Required with direct state selection.
+        #[arg(long)]
+        issuing_store: Option<uuid::Uuid>,
     },
     #[command(flatten)]
     Effect(effect::Action),
@@ -139,17 +184,76 @@ pub(super) enum ProjectAction {
 #[derive(Debug, Args)]
 pub(super) struct ProjectSource {
     /// Exact reader identifier returned by `pse observe prepare`.
-    #[arg(long)]
-    reader: String,
+    #[arg(long, requires = "state", conflicts_with = "target")]
+    reader: Option<String>,
     /// Exact existing private canonical deployment state directory.
-    #[arg(long)]
-    state: PathBuf,
+    #[arg(long, requires = "reader", conflicts_with_all = ["target", "context_file", "context_profile"])]
+    state: Option<PathBuf>,
     /// Exact existing database; defaults to the database configured by the deployment.
-    #[arg(long)]
+    #[arg(long, requires = "state")]
     database: Option<String>,
+    /// Exact alias from the checkout's private CLI settings.
+    #[arg(long)]
+    target: Option<String>,
+    #[command(flatten)]
+    context: context::Options,
     /// Total reader allowance in milliseconds, from 1 through 25000.
     #[arg(long)]
     timeout_ms: Option<NonZeroU64>,
+}
+
+impl ProjectSource {
+    fn resolve(
+        self,
+        root: &Path,
+        selected: Option<&Path>,
+        environment: &Environment,
+        output: &OutputOptions,
+    ) -> Result<Result<context::ResolvedSource, i32>, HostError> {
+        if self
+            .timeout_ms
+            .is_some_and(|timeout| timeout.get() > 25_000)
+        {
+            return Err(HostError::Ownership(
+                "project timeout requires 1 through 25000 milliseconds".into(),
+            ));
+        }
+        if let Some(state) = self.state {
+            let state = std::path::absolute(super::source_path(selected, state)?)?;
+            let reader = self.reader.ok_or_else(|| {
+                HostError::Ownership("direct project selection requires a prepared reader".into())
+            })?;
+            return Ok(Ok(context::ResolvedSource {
+                state,
+                database: self.database,
+                reader,
+                issuing_store: None,
+                timeout_ms: self.timeout_ms,
+            }));
+        }
+        let context = context::Context::load(
+            root,
+            environment,
+            &self.context,
+            self.target,
+            self.timeout_ms,
+        )?;
+        if let Some(selected) = context.selected() {
+            return Ok(Ok(selected));
+        }
+        if context.candidates().next().is_none() {
+            return Err(HostError::Ownership(
+                "configure a named product target or select --state and --reader".into(),
+            ));
+        }
+        Ok(Err(emit_project_targets(
+            root,
+            environment,
+            &context,
+            output,
+            true,
+        )?))
+    }
 }
 #[derive(Debug, Args, Serialize)]
 pub(super) struct StudyWorkbenchQuery {
@@ -202,6 +306,24 @@ pub(super) enum ProjectCollection {
     /// Read admission diagnostics by draft-version key.
     Diagnostics { version: String },
 }
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum ResearchQuery {
+    /// Read one indexed page of dataset headers for this project.
+    Datasets {
+        project: String,
+        /// Continue after this immutable dataset key.
+        #[arg(long, default_value = "")]
+        after: String,
+        /// Maximum metadata rows in the page.
+        #[arg(long, default_value_t = 128, value_parser = clap::value_parser!(u32).range(1..=128))]
+        limit: u32,
+    },
+    /// Read one original dataset version.
+    Dataset { key: String },
+    /// Read one original frozen selection.
+    Selection { key: String },
+}
 #[derive(Clone, Debug, Serialize)]
 #[serde(transparent)]
 pub(super) struct ProjectCursor(Box<RawValue>);
@@ -216,6 +338,7 @@ impl std::str::FromStr for ProjectCursor {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectQuery {
+    Target,
     Metadata {
         request: ProjectMetadataQuery,
     },
@@ -234,6 +357,15 @@ enum ProjectQuery {
     },
     StudyWorkbench {
         request: StudyWorkbenchQuery,
+    },
+    ResearchRead {
+        request: ResearchQuery,
+    },
+    Closure {
+        request: Box<RawValue>,
+    },
+    ImportStatus {
+        intent: Box<RawValue>,
     },
 }
 #[derive(Serialize)]
@@ -268,7 +400,7 @@ pub(super) enum Direction {
 impl Action {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
-            Self::Prepare | Self::Investigate { .. } => GenerationIntent::NewWork,
+            Self::Prepare { .. } | Self::Investigate { .. } => GenerationIntent::NewWork,
             _ => GenerationIntent::Passive,
         }
     }
@@ -306,15 +438,16 @@ pub(super) struct FollowView<'a> {
     summary: Option<&'a product_reader::follow::Summary>,
     native: Option<product_reader::native::Association>,
 }
-fn product_error(error: product_reader::ProductReaderError) -> HostError {
+pub(super) fn product_error(error: product_reader::ProductReaderError) -> HostError {
     HostError::ProductReader(Box::new(error))
 }
 fn request_file(path: &Path) -> Result<Box<RawValue>, HostError> {
+    read_request(std::fs::File::open(path)?)
+}
+fn read_request(input: impl Read) -> Result<Box<RawValue>, HostError> {
     const MAXIMUM: usize = 1024 * 1024;
     let mut bytes = Vec::new();
-    std::fs::File::open(path)?
-        .take(MAXIMUM as u64 + 1)
-        .read_to_end(&mut bytes)?;
+    input.take(MAXIMUM as u64 + 1).read_to_end(&mut bytes)?;
     if bytes.len() > MAXIMUM {
         return Err(HostError::Ownership(
             "product request exceeds 1 MiB transport extent".into(),
@@ -349,29 +482,30 @@ fn project_pack_request(
     .map_err(|error| io::Error::other(error).into())
 }
 fn online_project_request(
-    state: PathBuf,
-    database: Option<String>,
-    timeout_ms: Option<NonZeroU64>,
+    source: &context::ResolvedSource,
     query: ProjectQuery,
 ) -> Result<Box<RawValue>, HostError> {
     #[derive(Serialize)]
-    struct Target {
+    struct Target<'a> {
         state: NativePath,
-        database: Option<String>,
+        database: Option<&'a str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expected_issuer: Option<&'a str>,
         timeout_ms: Option<NonZeroU64>,
     }
     #[derive(Serialize)]
-    struct Request {
+    struct Request<'a> {
         operation: &'static str,
-        canonical: Target,
+        canonical: Target<'a>,
         query: ProjectQuery,
     }
     serde_json::value::to_raw_value(&Request {
         operation: "project",
         canonical: Target {
-            state: NativePath::from(state),
-            database,
-            timeout_ms,
+            state: NativePath::from(source.state.clone()),
+            database: source.database.as_deref(),
+            expected_issuer: source.issuing_store.as_deref(),
+            timeout_ms: source.timeout_ms,
         },
         query,
     })
@@ -388,7 +522,10 @@ impl ProjectAction {
     fn request(
         self,
         selected: Option<&Path>,
-    ) -> Result<(&'static str, String, Box<RawValue>), HostError> {
+        root: &Path,
+        environment: &Environment,
+        output: &OutputOptions,
+    ) -> Result<Result<(&'static str, String, Box<RawValue>), i32>, HostError> {
         let resolve =
             |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
         let (command, source, query) = match self {
@@ -397,11 +534,11 @@ impl ProjectAction {
                 input,
                 maximum_document_bytes,
             } => {
-                return Ok((
+                return Ok(Ok((
                     "project inspect-pack",
                     reader,
                     project_pack_request(resolve(input)?, maximum_document_bytes)?,
-                ));
+                )));
             }
             Self::Metadata {
                 source,
@@ -433,42 +570,210 @@ impl ProjectAction {
                 source,
                 ProjectQuery::StudyWorkbench { request },
             ),
-            Self::Effect(_) => {
+            Self::Research { source, selection } => (
+                "project research",
+                source,
+                ProjectQuery::ResearchRead { request: selection },
+            ),
+            Self::DescribeClosure { source, intent } => {
+                let source = match source.resolve(root, selected, environment, output)? {
+                    Ok(source) => source,
+                    Err(code) => return Ok(Err(code)),
+                };
+                let request = match intent {
+                    Some(path) => request_file(&resolve(path)?)?,
+                    None => read_request(io::stdin().lock())?,
+                };
+                let request = online_project_request(&source, ProjectQuery::Closure { request })?;
+                return Ok(Ok(("project describe-closure", source.reader, request)));
+            }
+            Self::InstalledSchema {
+                source,
+                issuing_store,
+            } => {
+                #[derive(Serialize)]
+                struct Request {
+                    operation: &'static str,
+                    state: NativePath,
+                    database: Option<String>,
+                    expected_issuer: String,
+                    timeout_ms: Option<NonZeroU64>,
+                }
+                let source = match source.resolve(root, selected, environment, output)? {
+                    Ok(source) => source,
+                    Err(code) => return Ok(Err(code)),
+                };
+                let explicit = issuing_store.map(|issuer| issuer.to_string());
+                if let (Some(configured), Some(explicit)) = (&source.issuing_store, &explicit)
+                    && configured != explicit
+                {
+                    return Err(HostError::Ownership(
+                        "expected schema issuer differs from the configured target".into(),
+                    ));
+                }
+                let expected_issuer = source.issuing_store.or(explicit).ok_or_else(|| {
+                    HostError::Ownership(
+                        "direct installed schema observation requires --issuing-store".into(),
+                    )
+                })?;
+                let request = serde_json::value::to_raw_value(&Request {
+                    operation: "inspect_canonical_catalog",
+                    state: source.state.into(),
+                    database: source.database,
+                    expected_issuer,
+                    timeout_ms: source.timeout_ms,
+                })
+                .map_err(io::Error::other)?;
+                return Ok(Ok(("project installed-schema", source.reader, request)));
+            }
+            Self::Effect(_) | Self::Targets { .. } => {
                 return Err(HostError::Ownership(
                     "project effect requires its performing owner".into(),
                 ));
             }
         };
-        Ok((
-            command,
-            source.reader,
-            online_project_request(
-                resolve(source.state)?,
-                source.database,
-                source.timeout_ms,
-                query,
-            )?,
-        ))
+        let source = match source.resolve(root, selected, environment, output)? {
+            Ok(source) => source,
+            Err(code) => return Ok(Err(code)),
+        };
+        let request = online_project_request(&source, query)?;
+        Ok(Ok((command, source.reader, request)))
     }
+}
+
+#[derive(Serialize, JsonSchema)]
+pub(super) struct ProjectTargetsView {
+    choices: Vec<TargetChoice>,
+    unavailable: Vec<String>,
+}
+
+#[derive(Serialize, JsonSchema)]
+struct TargetChoice {
+    selector: String,
+    namespace: String,
+    database: String,
+    issuing_store: String,
+}
+
+fn observe_target(
+    root: &Path,
+    environment: &Environment,
+    source: &context::ResolvedSource,
+    correlation: &str,
+) -> Option<ObservedTarget> {
+    #[derive(Deserialize)]
+    struct Observation {
+        kind: String,
+        target: ObservedTarget,
+        result: TargetResult,
+    }
+    #[derive(Deserialize)]
+    struct TargetResult {
+        kind: String,
+    }
+
+    let reader = ProductReaderSelection::open(root, environment, &source.reader).ok()?;
+    let request = online_project_request(source, ProjectQuery::Target).ok()?;
+    let reply = reader.read(&request, correlation, environment).ok()?;
+    if reply.category() != product_reader::Category::Success {
+        return None;
+    }
+    let observation: Observation = serde_json::from_str(reply.payload().get()).ok()?;
+    (observation.kind == "project"
+        && observation.result.kind == "target"
+        && source.database.as_deref() == Some(observation.target.database.as_str())
+        && source.issuing_store.as_deref() == Some(observation.target.issuing_store.as_str()))
+    .then_some(observation.target)
+}
+
+#[derive(Deserialize)]
+struct ObservedTarget {
+    namespace: String,
+    database: String,
+    issuing_store: String,
+}
+
+fn emit_project_targets(
+    root: &Path,
+    environment: &Environment,
+    context: &context::Context,
+    output: &OutputOptions,
+    ambiguous: bool,
+) -> Result<i32, HostError> {
+    let policy = envelope::RedactionPolicy::from_inputs(environment);
+    let mut view = ProjectTargetsView {
+        choices: Vec::new(),
+        unavailable: Vec::new(),
+    };
+    for (name, source) in context.candidates() {
+        let selector = policy.redact(name);
+        match observe_target(root, environment, &source, output.invocation_id.as_str()) {
+            Some(target) => view.choices.push(TargetChoice {
+                selector,
+                namespace: policy.redact(&target.namespace),
+                database: policy.redact(&target.database),
+                issuing_store: policy.redact(&target.issuing_store),
+            }),
+            None => view.unavailable.push(selector),
+        }
+    }
+    let mut response = Envelope::response(
+        "project targets",
+        if ambiguous {
+            "choose an exact --target before dispatch"
+        } else {
+            "configured target authentication observed"
+        },
+        view,
+    );
+    if ambiguous {
+        response.outcome = envelope::CommandOutcome::Usage;
+    }
+    if !response.payload.unavailable.is_empty() {
+        response.observation.completeness = envelope::Completeness::Partial;
+    }
+    Ok(output.emit(response)?)
 }
 pub(super) fn project_dispatch(
     action: ProjectAction,
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
-    let root = checkout_root(selected)?;
+    let root = checkout_root(selected)?.canonicalize()?;
     let environment: Environment = std::env::vars_os().collect();
     if let ProjectAction::Effect(action) = action {
         return effect::dispatch(action, &root, selected, output, &environment);
     }
-    let (command, reader, request) = action.request(selected)?;
+    if let ProjectAction::Targets { context } = action {
+        let context = context::Context::load(&root, &environment, &context, None, None)?;
+        return emit_project_targets(&root, &environment, &context, output, false);
+    }
+    let (command, reader, request) = match action.request(selected, &root, &environment, output)? {
+        Ok(request) => request,
+        Err(code) => return Ok(code),
+    };
     let reader =
         ProductReaderSelection::open(&root, &environment, &reader).map_err(product_error)?;
+    emit_project_read(command, &reader, &request, output, &environment)
+}
+
+fn emit_project_read(
+    command: &str,
+    reader: &ProductReaderSelection,
+    request: &RawValue,
+    output: &OutputOptions,
+    environment: &Environment,
+) -> Result<i32, HostError> {
     let reply = reader
-        .read(&request, output.invocation_id.as_str(), &environment)
+        .read(request, output.invocation_id.as_str(), environment)
         .map_err(product_error)?;
-    if !reply.stderr().is_empty() {
-        io::stderr().lock().write_all(reply.stderr())?;
+    if output.format == envelope::OutputFormat::Human && !reply.stderr().is_empty() {
+        let policy = envelope::RedactionPolicy::from_inputs(environment);
+        io::stderr().lock().write_all(
+            policy
+                .redact(&String::from_utf8_lossy(reply.stderr()))
+                .as_bytes(),
+        )?;
     }
     let (category, text) = match (reply.category(), command == "project inspect-pack") {
         (product_reader::Category::Success, true) => ("success", "offline project pack verified"),
@@ -493,11 +798,28 @@ pub(super) fn project_dispatch(
     );
     response.observation.scope = if command == "project inspect-pack" {
         "offline_project_pack"
+    } else if command == "project import-status" {
+        "project_import"
+    } else if command == "project installed-schema" {
+        "canonical_installed_schema"
     } else {
         "canonical_project_metadata"
     }
     .into();
     if category == "refused" {
+        #[derive(Deserialize)]
+        struct Refusal {
+            failure: Failure,
+        }
+        #[derive(Deserialize)]
+        struct Failure {
+            native: Option<envelope::ErrorRecord>,
+        }
+        if let Ok(refusal) = serde_json::from_str::<Refusal>(reply.payload().get())
+            && let Some(native) = refusal.failure.native
+        {
+            response.failures.push(native);
+        }
         response.outcome = envelope::CommandOutcome::Usage;
     }
     Ok(output.emit(response)?)
@@ -538,8 +860,9 @@ pub(super) fn dispatch(
             &root,
         );
     }
-    if matches!(&action, Action::Prepare) {
-        let reader = product_reader::prepare(&root, &environment).map_err(product_error)?;
+    if let Action::Prepare { installed_schema } = action {
+        let reader = product_reader::prepare_selected(&root, &environment, installed_schema)
+            .map_err(product_error)?;
         return Ok(output.emit(Envelope::response(
             "observe prepare",
             "native product reader explicitly prepared",
@@ -551,7 +874,7 @@ pub(super) fn dispatch(
         ))?);
     }
     let (reader_id, request, investigation) = match action {
-        Action::Prepare => {
+        Action::Prepare { .. } => {
             return Err(HostError::Ownership(
                 "unreachable product preparation dispatch".into(),
             ));
@@ -782,6 +1105,18 @@ mod tests {
         #[command(subcommand)]
         action: ProjectAction,
     }
+    fn request(action: ProjectAction) -> (&'static str, String, Box<RawValue>) {
+        let output = OutputOptions {
+            format: envelope::OutputFormat::Json,
+            presentation: Default::default(),
+            invocation_id: envelope::CliInvocationId::new(),
+            artifact_directory: None,
+        };
+        action
+            .request(None, Path::new("/"), &Environment::new(), &output)
+            .unwrap()
+            .unwrap()
+    }
 
     #[test]
     fn project_online_read_requires_one_exact_state_and_preserves_owner_cursor() {
@@ -801,7 +1136,7 @@ mod tests {
             "drafts", "b",
         ])
         .unwrap();
-        let (command, reader, request) = parsed.action.request(None).unwrap();
+        let (command, reader, request) = request(parsed.action);
         assert_eq!(command, "project metadata");
         assert_eq!(reader, "capture");
         assert!(request.get().contains(original));
@@ -823,7 +1158,7 @@ mod tests {
             "/one",
         ];
         let parsed = ProjectCli::try_parse_from(arguments).unwrap();
-        let (command, reader, request) = parsed.action.request(None).unwrap();
+        let (command, reader, request) = request(parsed.action);
         assert_eq!(command, "project study-workbench");
         assert_eq!(reader, "capture");
         let value: serde_json::Value = serde_json::from_str(request.get()).unwrap();
@@ -851,7 +1186,7 @@ mod tests {
             cursor,
         ]))
         .unwrap();
-        let (_, _, request) = parsed.action.request(None).unwrap();
+        let (_, _, request) = self::request(parsed.action);
         assert!(request.get().contains(cursor));
         let value: serde_json::Value = serde_json::from_str(request.get()).unwrap();
         assert_eq!(value["canonical"]["database"], "existing");

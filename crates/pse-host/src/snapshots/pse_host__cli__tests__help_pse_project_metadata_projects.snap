@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Discover available project headers
 
-Usage: pse project metadata --reader <READER> --state <STATE> projects [OPTIONS]
+Usage: pse project metadata projects [OPTIONS]
 
 Options:
   -C <checkout>
@@ -16,7 +16,7 @@ Options:
 --help
 Discover available project headers
 
-Usage: pse project metadata --reader <READER> --state <STATE> projects [OPTIONS]
+Usage: pse project metadata projects [OPTIONS]
 
 Options:
   -C <checkout>

@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read savepoint headers by draft key
 
-Usage: pse project metadata --reader <READER> --state <STATE> savepoints [OPTIONS] <DRAFT>
+Usage: pse project metadata savepoints [OPTIONS] <DRAFT>
 
 Arguments:
   <DRAFT>
@@ -19,7 +19,7 @@ Options:
 --help
 Read savepoint headers by draft key
 
-Usage: pse project metadata --reader <READER> --state <STATE> savepoints [OPTIONS] <DRAFT>
+Usage: pse project metadata savepoints [OPTIONS] <DRAFT>
 
 Arguments:
   <DRAFT>

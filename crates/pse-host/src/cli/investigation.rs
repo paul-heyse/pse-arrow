@@ -8,7 +8,6 @@ use crate::{
 };
 use clap::{Args, Subcommand, ValueEnum};
 use serde_json::{Value, json};
-use std::io::IsTerminal as _;
 use std::path::Path;
 use std::path::PathBuf;
 use tokio_util::sync::CancellationToken;
@@ -953,9 +952,12 @@ fn execute(
     let mut groups = std::collections::BTreeMap::<String, Vec<u64>>::new();
     let mut ordinal = 0u64;
     let observed = std::sync::Mutex::new(query::Summary::default());
-    let progress =
-        (output.format == OutputFormat::Human && std::io::stderr().is_terminal()).then(|| {
+    let progress = super::terminal::Policy::stderr(output.format)
+        .interactive
+        .then(|| {
             let spinner = indicatif::ProgressBar::new_spinner();
+            spinner.set_style(indicatif::ProgressStyle::default_spinner());
+            spinner.set_draw_target(indicatif::ProgressDrawTarget::stderr());
             spinner.set_message("searching selected sources");
             spinner
         });
@@ -996,7 +998,11 @@ fn execute(
             summary.groups = groups.clone();
             summary.omitted_fields = query::presentation::omitted(&request.presentation);
             if let Some(progress) = &progress {
-                progress.finish_and_clear();
+                if summary.cancellation_requested || summary.failures > 0 {
+                    progress.abandon_with_message("search stopped");
+                } else {
+                    progress.finish_and_clear();
+                }
             }
         }
         if streaming {

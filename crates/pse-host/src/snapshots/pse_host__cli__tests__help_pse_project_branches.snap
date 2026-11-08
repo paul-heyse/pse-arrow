@@ -5,26 +5,42 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read one generation-fenced branch page for an exact project
 
-Usage: pse project branches [OPTIONS] --reader <READER> --state <STATE> <PROJECT>
+Usage: pse project branches [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>  Canonical project key
 
 Options:
   -C <checkout>
-      --reader <READER>          Exact reader identifier returned by `pse observe prepare`
-      --format <FORMAT>          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --state <STATE>            Exact existing private canonical deployment state directory
-      --database <DATABASE>      Exact existing database; defaults to the database configured by the deployment
-      --fields <FIELDS>          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
-      --budget <BUDGET>          Limit whole payload records; producer pages retain their omission and continuation facts
-      --timeout-ms <TIMEOUT_MS>  Total reader allowance in milliseconds, from 1 through 25000
-      --cursor <CURSOR>          Original continuation JSON from the selected branch page
-  -h, --help                     Print help (see more with '--help')
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+      --cursor <CURSOR>
+          Original continuation JSON from the selected branch page
+  -h, --help
+          Print help (see more with '--help')
 --help
 Read one generation-fenced branch page for an exact project
 
-Usage: pse project branches [OPTIONS] --reader <READER> --state <STATE> <PROJECT>
+Usage: pse project branches [OPTIONS] <PROJECT>
 
 Arguments:
   <PROJECT>
@@ -60,6 +76,15 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
 
       --timeout-ms <TIMEOUT_MS>
           Total reader allowance in milliseconds, from 1 through 25000

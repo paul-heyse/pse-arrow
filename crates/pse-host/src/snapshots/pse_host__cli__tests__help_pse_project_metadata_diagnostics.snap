@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read admission diagnostics by draft-version key
 
-Usage: pse project metadata --reader <READER> --state <STATE> diagnostics [OPTIONS] <VERSION>
+Usage: pse project metadata diagnostics [OPTIONS] <VERSION>
 
 Arguments:
   <VERSION>
@@ -19,7 +19,7 @@ Options:
 --help
 Read admission diagnostics by draft-version key
 
-Usage: pse project metadata --reader <READER> --state <STATE> diagnostics [OPTIONS] <VERSION>
+Usage: pse project metadata diagnostics [OPTIONS] <VERSION>
 
 Arguments:
   <VERSION>

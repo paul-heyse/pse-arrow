@@ -8,16 +8,25 @@ Read or change project data through its prepared product owner
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
-  inspect-pack     Verify and inspect an existing project pack offline
-  metadata         Read one bounded metadata page from an existing canonical deployment
-  show             Read an exact project header
-  branches         Read one generation-fenced branch page for an exact project
-  branch           Read an exact branch header
-  draft-show       Read an exact draft head and version descriptor
-  study-workbench  Browse one bounded page of compact study headers
-  create           Create a project under an explicit original operation identity
-  navigate         Apply an authored navigation intent, read from stdin by default
-  acknowledgement  Reconcile an original operation identity without submitting another effect
+  targets           Authenticate configured target choices through their connection-only readers
+  inspect-pack      Verify and inspect an existing project pack offline
+  metadata          Read one bounded metadata page from an existing canonical deployment
+  show              Read an exact project header
+  branches          Read one generation-fenced branch page for an exact project
+  branch            Read an exact branch header
+  draft-show        Read an exact draft head and version descriptor
+  study-workbench   Browse one bounded page of compact study headers
+  research          Read bounded research metadata without opening protected results
+  describe-closure  Describe the closure of an already-issued project selection
+  installed-schema  Observe installed canonical schema through the selected Viewer connection
+  create            Create a project under an explicit original operation identity
+  navigate          Apply an authored navigation intent, read from stdin by default
+  acknowledgement   Reconcile an original operation identity without submitting another effect
+  import-issue      Issue the original receiving intent for a verified project pack
+  import            Apply the exact issued import intent to the original pack
+  import-recover    Recover only the original unsettled import artifact
+  import-status     Observe the original receiving import and artifact checkpoint
+  import-forget     Release local custody once the original project import is complete
 
 Options:
   -C <checkout>
@@ -31,16 +40,25 @@ Read or change project data through its prepared product owner
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
-  inspect-pack     Verify and inspect an existing project pack offline
-  metadata         Read one bounded metadata page from an existing canonical deployment
-  show             Read an exact project header
-  branches         Read one generation-fenced branch page for an exact project
-  branch           Read an exact branch header
-  draft-show       Read an exact draft head and version descriptor
-  study-workbench  Browse one bounded page of compact study headers
-  create           Create a project under an explicit original operation identity
-  navigate         Apply an authored navigation intent, read from stdin by default
-  acknowledgement  Reconcile an original operation identity without submitting another effect
+  targets           Authenticate configured target choices through their connection-only readers
+  inspect-pack      Verify and inspect an existing project pack offline
+  metadata          Read one bounded metadata page from an existing canonical deployment
+  show              Read an exact project header
+  branches          Read one generation-fenced branch page for an exact project
+  branch            Read an exact branch header
+  draft-show        Read an exact draft head and version descriptor
+  study-workbench   Browse one bounded page of compact study headers
+  research          Read bounded research metadata without opening protected results
+  describe-closure  Describe the closure of an already-issued project selection
+  installed-schema  Observe installed canonical schema through the selected Viewer connection
+  create            Create a project under an explicit original operation identity
+  navigate          Apply an authored navigation intent, read from stdin by default
+  acknowledgement   Reconcile an original operation identity without submitting another effect
+  import-issue      Issue the original receiving intent for a verified project pack
+  import            Apply the exact issued import intent to the original pack
+  import-recover    Recover only the original unsettled import artifact
+  import-status     Observe the original receiving import and artifact checkpoint
+  import-forget     Release local custody once the original project import is complete
 
 Options:
   -C <checkout>

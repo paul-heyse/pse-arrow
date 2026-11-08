@@ -5,7 +5,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 -h
 Read draft headers by branch key
 
-Usage: pse project metadata --reader <READER> --state <STATE> drafts [OPTIONS] <BRANCH>
+Usage: pse project metadata drafts [OPTIONS] <BRANCH>
 
 Arguments:
   <BRANCH>
@@ -19,7 +19,7 @@ Options:
 --help
 Read draft headers by branch key
 
-Usage: pse project metadata --reader <READER> --state <STATE> drafts [OPTIONS] <BRANCH>
+Usage: pse project metadata drafts [OPTIONS] <BRANCH>
 
 Arguments:
   <BRANCH>

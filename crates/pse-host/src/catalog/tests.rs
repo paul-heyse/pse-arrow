@@ -539,3 +539,30 @@ fn flags_do_not_advertise_internal_boolean_defaults_as_accepted_value_tokens() {
     assert_eq!(page.exhaustiveness, Exhaustiveness::Exhaustive);
     assert!(page.records.is_empty());
 }
+
+#[test]
+fn intent_examples_parse_from_the_actual_command_tree() {
+    for path in [
+        &["test"][..],
+        &["prepare", "host"],
+        &["inspect", "test-selection"],
+        &["inspect", "invocation"],
+        &["inspect", "log"],
+        &["project", "targets"],
+    ] {
+        let path = path.iter().map(ToString::to_string).collect::<Vec<_>>();
+        let page = commands(&path, false, &Window::default());
+        let examples = &page.records[0].examples;
+        assert!(examples.len() > 1, "{path:?}");
+        for example in examples
+            .iter()
+            .filter(|example| !example.iter().any(|word| word == "--help"))
+        {
+            command_tree()
+                .try_get_matches_from(
+                    std::iter::once("pse").chain(example.iter().map(String::as_str)),
+                )
+                .unwrap();
+        }
+    }
+}

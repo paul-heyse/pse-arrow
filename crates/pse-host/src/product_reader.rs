@@ -32,7 +32,7 @@ const STDERR_BYTES: usize = 65536;
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 pub(crate) const PROJECT_PERFORM_PROTOCOL: &str = "pse.project-perform";
 pub(crate) const PROJECT_PERFORM_REQUEST_BYTES: usize = REQUEST_BYTES;
-const PROJECT_PERFORM_RESPONSE_BYTES: usize = 256 * 1024;
+pub(crate) const PROJECT_PERFORM_RESPONSE_BYTES: usize = 1024 * 1024;
 
 /// Preparation, original native child ownership, or transport validation failed.
 #[derive(Debug, thiserror::Error)]
@@ -286,19 +286,30 @@ pub(crate) enum ProjectEffectOutcome {
         acknowledgement: ProjectEffectAcknowledgement,
     },
     Absent,
+    ImportIssued {
+        intent: Box<RawValue>,
+    },
+    Imported {
+        report: Box<RawValue>,
+    },
+    ImportRecovered {
+        report: Box<RawValue>,
+    },
     Refused {
         failure: Box<crate::envelope::ErrorRecord>,
     },
     Unresolved {
         failure: Box<crate::envelope::ErrorRecord>,
+        import_status: Option<Box<RawValue>>,
+        readback_failure: Option<Box<crate::envelope::ErrorRecord>>,
     },
 }
 #[derive(Debug)]
-struct Output {
-    status: i32,
-    stdout: Vec<u8>,
-    stdout_bytes: u64,
-    stderr: Vec<u8>,
+pub(crate) struct Output {
+    pub(crate) status: i32,
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) stdout_bytes: u64,
+    pub(crate) stderr: Vec<u8>,
 }
 fn prefix(mut input: impl Read, maximum: usize) -> (Vec<u8>, u64, Option<std::io::Error>) {
     let mut bytes = Vec::new();
@@ -320,7 +331,7 @@ fn prefix(mut input: impl Read, maximum: usize) -> (Vec<u8>, u64, Option<std::io
 }
 // SupervisedChild retains the actual pidfd/group owner. These readers only drain bounded
 // prefixes; neither a pipe EOF nor a successful product response establishes child settlement.
-fn execute(
+pub(crate) fn execute(
     command: Command,
     input: Vec<u8>,
     maximum: usize,
@@ -483,6 +494,27 @@ fn decode(output: Output, correlation: &str) -> Result<ProductReply, ProductRead
     })
 }
 
+pub(crate) fn project_import_intent_matches(
+    intent: &RawValue,
+    operation: &str,
+    issuing_store: &str,
+) -> bool {
+    #[derive(Deserialize)]
+    struct Intent<'a> {
+        #[serde(borrow)]
+        publication: Publication<'a>,
+    }
+    #[derive(Deserialize)]
+    struct Publication<'a> {
+        operation: &'a str,
+        issuing_store: &'a str,
+    }
+    serde_json::from_str::<Intent<'_>>(intent.get()).is_ok_and(|intent| {
+        intent.publication.operation == operation
+            && intent.publication.issuing_store == issuing_store
+    })
+}
+
 fn decode_project_effect(
     output: Output,
     operation: &str,
@@ -506,7 +538,11 @@ fn decode_project_effect(
     };
     let success = matches!(
         reply.outcome,
-        ProjectEffectOutcome::Acknowledged { .. } | ProjectEffectOutcome::Absent
+        ProjectEffectOutcome::Acknowledged { .. }
+            | ProjectEffectOutcome::Absent
+            | ProjectEffectOutcome::ImportIssued { .. }
+            | ProjectEffectOutcome::Imported { .. }
+            | ProjectEffectOutcome::ImportRecovered { .. }
     );
     let target_matches = match &reply.target {
         Some(target) => {
@@ -527,6 +563,9 @@ fn decode_project_effect(
     };
     let acknowledgement_matches = match &reply.outcome {
         ProjectEffectOutcome::Acknowledged { acknowledgement } => acknowledgement.key == operation,
+        ProjectEffectOutcome::ImportIssued { intent } => {
+            project_import_intent_matches(intent, operation, issuing_store)
+        }
         _ => true,
     };
     if reply.protocol != PROJECT_PERFORM_PROTOCOL
@@ -667,13 +706,23 @@ impl ProductReaderSelection {
         self.evidence(&self.manifest.discovery, "discovery.json", RESPONSE_BYTES)
     }
     pub(crate) fn supports_project_perform(&self) -> Result<bool, ProductReaderError> {
+        self.project_capability(false)
+    }
+
+    pub(crate) fn supports_project_import(&self) -> Result<bool, ProductReaderError> {
+        self.project_capability(true)
+    }
+
+    fn project_capability(&self, import: bool) -> Result<bool, ProductReaderError> {
         #[derive(Deserialize)]
         struct Capability {
             project_perform: Option<u32>,
+            project_import: Option<u32>,
         }
         let response: Response = serde_json::from_slice(&self.discovery()?)?;
         let capability: Capability = serde_json::from_str(response.payload.get())?;
-        Ok(capability.project_perform == Some(1))
+        Ok(capability.project_perform == Some(1)
+            && (!import || capability.project_import == Some(1)))
     }
 
     pub(crate) fn perform_project(
@@ -892,6 +941,7 @@ fn discovery_document(frame: &[u8]) -> Result<(), ProductReaderError> {
 fn source(
     checkout: &Path,
     environment: &Environment,
+    installed_schema: bool,
 ) -> Result<crate::generation::SourceFingerprint, ProductReaderError> {
     let cargo = correctness::real_cargo_in(environment)?;
     let observed = |program: &std::ffi::OsStr| -> Result<String, ProductReaderError> {
@@ -911,7 +961,7 @@ fn source(
         .get(std::ffi::OsStr::new("RUSTC"))
         .map_or(std::ffi::OsStr::new("rustc"), |value| value.as_os_str());
     let features = std::collections::BTreeSet::from([
-        "pse-runtime/product-reader".into(),
+        format!("pse-runtime/{}", reader_feature(installed_schema)),
         "pse-runtime/force-validate".into(),
     ]);
     let inputs = environment
@@ -926,13 +976,17 @@ fn source(
         environment,
     )
     .with_additional_inputs(&inputs);
+    let metadata_features = format!(
+        "pse-runtime/{},pse-runtime/force-validate",
+        reader_feature(installed_schema)
+    );
     let arguments: Vec<std::ffi::OsString> = [
         "metadata",
         "--format-version=1",
         "--locked",
         "--offline",
         "--features",
-        "pse-runtime/product-reader,pse-runtime/force-validate",
+        &metadata_features,
     ]
     .into_iter()
     .map(Into::into)
@@ -961,10 +1015,19 @@ fn source(
     .with_additional_files(checkout, extras)?)
 }
 
+fn reader_feature(installed_schema: bool) -> &'static str {
+    if installed_schema {
+        "product-operators"
+    } else {
+        "product-reader"
+    }
+}
+
 fn source_build_command(
     control: &Executable,
     checkout: &Path,
     environment: &Environment,
+    installed_schema: bool,
 ) -> Command {
     let mut command = Command::new(&control.captured);
     command
@@ -981,7 +1044,7 @@ fn source_build_command(
             "--bin",
             "pse-project",
             "--features",
-            "product-reader",
+            reader_feature(installed_schema),
             "--message-format=json",
         ]);
     command
@@ -1004,6 +1067,14 @@ fn build_evidence(directory: &Path) -> Result<(Vec<u8>, BuildCapture), ProductRe
 pub fn prepare(
     checkout: &Path,
     environment: &Environment,
+) -> Result<ProductReaderSelection, ProductReaderError> {
+    prepare_selected(checkout, environment, false)
+}
+
+pub(crate) fn prepare_selected(
+    checkout: &Path,
+    environment: &Environment,
+    installed_schema: bool,
 ) -> Result<ProductReaderSelection, ProductReaderError> {
     let checkout = checkout.canonicalize()?;
     let state = CheckoutState::resolve(&checkout, environment)?;
@@ -1041,13 +1112,13 @@ pub fn prepare(
     // Children use independently authenticated copies; source-build process settlement remains separate.
     (|| {
         let mut environment = correctness::standalone_adapter_environment(environment)?;
-        let before = source(&checkout, &environment)?;
+        let before = source(&checkout, &environment, installed_schema)?;
         environment.insert(
             "PSE_CORRECTNESS_BUILD_CAPTURE".into(),
             build_directory.clone().into_os_string(),
         );
         correctness.verify()?;
-        let command = source_build_command(&correctness, &checkout, &environment);
+        let command = source_build_command(&correctness, &checkout, &environment, installed_schema);
         let output = execute(command, Vec::new(), STDERR_BYTES, None)?;
         if output.status != 0 {
             return Err(transport(
@@ -1155,10 +1226,11 @@ pub fn prepare(
         selected.manifest.request_schema = evidence("request-schema.json", &request.frame);
         selected.manifest.response_schema = evidence("response-schema.json", &response.frame);
         environment.remove(std::ffi::OsStr::new("PSE_CORRECTNESS_BUILD_CAPTURE"));
-        selected
-            .manifest
-            .source
-            .require_unchanged(&source(&checkout, &environment)?)?;
+        selected.manifest.source.require_unchanged(&source(
+            &checkout,
+            &environment,
+            installed_schema,
+        )?)?;
         selected.verify()?;
         let manifest = serde_json::to_vec(&selected.manifest)?;
         if manifest.len() > REQUEST_BYTES {
