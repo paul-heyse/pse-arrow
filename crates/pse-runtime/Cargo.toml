@@ -304,15 +304,7 @@ scope.modules = [
 scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
   "tooling::reader::tests::canonical::project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor",
-  "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
-  "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
-  "workflow::modeling::aqueous_inventory_tests::aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read",
-  "workflow::modeling::steam_tests::authored_liquid_pump_original_native_outcome_survives_protected_export",
-  "workflow::modeling::steam_tests::authored_vapor_turbine_original_native_outcome_survives_protected_export",
-  "workflow::modeling::steam_tests::authored_hot_vapor_turbine_original_native_outcome_survives_protected_export",
-  "workflow::modeling::costed_exchanger_delivery_tests::ordinary_costed_exchanger_preserves_support_period_and_protected_view",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_operation_reopens_complete_success_and_failure_history",
-  "workflow::operation_preparation::initialization_tests::canonical_initialization_root_response_reopens_scoped_permission",
   "math::portable::canonical_portable_body_tests::canonical_portable_body_cold_miss_skips_local_runtime_observation",
   "math::portable::canonical_portable_body_tests::canonical_portable_body_corrupt_explicit_acquisition_refuses_before_retention",
   "math::portable::canonical_portable_body_tests::canonical_portable_body_explicit_local_receiving_acquisition_survives_reconnect",
@@ -321,8 +313,6 @@ scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_reconnect_reuses_ordinary_scalar_solve_with_actual_tool_fixture_receipt",
   "math::portable::canonical_portable_body_tests::canonical_portable_shared_selection_material_precharges_and_retains_one_real_lease",
   "workflow::artifacts::response_ownership_tests::canonical_public_artifact_entrypoints_refuse_unprepaid_metadata",
-  "workflow::artifacts::tests::canonical_partial_event_analysis_retains_numeric_prefix_without_scalar_claims",
-  "workflow::artifacts::tests::canonical_scientific_trajectory_and_endpoint_survive_producer_retirement",
   "workflow::caller_lifetime_tests::abandoned_native_waiter_keeps_activity_until_worker_thread_is_joined",
   "workflow::caller_lifetime_tests::durable_attempt_and_progress_writer_hold_activity_through_sender_drain",
   "workflow::caller_lifetime_tests::escaped_store_operations_and_runtime_aliases_close_but_independent_runtime_remains_open",
@@ -333,12 +323,8 @@ scope.tests = [
   "workflow::durable::canonical_durable_codec::canonical_cancelled_prefix_and_late_heartbeat_reopen_acknowledged_unavailable_science",
   "workflow::durable::canonical_durable_codec::canonical_complete_export_cancelled_at_seal_preserves_original_completion",
   "workflow::durable::canonical_durable_codec::canonical_completion_export_and_reconciliation_precede_final_heartbeat_join",
-  "workflow::durable::canonical_durable_codec::canonical_detail_refusal_preserves_original_scientific_completion",
   "workflow::durable::canonical_durable_codec::canonical_failed_export_prefix_remains_unsealed_and_unreadable",
-  "workflow::durable::canonical_durable_codec::canonical_finish_cancellation_at_each_export_boundary_keeps_exact_prefix_and_science",
-  "workflow::durable::canonical_durable_codec::canonical_joined_publication_progress_and_ordinary_cost_probe",
   "workflow::durable::canonical_durable_codec::canonical_preentry_refusal_settles_only_acknowledged_cancellation",
-  "workflow::durable::canonical_durable_codec::canonical_private_horizon_prefix_does_not_admit_a_seed_before_final_coverage",
   "workflow::durable::canonical_durable_codec::canonical_progress_batches_exact_integral_events_under_one_receipt",
   "workflow::durable::canonical_durable_codec::canonical_progress_native_burst_samples_without_waiting_for_writer",
   "workflow::durable::canonical_durable_codec::canonical_progress_saturation_records_loss_and_retains_integral_observation",
@@ -347,29 +333,8 @@ scope.tests = [
   "workflow::durable::canonical_durable_codec::canonical_seed_chunks_exact_ieee_bits_and_accounted_join",
   "workflow::durable::canonical_durable_codec::canonical_slim_completion_matches_inline_and_chunked_originals",
   "workflow::durable::canonical_durable_codec::canonical_standalone_read_entrypoints_refuse_unprepaid_metadata",
-  "workflow::fitting::covariance::tests::nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen",
-  "workflow::fitting::covariance::tests::review_qualification_durable_fit_preserves_original_response_and_rows",
-  "workflow::fitting::oracle::lm_inquiry::fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile",
-  "workflow::fitting::oracle::lm_inquiry::research_calibrated_fit_reopens_and_publishes_original_cells",
-  "workflow::fitting::oracle::p09_tests::fitting_member_permission_retains_exact_durable_attempt_and_passive_facts",
-  "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
-  "workflow::horizon::tests::compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership",
-  "workflow::horizon::tests::compact_horizon_durable_post_science_pressure_moves_original_completion_on_refusal",
-  "workflow::horizon::tests::compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory",
-  "workflow::horizon::tests::horizon_records_one_durable_attempt",
-  "workflow::live_simulation::tests::canonical_live_expired_admission_yields_one_joined_refusal",
-  "workflow::live_simulation::tests::canonical_live_sample_acknowledgments_close_the_original_attempt_prefix",
   "workflow::modeling::canonical::tests::durable_source_ack_conflict_and_disconnected_owned_compute",
-  "workflow::modeling::canonical::tests::solve_durable_replay_after_publication_close_requires_explicit_local_receiver",
-  "workflow::modeling::conformance::tests::conformance_parallel_cancellation_drains_admitted_workers_and_retains_inventory",
-  "workflow::modeling::conformance::tests::conformance_parallel_fatal_fixture_drains_other_issued_workers",
   "workflow::modeling::conformance::tests::conformance_parallel_global_caps_preserve_unattempted_and_failed_fixtures",
-  "workflow::modeling::conformance::tests::conformance_parallel_reuses_slots_while_first_fixture_is_still_running",
-  "workflow::modeling::conformance::tests::conformance_parallel_sixteen_native_workers_preserve_authored_results_and_order",
-  "workflow::modeling::conformance::tests::conformance_parallel_sixteen_staged_initializers_keep_original_science_with_session_headroom",
-  "workflow::modeling::pr_jacobian_tests::guarded_regional_pr_product_characterization_uses_actual_stage_programs",
-  "workflow::modeling::pr_jacobian_tests::original_pr_case_derivatives_satisfy_production_basis_conditions",
-  "workflow::modeling::sensitivity_tests::nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen",
   "workflow::project_portability::tests::project_portability_active_original_settles_after_expiry_without_copy_or_original_pack",
   "workflow::project_portability::tests::project_portability_descriptive_export_never_hydrates_missing_selected_artifact_payloads",
   "workflow::project_portability::tests::project_portability_expired_original_recovery_keeps_exact_receipt_and_fresh_destination",
@@ -380,38 +345,19 @@ scope.tests = [
   "workflow::result_projection::result_projection_unit::canonical_append_queue_denied_control_preserves_cold_append_and_demand",
   "workflow::result_projection::result_projection_unit::canonical_append_queue_drains_optional_storage_before_allocating_cursor_poll",
   "workflow::result_projection::result_projection_unit::canonical_append_queue_groups_encoded_schemas_and_acknowledges_final_operations",
-  "workflow::result_projection::result_projection_unit::canonical_append_queue_real_projections_preserve_ack_boundaries_and_memory_refusal",
   "workflow::source_settlement::tests::explicit_recording_reads_do_not_make_ephemeral_compute_durable",
   "workflow::study::creation_authority_tests::recording_connection_does_not_authorize_study_source_publication",
-  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_fit_keeps_original_regression_without_recording",
-  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_horizon_keeps_original_two_step_plant_without_recording",
-  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording",
-  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording",
-  "workflow::study_tests::canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
-  "workflow::study_tests::canonical_issued_study_retry_preserves_original_population_and_refuses_changed_intent",
-  "workflow::study_tests::canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication",
   "workflow::study_tests::canonical_study_cancel_preserves_distinct_unattempted_outcomes",
-  "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success",
-  "workflow::study_tests::canonical_study_equal_bindings_and_failed_usable_dependency",
   "workflow::study_tests::canonical_study_expired_claim_recovers_without_scientific_rerun",
   "workflow::study_tests::canonical_study_explicit_missing_seed_refuses_before_activation",
-  "workflow::study_tests::canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
   "workflow::study_tests::canonical_study_plan_admits_physical_once_before_ready_occurrences",
   "workflow::study_tests::canonical_study_summary_live_owner_and_expired_writer_rebuild_without_science",
   "workflow::study_tests::canonical_terminal_inventory_pages_once_accounts_owners_and_refuses_late_corruption",
-  "workflow::study_tests::canonical_worker_claim_and_idle_phase_probe",
-  "workflow::study_tests::durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drain",
-  "workflow::study_tests::ephemeral_study_cancellation_drains_sixteen_issued_lanes_without_starting_tail",
-  "workflow::study_tests::ephemeral_study_numerical_failpoint_preserves_independent_scientific_results",
-  "workflow::study_tests::ephemeral_study_single_population_slot_lends_preparation_and_completes",
-  "workflow::study_tests::ephemeral_study_sixteen_native_lanes_reuse_capacity_and_keep_equal_occurrences",
   "workflow::study_tests::explicit_recording_preserves_exact_retained_sources_and_lazy_selection_without_construction",
   "workflow::study_tests::lazy_study_admits_only_ready_selected_science_and_preserves_base_head",
   "workflow::study_tests::lazy_study_cancellation_and_summary_do_not_construct_unattempted_science",
   "workflow::study_tests::project_context_recorded_study_keeps_original_source_after_backdated_correction",
   "workflow::study_tests::recorded_durable_study_refuses_precancelled_creation",
-  "workflow::study_tests::same_worker_publication_handoff_refills_and_bounds_actual_unacknowledged_attempts",
-  "workflow::study_tests::same_worker_publication_refills_a_study_created_after_actual_idle_discovery",
   "workflow::study_tests::stored_study_creation_observes_cancellation_during_declared_admission",
   "workflow::study_tests::stored_study_creation_rechecks_later_binding_source_and_seed_policy",
   "workflow::study_tests::stored_study_creation_replaces_basis_for_changed_descriptor_and_target_layout",
@@ -423,6 +369,160 @@ scope.tests = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-steam"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["property-coolprop", "solver-ipopt"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::modeling::steam_tests::authored_liquid_pump_original_native_outcome_survives_protected_export",
+  "workflow::modeling::steam_tests::authored_vapor_turbine_original_native_outcome_survives_protected_export",
+  "workflow::modeling::steam_tests::authored_hot_vapor_turbine_original_native_outcome_survives_protected_export",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-diffsol"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-diffsol"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::artifacts::tests::canonical_partial_event_analysis_retains_numeric_prefix_without_scalar_claims",
+  "workflow::artifacts::tests::canonical_scientific_trajectory_and_endpoint_survive_producer_retirement",
+  "workflow::fitting::oracle::p09_tests::fitting_member_permission_retains_exact_durable_attempt_and_passive_facts",
+  "workflow::live_simulation::tests::canonical_live_expired_admission_yields_one_joined_refusal",
+  "workflow::live_simulation::tests::canonical_live_sample_acknowledgments_close_the_original_attempt_prefix",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-horizon"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-diffsol", "solver-ipopt"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::horizon::tests::compact_horizon_cancel_before_first_solve_closes_exact_empty_summary_membership",
+  "workflow::horizon::tests::compact_horizon_durable_post_science_pressure_moves_original_completion_on_refusal",
+  "workflow::horizon::tests::compact_multi_step_horizon_seals_one_original_completion_and_seed_inventory",
+  "workflow::horizon::tests::horizon_records_one_durable_attempt",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-aqueous-inventory"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-diffsol", "solver-ipopt", "solver-kinsol", "solver-root-isolation"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::modeling::aqueous_inventory_tests::aqueous_integrated_original_native_outcome_survives_protected_export_and_portable_read",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-ipopt"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-ipopt"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::fitting::oracle::lm_inquiry::fitting_residual_lm_public_result_reopens_actual_method_termination_and_profile",
+  "workflow::fitting::oracle::lm_inquiry::research_calibrated_fit_reopens_and_publishes_original_cells",
+  "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
+  "workflow::modeling::conformance::tests::conformance_parallel_sixteen_staged_initializers_keep_original_science_with_session_headroom",
+  "workflow::study_tests::canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
+  "workflow::study_tests::canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication",
+  "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success",
+  "workflow::study_tests::canonical_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
+  "workflow::study_tests::durable_worker_sixteen_cancelled_occurrences_obey_action_bound_and_drain",
+  "workflow::study_tests::ephemeral_study_cancellation_drains_sixteen_issued_lanes_without_starting_tail",
+  "workflow::study_tests::ephemeral_study_numerical_failpoint_preserves_independent_scientific_results",
+  "workflow::study_tests::ephemeral_study_single_population_slot_lends_preparation_and_completes",
+  "workflow::study_tests::ephemeral_study_sixteen_native_lanes_reuse_capacity_and_keep_equal_occurrences",
+  "workflow::study_tests::same_worker_publication_handoff_refills_and_bounds_actual_unacknowledged_attempts",
+  "workflow::study_tests::same_worker_publication_refills_a_study_created_after_actual_idle_discovery",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-kinsol"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-kinsol"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::operation_preparation::initialization_tests::canonical_initialization_root_response_reopens_scoped_permission",
+  "workflow::durable::canonical_durable_codec::canonical_detail_refusal_preserves_original_scientific_completion",
+  "workflow::durable::canonical_durable_codec::canonical_finish_cancellation_at_each_export_boundary_keeps_exact_prefix_and_science",
+  "workflow::durable::canonical_durable_codec::canonical_joined_publication_progress_and_ordinary_cost_probe",
+  "workflow::durable::canonical_durable_codec::canonical_private_horizon_prefix_does_not_admit_a_seed_before_final_coverage",
+  "workflow::modeling::canonical::tests::solve_durable_replay_after_publication_close_requires_explicit_local_receiver",
+  "workflow::modeling::conformance::tests::conformance_parallel_cancellation_drains_admitted_workers_and_retains_inventory",
+  "workflow::modeling::conformance::tests::conformance_parallel_fatal_fixture_drains_other_issued_workers",
+  "workflow::modeling::conformance::tests::conformance_parallel_reuses_slots_while_first_fixture_is_still_running",
+  "workflow::modeling::conformance::tests::conformance_parallel_sixteen_native_workers_preserve_authored_results_and_order",
+  "workflow::result_projection::result_projection_unit::canonical_append_queue_real_projections_preserve_ack_boundaries_and_memory_refusal",
+  "workflow::study_tests::canonical_issued_study_retry_preserves_original_population_and_refuses_changed_intent",
+  "workflow::study_tests::canonical_worker_claim_and_idle_phase_probe",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-peng-robinson"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-kinsol", "solver-root-isolation"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::modeling::pr_jacobian_tests::guarded_regional_pr_product_characterization_uses_actual_stage_programs",
+  "workflow::modeling::pr_jacobian_tests::original_pr_case_derivatives_satisfy_production_basis_conditions",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-ordinary-delivery"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["solver-ipopt", "solver-kinsol", "solver-root-isolation"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
+  "workflow::modeling::costed_exchanger_delivery_tests::ordinary_costed_exchanger_preserves_support_period_and_protected_view",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-native-solvers"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["native-solvers"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "workflow::fitting::covariance::tests::nonlinear_state_constraint_exact_and_gauss_newton_covariance_reopen",
+  "workflow::fitting::covariance::tests::review_qualification_durable_fit_preserves_original_response_and_rows",
+  "workflow::modeling::sensitivity_tests::nonlinear_constraint_curvature_sensitivity_and_value_hessian_reopen",
+  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_fit_keeps_original_regression_without_recording",
+  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_horizon_keeps_original_two_step_plant_without_recording",
+  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_lazy_simulation_constructs_only_selected_occurrences_without_recording",
+  "workflow::study_operations::study_operation_admission_tests::durable_origin_local_simulation_keeps_original_full_and_compact_results_without_recording",
+  "workflow::study_tests::canonical_study_equal_bindings_and_failed_usable_dependency",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "library-borrowed-engineering"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["engineering-service", "solver-kinsol"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
+]
+
+[[package.metadata.pse.test-fixtures]]
 id = "project-cli-borrowed"
 target = "pse-project"
 kind = "bin"
@@ -430,6 +530,16 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
   "perform::tests::project_perform_keeps_original_issuer_operation_and_receipt",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "project-cli-runtime-borrowed"
+target = "pse-project"
+kind = "bin"
+required-features = ["product-operators"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
   "project_runtime::tests::project_cli_runtime_import_fork_compare_and_passive_discovery",
 ]
 
@@ -437,6 +547,7 @@ scope.tests = [
 id = "project-cli-configured-target"
 target = "pse-project"
 kind = "bin"
+required-features = ["product-operators"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper", "product-reader"]
 scope.tests = [
@@ -474,6 +585,7 @@ inputs = ["covariance-reference-python"]
 id = "ordinary-reference-python"
 target = "pse_runtime"
 kind = "lib"
+required-features = ["solver-ipopt", "solver-kinsol", "solver-root-isolation"]
 ownership = "preparation-only"
 inputs = ["ordinary-reference-python"]
 scope.tests = [

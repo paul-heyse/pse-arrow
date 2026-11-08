@@ -11,6 +11,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::{OsStr, OsString},
     io::{self, Write},
+    os::unix::fs::PermissionsExt as _,
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
 };
@@ -87,31 +88,77 @@ struct Graph {
     units: Vec<Unit>,
     roots: Vec<usize>,
 }
+struct GraphAnalysis {
+    reached: Vec<usize>,
+    reaches_arrow: Vec<bool>,
+    diagnostic_taskdump: bool,
+    #[cfg(test)]
+    forward_edges: usize,
+}
 impl Graph {
-    fn reached(
+    fn analyze(
         &self,
         packages: &BTreeMap<String, Package>,
-        roots: &[usize],
-    ) -> Result<BTreeSet<usize>, CorrectnessError> {
+    ) -> Result<GraphAnalysis, CorrectnessError> {
         if self.version != 1 {
             return Err(invalid("unsupported Cargo unit-graph version"));
         }
-        let mut pending = roots.to_vec();
-        let mut seen = BTreeSet::new();
+        let mut pending = self.roots.clone();
+        let mut seen = vec![false; self.units.len()];
+        let mut dependents = vec![Vec::new(); self.units.len()];
+        let mut arrow_pending = Vec::new();
+        let mut diagnostic_taskdump = false;
+        #[cfg(test)]
+        let mut forward_edges = 0;
         while let Some(index) = pending.pop() {
-            if !seen.insert(index) {
+            let visited = seen
+                .get_mut(index)
+                .ok_or_else(|| invalid("Cargo dependency/root index is out of bounds"))?;
+            if std::mem::replace(visited, true) {
                 continue;
             }
-            let unit = self
-                .units
-                .get(index)
-                .ok_or_else(|| invalid("Cargo dependency/root index is out of bounds"))?;
-            if !packages.contains_key(&unit.pkg_id) {
-                return Err(invalid("Cargo unit references unresolved package"));
+            let unit = &self.units[index];
+            let package = packages
+                .get(&unit.pkg_id)
+                .ok_or_else(|| invalid("Cargo unit references unresolved package"))?;
+            if arrow(package) {
+                arrow_pending.push(index);
             }
-            pending.extend(unit.dependencies.iter().map(|edge| edge.index));
+            diagnostic_taskdump |= unit
+                .features
+                .iter()
+                .any(|feature| feature == "diagnostic-taskdump");
+            for edge in &unit.dependencies {
+                dependents
+                    .get_mut(edge.index)
+                    .ok_or_else(|| invalid("Cargo dependency/root index is out of bounds"))?
+                    .push(index);
+                pending.push(edge.index);
+                #[cfg(test)]
+                {
+                    forward_edges += 1;
+                }
+            }
         }
-        Ok(seen)
+
+        let mut reaches_arrow = vec![false; self.units.len()];
+        while let Some(index) = arrow_pending.pop() {
+            if !std::mem::replace(&mut reaches_arrow[index], true) {
+                arrow_pending.extend(&dependents[index]);
+            }
+        }
+        let reached = seen
+            .into_iter()
+            .enumerate()
+            .filter_map(|(index, visited)| visited.then_some(index))
+            .collect();
+        Ok(GraphAnalysis {
+            reached,
+            reaches_arrow,
+            diagnostic_taskdump,
+            #[cfg(test)]
+            forward_edges,
+        })
     }
     fn root_identity(&self) -> Result<BTreeSet<RootIdentity>, CorrectnessError> {
         self.roots
@@ -152,9 +199,34 @@ pub struct Resolution {
     pub native_capabilities: BTreeSet<String>,
 }
 
+impl Resolution {
+    /// Compare complete compiler-unit records without imposing capture order.
+    pub(crate) fn same_units(&self, other: &Self) -> bool {
+        if self.units == other.units {
+            return true;
+        }
+        if self.units.len() != other.units.len() {
+            return false;
+        }
+        let mut left = self.units.iter().collect::<Vec<_>>();
+        let mut right = other.units.iter().collect::<Vec<_>>();
+        left.sort_unstable();
+        right.sort_unstable();
+        left == right
+    }
+}
+
 /// Cargo's selected compiler-unit context, retained without collapsing host/target instances.
 #[derive(
-    Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, schemars::JsonSchema,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize,
+    schemars::JsonSchema,
 )]
 pub struct CompilerUnit {
     /// Cargo package identity; names alone cannot join versions or sources.
@@ -632,19 +704,12 @@ impl AdmissionContext {
         let mut arguments = qualify_selected_check_features(&arguments, packages)?;
         let mut original: Graph = serde_json::from_slice(&capture(&graph_arguments(&arguments)?)?)?;
         diagnostic_graph(&arguments, &original)?;
+        let mut analysis = original.analyze(packages)?;
         // All-feature check/Clippy callbacks need the same isolation even when
         // cargo-hack (or the caller) does not spell the diagnostic feature. The
         // actual reached units decide, including target and host dependency units.
         if check_controls(&arguments)?.is_some_and(|controls| controls.all_features)
-            && original
-                .reached(packages, &original.roots)?
-                .iter()
-                .any(|index| {
-                    original.units[*index]
-                        .features
-                        .iter()
-                        .any(|feature| feature == "diagnostic-taskdump")
-                })
+            && analysis.diagnostic_taskdump
         {
             let diagnostic = diagnostic_scope_arguments(&arguments, true)?;
             diagnostic_workspace(&diagnostic, workspace.as_deref())?;
@@ -659,20 +724,17 @@ impl AdmissionContext {
                     ));
                 }
                 arguments = diagnostic;
+                analysis = graph.analyze(packages)?;
                 original = graph;
             }
         }
         let mut additions = BTreeSet::new();
         let mut names = BTreeSet::new();
         for root in &original.roots {
-            let reached = original.reached(packages, &[*root])?;
             let unit = &original.units[*root];
             let package = &packages[&unit.pkg_id];
             names.insert(package.name.clone());
-            if reached
-                .iter()
-                .any(|index| arrow(&packages[&original.units[*index].pkg_id]))
-            {
+            if analysis.reaches_arrow[*root] {
                 let feature = if arrow(package) {
                     "force_validate"
                 } else {
@@ -689,8 +751,6 @@ impl AdmissionContext {
                 }
             }
         }
-        // Check malformed indices even when a graph has no selected roots.
-        original.reached(packages, &original.roots)?;
         let mut selected = arguments.clone();
         if !additions.is_empty() {
             let position = selected
@@ -714,11 +774,11 @@ impl AdmissionContext {
                     "validation changed selected Cargo package/target roots",
                 ));
             }
+            analysis = graph.analyze(packages)?;
             graph
         };
-        let reached = validated.reached(packages, &validated.roots)?;
-        for index in &reached {
-            let unit = &validated.units[*index];
+        for &index in &analysis.reached {
+            let unit = &validated.units[index];
             let package = &packages[&unit.pkg_id];
             if arrow(package)
                 && package.features.contains_key("force_validate")
@@ -733,9 +793,10 @@ impl AdmissionContext {
                 )));
             }
         }
+        let roots: BTreeSet<_> = validated.roots.into_iter().collect();
         let mut native_capabilities = BTreeSet::new();
-        let mut units = Vec::with_capacity(reached.len());
-        for index in reached {
+        let mut units = Vec::with_capacity(analysis.reached.len());
+        for index in analysis.reached {
             let unit = &validated.units[index];
             let package = &packages[&unit.pkg_id];
             if package.name == "pse-backend-native" {
@@ -756,7 +817,7 @@ impl AdmissionContext {
                 features: unit.features.iter().cloned().collect(),
                 platform: unit.platform.clone(),
                 mode: unit.mode.clone(),
-                root: validated.roots.contains(&index),
+                root: roots.contains(&index),
             });
         }
         Ok(Resolution {
@@ -1079,7 +1140,7 @@ fn checkout_root_for_executable(
         .ok_or_else(|| invalid("native executable is outside the supported checkout"))?
         .canonicalize()?)
 }
-fn require_nextest_workspace(cargo: &OsStr) -> Result<(), CorrectnessError> {
+fn require_nextest_workspace(cargo: &OsStr) -> Result<PathBuf, CorrectnessError> {
     let root = executable_checkout_root()?;
     let output = capture(
         cargo,
@@ -1099,7 +1160,49 @@ fn require_nextest_workspace(cargo: &OsStr) -> Result<(), CorrectnessError> {
             "native Nextest supports only its executable's checkout workspace; foreign workspace cannot preserve required setup",
         ));
     }
-    Ok(())
+    Ok(root)
+}
+
+pub(crate) fn resolve_nextest(path: Option<&OsStr>) -> Result<PathBuf, CorrectnessError> {
+    let path = path.ok_or_else(|| invalid("nextest selection requires PATH"))?;
+    for directory in std::env::split_paths(path) {
+        let candidate = directory.join("cargo-nextest");
+        match std::fs::metadata(&candidate) {
+            Ok(metadata) if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0 => {
+                return Ok(candidate.canonicalize()?);
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Err(invalid(
+        "pinned cargo-nextest is unprepared on the selected PATH",
+    ))
+}
+
+pub(crate) fn verify_nextest_version<'a>(
+    root: &Path,
+    version: &'a [u8],
+) -> Result<&'a str, CorrectnessError> {
+    let version =
+        std::str::from_utf8(version).map_err(|_| invalid("nextest version is not UTF-8"))?;
+    let declared: toml::Value = toml::from_str(&std::fs::read_to_string(
+        root.join(".config/diagnostic-tools.toml"),
+    )?)
+    .map_err(|error| invalid(error.to_string()))?;
+    let pin = declared
+        .get("cargo-tools")
+        .and_then(|tools| tools.get("cargo-nextest"))
+        .and_then(toml::Value::as_str)
+        .ok_or_else(|| invalid("nextest tool pin is missing"))?;
+    let mut words = version.split_whitespace();
+    if words.next() != Some("cargo-nextest") || words.next() != Some(pin) {
+        return Err(invalid(
+            "nextest executable differs from the checkout's declared version",
+        ));
+    }
+    Ok(version)
 }
 /// Restore native Cargo in actual test attempts through nextest's single-run setup surface.
 pub fn restore_test_environment() -> Result<i32, CorrectnessError> {
@@ -1214,10 +1317,22 @@ pub fn run(arguments: Vec<OsString>) -> Result<i32, CorrectnessError> {
         }
         reject_reuse(&arguments[2..])?;
 
-        require_nextest_workspace(&cargo)?;
+        let root = require_nextest_workspace(&cargo)?;
+        let original = resolve_nextest(std::env::var_os("PATH").as_deref())?;
+        let directory = tempfile::tempdir()?;
+        let runner = crate::discovery::capture::executable(
+            &original,
+            &directory.path().join("cargo-nextest"),
+        )?;
+        let version = Command::new(&runner.captured).arg("--version").output()?;
+        if !version.status.success() {
+            return Err(invalid("nextest version observation failed"));
+        }
+        verify_nextest_version(&root, &version.stdout)?;
+        runner.verify()?;
         let executable = std::env::current_exe()?;
         return Ok(exit_status(
-            Command::new("cargo-nextest")
+            Command::new(&runner.captured)
                 .args(&arguments)
                 .env("CARGO", &executable)
                 .env("PSE_CORRECTNESS_EXECUTABLE", &executable)
@@ -2139,6 +2254,117 @@ mod tests {
         );
     }
     #[test]
+    fn correctness_shared_graph_walk_preserves_pure_and_arrow_roots() {
+        let metadata = json!({"packages":[
+            package("left", "left", json!({"force-validate":[]})),
+            package("right", "right", json!({"force-validate":[]})),
+            package("pure", "pure", json!({})),
+            package("build", "build", json!({})),
+            package("arrow-array", "arrow-array", json!({"force_validate":[]})),
+        ]});
+        let before = json!({"version":1,"roots":[0,1,2],"units":[
+            unit("left", &[], &[3], Some("target"), "test"),
+            unit("right", &[], &[3], Some("target"), "test"),
+            unit("pure", &[], &[], Some("target"), "test"),
+            unit("build", &[], &[4], None, "build"),
+            unit("arrow-array", &[], &[], None, "build"),
+            unit("arrow-array", &[], &[], Some("unselected"), "build"),
+        ]});
+        let packages = serde_json::from_value::<Metadata>(metadata.clone())
+            .unwrap()
+            .packages
+            .into_iter()
+            .map(|package| (package.id.clone(), package))
+            .collect();
+        let analysis = serde_json::from_value::<Graph>(before.clone())
+            .unwrap()
+            .analyze(&packages)
+            .unwrap();
+        assert_eq!(analysis.reached, [0, 1, 2, 3, 4]);
+        assert_eq!(
+            analysis.reaches_arrow,
+            [true, true, false, true, true, false]
+        );
+        assert_eq!(analysis.forward_edges, 3);
+
+        let mut after = before.clone();
+        after["units"][0]["features"] = json!(["force-validate"]);
+        after["units"][1]["features"] = json!(["force-validate"]);
+        after["units"][4]["features"] = json!(["force_validate"]);
+        let original = args(&["test", "--workspace"]);
+        let (resolution, calls) = resolve(&original, vec![metadata, before, after]).unwrap();
+        assert_eq!(
+            resolution.arguments,
+            args(&[
+                "test",
+                "--workspace",
+                "--features",
+                "left/force-validate,right/force-validate",
+            ])
+        );
+        assert_eq!(calls.len(), 3);
+        assert_eq!(resolution.packages, ["left", "pure", "right"]);
+        assert_eq!(resolution.units.len(), 5);
+    }
+    #[test]
+    fn correctness_compiler_unit_comparison_preserves_multiplicity_and_context() {
+        let (original, _) = resolve(
+            &args(&["test"]),
+            vec![
+                json!({"packages":[package("pure", "pure", json!({}))]}),
+                graph(vec![
+                    unit("pure", &[], &[1, 2], None, "test"),
+                    unit("pure", &[], &[], Some("target"), "build"),
+                    unit("pure", &[], &[], Some("target"), "build"),
+                ]),
+            ],
+        )
+        .unwrap();
+        let mut permutation = original.clone();
+        permutation.units.rotate_left(1);
+        assert!(original.same_units(&permutation));
+
+        let mut substituted = permutation.clone();
+        substituted.units[0] = original.units[0].clone();
+        assert!(!original.same_units(&substituted));
+
+        let mut changed_platform = permutation.clone();
+        changed_platform.units[0].platform = None;
+        assert!(!original.same_units(&changed_platform));
+
+        let mut changed_feature = permutation;
+        changed_feature.units[0].features.insert("changed".into());
+        assert!(!original.same_units(&changed_feature));
+    }
+    #[test]
+    fn correctness_doctest_rejects_new_unvalidated_leaf_after_feature_admission() {
+        let mut metadata = arrow_metadata();
+        metadata["packages"].as_array_mut().unwrap().push(package(
+            "arrow-data",
+            "arrow-data",
+            json!({"force_validate":[]}),
+        ));
+        let before = graph(vec![
+            unit("root", &[], &[1], None, "doctest"),
+            unit("arrow-array", &[], &[], None, "build"),
+        ]);
+        let after = graph(vec![
+            unit("root", &["force-validate"], &[1, 2], None, "doctest"),
+            unit("arrow-array", &["force_validate"], &[], None, "build"),
+            unit("arrow-data", &[], &[], None, "build"),
+        ]);
+        let error = resolve(
+            &args(&["test", "--doc", "-p", "root"]),
+            vec![metadata, before, after],
+        )
+        .unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("arrow-data lacks force_validate")
+        );
+    }
+    #[test]
     fn correctness_pure_scope_is_unchanged() {
         let original = args(&["test", "-p", "pure", "--", "--exact", "filter"]);
         let (resolution, calls) = resolve(
@@ -2234,6 +2460,7 @@ mod tests {
     fn correctness_unknown_graph_or_edge_refuses() {
         for graph in [
             json!({"version":2,"roots":[],"units":[]}),
+            json!({"version":1,"roots":[9],"units":[]}),
             graph(vec![unit("root", &[], &[9], None, "build")]),
             graph(vec![unit("unknown", &[], &[], None, "build")]),
         ] {

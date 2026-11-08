@@ -5,6 +5,7 @@
     clippy::print_stderr,
     reason = "explicit isolated lifecycle identities support independent native readback"
 )]
+use pse_host::extraction::TargetSetupRefusal;
 use pse_operations::{
     canonical::{CanonicalOptions, CanonicalStore},
     native_service::{
@@ -69,12 +70,17 @@ fn predecessor_module() -> Result<NativeModuleSource, NativeServiceError> {
     }
 }
 fn fixture_with_schema(pre_epoch: bool) -> Result<NativeCanonicalService, NativeServiceError> {
-    let spec = fixture_spec()?;
+    let spec = fixture_spec().inspect_err(|_| {
+        eprintln!("{}", TargetSetupRefusal::NativeServiceInputs.marker());
+    })?;
     let service = if pre_epoch {
-        NativeCanonicalService::new_pre_epoch_fixture(spec)?
+        NativeCanonicalService::new_pre_epoch_fixture(spec)
     } else {
-        NativeCanonicalService::new(spec)?
-    };
+        NativeCanonicalService::new(spec)
+    }
+    .inspect_err(|_| {
+        eprintln!("{}", TargetSetupRefusal::NativeServiceConstruction.marker());
+    })?;
     eprintln!(
         "native fixture state={} original_service={}",
         service.state().display(),

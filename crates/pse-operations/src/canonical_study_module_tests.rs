@@ -37,8 +37,14 @@ mod surrealism_qualification {
             // Distinct buckets exercise separate source lookups for one verified manifest.
             let bucket = format!("{}_qualification_{index}", self.receipt.bucket());
             let module = Self::module(index);
-            bounded_query(store.db.query(self.receipt.extension_declarations(&bucket, &module, false))
-                .bind(("study_module_backend",self.receipt.backend().unwrap()))).await.unwrap();
+            bounded_query(
+                store
+                    .db
+                    .query(self.receipt.extension_declarations(&bucket, &module, false))
+                    .bind(("study_module_backend", self.receipt.backend().unwrap())),
+            )
+            .await
+            .unwrap();
             let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.extensions.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.digest=$study_module_manifest_digest AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused','qualification::hold']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
                 .bind(("name",module)).bind(("bucket",bucket)).bind(("study_module_manifest_digest", self.receipt.manifest_digest()))).await.unwrap();
             let index = response.num_statements().saturating_sub(1);
@@ -200,6 +206,7 @@ mod surrealism_qualification {
         usize::try_from(peak).unwrap()
     }
     #[tokio::test]
+    #[ignore = "requires an explicitly admitted Study qualification companion"]
     async fn canonical_studies_surrealism_qualification_faults_rollback_and_recover() {
         let (store, _, revision) = fixture().await;
         let study = "qualification-faults";
@@ -251,14 +258,14 @@ mod surrealism_qualification {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    #[ignore = "requires an explicitly admitted four-controller Study qualification service"]
     async fn canonical_studies_surrealism_qualification_pool_original_expiry_cannot_start_late() {
         let (store, _, revision) = fixture().await;
         let study = "qualification-pool";
         let qualification = Qualification::selected(&store);
         assert_eq!(qualification.pool, 4);
         assert_eq!(
-            qualification.controllers,
-            qualification.pool,
+            qualification.controllers, qualification.pool,
             "select an explicit four-controller qualification service for this deadline control"
         );
         let count = qualification.pool + 1;
@@ -354,6 +361,7 @@ mod surrealism_qualification {
         response.take::<Option<Object>>(0).unwrap()
     }
     #[tokio::test]
+    #[ignore = "requires an explicitly admitted Study qualification companion"]
     async fn canonical_studies_surrealism_qualification_cancelled_apply_settles_original_receipt() {
         let (store, _, revision) = fixture().await;
         let qualification = Qualification::selected(&store);
@@ -475,6 +483,7 @@ mod surrealism_qualification {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
+    #[ignore = "requires an explicitly admitted long-hold Study qualification companion"]
     async fn canonical_studies_surrealism_qualification_global_capacity_survives_source_churn() {
         let (store, _, revision) = fixture().await;
         let study = "qualification-global";

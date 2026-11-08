@@ -6,19 +6,22 @@ use super::{
     report::GroupObservation,
 };
 use crate::{
+    discovery::{self, BuiltArtifact, ListedGroup, TestIdentity},
     envelope::RedactionPolicy,
     environment::Environment,
     extraction::{CompilerOutcome, NextestOutcome, OutputStream},
+    fixtures::{FixtureError, Input as FixtureInput, Ownership, Requirement},
     managed::{result::GenericObserver, streams::ChunkObserver},
     selection,
     test_workflow::{self, CompilerObserver, CompletedObserver, GroupCommand, WorkflowError},
 };
+use nextest_metadata::{RustTestSuiteStatusSummary, RustTestSuiteSummary, TestListSummary};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::OsStr,
     fs,
     num::NonZeroUsize,
-    os::unix::fs::{DirBuilderExt as _, PermissionsExt as _},
+    os::unix::fs::DirBuilderExt as _,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -37,23 +40,11 @@ fn command(request: GroupCommand) -> Command {
     command
 }
 fn nextest(environment: &Environment) -> Result<PathBuf, WorkflowError> {
-    let paths = environment
-        .get(OsStr::new("PATH"))
-        .ok_or_else(|| WorkflowError::Invalid("nextest selection requires PATH".into()))?;
-    for directory in std::env::split_paths(paths) {
-        let path = directory.join("cargo-nextest");
-        match fs::metadata(&path) {
-            Ok(metadata) if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0 => {
-                return Ok(path.canonicalize()?);
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
-        }
-    }
-    Err(WorkflowError::Invalid(
-        "pinned cargo-nextest is unprepared on the selected PATH".into(),
-    ))
+    Ok(crate::correctness::resolve_nextest(
+        environment
+            .get(OsStr::new("PATH"))
+            .map(|path| path.as_os_str()),
+    )?)
 }
 fn record_phase<O: ChunkObserver>(
     report: &mut Report,
@@ -85,10 +76,8 @@ fn failed(report: &mut Report, error: WorkflowError, destination: &Path) {
         WorkflowError::ChildWait { .. } => true,
         _ => false,
     };
-    if let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt {
-        evidence,
-        phases,
-        ..
+    if let WorkflowError::Discovery(discovery::DiscoveryError::Attempt {
+        evidence, phases, ..
     }) = &error
     {
         let prefix = evidence
@@ -138,7 +127,7 @@ fn prepare_fixtures(
     root: &Path,
     environment: &Environment,
     destination: &Path,
-    requirements: &[crate::fixtures::Requirement],
+    requirements: &[Requirement],
 ) -> Result<Option<crate::fixtures::PreparedExecution>, WorkflowError> {
     let assessed = crate::fixtures::ExecutionInputs::assess(root, environment, requirements);
     if assessed.blocked() {
@@ -250,7 +239,7 @@ async fn perform(
     }
     let metadata: cargo_metadata::Metadata =
         serde_json::from_slice(&fs::read(destination.join("metadata.stdout"))?)
-            .map_err(crate::discovery::DiscoveryError::from)?;
+            .map_err(discovery::DiscoveryError::from)?;
     if metadata.workspace_root.as_std_path().canonicalize()? != checkout {
         return Err(WorkflowError::Invalid(
             "captured Cargo workspace differs from selected checkout".into(),
@@ -340,7 +329,7 @@ async fn perform(
             .list(
                 &nextest,
                 &destination.join("inventory"),
-                crate::discovery::DiscoveryOptions {
+                discovery::DiscoveryOptions {
                     policy: input.policy,
                     timings: input.timings,
                 },
@@ -364,23 +353,10 @@ async fn perform(
             report.outcome = Outcome::Listed;
             return Ok(());
         }
-        let mut requirements = Vec::new();
-        {
-            let mut verified = listed.inventory.verified_tests();
-            for requirement in &listed.requirements {
-                for identity in listed.inventory.selected_tests_iter() {
-                    let captured = verified.test(&identity)?;
-                    if test_workflow::matches_requirement(
-                        requirement,
-                        &identity,
-                        &captured.artifact.cargo,
-                    ) {
-                        requirements.push(requirement.clone());
-                        break;
-                    }
-                }
-            }
-        }
+        let FixtureSelection {
+            requirements,
+            mut target_owned,
+        } = fixture_requirements(input, destination, &listed, report).await?;
         let Some(fixtures) = prepare_fixtures(
             report,
             &checkout,
@@ -404,6 +380,9 @@ async fn perform(
                 continue;
             }
             let mut observer = listed.observer(group)?;
+            if let Some(cases) = target_owned.remove(&group) {
+                observer = observer.with_target_owned(cases);
+            }
             report.expect_path(
                 destination,
                 observer.report_path(),
@@ -412,8 +391,7 @@ async fn perform(
                 false,
             )?;
             if requirements.iter().any(|requirement| {
-                requirement.group() == group
-                    && requirement.ownership() == crate::fixtures::Ownership::RunnerBorrowed
+                requirement.group() == group && requirement.ownership() == Ownership::RunnerBorrowed
             }) {
                 let outcome = destination.join(format!("fixture-outcome-{group}.json"));
                 report.expect_path(
@@ -450,8 +428,8 @@ async fn perform(
 }
 fn check_capture(destination: &Path, group: usize, report: &Report) -> Result<(), WorkflowError> {
     let path = destination.join(format!("check-build-{group}/build.json"));
-    let captured: crate::discovery::BuildCapture = serde_json::from_slice(&fs::read(&path)?)
-        .map_err(crate::discovery::DiscoveryError::from)?;
+    let captured: discovery::BuildCapture =
+        serde_json::from_slice(&fs::read(&path)?).map_err(discovery::DiscoveryError::from)?;
     let expected = &report.admission[group];
     if captured.version != 1
         || !captured.incomplete.is_empty()
@@ -462,12 +440,7 @@ fn check_capture(destination: &Path, group: usize, report: &Report) -> Result<()
             .and_then(|phase| phase.child_exit)
             != Some(captured.cargo_exit)
         || captured.resolution.native_capabilities != expected.native_capabilities
-        || captured.resolution.units.len() != expected.units.len()
-        || !captured
-            .resolution
-            .units
-            .iter()
-            .all(|unit| expected.units.contains(unit))
+        || !captured.resolution.same_units(expected)
     {
         return Err(WorkflowError::Invalid(format!(
             "actual check compiler capture differs from admitted context at {}",
@@ -482,7 +455,7 @@ fn check_capture(destination: &Path, group: usize, report: &Report) -> Result<()
         .validate_resolution(&captured.resolution)?;
     Ok(())
 }
-fn discovery_phases(report: &mut Report, inventory: &crate::discovery::Inventory) {
+fn discovery_phases(report: &mut Report, inventory: &discovery::Inventory) {
     for captured in &inventory.capture {
         let prefix = match captured.group {
             Some(group) => format!("inventory/group-{group}/{}", captured.stage),
@@ -502,6 +475,334 @@ fn discovery_phases(report: &mut Report, inventory: &crate::discovery::Inventory
         });
     }
 }
+
+struct FixtureSuite<'a> {
+    original: &'a RustTestSuiteSummary,
+    artifact: &'a BuiltArtifact,
+    requirements: Vec<&'a Requirement>,
+}
+
+#[derive(Default)]
+struct FixtureSelection {
+    requirements: Vec<Requirement>,
+    target_owned: BTreeMap<usize, BTreeSet<TestIdentity>>,
+}
+
+fn fixture_suites<'a>(
+    group: &'a ListedGroup,
+    requirements: impl Iterator<Item = &'a Requirement>,
+) -> Result<Vec<FixtureSuite<'a>>, WorkflowError> {
+    let mut suites = BTreeMap::new();
+    for requirement in requirements {
+        let mut matching = group.build.artifacts.iter().filter_map(|artifact| {
+            if !artifact.cargo.profile.test
+                || !test_workflow::matches_requirement_target(requirement, &artifact.cargo)
+            {
+                return None;
+            }
+            group
+                .listing
+                .rust_suites
+                .values()
+                .find(|suite| {
+                    suite.binary.binary_path.as_std_path() == artifact.executable.captured
+                })
+                .map(|suite| (suite, artifact))
+        });
+        let (suite, artifact) = matching
+            .next()
+            .filter(|_| matching.next().is_none())
+            .ok_or_else(|| {
+                FixtureError::Declaration(format!(
+                    "fixture {} for {}:{} in compiler group {} has no unique captured test suite",
+                    requirement.declaration().id,
+                    requirement.package_id(),
+                    requirement.target_name(),
+                    requirement.group(),
+                ))
+            })?;
+        suites
+            .entry(&suite.binary.binary_id)
+            .or_insert_with(|| FixtureSuite {
+                original: suite,
+                artifact,
+                requirements: Vec::new(),
+            })
+            .requirements
+            .push(requirement);
+    }
+    Ok(suites.into_values().collect())
+}
+
+fn scoped_suite(suite: &FixtureSuite<'_>) -> bool {
+    suite.original.status != RustTestSuiteStatusSummary::LISTED
+        && suite
+            .requirements
+            .iter()
+            .any(|requirement| !requirement.declaration().scope.is_whole_target())
+}
+
+fn selected_fixture_requirements(
+    group: usize,
+    selected_count: usize,
+    suites: Vec<FixtureSuite<'_>>,
+    supplemental: Option<&TestListSummary>,
+    selected: &mut FixtureSelection,
+) -> Result<(), WorkflowError> {
+    let mut companion = None;
+    let mut companion_cases = 0;
+    for suite in suites {
+        let population = if scoped_suite(&suite) {
+            supplemental
+                .and_then(|listing| listing.rust_suites.get(&suite.original.binary.binary_id))
+                .filter(|suite| suite.status == RustTestSuiteStatusSummary::LISTED)
+                .ok_or_else(|| {
+                    WorkflowError::Invalid(format!(
+                        "fixture scope enumeration omitted captured suite {}",
+                        suite.original.binary.binary_id,
+                    ))
+                })?
+        } else {
+            suite.original
+        };
+        for requirement in &suite.requirements {
+            requirement
+                .validate_test_scope(population.test_cases.keys().map(|case| case.as_str()))?;
+        }
+
+        let mut applies = BTreeSet::new();
+        for (case, _) in suite
+            .original
+            .test_cases
+            .iter()
+            .filter(|(_, case)| case.filter_match.is_match())
+        {
+            let mut performing: Option<&Requirement> = None;
+            let mut needs_companion = false;
+            for (ordinal, requirement) in suite.requirements.iter().enumerate() {
+                if !requirement.applies_to_test(case.as_str()) {
+                    continue;
+                }
+                applies.insert(ordinal);
+                for variant in [
+                    FixtureInput::QualificationStudyModule,
+                    FixtureInput::LongHoldStudyModule,
+                ] {
+                    if requirement.inputs().contains(&variant) {
+                        if companion.is_some_and(|previous| previous != variant) {
+                            return Err(FixtureError::Declaration(format!(
+                                "compiler group {group} selects different study-module companion variants"
+                            )).into());
+                        }
+                        companion = Some(variant);
+                        needs_companion = true;
+                    }
+                }
+                if requirement.ownership() == Ownership::PreparationOnly {
+                    continue;
+                }
+                if let Some(previous) = performing
+                    && previous.ownership() != requirement.ownership()
+                {
+                    return Err(FixtureError::Declaration(format!(
+                        "fixture declarations {} and {} for compiler group {} suite {} case {} disagree on performing ownership",
+                        previous.declaration().id,
+                        requirement.declaration().id,
+                        requirement.group(),
+                        suite.original.binary.binary_id,
+                        case,
+                    ))
+                    .into());
+                }
+                performing = Some(requirement);
+            }
+            if performing.is_some_and(|owner| owner.ownership() == Ownership::TargetOwned) {
+                selected
+                    .target_owned
+                    .entry(group)
+                    .or_default()
+                    .insert(TestIdentity {
+                        group,
+                        package_id: suite.original.binary.package_id.clone(),
+                        binary_id: suite.original.binary.binary_id.to_string(),
+                        test_name: case.to_string(),
+                    });
+            }
+            companion_cases += usize::from(needs_companion);
+        }
+        if !applies.is_empty() {
+            suite
+                .artifact
+                .executable
+                .verify()
+                .map_err(discovery::DiscoveryError::from)?;
+            selected.requirements.extend(
+                applies
+                    .into_iter()
+                    .map(|ordinal| suite.requirements[ordinal].clone()),
+            );
+        }
+    }
+    if let Some(variant) = companion
+        && companion_cases != selected_count
+    {
+        return Err(FixtureError::Declaration(format!(
+            "compiler group {group} selects {companion_cases} cases requiring {variant:?} among {selected_count} selected cases; select the companion cases separately"
+        )).into());
+    }
+    Ok(())
+}
+
+async fn fixture_requirements(
+    input: &Input,
+    destination: &Path,
+    listed: &test_workflow::Listed,
+    report: &mut Report,
+) -> Result<FixtureSelection, WorkflowError> {
+    let mut selected = FixtureSelection::default();
+    if listed.requirements.is_empty() {
+        return Ok(selected);
+    }
+    let mut reuse_verified = false;
+    for (group, inventory) in listed.inventory.groups.iter().enumerate() {
+        let declarations = listed
+            .requirements
+            .iter()
+            .filter(|requirement| requirement.group() == group);
+        if declarations.clone().next().is_none() {
+            continue;
+        }
+        let selected_count = inventory
+            .listing
+            .rust_suites
+            .values()
+            .flat_map(|suite| suite.test_cases.values())
+            .filter(|case| case.filter_match.is_match())
+            .count();
+        if selected_count == 0 {
+            continue;
+        }
+        let suites = fixture_suites(inventory, declarations)?;
+        let expressions = suites
+            .iter()
+            .filter(|suite| scoped_suite(suite))
+            .map(|suite| {
+                format!(
+                    "binary_id(={})",
+                    selection::equality(suite.original.binary.binary_id.as_str())
+                )
+            })
+            .collect::<Vec<_>>();
+        // Native Nextest enumerates every case of a listed suite and records its filter result.
+        // Re-list only skipped suites whose declared scope needs correspondence evidence.
+        let supplemental = if expressions.is_empty() {
+            None
+        } else {
+            if !reuse_verified {
+                listed.verify_reuse_inputs()?;
+                reuse_verified = true;
+            }
+            Some(
+                fixture_scope_listing(input, destination, listed, report, group, &expressions)
+                    .await?,
+            )
+        };
+        selected_fixture_requirements(
+            group,
+            selected_count,
+            suites,
+            supplemental.as_ref(),
+            &mut selected,
+        )?;
+    }
+    Ok(selected)
+}
+
+async fn fixture_scope_listing(
+    input: &Input,
+    destination: &Path,
+    listed: &test_workflow::Listed,
+    report: &mut Report,
+    group: usize,
+    expressions: &[String],
+) -> Result<TestListSummary, WorkflowError> {
+    let mut command = reuse_listing(listed, group);
+    command.arg("--ignore-default-filter");
+    for expression in expressions {
+        command.args(["-E", expression]);
+    }
+    let prefix = format!("fixture-scope-{group}");
+    let stdout = format!("{prefix}.stdout");
+    let stderr = format!("{prefix}.stderr");
+    report.expect_file(stdout.clone(), EvidenceRole::Stdout, Some(group), false);
+    report.expect_file(stderr.clone(), EvidenceRole::Stderr, Some(group), false);
+    let mut capture = phase::run(
+        command,
+        &destination.join(&stdout),
+        &destination.join(stderr),
+        GenericObserver,
+        input.policy,
+    )
+    .await?;
+    record_phase(
+        report,
+        PhaseKind::Discovery,
+        Some(group),
+        &prefix,
+        &mut capture,
+    );
+    if let Some(phase) = report.phases.last_mut() {
+        phase.native_stage = Some("fixture-scope".into());
+    }
+    if !capture.capture_complete || capture.child_exit.is_none() {
+        return Err(discovery::DiscoveryError::Capture {
+            stage: "fixture-scope",
+            evidence: destination.into(),
+            failures: Vec::new(),
+        }
+        .into());
+    }
+    if let Some(exit) = capture.child_exit.filter(|exit| *exit != 0) {
+        return Err(WorkflowError::PhaseExit {
+            phase: "nextest-fixture-scope",
+            exit,
+        });
+    }
+    let listing = serde_json::from_slice(&fs::read(destination.join(stdout))?)
+        .map_err(discovery::DiscoveryError::from)?;
+    discovery::validate_listing(
+        &listed.inventory.groups[group].binaries,
+        &listing,
+        selection::IgnoredPolicy::All,
+    )?;
+    Ok(listing)
+}
+
+fn reuse_listing(listed: &test_workflow::Listed, group: usize) -> Command {
+    let directory = listed.capture_root.join(format!("group-{group}"));
+    let mut command = Command::new(&listed.inventory.nextest.captured);
+    command
+        .args([
+            "nextest",
+            "list",
+            "--message-format=json",
+            "--profile",
+            &listed.inventory.runner_profile,
+        ])
+        .arg("--config-file")
+        .arg(listed.capture_root.join("nextest.toml"))
+        .arg("--binaries-metadata")
+        .arg(directory.join("binaries.json"))
+        .arg("--cargo-metadata")
+        .arg(directory.join("cargo-metadata.json"))
+        .args(["--run-ignored", "all"])
+        .current_dir(&listed.context.checkout)
+        .env_clear()
+        .envs(&listed.context.environment)
+        .env_remove("NEXTEST_TEST_PHASE");
+    command
+}
+
 /// Ask the native policy evaluator for membership, never decode config/filter grammar.
 async fn group_policy(
     input: &Input,
@@ -532,27 +833,8 @@ async fn group_policy(
             continue;
         }
         for (ordinal, name) in names.iter().enumerate() {
-            let directory = listed.capture_root.join(format!("group-{group}"));
-            let mut command = Command::new(&listed.inventory.nextest.captured);
-            command
-                .args([
-                    "nextest",
-                    "list",
-                    "--message-format=json",
-                    "--profile",
-                    &listed.inventory.runner_profile,
-                ])
-                .arg("--config-file")
-                .arg(listed.capture_root.join("nextest.toml"))
-                .arg("--binaries-metadata")
-                .arg(directory.join("binaries.json"))
-                .arg("--cargo-metadata")
-                .arg(directory.join("cargo-metadata.json"))
-                .args(["--run-ignored", "all", "-E"])
-                .arg(format!("group(={})", selection::equality(name)))
-                .current_dir(&listed.context.checkout)
-                .env_clear()
-                .envs(&listed.context.environment);
+            let mut command = reuse_listing(listed, group);
+            command.args(["-E", &format!("group(={})", selection::equality(name))]);
             if listed.inventory.selection.filters().ignore_default_filter {
                 command.arg("--ignore-default-filter");
             }
@@ -603,9 +885,9 @@ async fn group_policy(
                     "native group-policy listing failed".into(),
                 ));
             }
-            let membership: nextest_metadata::TestListSummary =
+            let membership: TestListSummary =
                 serde_json::from_slice(&fs::read(destination.join(format!("{prefix}.stdout")))?)
-                    .map_err(crate::discovery::DiscoveryError::from)?;
+                    .map_err(discovery::DiscoveryError::from)?;
             // Multiple -E arguments are a union in native nextest. Query membership alone,
             // then intersect exact native binary/test identities with the original population.
             if listed

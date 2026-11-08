@@ -391,7 +391,7 @@ impl CargoExtractor {
     }
 }
 
-/// Native runner setup assertion. External fixture readiness and drain remain separate.
+/// Observed setup phase. External fixture readiness and drain remain separate.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum NextestSetup {
@@ -399,8 +399,44 @@ pub enum NextestSetup {
     SucceededByRunner,
     /// Native setup-script failure exit105.
     FailedByRunner,
+    /// A selected target owner reported refusing setup before its assertions.
+    FailedByTargetOwner,
     /// Required native execution evidence was insufficient.
     Unknown,
+}
+/// Closed owner-emitted failure phases in the original selected test's captured output.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TargetSetupRefusal {
+    /// The native service target could not select its setup inputs.
+    NativeServiceInputs,
+    /// The native service target could not construct the isolated fixture.
+    NativeServiceConstruction,
+}
+impl TargetSetupRefusal {
+    /// Bounded, versioned line written by the target owner before returning the original error.
+    pub fn marker(self) -> &'static str {
+        match self {
+            Self::NativeServiceInputs => "PSE_TEST_SETUP_REFUSAL_V1 native_service_inputs",
+            Self::NativeServiceConstruction => {
+                "PSE_TEST_SETUP_REFUSAL_V1 native_service_construction"
+            }
+        }
+    }
+
+    fn from_captured_output(
+        stdout: Option<&quick_junit::XmlString>,
+        stderr: Option<&quick_junit::XmlString>,
+    ) -> Option<Self> {
+        // Pinned Nextest stores split stderr separately and combined output in system-out.
+        stderr.into_iter().chain(stdout).find_map(|output| {
+            output.as_str().lines().find_map(|line| {
+                [Self::NativeServiceInputs, Self::NativeServiceConstruction]
+                    .into_iter()
+                    .find(|kind| kind.marker() == line)
+            })
+        })
+    }
 }
 /// Workload reconciliation, independent of physical settlement and scientific acceptance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -410,7 +446,7 @@ pub enum NextestOutcome {
     Succeeded,
     /// A known native test failure, even if other evidence is incomplete.
     TestFailed,
-    /// Native setup failed, even if no test records were emitted.
+    /// Runner setup failed or only target-owned setup refusals are known.
     SetupFailed,
     /// Other nonzero runner status, retaining the exact child status separately.
     RunnerFailed,
@@ -499,7 +535,7 @@ impl NextestSummary {
     pub fn child_class(&self) -> NextestExitClass {
         self.child_class
     }
-    /// Native configured-setup interpretation only.
+    /// Observed setup phase, independently of physical settlement.
     pub fn setup(&self) -> NextestSetup {
         self.setup
     }

@@ -2,10 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Completed native evidence, independent of raw output and physical settlement.
 use crate::{
-    extraction::{CompletedReport, ExtractionError, NextestSummary, OutputStream},
+    discovery::TestIdentity,
+    extraction::{
+        CompletedReport, ExtractionError, NextestSummary, OutputStream, TargetSetupRefusal,
+    },
     managed::streams::ChunkObserver,
 };
-use std::path::PathBuf;
+use std::{collections::BTreeSet, path::PathBuf};
 /// Failure to consume the required original completed report.
 #[derive(Debug, thiserror::Error)]
 #[error("native completed report: {error}")]
@@ -23,13 +26,16 @@ pse_diagnostics::impl_diagnostic! {
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct FailureReference {
     /// Original selected identity.
-    pub identity: crate::discovery::TestIdentity,
+    pub identity: TestIdentity,
     /// Native report path containing the binary/test entry.
     pub report: PathBuf,
     /// Redacted native XML failure message; this is not raw byte custody.
     pub message: Option<String>,
     /// Redacted native XML assertion description; this is not raw byte custody.
     pub description: Option<String>,
+    /// Typed refusal phases emitted by the selected setup owner before reaching assertions.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub target_setup_refusals: Vec<TargetSetupRefusal>,
 }
 fn failure_reference(
     failure: crate::extraction::NativeFailure,
@@ -42,6 +48,7 @@ fn failure_reference(
         description: failure
             .description
             .map(|description| redaction.redact(&description)),
+        target_setup_refusals: failure.target_setup_refusals,
     }
 }
 /// Owner-constructed native completed facts.
@@ -69,6 +76,10 @@ impl CompletedObserver {
     /// Require the exact source fixture owner's settled result for a borrowed service.
     pub fn with_fixture_outcome(self, path: PathBuf) -> Self {
         Self(self.0.with_fixture_outcome(path))
+    }
+    /// Bind exact selected identities whose performing owner is the target.
+    pub(crate) fn with_target_owned(self, cases: BTreeSet<TestIdentity>) -> Self {
+        Self(self.0.with_target_owned(cases))
     }
     /// Called after original wait and required raw output drainage.
     pub fn finish(
@@ -112,7 +123,7 @@ mod tests {
         let policy =
             crate::envelope::RedactionPolicy::new([("API_TOKEN".into(), "private-token".into())]);
         let failure = crate::extraction::NativeFailure {
-            identity: crate::discovery::TestIdentity {
+            identity: TestIdentity {
                 group: 1,
                 package_id: "original".into(),
                 binary_id: "original".into(),
@@ -121,6 +132,7 @@ mod tests {
             report: "/owned/junit.xml".into(),
             message: Some("failure private-token".into()),
             description: Some("source:42\nprivate-token".into()),
+            target_setup_refusals: Vec::new(),
         };
         let reference = failure_reference(failure, &policy);
         assert_eq!(

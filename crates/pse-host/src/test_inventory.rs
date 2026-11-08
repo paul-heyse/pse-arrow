@@ -110,6 +110,9 @@ pub enum FailureRow {
         message: Option<String>,
         /// Redacted native XML assertion text retained by the performing owner, when available.
         description: Option<String>,
+        /// Typed refusals for attempts that never reached assertions, when retained.
+        #[serde(skip_serializing_if = "Vec::is_empty")]
+        target_setup_refusals: Vec<crate::extraction::TargetSetupRefusal>,
     },
     /// Original setup or runner context, retaining wrapper/native distinctions.
     Runner {
@@ -175,6 +178,8 @@ struct FailureDetail {
     identity: crate::discovery::TestIdentity,
     message: Option<String>,
     description: Option<String>,
+    #[serde(default)]
+    target_setup_refusals: Vec<crate::extraction::TargetSetupRefusal>,
 }
 #[derive(Deserialize)]
 struct FailureSummary {
@@ -209,6 +214,8 @@ fn failure_rows(report: &[u8]) -> Result<Vec<FailureRow>, HostError> {
                 reference: None,
                 message: detail.and_then(|detail| detail.message.clone()),
                 description: detail.and_then(|detail| detail.description.clone()),
+                target_setup_refusals: detail
+                    .map_or_else(Vec::new, |detail| detail.target_setup_refusals.clone()),
                 identity,
                 report: observation.report.clone(),
             }
@@ -1218,6 +1225,32 @@ mod tests {
                 fixture_settled: Some(false),
                 ..
             }
+        ));
+        assert!(
+            serde_json::to_value(&rows[0])
+                .unwrap()
+                .get("target_setup_refusals")
+                .is_none()
+        );
+
+        let observation = &mut source["observations"][0]["observation"];
+        observation["summary"]["setup"] = serde_json::json!("failed_by_target_owner");
+        observation["summary"]["native_child_exit"] =
+            serde_json::json!(nextest_metadata::NextestExitCode::TEST_RUN_FAILED);
+        observation["failures"][0]["target_setup_refusals"] =
+            serde_json::json!(["native_service_construction"]);
+        let rows = failure_rows(&serde_json::to_vec(&source).unwrap()).unwrap();
+        assert!(matches!(
+            &rows[0],
+            FailureRow::Test { identity, target_setup_refusals, .. }
+                if identity.group == 2 && identity.binary_id == "same-name"
+                    && target_setup_refusals == &[crate::extraction::TargetSetupRefusal::NativeServiceConstruction]
+        ));
+        assert!(matches!(
+            &rows[1],
+            FailureRow::Runner { setup, native_child_exit: Some(exit), .. }
+                if setup == "failed_by_target_owner"
+                    && *exit == nextest_metadata::NextestExitCode::TEST_RUN_FAILED
         ));
     }
 

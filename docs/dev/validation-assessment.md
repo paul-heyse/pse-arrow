@@ -134,6 +134,32 @@ PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/module.json \
   --features native-service -E 'test(canonical_server_unit)'
 ```
 
+The Study qualification cases are ignored by ordinary selection. Prepare the production
+receipt as above, then use `just surreal-module --qualification` for the companion receipt.
+Select the fault, expiry and cancelled-apply cases together on a four-controller service.
+The expiry case reserves that service's Nextest store group for its run.
+
+```bash
+PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/production/module.json \
+PSE_NATIVE_FIXTURE_MODULE_QUALIFICATION_RECEIPT=/absolute/qualification/module.json \
+SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS=4 \
+  scripts/pse test pse-operations:pse_operations --target-kind lib \
+  -F pse-operations/native-service --ignored only \
+  -E 'test(/::canonical_studies_surrealism_qualification_(faults_rollback_and_recover|pool_original_expiry_cannot_start_late|cancelled_apply_settles_original_receipt)$/)'
+```
+
+For the capacity case, prepare a long-hold companion with
+`just surreal-module --qualification --long-hold` and select it separately.
+
+```bash
+PSE_NATIVE_FIXTURE_MODULE_RECEIPT=/absolute/production/module.json \
+PSE_NATIVE_FIXTURE_MODULE_LONG_HOLD_RECEIPT=/absolute/long-hold/module.json \
+SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS=8 \
+  scripts/pse test pse-operations:pse_operations --target-kind lib \
+  -F pse-operations/native-service --ignored only \
+  -E 'test(=canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_global_capacity_survives_source_churn)'
+```
+
 Choose the actual target/features/filter for the intended caller; a native solver target also
 requires its actual solver features. The host admits and captures the source build/list through
 this checkout's prepared correctness adapter. It selectively captures original service/test helpers

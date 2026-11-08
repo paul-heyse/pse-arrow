@@ -135,6 +135,126 @@ fn native_setup_failure_and_known_test_failure_survive_incomplete_coverage() {
 }
 
 #[test]
+fn target_setup_refusal_is_attributed_through_managed_observation() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("junit.xml");
+    let identity = TestIdentity {
+        group: 3,
+        package_id: "case-id".into(),
+        binary_id: "first".into(),
+        test_name: "same".into(),
+    };
+    let marker = TargetSetupRefusal::NativeServiceInputs.marker();
+    let xml = |case: &str| PASS.replace("<testcase classname=\"first\" name=\"same\"/>", case);
+    let observe = |case: &str, owned: bool| {
+        std::fs::write(&path, xml(case)).unwrap();
+        let report =
+            CompletedReport::from_listing(&listing(), 3, path.clone(), IgnoredPolicy::Default)
+                .unwrap();
+        let observer = crate::test_workflow::CompletedObserver::new(report);
+        let observer = if owned {
+            observer.with_target_owned([identity.clone()].into())
+        } else {
+            observer
+        };
+        let (observation, error) =
+            observer.finish(nextest_metadata::NextestExitCode::TEST_RUN_FAILED, true);
+        assert!(error.is_none());
+        assert!(observation.summary.complete());
+        assert_eq!(
+            observation.summary.failed(),
+            std::slice::from_ref(&identity)
+        );
+        assert_eq!(
+            observation.summary.child_class(),
+            NextestExitClass::TestsFailed
+        );
+        assert_eq!(observation.failures[0].identity, identity);
+        assert_eq!(observation.failures[0].report, path);
+        observation
+    };
+    for stream in ["system-err", "system-out"] {
+        let case = format!(
+            "<testcase classname=\"first\" name=\"same\"><failure>original setup error</failure><{stream}>{marker}\noriginal stderr</{stream}></testcase>"
+        );
+        let observation = observe(&case, true);
+        assert_eq!(observation.summary.outcome(), NextestOutcome::SetupFailed);
+        assert_eq!(
+            observation.summary.setup(),
+            NextestSetup::FailedByTargetOwner
+        );
+        assert_eq!(
+            serde_json::to_value(&observation).unwrap()["failures"][0]["target_setup_refusals"],
+            json!(["native_service_inputs"])
+        );
+        let unowned = observe(&case, false);
+        assert_eq!(unowned.summary.outcome(), NextestOutcome::TestFailed);
+        assert!(unowned.failures[0].target_setup_refusals.is_empty());
+    }
+    let case = format!(
+        "<testcase classname=\"first\" name=\"same\"><failure>{marker}</failure><system-err>assertion text mentioning {marker}</system-err></testcase>"
+    );
+    let observation = observe(&case, true);
+    assert_eq!(observation.summary.outcome(), NextestOutcome::TestFailed);
+    assert_eq!(observation.summary.setup(), NextestSetup::Unknown);
+    assert!(observation.failures[0].target_setup_refusals.is_empty());
+
+    let case = format!(
+        "<testcase classname=\"first\" name=\"same\"><failure>original setup error</failure><system-err>{marker}</system-err><rerunFailure>assertion in retry</rerunFailure></testcase>"
+    );
+    let observation = observe(&case, true);
+    assert_eq!(observation.summary.outcome(), NextestOutcome::TestFailed);
+    assert_eq!(
+        observation.summary.setup(),
+        NextestSetup::FailedByTargetOwner
+    );
+    assert_eq!(
+        observation.failures[0].target_setup_refusals,
+        [TargetSetupRefusal::NativeServiceInputs]
+    );
+}
+
+#[test]
+fn required_original_fixture_result_cannot_be_inferred_from_wrapper_success() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("junit.xml");
+    let owner_path = root.path().join("fixture-outcome.json");
+    std::fs::write(&path, PASS).unwrap();
+    let report = || {
+        CompletedReport::from_listing(&listing(), 3, path.clone(), IgnoredPolicy::Default)
+            .unwrap()
+            .with_fixture_outcome(owner_path.clone())
+    };
+    for contents in [
+        None,
+        Some("{}"),
+        Some(r#"{"version":2,"runner_exit":0,"fixture_settled":true}"#),
+    ] {
+        if let Some(contents) = contents {
+            std::fs::write(&owner_path, contents).unwrap();
+        }
+        let (summary, _, error) = report().finish(0, true);
+        assert!(error.is_some());
+        assert_eq!(summary.outcome(), NextestOutcome::Incomplete);
+        assert_eq!(summary.child_exit(), 0);
+        assert_eq!(summary.native_child_exit(), None);
+        assert_eq!(summary.fixture_settled, Some(false));
+        assert!(!summary.complete());
+    }
+    std::fs::write(
+        &owner_path,
+        r#"{"version":1,"runner_exit":0,"fixture_settled":true}"#,
+    )
+    .unwrap();
+    let (summary, _, error) = report().finish(0, true);
+    assert!(error.is_none());
+    assert_eq!(summary.outcome(), NextestOutcome::Succeeded);
+    assert_eq!(summary.native_child_exit(), Some(0));
+    assert_eq!(summary.fixture_settled, Some(true));
+    assert!(summary.complete());
+}
+
+#[test]
 fn native_retry_and_skipped_population_do_not_require_event_reconstruction() {
     let xml=PASS.replace("<testcase classname=\"first\" name=\"same\"/>","<testcase classname=\"first\" name=\"same\"><flakyFailure>earlier attempt</flakyFailure></testcase><testcase classname=\"first\" name=\"ignored\"><skipped/></testcase>");
     let (summary, _, error) = reconcile(Some(&xml), 0, true);

@@ -6,6 +6,8 @@ use crate::{
     managed::payload::PayloadPolicy,
     test_workflow::execute::{Bounds, TerminalRecord},
 };
+use nextest_metadata::{FilterMatch, MismatchReason, RustBinaryId, TestCaseName};
+use serde_json::{Value, json};
 use std::time::Duration;
 
 #[path = "rerun_tests.rs"]
@@ -65,6 +67,193 @@ fn observer() -> GroupObserver {
     ))
 }
 
+fn declaration(
+    listed: &test_workflow::Listed,
+    id: &str,
+    ownership: Ownership,
+    scope: Value,
+    inputs: &[FixtureInput],
+) -> Requirement {
+    serde_json::from_value(json!({
+        "group": 0,
+        "unit": listed.inventory.groups[0].build.resolution.units[0],
+        "declaration": {
+            "id": id, "target": "case", "kind": "lib", "ownership": ownership,
+            "scope": scope, "inputs": inputs,
+        },
+    }))
+    .unwrap()
+}
+
+fn check_fixture_population(
+    listed: &test_workflow::Listed,
+    supplemental: Option<&TestListSummary>,
+) -> Result<FixtureSelection, WorkflowError> {
+    let suites = fixture_suites(&listed.inventory.groups[0], listed.requirements.iter())?;
+    let mut selected = FixtureSelection::default();
+    selected_fixture_requirements(
+        0,
+        listed.inventory.selected_tests_iter().count(),
+        suites,
+        supplemental,
+        &mut selected,
+    )?;
+    Ok(selected)
+}
+
+#[tokio::test]
+async fn fixture_scope_refuses_renamed_case_and_stale_module_but_accepts_filter_exclusion() {
+    let (root, intent) = test_workflow::tests::intent();
+    let mut listed = test_workflow::tests::listed(intent);
+    let input = input(Action::Test);
+    for (scope, missing) in [
+        (json!({"tests": ["renamed_case"]}), "case \"renamed_case\""),
+        (json!({"modules": ["fixture"]}), "module \"fixture\""),
+    ] {
+        let group = &mut listed.inventory.groups[0];
+        let suite = group
+            .listing
+            .rust_suites
+            .get_mut(&RustBinaryId::new("case"))
+            .unwrap();
+        let mut excluded = suite.test_cases[&TestCaseName::new("same_name")].clone();
+        excluded.filter_match = FilterMatch::Mismatch {
+            reason: MismatchReason::Expression,
+        };
+        suite
+            .test_cases
+            .insert(TestCaseName::new("fixture_sibling::exists"), excluded);
+        group.listing.test_count = suite.test_cases.len();
+        listed.requirements = vec![declaration(
+            &listed,
+            "scope-owner",
+            Ownership::PreparationOnly,
+            scope,
+            &[FixtureInput::Server],
+        )];
+        let mut report = Report::new(&input);
+        let result = fixture_requirements(&input, root.path(), &listed, &mut report).await;
+        assert!(matches!(
+            result,
+            Err(WorkflowError::Fixture(FixtureError::Declaration(message))) if message.contains(missing)
+        ));
+        assert!(report.phases.is_empty());
+    }
+    listed.requirements = vec![declaration(
+        &listed,
+        "known-excluded",
+        Ownership::PreparationOnly,
+        json!({"tests": ["fixture_sibling::exists"], "modules": ["fixture_sibling"]}),
+        &[FixtureInput::Server],
+    )];
+    let mut report = Report::new(&input);
+    let selected = fixture_requirements(&input, root.path(), &listed, &mut report)
+        .await
+        .unwrap();
+    assert!(selected.requirements.is_empty());
+    assert!(report.phases.is_empty());
+}
+
+#[test]
+fn fixture_scope_fallback_evidence_does_not_select_an_excluded_binary() {
+    let (_root, intent) = test_workflow::tests::intent();
+    let mut listed = test_workflow::tests::listed(intent);
+    listed.requirements = vec![declaration(
+        &listed,
+        "conditionally-listed",
+        Ownership::TargetOwned,
+        json!({"tests": ["same_name"]}),
+        &[FixtureInput::Server, FixtureInput::StudyModule],
+    )];
+    let original = &mut listed.inventory.groups[0].listing;
+    let mut supplemental: TestListSummary =
+        serde_json::from_value(serde_json::to_value(&*original).unwrap()).unwrap();
+    let id = RustBinaryId::new("case");
+    let suite = original.rust_suites.get_mut(&id).unwrap();
+    suite.status = RustTestSuiteStatusSummary::SKIPPED_DEFAULT_FILTER;
+    suite.test_cases.clear();
+    original.test_count = 0;
+    let missing = check_fixture_population(&listed, None);
+    assert!(
+        matches!(missing, Err(WorkflowError::Invalid(message)) if message.contains("omitted captured suite"))
+    );
+    let selected = check_fixture_population(&listed, Some(&supplemental)).unwrap();
+    assert!(selected.requirements.is_empty());
+    assert!(selected.target_owned.is_empty());
+
+    supplemental
+        .rust_suites
+        .get_mut(&id)
+        .unwrap()
+        .test_cases
+        .clear();
+    supplemental.test_count = 0;
+    assert!(matches!(
+        check_fixture_population(&listed, Some(&supplemental)),
+        Err(WorkflowError::Fixture(FixtureError::Declaration(message))) if message.contains("absent test case")
+    ));
+}
+
+#[test]
+fn fixture_scope_rejects_conflicting_owners_and_mixed_companion_selection() {
+    let (_root, intent) = test_workflow::tests::intent();
+    let mut listed = test_workflow::tests::listed(intent);
+    let target = declaration(
+        &listed,
+        "target-owner",
+        Ownership::TargetOwned,
+        json!({"tests": ["same_name"]}),
+        &[FixtureInput::Server, FixtureInput::StudyModule],
+    );
+    let borrowed = declaration(
+        &listed,
+        "borrowed-owner",
+        Ownership::RunnerBorrowed,
+        json!({}),
+        &[FixtureInput::Server, FixtureInput::StudyModule],
+    );
+    listed.requirements = vec![target.clone()];
+    let selected = check_fixture_population(&listed, None).unwrap();
+    assert_eq!(selected.target_owned[&0].len(), 1);
+    assert_eq!(
+        selected.target_owned[&0].first().unwrap().test_name,
+        "same_name"
+    );
+    listed.requirements.push(borrowed.clone());
+    assert!(matches!(
+        check_fixture_population(&listed, None),
+        Err(WorkflowError::Fixture(FixtureError::Declaration(message))) if message.contains("disagree on performing ownership")
+    ));
+
+    let companion = declaration(
+        &listed,
+        "companion",
+        Ownership::PreparationOnly,
+        json!({"tests": ["same_name"]}),
+        &[FixtureInput::QualificationStudyModule],
+    );
+    listed.requirements = vec![borrowed, companion];
+    let selected = check_fixture_population(&listed, None).unwrap();
+    assert_eq!(selected.requirements.len(), 2);
+    assert!(selected.target_owned.is_empty());
+
+    let group = &mut listed.inventory.groups[0];
+    let suite = group
+        .listing
+        .rust_suites
+        .get_mut(&RustBinaryId::new("case"))
+        .unwrap();
+    let original = suite.test_cases[&TestCaseName::new("same_name")].clone();
+    suite
+        .test_cases
+        .insert(TestCaseName::new("ordinary_case"), original);
+    group.listing.test_count = 2;
+    assert!(matches!(
+        check_fixture_population(&listed, None),
+        Err(WorkflowError::Fixture(FixtureError::Declaration(message))) if message.contains("among 2 selected cases")
+    ));
+}
+
 #[test]
 fn rerun_controlled_failure_probe() {
     assert!(
@@ -77,7 +266,7 @@ fn rerun_controlled_failure_probe() {
 fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
     let root = tempfile::tempdir().unwrap();
     let destination = root.path().join("must-not-be-created");
-    let requirement: crate::fixtures::Requirement = serde_json::from_value(serde_json::json!({
+    let requirement: Requirement = serde_json::from_value(json!({
         "group": 2,
         "unit": {
             "package_id": "original-package", "package_name": "example",
@@ -650,10 +839,10 @@ fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch:
     missing_test.groups[identity.group]
         .listing
         .rust_suites
-        .get_mut(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
+        .get_mut(&RustBinaryId::new(&identity.binary_id))
         .unwrap()
         .test_cases
-        .remove(&nextest_metadata::TestCaseName::new(&identity.test_name));
+        .remove(&TestCaseName::new(&identity.test_name));
     assert!(test_workflow::source::verify_rerun(&missing_test).is_err());
     let mut stale_binary = fresh();
     let artifact = stale_binary.groups[identity.group]
@@ -676,7 +865,7 @@ fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch:
     stale_binary.groups[identity.group]
         .listing
         .rust_suites
-        .get_mut(&nextest_metadata::RustBinaryId::new(&identity.binary_id))
+        .get_mut(&RustBinaryId::new(&identity.binary_id))
         .unwrap()
         .binary
         .binary_path = isolated.to_str().unwrap().into();

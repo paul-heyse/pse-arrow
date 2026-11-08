@@ -205,13 +205,13 @@ fn supervised_child_forking_group_cancel_reinventories_without_touching_foreign_
     foreign.cancel().unwrap();
 }
 
-// This subprocess entry is inert in the normal unit process. The parent control
-// below selects it explicitly with a private fixture directory and owns its exit.
+// The parent selects this subprocess entry with a private fixture directory
+// and owns its exit.
 #[test]
+#[ignore = "subprocess entry owned by the marked Park control"]
 fn supervised_child_park_fixture() {
-    let Some(directory) = std::env::var_os("PSE_SUPERVISION_PARK_FIXTURE") else {
-        return;
-    };
+    let directory = std::env::var_os("PSE_SUPERVISION_PARK_FIXTURE")
+        .expect("Park subprocess requires its original fixture directory");
     let directory = std::path::PathBuf::from(directory);
     struct Custody(std::path::PathBuf);
     impl Drop for Custody {
@@ -253,6 +253,7 @@ fn supervised_child_park_retains_custody_after_unknown_drain() {
         .args([
             "--exact",
             "supervised_child::tests::supervised_child_park_fixture",
+            "--ignored",
             "--nocapture",
         ])
         .env("PSE_SUPERVISION_PARK_FIXTURE", &directory)

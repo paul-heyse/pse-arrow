@@ -531,22 +531,8 @@ pub async fn list(
             .envs(environment)
             .current_dir(&checkout);
         let version = output(version, destination, "version",policy,None,&mut phases).await?;
-        let version = String::from_utf8(version.stdout)
-            .map_err(|_| invalid("nextest version is not UTF-8"))?;
-        let declared: toml::Value = toml::from_str(&fs::read_to_string(
-            checkout.join(".config/diagnostic-tools.toml"),
-        )?)
-        .map_err(|error| invalid(error.to_string()))?;
-        let pin = declared["cargo-tools"]["cargo-nextest"]
-            .as_str()
-            .ok_or_else(|| invalid("nextest tool pin is missing"))?;
-        if version.split_whitespace().next() != Some("cargo-nextest")
-            || version.split_whitespace().nth(1) != Some(pin)
-        {
-            return Err(invalid(
-                "nextest executable differs from the checkout's declared version",
-            ));
-        }
+        let version = crate::correctness::verify_nextest_version(&checkout, &version.stdout)?
+            .to_owned();
         let cargo = crate::correctness::real_cargo_in(environment)?;
         let nextest_configuration = fs::read(checkout.join(".config/nextest.toml"))?;
         let configuration = destination.join("nextest.toml");
@@ -600,12 +586,7 @@ pub async fn list(
             }
             group.validate_resolution(&captured.resolution)?;
             let expected = &resolved.admitted()[index];
-            if expected.units.len() != captured.resolution.units.len()
-                || expected
-                    .units
-                    .iter()
-                    .any(|unit| !captured.resolution.units.contains(unit))
-            {
+            if !expected.same_units(&captured.resolution) {
                 return Err(invalid(
                     "compiler-unit selection changed after resolution; explicitly re-resolve before listing",
                 ));
@@ -878,7 +859,7 @@ pub(crate) fn suite_selection_complete(suite: &nextest_metadata::RustTestSuiteSu
             && suite.test_cases.is_empty())
 }
 
-fn validate_listing(
+pub(crate) fn validate_listing(
     binaries: &BinaryListSummary,
     listing: &TestListSummary,
     ignored: IgnoredPolicy,

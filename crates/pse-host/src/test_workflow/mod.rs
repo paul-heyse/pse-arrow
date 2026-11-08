@@ -273,8 +273,7 @@ impl Context {
                     .all(|(left, right)| {
                         left.arguments == right.arguments
                             && left.native_capabilities == right.native_capabilities
-                            && left.units.len() == right.units.len()
-                            && left.units.iter().all(|unit| right.units.contains(unit))
+                            && left.same_units(right)
                     })
         });
         if !same {
@@ -405,6 +404,15 @@ pub(crate) fn matches_requirement(
 ) -> bool {
     requirement.group() == identity.group
         && requirement.package_id() == identity.package_id
+        && matches_requirement_target(requirement, artifact)
+        && requirement.applies_to_test(&identity.test_name)
+}
+
+fn matches_requirement_target(
+    requirement: &Requirement,
+    artifact: &cargo_metadata::Artifact,
+) -> bool {
+    requirement.package_id() == artifact.package_id.repr
         && requirement.target_name() == artifact.target.name
         && requirement.unit().source_path == artifact.target.src_path.as_str()
         && requirement.unit().target_kinds.len() == artifact.target.kind.len()
@@ -414,7 +422,6 @@ pub(crate) fn matches_requirement(
             .iter()
             .zip(&artifact.target.kind)
             .all(|(expected, actual)| expected == &actual.to_string())
-        && requirement.applies_to_test(&identity.test_name)
 }
 
 pub(crate) fn selected_target_owned_fixture(
@@ -714,9 +721,7 @@ impl Listed {
             pending: vec!["external_runtime_readiness", "physical_settlement"],
         }
     }
-    /// Build an ordinary native reused-binary request. No Cargo build-scope flags are forwarded
-    /// to reused execution: native metadata owns that scope, while profile/filter policy is exact.
-    pub fn command(&self, group: usize) -> Result<GroupCommand, WorkflowError> {
+    fn verify_reuse_inputs(&self) -> Result<(), WorkflowError> {
         self.context.verify()?;
         for control in &self.controls {
             if digest(&control.path)? != control.digest {
@@ -724,6 +729,12 @@ impl Listed {
             }
         }
         self.inventory.verify_executables()?;
+        Ok(())
+    }
+    /// Build an ordinary native reused-binary request. No Cargo build-scope flags are forwarded
+    /// to reused execution: native metadata owns that scope, while profile/filter policy is exact.
+    pub fn command(&self, group: usize) -> Result<GroupCommand, WorkflowError> {
+        self.verify_reuse_inputs()?;
         let listed = self
             .inventory
             .groups

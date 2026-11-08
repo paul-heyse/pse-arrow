@@ -548,8 +548,9 @@ mod command {
                         "fixture settlement clock overflow",
                     ))?;
             use pse_host::study_module::Variant;
-            let qualification = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_QUALIFICATION_RECEIPT");
-            let long_hold = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_LONG_HOLD_RECEIPT");
+            let qualification =
+                std::env::var_os(pse_host::fixtures::QUALIFICATION_MODULE_RECEIPT_ENV);
+            let long_hold = std::env::var_os(pse_host::fixtures::LONG_HOLD_MODULE_RECEIPT_ENV);
             let selected = match (qualification, long_hold) {
                 (Some(_), Some(_)) => {
                     return Err(NativeServiceError::Refused(

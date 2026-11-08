@@ -391,6 +391,18 @@ fn zero_exit_is_not_artifact_capture_and_unit_source_feature_identity_must_match
         .features
         .insert("newly-activated-feature".into());
     assert!(require_same_compiler_context(&admitted, &changed_context).is_err());
+
+    let mut admitted_multiple = admitted.clone();
+    let host = admitted_multiple.units[0].clone();
+    let mut target = host.clone();
+    target.platform = Some("target".into());
+    admitted_multiple.units = vec![host.clone(), host.clone(), target.clone()];
+    let mut captured_multiple = admitted_multiple.clone();
+    captured_multiple.units.rotate_right(1);
+    require_same_compiler_context(&admitted_multiple, &captured_multiple).unwrap();
+    captured_multiple.units = vec![target.clone(), host, target];
+    assert!(require_same_compiler_context(&admitted_multiple, &captured_multiple).is_err());
+
     build.resolution.units[0].package_id = "different-source".into();
     assert!(select_executable(&build, &selected.directory, root.path()).is_err());
     build.resolution.units[0].package_id = "xtask-id".into();

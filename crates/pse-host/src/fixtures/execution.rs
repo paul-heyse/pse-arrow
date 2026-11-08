@@ -150,6 +150,36 @@ impl ExecutionInputs {
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
         let mut module = None;
         for &input in &demand {
+            if let Some((variable, other, variant)) = qualification_module(input) {
+                let result = if environment.contains_key(OsStr::new(other))
+                    || demand.iter().any(|&selected| {
+                        selected != input && qualification_module(selected).is_some()
+                    }) {
+                    Err(invalid(
+                        "select one exact Study qualification variant per invocation",
+                    ))
+                } else {
+                    environment
+                        .get(OsStr::new(variable))
+                        .ok_or(FixtureError::Unprepared(input))
+                        .and_then(|path| {
+                            study_module::select(Path::new(path), variant).map_err(Into::into)
+                        })
+                };
+                match result {
+                    Ok(receipt) => {
+                        states.insert(
+                            input,
+                            InputState::Selected {
+                                path: receipt.record(),
+                                identity: receipt.sha256.clone(),
+                            },
+                        );
+                    }
+                    Err(cause) => record_refusal(&mut states, &mut failures, input, cause),
+                }
+                continue;
+            }
             if input == Input::NativeLane {
                 match native_lane::selected_for_run(root, environment) {
                     Ok(Some(selected)) => {
@@ -437,6 +467,17 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
+        for (input, variable) in [
+            (
+                Input::QualificationStudyModule,
+                QUALIFICATION_MODULE_RECEIPT_ENV,
+            ),
+            (Input::LongHoldStudyModule, LONG_HOLD_MODULE_RECEIPT_ENV),
+        ] {
+            if !demand.contains(&input) {
+                command.environment.remove(OsStr::new(variable));
+            }
+        }
         if demand.contains(&Input::NativeLane)
             && let Some(selected) = &self.native_lane
         {
@@ -597,10 +638,30 @@ fn recorded_module_selected(environment: &Environment) -> bool {
         && environment.contains_key(OsStr::new("PSE_NATIVE_FIXTURE_MODULE_STATE"))
 }
 
+fn qualification_module(
+    input: Input,
+) -> Option<(&'static str, &'static str, study_module::Variant)> {
+    match input {
+        Input::QualificationStudyModule => Some((
+            QUALIFICATION_MODULE_RECEIPT_ENV,
+            LONG_HOLD_MODULE_RECEIPT_ENV,
+            study_module::Variant::Qualification,
+        )),
+        Input::LongHoldStudyModule => Some((
+            LONG_HOLD_MODULE_RECEIPT_ENV,
+            QUALIFICATION_MODULE_RECEIPT_ENV,
+            study_module::Variant::LongHold,
+        )),
+        _ => None,
+    }
+}
+
 fn original_input_variable(input: Input, environment: &Environment) -> Option<&'static str> {
     match input {
         Input::Server
         | Input::StudyModule
+        | Input::QualificationStudyModule
+        | Input::LongHoldStudyModule
         | Input::ServiceHelper
         | Input::Worker
         | Input::ScientificInputs

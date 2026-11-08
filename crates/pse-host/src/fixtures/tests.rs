@@ -166,6 +166,54 @@ fn study_module_readiness_hint_selects_checkout_pointer_preparation_without_effe
 }
 
 #[test]
+fn study_qualification_readiness_requires_the_exact_variant_before_preparation() {
+    let scratch = tempfile::tempdir().unwrap();
+    let destination = scratch.path().join("must-not-be-created");
+    let mut required = requirement();
+    for (input, variable, other, hint) in [
+        (
+            Input::QualificationStudyModule,
+            QUALIFICATION_MODULE_RECEIPT_ENV,
+            LONG_HOLD_MODULE_RECEIPT_ENV,
+            &["just", "surreal-module", "--qualification"][..],
+        ),
+        (
+            Input::LongHoldStudyModule,
+            LONG_HOLD_MODULE_RECEIPT_ENV,
+            QUALIFICATION_MODULE_RECEIPT_ENV,
+            &["just", "surreal-module", "--qualification", "--long-hold"][..],
+        ),
+    ] {
+        required.declaration.inputs = BTreeSet::from([input]);
+        let assess = |environment: &BTreeMap<OsString, OsString>| {
+            ExecutionInputs::assess(scratch.path(), environment, std::slice::from_ref(&required))
+        };
+        let unrelated_receipt = BTreeMap::from([(
+            "PSE_NATIVE_FIXTURE_MODULE_RECEIPT".into(),
+            "/original/production-module.json".into(),
+        )]);
+        let missing = assess(&unrelated_receipt);
+        let InputState::Unprepared { next, .. } = &missing.observations()[0].inputs[&input] else {
+            panic!("a production module cannot satisfy a qualification input");
+        };
+        assert_eq!(next, hint);
+        assert!(missing.prepare(&destination).is_err());
+
+        let both = BTreeMap::from([
+            (variable.into(), "/original/selected-module.json".into()),
+            (other.into(), "/original/other-module.json".into()),
+        ]);
+        let refused = assess(&both);
+        assert!(matches!(
+            refused.observations()[0].inputs[&input],
+            InputState::Refused { .. }
+        ));
+        assert!(refused.prepare(&destination).is_err());
+    }
+    assert!(!destination.exists());
+}
+
+#[test]
 fn unsupported_evidence_input_refuses_before_preparation_or_service_effects() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");

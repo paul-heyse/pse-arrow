@@ -38,6 +38,15 @@ fn adapter_at(root: &Path, executable: impl AsRef<std::ffi::OsStr>) -> Command {
     command
         .current_dir(root)
         .env("PSE_TEST_CHECKOUT", &checkout)
+        .env(
+            "PSE_TEST_NEXTEST_PIN",
+            toml::from_str::<toml::Value>(
+                &fs::read_to_string(checkout.join(".config/diagnostic-tools.toml")).unwrap(),
+            )
+            .unwrap()["cargo-tools"]["cargo-nextest"]
+                .as_str()
+                .unwrap(),
+        )
         .env("RUSTC", tool("rustc"))
         .env("RUSTDOC", tool("rustdoc"))
         .env("CARGO", root.join("cargo"))
@@ -241,6 +250,7 @@ fn native_correctness_nextest_build_adapter_receives_translated_cargo_argv() {
     executable(
         &root.path().join("cargo-nextest"),
         r#"#!/bin/sh
+[ "$1" != --version ] || { printf 'cargo-nextest %s\n' "$PSE_TEST_NEXTEST_PIN"; exit 0; }
 [ "$1" = nextest ] && [ "$2" = list ] || exit 98
 [ "$CARGO" = "$PSE_CORRECTNESS_EXECUTABLE" ] || exit 99
 [ -z "${NEXTEST_TEST_PHASE+x}" ] || exit 95
@@ -262,6 +272,45 @@ exec "$CARGO" --color=always test --no-run --message-format=json --lib
     assert_eq!(calls.matches("--no-run").count(), 2);
     assert_eq!(calls.matches("--lib").count(), 2);
     assert_eq!(calls.matches("--unit-graph").count(), 1);
+}
+
+#[test]
+fn native_correctness_refuses_unprepared_wrong_or_changed_nextest() {
+    let root = tempfile::tempdir().unwrap();
+    pure_cargo(root.path(), 1);
+    let runner = root.path().join("cargo-nextest");
+    let run = || {
+        adapter(root.path())
+            .env("PATH", root.path())
+            .args(["nextest", "list", "--lib"])
+            .output()
+            .unwrap()
+    };
+    let missing = run();
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("unprepared"));
+    executable(&runner, "#!/bin/sh\nprintf 'cargo-nextest 0.0.0\\n'\n");
+    let wrong = run();
+    assert_eq!(wrong.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&wrong.stderr).contains("declared version"));
+    executable(
+        &runner,
+        r#"#!/bin/sh
+if [ "$1" = --version ]; then
+    /bin/chmod u+w "$0"
+    printf '\n# substituted\n' >> "$0"
+    printf 'cargo-nextest %s\n' "$PSE_TEST_NEXTEST_PIN"
+    exit 0
+fi
+printf 'runner launched\n'
+"#,
+    );
+    let changed = run();
+    assert_eq!(changed.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&changed.stderr).contains("differs from its original identity")
+    );
+    assert!(changed.stdout.is_empty());
 }
 #[test]
 fn native_correctness_version_requires_no_cargo_or_source_graph() {

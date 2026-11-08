@@ -1089,8 +1089,7 @@ fn require_same_compiler_context(
     if before.arguments != after.arguments
         || before.packages != after.packages
         || before.native_capabilities != after.native_capabilities
-        || before.units.len() != after.units.len()
-        || before.units.iter().any(|unit| !after.units.contains(unit))
+        || !before.same_units(after)
     {
         return Err(invalid(
             "native tool compiler-unit selection changed during construction; explicitly re-resolve",

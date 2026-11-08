@@ -54,6 +54,11 @@ pub enum FixtureSelection {
 pub const PREDECESSOR_MODULE_RECEIPT_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_RECEIPT";
 /// Existing deployment state carrying its originally admitted predecessor artifact.
 pub const PREDECESSOR_MODULE_STATE_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE";
+/// Explicit ordinary Study qualification companion receipt.
+pub const QUALIFICATION_MODULE_RECEIPT_ENV: &str =
+    "PSE_NATIVE_FIXTURE_MODULE_QUALIFICATION_RECEIPT";
+/// Explicit long-hold Study qualification companion receipt.
+pub const LONG_HOLD_MODULE_RECEIPT_ENV: &str = "PSE_NATIVE_FIXTURE_MODULE_LONG_HOLD_RECEIPT";
 
 /// Original runner and fixture facts, published by the existing canonical fixture owner.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -89,6 +94,10 @@ pub enum Input {
     Server,
     /// Production module receipt, or original recorded module state admitted by the service owner.
     StudyModule,
+    /// Separately prepared qualification companion for selected Study controls.
+    QualificationStudyModule,
+    /// Separately prepared long-hold companion for the Study capacity control.
+    LongHoldStudyModule,
     /// Source-built pse-canonical-service helper, retained by its artifact owner.
     ServiceHelper,
     /// Source-built product worker retained in original observations.
@@ -149,15 +158,17 @@ impl TestScope {
     pub fn contains(&self, test: &str) -> bool {
         self.is_whole_target()
             || self.tests.contains(test)
-            || self.modules.iter().any(|module| {
-                test.strip_prefix(module)
-                    .is_some_and(|suffix| suffix.starts_with("::"))
-            })
+            || self.modules.iter().any(|module| in_module(test, module))
     }
     /// Before listing, a narrower scope remains conditional rather than known selected.
     pub fn is_whole_target(&self) -> bool {
         self.tests.is_empty() && self.modules.is_empty()
     }
+}
+
+fn in_module(test: &str, module: &str) -> bool {
+    test.strip_prefix(module)
+        .is_some_and(|suffix| suffix.starts_with("::"))
 }
 
 /// Wire declaration owned once by `package.metadata.pse.test-fixtures`.
@@ -221,6 +232,35 @@ impl Requirement {
     /// Narrow only after an actual harness test ID is available.
     pub fn applies_to_test(&self, exact_id: &str) -> bool {
         self.declaration.scope.contains(exact_id)
+    }
+
+    /// Check authored names against the complete native harness population, including exclusions.
+    pub(crate) fn validate_test_scope<'a>(
+        &self,
+        cases: impl Iterator<Item = &'a str> + Clone,
+    ) -> Result<(), FixtureError> {
+        let scope = &self.declaration.scope;
+        let missing_test = scope
+            .tests
+            .iter()
+            .find(|name| !cases.clone().any(|case| case == name.as_str()));
+        let missing_module = scope
+            .modules
+            .iter()
+            .find(|module| !cases.clone().any(|case| in_module(case, module)));
+        if let Some((kind, name)) = missing_test
+            .map(|name| ("case", name))
+            .or_else(|| missing_module.map(|name| ("module", name)))
+        {
+            return Err(invalid(format!(
+                "fixture {} for {}:{} in compiler group {} names absent test {kind} {name:?}",
+                self.declaration.id,
+                self.package_id(),
+                self.target_name(),
+                self.group,
+            )));
+        }
+        Ok(())
     }
 }
 
@@ -474,6 +514,8 @@ fn prepare(input: Input) -> Vec<String> {
     let args: &[&str] = match input {
         Input::Server => &["scripts/pse-host", "server", "prepare"],
         Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
+        Input::QualificationStudyModule => &["just", "surreal-module", "--qualification"],
+        Input::LongHoldStudyModule => &["just", "surreal-module", "--qualification", "--long-hold"],
         Input::NativeLane => &["scripts/pse-host", "fixture", "prepare", "native-lane"],
         _ => &[],
     };

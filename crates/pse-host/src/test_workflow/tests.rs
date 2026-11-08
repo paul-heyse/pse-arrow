@@ -4,7 +4,7 @@ use super::*;
 use serde_json::json;
 use std::os::unix::fs::PermissionsExt;
 
-fn intent() -> (tempfile::TempDir, Intent) {
+pub(super) fn intent() -> (tempfile::TempDir, Intent) {
     let root = tempfile::tempdir().unwrap();
     fs::create_dir(root.path().join("src")).unwrap();
     fs::write(
@@ -268,7 +268,7 @@ fn rerun_verification_preserves_exact_source_feature_identity_and_capture_guards
     .unwrap();
     assert!(source::verify_rerun(&listed.inventory).is_err());
 }
-fn listed(intent: Intent) -> Listed {
+pub(super) fn listed(intent: Intent) -> Listed {
     let resolved = intent
         .plan
         .clone()

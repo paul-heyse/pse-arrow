@@ -75,6 +75,17 @@ threads-required = 2
 slow-timeout = { period = "300s", terminate-after = 6 }
 
 [[profile.default.overrides]]
+# The expiry control requires all controllers on the borrowed qualification server.
+# Other qualification cases use that same pool only while the expiry control is absent.
+filter = 'test(=canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_pool_original_expiry_cannot_start_late)'
+test-group = "store"
+threads-required = 16
+
+[[profile.default.overrides]]
+filter = 'test(/^canonical_studies::canonical_studies_server_unit::surrealism_qualification::/)'
+test-group = "store"
+
+[[profile.default.overrides]]
 # This original scientific closure has untimed preparation followed by a bounded
 # 1800-second derivative-condition and material-response job on one worker.
 filter = 'test(original_pr_case_derivatives_satisfy_production_basis_conditions)'

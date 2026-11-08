@@ -292,12 +292,7 @@ fn unlisted_builds(
                 || !build.incomplete.is_empty()
                 || build.resolution.packages != admitted.packages
                 || build.resolution.native_capabilities != admitted.native_capabilities
-                || build.resolution.units.len() != admitted.units.len()
-                || !build
-                    .resolution
-                    .units
-                    .iter()
-                    .all(|unit| admitted.units.contains(unit))
+                || !build.resolution.same_units(admitted)
             {
                 return Err(host(invalid(
                     "failed discovery compiler capture differs from its original admitted group",

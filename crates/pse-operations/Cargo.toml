@@ -137,7 +137,6 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = [
   "canonical::canonical_server_unit",
-  "canonical::migration::legacy_capture::tests",
   "canonical_analyses::canonical_analyses_server_unit",
   "canonical_analyses::race_tests",
   "canonical_artifacts::canonical_artifact_tests",
@@ -181,12 +180,35 @@ scope.tests = [
 ]
 
 [[package.metadata.pse.test-fixtures]]
+id = "study-module-qualification"
+target = "pse_operations"
+kind = "lib"
+ownership = "preparation-only"
+inputs = ["qualification-study-module"]
+scope.tests = [
+  "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_faults_rollback_and_recover",
+  "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_pool_original_expiry_cannot_start_late",
+  "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_cancelled_apply_settles_original_receipt",
+]
+
+[[package.metadata.pse.test-fixtures]]
+id = "study-module-long-hold"
+target = "pse_operations"
+kind = "lib"
+ownership = "preparation-only"
+inputs = ["long-hold-study-module"]
+scope.tests = [
+  "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_global_capacity_survives_source_churn",
+]
+
+[[package.metadata.pse.test-fixtures]]
 id = "maintenance-borrowed"
 target = "pse_operations"
 kind = "lib"
 required-features = ["canonical-maintenance"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["canonical::migration::legacy_capture::tests"]
 scope.tests = [
   "canonical::maintenance::tests::generated_maintenance_pages_fence_generations_and_replay_exact_effects",
   "canonical::maintenance::tests::native_maintenance_event_catalog_roundtrips_and_refuses_changed_or_extra_events",

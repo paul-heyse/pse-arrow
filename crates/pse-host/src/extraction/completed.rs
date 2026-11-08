@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Native completed-report reconciliation; no test-event lifecycle is reconstructed.
-use super::{ExtractionError, NextestExitClass, NextestOutcome, NextestSetup, NextestSummary};
+use super::{
+    ExtractionError, NextestExitClass, NextestOutcome, NextestSetup, NextestSummary,
+    TargetSetupRefusal,
+};
 use crate::{
     discovery::{Inventory, TestIdentity},
     selection::IgnoredPolicy,
@@ -35,6 +38,8 @@ pub struct NativeFailure {
     pub message: Option<String>,
     /// Native XML assertion description, independent of raw stream bytes.
     pub description: Option<String>,
+    /// Distinct target-owned setup refusal phases. These attempts never reached assertions.
+    pub target_setup_refusals: Vec<TargetSetupRefusal>,
 }
 /// Captured population and invocation-private report location.
 #[derive(Debug)]
@@ -44,6 +49,7 @@ pub struct CompletedReport {
     known: BTreeSet<(String, String)>,
     ignored_policy: IgnoredPolicy,
     fixture_outcome: Option<PathBuf>,
+    target_owned: BTreeSet<TestIdentity>,
 }
 impl CompletedReport {
     /// Original invocation-owned report location, available even when publication fails.
@@ -53,6 +59,11 @@ impl CompletedReport {
     /// Require the original borrowing fixture owner's result separately from the wrapper exit.
     pub fn with_fixture_outcome(mut self, path: PathBuf) -> Self {
         self.fixture_outcome = Some(path);
+        self
+    }
+    /// Accept setup evidence only for selected cases already matched to a performing owner.
+    pub(crate) fn with_target_owned(mut self, cases: BTreeSet<TestIdentity>) -> Self {
+        self.target_owned = cases;
         self
     }
     /// Bind the observed native population before execution.
@@ -115,6 +126,7 @@ impl CompletedReport {
             known,
             ignored_policy,
             fixture_outcome: None,
+            target_owned: BTreeSet::new(),
         })
     }
     /// Interpret completed evidence after raw capture and original wait, retaining native exit.
@@ -128,7 +140,9 @@ impl CompletedReport {
         let mut failed = Vec::new();
         let mut failures = Vec::new();
         let mut retries = Vec::new();
-        let mut setup_failed = false;
+        let mut runner_setup_failed = false;
+        let mut target_setup_failed = false;
+        let mut native_test_failed = false;
         let mut error = None;
         let decoded = File::open(&self.path)
             .map(BufReader::new)
@@ -147,7 +161,7 @@ impl CompletedReport {
             Ok(report) => {
                 for suite in report.test_suites {
                     if suite.name.as_str().starts_with("@setup-script:") {
-                        setup_failed |= suite
+                        runner_setup_failed |= suite
                             .test_cases
                             .iter()
                             .any(|case| matches!(case.status, TestCaseStatus::NonSuccess { .. }));
@@ -214,11 +228,38 @@ impl CompletedReport {
                                 ..
                             } => {
                                 failed.push(identity.clone());
+                                let mut target_setup_refusals = Vec::new();
+                                if self.target_owned.contains(identity) {
+                                    let outputs = std::iter::once((
+                                        case.system_out.as_ref(),
+                                        case.system_err.as_ref(),
+                                    ))
+                                    .chain(
+                                        reruns.runs.iter().map(|run| {
+                                            (run.system_out.as_ref(), run.system_err.as_ref())
+                                        }),
+                                    );
+                                    for (stdout, stderr) in outputs {
+                                        if let Some(refusal) =
+                                            TargetSetupRefusal::from_captured_output(stdout, stderr)
+                                        {
+                                            target_setup_failed = true;
+                                            if !target_setup_refusals.contains(&refusal) {
+                                                target_setup_refusals.push(refusal);
+                                            }
+                                        } else {
+                                            native_test_failed = true;
+                                        }
+                                    }
+                                } else {
+                                    native_test_failed = true;
+                                }
                                 failures.push(NativeFailure {
                                     identity: identity.clone(),
                                     report: self.path.clone(),
                                     message: message.map(|value| value.as_str().to_owned()),
                                     description: description.map(|value| value.as_str().to_owned()),
+                                    target_setup_refusals,
                                 });
                                 if !reruns.runs.is_empty() {
                                     retries.push(RetrySummary {
@@ -262,10 +303,10 @@ impl CompletedReport {
             && fixture_settled != Some(false);
         let child_class =
             native_child_exit.map_or(NextestExitClass::Other, NextestExitClass::classify);
-        let setup_failed = setup_failed || matches!(child_class, NextestExitClass::SetupFailed);
-        let outcome = if setup_failed {
+        runner_setup_failed |= matches!(child_class, NextestExitClass::SetupFailed);
+        let outcome = if runner_setup_failed || target_setup_failed && !native_test_failed {
             NextestOutcome::SetupFailed
-        } else if !failed.is_empty() || matches!(child_class, NextestExitClass::TestsFailed) {
+        } else if native_test_failed || matches!(child_class, NextestExitClass::TestsFailed) {
             NextestOutcome::TestFailed
         } else if selected == 0 {
             NextestOutcome::ZeroMatch
@@ -276,8 +317,10 @@ impl CompletedReport {
         } else {
             NextestOutcome::Incomplete
         };
-        let setup = if setup_failed {
+        let setup = if runner_setup_failed {
             NextestSetup::FailedByRunner
+        } else if target_setup_failed {
+            NextestSetup::FailedByTargetOwner
         } else if parsed && native_child_exit == Some(0) {
             NextestSetup::SucceededByRunner
         } else {

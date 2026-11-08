@@ -236,14 +236,14 @@ fn foreground_controller_sigkill_drains_escaped_descendants() {
 // boundary. Its dispatch flag supplies data only: start_service_bound verifies
 // actual manager/kernel containment before granting service launch authority.
 #[test]
+#[ignore = "subprocess entry owned by the marked foreground controls"]
 #[allow(
     clippy::exit,
     reason = "The separate owned-process fixture must preserve a specific subprocess exit status"
 )]
 fn ordinary_bound_service_fixture() {
-    let Some(directory) = std::env::var_os("PSE_FOREST_FIXTURE_DIRECTORY") else {
-        return;
-    };
+    let directory = std::env::var_os("PSE_FOREST_FIXTURE_DIRECTORY")
+        .expect("foreground subprocess requires its original fixture directory");
     let directory = std::path::PathBuf::from(directory);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -381,7 +381,12 @@ fn foreground_bound_service_preserves_literal_arguments_environment_and_executab
         .env("PSE_FOREST_FIXTURE_LITERAL", "1")
         .args(["boundary", "--"])
         .arg(std::env::current_exe().unwrap())
-        .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
+        .args([
+            "--exact",
+            "ordinary_bound_service_fixture",
+            "--ignored",
+            "--nocapture",
+        ]);
     let mut child = Guard::top_level(&mut command);
     let result = child.wait().unwrap();
     let mut errors = String::new();
@@ -401,7 +406,12 @@ fn bound_service_forest(signal: Option<rustix::process::Signal>) {
         .env("PSE_FOREST_FIXTURE_DIRECTORY", temp.path())
         .args(["boundary", "--"])
         .arg(std::env::current_exe().unwrap())
-        .args(["--exact", "ordinary_bound_service_fixture", "--nocapture"]);
+        .args([
+            "--exact",
+            "ordinary_bound_service_fixture",
+            "--ignored",
+            "--nocapture",
+        ]);
     let mut child = Guard::top_level(&mut command);
     wait_file(&temp.path().join("ready"));
     let ready = fs::read_to_string(temp.path().join("ready")).unwrap();
