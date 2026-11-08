@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [repository-wide test efficiency review](plan70-repository-test-efficiency-2026-11-08.md)
+assesses the full first-party test population against Plan70 and the efficiency principles.
+It proposes narrower compiler and fixture work, proportionate conformance report capacity,
+and improvements to generated-output verification and hosted setup. It evaluates Rust build
+reuse alongside the costs of fresh test execution and identifies the owners of each proposal.
+
 The [Plan 69 SurrealDB and Rust tooling review](plan69-surrealdb-and-rust-tooling-2026-11-08.md)
 assesses three SurrealDB guides and the full Rust analyzer corpus against the remaining CLI
 work. It separates live fixture verification from rollout ownership and proposes improvements
