@@ -137,25 +137,54 @@ that alter the compiled target population.
 
 ## Execution checkpoint
 
+Reconciled on 2026-11-08 against the combined implementation and subsequent Cargo coordination
+through `7b40ccee4`. The packages remain open for their outstanding receiving and specialist checks.
+
 **Implemented.** A01 analyzes the reached unit graph once for each admitted argument set
 and compares complete unit records at the existing receiving boundaries. The generic
 Nextest route verifies the checkout pin on an invocation-private captured executable and
 checks those bytes again before dispatch. Managed discovery uses the same pin interpretation.
+
+**Tested.** The reference walk agreed on pure, Arrow and workspace root decisions. In the
+128-root workspace selection, the prior walks visited 186,960 edges and the reached-union
+analysis visited 8,852. These are structural counts. The default managed
+`pse-host:correctness` selection passed 14 `native_correctness_` controls, and the targeted
+`pse-columnar` doctest selection passed all three cases against a zero-failure baseline.
+`ae069ea7d` adds a real pinned Cargo and rustdoc control with a local Arrow-shaped dev leaf.
+The ordinary library check succeeded, the omitted validation leaf refused before execution,
+and the corrected feature route executed the doctest. The exact managed rerun
+`01a1bba8-2119-7764-bd18-45a59a88b7f1` passed with zero failures. The focused host batch
+also passed the prepared xtask receiving substitution control.
+The combined managed host run passed 47 of 48 cases. The target-owned settlement test
+failed on temporary-directory permissions. Its directory setup was corrected in `ca1eaa011`.
+The exact failed-selection rerun `01a1bba4-7c9f-7469-a6a1-180a5a455e2a` verified that correction
+with zero failures and complete settlement. See [B03](70b-fixtures-and-process-ownership.md#b03)
+for the physical receiving controls.
 
 **Implemented.** A02 associates prerequisites with exact cases and rejects a stale declared
 scope or incompatible performing owners before fixture preparation. A native listing can
 enumerate a skipped suite for declaration validation. Only the original listing authorizes
 execution. A typed setup refusal from a selected native service target stays distinct from
 an assertion failure and from physical settlement. The Park and foreground helpers are
-child-only entries with explicit parent markers.
+child-only entries with explicit parent markers. The later default managed host selection
+passed 11 queue and nested workflow controls with zero failures. That run exercised selection,
+setup refusal and exact rerun on isolated Cargo fixtures. B03's live receiving checks establish
+the original target-owned drain and the separate assertion verdict.
 
 **Interface-checked.** A03 traced the named scientific group to Nextest scheduling within
 one invocation. Fresh borrowed runs construct their own private server; their child cases
 use isolated UUID databases on that server. Target-owned lifecycle cases construct or reopen
 their own private service state. The qualification expiry case saturates its own server's
 controller pool and uses the store group within that run to keep competing cases out.
-Cross-invocation same-effect overlap and cancellation remain for the B02 receiving check.
-That check will determine whether any genuinely shared owner needs a narrow exclusion claim.
+**Implemented.** The native service integration target has a rendezvous control for two
+independent invocations on private servers. The pair `01a1bbaf-d7cc-7614-9877-a4e452a1770e`
+and `01a1bbb0-1e35-73e5-9d58-fce065dc2062` passed with reciprocal rendezvous, distinct
+services and complete settlement. The live native selection also passed the existing owner
+checks for a foreign listener collision and original-attempt cancellation after admission closed.
+The interrupted invocation with unresolved physical drain remains a separate receiving check.
+Cargo output admission in
+`82f578fa6` coordinates compilation. This inquiry concerns native effects after build and fixture
+preparation.
 [Nextest policy](../../.config/nextest.toml) ·
 [Borrowing owner](../../crates/pse-operations/src/native_fixture.rs) ·
 [Service owner](../../crates/pse-operations/src/native_service.rs)
@@ -163,9 +192,18 @@ That check will determine whether any genuinely shared owner needs a narrow excl
 **Implemented.** A04 selects the locked reference interpreter, separates reference-only,
 solver and native-contract controls, and restores the direct pinned Miri route. The Study
 qualification cases require the corresponding companion receipt separately from production
-module borrowing. [Operator routes](../dev/validation-assessment.md#individual-commands)
+module borrowing. The default managed arbitrary AST selection passed its one case with
+`pse-authoring/arbitrary`, and `just reference-unit` passed 15 solver-free controls.
+`just reference-solver-unit` passed four locked Ipopt reference controls. The initial
+Miri run passed three cases before interruption during the large logical-description case.
+`8aebd0544` moved that stress case out of the focused local selection. The focused rerun
+was interrupted before execution. The standard qualification receipt was prepared. Long-hold
+preparation encountered changing source inputs and still needs a current receipt.
+[Operator routes](../dev/validation-assessment.md#individual-commands)
 
+Resume with the interrupted-owner custody control, focused Miri selection, and the standard
+and long-hold Study routes with current receipts.
 The four parity exchanges still require D02's actual performing solver admission. Ordinary
-compiler and modeling capsule migration still needs E01's selected authored closure.
-The physical qualification and cross-invocation cancellation checks still need B02's
-deadline and drain contract. The staged-receipt cases retain their explicit capture route.
+compiler and modeling capsule migration still needs E01's selected authored closure. The staged
+receipt cases retain their explicit capture route. Run build-bearing checks one at a time in the
+shared checkout or combine compatible selectors under one Cargo invocation.

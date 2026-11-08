@@ -1,6 +1,6 @@
 ---
 title: "Plan70b: Fixtures and process ownership"
-status: planned
+status: in-progress
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -138,8 +138,49 @@ deadline and settlement meanings for the real-clock case (AP-06, DP-23, H21, H24
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [B01](#b01) | planned | Existing process owner and pinned platform primitives | Selected capture mechanism with bounded-stream, overflow and original drain evidence, or explicit gate on B02's capture slice. |
-| [B02](#b02) | planned | B01 for stream capture, actual service and runner deadline contracts | Shared work/capture and settlement contract, targeted success, overflow and interrupted-drain controls, and selected profile budget correspondence. |
-| [B03](#b03) | planned | Existing client and connection owner, B02 for new settlement receiving | Real protection cleanup and target-owned release evidence. Remove replaced fixture seams and duplicated constructors with their consumers. |
-| [B04](#b04) | planned | B02 for bounded seed and interruption cases, A02 for marked runner cases | Existing wrong-reason, cancellation, restore, private-policy and real-manager controls. SurrealKit preserves exact case and drain evidence, records the negative-selection decision and bounds report admission. |
-| [B05](#b05) | planned | Existing scientific worker controls, B02 settlement contract for physical receiving | Phase-controlled ordering and failure witnesses, with a real-clock deadline witness that observes active work, reap and release. |
+| [B01](#b01) | complete | Existing process owner and pinned platform primitives | Selected capture mechanism with bounded-stream, overflow and original drain evidence. |
+| [B02](#b02) | in-progress | B01 for stream capture, actual service and runner deadline contracts | Shared work/capture and settlement contract, targeted success, overflow and interrupted-drain controls, and selected profile budget correspondence. |
+| [B03](#b03) | complete | Existing client and connection owner, B02 for new settlement receiving | Real protection cleanup and target-owned release evidence. Remove replaced fixture seams and duplicated constructors with their consumers. |
+| [B04](#b04) | in-progress | B02 for bounded seed and interruption cases, A02 for marked runner cases | Existing wrong-reason, cancellation, restore, private-policy and real-manager controls. SurrealKit preserves exact case and drain evidence, records the negative-selection decision and bounds report admission. |
+| [B05](#b05) | in-progress | Existing scientific worker controls, B02 settlement contract for physical receiving | Phase-controlled ordering and failure witnesses, with a real-clock deadline witness that observes active work, reap and release. |
+
+## Execution checkpoint
+
+**Implemented and tested.** B01 selected nonblocking pipes and `poll` inside `SupervisedChild`
+in `e5215a46b`. The owner records retained bytes, overflow, pipe completion, child exit and
+group reap separately. The default managed `pse-diagnostics --lib` supervisor selection passed
+14 controls with zero failures, including both-stream overflow after exit zero, an inherited
+writer, and unresolved pipe completion after group reap.
+
+**Implemented.** B02 and B03 landed in `ca1eaa011`. The native service separates work and
+settlement cutoffs. Target-owned capture release consumes the original attempt's drain witness.
+Borrowed protection cleanup now follows the production connection executor, replacing the
+fixture cleanup executor substitution. Shared service construction serves the migrated cases.
+`pse check pse-operations --all-targets -F pse-operations/native-service` passed with zero
+failures after the native integration target's borrow-check errors were corrected. The default
+native-service selections passed the work-cutoff reserve, real panic and drain, caller-drop and
+sibling protection controls. The deliberately failing assertion reached its named failure after
+physical drain. Its original report remained available and all five eligible captured executables
+were released. The focused host release checks refused incomplete original settlement evidence.
+`e2d00ba59` replaced an unopened-schema inventory query with fresh non-creating catalog reads.
+The three logical controls passed with zero failures and complete settlement in
+`01a1bbb0-da65-70b2-9efe-d9c866f7c387`.
+[Exact host settlement rerun](70a-selection-and-execution.md#execution-checkpoint)
+
+**Implemented with bounded evidence.** B04 uses the bounded child owner and validates report
+extent before decode. The seed-mutation route selects the `seed-mutation` tag and checks the
+two exact identities `authored_seed_is_visible` and `decimal_u64_exact`. The 19-case positive
+route remains. Four selected `pse-host:foreground` controls passed under the default Nextest
+profile with zero failures. They cover literal argument and environment transfer, ordinary
+drain, and controller SIGKILL recovery before and after exec. The resumed default Nextest
+`pse-operations:native_service` selection passed four cases with zero failures in
+`01a1bbad-a153-765c-a96b-ffb03e7699ac`. It included the live SurrealKit seed selection,
+wrong-reason, rollout and interruption checks with complete settlement. Both selected
+`pse-host:native` preparation cancellation controls passed in `01a1bbb1-da0a-743d-89f6-ddac69a47ab9`.
+Repeated-analysis timeout and drain evidence remains open under B02.
+
+**Implemented.** B05 replaces ordering polls with dispatch, close and reap observations in
+`c8efe19ab`. It retains the real-clock deadline control. The CoolProp-enabled build finished,
+but the workflow detected a changed `Cargo.lock` and refused execution. Rerun the selected
+phase, cancellation and real-deadline controls on stable inputs, including original reap and
+admission release.

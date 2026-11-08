@@ -1,6 +1,6 @@
 ---
 title: "Plan70c: Test support and contract evidence"
-status: planned
+status: in-progress
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -98,8 +98,8 @@ Keep the selected SurrealDB 4.0.0 transaction and canonical gRPC path for the ph
 `apply_receipt` owns the exact-operation `SELECT` readback and verifies the returned receipt
 against the original request. The transaction supplies the commit boundary. PSE owns original
 identity, acknowledgement classification, readback and the decision against replay. C03 uses
-that contract. C02 still needs to demonstrate which candidate fault seam can suppress the
-response after the real commit without replacing the write or the readback.
+that contract with the caller-local suppression seam selected in the
+[execution checkpoint](#execution-checkpoint).
 [v4 transaction overview](../libraries/surrealDB/SurrealDB_v4.md#6-transactions-isolation-and-concurrent-state) ·
 [SurrealDB transaction contract](https://surrealdb.com/docs/learn/querying/concepts-and-guides/transactions) ·
 [Exact-request activation and readback](../../crates/pse-operations/src/canonical_migration.rs)
@@ -194,10 +194,50 @@ existing architecture publication route for enduring contract wording. [Taxonomy
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [C01](#c01) | planned | Existing compiler, authored input, relation admission and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits, shared mechanics and typed lifecycle fixture pass their controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
-| [C02](#c02) | planned | Current migration and native fixture owners. Access to Git history and retained evidence. | Record the selected byte witness and final fault boundary or the exact unresolved physical witness and receiving constraint. Independent branch work can proceed. |
-| [C03](#c03) | planned | C02 witness and fault decision. B02 settlement for the physical control. | Independent predecessor and three recovery branches pass. The actual final commit and missing acknowledgement are demonstrated and drained. Keep native acceptance open if the physical witness is unresolved. |
-| [C04](#c04) | planned | Existing identity, pruning and diagnostic owners. Native fixture readiness for physical pruning. | Named and generated equivalence and negative controls distinguish required behavior. Stable diagnostic and compile-fail claims match the executed evidence. |
+| [C01](#c01) | in-progress | Existing compiler, authored input, relation admission and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits, shared mechanics and typed lifecycle fixture pass their controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
+| [C02](#c02) | complete | Current migration and native fixture owners. Access to Git history and retained evidence. | Independent format witnesses and the final-apply fault boundary selected. Physical receiving evidence belongs to C03. |
+| [C03](#c03) | complete | C02 witness and fault decision. B02 settlement for the physical control. | Independent predecessor and three recovery branches pass. The actual final commit and missing acknowledgement are demonstrated and drained. Keep native acceptance open if the physical witness is unresolved. |
+| [C04](#c04) | in-progress | Existing identity, pruning and diagnostic owners. Native fixture readiness for physical pruning. | Named and generated equivalence and negative controls distinguish required behavior. Stable diagnostic and compile-fail claims match the executed evidence. |
+
+## Execution checkpoint
+
+**Implemented.** C01 landed generation-bound typed Salsa query observations, a checked
+authored dependency overlay, shared residual preparation, and direct Arrow lifecycle input
+construction in `7b9358df8`. The all-targets check of `pse-modeling`, `pse-engine`, `pse-math`
+and `pse-tests-engine` passed with zero failures. The resumed all-targets check of
+`pse-compiler`, `pse-tests-lifecycle`, and `pse-backend-native` with KINSOL and root isolation
+passed with zero failures in `01a1bbb3-1baa-7608-a0e1-cfcdeed04a8f`. The typed memo,
+dependency-overlay, residual and query-memory controls need executed evidence. Keep E01's
+demand-selected closure as a separate prerequisite for its consumers.
+
+**Decision recorded.** C02 selected four independently authored v2/v3 format witnesses
+based on the historical wire definitions. They establish the request and activation format
+with fixed expected identities and digests. Their provenance is specification evidence.
+The selected test-only seam accepts the actual final transaction's verified receipt and
+suppresses that acknowledgement at the caller boundary. The production error path then
+reads the original operation. The private-service test must establish the actual commit and
+post-reopen readback under B02's settlement contract.
+[Format witnesses](../../crates/pse-operations/src/migrations/predecessor-wire-witnesses.json) ·
+[Final-apply owner](../../crates/pse-operations/src/canonical_migration.rs)
+
+**Implemented with unit evidence.** C03 landed in `b06f21516`. The default managed,
+force-validated `pse-operations --lib` selection passed the historical format and final
+readback controls with zero failures. The native final-apply and intermediate checkpoint
+controls both passed in the default managed `native-service` selection
+`01a1bba9-4c33-7283-b8cb-476b7c909e71`. The original final receipt was read back after
+reopen, and both target-owned attempts recorded physical settlement. The one failure in
+that wider selection was the separate B03 borrower probe, subsequently corrected.
+[Native migration controls](../../crates/pse-operations/src/native_fixture/migration_tests.rs)
+
+**Implemented with bounded evidence.** C04 added independent engine and canonical pruning
+comparisons, seeded row-token equivalence at the columnar encoding owner, stable diagnostic
+checks and exact compile-fail expectations in `068494575`, `48fd834d6` and `ca1eaa011`.
+`64a4b335e` aligned the architecture's claims with their owning controls. The all-targets
+engine check established compilation. The managed selection `01a1bbb2-1104-72db-8794-e1807e1289b3`
+passed the seeded row identity, engine pruning comparison and wrong-oracle control, engine
+diagnostic identity and two governance taxonomy cases with zero failures. Native canonical
+pruning and the changed compile-fail selections still need execution. The three selected
+`pse-columnar` doctests in the 70a checkpoint cover their named examples.
 
 ## Verification boundary
 
