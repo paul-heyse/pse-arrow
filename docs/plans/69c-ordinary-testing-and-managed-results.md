@@ -82,6 +82,13 @@ effective test selection, admitted population, and verdict as separate facts.
   [Pinned helper mapping](https://docs.rs/crate/nextest-runner/0.124.0/source/src/list/test_list.rs) ·
   [Current capture](../../crates/pse-host/src/discovery/capture.rs)
 
+**Tested.** The current managed nextest run on `pse-host:cli_output` exercised the
+exact result export, missing fixture and passive settings cases with 3 passes and
+zero failures. Its admitted inventory contained one harness and three runtime helper
+images and borrowed the prepared correctness adapter. The authenticated release left
+zero image objects after drain. Focused host controls also covered a changed Cargo
+image, nonmember exclusion, and simultaneous immutable leases.
+
 ## C02 — Test outcome and exact failed rerun
 
 Return a separate verdict and settlement state and the original invocation reference. Use
@@ -154,5 +161,5 @@ would establish the query, real-role selection, durability, exact retirement and
 |---|---|---|---|
 | C01 | complete | A01 and current Cargo, Nextest and fixture contracts | The bare default admitted the 35 ordinary workspace packages with Cargo-equivalent root and feature coverage. Focused nextest controls passed. Qualification used the graph and scoped native tests in place of full workspace enumeration. |
 | C02 | complete | C01, F01, A03 and Plan67 exact custody | The original failure remained readable after its executable was released. The live owner fixture ran exactly that identity with a fresh verdict and refused incomplete, changed and missing original evidence. Separate controls preserved the exact filters and rejected target or feature replacement. |
-| C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. A live CLI probe recovered an original result, exported its bounded provenance and refused an existing destination without changing it. Current-generation receiving qualification remains. |
+| C03 | complete | A01–A03, existing inspection and history | The current managed CLI recovered exact and session-scoped original results, read bounded detail and logs, exported the selected view and refused an existing destination. Held, retired and unknown results use the existing expiry owner. |
 | C04 | complete | C03 and Plan67 release owner | The timer and foreground expiry class have live evidence. Detached and borrowed tests published their expiry clocks before explicit reconciliation. Separate drain witnesses preserved the original records. A settled interrupted foreground listing released its unpublished inventory while preserving the original result pair. |

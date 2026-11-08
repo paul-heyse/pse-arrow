@@ -129,8 +129,8 @@ recovers by exact file identity. The
 installed-catalog observer uses an authenticated Viewer connection and shares the
 normalized inventory with maintenance validation.
 
-The companion plans retain assembled qualification that remains open. Project export and
-study deliverables still need publication identities that survive a lost reply.
+The companion plans retain assembled qualification that remains open. Project packs and
+study deliverables share an issuer-bound publication identity and durable original custody.
 Live schema rollout still needs an owner for the original rollout nonce, physical
 server instance and settled activation. The v4 merge supplies the current server and client
 family. The production producer for the maintenance owner's exact pending and settled

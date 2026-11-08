@@ -128,8 +128,14 @@ incomplete or failed publication.
   handoff must preserve that distinction. Current packs bind integrity of the manifest and
   copied members. They carry no original operation key or digest of the complete authored
   request, so manifest readback alone cannot prove settlement of a particular submission.
-  Before exposing a routine export route, bind the request and destination at the publication
-  owner and make that association available on readback.
+  The performing owner now binds the original key, issuer, request digest and exact
+  destination in deployment custody before staging a deliverable. `pse project export`
+  publishes the verified payload and its receipt together into a fresh directory.
+  `project export-status` reads the original custody and `project export-recover`
+  publishes only a verified complete staged result. A changed request or destination
+  refuses. A known settled failure releases its partial payload and keeps a compact
+  disposition. Compact operation custody follows the issuing deployment's lifetime.
+  Uncertain custody remains with the original owner.
   [Source selection](../../crates/pse-runtime/src/workflow/projects.rs) ·
   [Closure](../../crates/pse-runtime/src/workflow/project_closure.rs) ·
   [Pack owner](../../crates/pse-runtime/src/workflow/project_portability.rs) ·
@@ -145,8 +151,8 @@ incomplete or failed publication.
   identities, diagnostics and safe continuations. The prepared receiver exposes
   `import-issue`, `import`, `import-status` and `import-recover`. It retains the exact issued
   intent in private checkout custody and uses it by default. `import-forget` releases it
-  after exact completion is observed. `ProjectImportOpen` still needs a distinct protected
-  physical-admission route.
+  after exact completion is observed. `pse project import-open --operation KEY` uses the
+  original protected physical-admission route and returns the selected package references.
   [Original action types](../../crates/pse-runtime/src/host_operations/project.rs) ·
   [Action dispatch](../../crates/pse-runtime/src/host_operations/project/handler.rs) ·
   [Import checkpoints](../../crates/pse-operations/src/canonical_project_imports.rs) ·
@@ -155,8 +161,10 @@ incomplete or failed publication.
   frozen cut of at most 64 studies and 10,000 members. Cohort pages and selected result IPC
   use explicit byte allowances and a staged destination. Analysis uses an exact registered
   output and row interval and a 4 MiB IPC encoder bound. Preserve the original capture receipt,
-  output publication facts and capture-owner lifetime in an explicit effect adapter. The receipt
-  identifies the cut for attribution and grants zero ability to reopen its protected payload.
+  output publication facts and capture-owner lifetime in the explicit `export-cohort`,
+  `export-result` and `export-analysis` routes. They share the exact publication and recovery
+  owner. The receipt identifies the cut for attribution and grants zero ability to reopen
+  its protected payload.
   [Cohort and analysis owner](../../crates/pse-runtime/src/workflow/study_workbench.rs) ·
   [Selected result export](../../crates/pse-runtime/src/workflow/connected_results.rs)
 
@@ -166,4 +174,4 @@ incomplete or failed publication.
 |---|---|---|---|
 | D01 | in progress | A01–A03, B02 prepared route, current product read owner | Connection-only reads and the target identity query are wired. Named selections carry expected issuer and database, and ambiguous targets return authenticated choices. The assembled receiving journey remains. |
 | D02 | in progress | D01 dispatch and target selection, original product effect owner | Typed create, navigation and exact acknowledgement routes are implemented. The live owner control passed for wrong issuer, duplicates, stale navigation and receipt recovery. The assembled captured CLI journey remains. |
-| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | Live project-owner controls passed for bounded research, descriptive closure and original import recovery. Assembled CLI import verification, protected import open and original publication receipts for export and study deliverables remain. |
+| D03 | in progress | D01 and each exact query or exchange owner, D02 for writes | Live owner controls cover bounded research, descriptive closure and original import recovery. Protected import reopen and original publication custody are implemented. Current v4 runtime and assembled CLI qualification remain. |
