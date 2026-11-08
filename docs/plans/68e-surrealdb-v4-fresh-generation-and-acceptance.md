@@ -154,9 +154,11 @@ The historical catalogs and v3 rollback release remain in isolated custody.
 
 [ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md) landed
 on GitHub `main` in `3613af55c`. The merged tree matched the reviewed
-candidate. The workstation `main` checkout has separate local commits
-and active edits. Its default tool selection still matches its v3 source.
-The verified v4 rehearsal release remains ready for the local handoff.
+candidate. Merge `4331a5c4b` brought the cutover and its follow-up into
+the active workstation `main` while preserving its later work. The server
+owner imported the original build receipt from the rehearsal release into
+the workstation default tool root. `server select` chose the imported
+generation, whose executable reported `4.0.0+pse.mx.1.1.0.482afb739a0ca349`.
 
 Freeze the admitted v3 selection, close old write admission and verify
 physical settlement, including outstanding readers, native operations and
@@ -185,7 +187,7 @@ supplier tuple, verified scope and any out-of-scope deferrals.
 | --- | --- | --- | --- |
 | E01 | In progress | A/B private generation, completed Plan67 state owners | Fresh declared v4 candidate, verified inventory and named original receiving paths. |
 | E02 | Platform receiving verified | E01, D02/D03, required A/B native controls and C receiving, existing Plan66 vertical slices | Current v4 storage, recovery, developer and query behavior qualified for fresh source selection. The aqueous fixture drain remains with Plan66. |
-| E03 | In progress | Scoped platform receiving and governing decision route | Verify the authoritative v4 source and local default selection. Keep historical v3 custody until its own release conditions hold. |
+| E03 | Main and default selection verified | Scoped platform receiving and governing decision route | The active `main` and its default server select v4. Keep historical v3 custody until its own release conditions hold. |
 
 ## Verification and outcome boundary
 
