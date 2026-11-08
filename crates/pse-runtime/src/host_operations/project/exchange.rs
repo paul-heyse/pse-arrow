@@ -22,7 +22,7 @@ use std::{
     io::{self, Read as _, Write as _},
     os::unix::{
         ffi::OsStrExt as _,
-        fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
+        fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _, PermissionsExt as _},
     },
     path::{Path, PathBuf},
 };
@@ -240,6 +240,12 @@ fn optional_directory(path: &Path) -> Result<Option<File>, WorkflowError> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(io_error(error)),
     }
+}
+fn private_tempdir(parent: &Path, prefix: &str) -> io::Result<tempfile::TempDir> {
+    tempfile::Builder::new()
+        .prefix(prefix)
+        .permissions(fs::Permissions::from_mode(0o700))
+        .tempdir_in(parent)
 }
 fn private_directory(path: &Path) -> Result<Option<File>, WorkflowError> {
     let Some(dir) = optional_directory(path)? else {
@@ -571,10 +577,7 @@ impl Publication {
             .destination
             .parent()
             .ok_or_else(|| contract("publication destination lacks a parent"))?;
-        let temporary = tempfile::Builder::new()
-            .prefix(STAGE_PREFIX)
-            .tempdir_in(parent)
-            .map_err(io_error)?;
+        let temporary = private_tempdir(parent, STAGE_PREFIX).map_err(io_error)?;
         let mut intent = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -701,7 +704,6 @@ impl Publication {
     }
 
     fn stage_receipt(&self, receipt: &PublicationReceipt) -> Result<(), WorkflowError> {
-        use std::os::unix::fs::PermissionsExt as _;
         let content = self.content();
         fs::set_permissions(&content, fs::Permissions::from_mode(0o700)).map_err(io_error)?;
         let directory = directory(&content).map_err(io_error)?;
@@ -873,7 +875,7 @@ mod tests {
         let original = target
             .original("operation", "issuer", &"original request")
             .unwrap();
-        let deployment = tempfile::tempdir_in(root.path()).unwrap();
+        let deployment = private_tempdir(root.path(), "deployment").unwrap();
         let index = OperationIndex::select(deployment.path(), "operation", "issuer").unwrap();
         assert!(index.write(&index.key, &original).unwrap());
         let changed = target
@@ -1015,7 +1017,7 @@ mod tests {
     fn publication_index_rejects_changed_destination_and_retains_settled_failure_without_partial_bytes()
      {
         let root = tempfile::tempdir().unwrap();
-        let state = tempfile::tempdir_in(root.path()).unwrap();
+        let state = private_tempdir(root.path(), "deployment").unwrap();
         let target = Publication::select(root.path().join("original").into()).unwrap();
         let different = Publication::select(root.path().join("changed").into()).unwrap();
         let index = OperationIndex::select(state.path(), "operation", "issuer").unwrap();
@@ -1061,7 +1063,7 @@ mod tests {
         assert!(OperationIndex::select(state.path(), "operation", "issuer").is_err());
         let moved_index = OperationIndex::select(&moved, "operation", "issuer").unwrap();
         assert_eq!(moved_index.bound().unwrap(), Some(original));
-        let copied = tempfile::tempdir_in(root.path()).unwrap();
+        let copied = private_tempdir(root.path(), "copied-deployment").unwrap();
         let copied_index = OperationIndex::select(copied.path(), "operation", "issuer").unwrap();
         DirBuilder::new()
             .mode(0o700)
