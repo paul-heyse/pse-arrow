@@ -67,7 +67,7 @@ diff --git a/crates/pse-operations/tests/native_service/optional_project_descrip
 new file mode 100644
 --- /dev/null
 +++ b/crates/pse-operations/tests/native_service/optional_project_description.rs
-@@ -0,0 +1,113 @@
+@@ -0,0 +1,117 @@
 +// SPDX-License-Identifier: MIT OR Apache-2.0
 +// Copyright (c) 2026 Paul Heyse
 +//! Exact generated optional field receiving on the owned v4 service.
@@ -111,7 +111,7 @@ new file mode 100644
 +    let field = target[0];
 +
 +    let mut service = fixture_with_schema(false).unwrap();
-+    service
++    let received = service
 +        .run(Instant::now() + Duration::from_secs(180), |service| {
 +            Box::pin(async move {
 +                service.launch(Instant::now() + Duration::from_secs(90)).await?;
@@ -143,7 +143,7 @@ new file mode 100644
 +                         RETURN $row.title = 'Historical' AND $row.generation = 7dec
 +                            AND $row.description = NONE;"
 +                    )).await?;
-+                    assert!(historical.take::<bool>(1).map_err(CanonicalError::from)?);
++                    let historical = historical.take::<Option<bool>>(1).map_err(CanonicalError::from)?;
 +
 +                    bounded_query(query("CREATE ONLY canonical_projects:explicit CONTENT {
 +                        key: 'explicit', title: 'Explicit', generation: 0dec, deleted: false,
@@ -153,7 +153,7 @@ new file mode 100644
 +                        "RETURN (SELECT VALUE description FROM ONLY canonical_projects:explicit)
 +                            = 'independent metadata';"
 +                    )).await?;
-+                    assert!(explicit.take::<bool>(0).map_err(CanonicalError::from)?);
++                    let explicit = explicit.take::<Option<bool>>(0).map_err(CanonicalError::from)?;
 +
 +                    bounded_query(query(
 +                        "UPDATE ONLY canonical_projects:explicit SET description = NONE;"
@@ -162,22 +162,26 @@ new file mode 100644
 +                        "UPDATE ONLY canonical_projects:explicit SET description = NULL;"
 +                    )).await?;
 +                    let errors = rejected.take_errors();
-+                    let error = errors.get(&0).expect("option<string> refuses NULL");
-+                    assert!(error.message().contains("description") && error.message().contains("`NULL`"), "{error}");
++                    let null_refused = errors.get(&0).is_some_and(|error| error.message().contains("description") && error.message().contains("`NULL`"));
 +                    let mut absent = bounded_query(query(
 +                        "LET $row = SELECT * FROM ONLY canonical_projects:explicit;
 +                         RETURN $row.title = 'Explicit' AND $row.description = NONE;"
 +                    )).await?;
-+                    assert!(absent.take::<bool>(1).map_err(CanonicalError::from)?);
-+                    Ok::<_, CanonicalError>(())
++                    let absent = absent.take::<Option<bool>>(1).map_err(CanonicalError::from)?;
++                    Ok::<_, CanonicalError>((historical, explicit, null_refused, absent))
 +                }.await;
 +                let drained = client.disconnect().await.map_err(CanonicalError::from);
-+                outcome?;
++                let evidence = outcome?;
 +                drained?;
-+                Ok(())
++                Ok(evidence)
 +            })
 +        })
-+        .await
-+        .unwrap();
-+    service.dispose().unwrap();
++        .await;
++    let disposed = service.dispose();
++    let (historical, explicit, null_refused, absent) = received.unwrap();
++    disposed.unwrap();
++    assert_eq!(historical, Some(true));
++    assert_eq!(explicit, Some(true));
++    assert!(null_refused, "option<string> refuses NULL for description");
++    assert_eq!(absent, Some(true));
 +}
