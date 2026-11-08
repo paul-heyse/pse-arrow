@@ -47,6 +47,13 @@ The November 7 examination remains the source of evidence for the other areas an
   [DTA-012](evidence-routes-and-execution.md#dta-012) · [DTA-025](evidence-routes-and-execution.md#dta-025) ·
   [DTA-052](execution-efficiency.md#dta-052) · [Plan69c](../../plans/69c-ordinary-testing-and-managed-results.md)
 
+**Publication reconciliation · `72ce83228`.** The pending workflow changes landed as
+`be095a207`. They release unpublished inventory images for an interrupted listing only after
+the owner can establish paired settlement and the absence of a published inventory. Plan69c
+records the named receiving result and retains source/build image capture as an explicit design
+boundary. DTA-052's remaining test-owner release question and DTA-039's repeated verification of
+selected images are distinct from the corrected interrupted-listing path.
+
 ## Integrated synthesis
 
 - Managed correctness binds an admitted Cargo graph, source-built inventory, fixture selection and
