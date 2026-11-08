@@ -299,6 +299,7 @@ async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
                     "SELECT parameter_id FROM items WHERE value = 2 ORDER BY parameter_id LIMIT 1",
                     1,
                 ),
+                ("SELECT count(*) FROM items", 1),
             ] {
                 let expected = unpruned.sql(sql).await.unwrap().collect().await.unwrap();
                 let observed = actual.sql(sql).await.unwrap().collect().await.unwrap();
@@ -306,6 +307,22 @@ async fn canonical_pruning_matches_complete_authored_rows_across_blocks() {
                 assert_eq!(expected.len(), expected_count, "{sql}");
                 assert_eq!(arrow_rows::multiset(&observed), expected, "{sql}");
             }
+            let (block, descriptor) = FrozenSnapshot::Full(snapshot.clone()).member(0)
+                .map(|(block, descriptor)| (block.clone(), descriptor.clone())).unwrap();
+            let selection_owner = MemoryConsumer::new("test:sparse-result-offsets")
+                .register(&runtime.pool());
+            selection_owner.try_grow(2 * size_of::<u32>()).unwrap();
+            let mut sparse = SelectedSnapshotBuilder::new(snapshot.decoder()).unwrap();
+            sparse.push(&block, &descriptor, SelectedRows::from_offsets(vec![0, 2], selection_owner).unwrap()).unwrap();
+            let sparse = sparse.finish();
+            assert_eq!(sparse.row_count(), 2);
+            let batches = actual.read_table(sparse.table_provider()).unwrap()
+                .select_columns(&["value"]).unwrap().collect().await.unwrap();
+            let values = batches.iter().flat_map(|batch| {
+                batch.column(0).as_any().downcast_ref::<Float64Array>().unwrap().iter()
+            }).collect::<Vec<_>>();
+            assert_eq!(values, [Some(0.0), Some(4.0)]);
+            drop(sparse);
             drop((actual, snapshot, reader));
             runtime
                 .canonical_store()
@@ -368,18 +385,32 @@ async fn canonical_pruning_inexact_residual_precedes_limit_and_predicate_project
                     .await
                     .is_err()
             );
-            let batches = context
-                .read_table(provider)
-                .unwrap()
-                .filter(predicate)
-                .unwrap()
-                .select_columns(&["parameter_id"])
-                .unwrap()
-                .limit(0, Some(1))
-                .unwrap()
-                .collect()
-                .await
-                .unwrap();
+            let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+            let observed = hub.start("projected provider residual");
+            let batches = pse_diagnostics::observation::scope(Some(observed.context()), async {
+                context
+                    .read_table(provider)
+                    .unwrap()
+                    .filter(predicate)
+                    .unwrap()
+                    .select_columns(&["parameter_id"])
+                    .unwrap()
+                    .limit(0, Some(1))
+                    .unwrap()
+                    .collect()
+                    .await
+            }).await.unwrap();
+            let metrics = observed.reader().snapshot(Duration::from_secs(60)).metrics;
+            let count = |name: &str| metrics.iter().filter(|metric| metric.name == name)
+                .map(|metric| match &metric.cumulative {
+                    pse_diagnostics::observation::Value::Count(value) => *value,
+                    _ => panic!("additive result counter required"),
+                }).sum::<u64>();
+            let decoded = count("canonical.result.native_decodes");
+            assert!(decoded > 0);
+            let hydrated = count("canonical.result.hydrated_roots");
+            assert!(hydrated >= 2 * decoded);
+            assert!(hydrated < snapshot.schema().fields().len() as u64 * decoded);
             assert_eq!(
                 batches.iter().map(|batch| batch.num_rows()).sum::<usize>(),
                 1

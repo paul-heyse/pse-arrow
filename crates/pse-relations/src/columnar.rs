@@ -375,6 +375,90 @@ fn take_needs_selected_ranges(ty: &arrow_schema::DataType) -> bool {
     }
 }
 
+/// Select ordered rows from owned observational storage under the actual allocation pool.
+/// Carries the Arrow allocation evidence without creating relation admission.
+/// # Errors
+/// Null/out-of-range indices, allocation refusal or cancellation.
+pub fn take_owned_rows(
+    batch: &pse_columnar::owned_buffer::OwnedRecordBatch,
+    indices: &arrow_array::UInt32Array,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<pse_columnar::owned_buffer::OwnedRecordBatch, RelationError> {
+    take_reserved_storage(batch.batch(), Some(batch), indices, pool, cancel)
+}
+
+fn take_reserved_storage(
+    source: &RecordBatch,
+    owned: Option<&pse_columnar::owned_buffer::OwnedRecordBatch>,
+    indices: &arrow_array::UInt32Array,
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    cancel: &pse_columnar::CancellationToken,
+) -> Result<pse_columnar::owned_buffer::OwnedRecordBatch, RelationError> {
+    cancel.checkpoint()?;
+    check_take_indices(source, indices, cancel)?;
+    let selected_extent = selected_take_extent(source, indices, pool, cancel)?;
+    let extent = match selected_extent {
+        Some(extent) => extent,
+        None => pse_columnar::allocation_extent::algorithm_decode_extent(source)?
+            .checked_mul(take_source_copies(
+                source,
+                indices,
+                pool,
+                cancel,
+            )?)
+            .ok_or_else(|| mismatch("bounded take extent"))?,
+    };
+    let reservation =
+        pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);
+    reservation
+        .try_grow(extent)
+        .map_err(pse_columnar::CanonError::from)?;
+    let columns = source
+        .columns()
+        .iter()
+        .map(|column| -> Result<_, RelationError> {
+            cancel.checkpoint()?;
+            if indices.is_empty() {
+                // Dictionary and view copy builders retain unselected children;
+                // an independent empty array also avoids dictionary-key overflow.
+                return Ok(arrow_array::new_empty_array(column.data_type()));
+            }
+            if selected_extent.is_some() && take_needs_selected_ranges(column.data_type()) {
+                // Arrow's list take preallocates children using the whole
+                // input's average list length. Grow copying buffers only
+                // from selected ranges, including nested children.
+                let data = column.to_data();
+                let mut selected = arrow::array::MutableArrayData::new(vec![&data], false, 0);
+                for (position, index) in indices.values().iter().enumerate() {
+                    if position % 1024 == 0 {
+                        cancel.checkpoint()?;
+                    }
+                    selected.try_extend(0, *index as usize, *index as usize + 1)?;
+                }
+                return Ok(arrow::array::make_array(selected.freeze()));
+            }
+            arrow::compute::take(
+                column.as_ref(),
+                indices,
+                Some(arrow::compute::TakeOptions { check_bounds: true }),
+            )
+            .map_err(RelationError::from)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let batch = RecordBatch::try_new_with_options(
+        source.schema(),
+        columns,
+        &RecordBatchOptions::new().with_row_count(Some(indices.len())),
+    )?;
+    cancel.checkpoint()?;
+    let scope = pse_columnar::owned_buffer::AllocationScope::default();
+    if let Some(owned) = owned {
+        scope.import(owned)?;
+    }
+    Ok(scope.attach_reserved(batch, reservation)?)
+}
+
 #[cfg(test)]
 mod foundation_unit {
     #![allow(clippy::unwrap_used, reason = "isolated checked-transform fixture")]
@@ -967,70 +1051,7 @@ impl FieldCheckedBatch {
         pool: &Arc<dyn pse_columnar::MemoryPool>,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
-        cancel.checkpoint()?;
-        check_take_indices(&self.storage.batch, indices, cancel)?;
-        let selected_extent = selected_take_extent(&self.storage.batch, indices, pool, cancel)?;
-        let extent = match selected_extent {
-            Some(extent) => extent,
-            None => pse_columnar::allocation_extent::algorithm_decode_extent(&self.storage.batch)?
-                .checked_mul(take_source_copies(
-                    &self.storage.batch,
-                    indices,
-                    pool,
-                    cancel,
-                )?)
-                .ok_or_else(|| mismatch("bounded take extent"))?,
-        };
-        let reservation =
-            pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);
-        reservation
-            .try_grow(extent)
-            .map_err(pse_columnar::CanonError::from)?;
-        let columns = self
-            .storage
-            .batch
-            .columns()
-            .iter()
-            .map(|column| -> Result<_, RelationError> {
-                cancel.checkpoint()?;
-                if indices.is_empty() {
-                    // Dictionary and view copy builders retain unselected children;
-                    // an independent empty array also avoids dictionary-key overflow.
-                    return Ok(arrow_array::new_empty_array(column.data_type()));
-                }
-                if selected_extent.is_some() && take_needs_selected_ranges(column.data_type()) {
-                    // Arrow's list take preallocates children using the whole
-                    // input's average list length. Grow copying buffers only
-                    // from selected ranges, including nested children.
-                    let data = column.to_data();
-                    let mut selected = arrow::array::MutableArrayData::new(vec![&data], false, 0);
-                    for (position, index) in indices.values().iter().enumerate() {
-                        if position % 1024 == 0 {
-                            cancel.checkpoint()?;
-                        }
-                        selected.try_extend(0, *index as usize, *index as usize + 1)?;
-                    }
-                    return Ok(arrow::array::make_array(selected.freeze()));
-                }
-                arrow::compute::take(
-                    column.as_ref(),
-                    indices,
-                    Some(arrow::compute::TakeOptions { check_bounds: true }),
-                )
-                .map_err(RelationError::from)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let batch = RecordBatch::try_new_with_options(
-            self.storage.batch.schema(),
-            columns,
-            &RecordBatchOptions::new().with_row_count(Some(indices.len())),
-        )?;
-        cancel.checkpoint()?;
-        let scope = pse_columnar::owned_buffer::AllocationScope::default();
-        if let Some(owned) = &self.storage.owned {
-            scope.import(owned)?;
-        }
-        let owned = scope.attach_reserved(batch, reservation)?;
+        let owned = take_reserved_storage(&self.storage.batch, self.storage.owned.as_ref(), indices, pool, cancel)?;
         Self::from_parts(
             self.relation_id,
             self.contract.clone(),
