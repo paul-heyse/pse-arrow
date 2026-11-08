@@ -22,57 +22,54 @@ mod scientific_inputs;
 mod support;
 
 use futures_util::FutureExt;
-use serde::{Deserialize, Serialize};
+use pse_model::generated::enums::TrajectoryTermination;
+use pse_model::reference_exchange::ReferenceOutcome;
+use pse_runtime::reference_exchange;
 use std::{collections::BTreeMap, panic::AssertUnwindSafe, process::Command};
-use support::{Candidate, CandidateReport, LoopCase, Result};
+use support::{Candidate, CandidateReport, LoopCase, ReferenceInputs, Result};
 
-#[derive(Serialize)]
-struct Request {
-    version: u32,
-    case: LoopCase,
-    pins: BTreeMap<String, String>,
-    candidates: Vec<Candidate>,
-}
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Comparison {
-    id: String,
-    status: String,
-    reasons: Vec<String>,
-}
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
 struct Reference {
-    samples_seconds: Vec<f64>,
     exact_process: Vec<f64>,
     petsc_process: Vec<f64>,
     steady_process: f64,
     steady_integral_seconds: f64,
 }
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Response {
-    version: u32,
-    case_id: String,
-    environment: BTreeMap<String, String>,
-    reference: Reference,
-    comparisons: Vec<Comparison>,
-}
 
-fn exchange(request: &Request) -> Result<Response> {
+fn exchange(case: &LoopCase, inputs: ReferenceInputs) -> Result<Reference> {
+    const LIMIT: usize = 1 << 20;
     let python = reference_environment::interpreter("PSE_PID_REFERENCE_PYTHON");
     let interpreter_digest = reference_environment::image_digest(&python)?;
     let solver = reference_environment::prepared("IDAES_DATA", "petsc")?;
     let scratch = tempfile::tempdir()?;
-    let input = scratch.path().join("request.json");
-    let output = scratch.path().join("response.json");
-    let limit = reference_process::legacy_response_limit(request.candidates.len())?;
-    std::fs::write(&input, serde_json::to_vec(request)?)?;
+    let descriptors = scratch.path().join("descriptor.bin");
+    let input = scratch.path().join("contract.pb");
+    let output = scratch.path().join("reference.pb");
+    std::fs::write(&descriptors, reference_exchange::generated::DESCRIPTORS)?;
+    let ReferenceInputs { contract, _owners } = inputs;
+    let meaning = contract.meaning.clone();
+    let expected = contract
+        .observables
+        .iter()
+        .map(|coordinate| {
+            let physical = &coordinate.physical;
+            (
+                coordinate.output,
+                physical.quantity.id.as_id(),
+                physical.representation_unit.id.as_id(),
+                physical.quantity.key.basis.map(|id| id.as_id()),
+                physical.quantity.key.reference_state.map(|id| id.as_id()),
+            )
+        })
+        .collect::<Vec<_>>();
+    std::fs::write(
+        &input,
+        reference_exchange::encode_case_contract(contract, LIMIT)?,
+    )?;
     let mut command = Command::new(&python);
     command
         .arg("-I")
-        .arg(support::root().join("tests/reference/legacy_reference_driver.py"))
-        .arg("pid")
+        .arg(support::root().join("tests/reference/pid_reference_driver.py"))
+        .arg(&descriptors)
         .arg(&input)
         .arg(&output)
         .current_dir(scratch.path())
@@ -83,57 +80,128 @@ fn exchange(request: &Request) -> Result<Response> {
     if let Some((phase, cause)) = &execution.refusal {
         return Err(format!("reference {phase}: {cause}\n{}", execution.diagnostics).into());
     }
-    let response: Response = execution.decode_legacy(&output, limit)?;
-    assert_eq!(response.version, 1);
-    assert_eq!(response.case_id, request.case.id);
+    let mut evidence = execution
+        .diagnostics
+        .lines()
+        .filter_map(|line| line.strip_prefix("pid_reference_environment "));
+    let environment: BTreeMap<String, String> = serde_json::from_str(
+        evidence
+            .next()
+            .ok_or_else(|| execution.failure("environment refused", "missing solver evidence"))?,
+    )?;
+    if evidence.next().is_some() {
+        return Err(execution.failure("environment refused", "duplicate solver evidence"));
+    }
     reference_environment::verify(
-        &response.environment,
+        &environment,
         &python,
         &interpreter_digest,
-        &request.pins,
+        &reference_environment::pins(&support::root())?,
     )
     .map_err(|error| execution.failure("environment refused", error))?;
-    reference_environment::verify_stage(
-        &response.environment,
-        "pid.initial_conditions",
-        &solver,
-        1..=1,
-    )
-    .map_err(|error| execution.failure("solver evidence refused", error))?;
-    reference_environment::verify_stage(&response.environment, "pid.integration", &solver, 4..=4)
+    reference_environment::verify_stage(&environment, "pid.initial_conditions", &solver, 1..=1)
         .map_err(|error| execution.failure("solver evidence refused", error))?;
-    assert_eq!(
-        response.reference.samples_seconds,
-        request.case.samples_seconds
-    );
-    assert_eq!(
-        response.reference.exact_process.len(),
-        request.case.samples_seconds.len()
-    );
-    assert_eq!(
-        response.reference.petsc_process.len(),
-        request.case.samples_seconds.len()
-    );
-    assert!(
-        (response.reference.steady_process - request.case.setpoint).abs()
-            <= request.case.engineering_fraction
-    );
-    let steady_integral =
-        request.case.ti_seconds * (request.case.setpoint - request.case.bias) / request.case.kp;
-    assert!(
-        (response.reference.steady_integral_seconds - steady_integral).abs()
-            <= request.case.engineering_fraction
-    );
-    for (exact, petsc) in response
-        .reference
-        .exact_process
-        .iter()
-        .zip(&response.reference.petsc_process)
+    reference_environment::verify_stage(&environment, "pid.integration", &solver, 4..=4)
+        .map_err(|error| execution.failure("solver evidence refused", error))?;
+    let bytes = reference_process::read_response(&output, LIMIT)
+        .map_err(|error| execution.failure("response refused", error))?;
+    let response = reference_exchange::decode(&bytes, LIMIT)
+        .map_err(|error| execution.failure("response refused", error))?;
+    let response = response.known();
+    assert_eq!(response.meaning, meaning);
+    let ReferenceOutcome::Completed { outputs, blocks } = &response.outcome else {
+        return Err(execution.failure("response refused", "PID reference did not complete"));
+    };
+    assert!(blocks.is_empty());
+    assert_eq!(outputs.len(), expected.len());
+    assert_eq!(response.required.len(), outputs.len());
+    for ((actual, required), (output, quantity, unit, basis, datum)) in
+        outputs.iter().zip(&response.required).zip(expected)
     {
-        assert!(exact.is_finite() && petsc.is_finite());
-        assert!((exact - petsc).abs() <= request.case.engineering_fraction);
+        assert_eq!(actual.id, *required);
+        assert_eq!(actual.id, output);
+        assert_eq!(actual.quantity, quantity);
+        assert_eq!(actual.unit, unit);
+        assert_eq!(actual.basis, basis);
+        assert_eq!(actual.datum, datum);
+        assert!(actual.value.is_finite());
     }
-    Ok(response)
+    let samples = case.samples_seconds.len();
+    let reference = Reference {
+        exact_process: outputs[..samples]
+            .iter()
+            .map(|output| output.value)
+            .collect(),
+        petsc_process: outputs[samples..2 * samples]
+            .iter()
+            .map(|output| output.value)
+            .collect(),
+        steady_process: outputs[2 * samples].value,
+        steady_integral_seconds: outputs[2 * samples + 1].value,
+    };
+    assert!((reference.steady_process - case.setpoint).abs() <= case.engineering_fraction);
+    let steady_integral = case.ti_seconds * (case.setpoint - case.bias) / case.kp;
+    assert!(
+        (reference.steady_integral_seconds - steady_integral).abs() <= case.engineering_fraction
+    );
+    for (exact, petsc) in reference.exact_process.iter().zip(&reference.petsc_process) {
+        assert!((exact - petsc).abs() <= case.engineering_fraction);
+    }
+    Ok(reference)
+}
+
+fn compare(
+    report: &CandidateReport,
+    case: &LoopCase,
+    reference: &Reference,
+) -> std::result::Result<(), String> {
+    if !report.complete {
+        return Err("native trajectory incomplete".into());
+    }
+    if !report.accepted {
+        return Err("native trajectory not accepted".into());
+    }
+    if report.termination != TrajectoryTermination::Completed {
+        return Err("native integration not completed".into());
+    }
+    if !report.fixture_passed {
+        return Err("native authored fixture failed".into());
+    }
+    let samples = case.samples_seconds.len();
+    if report.samples_seconds.len() != samples
+        || report
+            .samples_seconds
+            .iter()
+            .zip(&case.samples_seconds)
+            .any(|(actual, expected)| actual.to_bits() != expected.to_bits())
+    {
+        return Err("native sample times differ".into());
+    }
+    if report.process.len() != samples || report.measurement.len() != samples {
+        return Err("native sample coverage incomplete".into());
+    }
+    let close = |left: f64, right: f64| {
+        left.is_finite() && right.is_finite() && (left - right).abs() <= case.engineering_fraction
+    };
+    for ((((ours, measured), exact), petsc), time) in report
+        .process
+        .iter()
+        .zip(&report.measurement)
+        .zip(&reference.exact_process)
+        .zip(&reference.petsc_process)
+        .zip(&case.samples_seconds)
+    {
+        if !close(*ours, *measured) {
+            return Err(format!("plant versus measurement at {time}s"));
+        }
+        if !close(*ours, *exact) {
+            return Err(format!("native versus exact at {time}s"));
+        }
+        if !close(*ours, *petsc) {
+            return Err(format!("native versus PETSc at {time}s"));
+        }
+    }
+    Ok(())
 }
 
 fn candidate(id: &str, report: Option<CandidateReport>) -> Candidate {
@@ -149,7 +217,7 @@ async fn native_pi_loop_matches_petsc_and_exact_response_and_rejects_bad_populat
     let context = reference_support::NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = LoopCase::original();
-        let report = Box::pin(support::run(&context, &case)).await?;
+        let (report, contract) = support::run(&context, &case).await?;
         assert!(report.complete);
         let mut wrong = report.clone();
         wrong.process[3] += 0.1;
@@ -167,30 +235,31 @@ async fn native_pi_loop_matches_petsc_and_exact_response_and_rejects_bad_populat
         let mut fixture_failed = report.clone();
         fixture_failed.fixture_passed = false;
         let mut stopped = report.clone();
-        stopped.termination = "failed".into();
-        let request = Request {
-            version: 1,
-            pins: reference_environment::pins(&reference_support::root())?,
-            case,
-            candidates: vec![
-                candidate("native", Some(report.clone())),
-                candidate("wrong-trajectory", Some(wrong)),
-                candidate("measurement-mismatch", Some(measured)),
-                candidate("missing", None),
-                candidate("incomplete", Some(incomplete)),
-                candidate("missing-sample", Some(missing_sample)),
-                candidate("wrong-time", Some(wrong_time)),
-                candidate("unaccepted", Some(unaccepted)),
-                candidate("failed-fixture", Some(fixture_failed)),
-                candidate("failed-integration", Some(stopped)),
-                candidate("native-after-failures", Some(report)),
-            ],
-        };
-        let response = tokio::task::spawn_blocking(move || exchange(&request)).await??;
+        stopped.termination = TrajectoryTermination::Failed;
+        let candidates = [
+            candidate("native", Some(report.clone())),
+            candidate("wrong-trajectory", Some(wrong)),
+            candidate("measurement-mismatch", Some(measured)),
+            candidate("missing", None),
+            candidate("incomplete", Some(incomplete)),
+            candidate("missing-sample", Some(missing_sample)),
+            candidate("wrong-time", Some(wrong_time)),
+            candidate("unaccepted", Some(unaccepted)),
+            candidate("failed-fixture", Some(fixture_failed)),
+            candidate("failed-integration", Some(stopped)),
+            candidate("native-after-failures", Some(report)),
+        ];
+        let original_case = case.clone();
+        let reference =
+            tokio::task::spawn_blocking(move || exchange(&original_case, contract)).await??;
         let expected = [
             ("native", "passed", ""),
-            ("wrong-trajectory", "failed", "native versus exact"),
-            ("measurement-mismatch", "failed", "plant versus measurement"),
+            ("wrong-trajectory", "failed", "native versus exact at 5s"),
+            (
+                "measurement-mismatch",
+                "failed",
+                "plant versus measurement at 2s",
+            ),
             ("missing", "missing", "native result missing"),
             ("incomplete", "failed", "native trajectory incomplete"),
             ("missing-sample", "failed", "sample coverage"),
@@ -200,20 +269,21 @@ async fn native_pi_loop_matches_petsc_and_exact_response_and_rejects_bad_populat
             ("failed-integration", "failed", "not completed"),
             ("native-after-failures", "passed", ""),
         ];
-        assert_eq!(response.comparisons.len(), expected.len());
-        for (actual, (id, status, reason)) in response.comparisons.iter().zip(expected) {
+        assert_eq!(candidates.len(), expected.len());
+        for (candidate, (id, status, reason)) in candidates.iter().zip(expected) {
+            let (actual, diagnostic) = match candidate.report.as_ref() {
+                Some(report) => match compare(report, &case, &reference) {
+                    Ok(()) => ("passed", String::new()),
+                    Err(reason) => ("failed", reason),
+                },
+                None => ("missing", "native result missing".into()),
+            };
             assert_eq!(
-                actual.id, id,
+                candidate.id, id,
                 "mixed results must retain input identity and order"
             );
-            assert_eq!(actual.status, status, "{actual:?}");
-            assert_eq!(actual.reasons.is_empty(), status == "passed", "{actual:?}");
-            if status != "passed" {
-                assert!(
-                    actual.reasons.iter().any(|value| value.contains(reason)),
-                    "{actual:?}"
-                );
-            }
+            assert_eq!(actual, status, "{id}: {diagnostic}");
+            assert!(diagnostic.contains(reason), "{id}: {diagnostic}");
         }
         Ok(())
     })

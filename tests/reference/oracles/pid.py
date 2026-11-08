@@ -10,18 +10,31 @@ PID parity test. It never imports the candidate product or its fixtures.
 from __future__ import annotations
 
 import contextlib
+import hashlib
+import json
 import math
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TextIO, cast
 from unittest.mock import patch
 
-import msgspec
+from google.protobuf import message_factory
+from proto_exchange import encode_reference, reference_type
 
-from .legacy_exchange import admit_candidates, read_request, write_response
-from .reference_environment import LEGACY_PACKAGES, ReferenceEnvironment
+from .ordinary_exchange import (
+    _bounded_read,
+    _identity,
+    _message,
+    _read_artifact,
+    _validate_physical,
+    bits_float,
+    float_bits,
+)
+from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
+    from google.protobuf.message import Message
     import pyomo.dae as dae
     import pyomo.environ as pyo
     from idaes.models.control.controller import ControllerType
@@ -72,7 +85,8 @@ class ControllerFactory(Protocol):
         ...
 
 
-class LoopCase(msgspec.Struct, forbid_unknown_fields=True):
+@dataclass(frozen=True)
+class LoopCase:
     """Time is in seconds; process, manipulated variable and Kp are Scalar."""
 
     id: str
@@ -89,62 +103,6 @@ class LoopCase(msgspec.Struct, forbid_unknown_fields=True):
     samples_seconds: list[float]
     engineering_fraction: float
     initial_step_seconds: float
-
-
-class CandidateReport(msgspec.Struct, forbid_unknown_fields=True):
-    """Observed native completion and both physical Scalar trajectories."""
-
-    complete: bool
-    accepted: bool
-    termination: str
-    fixture_passed: bool
-    samples_seconds: list[float]
-    process: list[float]
-    measurement: list[float]
-
-
-class Candidate(msgspec.Struct, forbid_unknown_fields=True):
-    """A result with explicit identity, including an explicitly absent result."""
-
-    id: str
-    report: CandidateReport | None
-
-
-class Request(msgspec.Struct, forbid_unknown_fields=True):
-    """Bounded scientific exchange without a Python candidate adapter."""
-
-    version: int
-    case: LoopCase
-    pins: dict[str, str]
-    candidates: list[Candidate]
-
-
-class Reference(msgspec.Struct, forbid_unknown_fields=True):
-    """Independent trajectory and equilibrium observations."""
-
-    samples_seconds: list[float]
-    exact_process: list[float]
-    petsc_process: list[float]
-    steady_process: float
-    steady_integral_seconds: float
-
-
-class Comparison(msgspec.Struct, forbid_unknown_fields=True):
-    """One comparison retained across a mixed population."""
-
-    id: str
-    status: str
-    reasons: list[str]
-
-
-class Response(msgspec.Struct, forbid_unknown_fields=True):
-    """Independent results plus all original candidate identities."""
-
-    version: int
-    case_id: str
-    environment: dict[str, str]
-    reference: Reference
-    comparisons: list[Comparison]
 
 
 def require(condition: bool, reason: str) -> None:
@@ -338,111 +296,168 @@ def close(left: float, right: float, allowance: float, reason: str) -> None:
     )
 
 
-def compare(candidate: Candidate, case: LoopCase, reference: Reference) -> Comparison:
-    """Retain missing/failing controls beside passing native trajectories."""
-    report = candidate.report
-    if report is None:
-        return Comparison(candidate.id, "missing", ["native result missing"])
-    try:
-        require(report.complete, "native trajectory incomplete")
-        require(report.accepted, "native trajectory not accepted")
-        require(report.termination == "completed", "native integration not completed")
-        require(report.fixture_passed, "native authored fixture failed")
+_ARTIFACTS = (
+    "packages/reference/methods/package.toml",
+    "packages/reference/physical/package.toml",
+    "packages/reference/process/models/control.pse",
+    "packages/reference/process/package.toml",
+)
+_FIXED = {
+    "tau_seconds": "Time",
+    "kp": "Scalar",
+    "ti_seconds": "Time",
+    "bias": "Scalar",
+    "setpoint": "Scalar",
+    "initial_process": "Scalar",
+    "initial_integral_seconds": "Time",
+    "derivative_seconds": "Time",
+    "lower": "Scalar",
+    "upper": "Scalar",
+    "engineering_fraction": "Scalar",
+    "initial_step_seconds": "Time",
+}
+
+
+def _sample_key(role: str, time: float) -> str:
+    return f"{role}:{float_bits(time):016x}"
+
+
+def _artifacts(contract: Message) -> None:
+    require(
+        tuple(item.path for item in contract.artifacts) == _ARTIFACTS,
+        "PID source artifact population differs",
+    )
+    for item in contract.artifacts:
+        content = _read_artifact(item.path, 1 << 20)
         require(
-            report.samples_seconds == case.samples_seconds, "native sample times differ"
+            bytes(item.sha256) == hashlib.sha256(content).digest(),
+            "PID source artifact differs from the selected original",
         )
-        count = len(case.samples_seconds)
+
+
+def _case(contract: Message) -> LoopCase:
+    require(_message(contract, "version").value == 1, "unsupported PID case version")
+    fixed = list(contract.specification)
+    grid = [0.0, 1.0, 2.0, 5.0, 10.0, 20.0]
+    roles = _FIXED | {_sample_key("time", time): "Time" for time in grid}
+    require(
+        tuple(item.key for item in fixed) == tuple(roles),
+        "PID input population differs",
+    )
+    values = {}
+    for item in fixed:
+        _validate_physical(_message(item, "physical"), roles[item.key])
+        # The enclosing fixed input is explicit; fixed64 zero uses proto3's default.
+        values[item.key] = bits_float(int(item.value))
+    for time in grid:
         require(
-            len(report.process) == count and len(report.measurement) == count,
-            "native sample coverage incomplete",
+            float_bits(values[_sample_key("time", time)]) == float_bits(time),
+            "original sample times changed",
         )
-        for time, ours, measured, want, idaes in zip(
-            case.samples_seconds,
-            report.process,
-            report.measurement,
-            reference.exact_process,
-            reference.petsc_process,
-            strict=True,
-        ):
-            close(
-                ours,
-                measured,
-                case.engineering_fraction,
-                f"plant versus measurement at {time}s",
-            )
-            close(
-                ours, want, case.engineering_fraction, f"native versus exact at {time}s"
-            )
-            close(
-                ours,
-                idaes,
-                case.engineering_fraction,
-                f"native versus PETSc at {time}s",
-            )
-    except ValueError as error:
-        return Comparison(candidate.id, "failed", [str(error)])
-    return Comparison(candidate.id, "passed", [])
+    case = LoopCase(
+        id=contract.case_name,
+        samples_seconds=grid,
+        tau_seconds=values["tau_seconds"],
+        kp=values["kp"],
+        ti_seconds=values["ti_seconds"],
+        bias=values["bias"],
+        setpoint=values["setpoint"],
+        initial_process=values["initial_process"],
+        initial_integral_seconds=values["initial_integral_seconds"],
+        derivative_seconds=values["derivative_seconds"],
+        lower=values["lower"],
+        upper=values["upper"],
+        engineering_fraction=values["engineering_fraction"],
+        initial_step_seconds=values["initial_step_seconds"],
+    )
+    validate_case(case)
+    return case
 
 
 def main() -> None:
-    """Execute the independent oracle before producing any comparison verdict."""
-    require(len(sys.argv) == 3, "expected request and response paths")
+    """Receive the exact case, perform independent solvers, and publish original bytes."""
+    require(len(sys.argv) == 4, "expected descriptor, contract and response paths")
     require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
-    request = read_request(Path(sys.argv[1]), Request)
-    admit_candidates(
-        (candidate.id for candidate in request.candidates), len(request.candidates)
+    envelope_type = reference_type(_bounded_read(Path(sys.argv[1])))
+    pool = envelope_type.DESCRIPTOR.file.pool
+    contract_type = message_factory.GetMessageClass(
+        pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
     )
-    require(request.version == 1, "unsupported exchange version")
-    validate_case(request.case)
-    identities = [candidate.id for candidate in request.candidates]
+    contract = contract_type.FromString(_bounded_read(Path(sys.argv[2])))
+    case = _case(contract)
+    _artifacts(contract)
+    meaning = _message(contract, "meaning")
+    for field, size in (
+        ("case", 16),
+        ("source", 32),
+        ("formulation", 32),
+        ("physical", 32),
+        ("configuration", 32),
+    ):
+        original = bytes(getattr(meaning, field))
+        require(
+            len(original) == size and original != bytes(size),
+            "PID case meaning is incomplete",
+        )
+    roles = {
+        _sample_key(role, time): "Scalar"
+        for role in ("exact_process", "petsc_process")
+        for time in case.samples_seconds
+    } | {"steady_process": "Scalar", "steady_integral_seconds": "Time"}
+    observables = list(contract.observables)
     require(
-        bool(identities)
-        and all(identities)
-        and len(set(identities)) == len(identities),
-        "candidate identities must be unique and nonempty",
+        tuple(item.key for item in observables) == tuple(roles),
+        "PID output population differs",
     )
+    output_ids = [bytes(item.output) for item in observables]
+    require(
+        len(set(output_ids)) == len(output_ids)
+        and all(
+            len(identity) == 16 and identity != bytes(16) for identity in output_ids
+        ),
+        "PID output identities are invalid or repeated",
+    )
+    for item in observables:
+        _validate_physical(_message(item, "physical"), roles[item.key])
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
-            (*LEGACY_PACKAGES, "numpy", "pint", "scipy"),
+            ("idaes-pse", "pyomo", "protobuf", "numpy", "pint", "scipy"),
             role="PSE_PID_REFERENCE_PYTHON",
-            declared=request.pins,
         )
-        values, steady_process, steady_integral = exact(request.case)
-        integrated = petsc_response(request.case, environment)
-    for time, want, idaes in zip(
-        request.case.samples_seconds, values, integrated, strict=True
-    ):
+        values, steady_process, steady_integral = exact(case)
+        integrated = petsc_response(case, environment)
+    for time, want, idaes in zip(case.samples_seconds, values, integrated, strict=True):
         close(
             idaes,
             want,
-            request.case.engineering_fraction,
+            case.engineering_fraction,
             f"PETSc versus exact at {time}s",
         )
     require(
         not any(name == "pse" or name.startswith("pse.") for name in sys.modules),
         "reference imported the candidate product",
     )
-    reference = Reference(
-        request.case.samples_seconds,
-        values,
-        integrated,
-        steady_process,
-        steady_integral,
-    )
-    response = Response(
-        1,
-        request.case.id,
-        environment.evidence,
-        reference,
-        [
-            compare(candidate, request.case, reference)
-            for candidate in request.candidates
-        ],
-    )
-    write_response(
-        Path(sys.argv[2]),
-        response,
-        len(request.candidates),
-        response.environment,
-        response.comparisons,
+    _artifacts(contract)
+    envelope = envelope_type(version=1)
+    envelope.meaning.CopyFrom(meaning)
+    envelope.required.extend(output_ids)
+    for coordinate, value in zip(
+        observables,
+        (*values, *integrated, steady_process, steady_integral),
+        strict=True,
+    ):
+        require(math.isfinite(value), "PID reference returned nonfinite evidence")
+        physical = coordinate.physical
+        envelope.outcome.completed.outputs.add(
+            id=coordinate.output,
+            quantity=_identity(physical.quantity),
+            unit=_identity(physical.representation_unit),
+            value=float_bits(value),
+        )
+    with Path(sys.argv[3]).open("xb") as stream:
+        stream.write(encode_reference(envelope))
+    sys.stderr.write(
+        "pid_reference_environment "
+        + json.dumps(environment.evidence, sort_keys=True)
+        + "\n"
     )

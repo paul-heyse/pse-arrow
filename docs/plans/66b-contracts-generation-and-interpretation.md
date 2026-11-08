@@ -242,6 +242,13 @@ clients; and E's selected result/storage metadata readers. Identify each existin
 caller at implementation time and keep its disposition in the owning package, not a second
 permanent schema inventory. A new exemplar does not complete that population.
 
+The PID reference now uses `ReferenceCaseContract` and `ReferenceEnvelope`. The isolated
+Python receiver validates the original time, physical roles and source artifacts before
+running the exact and PETSc oracles. The native receiver checks the complete typed result,
+the performing interpreter and solver-stage evidence, and all eleven candidate dispositions.
+The previous PID JSON route was removed from the legacy driver. Covariance, degeneracy and
+sensitivity still have separate legacy crossings. [PID receiving test](../../crates/pse-runtime/tests/reference_pid_exchange.rs)
+
 Replace the mechanical portions of `engineering/rpc/wire.rs::prepare_from_pb`,
 `submit_from_pb`, `progress_value_to_pb`, `page_to_pb` and identifier helpers with generated
 correspondence where the native owner declares the meaning. Preserve parent/membership checks,

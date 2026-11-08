@@ -11,7 +11,7 @@ if __name__ == "__main__":
         message = "expected isolated oracle name, request and response paths"
         raise ValueError(message)
     name = sys.argv.pop(1)
-    if name not in {"covariance", "degeneracy", "pid", "sensitivity"}:
+    if name not in {"covariance", "degeneracy", "sensitivity"}:
         message = f"unknown reference oracle {name}"
         raise ValueError(message)
     # Explicitly admit only this reference-tool directory under -I.

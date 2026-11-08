@@ -6,22 +6,28 @@ use futures_util::future::BoxFuture;
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_backend_native::solve::SolveIntent;
 use pse_model::generated::enums::{ModelingConformanceStatus, TrajectoryTermination};
+use pse_model::reference_exchange::ReferenceMeaning;
 use pse_relations::{columnar::RelationRow, generated::runtime::simulation_samples};
 use pse_runtime::{
     CancelSource,
     math::settings::SolveSettings,
+    reference_exchange::{
+        ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact,
+        ReferenceObservableContract,
+    },
     workflow::{
         ConformanceControls, ExecutionServices, ModelingConformanceReport, ModelingPackage,
-        PhysicalContext,
+        PhysicalContext, PhysicalInspectionDocument, PhysicalInspectionQuery,
+        PhysicalInspectionRequest, PhysicalQuantityDescription,
     },
 };
-use serde::Serialize;
-use std::collections::BTreeMap;
+use sha2::{Digest as _, Sha256};
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::reference_support::NativeContext;
 pub(super) use crate::reference_support::{Result, root};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct LoopCase {
     pub(super) id: String,
     pub(super) tau_seconds: f64,
@@ -104,21 +110,161 @@ impl LoopCase {
     }
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub(super) struct CandidateReport {
     pub(super) complete: bool,
     pub(super) accepted: bool,
-    pub(super) termination: String,
+    pub(super) termination: TrajectoryTermination,
     pub(super) fixture_passed: bool,
     pub(super) samples_seconds: Vec<f64>,
     pub(super) process: Vec<f64>,
     pub(super) measurement: Vec<f64>,
 }
 
-#[derive(Serialize)]
 pub(super) struct Candidate {
     pub(super) id: String,
     pub(super) report: Option<CandidateReport>,
+}
+
+pub(super) fn sample_key(role: &str, time: f64) -> String {
+    format!("{role}:{:016x}", time.to_bits())
+}
+
+pub(super) struct ReferenceInputs {
+    pub(super) contract: ReferenceCaseContract,
+    pub(super) _owners: [Arc<datafusion::execution::memory_pool::MemoryReservation>; 2],
+}
+
+fn physical(
+    context: &PhysicalContext,
+    name: &str,
+) -> Result<(
+    PhysicalQuantityDescription,
+    Arc<datafusion::execution::memory_pool::MemoryReservation>,
+)> {
+    let PhysicalInspectionDocument::Page {
+        mut quantities,
+        owner,
+        ..
+    } = context.describe(&PhysicalInspectionRequest {
+        query: PhysicalInspectionQuery::QuantityNamed { name: name.into() },
+        offset: 0,
+        limit: 1,
+    })?
+    else {
+        return Err("PID quantity description is unavailable".into());
+    };
+    if quantities.len() != 1 {
+        return Err("PID quantity description is absent or ambiguous".into());
+    }
+    Ok((
+        quantities.remove(0),
+        owner.ok_or("PID quantity description lost its allocation owner")?,
+    ))
+}
+
+fn reference_contract(
+    case: &LoopCase,
+    authored: &str,
+    fixture: pse_model::generated::identities::DeclarationId,
+    context: &PhysicalContext,
+) -> Result<ReferenceInputs> {
+    const ARTIFACTS: &[&str] = &[
+        "packages/reference/methods/package.toml",
+        "packages/reference/physical/package.toml",
+        "packages/reference/process/models/control.pse",
+        "packages/reference/process/package.toml",
+    ];
+    let capture = crate::scientific_inputs::family("parity");
+    let files = capture.files();
+    let artifacts = ARTIFACTS
+        .iter()
+        .map(|path| {
+            let bytes = files
+                .get(*path)
+                .ok_or("original PID input artifact absent")?;
+            Ok(ReferenceInputArtifact {
+                path: (*path).into(),
+                sha256: Sha256::digest(bytes).to_vec().into(),
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let (scalar, scalar_owner) = physical(context, "Scalar")?;
+    let (time, time_owner) = physical(context, "Time")?;
+    let fixed = |key: &str, value, physical: &PhysicalQuantityDescription| ReferenceFixedInput {
+        key: key.into(),
+        value,
+        physical: physical.clone(),
+    };
+    let mut specification = vec![
+        fixed("tau_seconds", case.tau_seconds, &time),
+        fixed("kp", case.kp, &scalar),
+        fixed("ti_seconds", case.ti_seconds, &time),
+        fixed("bias", case.bias, &scalar),
+        fixed("setpoint", case.setpoint, &scalar),
+        fixed("initial_process", case.initial_process, &scalar),
+        fixed(
+            "initial_integral_seconds",
+            case.initial_integral_seconds,
+            &time,
+        ),
+        fixed("derivative_seconds", case.derivative_seconds, &time),
+        fixed("lower", case.lower, &scalar),
+        fixed("upper", case.upper, &scalar),
+        fixed("engineering_fraction", case.engineering_fraction, &scalar),
+        fixed("initial_step_seconds", case.initial_step_seconds, &time),
+    ];
+    specification.extend(
+        case.samples_seconds
+            .iter()
+            .map(|value| fixed(&sample_key("time", *value), *value, &time)),
+    );
+    let observable =
+        |key: String, physical: &PhysicalQuantityDescription| ReferenceObservableContract {
+            output: pse_ids::named_id(fixture.as_id(), &key),
+            key,
+            physical: physical.clone(),
+        };
+    let mut observables = Vec::new();
+    for role in ["exact_process", "petsc_process"] {
+        observables.extend(
+            case.samples_seconds
+                .iter()
+                .map(|value| observable(sample_key(role, *value), &scalar)),
+        );
+    }
+    observables.push(observable("steady_process".into(), &scalar));
+    observables.push(observable("steady_integral_seconds".into(), &time));
+    let source = pse_ids::preimage::hash(&serde_json::to_vec(&(capture.identity(), authored))?);
+    let configuration = pse_ids::preimage::hash(&serde_json::to_vec(
+        &specification
+            .iter()
+            .map(|input| {
+                (
+                    &input.key,
+                    input.value.to_bits(),
+                    input.physical.quantity.id,
+                )
+            })
+            .collect::<Vec<_>>(),
+    )?);
+    Ok(ReferenceInputs {
+        contract: ReferenceCaseContract {
+            version: Default::default(),
+            case_name: case.id.clone(),
+            meaning: ReferenceMeaning {
+                case: fixture.as_id(),
+                source,
+                formulation: pse_ids::preimage::hash(authored.as_bytes()),
+                physical: context.identity(),
+                configuration,
+            },
+            observables,
+            specification,
+            artifacts,
+        },
+        _owners: [scalar_owner, time_owner],
+    })
 }
 
 fn admit_physical<'a>(
@@ -249,9 +395,10 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
 pub(super) fn run<'a>(
     context: &'a NativeContext,
     case: &'a LoopCase,
-) -> BoxFuture<'a, Result<CandidateReport>> {
+) -> BoxFuture<'a, Result<(CandidateReport, ReferenceInputs)>> {
     Box::pin(async move {
-        let package = package(context, case.source()).await?;
+        let authored = case.source();
+        let package = package(context, authored.clone()).await?;
         let services = context.runtime.execution_services();
         let fixture = package
             .declarations(services.preparation())
@@ -280,47 +427,51 @@ pub(super) fn run<'a>(
         for row in rows {
             series.entry(row.symbol_id).or_default().push(row);
         }
-        // Preserve the original independent trajectory selection: plant state and
-        // controller measurement are the only series starting at the process value.
-        let mut matching = Vec::new();
-        for mut rows in series.into_values() {
+        let input = reference_contract(case, &authored, fixture, package.physical_context())?;
+        let model = &trajectory.prepared().model().compiled().model;
+        let scalar = &input.contract.observables[0].physical;
+        let mut original = |path: &str| -> Result<Vec<f64>> {
+            let mut symbols = model.symbols.values().filter(|symbol| {
+                let lineage = symbol.lineage.path.as_str();
+                lineage == path
+                    || lineage
+                        .strip_suffix(path)
+                        .is_some_and(|prefix| prefix.ends_with('.'))
+            });
+            let symbol = symbols.next().ok_or("PID authored output is absent")?;
+            assert!(
+                symbols.next().is_none(),
+                "PID authored output path is ambiguous: {path}"
+            );
+            let mut rows = series
+                .remove(&symbol.id)
+                .ok_or("PID authored output series is absent")?;
             rows.sort_by(|a, b| a.time.total_cmp(&b.time));
-            if rows
-                .first()
-                .is_some_and(|row| row.time == 0. && row.value == case.initial_process)
-            {
-                assert_eq!(rows.len(), case.samples_seconds.len());
-                for (row, time) in rows.iter().zip(&case.samples_seconds) {
-                    assert_eq!(row.time, *time);
-                    assert_eq!(row.quantity_id, rows[0].quantity_id);
-                    assert_eq!(row.unit_id, rows[0].unit_id);
-                    assert!(row.value.is_finite());
-                }
-                matching.push(rows);
+            assert_eq!(rows.len(), case.samples_seconds.len());
+            for (row, time) in rows.iter().zip(&case.samples_seconds) {
+                assert_eq!(row.time.to_bits(), time.to_bits());
+                assert_eq!(row.quantity_id, scalar.quantity.id.as_id());
+                assert_eq!(row.unit_id, scalar.representation_unit.id.as_id());
+                assert!(row.value.is_finite());
             }
-        }
-        assert_eq!(
-            matching.len(),
-            2,
-            "plant and measurement must both be retained"
-        );
-        assert_eq!(matching[0][0].quantity_id, matching[1][0].quantity_id);
-        assert_eq!(matching[0][0].unit_id, matching[1][0].unit_id);
-        let values: Vec<Vec<f64>> = matching
-            .iter()
-            .map(|rows| rows.iter().map(|row| row.value).collect())
-            .collect();
-        for (process, measured) in values[0].iter().zip(&values[1]) {
+            Ok(rows.into_iter().map(|row| row.value).collect())
+        };
+        let process = original("root.y")?;
+        let measurement = original("root.regulator.measurement")?;
+        for (process, measured) in process.iter().zip(&measurement) {
             assert!((process - measured).abs() <= case.engineering_fraction);
         }
-        Ok(CandidateReport {
-            complete: trajectory.checks_complete(),
-            accepted: trajectory.accepted(),
-            termination: trajectory.report().termination.as_str().into(),
-            fixture_passed: true,
-            samples_seconds: case.samples_seconds.clone(),
-            process: values[0].clone(),
-            measurement: values[1].clone(),
-        })
+        Ok((
+            CandidateReport {
+                complete: trajectory.checks_complete(),
+                accepted: trajectory.accepted(),
+                termination: trajectory.report().termination,
+                fixture_passed: true,
+                samples_seconds: case.samples_seconds.clone(),
+                process,
+                measurement,
+            },
+            input,
+        ))
     })
 }
