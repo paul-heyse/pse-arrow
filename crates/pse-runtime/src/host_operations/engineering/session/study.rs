@@ -7,8 +7,7 @@ use crate::host_operations::engineering_contract::{
     EngineeringCohortRelease, EngineeringFreezeStudyCohort, EngineeringObserveStudy,
     EngineeringPrepareStudy, EngineeringPreparedStudy, EngineeringReadStudyResult,
     EngineeringRestoreStudy, EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
-    EngineeringStudyKey, EngineeringStudyResultPage, EngineeringStudyStatus,
-    EngineeringSubmitStudy,
+    EngineeringStudyResultPage, EngineeringStudyStatus, EngineeringSubmitStudy,
 };
 use crate::workflow::{
     FrozenStudyCohort, IssuedStudyIdentity, StudyCreationRequest, StudyDefinition,
@@ -71,11 +70,22 @@ mod tests {
     #[tokio::test]
     async fn engineering_study_frontend_shutdown_joins_creation_without_requesting_study_cancel() {
         let service = service();
-        let key = EngineeringOperationKey {
+        let key = EngineeringStudyKey {
             operation: "original-study".into(),
+            study: pse_model::generated::identities::StudyId::from_bytes([7; 16]),
         };
-        let (original, fresh) = service.issue(&key.operation, Kind::Study, &key).unwrap();
+        let (original, fresh) = service
+            .issue_with_issuance(
+                &key.operation,
+                Kind::Study,
+                &key,
+                Issuance::Study(key.clone()),
+            )
+            .unwrap();
         assert!(fresh);
+        let visible = service.operation(&key.operation, Kind::Study).unwrap();
+        assert!(Arc::ptr_eq(&original, &visible));
+        assert!(matches!(&visible.issuance, Issuance::Study(retained) if retained == &key));
         let (started, entered) = tokio::sync::oneshot::channel();
         let original_task = original.clone();
         let weak = Arc::downgrade(&service);
@@ -376,28 +386,18 @@ impl EngineeringService {
             // Reconciliation below needs the exact original definition; absence never starts new science.
         }
         let preparation = self.operation(&input.preparation_operation, Kind::StudyPreparation)?;
-        let (operation, fresh) = self.issue(&input.operation, Kind::Study, &input)?;
-        let issued = IssuedStudyIdentity {
-            study: input.study,
-            operation: input.operation.clone(),
-            submission: operation.fingerprint,
-        };
-        {
-            let mut retained = operation
-                .issued_study
-                .lock()
-                .map_err(|_| infrastructure("issued study identity lock poisoned"))?;
-            if retained
-                .as_ref()
-                .is_some_and(|original| original != &issued)
-            {
-                return Err(request(
-                    "original operation has another issued study identity",
-                ));
-            }
-            *retained = Some(issued.clone());
-        }
+        let (operation, fresh) = self.issue_with_issuance(
+            &input.operation,
+            Kind::Study,
+            &input,
+            Issuance::Study(key.clone()),
+        )?;
         if fresh {
+            let issued = IssuedStudyIdentity {
+                study: input.study,
+                operation: input.operation,
+                submission: operation.fingerprint,
+            };
             let service = self.clone();
             let original = operation.clone();
             self.spawn(operation.clone(), async move {
@@ -508,13 +508,8 @@ impl EngineeringService {
                     ));
                 }
                 outcome => {
-                    let retained = operation
-                        .issued_study
-                        .lock()
-                        .map_err(|_| infrastructure("issued study identity lock poisoned"))?;
-                    if retained.as_ref().is_none_or(|issued| {
-                        issued.study != key.study || issued.operation != key.operation
-                    }) {
+                    if !matches!(&operation.issuance, Issuance::Study(original) if original == key)
+                    {
                         return Err(request(
                             "original operation has another issued study identity",
                         ));

@@ -107,13 +107,13 @@ impl EngineeringClient {
         .shared(32);
         let inner = bindings::EngineeringServiceClient::new(connection, config);
         let client = Self { inner };
-        let described = client
+        let response = client
             .describe_contract(pb::EngineeringDescribeRequest::default())
             .await
-            .map_err(infrastructure)?
-            .into_owned();
-        if described.descriptor_sha256 != sha2::Sha256::digest(&described.descriptor).to_vec()
-            || described.descriptor.as_slice() != generated::DESCRIPTORS
+            .map_err(infrastructure)?;
+        let described = response.view();
+        if described.descriptor != generated::DESCRIPTORS
+            || described.descriptor_sha256 != &sha2::Sha256::digest(described.descriptor)[..]
         {
             return Err(EngineeringServiceError::Interpretation("prepared service descriptor differs from this client's compiled source-owned contract".into()));
         }

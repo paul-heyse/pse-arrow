@@ -203,6 +203,11 @@ authentication checks remain with their existing owners. Main's selected receivi
 the separate checkout-environment activation defect was corrected; B records its 38-control
 bounded-response/result scope. This is not the remaining independent-client population.
 
+Run and Study issuance now publish the original coordinates with the operation fingerprint
+under one inventory insertion. Status and cancellation can observe the original pending
+identity immediately. Exact replay reuses the same operation and changed input refuses. The
+bounded DescribeContract handshake compares the original borrowed Buffa view directly.
+
 Migrate all selected engineering contract/workbench/prepared-study and simulation/fit/horizon
 submission/status/cancel/progress/read paths, plus their preparation, worker and reference service
 routes. Coordinate F's generated Rust client in the same slices. Compare direct/native and remote

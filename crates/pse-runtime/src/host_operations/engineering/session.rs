@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Original operation custody, independent of RPC waiter and connection lifetimes.
 
+use crate::host_operations::engineering_contract::EngineeringStudyKey;
 use crate::host_operations::project::handler::{admit_project_documents, admit_project_physical};
 use crate::{
     CancelSource, SharedRuntime,
@@ -146,13 +147,18 @@ enum Kind {
     Study,
     StudyCohort,
 }
+#[derive(PartialEq, Eq)]
+enum Issuance {
+    None,
+    Run(EngineeringRunKey),
+    Study(EngineeringStudyKey),
+}
 struct Operation {
     fingerprint: ContentHash,
     kind: Kind,
     cancel: CancelSource,
     outcome: Mutex<Outcome>,
-    issued: Mutex<Option<EngineeringRunKey>>,
-    issued_study: Mutex<Option<crate::workflow::IssuedStudyIdentity>>,
+    issuance: Issuance,
     changed: Notify,
     _reservation: datafusion::execution::memory_pool::MemoryReservation,
 }
@@ -309,6 +315,16 @@ impl EngineeringService {
         kind: Kind,
         input: &T,
     ) -> Result<(Arc<Operation>, bool), EngineeringServiceError> {
+        self.issue_with_issuance(key, kind, input, Issuance::None)
+    }
+
+    fn issue_with_issuance<T: serde::Serialize>(
+        &self,
+        key: &str,
+        kind: Kind,
+        input: &T,
+        issuance: Issuance,
+    ) -> Result<(Arc<Operation>, bool), EngineeringServiceError> {
         EngineeringOperationKey {
             operation: key.to_owned(),
         }
@@ -323,7 +339,10 @@ impl EngineeringService {
             return Err(request("service is closing"));
         }
         if let Some(original) = operations.get(key) {
-            if original.kind != kind || original.fingerprint != fingerprint {
+            if original.kind != kind
+                || original.fingerprint != fingerprint
+                || original.issuance != issuance
+            {
                 return Err(request(
                     "original operation identity is already bound to another request",
                 ));
@@ -351,8 +370,7 @@ impl EngineeringService {
             kind,
             cancel: CancelSource::new(),
             outcome: Mutex::new(Outcome::Pending),
-            issued: Mutex::new(None),
-            issued_study: Mutex::new(None),
+            issuance,
             changed: Notify::new(),
             _reservation: reservation,
         });
@@ -680,23 +698,12 @@ impl EngineeringService {
         input: &EngineeringSubmitRun,
         key: &EngineeringRunKey,
     ) -> Result<(Arc<Operation>, bool), EngineeringServiceError> {
-        let (operation, fresh) = self.issue(&input.operation, Kind::Run, input)?;
-        {
-            let mut original = operation
-                .issued
-                .lock()
-                .map_err(|_| infrastructure("issued run identity lock poisoned"))?;
-            if let Some(original) = original.as_ref() {
-                if original != key {
-                    return Err(request(
-                        "original operation has another issued run or attempt",
-                    ));
-                }
-            } else {
-                *original = Some(key.clone());
-            }
-        }
-        Ok((operation, fresh))
+        self.issue_with_issuance(
+            &input.operation,
+            Kind::Run,
+            input,
+            Issuance::Run(key.clone()),
+        )
     }
 
     /// Read the actual original native result; an unjoined result remains unsettled.
@@ -1236,13 +1243,9 @@ fn check_issued(
     operation: &Operation,
     key: &EngineeringRunKey,
 ) -> Result<(), EngineeringServiceError> {
-    let original = operation
-        .issued
-        .lock()
-        .map_err(|_| infrastructure("issued run identity lock poisoned"))?;
-    if original.as_ref() != Some(key) {
+    if !matches!(&operation.issuance, Issuance::Run(original) if original == key) {
         return Err(request(
-            "original operation has another or not yet retained issued run identity",
+            "original operation has another issued run identity",
         ));
     }
     Ok(())
@@ -1513,6 +1516,9 @@ mod tests {
         };
         let (original, fresh) = service.issue_run(&input, &key).unwrap();
         assert!(fresh);
+        let visible = service.operation(&key.operation, Kind::Run).unwrap();
+        assert!(Arc::ptr_eq(&original, &visible));
+        check_issued(&visible, &key).unwrap();
         let mut changed = key.clone();
         changed.attempt = pse_ids::SemanticId::from_bytes([53; 16]);
         assert!(service.cancel_run(&changed).await.is_err());
@@ -1525,6 +1531,9 @@ mod tests {
         assert!(cancelled.usable.is_none());
         assert!(original.cancel.token().is_cancelled());
         assert!(!service.issue_run(&input, &key).unwrap().1);
+        let mut changed_request = input;
+        changed_request.expected_preparation = ContentHash::from_bytes([55; 32]);
+        assert!(service.issue_run(&changed_request, &key).is_err());
         service.shutdown().await.unwrap();
     }
 

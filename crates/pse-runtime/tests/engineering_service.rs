@@ -611,6 +611,18 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     assert_eq!(repeated.run, finished.run);
+    let mut changed = submit.clone();
+    changed.expected_preparation[0] ^= 1;
+    let changed_failure = reconnected
+        .generated()
+        .submit_run(changed)
+        .await
+        .unwrap_err();
+    assert_eq!(changed_failure.code, connectrpc::ErrorCode::InvalidArgument);
+    assert_eq!(
+        failure(changed_failure).code,
+        pse_diagnostics::DiagnosticCode::WorkflowInput.as_str(),
+    );
     let output = reconnected
         .read_result(pb::EngineeringReadResult {
             operation: submit.operation,
