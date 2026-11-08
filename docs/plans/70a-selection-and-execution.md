@@ -130,15 +130,15 @@ that alter the compiled target population.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [A01](#a01) | in-progress | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
-| [A02](#a02) | in-progress | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
-| [A03](#a03) | in-progress | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
+| [A01](#a01) | complete | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
+| [A02](#a02) | complete | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
+| [A03](#a03) | complete | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
 | [A04](#a04) | in-progress | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |
 
 ## Execution checkpoint
 
-Reconciled on 2026-11-08 against the combined implementation and subsequent Cargo coordination
-through `7b40ccee4`. The packages remain open for their outstanding receiving and specialist checks.
+Reconciled on 2026-11-08 against the combined implementation, Cargo coordination, and resumed
+native qualification. The remaining specialist dependencies are recorded below.
 
 **Implemented.** A01 analyzes the reached unit graph once for each admitted argument set
 and compares complete unit records at the existing receiving boundaries. The generic
@@ -169,7 +169,9 @@ an assertion failure and from physical settlement. The Park and foreground helpe
 child-only entries with explicit parent markers. The later default managed host selection
 passed 11 queue and nested workflow controls with zero failures. That run exercised selection,
 setup refusal and exact rerun on isolated Cargo fixtures. B03's live receiving checks establish
-the original target-owned drain and the separate assertion verdict.
+the original target-owned drain and the separate assertion verdict. The default Nextest Park
+and foreground parent controls reached their intended phases, with helper entries kept outside
+the unmarked assurance population.
 
 **Interface-checked.** A03 traced the named scientific group to Nextest scheduling within
 one invocation. Fresh borrowed runs construct their own private server; their child cases
@@ -181,8 +183,12 @@ independent invocations on private servers. The pair `01a1bbaf-d7cc-7614-9877-a4
 and `01a1bbb0-1e35-73e5-9d58-fce065dc2062` passed with reciprocal rendezvous, distinct
 services and complete settlement. The live native selection also passed the existing owner
 checks for a foreign listener collision and original-attempt cancellation after admission closed.
-The interrupted invocation with unresolved physical drain remains a separate receiving check.
-Cargo output admission in
+The detached run `01a1bbe8-f280-738b-a12b-ef813ec7c51f` was cancelled after its ready witness.
+The managed service disappeared, but the original target had only a start record and no terminal
+workflow frame. Settlement remained unknown and all five captured executables remained in
+original custody. The worker-owner control also retained admission through unknown reap and
+released it after actual settlement. These selected effects use their existing owners and per-run
+Nextest scheduling. Cargo output admission in
 `82f578fa6` coordinates compilation. This inquiry concerns native effects after build and fixture
 preparation.
 [Nextest policy](../../.config/nextest.toml) ·
@@ -194,15 +200,20 @@ solver and native-contract controls, and restores the direct pinned Miri route. 
 qualification cases require the corresponding companion receipt separately from production
 module borrowing. The default managed arbitrary AST selection passed its one case with
 `pse-authoring/arbitrary`, and `just reference-unit` passed 15 solver-free controls.
-`just reference-solver-unit` passed four locked Ipopt reference controls. The initial
-Miri run passed three cases before interruption during the large logical-description case.
-`8aebd0544` moved that stress case out of the focused local selection. The focused rerun
-was interrupted before execution. The standard qualification receipt was prepared. Long-hold
-preparation encountered changing source inputs and still needs a current receipt.
+`just reference-solver-unit` passed four locked Ipopt reference controls. `8aebd0544`
+separates the large logical-description stress case from the focused local selection.
+The resumed `just scientific-replay-miri` route passed all three selected cases and the
+separate managed native stress case passed in `01a1bbc0-e520-7622-b465-2058d87e5e80`, both with
+zero failures. With the standard companion, fault rollback and pool expiry passed. `7dea6f83c`
+made the cancelled-apply test's read-only observer tolerate a typed live transaction conflict
+under its original deadline. The exact four-controller rerun `01a1bbdc-c186-75e3-84c0-40a6199c4a90`
+passed and settled. A production receipt presented as the companion refused before effects.
+Fresh long-hold preparation succeeded and the eight-controller capacity case passed and settled
+in `01a1bbdb-39a6-771e-8c7e-8e18afd00dd4`.
 [Operator routes](../dev/validation-assessment.md#individual-commands)
 
-Resume with the interrupted-owner custody control, focused Miri selection, and the standard
-and long-hold Study routes with current receipts.
+The retained native reference contracts refused current source-closure validation. The
+independent receiver still needs current producer bytes for its five selected contracts.
 The four parity exchanges still require D02's actual performing solver admission. Ordinary
 compiler and modeling capsule migration still needs E01's selected authored closure. The staged
 receipt cases retain their explicit capture route. Run build-bearing checks one at a time in the

@@ -1,6 +1,6 @@
 ---
 title: "Plan70c: Test support and contract evidence"
-status: in-progress
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -194,10 +194,10 @@ existing architecture publication route for enduring contract wording. [Taxonomy
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [C01](#c01) | in-progress | Existing compiler, authored input, relation admission and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits, shared mechanics and typed lifecycle fixture pass their controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
+| [C01](#c01) | complete | Existing compiler, authored input, relation admission and typed error owners. Fixture receiving path only for affected fixture seams. | Checked edits, shared mechanics and typed lifecycle fixture pass their controls. Positive memo evidence, fresh semantics, and exact refusal reason are established. Superseded helper paths and public seams are removed after their consumers move. |
 | [C02](#c02) | complete | Current migration and native fixture owners. Access to Git history and retained evidence. | Independent format witnesses and the final-apply fault boundary selected. Physical receiving evidence belongs to C03. |
 | [C03](#c03) | complete | C02 witness and fault decision. B02 settlement for the physical control. | Independent predecessor and three recovery branches pass. The actual final commit and missing acknowledgement are demonstrated and drained. Keep native acceptance open if the physical witness is unresolved. |
-| [C04](#c04) | in-progress | Existing identity, pruning and diagnostic owners. Native fixture readiness for physical pruning. | Named and generated equivalence and negative controls distinguish required behavior. Stable diagnostic and compile-fail claims match the executed evidence. |
+| [C04](#c04) | complete | Existing identity, pruning and diagnostic owners. Native fixture readiness for physical pruning. | Named and generated equivalence and negative controls distinguish required behavior. Stable diagnostic and compile-fail claims match the executed evidence. |
 
 ## Execution checkpoint
 
@@ -207,8 +207,13 @@ construction in `7b9358df8`. The all-targets check of `pse-modeling`, `pse-engin
 and `pse-tests-engine` passed with zero failures. The resumed all-targets check of
 `pse-compiler`, `pse-tests-lifecycle`, and `pse-backend-native` with KINSOL and root isolation
 passed with zero failures in `01a1bbb3-1baa-7608-a0e1-cfcdeed04a8f`. The typed memo,
-dependency-overlay, residual and query-memory controls need executed evidence. Keep E01's
-demand-selected closure as a separate prerequisite for its consumers.
+dependency-overlay and math residual controls passed in the ten-case managed support run
+`01a1bbb6-00f3-7175-8be3-b805e1d1f7af`, which had one modeling refusal assertion failure.
+`8dad80beb` checks the typed cause at the authored declaration. Its exact rerun passed
+with zero failures. The three force-validated query-memory controls passed with zero failures
+in `01a1bbbb-cdb1-755a-91ce-7a3e92e0feb3`. Three native residual controls passed with zero
+failures in the managed KINSOL/root-isolation backend selection `01a1bbd1-f708-7241-97c0-17a59c7f5922`.
+E01's demand-selected closure remains a separate prerequisite for its consumers.
 
 **Decision recorded.** C02 selected four independently authored v2/v3 format witnesses
 based on the historical wire definitions. They establish the request and activation format
@@ -235,9 +240,15 @@ checks and exact compile-fail expectations in `068494575`, `48fd834d6` and `ca1e
 `64a4b335e` aligned the architecture's claims with their owning controls. The all-targets
 engine check established compilation. The managed selection `01a1bbb2-1104-72db-8794-e1807e1289b3`
 passed the seeded row identity, engine pruning comparison and wrong-oracle control, engine
-diagnostic identity and two governance taxonomy cases with zero failures. Native canonical
-pruning and the changed compile-fail selections still need execution. The three selected
-`pse-columnar` doctests in the 70a checkpoint cover their named examples.
+diagnostic identity and two governance taxonomy cases with zero failures. The correctness
+adapter's locked doctest run across `pse-diagnostics`, `pse-ids`, `pse-model`, and `pse-runtime`
+passed 27 examples, including the changed compile-fail cases and their compiling neighbors.
+Three native canonical pruning controls passed in the combined default selection. The fourth
+comparison passed its SQL assertions but initially retained its protected reader through a
+shared catalog registration. `8b9fb38f7` isolates that registration in a private DataFusion
+catalog while preserving the snapshot's configured pool and execution state. The exact rerun
+`01a1bbe6-1f12-7015-8039-22a5969f7d3e` passed with zero failures and complete settlement.
+[Native comparison](../../crates/pse-runtime/src/workflow/result_pruning_tests.rs)
 
 ## Verification boundary
 

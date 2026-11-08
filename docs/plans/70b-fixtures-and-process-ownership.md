@@ -1,6 +1,6 @@
 ---
 title: "Plan70b: Fixtures and process ownership"
-status: in-progress
+status: complete
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -139,10 +139,10 @@ deadline and settlement meanings for the real-clock case (AP-06, DP-23, H21, H24
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | [B01](#b01) | complete | Existing process owner and pinned platform primitives | Selected capture mechanism with bounded-stream, overflow and original drain evidence. |
-| [B02](#b02) | in-progress | B01 for stream capture, actual service and runner deadline contracts | Shared work/capture and settlement contract, targeted success, overflow and interrupted-drain controls, and selected profile budget correspondence. |
+| [B02](#b02) | complete | B01 for stream capture, actual service and runner deadline contracts | Shared work/capture and settlement contract, targeted success, overflow and interrupted-drain controls, and selected profile budget correspondence. |
 | [B03](#b03) | complete | Existing client and connection owner, B02 for new settlement receiving | Real protection cleanup and target-owned release evidence. Remove replaced fixture seams and duplicated constructors with their consumers. |
-| [B04](#b04) | in-progress | B02 for bounded seed and interruption cases, A02 for marked runner cases | Existing wrong-reason, cancellation, restore, private-policy and real-manager controls. SurrealKit preserves exact case and drain evidence, records the negative-selection decision and bounds report admission. |
-| [B05](#b05) | in-progress | Existing scientific worker controls, B02 settlement contract for physical receiving | Phase-controlled ordering and failure witnesses, with a real-clock deadline witness that observes active work, reap and release. |
+| [B04](#b04) | complete | B02 for bounded seed and interruption cases, A02 for marked runner cases | Existing wrong-reason, cancellation, restore, private-policy and real-manager controls. SurrealKit preserves exact case and drain evidence, records the negative-selection decision and bounds report admission. |
+| [B05](#b05) | complete | Existing scientific worker controls, B02 settlement contract for physical receiving | Phase-controlled ordering and failure witnesses, with a real-clock deadline witness that observes active work, reap and release. |
 
 ## Execution checkpoint
 
@@ -167,6 +167,13 @@ The three logical controls passed with zero failures and complete settlement in
 `01a1bbb0-da65-70b2-9efe-d9c866f7c387`.
 [Exact host settlement rerun](70a-selection-and-execution.md#execution-checkpoint)
 
+**Tested.** `0602016b3` binds repeated-analysis cleanup to an owned witness and checks the
+current versioned IPC attribution against original run, attempt, relation and manifest.
+The native-service/KINSOL repeated-analysis case passed in `01a1bbde-31e9-7383-a846-98f654444d05`
+with complete settlement. The separate pruning fixture was the sole failing case in that
+selection. Both repeated analysis and SurrealKit retain 600 seconds for work plus 60 seconds
+for settlement under their exact default Nextest overrides, which terminate at 900 seconds.
+
 **Implemented with bounded evidence.** B04 uses the bounded child owner and validates report
 extent before decode. The seed-mutation route selects the `seed-mutation` tag and checks the
 two exact identities `authored_seed_is_visible` and `decimal_u64_exact`. The 19-case positive
@@ -177,10 +184,12 @@ drain, and controller SIGKILL recovery before and after exec. The resumed defaul
 `01a1bbad-a153-765c-a96b-ffb03e7699ac`. It included the live SurrealKit seed selection,
 wrong-reason, rollout and interruption checks with complete settlement. Both selected
 `pse-host:native` preparation cancellation controls passed in `01a1bbb1-da0a-743d-89f6-ddac69a47ab9`.
-Repeated-analysis timeout and drain evidence remains open under B02.
+The resumed real-manager foreground selection `01a1bbd7-a734-7593-9df4-ea4c65de4006` passed
+all four SIGTERM, SIGKILL and exec-gate cases with zero failures and complete settlement.
 
-**Implemented.** B05 replaces ordering polls with dispatch, close and reap observations in
-`c8efe19ab`. It retains the real-clock deadline control. The CoolProp-enabled build finished,
-but the workflow detected a changed `Cargo.lock` and refused execution. Rerun the selected
-phase, cancellation and real-deadline controls on stable inputs, including original reap and
-admission release.
+**Tested.** B05 replaces ordering polls with dispatch, close and reap observations in
+`c8efe19ab`. The resumed `pse-runtime --lib -F pse-runtime/property-coolprop` selection
+`01a1bbcd-4452-711c-a612-b7b14a98ca8a` passed all seven phase, cancellation, and real-deadline
+cases with zero failures and complete settlement. The unknown-reap case retained the original
+endpoint and admission until the actual child was reaped. The active native deadline case
+retains the real clock and observes actual dispatch and settlement.
