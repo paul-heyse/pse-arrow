@@ -762,5 +762,5 @@ impl pse_model::diagnostic::DiagnosticProjection for ModelingError {
 mod contract_reason_tests;
 
 #[cfg(test)]
-#[path = "../../../tests/fixtures/scientific-inputs.rs"]
+#[path = "../../../tests/fixtures/authored-scientific-inputs.rs"]
 mod scientific_inputs;

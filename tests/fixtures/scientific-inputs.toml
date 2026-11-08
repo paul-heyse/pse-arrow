@@ -79,7 +79,7 @@ documents = [
   "packages/reference/campaign/models/references.pse",
   "packages/reference/campaign/models/recycle-flash.pse",
 ]
-consumers = ["pse-runtime"]
+consumers = ["pse-compiler", "pse-runtime"]
 projection = "synthetic-declarations"
 substitutions = []
 extends = "bounded-reference"

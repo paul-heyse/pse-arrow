@@ -15,7 +15,7 @@ mod read;
 mod spans;
 mod value;
 
-pub use capture::{CapturedPackage, capture_package};
+pub use capture::{CapturedPackage, CapturedPackageHeader, capture_package, capture_package_header};
 pub use spans::{DocPath, SpanIndex};
 
 pub use data::{UNIT_METADATA, decode_selected_data};

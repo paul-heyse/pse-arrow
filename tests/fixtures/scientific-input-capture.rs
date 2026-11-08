@@ -1,23 +1,35 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! One exact-byte capsule from catalog roots and production package/parser facts.
+//! Exact scientific source closure from catalog roots and production package/parser facts.
+#![allow(
+    dead_code,
+    reason = "explicit exporters and selected-source test binaries use different capture views"
+)]
 
-use miette::{IntoDiagnostic as _, Result, WrapErr as _, bail, ensure, miette};
-use pse_admission::authoring_driver::document::{CapturedPackage, capture_package};
+use miette::{IntoDiagnostic as _, Result, WrapErr as _, ensure, miette};
+use pse_admission::authoring_driver::document::{
+    CapturedPackage, CapturedPackageHeader, capture_package, capture_package_header,
+    package_checksum,
+};
 use pse_authoring::{
     ParseBudget,
     language::{self, IdentityPolicy},
     p0::{GraphLimits, resolve_rows},
 };
-use pse_ids::SemanticId;
-use serde::Deserialize;
+use pse_ids::{ContentHash, SemanticId};
+use pse_model::generated::enums::{IdPolicy, ModelingDeclarationKind};
+use pse_schema::Registry;
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
-    path::{Component, Path, PathBuf},
+    path::{Path, PathBuf},
 };
 
+#[path = "scientific-input-catalog.rs"]
+mod catalog;
+pub(super) use catalog::{Catalog, resolve_families};
+use catalog::{Family, Manifest, normalize};
 #[path = "scientific-input-data.rs"]
 pub(super) mod data;
 use data::{Capsule, CapturedFamily, SCHEMA};
@@ -25,440 +37,490 @@ use data::{Capsule, CapturedFamily, SCHEMA};
 const MAX_PACKAGES: usize = 4096;
 pub(super) const MAX_CAPTURE_BYTES: usize = 256 << 20;
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Catalog {
-    version: u32,
-    package_inventory: String,
-    pub(super) families: Vec<Family>,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Family {
-    pub(super) name: String,
-    #[serde(default)]
-    extends: Option<String>,
-    #[serde(default)]
-    roots: Vec<String>,
-    #[serde(default)]
-    documents: Vec<String>,
-    pub(super) consumers: Vec<String>,
-    #[serde(default)]
-    projection: Option<String>,
-    #[serde(default)]
-    substitutions: Vec<String>,
-    #[serde(default)]
-    manifest: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct Manifest {
-    version: u32,
-    runs: Vec<Run>,
-    #[serde(default)]
-    settings: ManifestSettings,
-}
-
-#[derive(Default, Deserialize)]
-struct ManifestSettings {
-    diagnostics: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct Run {
-    package: String,
-    #[serde(default)]
-    dependencies: Vec<String>,
-    physical: String,
-}
-
 #[derive(Clone)]
 struct ParsedDocument {
     scopes: Vec<String>,
     imports: Vec<String>,
 }
 
-pub(super) fn capture(root: &Path, catalog_path: &Path) -> Result<Capsule> {
-    let catalog_path = if catalog_path.is_absolute() {
-        catalog_path
-            .strip_prefix(root)
-            .into_diagnostic()
-            .wrap_err("catalog must be inside the repository")?
-    } else {
-        catalog_path
-    };
-    let catalog_name = normalize(catalog_path)?;
-    let catalog_bytes = read_file(&checked_path(root, &catalog_name)?)?;
-    let catalog_text = std::str::from_utf8(&catalog_bytes).into_diagnostic()?;
-    let mut catalog: Catalog = toml::from_str(catalog_text).into_diagnostic()?;
-    ensure!(
-        catalog.version == 1,
-        "unsupported scientific input catalog version"
-    );
-    ensure!(
-        catalog.families.len() <= MAX_PACKAGES,
-        "scientific family count exceeds bound"
-    );
-    catalog.families = resolve_families(catalog.families)?;
-    let mut capsule = Capsule {
-        schema: SCHEMA.to_owned(),
-        files: BTreeMap::from([(catalog_name, catalog_bytes)]),
-        families: BTreeMap::new(),
-        directories: BTreeMap::new(),
-        package_headers: Vec::new(),
-    };
-    let mut package_roots = BTreeSet::new();
-    discover_packages(
-        root,
-        &catalog.package_inventory,
-        &mut package_roots,
-        &mut capsule.directories,
-    )?;
-    let inventory_roots = package_roots.clone();
-    let inventory_directories = capsule.directories.clone();
-    let mut family_roots = BTreeMap::new();
-    for family in &catalog.families {
-        ensure!(
-            !family.name.is_empty() && !family.consumers.is_empty(),
-            "family needs a name and consumers"
-        );
-        let mut selected = family
-            .roots
-            .iter()
-            .map(|path| normalize(Path::new(path)))
-            .collect::<Result<BTreeSet<_>>>()?;
-        if let Some(manifest) = &family.manifest {
-            let manifest = normalize(Path::new(manifest))?;
-            let bytes = read_file(&checked_path(root, &manifest)?)?;
-            let manifest_text = std::str::from_utf8(&bytes).into_diagnostic()?;
-            let declared: Manifest = toml::from_str(manifest_text).into_diagnostic()?;
-            ensure!(
-                declared.version == 1 && !declared.runs.is_empty(),
-                "unsupported or empty scientific run manifest"
-            );
-            let directory = Path::new(&manifest)
-                .parent()
-                .wrap_err("manifest parent absent")?;
-            if let Some(diagnostics) = declared.settings.diagnostics {
-                let diagnostics = normalize(&directory.join(diagnostics))?;
-                capsule.files.insert(
-                    diagnostics.clone(),
-                    read_file(&checked_path(root, &diagnostics)?)?,
-                );
-            }
-            for run in declared.runs {
-                for package in std::iter::once(run.package)
-                    .chain(run.dependencies)
-                    .chain(std::iter::once(run.physical))
-                {
-                    selected.insert(normalize(&directory.join(package))?);
-                }
-            }
-            capsule.files.insert(manifest, bytes);
-        }
-        ensure!(
-            !selected.is_empty(),
-            "family {} has no package roots",
-            family.name
-        );
-        package_roots.extend(selected.iter().cloned());
-        ensure!(
-            family_roots.insert(family.name.clone(), selected).is_none(),
-            "duplicate scientific family {}",
-            family.name
-        );
+/// A verified family owns its original package transport and auxiliary source bytes.
+/// Consumers borrow those bytes for as long as they retain the capture.
+#[derive(Debug)]
+pub(crate) struct SelectedCapture {
+    root: PathBuf,
+    snapshot: CaptureSnapshot,
+    name: String,
+    identity: ContentHash,
+}
+
+impl SelectedCapture {
+    /// Identity of the selected population, bytes, membership, registry and parse budget.
+    pub(crate) fn identity(&self) -> ContentHash {
+        self.identity
     }
-    ensure!(
-        package_roots.len() <= MAX_PACKAGES,
-        "scientific package inventory exceeds bounds"
-    );
+
+    /// Selected packages in logical-root order. Each package's paths are ordered too.
+    pub(crate) fn packages(&self) -> impl Iterator<Item = (&str, &CapturedPackage)> {
+        self.snapshot
+            .packages
+            .iter()
+            .map(|(path, package)| (path.as_str(), package))
+    }
+
+    pub(crate) fn package(&self, logical_root: &str) -> Option<&CapturedPackage> {
+        self.snapshot.packages.get(logical_root)
+    }
+
+    /// Exact selected inputs in repository-relative path order, including catalog/manifest.
+    /// Candidate headers used only for discovery are outside this population.
+    pub(crate) fn files(&self) -> BTreeMap<String, &[u8]> {
+        let mut files = self
+            .snapshot
+            .auxiliary
+            .iter()
+            .map(|(path, bytes)| (path.clone(), bytes.as_slice()))
+            .collect::<BTreeMap<_, _>>();
+        for (path, package) in self.packages() {
+            files.extend(
+                package
+                    .files
+                    .iter()
+                    .map(|(relative, bytes)| (format!("{path}/{relative}"), bytes.as_slice())),
+            );
+        }
+        files
+    }
+
+    /// Verify current checkout stability without changing this capture's admitted bytes.
+    pub(crate) fn verify_checkout(&self, root: &Path) -> Result<()> {
+        ensure!(
+            root.canonicalize().into_diagnostic()? == self.root,
+            "scientific capture belongs to a different checkout root"
+        );
+        let registry = pse_schema::shared_registry()?;
+        self.snapshot.verify(&self.root, &registry)
+    }
+
+    fn document_sources(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.snapshot.families[&self.name].sources(|path| {
+            let mut parent = path;
+            while let Some((root, _)) = parent.rsplit_once('/') {
+                if let Some(package) = self.package(root) {
+                    return &package.files[&path[root.len() + 1..]];
+                }
+                parent = root;
+            }
+            &self.snapshot.auxiliary[path]
+        })
+    }
+
+    pub(crate) fn documents(&self) -> Vec<(String, String)> {
+        self.document_sources()
+            .map(|(path, source)| (path.to_owned(), source.to_owned()))
+            .collect()
+    }
+
+    pub(crate) fn sources(&self) -> String {
+        data::marked_sources(self.document_sources())
+    }
+}
+
+pub(super) fn capture_family(root: &Path, catalog: &Path, name: &str) -> Result<SelectedCapture> {
     let registry = pse_schema::shared_registry()?;
     let budget = ParseBudget::default();
-    let mut packages = BTreeMap::new();
-    let mut identities = BTreeMap::new();
-    let mut captured_bytes = 0usize;
-    for path in package_roots {
-        let package = capture_package(&checked_path(root, &path)?, &registry, budget)
-            .wrap_err_with(|| format!("capturing package {path}"))?;
-        for bytes in package.files.values() {
-            captured_bytes = captured_bytes
-                .checked_add(bytes.len())
-                .wrap_err("capture extent overflow")?;
-        }
-        ensure!(
-            captured_bytes <= MAX_CAPTURE_BYTES,
-            "scientific source capture exceeds byte bound"
-        );
-        ensure!(
-            identities
-                .insert(package.header.package_id, path.clone())
-                .is_none(),
-            "ambiguous package identity {}",
-            package.header.package_id
-        );
-        let header_path = format!("{path}/package.toml");
-        capsule.package_headers.push(header_path.clone());
-        capsule
-            .files
-            .insert(header_path, package.files["package.toml"].clone());
-        packages.insert(path, package);
-    }
-    let mut parsed = BTreeMap::new();
-    for family in catalog.families {
-        let mut closure = BTreeSet::new();
-        let mut pending = family_roots[&family.name]
-            .iter()
-            .cloned()
-            .collect::<Vec<_>>();
-        while let Some(path) = pending.pop() {
-            if !closure.insert(path.clone()) {
-                continue;
-            }
-            let package = &packages[&path];
-            for dependency in &package.header.dependencies {
-                let target = identities.get(&dependency.package_id).wrap_err_with(|| {
-                    format!("{path}: missing dependency {}", dependency.package_id)
-                })?;
-                pending.push(target.clone());
-            }
-        }
-        let headers = closure
-            .iter()
-            .map(|path| packages[path].header.clone())
-            .collect::<Vec<_>>();
-        resolve_rows(
-            &headers,
-            GraphLimits {
-                nodes: MAX_PACKAGES,
-                edges: MAX_PACKAGES * MAX_PACKAGES,
-            },
-        )
-        .wrap_err_with(|| format!("resolving scientific family {}", family.name))?;
-        let mut available = BTreeSet::new();
-        for path in &closure {
-            let package = &packages[path];
-            for (relative, bytes) in &package.files {
-                capsule
-                    .files
-                    .entry(format!("{path}/{relative}"))
-                    .or_insert_with(|| bytes.clone());
-            }
-            for (directory, members) in &package.directories {
-                capsule
-                    .directories
-                    .insert(format!("{path}/{directory}"), members.clone());
-            }
-            for document in &package.modeling_documents {
-                available.insert(format!("{path}/{document}"));
-            }
-        }
-        let mut substitutions = BTreeSet::new();
-        for path in &family.substitutions {
-            let path = normalize(Path::new(path))?;
-            ensure!(
-                path.ends_with(".pse")
-                    && !packages
-                        .keys()
-                        .any(|package| path.starts_with(&format!("{package}/"))),
-                "substitution must be outside authenticated package transport: {path}"
-            );
-            if !capsule.files.contains_key(&path) {
-                capsule
-                    .files
-                    .insert(path.clone(), read_file(&checked_path(root, &path)?)?);
-            }
-            if !parsed.contains_key(&path) {
-                let document =
-                    pse_ids::named_id(SemanticId::NIL, &format!("scientific-substitution:{path}"));
-                parsed.insert(
-                    path.clone(),
-                    parse_document(
-                        &capsule.files[&path],
-                        document,
-                        IdentityPolicy::Named,
-                        budget,
-                    )?,
-                );
-            }
-            substitutions.insert(path);
-        }
-        let selected = if family.documents.is_empty() {
-            available.clone()
+    let catalog = catalog.strip_prefix(root).unwrap_or(catalog);
+    let root = root.canonicalize().into_diagnostic()?;
+    let snapshot = CaptureSnapshot::read(&root, catalog, Some(name), &registry, budget)?;
+    snapshot.verify(&root, &registry)?;
+    let identity = snapshot.identity(name, &registry, budget)?;
+    Ok(SelectedCapture {
+        root,
+        snapshot,
+        name: name.to_owned(),
+        identity,
+    })
+}
+
+pub(super) fn capture(root: &Path, catalog: &Path) -> Result<Capsule> {
+    let registry = pse_schema::shared_registry()?;
+    let budget = ParseBudget::default();
+    let snapshot = CaptureSnapshot::read(root, catalog, None, &registry, budget)?;
+    snapshot.verify(root, &registry)?;
+    Ok(snapshot.into_capsule())
+}
+
+#[derive(Debug)]
+pub(super) struct CaptureSnapshot {
+    inventory: String,
+    inventory_roots: BTreeSet<String>,
+    inventory_directories: BTreeMap<String, Option<Vec<String>>>,
+    headers: BTreeMap<String, CapturedPackageHeader>,
+    packages: BTreeMap<String, CapturedPackage>,
+    auxiliary: BTreeMap<String, Vec<u8>>,
+    families: BTreeMap<String, CapturedFamily>,
+}
+
+impl CaptureSnapshot {
+    pub(super) fn read(
+        root: &Path,
+        catalog_path: &Path,
+        family: Option<&str>,
+        registry: &Registry,
+        budget: ParseBudget,
+    ) -> Result<Self> {
+        let catalog_path = if catalog_path.is_absolute() {
+            catalog_path
+                .strip_prefix(root)
+                .into_diagnostic()
+                .wrap_err("catalog must be inside the repository")?
         } else {
-            family
-                .documents
-                .iter()
-                .map(|path| normalize(Path::new(path)))
-                .collect::<Result<BTreeSet<_>>>()?
+            catalog_path
         };
+        let catalog_name = normalize(catalog_path)?;
+        let catalog_bytes = read_file(&checked_path(root, &catalog_name)?)?;
+        let catalog = Catalog::from_bytes(&catalog_bytes)?;
+        let families = resolve_families(catalog.families, family)?;
+        let mut snapshot = Self {
+            inventory: catalog.package_inventory,
+            inventory_roots: BTreeSet::new(),
+            inventory_directories: BTreeMap::new(),
+            headers: BTreeMap::new(),
+            packages: BTreeMap::new(),
+            auxiliary: BTreeMap::from([(catalog_name, catalog_bytes)]),
+            families: BTreeMap::new(),
+        };
+        discover_packages(
+            root,
+            &snapshot.inventory,
+            &mut snapshot.inventory_roots,
+            &mut snapshot.inventory_directories,
+        )?;
+        let mut candidates = snapshot.inventory_roots.clone();
+        let mut family_roots = BTreeMap::new();
+        for family in &families {
+            ensure!(
+                !family.name.is_empty() && !family.consumers.is_empty(),
+                "family needs a name and consumers"
+            );
+            let roots = family_roots_from_sources(root, family, &mut snapshot.auxiliary)?;
+            candidates.extend(roots.iter().cloned());
+            family_roots.insert(family.name.as_str(), roots);
+        }
         ensure!(
-            selected.is_subset(&available),
-            "family {} selects a source outside its package closure",
-            family.name
+            candidates.len() <= MAX_PACKAGES,
+            "scientific package inventory exceeds bounds"
         );
-        let documents = if family.projection.as_deref() == Some("parser-fields") {
-            // This family observes source attribution, not semantic import admission.
-            selected
-        } else {
-            for path in &closure {
-                let package = &packages[path];
-                for relative in &package.modeling_documents {
-                    let path = format!("{path}/{relative}");
-                    if let std::collections::btree_map::Entry::Vacant(entry) = parsed.entry(path) {
-                        entry.insert(parse_package_document(package, relative, budget)?);
-                    }
+        let mut identities = BTreeMap::new();
+        let mut remaining = MAX_CAPTURE_BYTES;
+        for path in candidates {
+            let header = capture_package_header(&checked_path(root, &path)?, budget)
+                .wrap_err_with(|| format!("capturing candidate header {path}"))?;
+            charge(&mut remaining, header.bytes.len())?;
+            ensure!(
+                identities
+                    .insert(header.header.package_id, path.clone())
+                    .is_none(),
+                "ambiguous package identity {}",
+                header.header.package_id
+            );
+            snapshot.headers.insert(path, header);
+        }
+        let mut closures = BTreeMap::new();
+        let mut selected_packages = BTreeSet::new();
+        for family in &families {
+            let mut closure = BTreeSet::new();
+            let mut pending = family_roots[family.name.as_str()]
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            while let Some(path) = pending.pop() {
+                if !closure.insert(path) {
+                    continue;
+                }
+                for dependency in &snapshot.headers[path].header.dependencies {
+                    let target = identities.get(&dependency.package_id).wrap_err_with(|| {
+                        format!("{path}: missing dependency {}", dependency.package_id)
+                    })?;
+                    pending.push(target);
                 }
             }
-            imported_documents(&parsed, &available, &selected, &substitutions)?
-        };
-        capsule.families.insert(
-            family.name,
-            CapturedFamily {
-                packages: closure.into_iter().collect(),
-                documents: documents.into_iter().collect(),
-                substitutions: substitutions.into_iter().collect(),
-                projection: family.projection,
-            },
-        );
-    }
-    let output_bytes = capsule
-        .files
-        .values()
-        .try_fold(0usize, |total, bytes| total.checked_add(bytes.len()))
-        .wrap_err("scientific capsule extent overflow")?;
-    ensure!(
-        output_bytes <= MAX_CAPTURE_BYTES,
-        "scientific capsule exceeds byte bound"
-    );
-    verify_snapshot(
-        root,
-        &catalog.package_inventory,
-        &inventory_roots,
-        &inventory_directories,
-        &packages,
-        &capsule.files,
-    )?;
-    Ok(capsule)
-}
-
-pub(super) fn resolve_families(families: Vec<Family>) -> Result<Vec<Family>> {
-    let mut declared = BTreeMap::new();
-    for family in families {
-        ensure!(
-            declared.insert(family.name.clone(), family).is_none(),
-            "duplicate scientific family name"
-        );
-    }
-    let mut resolved = BTreeMap::new();
-    for name in declared.keys() {
-        resolve_family(name, &declared, &mut resolved, &mut BTreeSet::new())?;
-    }
-    Ok(resolved.into_values().collect())
-}
-
-fn resolve_family(
-    name: &str,
-    declared: &BTreeMap<String, Family>,
-    resolved: &mut BTreeMap<String, Family>,
-    active: &mut BTreeSet<String>,
-) -> Result<()> {
-    if resolved.contains_key(name) {
-        return Ok(());
-    }
-    ensure!(
-        active.insert(name.to_owned()),
-        "scientific family inheritance cycle at {name}"
-    );
-    ensure!(
-        active.len() <= ParseBudget::DEFAULT_MAX_DEPTH as usize,
-        "scientific family inheritance exceeds depth bound"
-    );
-    let mut family = declared
-        .get(name)
-        .wrap_err_with(|| format!("missing scientific base family {name}"))?
-        .clone();
-    if let Some(base) = &family.extends {
-        resolve_family(base, declared, resolved, active)?;
-        let parent = &resolved[base];
-        family.roots.extend(parent.roots.iter().cloned());
-        family.documents.extend(parent.documents.iter().cloned());
-        family
-            .substitutions
-            .extend(parent.substitutions.iter().cloned());
-        if family.projection.is_none() {
-            family.projection = parent.projection.clone();
+            let headers = closure
+                .iter()
+                .map(|path| snapshot.headers[*path].header.clone())
+                .collect::<Vec<_>>();
+            resolve_rows(
+                &headers,
+                GraphLimits {
+                    nodes: MAX_PACKAGES,
+                    edges: MAX_PACKAGES * MAX_PACKAGES,
+                },
+            )
+            .wrap_err_with(|| format!("resolving scientific family {}", family.name))?;
+            selected_packages.extend(closure.iter().copied());
+            closures.insert(family.name.as_str(), closure);
         }
+        for path in selected_packages {
+            let package = capture_package(
+                &checked_path(root, path)?,
+                registry,
+                ParseBudget {
+                    max_bytes: budget.max_bytes.min(remaining as u64),
+                    ..budget
+                },
+            )
+            .wrap_err_with(|| format!("capturing package {path}"))?;
+            ensure!(
+                package.files["package.toml"] == snapshot.headers[path].bytes,
+                "scientific package header changed during capture: {path}"
+            );
+            for bytes in package.files.values() {
+                charge(&mut remaining, bytes.len())?;
+            }
+            snapshot.packages.insert(path.to_owned(), package);
+        }
+        let mut parsed = BTreeMap::new();
+        for family in &families {
+            let captured = materialize_family(
+                root,
+                family,
+                &closures[family.name.as_str()],
+                &mut snapshot,
+                &mut parsed,
+                budget,
+            )?;
+            snapshot.families.insert(family.name.clone(), captured);
+        }
+        for bytes in snapshot.auxiliary.values() {
+            charge(&mut remaining, bytes.len())?;
+        }
+        Ok(snapshot)
     }
-    family.roots = family
-        .roots
-        .into_iter()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
-    family.documents = family
-        .documents
-        .into_iter()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
-    family.substitutions = family
-        .substitutions
-        .into_iter()
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect();
-    family.extends = None;
-    resolved.insert(name.to_owned(), family);
-    active.remove(name);
-    Ok(())
-}
 
-pub(super) fn verify_snapshot(
-    root: &Path,
-    inventory: &str,
-    inventory_roots: &BTreeSet<String>,
-    inventory_directories: &BTreeMap<String, Option<Vec<String>>>,
-    packages: &BTreeMap<String, CapturedPackage>,
-    files: &BTreeMap<String, Vec<u8>>,
-) -> Result<()> {
-    // Only the capture owner rereads. Consumers all receive the same immutable bytes.
-    let mut current_roots = BTreeSet::new();
-    let mut current_directories = BTreeMap::new();
-    discover_packages(
-        root,
-        inventory,
-        &mut current_roots,
-        &mut current_directories,
-    )?;
-    ensure!(
-        &current_roots == inventory_roots && &current_directories == inventory_directories,
-        "scientific package-header inventory changed during capture"
-    );
-    let registry = pse_schema::shared_registry()?;
-    for (path, before) in packages {
-        let after = capture_package(
-            &checked_path(root, path)?,
-            &registry,
-            ParseBudget::default(),
-        )?;
+    pub(super) fn verify(&self, root: &Path, registry: &Registry) -> Result<()> {
+        let mut current_roots = BTreeSet::new();
+        let mut current_directories = BTreeMap::new();
+        discover_packages(root, &self.inventory, &mut current_roots, &mut current_directories)?;
         ensure!(
-            before.files == after.files && before.directories == after.directories,
-            "scientific package bytes or document membership changed during capture: {path}"
+            current_roots == self.inventory_roots
+                && current_directories == self.inventory_directories,
+            "scientific package-header inventory changed during capture"
         );
-    }
-    for (path, before) in files {
-        if !packages
-            .keys()
-            .any(|package| path.starts_with(&format!("{package}/")))
-        {
+        for (path, before) in &self.packages {
+            before.verify(&checked_path(root, path)?, registry).wrap_err_with(|| {
+                format!("scientific package bytes or document membership changed during capture: {path}")
+            })?;
+        }
+        for (path, before) in &self.headers {
+            if !self.packages.contains_key(path) {
+                let path = format!("{path}/package.toml");
+                ensure!(
+                    before.bytes == read_file(&checked_path(root, &path)?)?,
+                    "scientific package header changed during capture: {path}"
+                );
+            }
+        }
+        for (path, before) in &self.auxiliary {
             ensure!(
                 *before == read_file(&checked_path(root, path)?)?,
                 "scientific auxiliary input changed during capture: {path}"
             );
         }
+        Ok(())
     }
+
+    fn identity(&self, name: &str, registry: &Registry, budget: ParseBudget) -> Result<ContentHash> {
+        let packages = self
+            .packages
+            .iter()
+            .map(|(path, package)| {
+                (
+                    path,
+                    package.header.package_id,
+                    &package.header.version,
+                    package.header.content_hash,
+                    &package.directories,
+                    &package.modeling_documents,
+                )
+            })
+            .collect::<Vec<_>>();
+        let metadata = serde_json::to_vec(&(
+            "pse-selected-scientific-input-v1",
+            name,
+            &self.families[name],
+            packages,
+            package_checksum(&self.auxiliary),
+            registry.fingerprint(),
+            (budget.max_depth, budget.max_aliases, budget.max_bytes, budget.max_data_rows),
+        ))
+        .into_diagnostic()?;
+        Ok(pse_ids::preimage::hash(&metadata))
+    }
+
+    fn into_capsule(self) -> Capsule {
+        let mut files = self.auxiliary;
+        let mut directories = self.inventory_directories;
+        let package_headers = self
+            .headers
+            .into_iter()
+            .map(|(path, header)| {
+                let path = format!("{path}/package.toml");
+                files.insert(path.clone(), header.bytes);
+                path
+            })
+            .collect();
+        for (path, package) in self.packages {
+            files.extend(
+                package
+                    .files
+                    .into_iter()
+                    .map(|(relative, bytes)| (format!("{path}/{relative}"), bytes)),
+            );
+            directories.extend(
+                package
+                    .directories
+                    .into_iter()
+                    .map(|(relative, members)| (format!("{path}/{relative}"), members)),
+            );
+        }
+        Capsule {
+            schema: SCHEMA.to_owned(),
+            files,
+            families: self.families,
+            directories,
+            package_headers,
+        }
+    }
+}
+
+fn charge(remaining: &mut usize, size: usize) -> Result<()> {
+    *remaining = remaining
+        .checked_sub(size)
+        .wrap_err("scientific source capture exceeds byte bound")?;
     Ok(())
+}
+
+fn family_roots_from_sources(
+    root: &Path,
+    family: &Family,
+    auxiliary: &mut BTreeMap<String, Vec<u8>>,
+) -> Result<BTreeSet<String>> {
+    let mut selected = family
+        .roots
+        .iter()
+        .map(|path| normalize(Path::new(path)))
+        .collect::<Result<BTreeSet<_>>>()?;
+    if let Some(manifest) = &family.manifest {
+        let manifest = normalize(Path::new(manifest))?;
+        let bytes = auxiliary_input(root, &manifest, auxiliary)?;
+        let declared = Manifest::from_bytes(bytes)?;
+        let directory = Path::new(&manifest)
+            .parent()
+            .wrap_err("manifest parent absent")?;
+        if let Some(diagnostics) = declared.settings.diagnostics {
+            auxiliary_input(root, &normalize(&directory.join(diagnostics))?, auxiliary)?;
+        }
+        for run in declared.runs {
+            for package in run.roots() {
+                selected.insert(normalize(&directory.join(package))?);
+            }
+        }
+    }
+    ensure!(
+        !selected.is_empty(),
+        "family {} has no package roots",
+        family.name
+    );
+    Ok(selected)
+}
+
+fn auxiliary_input<'a>(
+    root: &Path,
+    path: &str,
+    files: &'a mut BTreeMap<String, Vec<u8>>,
+) -> Result<&'a [u8]> {
+    let entry = files.entry(path.to_owned());
+    let bytes = match entry {
+        std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+        std::collections::btree_map::Entry::Vacant(entry) => {
+            entry.insert(read_file(&checked_path(root, path)?)?)
+        }
+    };
+    Ok(bytes)
+}
+
+fn materialize_family(
+    root: &Path,
+    family: &Family,
+    closure: &BTreeSet<&str>,
+    snapshot: &mut CaptureSnapshot,
+    parsed: &mut BTreeMap<String, ParsedDocument>,
+    budget: ParseBudget,
+) -> Result<CapturedFamily> {
+    let available = closure
+        .iter()
+        .flat_map(|path| {
+            snapshot.packages[*path]
+                .modeling_documents
+                .iter()
+                .map(move |document| format!("{path}/{document}"))
+        })
+        .collect::<BTreeSet<_>>();
+    let mut substitutions = BTreeSet::new();
+    for path in &family.substitutions {
+        let path = normalize(Path::new(path))?;
+        ensure!(
+            path.ends_with(".pse")
+                && !snapshot.headers
+                    .keys()
+                    .any(|package| path.starts_with(&format!("{package}/"))),
+            "substitution must be outside authenticated package transport: {path}"
+        );
+        let bytes = auxiliary_input(root, &path, &mut snapshot.auxiliary)?;
+        if !parsed.contains_key(&path) {
+            let document =
+                pse_ids::named_id(SemanticId::NIL, &format!("scientific-substitution:{path}"));
+            parsed.insert(
+                path.clone(),
+                parse_document(bytes, document, IdentityPolicy::Named, budget)?,
+            );
+        }
+        substitutions.insert(path);
+    }
+    let selected = if family.documents.is_empty() {
+        available.clone()
+    } else {
+        family
+            .documents
+            .iter()
+            .map(|path| normalize(Path::new(path)))
+            .collect::<Result<BTreeSet<_>>>()?
+    };
+    ensure!(
+        selected.is_subset(&available),
+        "family {} selects a missing source or a source outside its package closure",
+        family.name
+    );
+    let documents = if family.projection.as_deref() == Some("parser-fields") {
+        // This family observes source attribution without semantic import admission.
+        selected
+    } else {
+        for path in closure {
+            let package = &snapshot.packages[*path];
+            for relative in &package.modeling_documents {
+                let path = format!("{path}/{relative}");
+                if let std::collections::btree_map::Entry::Vacant(entry) = parsed.entry(path) {
+                    entry.insert(parse_package_document(package, relative, budget)?);
+                }
+            }
+        }
+        imported_documents(parsed, &available, &selected, &substitutions)?
+    };
+    Ok(CapturedFamily {
+        packages: closure.iter().map(|path| (*path).to_owned()).collect(),
+        documents: documents.into_iter().collect(),
+        substitutions: substitutions.into_iter().collect(),
+        projection: family.projection.clone(),
+    })
 }
 
 fn parse_package_document(
@@ -466,7 +528,7 @@ fn parse_package_document(
     path: &str,
     budget: ParseBudget,
 ) -> Result<ParsedDocument> {
-    let policy = if package.header.id_policy == pse_relations::generated::enums::IdPolicy::Named {
+    let policy = if package.header.id_policy == IdPolicy::Named {
         IdentityPolicy::Named
     } else {
         IdentityPolicy::Explicit
@@ -499,7 +561,7 @@ fn parse_document(
             ),
             None => row.name.clone(),
         };
-        if row.value.kind == pse_relations::generated::enums::ModelingDeclarationKind::Package {
+        if row.value.kind == ModelingDeclarationKind::Package {
             scopes.push(name.clone());
         }
         if row.value.import.is_some() {
@@ -545,26 +607,6 @@ fn imported_documents(
         }
     }
     Ok(visited.difference(substitutions).cloned().collect())
-}
-
-fn normalize(path: &Path) -> Result<String> {
-    let mut parts = Vec::new();
-    for component in path.components() {
-        match component {
-            Component::Normal(part) => {
-                parts.push(part.to_str().wrap_err("non-UTF8 scientific input path")?)
-            }
-            Component::CurDir => (),
-            Component::ParentDir => {
-                ensure!(parts.pop().is_some(), "scientific path escapes repository");
-            }
-            _ => {
-                bail!("scientific input path must be repository-relative");
-            }
-        }
-    }
-    ensure!(!parts.is_empty(), "empty scientific input path");
-    Ok(parts.join("/"))
 }
 
 fn checked_path(root: &Path, relative: &str) -> Result<PathBuf> {

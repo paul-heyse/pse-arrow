@@ -46,10 +46,8 @@ pub(super) fn check(root: &Path, catalog: &Path, original: &Path) -> Result<()> 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use owner::{Catalog, discover_packages, resolve_families, verify_snapshot};
-    use pse_admission::authoring_driver::document::capture_package;
+    use owner::{CaptureSnapshot, Catalog, capture_family, resolve_families};
     use pse_authoring::ParseBudget;
-    use std::collections::{BTreeMap, BTreeSet};
 
     fn package(root: &Path, path: &str, identity: u8, dependencies: &[u8], source: &str) {
         let directory = root.join(path);
@@ -229,6 +227,77 @@ projection = "declarations""#,
     }
 
     #[test]
+    fn selected_scientific_inputs_materialize_only_the_verified_family() {
+        let root = fixture();
+        let catalog_path = Path::new("inputs.toml");
+        let original = std::fs::read_to_string(root.path().join(catalog_path)).unwrap();
+        std::fs::write(
+            root.path().join(catalog_path),
+            format!(
+                r#"{original}
+[[families]]
+name = "other"
+roots = ["inventory/unused"]
+consumers = ["other-consumer"]
+"#
+            ),
+        )
+        .unwrap();
+        let capsule = capture(root.path(), catalog_path).unwrap();
+        let before = capture_family(root.path(), catalog_path, "control").unwrap();
+        let unrelated = root.path().join("inventory/unused/models/source.pse");
+        std::fs::OpenOptions::new()
+            .write(true)
+            .open(unrelated)
+            .unwrap()
+            .set_len(ParseBudget::DEFAULT_MAX_BYTES + 1)
+            .unwrap();
+        let selected = capture_family(root.path(), catalog_path, "control").unwrap();
+        assert_eq!(selected.identity(), before.identity());
+        assert_eq!(selected.files(), before.files());
+        assert_eq!(selected.documents(), before.documents());
+        assert!(capture_family(root.path(), catalog_path, "other").is_err());
+        assert!(capture(root.path(), catalog_path).is_err());
+        assert_eq!(
+            selected.packages().map(|(path, _)| path).collect::<Vec<_>>(),
+            ["inventory/a", "inventory/b"]
+        );
+        for (path, package) in selected.packages() {
+            assert_eq!(package.files, capsule.package_documents(path));
+            assert_eq!(
+                package.header.content_hash,
+                pse_admission::authoring_driver::document::package_checksum(&package.files)
+            );
+        }
+        assert!(selected.package("inventory/unused").is_none());
+        assert!(!selected.files().contains_key("inventory/unused/package.toml"));
+
+        let imported = "inventory/b/models/source.pse";
+        std::fs::write(root.path().join(imported), b"package beta {}\n// drift\n").unwrap();
+        assert!(selected.verify_checkout(root.path()).is_err());
+        assert_eq!(selected.files()[imported], capsule.files[imported]);
+        let fresh = capture_family(root.path(), catalog_path, "control").unwrap();
+        assert_ne!(selected.identity(), fresh.identity());
+        assert_ne!(selected.files()[imported], fresh.files()[imported]);
+    }
+
+    #[test]
+    fn selected_scientific_inputs_refuse_ambiguity_missing_source_and_version_conflict() {
+        let root = fixture();
+        let capture = || capture_family(root.path(), Path::new("inputs.toml"), "control");
+        package(root.path(), "inventory/alias", 2, &[], "package alias {}\n");
+        assert!(capture().unwrap_err().to_string().contains("ambiguous package identity"));
+        std::fs::remove_dir_all(root.path().join("inventory/alias")).unwrap();
+        let header = root.path().join("inventory/b/package.toml");
+        let original = std::fs::read_to_string(&header).unwrap();
+        std::fs::write(&header, original.replace("1.0.0", "1.0.1")).unwrap();
+        assert!(format!("{:?}", capture().unwrap_err()).contains("version requirement differs"));
+        std::fs::write(&header, original).unwrap();
+        std::fs::remove_file(root.path().join("inventory/a/models/source.pse")).unwrap();
+        assert!(capture().unwrap_err().to_string().contains("selects a missing source"));
+    }
+
+    #[test]
     fn scientific_inputs_refuse_ambiguous_scopes_and_missing_package_dependencies() {
         let root = fixture();
         std::fs::write(
@@ -376,7 +445,7 @@ consumers = ["derived-consumer"]
         assert_eq!(capsule.families["derived"].documents.len(), 3);
         assert_eq!(capsule.families["derived"].substitutions, ["synthetic.pse"]);
         let declared: Catalog = toml::from_str(&inherited).unwrap();
-        let resolved = resolve_families(declared.families).unwrap();
+        let resolved = resolve_families(declared.families, None).unwrap();
         assert_eq!(
             resolved
                 .iter()
@@ -415,33 +484,17 @@ consumers = ["derived-consumer"]
     #[test]
     fn scientific_inputs_reject_package_auxiliary_and_inventory_drift_before_publication() {
         let root = fixture();
-        let capsule = capture(root.path(), Path::new("inputs.toml")).unwrap();
         let registry = pse_schema::shared_registry().unwrap();
-        let packages = capsule
-            .package_headers
-            .iter()
-            .map(|header| {
-                let path = header.strip_suffix("/package.toml").unwrap();
-                (
-                    path.to_owned(),
-                    capture_package(&root.path().join(path), &registry, ParseBudget::default())
-                        .unwrap(),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-        let mut inventory = BTreeSet::new();
-        let mut directories = BTreeMap::new();
-        discover_packages(root.path(), "inventory", &mut inventory, &mut directories).unwrap();
-        let verify = || {
-            verify_snapshot(
-                root.path(),
-                "inventory",
-                &inventory,
-                &directories,
-                &packages,
-                &capsule.files,
-            )
-        };
+        let budget = ParseBudget::default();
+        let original = CaptureSnapshot::read(
+            root.path(),
+            Path::new("inputs.toml"),
+            Some("control"),
+            &registry,
+            budget,
+        )
+        .unwrap();
+        let verify = || original.verify(root.path(), &registry);
         verify().unwrap();
         let source = root.path().join("inventory/b/models/source.pse");
         let original = std::fs::read(&source).unwrap();

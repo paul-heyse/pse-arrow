@@ -10,11 +10,6 @@ use std::{collections::BTreeMap, sync::OnceLock};
 #[path = "scientific-input-data.rs"]
 mod data;
 use data::Capsule;
-#[allow(
-    unused_imports,
-    reason = "transport-only consumers do not parse declarations"
-)]
-pub(crate) use data::parse_sources;
 
 fn capsule() -> &'static Capsule {
     static CAPTURE: OnceLock<Capsule> = OnceLock::new();
@@ -39,12 +34,4 @@ pub(crate) fn package_documents(logical_root: &str) -> BTreeMap<String, Vec<u8>>
 
 pub(crate) fn family_packages(name: &str) -> Vec<(String, BTreeMap<String, Vec<u8>>)> {
     capsule().family_packages(name)
-}
-
-pub(crate) fn family_documents(name: &str) -> Vec<(String, String)> {
-    capsule().family_documents(name)
-}
-
-pub(crate) fn family_sources(name: &str) -> String {
-    capsule().family_sources(name)
 }

@@ -24,6 +24,11 @@ pub(super) struct PackageFiles {
     pub directories: BTreeMap<String, Option<Vec<String>>>,
 }
 
+pub(super) fn package_header(root: &Path, budget: &ParseBudget) -> Result<Vec<u8>, DriverError> {
+    let mut remaining = budget.max_bytes;
+    read_document(root, "package.toml", &mut remaining)
+}
+
 pub(super) fn package_files_with_directories(
     root: &Path,
     registry: &Registry,
@@ -107,6 +112,11 @@ fn read_one(
     remaining: &mut u64,
     files: &mut BTreeMap<String, Vec<u8>>,
 ) -> Result<(), DriverError> {
+    files.insert(relative.to_owned(), read_document(root, relative, remaining)?);
+    Ok(())
+}
+
+fn read_document(root: &Path, relative: &str, remaining: &mut u64) -> Result<Vec<u8>, DriverError> {
     let path = root.join(relative);
     let metadata =
         std::fs::symlink_metadata(&path).map_err(|error| failure(relative, &error.to_string()))?;
@@ -133,8 +143,7 @@ fn read_one(
         ));
     }
     *remaining -= needed;
-    files.insert(relative.to_owned(), bytes);
-    Ok(())
+    Ok(bytes)
 }
 
 fn failure(path: &str, reason: &str) -> DriverError {

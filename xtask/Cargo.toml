@@ -92,6 +92,7 @@ physical-admission = [
   "dep:datafusion",
   "dep:pse-authoring",
   "dep:pse-engine",
+  "dep:pse-model",
   "dep:pse-relations",
   "dep:pse-rules",
 ]

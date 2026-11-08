@@ -6,9 +6,31 @@
 use super::{load, read};
 use crate::authoring_driver::DriverError;
 use pse_authoring::ParseBudget;
+use pse_ids::ContentHash;
 use pse_relations::generated::authored;
 use pse_schema::{Registry, model::DocumentKind};
 use std::{collections::BTreeMap, path::Path};
+
+/// Candidate package identity, version, and dependencies from its exact header bytes.
+#[derive(Debug)]
+pub struct CapturedPackageHeader {
+    /// Typed header. `content_hash` is unset until the declared package is captured.
+    pub header: authored::packages::Row,
+    /// Exact `package.toml` bytes used by the header parser.
+    pub bytes: Vec<u8>,
+}
+
+/// Read and parse a candidate header without opening package bodies or data.
+/// # Errors
+/// The header is absent, invalid, or exceeds its parse budget.
+pub fn capture_package_header(
+    root: &Path,
+    budget: ParseBudget,
+) -> Result<CapturedPackageHeader, DriverError> {
+    let bytes = read::package_header(root, &budget)?;
+    let header = parse_header(&bytes, ContentHash::NIL, &budget)?;
+    Ok(CapturedPackageHeader { header, bytes })
+}
 
 /// Immutable package bytes and their actual declared source membership.
 #[derive(Debug)]
@@ -21,6 +43,28 @@ pub struct CapturedPackage {
     pub directories: BTreeMap<String, Option<Vec<String>>>,
     /// Modeling source paths selected by the registry, without a second glob list.
     pub modeling_documents: Vec<String>,
+    registry: ContentHash,
+    budget: ParseBudget,
+}
+
+impl CapturedPackage {
+    /// Compare the original exact bytes and declared membership with the current source.
+    /// This verification does not parse or replace the captured documents.
+    /// # Errors
+    /// The registry, selected membership or bytes changed, or the current source is unreadable.
+    pub fn verify(&self, root: &Path, registry: &Registry) -> Result<(), DriverError> {
+        if self.registry != registry.fingerprint() {
+            return Err(load::contract(None, "captured package registry differs"));
+        }
+        let current = read::package_files_with_directories(root, registry, &self.budget)?;
+        if current.files != self.files || current.directories != self.directories {
+            return Err(load::contract(
+                None,
+                "package bytes or declared document membership changed during capture",
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// Capture one package without an engine, store, or columnar admission attempt.
@@ -39,9 +83,7 @@ pub fn capture_package(
         .files
         .get("package.toml")
         .ok_or_else(|| load::contract(None, "captured package header absent"))?;
-    let text = std::str::from_utf8(header_bytes)
-        .map_err(|error| load::contract(None, &error.to_string()))?;
-    let (header, _, _) = load::header(text, load::package_checksum(&read.files), &budget)?;
+    let header = parse_header(header_bytes, load::package_checksum(&read.files), &budget)?;
     let modeling_documents = read
         .files
         .keys()
@@ -56,7 +98,20 @@ pub fn capture_package(
         files: read.files,
         directories: read.directories,
         modeling_documents,
+        registry: registry.fingerprint(),
+        budget,
     })
+}
+
+fn parse_header(
+    bytes: &[u8],
+    checksum: ContentHash,
+    budget: &ParseBudget,
+) -> Result<authored::packages::Row, DriverError> {
+    let text = std::str::from_utf8(bytes)
+        .map_err(|error| load::contract(None, &error.to_string()))?;
+    let (header, _, _) = load::header(text, checksum, budget)?;
+    Ok(header)
 }
 
 #[cfg(test)]

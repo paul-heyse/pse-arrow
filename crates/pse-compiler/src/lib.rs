@@ -38,5 +38,5 @@ mod applicability_tests;
 mod selection_identity_tests;
 
 #[cfg(test)]
-#[path = "../../../tests/fixtures/scientific-inputs.rs"]
+#[path = "../../../tests/fixtures/authored-scientific-inputs.rs"]
 mod scientific_inputs;

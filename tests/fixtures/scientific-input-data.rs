@@ -79,37 +79,38 @@ impl Capsule {
             .map(|path| (path.clone(), self.package_documents(path)))
             .collect()
     }
+}
 
-    pub(crate) fn family_documents(&self, name: &str) -> Vec<(String, String)> {
-        let family = self.families.get(name).expect("declared scientific family");
-        family
-            .documents
+impl CapturedFamily {
+    pub(crate) fn sources<'a>(
+        &self,
+        bytes: impl Fn(&str) -> &'a [u8],
+    ) -> impl Iterator<Item = (&str, &'a str)> {
+        self.documents
             .iter()
-            .chain(&family.substitutions)
-            .map(|path| {
-                let bytes = self.files.get(path).expect("captured source path");
+            .chain(&self.substitutions)
+            .map(move |path| {
                 (
-                    path.clone(),
-                    String::from_utf8(bytes.clone()).expect("modeling source is UTF-8"),
+                    path.as_str(),
+                    std::str::from_utf8(bytes(path)).expect("modeling source is UTF-8"),
                 )
             })
-            .collect()
     }
+}
 
-    /// Mark exact captured sources so mutation tests retain separate document attribution.
-    pub(crate) fn family_sources(&self, name: &str) -> String {
-        let mut text = String::new();
-        for (path, source) in self.family_documents(name) {
-            text.push_str(MARKER);
-            text.push_str(&path);
-            text.push('\n');
-            text.push_str(&source);
-            text.push('\n');
-        }
+/// Mark exact captured sources so mutation tests retain separate document attribution.
+pub(crate) fn marked_sources<'a>(sources: impl Iterator<Item = (&'a str, &'a str)>) -> String {
+    let mut text = String::new();
+    for (path, source) in sources {
         text.push_str(MARKER);
-        text.push_str("local-test-source\n");
-        text
+        text.push_str(path);
+        text.push('\n');
+        text.push_str(source);
+        text.push('\n');
     }
+    text.push_str(MARKER);
+    text.push_str("local-test-source\n");
+    text
 }
 
 /// Synthetic declaration controls retain path-derived source identity. Authentic transport

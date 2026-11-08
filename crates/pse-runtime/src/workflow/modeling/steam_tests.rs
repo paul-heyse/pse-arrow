@@ -25,8 +25,12 @@ async fn steam_physical(runtime: &Runtime) -> Result<PhysicalContext, WorkflowEr
     };
     let token = pse_columnar::CancellationToken::new();
     let pool = runtime.shared.pool();
+    let selected = crate::scientific_inputs::family("steam");
     let bundle = load_package_documents_owned(
-        &crate::scientific_inputs::package_documents("packages/reference/physical"),
+        &selected
+            .package("packages/reference/physical")
+            .expect("steam's physical package")
+            .files,
         runtime.registry(),
         Default::default(),
         &pool,
@@ -137,11 +141,13 @@ async fn steam_package(
     };
     let token = pse_columnar::CancellationToken::new();
     let pool = runtime.shared.pool();
-    let bundles = crate::scientific_inputs::family_packages("steam")
-        .into_iter()
-        .map(|(_, mut files)| -> Result<_, WorkflowError> {
+    let selected = crate::scientific_inputs::family("steam");
+    let bundles = selected
+        .packages()
+        .map(|(_, package)| -> Result<_, WorkflowError> {
+            let mut files = std::borrow::Cow::Borrowed(&package.files);
             if wrong_component {
-                for (path, bytes) in &mut files {
+                for (path, bytes) in files.to_mut() {
                     if path.ends_with(".pse") {
                         let source = std::str::from_utf8(bytes).map_err(|error| {
                             steam_infrastructure("decode captured steam source", error)

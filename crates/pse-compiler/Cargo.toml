@@ -19,6 +19,9 @@ doctest = false
 [lints]
 workspace = true
 
+[features]
+force-validate = ["pse-admission/force-validate", "pse-schema/force-validate"]
+
 [dependencies]
 pse-contract.workspace = true
 pse-contract-proto = { workspace = true, features = ["crossings"] }
@@ -45,5 +48,9 @@ pse-kernels.workspace = true
 pse-quantity.workspace = true
 
 [dev-dependencies]
+miette.workspace = true
+pse-admission.workspace = true
 pse-ids = { workspace = true, features = ["fixtures"] }
 pse-quantity = { workspace = true, features = ["fixtures"] }
+pse-schema.workspace = true
+toml.workspace = true

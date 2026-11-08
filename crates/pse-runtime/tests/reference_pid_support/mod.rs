@@ -175,7 +175,10 @@ fn conform<'a>(
 
 fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<ModelingPackage>> {
     Box::pin(async move {
-        let physical = crate::scientific_inputs::package_documents("packages/reference/physical");
+        let selected = crate::scientific_inputs::family("parity");
+        let physical = selected
+            .package("packages/reference/physical")
+            .expect("PID physical package");
         let mut manifest: toml::Value = toml::from_str(&std::fs::read_to_string(
             root().join("tests/fixtures/packages/minimal_explicit/package.toml"),
         )?)?;
@@ -188,12 +191,9 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
             "packages/reference/process",
             "packages/reference/methods",
         ] {
-            let documents = crate::scientific_inputs::package_documents(path);
-            let header: toml::Value =
-                toml::from_str(std::str::from_utf8(&documents["package.toml"])?)?;
-            let version: Vec<i64> = header["package"]["version"]
-                .as_str()
-                .unwrap()
+            let header = &selected.package(path).expect("PID dependency package").header;
+            let version: Vec<i64> = header
+                .version
                 .split('.')
                 .map(|part| part.parse().unwrap())
                 .collect();
@@ -204,21 +204,20 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
                 requirement.insert(key.into(), value.into());
             }
             let mut dependency = toml::Table::new();
-            dependency.insert("package_id".into(), header["package"]["package_id"].clone());
+            dependency.insert("package_id".into(), header.package_id.to_string().into());
             dependency.insert("version_req".into(), requirement.into());
             dependencies.push(dependency.into());
         }
         manifest["package"]["dependencies"] = toml::Value::Array(dependencies);
-        let mut bundles = vec![BTreeMap::from([
+        let local = BTreeMap::from([
             (
                 "package.toml".into(),
                 toml::to_string(&manifest)?.into_bytes(),
             ),
             ("models/loop.pse".into(), source.into_bytes()),
-        ])];
-        for (_, documents) in crate::scientific_inputs::family_packages("parity") {
-            bundles.push(documents);
-        }
+        ]);
+        let bundles = std::iter::once(&local)
+            .chain(selected.packages().map(|(_, package)| &package.files));
         let pool = context.shared.pool();
         let token = pse_columnar::CancellationToken::new();
         let validation = context.runtime.validation_context();
@@ -233,10 +232,10 @@ fn package(context: &NativeContext, source: String) -> BoxFuture<'_, Result<Mode
             )?)
         };
         let physical_documents =
-            OwnedDocumentSet::try_from_bundles(vec![load(&physical)?], &pool, &token)?;
+            OwnedDocumentSet::try_from_bundles(vec![load(&physical.files)?], &pool, &token)?;
         let physical = admit_physical(context, &physical_documents, &token).await?;
         let documents = OwnedDocumentSet::try_from_bundles(
-            bundles.iter().map(load).collect::<Result<Vec<_>>>()?,
+            bundles.map(load).collect::<Result<Vec<_>>>()?,
             &pool,
             &token,
         )?;
