@@ -24,12 +24,11 @@ use std::path::{Path, PathBuf};
 use toml::Value;
 
 /// Package directories Cargo resolves as workspace members.
-fn cargo_member_dirs() -> BTreeSet<PathBuf> {
-    let metadata = common::metadata();
+fn cargo_member_dirs(root: &Path) -> BTreeSet<PathBuf> {
+    let metadata = common::membership_metadata_at(root);
     metadata
-        .packages
-        .iter()
-        .filter(|pkg| metadata.workspace_members.contains(&pkg.id))
+        .workspace_packages()
+        .into_iter()
         .map(|pkg| {
             let manifest: &Path = pkg.manifest_path.as_std_path();
             let dir = manifest
@@ -54,27 +53,38 @@ fn unregistered(dirs: &[(String, PathBuf)], members: &BTreeSet<PathBuf>) -> Vec<
 }
 
 #[test]
-fn every_crate_directory_is_a_workspace_member() {
-    let unregistered = unregistered(&common::crate_dirs(), &cargo_member_dirs());
+fn crate_directories_and_declared_members_match_cargo() {
+    let root = common::workspace_root();
+    let members = cargo_member_dirs(&root);
+    let unregistered = unregistered(&common::crate_dirs_at(&root), &members);
     assert!(
         unregistered.is_empty(),
         "crates/ contains directories Cargo does not build as workspace members: \
          {unregistered:?}. Add the crate through an ADR (GOVERNANCE.md) or remove the \
          directory."
     );
+    let declared: BTreeSet<PathBuf> = common::member_dirs_at(&root)
+        .into_iter()
+        .map(|dir| {
+            dir.canonicalize()
+                .unwrap_or_else(|err| panic!("resolving {}: {err}", dir.display()))
+        })
+        .collect();
+    assert_eq!(
+        declared, members,
+        "[workspace] members in Cargo.toml and Cargo's workspace members differ"
+    );
 }
 
 #[test]
 fn unregistered_crate_directory_is_detected() {
-    let members: BTreeSet<PathBuf> = cargo_member_dirs();
     let stray =
         std::env::temp_dir().join(format!("pse-governance-stray-crate-{}", std::process::id()));
-    std::fs::create_dir_all(&stray).expect("creating the control directory");
+    let member = stray.join("known-member");
+    std::fs::create_dir_all(&member).expect("creating the control directory");
+    let members = BTreeSet::from([member.canonicalize().unwrap()]);
     let dirs = vec![
-        (
-            "pse-ids".to_owned(),
-            common::workspace_root().join("crates/pse-ids"),
-        ),
+        ("known-member".to_owned(), member),
         ("pse-stray".to_owned(), stray.clone()),
     ];
     let found = unregistered(&dirs, &members);
@@ -87,29 +97,14 @@ fn unregistered_crate_directory_is_detected() {
 }
 
 #[test]
-fn declared_members_are_cargo_members() {
-    let declared: BTreeSet<PathBuf> = common::member_dirs()
-        .into_iter()
-        .map(|dir| {
-            dir.canonicalize()
-                .unwrap_or_else(|err| panic!("resolving {}: {err}", dir.display()))
-        })
-        .collect();
-    let resolved = cargo_member_dirs();
-    assert_eq!(
-        declared, resolved,
-        "[workspace] members in Cargo.toml and Cargo's resolved workspace members differ"
-    );
-}
-
-#[test]
 fn every_member_inherits_workspace_metadata() {
+    let root = common::workspace_root();
     let mut problems: Vec<String> = Vec::new();
 
-    for dir in common::member_dirs() {
+    for dir in common::member_dirs_at(&root) {
         let manifest_path = dir.join("Cargo.toml");
         let manifest = common::parse_toml(&manifest_path);
-        let rel = common::rel(&manifest_path);
+        let rel = common::rel_at(&root, &manifest_path);
 
         for field in ["version", "edition", "rust-version", "license"] {
             let inherited = common::dig(&manifest, &["package", field])

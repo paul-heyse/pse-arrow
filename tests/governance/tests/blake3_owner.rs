@@ -19,44 +19,46 @@ mod common;
 
 /// The crate that owns hashing (blueprint §3.1 "`blake3` ... **`pse-ids`** (sole hasher)").
 const OWNER: &str = "pse-ids";
+
+fn ownership<'a>(packages: impl IntoIterator<Item = (bool, &'a str, bool)>) -> (bool, Vec<&'a str>) {
+    let mut owns = false;
+    let mut offenders = Vec::new();
+    for (member, name, depends_on_blake3) in packages {
+        if member && depends_on_blake3 {
+            if name == OWNER {
+                owns = true;
+            } else {
+                offenders.push(name);
+            }
+        }
+    }
+    (owns, offenders)
+}
+
 #[test]
 fn only_pse_ids_depends_on_blake3() {
-    let metadata = common::metadata();
-    let members: Vec<&cargo_metadata::Package> = metadata
-        .packages
-        .iter()
-        .filter(|pkg| metadata.workspace_members.contains(&pkg.id))
-        .collect();
+    let metadata = common::membership_metadata_at(&common::workspace_root());
+    let (owns, offenders) = ownership(metadata.packages.iter().map(|pkg| {
+        (
+            metadata.workspace_members.contains(&pkg.id),
+            pkg.name.as_str(),
+            pkg.dependencies.iter().any(|dep| dep.name == "blake3"),
+        )
+    }));
     assert!(
-        !members.is_empty(),
-        "cargo metadata returned no workspace members"
-    );
-
-    let offenders: Vec<String> = members
-        .iter()
-        .filter(|pkg| pkg.name.as_str() != OWNER)
-        .filter(|pkg| pkg.dependencies.iter().any(|dep| dep.name == "blake3"))
-        .map(|pkg| pkg.name.to_string())
-        .collect();
-
-    assert!(
-        offenders.is_empty(),
-        "crates other than `{OWNER}` depend on blake3 directly: {offenders:?}. Ask pse-ids \
-         for the hash instead (blueprint §5.1)."
+        owns && offenders.is_empty(),
+        "sole hasher policy (blueprint §5.1): `{OWNER}` declares blake3: {owns}; \
+         competing workspace declarations: {offenders:?}"
     );
 }
 
 #[test]
-fn pse_ids_still_owns_blake3() {
-    let metadata = common::metadata();
-    let owner = metadata
-        .packages
-        .iter()
-        .find(|pkg| pkg.name.as_str() == OWNER)
-        .expect("pse-ids is a workspace member");
-    assert!(
-        owner.dependencies.iter().any(|dep| dep.name == "blake3"),
-        "`{OWNER}` no longer depends on blake3; either the hasher moved (an ADR) or the \
-         dependency was dropped by accident"
+fn only_workspace_declarations_can_satisfy_or_violate_ownership() {
+    assert_eq!(ownership([]), (false, vec![]));
+    assert_eq!(ownership([(false, OWNER, true)]), (false, vec![]));
+    assert_eq!(ownership([(true, OWNER, false)]), (false, vec![]));
+    assert_eq!(
+        ownership([(true, OWNER, true), (true, "other", true)]),
+        (true, vec!["other"])
     );
 }

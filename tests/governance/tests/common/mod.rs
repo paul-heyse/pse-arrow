@@ -49,7 +49,11 @@ pub(crate) fn root_manifest() -> toml::Value {
 /// `[workspace.members]` with `crates/*` expanded, as `(package directory name, path)`.
 pub(crate) fn member_dirs() -> Vec<PathBuf> {
     let root = workspace_root();
-    let manifest = root_manifest();
+    member_dirs_at(&root)
+}
+
+pub(crate) fn member_dirs_at(root: &Path) -> Vec<PathBuf> {
+    let manifest = parse_toml(&root.join("Cargo.toml"));
     let members = dig(&manifest, &["workspace", "members"])
         .and_then(toml::Value::as_array)
         .expect("[workspace] members");
@@ -74,7 +78,11 @@ pub(crate) fn member_dirs() -> Vec<PathBuf> {
 
 /// Directory name plus path for every crate under `crates/`, sorted.
 pub(crate) fn crate_dirs() -> Vec<(String, PathBuf)> {
-    let crates = workspace_root().join("crates");
+    crate_dirs_at(&workspace_root())
+}
+
+pub(crate) fn crate_dirs_at(root: &Path) -> Vec<(String, PathBuf)> {
+    let crates = root.join("crates");
     let mut out: Vec<(String, PathBuf)> = std::fs::read_dir(&crates)
         .unwrap_or_else(|err| panic!("reading {}: {err}", crates.display()))
         .filter_map(Result::ok)
@@ -114,7 +122,11 @@ pub(crate) fn rust_sources(dir: &Path) -> Vec<PathBuf> {
 /// excluded from every grep-layer check: the fix for a violation there is the generator,
 /// and `cargo xtask codegen --check` is what guards them.
 pub(crate) fn crate_sources() -> Vec<PathBuf> {
-    crate_dirs()
+    crate_sources_at(&workspace_root())
+}
+
+pub(crate) fn crate_sources_at(root: &Path) -> Vec<PathBuf> {
+    crate_dirs_at(root)
         .into_iter()
         .flat_map(|(_, dir)| rust_sources(&dir.join("src")))
         .filter(|path| !is_generated(path))
@@ -131,7 +143,11 @@ pub(crate) fn is_generated(path: &Path) -> bool {
 
 /// Path relative to the workspace root, for messages.
 pub(crate) fn rel(path: &Path) -> String {
-    path.strip_prefix(workspace_root())
+    rel_at(&workspace_root(), path)
+}
+
+pub(crate) fn rel_at(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
         .unwrap_or(path)
         .to_string_lossy()
         .replace('\\', "/")
@@ -185,9 +201,23 @@ pub(crate) fn code_only_file(path: &Path) -> String {
 
 /// `cargo metadata --locked --format-version 1` for the workspace.
 pub(crate) fn metadata() -> cargo_metadata::Metadata {
-    cargo_metadata::MetadataCommand::new()
-        .manifest_path(workspace_root().join("Cargo.toml"))
-        .other_options(vec!["--locked".to_owned()])
+    locked_metadata_at(&workspace_root())
         .exec()
         .expect("cargo metadata --locked")
+}
+
+/// Locked workspace declarations for checks that do not consume resolved dependencies.
+pub(crate) fn membership_metadata_at(root: &Path) -> cargo_metadata::Metadata {
+    locked_metadata_at(root)
+        .no_deps()
+        .exec()
+        .expect("cargo metadata --locked --no-deps")
+}
+
+fn locked_metadata_at(root: &Path) -> cargo_metadata::MetadataCommand {
+    let mut command = cargo_metadata::MetadataCommand::new();
+    command
+        .manifest_path(root.join("Cargo.toml"))
+        .other_options(vec!["--locked".to_owned()]);
+    command
 }

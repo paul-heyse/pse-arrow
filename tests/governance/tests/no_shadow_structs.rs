@@ -66,24 +66,23 @@ fn no_hand_written_struct_shadows_a_generated_one() {
         );
         let mut count = 0;
         for path in common::rust_sources(&directory) {
-            for name in public_structs(&common::read(&path)) {
-                generated.insert(name, common::rel(&path));
-                count += 1;
+            let names = public_structs(&common::read(&path));
+            if !names.is_empty() {
+                count += names.len();
+                let relative = common::rel_at(&root, &path);
+                generated.extend(names.into_iter().map(|name| (name, relative.clone())));
             }
         }
         assert!(count > 0, "empty generated root: {}", directory.display());
     }
 
     let mut problems: Vec<String> = Vec::new();
-    for path in common::crate_sources() {
-        if common::rel(&path).contains("/src/generated/") {
-            continue;
-        }
+    for path in common::crate_sources_at(&root) {
         for name in public_structs(&common::read(&path)) {
             if let Some(origin) = generated.get(&name) {
                 problems.push(format!(
                     "{}: `pub struct {name}` shadows the generated one in {origin}",
-                    common::rel(&path)
+                    common::rel_at(&root, &path)
                 ));
             }
         }

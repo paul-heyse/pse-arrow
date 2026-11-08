@@ -61,7 +61,7 @@ fn diagnostic_impl(items: &[syn::Item], name: &syn::Ident) -> bool {
     })
 }
 
-fn taxonomy_problems(items: &[syn::Item], scope: &str, out: &mut Vec<String>) {
+fn taxonomy_problems(items: &[syn::Item], scope: &dyn Fn() -> String, out: &mut Vec<String>) {
     for item in items {
         match item {
             syn::Item::Enum(e)
@@ -73,15 +73,15 @@ fn taxonomy_problems(items: &[syn::Item], scope: &str, out: &mut Vec<String>) {
                         || required[0] == "miette" && diagnostic_impl(items, &e.ident))
                     {
                         out.push(format!(
-                            "{scope}::{} does not implement {}::{} (blueprint §23.2)",
-                            e.ident, required[0], required[1]
+                            "{}::{} does not implement {}::{} (blueprint §23.2)",
+                            scope(), e.ident, required[0], required[1]
                         ));
                     }
                 }
             }
             syn::Item::Mod(m) => {
                 if let Some((_, children)) = &m.content {
-                    taxonomy_problems(children, &format!("{scope}::{}", m.ident), out);
+                    taxonomy_problems(children, &|| format!("{}::{}", scope(), m.ident), out);
                 }
             }
             _ => {}
@@ -91,10 +91,11 @@ fn taxonomy_problems(items: &[syn::Item], scope: &str, out: &mut Vec<String>) {
 
 #[test]
 fn error_enums_implement_error_and_diagnostic() {
+    let root = common::workspace_root();
     let mut problems = Vec::new();
-    for path in common::crate_sources() {
+    for path in common::crate_sources_at(&root) {
         let syntax = syn::parse_file(&common::read(&path)).unwrap();
-        taxonomy_problems(&syntax.items, &common::rel(&path), &mut problems);
+        taxonomy_problems(&syntax.items, &|| common::rel_at(&root, &path), &mut problems);
     }
     assert!(
         problems.is_empty(),
@@ -118,7 +119,7 @@ fn generic_implementations_are_scoped_and_comments_are_not_implementations() {
     let mut problems = Vec::new();
     taxonomy_problems(
         &syn::parse_file(source).unwrap().items,
-        "fixture",
+        &|| "fixture".into(),
         &mut problems,
     );
     assert_eq!(problems.len(), 2);
