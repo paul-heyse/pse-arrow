@@ -18,7 +18,7 @@ Options:
       --fields <FIELDS>    Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --offset <OFFSET>    [default: 0]
       --budget <BUDGET>    Limit whole payload records; producer pages retain their omission and continuation facts
-      --length <LENGTH>    [default: 4096]
+      --length <LENGTH>    Select at most 262144 original bytes in this window [default: 4096]
       --tail
   -h, --help               Print help (see more with '--help')
 --help
@@ -62,6 +62,8 @@ Options:
           Limit whole payload records; producer pages retain their omission and continuation facts
 
       --length <LENGTH>
+          Select at most 262144 original bytes in this window
+
           [default: 4096]
 
       --tail

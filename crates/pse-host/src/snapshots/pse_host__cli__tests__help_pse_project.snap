@@ -10,6 +10,7 @@ Usage: pse project [OPTIONS] <COMMAND>
 Commands:
   targets           Authenticate configured target choices through their connection-only readers
   inspect-pack      Verify and inspect an existing project pack offline
+  export-status     Observe the exact original pack or study publication without opening a service
   metadata          Read one bounded metadata page from an existing canonical deployment
   show              Read an exact project header
   branches          Read one generation-fenced branch page for an exact project
@@ -26,7 +27,13 @@ Commands:
   import            Apply the exact issued import intent to the original pack
   import-recover    Recover only the original unsettled import artifact
   import-status     Observe the original receiving import and artifact checkpoint
+  import-open       Reopen the receiving branch from protected copied source after completed import
   import-forget     Release local custody once the original project import is complete
+  export            Publish a project pack and exact receipt to a fresh directory
+  export-cohort     Publish bounded NDJSON pages with the original protected cohort receipt
+  export-result     Publish one exact cohort member's Arrow result with its original receipt
+  export-analysis   Publish one registered output aggregate with the original cohort and coverage receipt
+  export-recover    Finish publishing an exact complete staged deliverable without recapturing data
 
 Options:
   -C <checkout>
@@ -42,6 +49,7 @@ Usage: pse project [OPTIONS] <COMMAND>
 Commands:
   targets           Authenticate configured target choices through their connection-only readers
   inspect-pack      Verify and inspect an existing project pack offline
+  export-status     Observe the exact original pack or study publication without opening a service
   metadata          Read one bounded metadata page from an existing canonical deployment
   show              Read an exact project header
   branches          Read one generation-fenced branch page for an exact project
@@ -58,7 +66,13 @@ Commands:
   import            Apply the exact issued import intent to the original pack
   import-recover    Recover only the original unsettled import artifact
   import-status     Observe the original receiving import and artifact checkpoint
+  import-open       Reopen the receiving branch from protected copied source after completed import
   import-forget     Release local custody once the original project import is complete
+  export            Publish a project pack and exact receipt to a fresh directory
+  export-cohort     Publish bounded NDJSON pages with the original protected cohort receipt
+  export-result     Publish one exact cohort member's Arrow result with its original receipt
+  export-analysis   Publish one registered output aggregate with the original cohort and coverage receipt
+  export-recover    Finish publishing an exact complete staged deliverable without recapturing data
 
 Options:
   -C <checkout>

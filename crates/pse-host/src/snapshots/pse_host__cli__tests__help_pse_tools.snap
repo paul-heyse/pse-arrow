@@ -10,6 +10,7 @@ Usage: pse tools [OPTIONS] <COMMAND>
 Commands:
   retire-host            Preview or release one completed checkout-local host tool generation
   retire-result          Preview or release one settled compact developer result
+  export-result          Export the selected compact result as bounded JSON to a fresh file
   hold-result            Set a named compact-result hold or clear it by omitting the condition
   sweep-results          Sweep eligible compact results under the selected checkout's owner guards
   prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
@@ -33,6 +34,7 @@ Usage: pse tools [OPTIONS] <COMMAND>
 Commands:
   retire-host            Preview or release one completed checkout-local host tool generation
   retire-result          Preview or release one settled compact developer result
+  export-result          Export the selected compact result as bounded JSON to a fresh file
   hold-result            Set a named compact-result hold or clear it by omitting the condition
   sweep-results          Sweep eligible compact results under the selected checkout's owner guards
   prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer

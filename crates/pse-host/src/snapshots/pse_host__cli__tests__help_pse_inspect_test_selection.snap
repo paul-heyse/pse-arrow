@@ -37,7 +37,7 @@ Options:
   -E, --filterset <EXPRESSIONS>    Native nextest filtersets; nextest owns their grammar
       --ignored <IGNORED>          [default: default] [possible values: default, only, all]
       --profile <PROFILE>          Selected nextest policy profile, without running its setup during explain [default: default]
-      --from-result <FROM_RESULT>  Validate a source witness, then select its current containing package as a test candidate
+      --from-result <FROM_RESULT>  Validate a source witness and explain the current package or its explicitly selected target
       --admitted
       --full
   -h, --help                       Print help (see more with '--help')
@@ -150,7 +150,7 @@ Options:
           [default: default]
 
       --from-result <FROM_RESULT>
-          Validate a source witness, then select its current containing package as a test candidate
+          Validate a source witness and explain the current package or its explicitly selected target
 
       --admitted
 
