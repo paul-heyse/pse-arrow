@@ -3,7 +3,7 @@
 # Publication choices only; document bodies and lifecycle metadata retain their owners.
 [tools]
 mdbook = "0.5.4"
-pagefind = "1.5.2"
+pagefind = "1.6.0"
 
 [publication]
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
