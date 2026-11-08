@@ -131,6 +131,8 @@ impl PreparedExecutable {
             reaped: false,
             #[cfg(all(test, feature = "property-coolprop"))]
             reap_gate: None,
+            #[cfg(all(test, feature = "property-coolprop"))]
+            reap_witness: None,
             admission: Some(admission),
             executable: self.observation.clone(),
             #[cfg(all(test, feature = "property-coolprop"))]
@@ -155,6 +157,8 @@ pub struct ProcessCustody {
     reaped: bool,
     #[cfg(all(test, feature = "property-coolprop"))]
     reap_gate: Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>,
+    #[cfg(all(test, feature = "property-coolprop"))]
+    reap_witness: Option<std::sync::mpsc::Sender<ExitStatus>>,
     admission: Option<Arc<dyn PayloadOwner>>,
     executable: FileObservation,
     #[cfg(all(test, feature = "property-coolprop"))]
@@ -290,7 +294,17 @@ impl ProcessCustody {
         #[cfg(all(test, feature = "property-coolprop"))]
         self.finish_measurement(status);
         self.admission.take();
+        #[cfg(all(test, feature = "property-coolprop"))]
+        if let Some(witness) = self.reap_witness.take() {
+            let _ = witness.send(status);
+        }
         super::retirement_result(failures).map(|()| status)
+    }
+    #[cfg(all(test, feature = "property-coolprop"))]
+    pub(super) fn witness_reap(&mut self) -> std::sync::mpsc::Receiver<ExitStatus> {
+        let (witness, observation) = std::sync::mpsc::channel();
+        self.reap_witness = Some(witness);
+        observation
     }
     #[cfg(all(test, feature = "property-coolprop"))]
     pub(super) fn delay_reap(

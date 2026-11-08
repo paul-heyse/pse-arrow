@@ -5,6 +5,40 @@ use super::*;
 use datafusion::execution::memory_pool::{FairSpillPool, MemoryPool};
 use pse_kernels::{DerivativeOrder, ProviderBuffer};
 use std::io::Write as _;
+use std::os::unix::net::UnixDatagram;
+
+const DISPATCHED: &[u8] = b"native-dispatched";
+
+fn observe_phase(socket: &UnixDatagram, expected: &[u8]) -> std::io::Result<()> {
+    let mut received = [0_u8; 128];
+    assert!(expected.len() < received.len());
+    let length = socket.recv(&mut received)?;
+    if &received[..length] == expected {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "unexpected native worker phase",
+        ))
+    }
+}
+
+#[test]
+fn cancellation_dispatch_gate_refuses_wrong_and_missing_phase() {
+    let (owner, observer) = UnixDatagram::pair().unwrap();
+    observer.set_nonblocking(true).unwrap();
+    assert_eq!(
+        observe_phase(&observer, DISPATCHED).unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+    owner.send(b"prepared").unwrap();
+    assert_eq!(
+        observe_phase(&observer, DISPATCHED).unwrap_err().kind(),
+        std::io::ErrorKind::InvalidData
+    );
+    owner.send(DISPATCHED).unwrap();
+    observe_phase(&observer, DISPATCHED).unwrap();
+}
 
 fn original_provider_error(error: &ProviderError) -> &ProviderError {
     fn original_worker(error: &WorkerError) -> Option<&ProviderError> {
@@ -166,15 +200,26 @@ impl Provider for ControlledNative {
         if self.mode == "crash" {
             std::process::exit(73);
         }
+        if self.mode == "cancel-dispatch" {
+            UnixDatagram::unbound()
+                .unwrap()
+                .send_to(DISPATCHED, self.marker.with_extension("dispatch"))
+                .unwrap();
+            loop {
+                std::thread::park();
+            }
+        }
         if self.mode == "delay" {
             std::thread::sleep(Duration::from_secs(30));
         }
         if self.mode == "close-pending" && inputs[0] == 13. {
-            std::fs::write(self.marker.with_extension("active"), b"native fill active").unwrap();
-            while !self.marker.with_extension("release").exists() {
-                context.check()?;
-                std::thread::sleep(Duration::from_millis(1));
-            }
+            let gate = UnixDatagram::bind(self.marker.with_extension("close-release")).unwrap();
+            gate.set_read_timeout(Some(Duration::from_secs(15)))
+                .unwrap();
+            gate.send_to(b"active", self.marker.with_extension("close-events"))
+                .unwrap();
+            observe_phase(&gate, b"release").unwrap();
+            context.check()?;
             std::fs::write(
                 self.marker.with_extension("returned"),
                 b"native fill returned",
@@ -1080,11 +1125,15 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
         fn drop(&mut self) {
             // A failing assertion must release the real native thread before
             // std::thread::scope joins the two request callers during unwind.
-            let _ = std::fs::write(&self.0, b"caller departed native fill gate");
+            let _ = UnixDatagram::unbound().and_then(|gate| gate.send_to(b"release", &self.0));
         }
     }
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("native");
+    let phases = UnixDatagram::bind(marker.with_extension("close-events")).unwrap();
+    phases
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
     let (service, pool, _native) = service();
     let baseline = pool.reserved();
     let mut proxy = finish_proxy("close-pending", &marker, &service);
@@ -1097,7 +1146,7 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
     assert!(admitted > baseline);
     let io = remote.io.as_ref().unwrap();
     std::thread::scope(|threads| {
-        let _release = ReleaseGate(marker.with_extension("release"));
+        let release = ReleaseGate(marker.with_extension("close-release"));
         let closing_fill = closing.clone();
         let scope = &proxy.scope;
         let evaluation = threads.spawn(move || {
@@ -1114,29 +1163,11 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
                 None,
             )
         });
-        let deadline = Instant::now() + Duration::from_secs(10);
-        while !marker.with_extension("active").exists() {
-            assert!(
-                Instant::now() < deadline,
-                "native fill did not enter its owned gate"
-            );
-            std::thread::sleep(Duration::from_millis(1));
-        }
+        observe_phase(&phases, b"active").unwrap();
         let close_handle = closing.clone();
         let close =
             threads.spawn(move || io.exchange(p::Request::Close(close_handle), scope, None));
-        let queued_generation = closing.generation.to_string();
-        while std::fs::read_to_string(marker.with_extension("close-queued"))
-            .ok()
-            .as_deref()
-            != Some(queued_generation.as_str())
-        {
-            assert!(
-                Instant::now() < deadline,
-                "actual Close did not enter the native queue"
-            );
-            std::thread::sleep(Duration::from_millis(1));
-        }
+        observe_phase(&phases, format!("queued:{}", closing.generation).as_bytes()).unwrap();
         assert!(!evaluation.is_finished());
         assert!(
             !close.is_finished(),
@@ -1144,11 +1175,7 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
         );
         assert!(!marker.with_extension("finished").exists());
         assert_eq!(pool.reserved(), admitted);
-        std::fs::write(
-            marker.with_extension("release"),
-            b"caller releases native fill",
-        )
-        .unwrap();
+        drop(release);
         let p::Response::Values(values) = evaluation.join().unwrap().unwrap() else {
             panic!("Close drains the original fill rather than cancelling it")
         };
@@ -1729,20 +1756,15 @@ fn failed_remote_retains_aggregate_admission_after_reap_until_io_executor_joins(
     let charged = pool.reserved();
     assert!(charged > baseline);
     let (cleanup_started, release_cleanup) = remote.io.as_mut().unwrap().delay_cleanup();
+    let reaped = remote.child.witness_reap();
     let cleanup = std::thread::spawn(move || {
         remote.fail(WorkerError::UnknownCompletion("controlled failure".into()))
     });
     cleanup_started
         .recv_timeout(Duration::from_secs(5))
         .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(5);
-    while std::path::Path::new(&format!("/proc/{pid}")).exists() {
-        assert!(
-            Instant::now() < deadline,
-            "owned child must be reaped while I/O cleanup remains delayed"
-        );
-        std::thread::sleep(Duration::from_millis(2));
-    }
+    reaped.recv_timeout(Duration::from_secs(5)).unwrap();
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
     assert_eq!(
         pool.reserved(),
         charged,
@@ -2248,6 +2270,10 @@ fn changed_actual_stock_datum_is_refused_by_the_selected_reference_binding() {
 fn active_native_cancellation_reaps_before_releasing_admission() {
     let directory = tempfile::tempdir().unwrap();
     let marker = directory.path().join("calls");
+    let dispatch = UnixDatagram::bind(marker.with_extension("dispatch")).unwrap();
+    dispatch
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .unwrap();
     let (service, pool, _native) = service();
     let baseline = pool.reserved();
     let control = pse_diagnostics::Cancellation::default();
@@ -2257,15 +2283,10 @@ fn active_native_cancellation_reaps_before_releasing_admission() {
         Some(Instant::now() + Duration::from_secs(60)),
     );
     let (mut binding, request, pid, prepared_reservation) =
-        provider("delay", &marker, scope, &service, &pool);
+        provider("cancel-dispatch", &marker, scope, &service, &pool);
     assert!(pool.reserved() > baseline);
-    let observed = marker.clone();
     let cancellation = std::thread::spawn(move || {
-        let end = Instant::now() + Duration::from_secs(10);
-        while !observed.exists() {
-            assert!(Instant::now() < end);
-            std::thread::sleep(Duration::from_millis(2));
-        }
+        observe_phase(&dispatch, DISPATCHED).unwrap();
         control.cancel();
     });
     let context = EvaluationContext {

@@ -1453,11 +1453,13 @@ fn observe_close_handoff_for_test(closing: Option<p::Handle>) {
         let marker = PathBuf::from(std::env::var_os("PSE_SCIENCE_TEST_MARKER").unwrap());
         // Test-child observation of the actual committed queue handoff,
         // independent of thread scheduling or later acknowledgement.
-        std::fs::write(
-            marker.with_extension("close-queued"),
-            handle.generation.to_string(),
-        )
-        .unwrap();
+        std::os::unix::net::UnixDatagram::unbound()
+            .unwrap()
+            .send_to(
+                format!("queued:{}", handle.generation).as_bytes(),
+                marker.with_extension("close-events"),
+            )
+            .unwrap();
     }
 }
 
