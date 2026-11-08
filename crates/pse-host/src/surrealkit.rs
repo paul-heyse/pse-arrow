@@ -539,12 +539,15 @@ mod tests {
     #[test]
     fn preparation_refusals_preserve_selection_and_recover_only_with_matching_bytes() {
         let temporary = tempfile::tempdir().unwrap();
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .ancestors()
+            .nth(2)
+            .unwrap();
         let environment = Environment::from([(
             "XDG_DATA_HOME".into(),
             temporary.path().as_os_str().to_owned(),
         )]);
-        let selected = Selection::read(&root, &environment).unwrap();
+        let selected = Selection::read(root, &environment).unwrap();
         assert!(matches!(
             selected.verify_selected(None),
             Err(HostError::SurrealKit(error))
@@ -567,7 +570,7 @@ mod tests {
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o500)).unwrap();
         fs::set_permissions(&lock, fs::Permissions::from_mode(0o400)).unwrap();
         assert!(matches!(
-            install(&root, &environment),
+            install(root, &environment),
             Err(HostError::SurrealKit(error))
                 if matches!(*error, PreparationError::InvalidGeneration { .. })
         ));
@@ -584,11 +587,11 @@ mod tests {
         };
         fs::write(&record, serde_json::to_vec(&receipt).unwrap()).unwrap();
         fs::set_permissions(&record, fs::Permissions::from_mode(0o400)).unwrap();
-        let verified = verify_release(&root, &environment).unwrap();
+        let verified = verify_release(root, &environment).unwrap();
         assert_eq!(verified.binary(), binary);
         assert_eq!(verified.input_sha256(), receipt.input_sha256);
         assert_eq!(verified.binary_sha256(), receipt.binary_sha256);
-        assert_eq!(verify(&root, &environment).unwrap(), binary);
-        assert_eq!(install(&root, &environment).unwrap(), binary);
+        assert_eq!(verify(root, &environment).unwrap(), binary);
+        assert_eq!(install(root, &environment).unwrap(), binary);
     }
 }
