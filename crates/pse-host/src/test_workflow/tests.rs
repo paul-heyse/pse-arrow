@@ -210,18 +210,12 @@ fn launch_verifies_its_group_helpers_and_pre_filter_images_without_opening_anoth
     unrelated.build.artifacts[0].executable.captured =
         listed.capture_root.join("missing-other-image");
     listed.inventory.groups.push(unrelated);
-    listed
-        .inventory
-        .capture
-        .extend(
-            listed.inventory.capture[1..]
-                .to_vec()
-                .into_iter()
-                .map(|mut capture| {
-                    capture.group = Some(1);
-                    capture
-                }),
-        );
+    let capture = &mut listed.inventory.capture;
+    let first_group_len = capture.len();
+    capture.extend_from_within(1..);
+    for phase in &mut capture[first_group_len..] {
+        phase.group = Some(1);
+    }
     let mut artifacts = Vec::new();
     for name in ["helper", "before-name-filter"] {
         let mut artifact = listed.inventory.groups[0].build.artifacts[0].clone();
