@@ -113,13 +113,8 @@ pub async fn conform_pure_documents(
         .into_iter()
         .map(|r| r.declaration_id)
         .collect::<Vec<_>>();
-    let mut report = ModelingConformanceReport::new(
-        registry,
-        resources.pool.clone(),
-        validation,
-        &fixture_ids,
-        maximum_checks,
-    )?;
+    let mut report =
+        ModelingConformanceReport::new(registry, resources.pool.clone(), validation, &fixture_ids)?;
     report.selection = selection;
     let flag = pse_diagnostics::Cancellation::new(token.is_cancelled());
     let worker_flag = flag.clone();

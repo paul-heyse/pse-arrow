@@ -8,14 +8,21 @@ use crate::math::{
     solves::{NumericalInputs, SolverProfile},
 };
 use futures_util::StreamExt;
+use pse_columnar::MemoryReservation;
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingHint, ModelingOutput, Profile};
 use pse_kernels::DerivativeOrder;
-use pse_model::generated::enums::{
-    ModelingCheckKind, ModelingConformanceKind as Kind, ModelingConformanceStatus as Status,
-    ModelingDeclarationKind as DeclarationKind,
-};
-use pse_model::generated::identities::RunId;
 pub use pse_model::generated::runtime::modeling_conformance::Row as ModelingConformanceCheck;
+use pse_model::{
+    HeapUsage,
+    diagnostic::BoundaryDiagnostic,
+    generated::{
+        enums::{
+            ModelingCheckKind, ModelingConformanceKind as Kind,
+            ModelingConformanceStatus as Status, ModelingDeclarationKind as DeclarationKind,
+        },
+        identities::RunId,
+    },
+};
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
@@ -184,7 +191,7 @@ pub struct ModelingConformanceReport {
     /// Whether every fixture ran and every check was recorded within the caps.
     pub complete: bool,
     /// Structured causes indexed by each check's failure ordinal.
-    pub failures: Vec<pse_model::diagnostic::BoundaryDiagnostic>,
+    pub failures: Vec<BoundaryDiagnostic>,
     /// Complete discovery inventory, independent of the detailed check cap.
     pub fixture_statuses: BTreeMap<DeclarationId, Status>,
     /// The fixtures the run executed; a selected run assesses no package coverage.
@@ -197,68 +204,100 @@ pub struct ModelingConformanceReport {
     pub(super) registry: Arc<pse_schema::Registry>,
     pub(super) pool: Arc<dyn pse_columnar::MemoryPool>,
     validation: Arc<pse_relations::validate::ValidationContext>,
-    _owner: pse_columnar::MemoryReservation,
-    _fixture_owners: Vec<pse_columnar::MemoryReservation>,
+    inventory_bytes: usize,
+    owner: MemoryReservation,
+    _fixture_owners: Vec<MemoryReservation>,
 }
 struct FixtureReport {
     report: ModelingConformanceReport,
     covered: BTreeSet<DeclarationId>,
-    base_bytes: usize,
 }
-impl FixtureReport {
-    /// Completed fixtures retain their actual vectors, not a full per-run check cap.
-    /// This releases unused capacity before an out-of-order result enters the buffer.
-    fn compact(&mut self) {
-        let old = self.report.checks.capacity() * size_of::<ModelingConformanceCheck>()
-            + self.report.failures.capacity()
-                * size_of::<pse_model::diagnostic::BoundaryDiagnostic>();
-        self.report.checks.shrink_to_fit();
-        self.report.failures.shrink_to_fit();
-        let retained = self.report.checks.capacity() * size_of::<ModelingConformanceCheck>()
-            + self.report.failures.capacity()
-                * size_of::<pse_model::diagnostic::BoundaryDiagnostic>();
-        let released = old.saturating_sub(retained);
-        self.report._owner.shrink(released);
-        self.base_bytes -= released;
+
+fn reserve_report_bytes(owner: &MemoryReservation, bytes: usize) -> Result<(), WorkflowError> {
+    owner
+        .try_grow(bytes)
+        .map_err(pse_columnar::CanonError::from)
+        .map_err(pse_relations::RelationError::from)
+        .map_err(relation)
+}
+
+/// Keep the old buffer charged until the replacement is admitted and installed.
+fn resize_report_buffer<T>(
+    owner: &MemoryReservation,
+    values: &mut Vec<T>,
+    capacity: usize,
+) -> Result<(), WorkflowError> {
+    let bytes = capacity
+        .checked_mul(size_of::<T>())
+        .ok_or_else(|| WorkflowError::Resource("conformance report buffer extent".into()))?;
+    reserve_report_bytes(owner, bytes)?;
+    let mut replacement = Vec::new();
+    let actual = (|| {
+        replacement
+            .try_reserve_exact(capacity)
+            .map_err(|source| MathRuntimeError::Allocation {
+                operation: "conformance report buffer",
+                source,
+            })?;
+        let actual = replacement.capacity() * size_of::<T>();
+        if actual > bytes {
+            reserve_report_bytes(owner, actual - bytes)?;
+        }
+        Ok::<_, WorkflowError>(actual)
+    })();
+    match actual {
+        Ok(actual) => {
+            let released = values.capacity() * size_of::<T>() + bytes.saturating_sub(actual);
+            replacement.append(values);
+            *values = replacement;
+            owner.shrink(released);
+            Ok(())
+        }
+        Err(error) => {
+            drop(replacement);
+            owner.shrink(bytes);
+            Err(error)
+        }
     }
 }
+
+fn reserve_report_slot<T>(
+    owner: &MemoryReservation,
+    values: &mut Vec<T>,
+    cap: usize,
+) -> Result<(), WorkflowError> {
+    if values.len() == values.capacity() {
+        let increment = values.capacity().clamp(1, 1024);
+        let capacity = (values.capacity() + increment).min(cap);
+        resize_report_buffer(owner, values, capacity)?;
+    }
+    Ok(())
+}
+
 impl ModelingConformanceReport {
     pub(super) fn new(
         registry: Arc<pse_schema::Registry>,
         pool: Arc<dyn pse_columnar::MemoryPool>,
         validation: Arc<pse_relations::validate::ValidationContext>,
         fixtures: &[DeclarationId],
-        cap: usize,
     ) -> Result<Self, WorkflowError> {
-        let bytes = cap
+        let inventory_bytes = fixtures
+            .len()
             .checked_mul(
-                size_of::<ModelingConformanceCheck>()
-                    + size_of::<pse_model::diagnostic::BoundaryDiagnostic>(),
+                512 + size_of::<ModelingResult>()
+                    + size_of::<ModelingInitializationReport>()
+                    + size_of::<ModelingTrajectory>(),
             )
-            .and_then(|n| {
-                fixtures
-                    .len()
-                    .checked_mul(
-                        512 + size_of::<ModelingResult>()
-                            + size_of::<ModelingInitializationReport>()
-                            + size_of::<ModelingTrajectory>(),
-                    )
-                    .and_then(|m| n.checked_add(m))
-            })
             .ok_or_else(|| contract("conformance report extent"))?;
         let owner =
             pse_columnar::MemoryConsumer::new("modeling:conformance-report").register(&pool);
-        owner
-            .try_grow(bytes)
-            .map_err(pse_columnar::CanonError::from)
-            .map_err(pse_relations::RelationError::from)
-            .map_err(relation)?;
+        reserve_report_bytes(&owner, inventory_bytes)?;
         Ok(Self {
             run_id: pse_operations::mint_id(),
-            checks: Vec::with_capacity(cap),
+            checks: Vec::new(),
             applicability: BTreeMap::new(),
             admissions: BTreeMap::new(),
-            failures: Vec::with_capacity(cap),
+            failures: Vec::new(),
             results: BTreeMap::new(),
             initializations: BTreeMap::new(),
             trajectories: BTreeMap::new(),
@@ -273,16 +312,27 @@ impl ModelingConformanceReport {
             registry,
             pool,
             validation,
-            _owner: owner,
+            inventory_bytes,
+            owner,
             _fixture_owners: Vec::new(),
         })
     }
+
+    /// A completed fixture may wait in the ordered buffer. Repack only when enough
+    /// charged space can be released to justify copying, and only with overlap admitted.
+    fn compact(&mut self) {
+        fn compact_buffer<T>(owner: &MemoryReservation, values: &mut Vec<T>) {
+            if (values.capacity() - values.len()) * size_of::<T>() >= 4096 {
+                let _ = resize_report_buffer(owner, values, values.len());
+            }
+        }
+        compact_buffer(&self.owner, &mut self.checks);
+        compact_buffer(&self.owner, &mut self.failures);
+    }
+
     /// Move exact fixture evidence without duplicating its pool charge. The global
-    /// reservation already owns the check vectors and discovery inventory; only the
-    /// fixture's variable payload reservation survives this transfer.
-    fn merge_fixture(&mut self, mut local: Self, base_bytes: usize, cap: usize) {
-        let payload_bytes = local._owner.size().saturating_sub(base_bytes);
-        self._fixture_owners.push(local._owner.split(payload_bytes));
+    /// report admits destination growth while the fixture buffers are still live.
+    fn merge_fixture(&mut self, mut local: Self, cap: usize) {
         self.complete &= local.complete;
         for (fixture, status) in local.fixture_statuses {
             self.note_status(fixture, status);
@@ -294,37 +344,62 @@ impl ModelingConformanceReport {
         self.trajectories.append(&mut local.trajectories);
         self.units.append(&mut local.units);
         self.releases.append(&mut local.releases);
-        let mut failures = local.failures.into_iter().enumerate().peekable();
+        let check_bytes = local.checks.capacity() * size_of::<ModelingConformanceCheck>();
+        let failure_bytes = local.failures.capacity() * size_of::<BoundaryDiagnostic>();
+        let mut failures = local.failures.into_iter();
         for mut check in local.checks {
-            let diagnostic = check.failure_ordinal.and_then(|ordinal| {
-                while failures
-                    .peek()
-                    .is_some_and(|(index, _)| (*index as i64) < ordinal)
-                {
-                    failures.next();
-                }
-                if failures
-                    .peek()
-                    .is_some_and(|(index, _)| (*index as i64) == ordinal)
-                {
-                    failures.next().map(|(_, failure)| failure)
-                } else {
-                    None
-                }
-            });
-            if self.checks.len() >= cap {
-                self.complete = false;
-                self.note_status(check.fixture_id, Status::Inconclusive);
+            // Local append gives each diagnostic exactly one check in this order.
+            let diagnostic = check.failure_ordinal.and_then(|_| failures.next());
+            if self.checks.len() >= cap || self.reserve_check(diagnostic.is_some(), cap).is_err() {
+                self.note_omission(check.fixture_id, check.status);
+                let released =
+                    check.message.capacity() + diagnostic.as_ref().map_or(0, HeapUsage::heap_bytes);
+                drop((check, diagnostic));
+                local.owner.shrink(released);
                 continue;
             }
             check.run_id = self.run_id;
-            check.failure_ordinal = diagnostic.map(|failure| {
-                let ordinal = self.failures.len() as i64;
-                self.failures.push(failure);
-                ordinal
-            });
-            self.checks.push(check);
+            self.push_check(check, diagnostic);
         }
+        local.owner.shrink(check_bytes);
+        drop(failures);
+        local.owner.shrink(failure_bytes);
+        let payload_bytes = local.owner.size() - local.inventory_bytes;
+        if payload_bytes != 0 {
+            self._fixture_owners.push(local.owner.split(payload_bytes));
+        }
+    }
+
+    fn reserve_check(&mut self, diagnostic: bool, cap: usize) -> Result<(), WorkflowError> {
+        reserve_report_slot(&self.owner, &mut self.checks, cap)?;
+        if diagnostic {
+            reserve_report_slot(&self.owner, &mut self.failures, cap)?;
+        }
+        Ok(())
+    }
+
+    fn push_check(
+        &mut self,
+        mut check: ModelingConformanceCheck,
+        diagnostic: Option<BoundaryDiagnostic>,
+    ) {
+        check.failure_ordinal = diagnostic.map(|failure| {
+            let ordinal = self.failures.len() as i64;
+            self.failures.push(failure);
+            ordinal
+        });
+        self.checks.push(check);
+    }
+
+    fn note_omission(&mut self, fixture: DeclarationId, status: Status) {
+        self.complete = false;
+        self.note_status(
+            fixture,
+            match status {
+                Status::Cancelled | Status::Unattempted => status,
+                _ => Status::Inconclusive,
+            },
+        );
     }
     fn note_status(&mut self, fixture: DeclarationId, status: Status) {
         let rank = |s| match s {
@@ -415,50 +490,90 @@ impl ModelingConformanceReport {
         oracle: Option<DeclarationId>,
         cap: usize,
     ) {
+        self.record_with_diagnostic(
+            fixture, target, source, kind, status, message, oracle, None, cap,
+        );
+    }
+
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "a check and its optional diagnostic are recorded together with their authored attribution"
+    )]
+    fn record_with_diagnostic(
+        &mut self,
+        fixture: DeclarationId,
+        target: SemanticId,
+        source: DeclarationId,
+        kind: Kind,
+        status: Status,
+        message: impl AsRef<str>,
+        oracle: Option<DeclarationId>,
+        diagnostic: Option<BoundaryDiagnostic>,
+        cap: usize,
+    ) {
         if self.checks.len() >= cap {
-            self.complete = false;
-            self.note_status(
-                fixture,
-                if status == Status::Unattempted {
-                    status
-                } else {
-                    Status::Inconclusive
-                },
-            );
+            self.note_omission(fixture, status);
             return;
         }
-        if self
-            ._owner
-            .try_grow(message.as_ref().len().max(128))
-            .is_err()
-        {
-            self.complete = false;
-            self.note_status(
-                fixture,
-                if status == Status::Unattempted {
-                    status
-                } else {
-                    Status::Inconclusive
-                },
-            );
+        let Ok((message, diagnostic)) = self.prepare_check(message.as_ref(), diagnostic, cap)
+        else {
+            self.note_omission(fixture, status);
             return;
-        }
+        };
         self.note_status(fixture, status);
-        self.checks.push(ModelingConformanceCheck {
-            run_id: self.run_id,
-            fixture_id: fixture,
-            sample_index: 0,
-            time: None,
-            target_id: target,
-            source_id: source,
-            kind,
-            status,
-            message: message.as_ref().to_owned(),
-            failure_ordinal: None,
-            oracle_source_id: oracle,
-            deviation: None,
-            tolerance: None,
-        });
+        self.push_check(
+            ModelingConformanceCheck {
+                run_id: self.run_id,
+                fixture_id: fixture,
+                sample_index: 0,
+                time: None,
+                target_id: target,
+                source_id: source,
+                kind,
+                status,
+                message,
+                failure_ordinal: None,
+                oracle_source_id: oracle,
+                deviation: None,
+                tolerance: None,
+            },
+            diagnostic,
+        );
+    }
+
+    fn prepare_check(
+        &mut self,
+        message: &str,
+        diagnostic: Option<BoundaryDiagnostic>,
+        cap: usize,
+    ) -> Result<(String, Option<BoundaryDiagnostic>), WorkflowError> {
+        let mut bytes = message
+            .len()
+            .checked_add(diagnostic.as_ref().map_or(0, HeapUsage::heap_bytes))
+            .ok_or_else(|| WorkflowError::Resource("conformance check payload extent".into()))?;
+        reserve_report_bytes(&self.owner, bytes)?;
+        let mut owned = String::new();
+        let prepared = (|| {
+            owned.try_reserve_exact(message.len()).map_err(|source| {
+                MathRuntimeError::Allocation {
+                    operation: "conformance check message",
+                    source,
+                }
+            })?;
+            let rounded = owned.capacity() - message.len();
+            if rounded != 0 {
+                reserve_report_bytes(&self.owner, rounded)?;
+                bytes += rounded;
+            }
+            self.reserve_check(diagnostic.is_some(), cap)
+        })();
+        if let Err(error) = prepared {
+            drop((owned, diagnostic));
+            self.owner.shrink(bytes);
+            return Err(error);
+        }
+        owned.push_str(message);
+        Ok((owned, diagnostic))
     }
     /// The deviation and combined tolerance of the expectation recorded at `check`
     /// (Plan 23 H6).
@@ -633,23 +748,6 @@ impl ModelingConformanceReport {
             .collect::<Vec<_>>();
         self.export(&rows)
     }
-    fn attach_failure(&mut self, check: usize, failure: pse_model::diagnostic::BoundaryDiagnostic) {
-        use pse_model::HeapUsage;
-        if let Some(row) = self.checks.get_mut(check) {
-            if self._owner.try_grow(failure.heap_bytes()).is_err() {
-                self.complete = false;
-                row.status = Status::Inconclusive;
-                row.message.clear();
-                row.message
-                    .push_str("diagnostic retention exhausted the memory budget");
-                let fixture = row.fixture_id;
-                self.note_status(fixture, Status::Inconclusive);
-                return;
-            }
-            row.failure_ordinal = Some(self.failures.len() as i64);
-            self.failures.push(failure);
-        }
-    }
     pub(super) fn failed(
         &mut self,
         fixture: DeclarationId,
@@ -676,9 +774,17 @@ impl ModelingConformanceReport {
         } else {
             Status::Failed
         };
-        let check = self.checks.len();
-        self.record_fixture(fixture, kind, status, error.to_string(), oracle, cap);
-        self.attach_failure(check, diagnostic);
+        self.record_with_diagnostic(
+            fixture,
+            fixture.as_id(),
+            fixture,
+            kind,
+            status,
+            error.to_string(),
+            oracle,
+            Some(diagnostic),
+            cap,
+        );
     }
     /// Each expected diagnostic passes when a finding of its rule names every expected
     /// member, one of the member's equations or variables at least; the matching finding is
@@ -712,7 +818,6 @@ impl ModelingConformanceReport {
                         .iter()
                         .all(|(_, ids)| finding.sources.iter().any(|s| ids.contains(s)))
             });
-            let check = self.checks.len();
             match found {
                 Some(finding) => {
                     let mut named = finding
@@ -722,7 +827,9 @@ impl ModelingConformanceReport {
                         .collect::<Vec<_>>();
                     named.sort_unstable();
                     named.dedup();
-                    self.record_fixture(
+                    self.record_with_diagnostic(
+                        fixture,
+                        fixture.as_id(),
                         fixture,
                         Kind::Expectation,
                         Status::Passed,
@@ -733,9 +840,9 @@ impl ModelingConformanceReport {
                             named.join(", ")
                         ),
                         oracle,
+                        Some(finding.clone()),
                         cap,
                     );
-                    self.attach_failure(check, finding.clone());
                 }
                 None => self.record_fixture(
                     fixture,
@@ -892,7 +999,7 @@ impl ModelingConformanceReport {
                         .iter()
                         .map(|o| o.retained_bytes())
                         .sum::<usize>();
-                if self._owner.try_grow(bytes).is_err() {
+                if reserve_report_bytes(&self.owner, bytes).is_err() {
                     self.complete = false;
                     self.record_fixture(
                         fixture,
@@ -1150,7 +1257,6 @@ impl ModelingPackage {
                         .iter()
                         .map(|r| r.declaration_id)
                         .collect::<Vec<_>>(),
-                    policy.maximum_checks,
                 )?;
                 report.selection = policy.fixtures.clone();
                 let mut covered = BTreeSet::new();
@@ -1254,7 +1360,9 @@ impl ModelingPackage {
                         use pse_model::diagnostic::BoundaryClass as C;
                         match &mut outcome {
                             Ok(local) => {
-                                local.compact();
+                                if index != settled {
+                                    local.report.compact();
+                                }
                                 known_checks =
                                     known_checks.saturating_add(local.report.checks.len());
                             }
@@ -1276,7 +1384,7 @@ impl ModelingPackage {
                             match outcome {
                                 Ok(local) => {
                                     covered.extend(local.covered);
-                                    report.merge_fixture(local.report, local.base_bytes, cap);
+                                    report.merge_fixture(local.report, cap);
                                 }
                                 Err(error) => {
                                     if matches!(
@@ -1341,10 +1449,8 @@ impl ModelingPackage {
             services.preparation().pool(),
             services.preparation().validation_context(),
             &[row.declaration_id],
-            cap,
         )?;
         report.run_id = run_id;
-        let base_bytes = report._owner.size();
         let mut covered = BTreeSet::new();
         'fixture: {
             let fixture = row.declaration_id;
@@ -1572,7 +1678,7 @@ impl ModelingPackage {
                                     Err(error) => (Status::Inconclusive, error.to_string(), Some(error.boundary_diagnostic())),
                                 }
                                 };
-                                report.record(
+                                report.record_with_diagnostic(
                                     fixture,
                                     range.target,
                                     range.lineage.declaration,
@@ -1580,14 +1686,12 @@ impl ModelingPackage {
                                     status,
                                     message,
                                     oracle,
+                                    failure,
                                     cap,
                                 );
                                 if let Some(row) = report.checks.get_mut(check_index) {
                                     row.sample_index = index as i64;
                                     row.time = Some(sample.time);
-                                }
-                                if let Some(failure) = failure {
-                                    report.attach_failure(check_index, failure);
                                 }
                             }
                         }
@@ -1921,8 +2025,7 @@ impl ModelingPackage {
                         Some(error.boundary_diagnostic()),
                     ),
                 };
-                let check = report.checks.len();
-                report.record(
+                report.record_with_diagnostic(
                     fixture,
                     range.target,
                     range.lineage.declaration,
@@ -1930,11 +2033,9 @@ impl ModelingPackage {
                     status,
                     message,
                     oracle,
+                    failure,
                     cap,
                 );
-                if let Some(failure) = failure {
-                    report.attach_failure(check, failure);
-                }
             }
             if cancel.token().is_cancelled() {
                 report.complete = false;
@@ -2079,11 +2180,7 @@ impl ModelingPackage {
         {
             return Err(contract("controlled fixture report refusal"));
         }
-        Ok(FixtureReport {
-            report,
-            covered,
-            base_bytes,
-        })
+        Ok(FixtureReport { report, covered })
     }
     /// Numerical diagnostics at a fixture's accepted solution, under its bindings, case and
     /// the run's diagnostic thresholds: the solved values replace the specification's
@@ -3267,73 +3364,181 @@ mod tests {
         assert_eq!(state.entered.len(), 16);
         assert_eq!(state.finished.len(), 16);
     }
+    fn report_on(
+        pool: Arc<dyn pse_columnar::MemoryPool>,
+        fixtures: &[DeclarationId],
+    ) -> ModelingConformanceReport {
+        let registry = pse_schema::shared_registry().unwrap();
+        let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
+        ModelingConformanceReport::new(registry, pool, validation, fixtures).unwrap()
+    }
+
+    fn report_diagnostic(fixture: DeclarationId, evidence: &str) -> BoundaryDiagnostic {
+        let mut diagnostic = BoundaryDiagnostic::new(
+            pse_model::diagnostic::BoundaryClass::InvalidModel,
+            pse_diagnostics::DiagnosticStage::Test,
+            [fixture.as_id()],
+            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
+        );
+        diagnostic.observations.insert(
+            "detail".into(),
+            pse_model::diagnostic::Observation::Text(evidence.into()),
+        );
+        diagnostic
+    }
+
+    fn record_diagnosed(
+        report: &mut ModelingConformanceReport,
+        fixture: DeclarationId,
+        message: &str,
+        diagnostic: BoundaryDiagnostic,
+        cap: usize,
+    ) {
+        report.record_with_diagnostic(
+            fixture,
+            fixture.as_id(),
+            fixture,
+            Kind::Check,
+            Status::Failed,
+            message,
+            Some(fixture),
+            Some(diagnostic),
+            cap,
+        );
+    }
+
+    fn charged_report_bytes(report: &ModelingConformanceReport) -> usize {
+        report.inventory_bytes
+            + report.checks.capacity() * size_of::<ModelingConformanceCheck>()
+            + report.failures.capacity() * size_of::<BoundaryDiagnostic>()
+            + report
+                .checks
+                .iter()
+                .map(|row| row.message.capacity())
+                .sum::<usize>()
+            + report
+                .failures
+                .iter()
+                .map(HeapUsage::heap_bytes)
+                .sum::<usize>()
+    }
+
     #[test]
     fn conformance_parallel_compact_reports_transfer_exact_payload_charge_and_failure_indices() {
         use pse_columnar::MemoryPool;
-        use pse_model::{
-            HeapUsage,
-            diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation},
-        };
-        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
-        let registry = pse_schema::shared_registry().unwrap();
-        let validation = pse_relations::validate::ValidationContext::local(&registry).unwrap();
-        let ids = [
-            DeclarationId::from_bytes([41; 16]),
-            DeclarationId::from_bytes([42; 16]),
-        ];
-        let mut report = ModelingConformanceReport::new(
-            registry.clone(),
-            pool.clone(),
-            validation.clone(),
-            &ids,
-            100,
-        )
-        .unwrap();
-        let global_base = pool.reserved();
-        let mut retained = 0;
-        for (index, fixture) in ids.iter().enumerate() {
-            let mut local = ModelingConformanceReport::new(
-                registry.clone(),
-                pool.clone(),
-                validation.clone(),
-                &[*fixture],
-                100,
-            )
-            .unwrap();
-            let base_bytes = local._owner.size();
-            let message = "retained authored comparison".repeat(80);
-            local.record_fixture(*fixture, Kind::Check, Status::Failed, &message, None, 100);
-            let mut diagnostic = BoundaryDiagnostic::new(
-                BoundaryClass::InvalidModel,
-                pse_diagnostics::DiagnosticStage::Test,
-                [fixture.as_id()],
-                pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
-            );
-            diagnostic
-                .observations
-                .insert("detail".into(), Observation::Text("evidence".repeat(1000)));
-            let payload = message.len().max(128) + diagnostic.heap_bytes();
-            local.attach_failure(0, diagnostic);
-            let mut completed = FixtureReport {
-                report: local,
-                covered: BTreeSet::new(),
-                base_bytes,
-            };
-            let before = pool.reserved();
-            completed.compact();
-            assert!(pool.reserved() < before);
+        const CAP: usize = 100_000;
+        const LIMIT: usize = 1 << 20;
+        assert!(CAP * size_of::<ModelingConformanceCheck>() > LIMIT);
+        let ids = (1..=32)
+            .map(|byte| DeclarationId::from_bytes([byte; 16]))
+            .collect::<Vec<_>>();
+        let normalized_run_id = pse_operations::mint_id();
+        let run = |out_of_order| {
+            let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(LIMIT));
+            let mut report = report_on(pool.clone(), &ids);
+            assert_eq!(pool.reserved(), report.inventory_bytes);
             assert_eq!(
-                completed.report._owner.size(),
-                completed.base_bytes + payload
+                (report.checks.capacity(), report.failures.capacity()),
+                (0, 0)
             );
-            report.merge_fixture(completed.report, completed.base_bytes, 100);
-            retained += payload;
-            assert_eq!(pool.reserved(), global_base + retained);
-            assert_eq!(report.checks[index].failure_ordinal, Some(index as i64));
-            assert_eq!(report.checks[index].run_id, report.run_id);
-            assert_eq!(report.checks[index].message, message);
+            let make_fixture = |index: usize| {
+                let fixture = ids[index];
+                let mut local = report_on(pool.clone(), &[fixture]);
+                record_diagnosed(
+                    &mut local,
+                    fixture,
+                    "authored comparison",
+                    report_diagnostic(fixture, "evidence"),
+                    CAP,
+                );
+                if index == 1 {
+                    for _ in 0..64 {
+                        local.record_fixture(
+                            fixture,
+                            Kind::Check,
+                            Status::Passed,
+                            "detail",
+                            None,
+                            CAP,
+                        );
+                    }
+                }
+                assert_eq!(local.owner.size(), charged_report_bytes(&local));
+                local
+            };
+            if out_of_order {
+                let mut completed = BTreeMap::new();
+                for index in (0..ids.len()).rev() {
+                    let mut local = make_fixture(index);
+                    let before = pool.reserved();
+                    local.compact();
+                    if index == 1 {
+                        assert!(pool.reserved() < before);
+                        assert_eq!(local.checks.capacity(), local.checks.len());
+                    } else {
+                        assert_eq!(pool.reserved(), before);
+                    }
+                    completed.insert(index, local);
+                }
+                for local in completed.into_values() {
+                    report.merge_fixture(local, CAP);
+                }
+            } else {
+                for index in 0..ids.len() {
+                    report.merge_fixture(make_fixture(index), CAP);
+                }
+            }
+            assert!(report.complete);
+            assert_eq!(pool.reserved(), charged_report_bytes(&report));
+            assert_eq!(
+                report.fixture_statuses,
+                ids.iter().map(|id| (*id, Status::Failed)).collect()
+            );
+            assert_eq!(report.failures.len(), ids.len());
+            let mut normalized = report.checks.clone();
+            for row in &mut normalized {
+                assert_eq!(row.run_id, report.run_id);
+                if let Some(ordinal) = row.failure_ordinal {
+                    assert_eq!(row.fixture_id, ids[ordinal as usize]);
+                    assert_eq!(row.oracle_source_id, Some(row.fixture_id));
+                    assert_eq!(
+                        report.failures[ordinal as usize].sources,
+                        [row.fixture_id.as_id()]
+                    );
+                }
+                row.run_id = normalized_run_id;
+            }
+            let diagnostics = serde_json::to_value(&report.failures).unwrap();
+            drop(report);
+            assert_eq!(pool.reserved(), 0);
+            (normalized, diagnostics)
+        };
+        assert_eq!(run(false), run(true));
+    }
+
+    #[test]
+    fn conformance_report_global_cap_releases_unretained_fixture_payload() {
+        use pse_columnar::MemoryPool;
+        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
+        let id = DeclarationId::from_bytes([1; 16]);
+        let mut report = report_on(pool.clone(), &[id]);
+        let mut local = report_on(pool.clone(), &[id]);
+        for message in ["first", "second", "past local cap"] {
+            record_diagnosed(&mut local, id, message, report_diagnostic(id, message), 2);
         }
-        assert_eq!(report.failures.len(), 2);
+        assert!(!local.complete);
+        assert_eq!(local.checks.len(), 2);
+        assert_eq!(local.failures.len(), 2);
+        assert_eq!(local.fixture_statuses[&id], Status::Inconclusive);
+        assert_eq!(local.owner.size(), charged_report_bytes(&local));
+        report.merge_fixture(local, 1);
+        assert!(!report.complete);
+        assert_eq!(report.checks.len(), 1);
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(report.checks[0].message, "first");
+        assert_eq!(report.checks[0].failure_ordinal, Some(0));
+        assert_eq!(report.fixture_statuses[&id], Status::Inconclusive);
+        assert_eq!(pool.reserved(), charged_report_bytes(&report));
         drop(report);
         assert_eq!(pool.reserved(), 0);
     }
@@ -3755,53 +3960,19 @@ mod tests {
     #[tokio::test]
     async fn kernel_conformance_retains_inventory_and_accounts_variable_payloads() {
         use pse_columnar::MemoryPool;
-        use pse_model::{
-            HeapUsage,
-            diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation},
-        };
         let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(1 << 20));
         let ids = [
             DeclarationId::from_bytes([1; 16]),
             DeclarationId::from_bytes([2; 16]),
         ];
-        let mut report = ModelingConformanceReport::new(
-            pse_schema::shared_registry().unwrap(),
-            pool.clone(),
-            pse_relations::validate::ValidationContext::local(
-                &pse_schema::shared_registry().unwrap(),
-            )
-            .unwrap(),
-            &ids,
-            1,
-        )
-        .unwrap();
-        let base = pool.reserved();
-        let oracle = DeclarationId::from_bytes([3; 16]);
+        let mut report = report_on(pool.clone(), &ids);
         let message = "derivative comparison\n".repeat(500);
-        report.record_fixture(
-            ids[0],
-            Kind::Preparation,
-            Status::Failed,
-            &message,
-            Some(oracle),
-            1,
-        );
-        assert!(pool.reserved() >= base + message.len());
+        let failure = report_diagnostic(ids[0], &"x".repeat(100000));
+        record_diagnosed(&mut report, ids[0], &message, failure, 1);
+        assert_eq!(pool.reserved(), charged_report_bytes(&report));
         assert_eq!(report.checks[0].message, message);
-        assert_eq!(report.checks[0].oracle_source_id, Some(oracle));
-        let mut failure = BoundaryDiagnostic::new(
-            BoundaryClass::InvalidModel,
-            pse_diagnostics::DiagnosticStage::Test,
-            ids.map(DeclarationId::as_id),
-            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
-        );
-        failure
-            .observations
-            .insert("detail".into(), Observation::Text("x".repeat(100000)));
-        let before = pool.reserved();
-        let extent = failure.heap_bytes();
-        report.attach_failure(0, failure);
-        assert_eq!(pool.reserved(), before + extent);
+        assert_eq!(report.checks[0].oracle_source_id, Some(ids[0]));
+        assert_eq!(report.checks[0].failure_ordinal, Some(0));
         report.record_fixture(
             ids[0],
             Kind::Expectation,
@@ -3829,48 +4000,122 @@ mod tests {
         drop(inventory);
         assert_eq!(pool.reserved(), 0);
     }
-    #[tokio::test]
-    async fn kernel_conformance_memory_refusal_cannot_erase_or_pass_a_fixture() {
-        use pse_columnar::MemoryPool;
-        use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
-        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(32000));
+    #[test]
+    fn conformance_report_refusals_preserve_previously_recorded_checks_and_ordinals() {
+        use pse_columnar::{MemoryConsumer, MemoryPool};
+        const LIMIT: usize = 32_000;
+        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(LIMIT));
+        let pool_ref: Arc<dyn MemoryPool> = pool.clone();
+        let hold = MemoryConsumer::new("test:hold").register(&pool_ref);
         let id = DeclarationId::from_bytes([1; 16]);
-        let mut report = ModelingConformanceReport::new(
-            pse_schema::shared_registry().unwrap(),
-            pool.clone(),
-            pse_relations::validate::ValidationContext::local(
-                &pse_schema::shared_registry().unwrap(),
-            )
-            .unwrap(),
-            &[id],
-            1,
-        )
-        .unwrap();
-        report.record_fixture(
+        let mut report = report_on(pool.clone(), &[id]);
+        record_diagnosed(
+            &mut report,
             id,
-            Kind::Preparation,
-            Status::Passed,
-            "expected failure",
-            None,
-            1,
+            "first",
+            report_diagnostic(id, "evidence"),
+            8,
         );
-        let mut failure = BoundaryDiagnostic::new(
-            BoundaryClass::InvalidModel,
-            pse_diagnostics::DiagnosticStage::Test,
-            [id.as_id()],
-            pse_diagnostics::DiagnosticRule::ModelingDiagnosticSamples,
+        let original = report.checks[0].clone();
+        let bytes = pool.reserved();
+        hold.try_grow(LIMIT - bytes - "omitted".len()).unwrap();
+        report.record_fixture(id, Kind::Preparation, Status::Passed, "omitted", None, 8);
+        hold.free();
+        assert_eq!(report.checks, [original.clone()]);
+        assert_eq!(pool.reserved(), bytes);
+
+        for message in ["second", "third"] {
+            report.record_fixture(id, Kind::Check, Status::Passed, message, None, 8);
+        }
+        assert_eq!(
+            (report.checks.capacity(), report.failures.capacity()),
+            (4, 1)
         );
-        failure
-            .observations
-            .insert("detail".into(), Observation::Text("x".repeat(100000)));
-        report.attach_failure(0, failure);
-        assert!(!report.passed());
-        assert!(!report.complete);
+        let bytes = pool.reserved();
+        let refused = report_diagnostic(id, "small");
+        let available = refused.heap_bytes() + "omitted".len();
+        hold.try_grow(LIMIT - bytes - available).unwrap();
+        record_diagnosed(&mut report, id, "omitted", refused, 8);
+        hold.free();
+        assert_eq!(pool.reserved(), bytes);
+
+        let refused = report_diagnostic(id, &"large".repeat(LIMIT));
+        record_diagnosed(&mut report, id, "omitted", refused, 8);
+        assert_eq!(pool.reserved(), bytes);
+        assert_eq!(report.checks.len(), 3);
+        assert_eq!(report.failures.len(), 1);
+        assert_eq!(report.checks[0], original);
+        record_diagnosed(
+            &mut report,
+            id,
+            "fourth",
+            report_diagnostic(id, "evidence"),
+            8,
+        );
+        assert_eq!(report.checks[3].failure_ordinal, Some(1));
+        assert_eq!(report.failures.len(), 2);
         assert_eq!(report.fixture_statuses[&id], Status::Inconclusive);
-        assert_eq!(report.checks[0].status, Status::Inconclusive);
-        assert!(report.failures.is_empty());
-        assert!(pool.reserved() < 32000);
+        assert!(!report.complete && !report.passed());
+        assert_eq!(pool.reserved(), charged_report_bytes(&report));
         drop(report);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn conformance_report_merge_refuses_unadmitted_buffer_overlap() {
+        use pse_columnar::{MemoryConsumer, MemoryPool};
+        const LIMIT: usize = 1 << 20;
+        let pool = Arc::new(pse_columnar::GreedyMemoryPool::new(LIMIT));
+        let pool_ref: Arc<dyn MemoryPool> = pool.clone();
+        let hold = MemoryConsumer::new("test:hold").register(&pool_ref);
+        let ids = [
+            DeclarationId::from_bytes([1; 16]),
+            DeclarationId::from_bytes([2; 16]),
+        ];
+        let mut report = report_on(pool.clone(), &ids);
+        report.record_fixture(ids[0], Kind::Check, Status::Passed, "first", None, 8);
+        let mut local = report_on(pool.clone(), &ids[1..]);
+        record_diagnosed(
+            &mut local,
+            ids[1],
+            "local",
+            report_diagnostic(ids[1], "evidence"),
+            8,
+        );
+        // A net-growth charge would fit. The old destination and the source both
+        // remain live until a replacement is admitted.
+        hold.try_grow(LIMIT - pool.reserved() - size_of::<ModelingConformanceCheck>())
+            .unwrap();
+        report.merge_fixture(local, 8);
+        hold.free();
+        assert!(!report.complete);
+        assert_eq!(report.fixture_statuses[&ids[0]], Status::Passed);
+        assert_eq!(report.fixture_statuses[&ids[1]], Status::Inconclusive);
+        assert_eq!(report.checks.len(), 1);
+        assert_eq!(report.checks[0].message, "first");
+        assert!(report.failures.is_empty());
+        assert_eq!(pool.reserved(), charged_report_bytes(&report));
+        drop(report);
+        assert_eq!(pool.reserved(), 0);
+    }
+
+    #[test]
+    fn conformance_report_failed_allocation_releases_prospective_charge() {
+        use pse_columnar::{MemoryConsumer, MemoryPool};
+        let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(usize::MAX));
+        let owner = MemoryConsumer::new("test:conformance-allocation").register(&pool);
+        let mut values = Vec::<u8>::new();
+        resize_report_buffer(&owner, &mut values, 1).unwrap();
+        values.push(7);
+        let error = resize_report_buffer(&owner, &mut values, isize::MAX as usize + 1).unwrap_err();
+        assert_eq!(
+            error.boundary_diagnostic().class,
+            pse_model::diagnostic::BoundaryClass::ResourceLimit,
+        );
+        assert_eq!(values, [7]);
+        assert_eq!(pool.reserved(), values.capacity());
+        drop(values);
+        drop(owner);
         assert_eq!(pool.reserved(), 0);
     }
     async fn package(runtime: &Runtime, text: &str) -> ModelingPackage {
