@@ -1,6 +1,6 @@
 ---
 title: "Plan69: Intent-first CLI and Codex workflows"
-status: in-progress
+status: complete
 date: 2026-11-07
 adrs: []
 doc_role: plan
@@ -203,7 +203,7 @@ parity. A04 keeps transfer progress conditional on an owner exposing actual tran
 | [I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) | Resolved | 69a A03 and the supporting plans verified typed projection for the supported preparation, project and source receiving routes. |
 | [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Resolved | 69g A04 verified the shared terminal policy and recorded-stage status with JSON and NDJSON over pipes and PTYs and with narrow monochrome human output. |
 | [I07](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I07) | Deferred pending a publication event producer | 69g A04 owns display lifetime. The captured transfer owner currently publishes a terminal receipt. Revisit counted transfer when an intermediate stage has authoritative byte events. |
-| [I08](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I08) | Scheduled | Coordinator owns the assembled journeys below. The producing packages own isolated checks and B–E own their receiving evidence. |
+| [I08](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I08) | Resolved | The adopted journeys passed their focused receiving checks. The outcome records separate workspace qualification results. |
 
 Carry the review appendix as the source of other feature dispositions. Revisit a
 deferred capability only on its recorded condition. The integrated recommendations
@@ -273,3 +273,21 @@ The initial PTY probe expected a success exit for unfinished settlement. The cor
 control verifies the existing nonzero exit alongside successful observation. During the
 Viewer qualification, one preparation refused changed source inputs and one inventory
 attempt refused a changed executable. The exact retry passed in a quiet artifact window.
+
+**Scope-end checks, 2026-11-08.** `just turn-end`, `just docs`, and the final full
+`just codegen-check` passed against the zero-failure target. The initial `just hygiene`
+run reported 9 failing recipes out of 19. The generator failure traced to two stale
+association manifests after E02's earlier `xtask` dependency change. Regeneration
+updated the input digests and the full comparison passed. The other 8 failures
+are workspace findings outside the changed files.
+
+| `just hygiene` recipe | Recorded result against zero |
+|---|---|
+| `lint-typos` and `lint-license` | 4 spelling findings and 111 files with missing licensing information, respectively. |
+| `lint-py` and `typecheck` | 276 Ruff errors and 329 Pyrefly diagnostics, respectively. |
+| `family-check` and `audit-shear` | 1 closure problem and 4 dependency errors with 3 warnings, respectively. |
+| `clippy-default` and `clippy-no-default` | 12 and 11 located diagnostics, respectively. |
+
+The adopted Plan 69 scope is complete. Configured rollout retains E03's revisit trigger.
+The retirement preflight identified live Plan70 and audit references. Keep these records
+available to those consumers until their references and owner release are settled.

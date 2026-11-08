@@ -1,6 +1,6 @@
 ---
 title: "Plan69d: Routine product and data operations"
-status: in-progress
+status: complete
 date: 2026-11-07
 adrs: []
 doc_role: plan

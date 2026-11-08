@@ -37,19 +37,9 @@ follow-up evidence needs additional scientific or developer consumers.
 - [68e · Fresh generation and acceptance](68e-surrealdb-v4-fresh-generation-and-acceptance.md)
 
 [Plan69: Intent-first CLI and Codex workflows](69-intent-first-cli-and-codex-workflows.md)
-is implementing one routine CLI front door with resolved context, typed recovery and managed results.
-Its companions own CLI contracts, workstation preparation, ordinary tests and results, product
-operations, model and schema changes, parser startup, and terminal presentation. The coordinator
-owns opportunity and improvement dispositions and assembled acceptance. Plan66 and Plan68 retain
-their scientific and database cutover scope.
-
-- [69a · CLI catalog, configuration, and diagnostics](69a-cli-contracts-configuration-and-presentation.md)
-- [69b · Codex workstation and preparation](69b-codex-workstation-and-preparation.md)
-- [69c · Ordinary testing and managed results](69c-ordinary-testing-and-managed-results.md)
-- [69d · Routine product and data operations](69d-routine-product-and-data-operations.md)
-- [69e · Source model and live schema operations](69e-source-model-and-live-schema-operations.md)
-- [69f · Parser startup and argument forwarding](69f-parser-startup-and-argument-forwarding.md)
-- [69g · Output policy and owner-driven progress](69g-output-policy-and-owner-driven-progress.md)
+is complete for its adopted scope. The retained closeout records the CLI and native workflow
+evidence, repository qualification results, and the explicit deferral of configured schema
+rollout. Its companion plans remain available for dependent work and audit references.
 
 [Plan70: Test assurance architecture](70-test-assurance-architecture.md) proposes the changes
 from the November test design review and repository-wide efficiency review. It owns the series'

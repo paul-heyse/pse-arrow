@@ -1,6 +1,6 @@
 ---
 title: "Plan69a: CLI catalog, configuration, and diagnostics"
-status: in-progress
+status: complete
 date: 2026-11-07
 adrs: []
 doc_role: plan

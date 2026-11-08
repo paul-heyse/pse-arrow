@@ -1,6 +1,6 @@
 ---
 title: "Plan69g: Output policy and owner-driven progress"
-status: in-progress
+status: complete
 date: 2026-11-07
 adrs: []
 doc_role: plan
