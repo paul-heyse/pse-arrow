@@ -1007,23 +1007,44 @@ async fn assert_captured_exports(
         None,
     )
     .unwrap();
+    use base64::Engine as _;
+    use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+    let exported_schema = stream.schema();
+    let encoded = &exported_schema.metadata()["pse.canonical.selection.proto.v1"];
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(encoded)
+        .unwrap();
+    let world = Arc::new(
+        DescriptorPool::decode(include_bytes!(
+            "../src/generated/recorded-result/descriptor.bin"
+        ))
+        .unwrap(),
+    );
+    let message = world
+        .message_index("pse.engineering.v1.RecordedResultSelection")
+        .unwrap();
+    let attribution = DynamicMessage::decode(world, message, &bytes).unwrap();
+    for (field, expected) in [
+        (1, original_run),
+        (2, original_attempt),
+        (3, "runtime.solve_variables".into()),
+    ] {
+        assert_eq!(
+            attribution.field_by_number(field),
+            Some(&Value::String(expected))
+        );
+    }
+    let Some(Value::Message(context)) = attribution.field_by_number(11) else {
+        panic!("original result context is missing");
+    };
+    assert_eq!(
+        context.field_by_number(3),
+        Some(&Value::String(original_manifest))
+    );
     let mut position = 0;
     for batch in stream {
         let batch = batch.unwrap();
-        // Portable export adds its own canonical attribution metadata. It is
-        // not a raw registry relation and must not be admitted as one.
         let schema = batch.schema();
-        for (key, expected) in [
-            ("pse.canonical.run", original_run.as_str()),
-            ("pse.canonical.attempt", original_attempt.as_str()),
-            ("pse.canonical.manifest", original_manifest.as_str()),
-            ("pse.canonical.relation", "runtime.solve_variables"),
-        ] {
-            assert_eq!(
-                schema.metadata().get(key).map(String::as_str),
-                Some(expected)
-            );
-        }
         let end = position + batch.num_rows();
         let mut builder = solve_variables::Builder::new(&data.validation_context()).unwrap();
         for row in expected
@@ -1706,9 +1727,9 @@ async fn public_native_repeated_analysis_preserves_frozen_cut_and_replays_realiz
     let mut service = service();
     let work_end = Instant::now() + Duration::from_secs(600);
     let settlement_end = work_end + Duration::from_secs(60);
-    let cleanup_pending = std::sync::atomic::AtomicBool::new(false);
-    let pending = &cleanup_pending;
-    let outcome = AssertUnwindSafe(service.run_until(work_end, settlement_end, |service| {
+    let cleanup_pending = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let pending = cleanup_pending.clone();
+    let outcome = AssertUnwindSafe(service.run_until(work_end, settlement_end, move |service| {
         Box::pin(async move {
             service
                 .launch((Instant::now() + Duration::from_secs(90)).min(work_end))
