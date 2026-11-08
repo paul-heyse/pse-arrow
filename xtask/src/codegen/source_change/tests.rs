@@ -155,7 +155,7 @@ fn generation_failure_resumes_same_snapshot_and_publishes_cross_generated_delta(
     let root = checkout.path();
     fixture(root, true);
     let case = Case::OptionalProjectDescription;
-    assert_eq!(preview(root, &state, case, Vec::new(), None).unwrap(), 1);
+    assert_eq!(preview(root, &state, case, Vec::new(), None, None).unwrap(), 1);
     assert!(!root.join("fixture-generated/new.rs").exists());
     let (id, operation) = only_operation(&state);
     let mut record = operation.read(root, &id).unwrap();
@@ -171,7 +171,7 @@ fn generation_failure_resumes_same_snapshot_and_publishes_cross_generated_delta(
     );
     assert!(operation.snapshot().join("target/failed").is_file());
     assert!(
-        preview(root, &state, case, Vec::new(), None)
+        preview(root, &state, case, Vec::new(), None, None)
             .unwrap_err()
             .to_string()
             .contains(&id)
@@ -209,7 +209,7 @@ fn authored_edit_after_preview_refuses_with_zero_output_writes() {
     let root = checkout.path();
     fixture(root, false);
     let case = Case::OptionalProjectDescription;
-    assert_eq!(preview(root, &state, case, Vec::new(), None).unwrap(), 0);
+    assert_eq!(preview(root, &state, case, Vec::new(), None, None).unwrap(), 0);
     let (id, operation) = only_operation(&state);
     let mut record = operation.read(root, &id).unwrap();
     write(root, case.consumer(), b"intervening authored edit\n");
@@ -232,6 +232,42 @@ fn authored_edit_after_preview_refuses_with_zero_output_writes() {
         fs::read(root.join(case.consumer())).unwrap(),
         b"intervening authored edit\n"
     );
+}
+
+#[test]
+fn reviewed_postimages_are_required_before_generation_and_bound_into_the_receipt() {
+    let checkout = tempfile::tempdir().unwrap();
+    let owner = tempfile::tempdir().unwrap();
+    let checkout_id = "a".repeat(64);
+    let state = owner.path().join(&checkout_id).join("source-change");
+    let root = checkout.path();
+    fixture(root, false);
+    let case = Case::OptionalProjectDescription;
+    let relative = Path::new("src/lib.rs");
+    let expected_bytes = b"//! Reviewed change.\n";
+    let expected_sha256 = hex(&Sha256::digest(expected_bytes));
+    let projection = || ProposalHandoff {
+        version: handoff::VERSION, checkout_id: checkout_id.clone(), checkout_revision: snapshot::revision(root).unwrap(),
+        files: vec![ProposalFile { path: relative.into(), before_sha256: snapshot::head_file_identity(root, relative).unwrap().unwrap(), after_sha256: expected_sha256.clone() }],
+    };
+    let stale = preview(root, &state, case, Vec::new(), None, Some(projection())).unwrap_err();
+    assert!(stale.to_string().contains("reviewed proposal postimage"));
+    assert!(fs::read_dir(&state).unwrap().next().is_none());
+    assert!(!root.join("fixture-generated/new.rs").exists());
+
+    fs::write(root.join(relative), expected_bytes).unwrap();
+    let mut foreign = projection();
+    foreign.checkout_revision = "b".repeat(40);
+    assert!(preview(root, &state, case, Vec::new(), None, Some(foreign)).unwrap_err().to_string().contains("checkout or revision"));
+    assert!(fs::read_dir(&state).unwrap().next().is_none());
+    let projected = serde_json::to_vec(&projection()).unwrap();
+    let proposal = read_proposal(projected.as_slice()).unwrap();
+    assert_eq!(preview(root, &state, case, Vec::new(), None, Some(proposal)).unwrap(), 0);
+    let (id, operation) = only_operation(&state);
+    let record = operation.read(root, &id).unwrap();
+    assert_eq!(record.status.proposal.unwrap().files[0].after_sha256, expected_sha256);
+    assert!(record.status.authored.iter().any(|entry| entry.path == relative && entry.working_sha256 == expected_sha256));
+    assert!(!root.join("fixture-generated/new.rs").exists());
 }
 
 #[test]

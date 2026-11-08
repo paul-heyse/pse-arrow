@@ -10,6 +10,7 @@ use crate::{
     },
     environment::Environment,
     paths::CheckoutState,
+    source_proposal::handoff::{self, ProposalHandoff},
 };
 use clap::{Subcommand, ValueEnum};
 use schemars::JsonSchema;
@@ -18,6 +19,7 @@ use serde_json::value::RawValue;
 use sha2::{Digest as _, Sha256};
 use std::{
     ffi::OsString,
+    io::Read as _,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -39,6 +41,9 @@ pub(super) enum Action {
         /// Compatibility intent for the original preview.
         #[arg(long)]
         compatibility: Option<String>,
+        /// Verify a reviewed semantic proposal's applied file digests from PATH or stdin (-).
+        #[arg(long, value_name = "PATH")]
+        proposal: Option<PathBuf>,
     },
     /// Read a retained preview or publication without starting Cargo.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
@@ -168,6 +173,65 @@ fn decode(raw: &RawValue, expected: Option<&str>) -> Result<Status, HostError> {
     Ok(status)
 }
 
+fn proposal_input(mut input: impl std::io::Read, checkout_id: &str) -> Result<Vec<u8>, HostError> {
+    #[derive(Deserialize)]
+    struct ProposalPayload {
+        proposal: ProposalResult,
+    }
+    #[derive(Deserialize)]
+    struct ProposalResult {
+        handoff: ProposalHandoff,
+    }
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Input {
+        Projection(ProposalHandoff),
+        Envelope {
+            record: String,
+            command: String,
+            outcome: String,
+            payload: ProposalPayload,
+        },
+    }
+    let mut bytes = Vec::new();
+    input.by_ref().take(STATUS_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+    if bytes.len() > STATUS_BYTES {
+        return Err(HostError::Ownership("source-change proposal input exceeds its byte limit".into()));
+    }
+    let decoded: Input = serde_json::from_slice(&bytes).map_err(|_| {
+        HostError::Ownership("expected a reviewed source-change handoff or a semantic proposal containing one".into())
+    })?;
+    let projection = match decoded {
+        Input::Projection(projection) => projection,
+        Input::Envelope { record, command, outcome, payload }
+            if record == "response" && command == "propose entity" && outcome == "success" => payload.proposal.handoff,
+        Input::Envelope { .. } => return Err(HostError::Ownership("source-change proposal envelope is not a successful semantic edit".into())),
+    };
+    projection.validate().map_err(|message| HostError::Ownership(message.into()))?;
+    if projection.checkout_id != checkout_id {
+        return Err(HostError::Ownership("source-change proposal belongs to a different checkout".into()));
+    }
+    let projected = serde_json::to_vec(&projection).map_err(std::io::Error::other)?;
+    if projected.len() > handoff::MAX_BYTES {
+        return Err(HostError::Ownership("source-change proposal handoff exceeds its byte limit".into()));
+    }
+    Ok(projected)
+}
+
+fn read_proposal(path: PathBuf, selected: Option<&Path>, checkout_id: &str) -> Result<Vec<u8>, HostError> {
+    if path == Path::new("-") {
+        return proposal_input(std::io::stdin().lock(), checkout_id);
+    }
+    use std::os::unix::fs::OpenOptionsExt as _;
+    let file = std::fs::OpenOptions::new().read(true)
+        .custom_flags(rustix::fs::OFlags::NONBLOCK.bits() as i32)
+        .open(super::source_path(selected, path)?)?;
+    if !file.metadata()?.is_file() {
+        return Err(HostError::Ownership("source-change proposal PATH must be a regular file".into()));
+    }
+    proposal_input(file, checkout_id)
+}
+
 pub(super) fn dispatch(
     action: Action,
     selected: Option<&Path>,
@@ -175,15 +239,16 @@ pub(super) fn dispatch(
 ) -> Result<i32, HostError> {
     let root = checkout_root(selected)?.canonicalize()?;
     let environment: Environment = std::env::vars_os().collect();
-    let state = CheckoutState::resolve(&root, &environment)?
-        .root
-        .join("source-change");
+    let checkout = CheckoutState::resolve(&root, &environment)?;
+    let state = checkout.root.join("source-change");
     let policy = RedactionPolicy::from_inputs(&environment);
+    let mut proposal_bytes = Vec::new();
     let (verb, id, extra, diagnostic) = match action {
         Action::Preview {
             case,
             input,
             compatibility,
+            proposal,
         } => {
             let case = case.to_possible_value().ok_or_else(|| {
                 HostError::Ownership("source-change case has no command representation".into())
@@ -197,6 +262,10 @@ pub(super) fn dispatch(
             }
             if let Some(note) = compatibility {
                 args.push(format!("--compatibility={note}").into());
+            }
+            if let Some(path) = proposal {
+                proposal_bytes = read_proposal(path, selected, checkout.checkout_id.as_str())?;
+                args.push("--proposal-stdin".into());
             }
             ("preview", None, args, false)
         }
@@ -237,7 +306,7 @@ pub(super) fn dispatch(
             .arg(verb)
             .args(id.iter())
             .args(extra);
-        let child = crate::product_reader::execute(command, Vec::new(), STATUS_BYTES, None)
+        let child = crate::product_reader::execute(command, proposal_bytes, STATUS_BYTES, None)
             .map_err(super::product::product_error)?;
         if child.stdout_bytes > STATUS_BYTES as u64 {
             return Err(HostError::Ownership(
@@ -375,6 +444,29 @@ mod tests {
         io::Write as _,
         os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _},
     };
+
+    #[test]
+    fn reviewed_proposal_input_projects_only_the_selected_checkout_digest_contract() {
+        let id = "a".repeat(64);
+        let projection = serde_json::json!({
+            "version": 1, "checkout_id": id, "checkout_revision": "b".repeat(40),
+            "files": [{"path": "crates/example/src/lib.rs", "before_sha256": "c".repeat(64), "after_sha256": "d".repeat(64)}],
+        });
+        let projection_bytes = serde_json::to_vec(&projection).unwrap();
+        let projected = proposal_input(projection_bytes.as_slice(), &id).unwrap();
+        let mut envelope = serde_json::json!({
+            "record": "response", "command": "propose entity", "outcome": "success",
+            "payload": {"proposal": {"handoff": projection, "candidates": ["private replacement body"]}},
+        });
+        let bytes = serde_json::to_vec(&envelope).unwrap();
+        assert_eq!(proposal_input(bytes.as_slice(), &id).unwrap(), projected);
+        assert!(proposal_input(bytes.as_slice(), &"e".repeat(64)).is_err());
+        envelope["outcome"] = "failure".into();
+        assert!(proposal_input(serde_json::to_vec(&envelope).unwrap().as_slice(), &id).is_err());
+        let mut invalid = projection;
+        invalid["files"][0]["path"] = "crates/../outside.rs".into();
+        assert!(proposal_input(serde_json::to_vec(&invalid).unwrap().as_slice(), &id).is_err());
+    }
 
     #[test]
     fn passive_source_status_requires_the_original_private_checkout_receipt() {

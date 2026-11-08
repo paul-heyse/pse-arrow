@@ -59,6 +59,35 @@ fn proposal(
 }
 
 #[test]
+fn reviewed_handoff_hashes_exact_selected_whole_file_postimages() {
+    let first = source("/source/first.rs", "// μ\nold();\n");
+    let second = source("/source/second.rs", "old()\n");
+    let candidates = vec![
+        EditCandidate::new(first.identity().clone(), 6..9, "renamed".into()),
+        EditCandidate::new(first.identity().clone(), 13..13, "// exact\n".into()),
+        EditCandidate::new(second.identity().clone(), 0..3, "renamed".into()),
+        EditCandidate::new(second.identity().clone(), 0..3, "unselected".into()),
+    ];
+    let mut proposal = ChangeProposal::new(
+        ProducerContext::Semantic { backend: "selected analyzer".into(), configuration: "selected target".into(), synchronized_generation: "7".into() },
+        vec![first.clone(), second.clone()], candidates, vec![1, 2, 0], vec![], vec![],
+    ).unwrap();
+    assert!(proposal.bind_handoff(Path::new("/source"), "a".repeat(64), "b".repeat(40)));
+    let receipt = serde_json::to_value(&proposal).unwrap();
+    let handoff = &receipt["handoff"];
+    assert_eq!(handoff["checkout_revision"], "b".repeat(40));
+    let files = handoff["files"].as_array().unwrap();
+    assert_eq!(files.len(), 2);
+    assert_eq!(files[0]["path"], "first.rs");
+    assert_eq!(files[0]["before_sha256"], first.identity().source_sha256());
+    assert_eq!(files[0]["after_sha256"], source("/source/first.rs", "// μ\nrenamed();\n// exact\n").identity().source_sha256());
+    assert_eq!(files[1]["after_sha256"], source("/source/second.rs", "renamed()\n").identity().source_sha256());
+    assert!(!handoff.to_string().contains("renamed"));
+    assert!(!proposal.bind_handoff(Path::new("/foreign"), "a".repeat(64), "b".repeat(40)));
+    assert!(serde_json::to_value(proposal).unwrap().get("handoff").is_none());
+}
+
+#[test]
 fn exact_original_digest_and_native_path_are_bound_without_acquisition() {
     use std::os::unix::ffi::{OsStrExt as _, OsStringExt as _};
     let path = OsString::from_vec(b"/source/opaque-\xff.rs".to_vec());

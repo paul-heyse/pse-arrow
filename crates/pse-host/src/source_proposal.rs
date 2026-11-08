@@ -8,6 +8,7 @@
 pub use crate::source_read::{SourceIdentity, SourceText};
 use schemars::JsonSchema;
 use serde::Serialize;
+use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeMap,
     ffi::OsString,
@@ -15,6 +16,8 @@ use std::{
     path::{Path, PathBuf},
 };
 mod grammar;
+#[path = "../../../scripts/source-change-proposal.rs"]
+pub(crate) mod handoff;
 pub use grammar::{GrammarEdit, preview_grammar};
 
 /// Producer provenance; syntax mode has no semantic identity or resolution field.
@@ -126,6 +129,7 @@ pub struct ChangeProposal {
     conflicts: Vec<CandidateConflict>,
     limitations: Vec<String>,
     unresolved_placeholders: Vec<UnresolvedPlaceholder>,
+    handoff: Option<handoff::ProposalHandoff>,
 }
 
 /// Borrowed output: exact addressed identities and selected before/after regions.
@@ -145,6 +149,8 @@ struct ProposalView<'a> {
     conflicts: &'a [CandidateConflict],
     limitations: &'a [String],
     unresolved_placeholders: &'a [UnresolvedPlaceholder],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    handoff: Option<&'a handoff::ProposalHandoff>,
 }
 const PROPOSAL_VERSION: u32 = 2;
 impl Serialize for ChangeProposal {
@@ -162,6 +168,7 @@ impl Serialize for ChangeProposal {
             conflicts: &self.conflicts,
             limitations: &self.limitations,
             unresolved_placeholders: &self.unresolved_placeholders,
+            handoff: self.handoff.as_ref(),
         }
         .serialize(serializer)
     }
@@ -367,7 +374,71 @@ impl ChangeProposal {
             conflicts,
             limitations,
             unresolved_placeholders,
+            handoff: None,
         })
+    }
+
+    /// Attach a digest-only projection of the selected original edits to a checkout receipt.
+    /// The caller observes the checkout identity and no edit is applied here.
+    pub(crate) fn bind_handoff(
+        &mut self,
+        root: &Path,
+        checkout_id: String,
+        checkout_revision: String,
+    ) -> bool {
+        self.handoff = self.reviewed_handoff(root, checkout_id, checkout_revision);
+        self.handoff.is_some()
+    }
+
+    fn reviewed_handoff(
+        &self,
+        root: &Path,
+        checkout_id: String,
+        checkout_revision: String,
+    ) -> Option<handoff::ProposalHandoff> {
+        use crate::source_read::SourceOrigin;
+        if !matches!(self.producer, ProducerContext::Semantic { .. })
+            || !self.file_operations.is_empty()
+        {
+            return None;
+        }
+        let mut groups: BTreeMap<_, Vec<_>> = BTreeMap::new();
+        for &index in &self.selected {
+            if self.unresolved_placeholders.iter().any(|placeholder| placeholder.candidate == index) {
+                return None;
+            }
+            let edit = self.candidates.get(index)?;
+            groups.entry(edit.source().path()).or_default().push(edit);
+            if groups.len() > handoff::MAX_FILES {
+                return None;
+            }
+        }
+        let mut files = Vec::with_capacity(groups.len());
+        for (path, mut edits) in groups {
+            let relative = path.strip_prefix(root).ok()?;
+            let source = self.sources.iter().find(|source| source.identity().path() == path)?;
+            if !matches!(source.identity().origin(), SourceOrigin::Working) {
+                return None;
+            }
+            edits.sort_unstable_by_key(|edit| (edit.range.start, edit.range.end));
+            let text = source.text();
+            let mut digest = Sha256::new();
+            let mut cursor = 0;
+            for edit in edits {
+                digest.update(text.get(cursor..edit.range.start)?.as_bytes());
+                digest.update(edit.replacement().as_bytes());
+                cursor = edit.range.end;
+            }
+            digest.update(text.get(cursor..)?.as_bytes());
+            files.push(handoff::ProposalFile {
+                path: relative.to_owned(),
+                before_sha256: source.identity().source_sha256().into(),
+                after_sha256: digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect(),
+            });
+        }
+        let handoff = handoff::ProposalHandoff { version: handoff::VERSION, checkout_id, checkout_revision, files };
+        handoff.validate().ok()?;
+        (serde_json::to_vec(&handoff).ok()?.len() <= handoff::MAX_BYTES).then_some(handoff)
     }
     /// Producer authority and selected configuration, distinct from source validity.
     pub fn producer(&self) -> &ProducerContext {

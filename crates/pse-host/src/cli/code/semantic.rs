@@ -452,6 +452,11 @@ pub(in crate::cli) fn query(
         "inspect entity"
     };
     let identity = record.configuration.identity().map_err(error)?;
+    let handoff = if matches!(&kind, Kind::Rename { .. } | Kind::Ssr { .. }) {
+        proposal_checkout(&root, &record.configuration.project, &environment)
+    } else {
+        None
+    };
     if subject
         .configuration
         .as_ref()
@@ -493,7 +498,7 @@ pub(in crate::cli) fn query(
             },
         }
     });
-    let value = match value {
+    let mut value = match value {
         Ok(value) => value.into_query().map_err(error)?,
         Err(error) => {
             let failure = semantic::Failure::from_error(&error);
@@ -523,6 +528,14 @@ pub(in crate::cli) fn query(
             return Ok(output.emit_page(response, envelope::DetailView::default())?);
         }
     };
+    if let Some(binding) = handoff
+        && proposal_checkout(&root, &record.configuration.project, &environment).as_ref()
+            == Some(&binding)
+        && let Some(proposal) = value.proposal.as_mut()
+    {
+        let (checkout, id, revision) = binding;
+        proposal.bind_handoff(&checkout, id, revision);
+    }
     let omitted = value.sections.iter().map(|section| section.omitted).sum();
     let layout_evidence = compiler_layout
         .map(|selector| {
@@ -632,6 +645,22 @@ pub(in crate::cli) fn edit(
         Edit::Ssr { subject, rule } => query(Kind::Ssr { rule }, subject, selected, output, None),
     }
 }
+
+fn proposal_checkout(
+    root: &Path,
+    project: &Path,
+    environment: &crate::environment::Environment,
+) -> Option<(PathBuf, String, String)> {
+    let root = root.canonicalize().ok()?;
+    if project.canonicalize().ok()? != root {
+        return None;
+    }
+    let repository = gix::open_opts(&root, gix::open::Options::isolated()).ok()?;
+    let common = repository.common_dir().canonicalize().ok()?;
+    let state = crate::paths::CheckoutState::from_paths(&root, &common, environment).ok()?;
+    let revision = repository.head_id().ok()?.to_string();
+    Some((root, state.checkout_id.as_str().to_owned(), revision))
+}
 pub(in crate::cli) fn test_routes(
     root: &Path,
     answer: &semantic::Answer,
@@ -685,7 +714,7 @@ pub(in crate::cli) fn test_routes(
         }
         let reference =
             crate::investigation::ResultReference::new(crate::investigation::Locator::Source {
-                path: path.into(),
+                path: path.clone().into(),
                 source: crate::investigation::SourceKind::Working,
                 range: None,
                 guard: Some(crate::investigation::SourceGuard {

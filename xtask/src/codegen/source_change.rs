@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Authored checkout preview and durable publication of exact generator output.
 mod delta;
+#[path = "../../../scripts/source-change-proposal.rs"]
+mod handoff;
 mod snapshot;
 #[cfg(test)]
 mod tests;
@@ -9,6 +11,7 @@ mod tests;
 use super::{normal_relative, publication};
 use anyhow::{Context, Result, bail, ensure};
 use clap::{Args, Subcommand, ValueEnum};
+use handoff::{ProposalFile, ProposalHandoff};
 use miette::{NamedSource, SourceCode as _};
 use pse_codegen::codegen::provenance::protocol::Scope;
 use serde::{Deserialize, Serialize};
@@ -44,6 +47,8 @@ enum Action {
         inputs: Vec<PathBuf>,
         #[arg(long)]
         compatibility: Option<String>,
+        #[arg(long, hide = true)]
+        proposal_stdin: bool,
     },
     Status {
         id: String,
@@ -177,6 +182,8 @@ struct Status {
     checkout_sha256: String,
     snapshot_sha256: Option<String>,
     authored: Vec<AuthoredInput>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    proposal: Option<ProposalHandoff>,
     compatibility: String,
     compatibility_note: Option<String>,
     checks: Vec<Vec<String>>,
@@ -394,7 +401,13 @@ pub(crate) fn run(checkout: &Path, selection: Selection) -> Result<i32> {
             case,
             inputs,
             compatibility,
-        } => preview(&checkout, &state, case, inputs, compatibility),
+            proposal_stdin,
+        } => {
+            let proposal = proposal_stdin
+                .then(|| read_proposal(std::io::stdin().lock()))
+                .transpose()?;
+            preview(&checkout, &state, case, inputs, compatibility, proposal)
+        }
         Action::Status { id } => {
             let operation = Operation::open(&state, &id)?;
             emit(&operation.read(&checkout, &id)?.status, 0)
@@ -453,6 +466,18 @@ fn emit(status: &Status, code: i32) -> Result<i32> {
     Ok(code)
 }
 
+fn read_proposal(input: impl Read) -> Result<ProposalHandoff> {
+    let mut bytes = Vec::new();
+    input.take(handoff::MAX_BYTES as u64 + 1).read_to_end(&mut bytes)?;
+    ensure!(
+        bytes.len() <= handoff::MAX_BYTES,
+        "source-change proposal handoff exceeds its byte limit"
+    );
+    let proposal: ProposalHandoff = serde_json::from_slice(&bytes)?;
+    proposal.validate().map_err(anyhow::Error::msg)?;
+    Ok(proposal)
+}
+
 fn locate(case: Case, path: &Path, content: String) -> Result<SourceSpan> {
     let (opening, closing, field) = case.anchor();
     let start = content
@@ -482,6 +507,7 @@ fn authored_inputs(
     case: Case,
     inputs: Vec<PathBuf>,
     scopes: &[Scope],
+    proposal: &[ProposalFile],
 ) -> Result<Vec<AuthoredInput>> {
     ensure!(
         inputs.len() <= 32,
@@ -489,6 +515,7 @@ fn authored_inputs(
     );
     let inputs = inputs
         .into_iter()
+        .chain(proposal.iter().map(|file| file.path.clone()))
         .chain([
             PathBuf::from(case.declaration()),
             PathBuf::from(case.consumer()),
@@ -517,6 +544,13 @@ fn authored_inputs(
             );
             let working = publication::observe(root, &path)?.context("authored input is absent")?;
             let working_sha256 = hex(&working.identity);
+            if let Some(expected) = proposal.iter().find(|file| file.path == path) {
+                ensure!(
+                    expected.after_sha256 == working_sha256,
+                    "authored file does not match the reviewed proposal postimage: {}",
+                    path.display()
+                );
+            }
             let head_sha256 = snapshot::head_file_identity(root, &path)?;
             let span = if path == Path::new(case.declaration()) {
                 ensure!(
@@ -548,6 +582,7 @@ fn preview(
     case: Case,
     inputs: Vec<PathBuf>,
     compatibility_note: Option<String>,
+    proposal: Option<ProposalHandoff>,
 ) -> Result<i32> {
     ensure!(
         compatibility_note
@@ -566,8 +601,23 @@ fn preview(
     }
     let original_scopes = delta::scopes(checkout)?;
     let checkout_revision = snapshot::revision(checkout)?;
+    if let Some(proposal) = &proposal {
+        proposal.validate().map_err(anyhow::Error::msg)?;
+        let checkout_id = state
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(std::ffi::OsStr::to_str);
+        ensure!(
+            checkout_id == Some(proposal.checkout_id.as_str())
+                && checkout_revision == proposal.checkout_revision,
+            "source-change proposal checkout or revision no longer matches the selected checkout"
+        );
+    }
+    let proposal_files = proposal
+        .as_ref()
+        .map_or(&[][..], |proposal| proposal.files.as_slice());
     let original_sha256 = snapshot::fingerprint(checkout, &original_scopes, false)?;
-    let authored = authored_inputs(checkout, case, inputs, &original_scopes)?;
+    let authored = authored_inputs(checkout, case, inputs, &original_scopes, proposal_files)?;
     let (preview_id, operation) = Operation::create(state)?;
     let mut record = Record {
         checkout: checkout.to_owned(),
@@ -585,6 +635,7 @@ fn preview(
             checkout_sha256: original_sha256,
             snapshot_sha256: None,
             authored,
+            proposal,
             compatibility: case.compatibility().into(),
             compatibility_note,
             checks: vec![

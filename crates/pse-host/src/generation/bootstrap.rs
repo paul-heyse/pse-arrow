@@ -8,6 +8,7 @@ pub(super) const TOOLS: &[&str] = &["pse", "pse-host", "cargo-pse-correctness"];
 pub(crate) const EXTERNAL_INPUTS: &[&str] = &[
     "crates/pse-study-module/surrealism.toml",
     "crates/pse-study-module/surrealism-qualification-long-hold.toml",
+    "scripts/source-change-proposal.rs",
 ];
 
 /// Freshness is an observation and never starts Cargo or changes the selector.
