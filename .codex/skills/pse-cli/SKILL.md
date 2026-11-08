@@ -1,80 +1,64 @@
 ---
 name: pse-cli
-description: Consider pse-arrow's advanced Rust code intelligence for resolved relationships, types, guarded edit previews, pinned APIs and compiler evidence; select native correctness, managed execution and retained-result capabilities when useful. Routine file/text searches and source reads use standard tools.
+description: Use pse for routine repository operations it owns, including correctness checks, Nextest, project and schema operations, managed execution and result custody. Optional Rust code intelligence can help with resolved relationships, types, guarded edit previews, pinned APIs and compiler evidence.
 ---
 
-# Choose tools by the question
+# Routine repository operations
 
-Use whatever search and reading tools you think is preferred for routine file discovery, text matching and source
-inspection. 
-
-Consider native code intelligence when resolved identity, inferred types, relationships,
-structured API information, guarded edit previews or original compiler evidence could answer
-the question more directly or reliably. These capabilities are options for engineering judgment,
-not a required sequence or a universal preference. Weigh the expected information gain against
-preparation cost and tools already available; a prepared session or acquired artifact can make
-a focused query inexpensive. Stop when the evidence answers the question.
-
-Native correctness selection, source-built fixtures, managed execution and retained outcomes
-have separate operational value. Retain the repository's environment and validation obligations
-when choosing between native commands, raw Cargo/nextest and specialized recipes.
-
+Default to `pse` for the workflows below. Use the configured context and command defaults,
+with overrides for a deliberate change of selection. Documented recipes and supervised raw
+tools cover specialized workflows such as `just doctest`, independent references and tests
+that require independent process scopes.
 The native environment puts the checkout's `scripts/` on `PATH`, so `pse` resolves to
 `scripts/pse`. Without activation, use that explicit launcher. Prepare a missing host with
-`scripts/bootstrap-host`; help and reads do not prepare it. Use `pse COMMAND --help` for concise
-syntax, `pse help COMMAND` for structured parser metadata, or `pse commands FAMILY` for discovery.
-Do not guess options or response fields.
+`scripts/bootstrap-host`. Help and reads are passive. `pse COMMAND --help` gives syntax,
+`pse help COMMAND` gives structured parser metadata and `pse schema` describes response shapes.
 
-## Advanced code intelligence to consider
-
-For optional review/planning examples and their evidence limits, see
-[engineering inquiries](references/engineering-inquiries.md). The calling process retains
-its own judgment and publication boundary.
-
-| Question where deeper evidence could help | Capability to consider |
+| Task | Command and purpose |
 |---|---|
-| Which references, callers or implementations belong to this actual entity, including aliases? | `inspect entity --view refs`, `calls` or `implementations` in an explicitly prepared semantic session |
-| What type, receiver adjustment, trait predicate or API candidate applies here? | Entity views `explain`, `hints`, `predicate` and `candidates`; `compatibility` compares types and `visibility` examines access in a selected context |
-| Where did macro-generated behavior come from? | Entity views `macro`, `derive-origin` and `format-origin`, subject to backend support |
-| Would a refactor preserve the intended identity and syntax? | `propose rename`, `file-rename`, `assist`, `ssr`, `syntax` or `grammar` constructs guarded previews; none applies edits or proves compilation |
-| What does the exact locked dependency expose, and how do its APIs connect or differ? | `search api` / `inspect api` query acquired signatures, bounds, implementations, reexports and artifact comparisons |
-| Why is a dependency or feature included, and in which target/host/build units? | `inspect dependency` / `inspect dependency-units` distinguish authored links, metadata and compiler-unit context |
-| What explains a compiler failure, capture, suspension, cleanup or concrete layout? | Read `inspect diagnostic` / `inspect compiler-facts` / `inspect compiler-artifact`; explicitly acquire new evidence with `compiler generate` or an authored probe when warranted |
+| Compile or run a focused test | `pse check PACKAGE --all-targets` checks eligible targets. `pse test PACKAGE --lib -E 'test(=NAME)'` runs a focused Nextest selection. Use `PACKAGE:TARGET` for an integration target and unfiltered `pse test` for the intended ordinary workspace run. |
+| Explain or list test scope | `pse inspect affected` explains conservative changed-package reach. `pse inspect test-selection --admitted` explains selected targets and features without building. `pse tests PACKAGE` builds and lists the selected Nextest population. |
+| Run, observe or stop managed work | `pse run -- COMMAND` supervises an ad hoc workload. `pse history` locates prior invocations. `pse wait ID` and `pse inspect invocation ID` read the original outcome. `pse inspect log ID` reads bounded original output. `pse cancel ID` requests cancellation from the authenticated owner and reports original settlement evidence. |
+| Read or rerun test results | `pse inspect tests ID` reads the retained population. `pse inspect invocation ID --detail failures` reads original failure detail. `pse test --rerun-failed ID` selects the original failed tests for a new run. |
+| Select project context | `pse inspect settings` shows effective settings and their sources. `pse project targets` checks configured issuers. `pse project show` reads a project through its prepared product reader. |
+| Import or export a project pack | `pse project import-issue --operation KEY PACK TITLE` records the receiving intent. `pse project import --operation KEY PACK` applies that intent. `pse project export --operation KEY DESTINATION` uses a typed intent on stdin or `--intent FILE` and publishes the pack and receipt to a fresh directory. |
+| Recover a project operation | `pse project acknowledgement --operation KEY` reconciles the original operation. Use `pse project import-status --operation KEY` and `pse project import-recover --operation KEY` for the original import. |
+| Inspect installed schema | `pse observe prepare --installed-schema` explicitly prepares a Viewer. `pse project installed-schema --reader ID` inspects the configured issuer through that reader. Configured live schema rollout remains deferred. |
+| Preview or publish a supported authored change | `pse source-change preview --case CASE` checks generated consequences. `pse source-change status ID` reads the recorded stage. `pse source-change apply ID`, `recover ID` and `discard ID` publish, recover or release the original receipt respectively. |
+| Inspect an active calculation | `pse observe prepare` explicitly prepares the product reader. `pse observe discover`, `schema`, `query` and `follow` inspect through the product owner. |
+| Hold, export or retire an ordinary result | `pse tools hold-result ID --consumer NAME --condition CONDITION` records an active use. `pse tools export-result ID --output FILE` writes a compact deliverable. `pse tools retire-result ID` previews release. Use `pse tools retire-result ID --release TOKEN` for that exact selection. |
+| Close an authored scratch probe | `pse probe clean NAME` previews allocated bytes and the output directory identity. `pse probe clean NAME --release IDENTITY` releases that output after the original owners drain. |
 
-Read only the relevant section of [code-intelligence.md](references/code-intelligence.md)
-for preparation, examples and evidence limits. Native search/read commands remain available
-when structural captures, interpreted source facts or guarded references add value.
-
-## Native execution and results
-
-| Need | Capability |
-|---|---|
-| Choose revealing correctness tests | `inspect changes` / `inspect affected` and `inspect test-selection`; `inspect tests` reads retained populations; `tests` builds/lists and `test` executes |
-| Supervise work or recover its original outcome | `run`, `history`, `wait`, `inspect invocation`, bounded `inspect log`; `cancel` settles owned work |
-| Inspect an active calculation through its product owner | Explicit `observe prepare`, then `discover`, `schema`, `query` or `follow` |
+Read the original verdict and settlement separately from the success of a status request.
+A wait timeout can leave completion unknown. A source-change stage records the owner's last
+observation and may remain after interruption. Follow returned continuations and release identities
+as issued. Keep the compact evidence needed for the decision and regenerate expired ordinary
+evidence for a named need. Ad hoc scratch follows the original producer's settlement and the
+[scratch closeout](../../../docs/dev/agent-environment.md#closing-ad-hoc-scratch).
 
 The [environment guide](../../../docs/dev/agent-environment.md) owns preparation, placement,
-run controls and detailed command examples; the
-[qualification guide](../../../docs/dev/validation-assessment.md) owns what checks establish.
+run controls and detailed command examples. The
+[qualification guide](../../../docs/dev/validation-assessment.md) describes what each check establishes.
 
-## Keep context proportional
+## Code intelligence that may help
 
-Keep queries focused on the useful entity, range or artifact. Inspect returned identity,
-coverage and limitations before expanding; bounded results do not establish exhaustive absence.
-Search options, output formats and request configuration are in the code-intelligence reference.
+File search and source reads may be the shortest path for many questions. A prepared semantic
+session or an existing artifact can make a focused code intelligence query inexpensive when
+resolved Rust semantics or compiler evidence would help.
 
-Use the selected command's `pse schema` view when its returned shape matters. Follow returned
-continuations and guarded actions unchanged rather than reconstructing their identities.
+| Question | Capability that may help |
+|---|---|
+| Which references, callers or implementations resolve to this item? | `pse inspect entity` with `refs`, `calls` or `implementations` can distinguish aliases and resolved targets. |
+| What type, trait predicate, method or macro expansion is involved? | `pse inspect entity` offers `explain`, `predicate`, `candidates`, `macro` and related views, subject to backend support. |
+| What could a structural edit change? | `pse propose rename` and `pse propose ssr` can help assess guarded previews before normal edit and validation. |
+| What does the exact locked dependency expose, or why is it included? | `pse search api` and `pse inspect api` query acquired API artifacts. `pse inspect dependency` and `pse inspect dependency-units` can explain dependency and feature context. |
+| What explains a compiler failure or generated behavior? | `pse inspect diagnostic`, `pse inspect compiler-facts` and `pse inspect compiler-artifact` can read captured evidence. `pse compiler generate` or an authored probe can capture a specific missing observation. |
 
-Preparation, compilation and execution are explicit effects. Source reads need no analyzer;
-API reads need their acquired artifact; semantic queries need their selected prepared session.
-An unavailable provider remains unavailable. Related tests and possible callers are candidates;
-edit commands produce previews. Apply an inspected proposal through normal authorized edits,
-then run the revealing checks; there is no CLI edit-apply operation.
+The [code intelligence reference](references/code-intelligence.md) and
+[engineering inquiries](references/engineering-inquiries.md) describe preparation, examples
+and the scope of the evidence.
 
-Use `inspect test-selection --from-result REF` to validate a working-source witness and
-select its current containing package through the native test-selection owner. Target,
-feature, platform and filter options retain their normal meanings. This is a current test
-candidate, not a dependency-impact or coverage proof; `inspect affected` supplies the
-separate conservative changed-source view. Fresh populations and execution remain `tests`
-and `test`.
+When a working-source result already identifies the code in question,
+`pse inspect test-selection --from-result REF --admitted` can use its verified witness to select
+the current containing package. This yields a test candidate. `pse inspect affected` supplies the
+separate conservative changed-source view.

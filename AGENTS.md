@@ -70,9 +70,12 @@ those lines are yours. The specialized `pse commit` transaction is deferred (Pla
 - Compile what you touched: `scripts/pse check <pkg> --all-targets`, or
   `scripts/pse check --workspace --all-targets` for cross-crate work.
 - Run, or write, the targeted unit tests that show the new behaviour:
-  `scripts/pse test <pkg> --lib -E '<filterset>'`; `scripts/pse inspect affected` previews the tests a
-  change can reach. Select integration targets with `<pkg>:<target>`. A new mechanism gets
-  its tests in the same change.
+  `scripts/pse test <pkg> --lib -E 'test(=NAME)'` runs a focused Nextest selection. Select
+  integration targets with `<pkg>:<target>`. An unfiltered `pse test` selects the ordinary
+  workspace when that scope is intended. A new mechanism gets its tests in the same change.
+- Explain uncertain scope with `pse inspect affected` for conservative changed-package reach
+  or `pse inspect test-selection --admitted` for selected targets and features without a build.
+  `pse tests PACKAGE` builds and lists the actual Nextest population when test names are needed.
 - Run `just codegen` when a generator or registry declaration changes — regeneration is
   part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-check`).
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
@@ -100,29 +103,50 @@ Outcome, PR descriptions and ADRs (prime directives 4 and 7).
 ## Start here
 
 ```bash
-scripts/pse --help           # native command front door; help never prepares work
-scripts/pse commands code   # parser-owned discovery for a selected family
+scripts/pse --help          # native command front door
 just --list                 # recipes by cost tier; --usage <recipe> for parameters
 scripts/pse-env --explain   # what environment and placement a command would get
 just bootstrap              # only if `just ready` reports a failure -- idempotent
 ```
 
-Use the [pse-cli skill](.codex/skills/pse-cli/SKILL.md) to select useful native capabilities
-for investigation and implementation. Prefer `pse` when its correctness selection, fixtures,
-process ownership and original results fit the task; bare tools remain first-class. The native
-environment puts `scripts/` on `PATH`, exposing the existing `scripts/pse` launcher as `pse`.
-The [native workflow guide](docs/dev/agent-environment.md) owns detailed command and preparation
-mechanics; help and reads never prepare capabilities implicitly.
+Default to `pse` for routine repository operations it supports. Use the configured context and
+command defaults. Supply overrides when the operation needs a different selection. Native
+activation puts `scripts/` on `PATH`, exposing the `scripts/pse` launcher as `pse`.
+
+- **Compile and test.** Use `pse check` and `pse test` with the scope in *Execution rhythm*.
+- **Run and recover work.** `pse run -- COMMAND` supervises an ad hoc workload. `pse wait ID`
+  and `pse inspect invocation ID` read the original outcome. `pse inspect log ID` reads a
+  bounded window of original output. Check the original verdict and settlement before retrying
+  or releasing resources.
+- **Work with project data and schema.** Use `pse project` for supported project reads,
+  imports and exports. `pse inspect settings` shows effective settings and their sources.
+  `pse project targets` checks configured targets. `pse project installed-schema --reader ID`
+  inspects the catalog with a prepared Viewer. `pse source-change preview` checks generated
+  consequences for supported authored changes.
+- **Retrieve and release results.** Use the original invocation or operation ID. Keep the compact
+  evidence the decision needs and the selection needed to reproduce it. Use `pse tools hold-result`,
+  `export-result` and `retire-result` for ordinary test summaries. Specify an output path for a
+  deliberate deliverable or a workflow that requires caller-owned diagnostics. Regenerate expired
+  ordinary evidence when a specific need arises. Follow the
+  [scratch closeout](docs/dev/agent-environment.md#closing-ad-hoc-scratch) for managed ad hoc output.
+
+The [pse-cli skill](.codex/skills/pse-cli/SKILL.md) gives commands for preparation, recovery and
+release. It also describes code intelligence tools that may help answer questions about resolved
+Rust identities, types, dependencies and compiler behavior. The
+[native workflow guide](docs/dev/agent-environment.md) owns detailed command and preparation
+mechanics. Help and reads never prepare capabilities implicitly.
 
 Recipes are shortcuts, not gates: they carry feature flags, profiles, report paths and
 tool paths, so use one when it fits. A composed recipe supports a mode across every stage
-or rejects it before effects; use `just codegen-check` for comparison and zero-argument
-`just codegen` for publication. Bare tools are first-class too: `scripts/pse-env --
-<command>` supplies the checkout environment (licence, venv, compiler cache, a supervised scope)
-under any shell, `--native` adds the linked solver environment, and `cargo c` / `cargo t`
-carry force-validation. Workload recipes run through `scripts/pse-env`; the fixed read-only
-`just activity` observer runs directly so unavailable workload admission or compiler setup
-remains diagnosable. These exceptions accept observer options or the fixed capability server,
+or rejects it before effects. Use `just codegen-check` for comparison and zero-argument
+`just codegen` for publication. Use documented recipes and supervised tools for specialized
+operations, including `just doctest`, independent references and tests that require independent
+process scopes. `scripts/pse-env -- <command>` supplies the checkout environment (licence,
+venv, compiler cache, a supervised scope) under any shell. `--native` adds the linked solver
+environment, and `cargo c` / `cargo t` carry force-validation. Workload recipes run through
+`scripts/pse-env`. The fixed read-only `just activity` observer runs directly so unavailable
+workload admission or compiler setup remains diagnosable. These exceptions accept observer
+options or the fixed capability server,
 never an arbitrary command.
 Direnv and Claude
 sessions load the same native environment. On this workstation Codex and Claude Code refresh
@@ -231,9 +255,9 @@ and a family major needs an ADR. Holds go in `[workspace.metadata.pse.pins]` wit
 
 Each of these is a real incident, not a hypothetical.
 
-- **Script edits that silently match nothing.** Edit with `apply_patch`/`Edit` by default. For
-  a repeated structural Rust change use `ast-grep run --pattern … --rewrite … --update-all`. An
-  unavoidable script edit asserts its expected match count before writing
+- **Script edits that silently match nothing.** Edit with `apply_patch`/`Edit` by default.
+  `ast-grep run --pattern … --rewrite … --update-all` can help with repeated structural Rust
+  edits. An unavoidable script edit asserts its expected match count before writing
   (`.claude/rules/tooling.md`).
 
 - **Pinning the umbrella crate does not pin the family.** `arrow = "=59.3.0"` binds one
@@ -343,10 +367,12 @@ Use the existing checkout on `main` for ordinary development and GitHub updates.
 worktree only when concurrent agents genuinely need isolation — `scripts/pse worktree new NAME`
 creates a sibling checkout, copies the maintainer-selected `.envrc.local` bytes/mode and explicitly
 prepares its own native host. Inspect independent preparation stages and `scripts/pse worktree list`.
-Review/allow the new checkout's direnv configuration. Coordinate file
-ownership, preserve other agents' uncommitted changes, and remove fully merged worktrees. Never set `CARGO_TARGET_DIR` or point two
-checkouts at one target directory (ADR-0122); the sccache cache is shared. Details:
-[agent environment guide](docs/dev/agent-environment.md#worktrees).
+Review/allow the new checkout's direnv configuration. Coordinate file ownership and preserve
+other agents' uncommitted changes. After integration and settlement, remove the worktree with
+`git worktree remove PATH`. Ordinary builds use the managed incremental and shared sccache
+defaults. Reserve `--non-incremental` and target cleanup for a named workload need. Never set
+`CARGO_TARGET_DIR` or point two checkouts at one target directory (ADR-0122).
+See the [agent environment guide](docs/dev/agent-environment.md#worktrees).
 
 **Commit regularly in discrete, coherent changes during authorized implementation.**
 Commit an integrated item when it has a clear purpose and reviewable boundary; do not wait

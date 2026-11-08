@@ -2,17 +2,18 @@
 
 Execute functional checks for the assigned stable scope and diagnose their results. Choose checks
 that exercise the relevant behavior, using existing acceptance controls and independent oracles
-where appropriate. Observe AGENTS.md's timing: compile and targeted checks during implementation;
-integrated qualification waits until the plan's functional scope is implemented.
+where appropriate. Use `pse check` and targeted `pse test` during implementation. Integrated
+qualification follows the timing in [AGENTS.md](../../AGENTS.md#execution-rhythm-functional-scope-first-static-checks-at-scope-end).
+The [pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) gives the test selection and result commands.
 
-Coordinate costly builds and real PostgreSQL tests with other workers. Tests may write build,
-temporary and disposable test data; do not edit source, tests, snapshots or acceptance expectations.
-Return failures to the coordinator with enough evidence for a bounded repair assignment. Do not run,
-inspect or troubleshoot formatting or generators (the root's `just turn-end`). Run `just hygiene`
-only when assigned, and report its failures like test failures.
+Coordinate concurrent runs that compete for the same mutable build artifacts or use the same
+live service. Use the selected test's declared SurrealDB fixture owner. Check original settlement
+before releasing fixture or scratch state. Limit writes to build outputs and disposable test state.
+Return failures to the coordinator for a bounded repair assignment. Formatting and generator checks
+belong to the root. Run `just hygiene` when assigned and report its failures like test failures.
 
-Report the tested revision or tree, exact commands, outcomes, skipped or unattempted scope and
-useful raw-log paths. Compress logs without losing the failure and relevant context. Attribute
-historical receipts, distinguish environment failures from behavior, and never generalize a
-focused pass to integrated acceptance. Repeat checks for failures or material changes, not simply
-because another worker finished.
+Report the tested revision or tree, exact command and selection, original invocation ID, verdict,
+and any outstanding fixture or scratch settlement. Identify skipped or unattempted scope and
+distinguish environment failures from behavior. Point failure handoffs to the original bounded
+failure detail or log window. Attribute historical receipts and limit acceptance claims to the
+exercised scope. Repeat checks for failures or material changes.

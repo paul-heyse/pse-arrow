@@ -72,6 +72,22 @@ without a reason will not compile in CI.
   a contracted FMA changes float results between your machine and CI. A governance test
   forbids both.
 
+## Authoring tests
+
+- Use ordinary Rust tests with authored in-process inputs for pure behavior. Use a scoped
+  temporary directory for any files the test needs in process.
+- Use the pinned SurrealKit suite for generated schema, transactions and database-level
+  acceptance or refusal. Use a runner-borrowed fixture for Rust or transport assertions that
+  need an isolated logical database. Use a target-owned fixture when startup, restart,
+  recovery or shutdown is part of the assertion.
+- Declare native fixture requirements in `[[package.metadata.pse.test-fixtures]]` and express
+  case differences in test setup. Reserve physical database copies for tests of the copy
+  itself, such as backup and restore. Keep subprocess and service state with the original
+  fixture owner through settlement.
+
+The [fixture controls](../../docs/dev/surreal-substrate.md#targeted-fixture-controls) describe
+each fixture boundary and its lifetime.
+
 ## Before you claim it works
 
 Follow *Execution rhythm* in AGENTS.md. While implementing, `scripts/pse check <pkg> --all-targets`

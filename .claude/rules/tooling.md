@@ -16,10 +16,10 @@ paths:
 The mechanics are in [the agent environment guide](../../docs/dev/agent-environment.md);
 keep it accurate when you change them.
 
-Use the [pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) to choose native capabilities
-for the current question. Prefer `pse` where its correctness, fixture, process and result
-ownership fits; raw tools remain available. Native activation exposes the existing
-`scripts/pse` launcher through the checkout `scripts/` entry on `PATH`.
+Default to `pse` for routine operations it supports. The
+[pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) lists the commands and their purposes.
+Use the documented recipe or supervised tool for specialized workflows. Native activation
+exposes the `scripts/pse` launcher through the checkout `scripts/` entry on `PATH`.
 
 - **One environment boundary.** Recipes, direnv, the Claude SessionStart hook and the native
   helpers all take their environment from native `pse-host::environment` through
@@ -36,6 +36,15 @@ ownership fits; raw tools remain available. Native activation exposes the existi
 - **Fixed observation.** `just activity` runs its read-only observer directly, without workload
   admission or compiler preparation. It accepts observer options, never an arbitrary executable;
   report unavailable observations as unavailable, not empty success.
+- **Scratch has an owner.** Use scoped temporary directories for in-process files. Give ad hoc
+  subprocess or campaign scratch one private directory below the checkout's scratch state root
+  and one managed producing invocation. Keep authored inputs outside scratch. Retain the finding
+  and rerun selection, verify the original process and database users have drained, and release the
+  exact directory after checking its identity and holds. Keep unresolved recovery material with
+  its original owner. The [scratch closeout](../../docs/dev/agent-environment.md#closing-ad-hoc-scratch)
+  gives the release procedure.
+- **Build reuse.** Keep ordinary work on the managed incremental and shared sccache defaults.
+  Reserve a different mode or target cleanup for a named workload need.
 - **Placement owns resource policy.** The selected ordinary native path uses configured
   unbounded sharing, all 16 physical cores and 32 logical compiler jobs without a slot ledger
   or new OS memory cap. Explicit finite selections retain original physical containment and
@@ -55,7 +64,7 @@ ownership fits; raw tools remain available. Native activation exposes the existi
   Codex and Claude Code, always exits zero, and never blocks or rewrites the command. Codex
   requires native `/hooks` review/trust of changed definitions; do not bypass that review.
   End-of-turn automation stays removed (ADR-0161).
-- **Edits.** Prefer `apply_patch`/`Edit`. Repeated structural Rust rewrites use ast-grep, for
+- **Edits.** Prefer `apply_patch`/`Edit`. Ast-grep can help with repeated structural Rust rewrites, for
   example `ast-grep run -l rust --pattern 'checkout_root()' --rewrite 'ctx.root()' --update-all
   crates/pse-host/src`. A scripted replacement asserts its count first:
   `assert s.count(old) == 1, s.count(old)`.
