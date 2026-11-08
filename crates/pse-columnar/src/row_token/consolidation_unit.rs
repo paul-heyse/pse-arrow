@@ -7,6 +7,109 @@ use arrow_schema::{DataType, Field};
 use std::{collections::HashMap, sync::Arc};
 
 #[test]
+fn generated_result_row_identity_survives_repacking_slices_and_partitions() {
+    use arrow_array::{BooleanArray, StructArray};
+    use arrow_buffer::NullBuffer;
+    use proptest::{
+        prelude::*,
+        test_runner::{Config, RngSeed, TestRunner},
+    };
+
+    // The logical rows distinguish a null struct from a valid struct with a null child.
+    type Row = (Option<bool>, Option<Option<bool>>);
+    let identity = |rows: &[Row], repacked: bool, partition: usize| {
+        let padding = (Some(false), Some(Some(false)));
+        let mut physical = Vec::with_capacity(rows.len() + usize::from(repacked));
+        if repacked {
+            physical.push(padding);
+        }
+        physical.extend_from_slice(rows);
+        let keys = Int32Array::from(
+            physical
+                .iter()
+                .map(|row| row.0.map(|value| i32::from(value ^ repacked)))
+                .collect::<Vec<_>>(),
+        );
+        let dictionary = DictionaryArray::<Int32Type>::try_new(
+            keys,
+            Arc::new(StringArray::from(if repacked {
+                vec!["high", "low"]
+            } else {
+                vec!["low", "high"]
+            })),
+        )
+        .unwrap();
+        let nested = StructArray::new(
+            vec![Arc::new(Field::new("flag", DataType::Boolean, true))].into(),
+            vec![Arc::new(BooleanArray::from(
+                physical
+                    .iter()
+                    .map(|row| row.1.unwrap_or(Some(repacked)))
+                    .collect::<Vec<_>>(),
+            ))],
+            Some(NullBuffer::from(
+                physical
+                    .iter()
+                    .map(|row| row.1.is_some())
+                    .collect::<Vec<_>>(),
+            )),
+        );
+        let arrays: [ArrayRef; 2] = [Arc::new(dictionary), Arc::new(nested)];
+        let fields = [
+            Arc::new(Field::new("label", arrays[0].data_type().clone(), true)),
+            Arc::new(Field::new("record", arrays[1].data_type().clone(), true)),
+        ];
+        let mut result = Vec::with_capacity(rows.len());
+        for start in (0..rows.len()).step_by(partition) {
+            let count = partition.min(rows.len() - start);
+            let offset = start + usize::from(repacked);
+            let tokens = tokens(
+                pse_ids::SemanticId::NIL,
+                &[
+                    ("label", fields[0].clone(), arrays[0].slice(offset, count)),
+                    ("record", fields[1].clone(), arrays[1].slice(offset, count)),
+                ],
+                count,
+            )
+            .unwrap();
+            result.extend((0..count).map(|index| tokens.value(index).to_vec()));
+        }
+        result
+    };
+    let cases = (
+        proptest::collection::vec(
+            (
+                proptest::option::of(any::<bool>()),
+                proptest::option::of(proptest::option::of(any::<bool>())),
+            ),
+            2..17,
+        ),
+        1usize..8,
+    );
+    TestRunner::new(Config {
+        cases: 32,
+        rng_seed: RngSeed::Fixed(0x5053_452d_524f_5731),
+        failure_persistence: None,
+        ..Config::default()
+    })
+    .run(&cases, |(mut rows, width)| {
+        let original = identity(&rows, false, rows.len());
+        prop_assert_eq!(&original, &identity(&rows, true, width));
+        for (left, row) in rows.iter().enumerate() {
+            for (right, other) in rows[..left].iter().enumerate() {
+                prop_assert_eq!(original[left] == original[right], row == other);
+            }
+        }
+        rows[0].0 = Some(!rows[0].0.unwrap_or(false));
+        let changed = identity(&rows, true, width);
+        prop_assert_ne!(&original[0], &changed[0]);
+        prop_assert_eq!(&original[1..], &changed[1..]);
+        Ok(())
+    })
+    .unwrap();
+}
+
+#[test]
 fn v2_row_token_matches_an_independently_framed_int64_vector() {
     let payload = pse_ids::preimage::derive_key(Frame::NativeValuePayloadV1, br#"["i64",42]"#);
     let meaning = br#"{"data_type":"Int64","dict_id":0,"dict_is_ordered":false,"metadata":{},"name":"item","nullable":false}"#;

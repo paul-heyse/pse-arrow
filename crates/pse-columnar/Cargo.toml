@@ -48,6 +48,7 @@ force-validate = [
 ]
 
 [dev-dependencies]
+proptest.workspace = true
 
 # ADR-0170: optional Arrow cast activation supplies force_validate to the consumed unit.
 [package.metadata.cargo-shear]

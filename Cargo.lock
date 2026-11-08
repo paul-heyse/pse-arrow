@@ -8562,6 +8562,7 @@ dependencies = [
  "flatbuffers",
  "futures-util",
  "miette",
+ "proptest",
  "pse-diagnostics",
  "pse-ids",
  "serde",
