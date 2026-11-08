@@ -229,10 +229,7 @@ impl TestArgs {
             .filter(|target| {
                 target.name == witness.name
                     && target.src_path.as_std_path() == witness.root
-                    && target
-                        .kind
-                        .iter()
-                        .any(|actual| actual.to_string() == kind)
+                    && target.kind.iter().any(|actual| actual.to_string() == kind)
                     && target.required_features == witness.required_features
                     && (!doctest || target.doctest)
             })

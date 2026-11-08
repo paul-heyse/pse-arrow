@@ -210,7 +210,12 @@ pub(super) enum Action {
         from_result: Option<String>,
         #[arg(long, hide = true, requires = "from_result")]
         target_witness: Option<String>,
-        #[arg(long, hide = true, requires = "from_result", conflicts_with = "admitted")]
+        #[arg(
+            long,
+            hide = true,
+            requires = "from_result",
+            conflicts_with = "admitted"
+        )]
         doctest_candidate: bool,
         #[arg(long)]
         admitted: bool,
@@ -1443,12 +1448,23 @@ mod tests {
             "required_features_satisfied":true
         }).to_string();
         let arguments = [
-            "inspect", "test-selection", "--from-result", "guarded", "--lib",
-            "--target-witness", &witness, "--doctest-candidate",
+            "inspect",
+            "test-selection",
+            "--from-result",
+            "guarded",
+            "--lib",
+            "--target-witness",
+            &witness,
+            "--doctest-candidate",
         ];
         let parsed = Parsed::try_parse_from(arguments).unwrap();
         assert!(Parsed::try_parse_from(arguments.into_iter().chain(["--admitted"])).is_err());
-        let Action::TestSelection { tests, doctest_candidate, .. } = parsed.action else {
+        let Action::TestSelection {
+            tests,
+            doctest_candidate,
+            ..
+        } = parsed.action
+        else {
             panic!("wrong query");
         };
         assert!(doctest_candidate);
@@ -1457,9 +1473,15 @@ mod tests {
             "workspace_members":["fixture"],"workspace_default_members":["fixture"],
             "workspace_root":"/workspace","target_directory":"/workspace/target","version":1
         })).unwrap();
-        tests.verify_source_target(&metadata, "fixture", &witness, true).unwrap();
+        tests
+            .verify_source_target(&metadata, "fixture", &witness, true)
+            .unwrap();
         metadata.packages[0].targets[0].doctest = false;
-        assert!(tests.verify_source_target(&metadata, "fixture", &witness, true).is_err());
+        assert!(
+            tests
+                .verify_source_target(&metadata, "fixture", &witness, true)
+                .is_err()
+        );
     }
     #[test]
     fn rerun_retains_native_policy_and_refuses_feature_override() {

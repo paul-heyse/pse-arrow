@@ -383,10 +383,14 @@ mod tests {
     fn rollout_catalog_digest_binds_definitions_beyond_changed_identities() {
         let expected = parse_definitions("DEFINE TABLE canonical_probe SCHEMAFULL;").unwrap();
         let first = parse_definitions("DEFINE TABLE canonical_probe SCHEMALESS;").unwrap();
-        let second = parse_definitions("DEFINE TABLE canonical_probe TYPE ANY SCHEMAFULL;").unwrap();
+        let second =
+            parse_definitions("DEFINE TABLE canonical_probe TYPE ANY SCHEMAFULL;").unwrap();
         let first = compare_generated(&expected, &first);
         let second = compare_generated(&expected, &second);
         assert_eq!(first.changed, second.changed);
-        assert_ne!(first.installed_catalog_sha256, second.installed_catalog_sha256);
+        assert_ne!(
+            first.installed_catalog_sha256,
+            second.installed_catalog_sha256
+        );
     }
 }

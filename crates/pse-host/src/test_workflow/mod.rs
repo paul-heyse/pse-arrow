@@ -522,7 +522,9 @@ impl Admitted {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
-            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Admitted),
+            evidence: self
+                .context
+                .selection_evidence(self.resolved.plan(), Stage::Admitted),
             runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: pending("Nextest inventory requires explicit build/list"),
@@ -702,7 +704,9 @@ impl Listed {
         Explanation {
             stage: Stage::Listed,
             selection: self.resolved.plan(),
-            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Listed),
+            evidence: self
+                .context
+                .selection_evidence(self.resolved.plan(), Stage::Listed),
             runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: Information::Available(self.inventory.selected_tests_iter().count()),

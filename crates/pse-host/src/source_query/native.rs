@@ -121,9 +121,7 @@ impl ParsedSyntax {
     pub fn new(source: &SourceText) -> Result<Self, QueryError> {
         Ok(Self::from_tree(
             source,
-            AstGrep::doc(
-                StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?,
-            ),
+            AstGrep::doc(StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?),
         ))
     }
     /// Parse with the native progress callback; cancellation is an incomplete acquisition.

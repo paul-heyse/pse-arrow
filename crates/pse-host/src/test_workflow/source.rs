@@ -352,14 +352,20 @@ mod tests {
         )
         .unwrap();
         assert!(empty.plan.groups().is_empty());
-        assert!(empty.evidence.affected.unwrap().selected_packages.is_empty());
+        assert!(
+            empty
+                .evidence
+                .affected
+                .unwrap()
+                .selected_packages
+                .is_empty()
+        );
         std::fs::write(
             root.join("crates/alpha/src/lib.rs"),
             "pub fn changed() {}\n",
         )
         .unwrap();
-        let selected =
-            resolve(&metadata, request, "default".into(), &Environment::new()).unwrap();
+        let selected = resolve(&metadata, request, "default".into(), &Environment::new()).unwrap();
         let affected = selected.evidence.affected.unwrap();
         assert_eq!(affected.changed_packages, [id]);
         assert_eq!(affected.selected_packages[0].id, id);

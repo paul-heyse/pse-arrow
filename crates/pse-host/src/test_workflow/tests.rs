@@ -457,10 +457,22 @@ fn doctest_only_target_remains_a_cargo_root_with_separate_inventory_and_verdict(
     assert_eq!(target.kinds, ["lib"]);
     assert!(!target.test);
     assert!(target.doctest);
-    assert!(matches!(explanation.evidence.doctest_route, Information::Available("just doctest")));
-    assert!(matches!(explanation.admission, Information::Unavailable { .. }));
-    assert!(matches!(explanation.evidence.nextest_inventory, Information::Unavailable { .. }));
-    assert!(matches!(explanation.evidence.original_verdict, Information::Unavailable { .. }));
+    assert!(matches!(
+        explanation.evidence.doctest_route,
+        Information::Available("just doctest")
+    ));
+    assert!(matches!(
+        explanation.admission,
+        Information::Unavailable { .. }
+    ));
+    assert!(matches!(
+        explanation.evidence.nextest_inventory,
+        Information::Unavailable { .. }
+    ));
+    assert!(matches!(
+        explanation.evidence.original_verdict,
+        Information::Unavailable { .. }
+    ));
 }
 #[test]
 fn actual_admission_uses_selected_checkout_without_changing_process_context() {
@@ -563,8 +575,14 @@ fn listed_commands_preserve_context_profile_policy_and_refuse_changed_capture() 
     let (_root, intent) = intent();
     let listed = listed(intent);
     let explanation = listed.explain();
-    assert!(matches!(explanation.evidence.nextest_inventory, Information::Available(_)));
-    assert!(matches!(explanation.evidence.original_verdict, Information::Unavailable { .. }));
+    assert!(matches!(
+        explanation.evidence.nextest_inventory,
+        Information::Available(_)
+    ));
+    assert!(matches!(
+        explanation.evidence.original_verdict,
+        Information::Unavailable { .. }
+    ));
     let command = listed.command(0).unwrap();
     let args: Vec<_> = command
         .arguments

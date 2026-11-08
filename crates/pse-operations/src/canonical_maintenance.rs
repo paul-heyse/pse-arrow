@@ -185,7 +185,10 @@ enum DefinitionInput {
     FrozenRollout,
 }
 
-fn parse_definition_input(input: &str, mode: DefinitionInput) -> Result<Definitions, CanonicalError> {
+fn parse_definition_input(
+    input: &str,
+    mode: DefinitionInput,
+) -> Result<Definitions, CanonicalError> {
     let ast = surrealdb_expr::parser::parse(input)
         .map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
     if matches!(mode, DefinitionInput::CatalogEntry) && ast.expressions.len() != 1 {
@@ -204,7 +207,9 @@ fn parse_definition_input(input: &str, mode: DefinitionInput) -> Result<Definiti
                 || matches!(&statement, DefineStatement::Field(field) if field.migrate.is_some())
                 || matches!(&statement, DefineStatement::Index(index) if index.concurrently))
         {
-            return Err(invalid("frozen rollout requires independent effect handling"));
+            return Err(invalid(
+                "frozen rollout requires independent effect handling",
+            ));
         }
         // These flags affect installation, not the installed definition. Every
         // semantic clause (including permission/assertion/function body) survives.
@@ -390,8 +395,8 @@ impl CanonicalStore {
             &self.database,
             self.connection_options.initializer_nonce.as_deref(),
         )?;
-        let config = serde_json::from_str(&raw)
-            .map_err(|_| invalid("invalid maintenance configuration"))?;
+        let config =
+            serde_json::from_str(&raw).map_err(|_| invalid("invalid maintenance configuration"))?;
         let owner_record = |name| {
             let raw = read(name, configuration_bytes).map_err(|_| CanonicalError::Quiesced)?;
             serde_json::from_str::<serde_json::Value>(&raw).map_err(|_| CanonicalError::Quiesced)

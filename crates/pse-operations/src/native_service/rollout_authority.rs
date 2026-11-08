@@ -23,7 +23,8 @@ const OWNER: &str = "rollout_owner";
 const VIEWER: &str = "rollout_viewer";
 const ROLLOUT: &str = "20261108000000__authority_fixture";
 const ALLOWANCE: Duration = Duration::from_secs(20);
-const EXPAND: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout-schema.surql");
+const EXPAND: &str =
+    include_str!("../../../../scripts/tests/fixtures/surrealkit/rollout-schema.surql");
 const MANIFEST: &str = r#"
 id = "20261108000000__authority_fixture"
 name = "authority_fixture"
@@ -94,8 +95,16 @@ fn launch(
     let mut command = Command::new(server.executable());
     command
         .args([
-            "start", "--no-banner", "--no-defaults", "--deny-guests", "--deny-net", "--log",
-            "warn", "--query-timeout=8s", "--transaction-timeout=8s", "--bind",
+            "start",
+            "--no-banner",
+            "--no-defaults",
+            "--deny-guests",
+            "--deny-net",
+            "--log",
+            "warn",
+            "--query-timeout=8s",
+            "--transaction-timeout=8s",
+            "--bind",
         ])
         .arg(address.to_string())
         .arg(format!(
@@ -125,8 +134,13 @@ fn stop(mut child: SupervisedChild) {
     let pid = rustix::process::Pid::from_raw(child.pid().cast_signed()).unwrap();
     let fd = rustix::process::pidfd_open(pid, rustix::process::PidfdFlags::empty()).unwrap();
     rustix::process::pidfd_send_signal(fd, rustix::process::Signal::TERM).unwrap();
-    child.wait_ready(None, Some(Instant::now() + ALLOWANCE)).unwrap();
-    assert!(child.wait().unwrap().success(), "server must acknowledge graceful stop");
+    child
+        .wait_ready(None, Some(Instant::now() + ALLOWANCE))
+        .unwrap();
+    assert!(
+        child.wait().unwrap().success(),
+        "server must acknowledge graceful stop"
+    );
 }
 
 async fn query(
@@ -137,23 +151,39 @@ async fn query(
     let deadline = Instant::now() + ALLOWANCE;
     operation_scope(deadline, async {
         let selected = match &credentials {
-            Credentials::Database(account) => Some((account.namespace.clone(), account.database.clone())),
+            Credentials::Database(account) => {
+                Some((account.namespace.clone(), account.database.clone()))
+            }
             Credentials::Root(_) => None,
         };
         let client = Client::connect_pinned(address, MESSAGE_BYTES).await?;
         let result = async {
-            client.signin(credentials).request_context(RequestContext::control(deadline)).await?;
+            client
+                .signin(credentials)
+                .request_context(RequestContext::control(deadline))
+                .await?;
             if let Some((namespace, database)) = selected {
-                client.use_ns(&namespace).use_db(&database)
-                    .request_context(RequestContext::control(deadline)).await?;
+                client
+                    .use_ns(&namespace)
+                    .use_db(&database)
+                    .request_context(RequestContext::control(deadline))
+                    .await?;
             }
-            bounded_query(client.query(sql).bind(("rollout_id", ROLLOUT)).request_context(RequestContext::control(deadline))).await
-        }.await;
+            bounded_query(
+                client
+                    .query(sql)
+                    .bind(("rollout_id", ROLLOUT))
+                    .request_context(RequestContext::control(deadline)),
+            )
+            .await
+        }
+        .await;
         let drained = client.disconnect().await;
         let result = result?;
         drained?;
         Ok(result)
-    }).await
+    })
+    .await
 }
 
 fn spawn_tool(
@@ -172,10 +202,22 @@ fn spawn_tool(
         .stdout(Stdio::null())
         .arg("rollout")
         .args(args)
-        .args(["--host", &format!("grpc://{address}"), "--ns", &credentials.namespace,
-            "--db", &credentials.database, "--auth-level", "database",
-            "--connect-timeout-secs", "5", "--query-timeout-secs", "8", "--json",
-            "--folder"])
+        .args([
+            "--host",
+            &format!("grpc://{address}"),
+            "--ns",
+            &credentials.namespace,
+            "--db",
+            &credentials.database,
+            "--auth-level",
+            "database",
+            "--connect-timeout-secs",
+            "5",
+            "--query-timeout-secs",
+            "8",
+            "--json",
+            "--folder",
+        ])
         .arg(project)
         .env("SURREALDB_USER", &credentials.username)
         .env("SURREALDB_PASSWORD", &credentials.password);
@@ -191,7 +233,9 @@ fn tool(
     args: &[&str],
 ) -> ExitStatus {
     let mut child = spawn_tool(binary, project, address, credentials, args);
-    child.wait_ready(None, Some(Instant::now() + ALLOWANCE)).unwrap();
+    child
+        .wait_ready(None, Some(Instant::now() + ALLOWANCE))
+        .unwrap();
     let status = child.wait().unwrap();
     assert!(child.take_stderr_prefix().unwrap().len() <= OUTPUT.bytes);
     status
@@ -218,7 +262,10 @@ async fn observe(address: SocketAddr, viewer: &Database) -> Observation {
     .await
     .expect("independent scoped readback");
     let catalog = response.take::<Option<Object>>(0).unwrap().unwrap();
-    assert_eq!(catalog.get("compatibility"), Some(&Value::Number(Number::Int(4))));
+    assert_eq!(
+        catalog.get("compatibility"),
+        Some(&Value::Number(Number::Int(4)))
+    );
     Observation {
         catalog,
         fields: response.take::<Option<Object>>(1).unwrap().unwrap(),
@@ -253,7 +300,12 @@ async fn provision_database(
         owner.database, owner.password, viewer.password
     );
     // Database errors can include credential-bearing SQL. Classify without rendering it.
-    assert!(query(address, root.clone().into(), &provision).await.is_ok(), "private predecessor setup");
+    assert!(
+        query(address, root.clone().into(), &provision)
+            .await
+            .is_ok(),
+        "private predecessor setup"
+    );
 }
 
 #[tokio::test]
@@ -261,7 +313,10 @@ async fn provision_database(
 async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     let environment = std::env::vars_os().collect();
     let server = server::select(&environment).unwrap();
-    let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .unwrap();
     let kit = pse_host::surrealkit::verify(&checkout, &environment).unwrap();
     let scratch = tempfile::tempdir().unwrap();
     let project = scratch.path().join("project");
@@ -271,24 +326,40 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     let bind = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
     let address = bind.local_addr().unwrap();
     drop(bind);
-    let root = Root { username: "fixture_root".into(), password: secret() };
+    let root = Root {
+        username: "fixture_root".into(),
+        password: secret(),
+    };
     let owner = Database {
         namespace: NS.into(),
         database: DB.into(),
         username: OWNER.into(),
         password: secret(),
     };
-    let viewer = Database { username: VIEWER.into(), password: secret(), ..owner.clone() };
+    let viewer = Database {
+        username: VIEWER.into(),
+        password: secret(),
+        ..owner.clone()
+    };
     let listener = launch(&server, scratch.path(), address, &root);
     let marker = uuid::Uuid::new_v4().simple().to_string();
-    query(address, root.clone().into(), &format!(
-        "DEFINE NAMESPACE {NS}; USE NS {NS}; DEFINE DATABASE {DB}; DEFINE DATABASE {SIBLING};"
-    )).await.unwrap();
+    query(
+        address,
+        root.clone().into(),
+        &format!(
+            "DEFINE NAMESPACE {NS}; USE NS {NS}; DEFINE DATABASE {DB}; DEFINE DATABASE {SIBLING};"
+        ),
+    )
+    .await
+    .unwrap();
     provision_database(address, &root, &owner, &viewer, &marker).await;
     let predecessor = observe(address, &viewer).await;
     assert!(!predecessor.has_table("__rollout"));
     assert!(predecessor.has_obsolete_field());
-    assert_eq!(predecessor.marker.get("nonce"), Some(&Value::String(marker.clone())));
+    assert_eq!(
+        predecessor.marker.get("nonce"),
+        Some(&Value::String(marker.clone()))
+    );
 
     assert!(tool(&kit, &project, address, &owner, &["lint"]).success());
     fs::write(&sql, format!("{EXPAND}\n-- changed bytes\n")).unwrap();
@@ -297,7 +368,10 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     fs::write(&sql, EXPAND).unwrap();
     assert_eq!(FrozenRollout::read(&manifest).unwrap(), frozen);
 
-    let foreign = Database { database: SIBLING.into(), ..owner.clone() };
+    let foreign = Database {
+        database: SIBLING.into(),
+        ..owner.clone()
+    };
     assert!(!tool(&kit, &project, address, &foreign, &["start", ROLLOUT]).success());
     assert_eq!(observe(address, &viewer).await, predecessor);
 
@@ -307,7 +381,9 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     assert!(started.has_obsolete_field());
     assert_eq!(started.marker, predecessor.marker);
     assert!(frozen.journal_records_phase(started.journal.as_ref().unwrap(), RolloutPhase::Start));
-    assert!(!frozen.journal_records_phase(started.journal.as_ref().unwrap(), RolloutPhase::Complete));
+    assert!(
+        !frozen.journal_records_phase(started.journal.as_ref().unwrap(), RolloutPhase::Complete)
+    );
     assert_eq!(FrozenRollout::read(&manifest).unwrap(), frozen);
 
     assert!(tool(&kit, &project, address, &owner, &["complete", ROLLOUT]).success());
@@ -327,9 +403,23 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     assert_eq!(FrozenRollout::read(&manifest).unwrap(), frozen);
 
     let sibling_marker = uuid::Uuid::new_v4().simple().to_string();
-    let sibling_owner = Database { password: secret(), ..foreign };
-    let sibling_viewer = Database { database: SIBLING.into(), password: secret(), ..viewer };
-    provision_database(address, &root, &sibling_owner, &sibling_viewer, &sibling_marker).await;
+    let sibling_owner = Database {
+        password: secret(),
+        ..foreign
+    };
+    let sibling_viewer = Database {
+        database: SIBLING.into(),
+        password: secret(),
+        ..viewer
+    };
+    provision_database(
+        address,
+        &root,
+        &sibling_owner,
+        &sibling_viewer,
+        &sibling_marker,
+    )
+    .await;
     assert!(tool(&kit, &project, address, &sibling_owner, &["start", ROLLOUT]).success());
     query(
         address,
@@ -344,13 +434,25 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     )
     .await
     .unwrap();
-    let mut child = spawn_tool(&kit, &project, address, &sibling_owner, &["complete", ROLLOUT]);
+    let mut child = spawn_tool(
+        &kit,
+        &project,
+        address,
+        &sibling_owner,
+        &["complete", ROLLOUT],
+    );
     // Observe the actual DDL commit before killing the child. Its separate
     // journal write remains inside the delayed event, beyond the query clock.
     let deadline = Instant::now() + Duration::from_secs(5);
     let observed = loop {
-        assert!(Instant::now() < deadline, "fixture never reached the journal gap");
-        assert!(child.try_wait().unwrap().is_none(), "tool left the journal gap early");
+        assert!(
+            Instant::now() < deadline,
+            "fixture never reached the journal gap"
+        );
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "tool left the journal gap early"
+        );
         let current = observe(address, &sibling_viewer).await;
         if !current.has_obsolete_field() {
             break current;
@@ -363,10 +465,16 @@ async fn frozen_rollout_matches_independent_v4_readback_after_drain() {
     let unknown = observe(address, &sibling_viewer).await;
     stop(reader);
     assert_eq!(unknown, observed);
-    assert_eq!(unknown.marker.get("nonce"), Some(&Value::String(sibling_marker)));
+    assert_eq!(
+        unknown.marker.get("nonce"),
+        Some(&Value::String(sibling_marker))
+    );
     assert!(!unknown.marker.contains_key("obsolete"));
     let journal = unknown.journal.unwrap();
-    assert_eq!(journal.get("status"), Some(&Value::String("running_complete".into())));
+    assert_eq!(
+        journal.get("status"),
+        Some(&Value::String("running_complete".into()))
+    );
     assert!(matches!(journal.get("steps"), Some(Value::Array(steps))
         if matches!(steps.as_slice(), [_, Value::Object(step)]
             if step.get("status") == Some(&Value::String("running".into())))));

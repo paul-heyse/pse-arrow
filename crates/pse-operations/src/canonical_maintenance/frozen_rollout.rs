@@ -114,8 +114,15 @@ struct Entity {
     name: String,
 }
 
-pub(super) fn bounded_file(path: &Path, limit: usize, private: bool) -> Result<String, CanonicalError> {
-    if path.components().any(|component| component == Component::ParentDir) {
+pub(super) fn bounded_file(
+    path: &Path,
+    limit: usize,
+    private: bool,
+) -> Result<String, CanonicalError> {
+    if path
+        .components()
+        .any(|component| component == Component::ParentDir)
+    {
         return Err(invalid("frozen rollout path traverses a parent directory"));
     }
     let file = File::from(
@@ -128,7 +135,9 @@ pub(super) fn bounded_file(path: &Path, limit: usize, private: bool) -> Result<S
         )
         .map_err(|_| invalid("frozen rollout input is unavailable or traverses a symbolic link"))?,
     );
-    let metadata = file.metadata().map_err(|_| invalid("frozen rollout input metadata is unavailable"))?;
+    let metadata = file
+        .metadata()
+        .map_err(|_| invalid("frozen rollout input metadata is unavailable"))?;
     if !metadata.is_file() || metadata.nlink() != 1 {
         return Err(invalid("frozen rollout input must be one regular file"));
     }
@@ -153,7 +162,9 @@ pub(super) fn bounded_file(path: &Path, limit: usize, private: bool) -> Result<S
 fn identifier(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 128
-        && value.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
 }
 
 impl FrozenRollout {
@@ -220,7 +231,9 @@ impl FrozenRollout {
                             })
                             || !is_sha256(&file.hash)
                         {
-                            return Err(invalid("frozen schema rollout SQL path or digest differs"));
+                            return Err(invalid(
+                                "frozen schema rollout SQL path or digest differs",
+                            ));
                         }
                         let sql = bounded_file(&frozen.join(path), remaining_bytes, false)?;
                         remaining_bytes -= sql.len();
@@ -228,7 +241,9 @@ impl FrozenRollout {
                             return Err(invalid("frozen rollout SQL or effective bytes differ"));
                         }
                         if parse_definition_input(&sql, DefinitionInput::FrozenRollout)
-                            .map_err(|_| invalid("frozen rollout SQL is not a supported schema declaration"))?
+                            .map_err(|_| {
+                                invalid("frozen rollout SQL is not a supported schema declaration")
+                            })?
                             .is_empty()
                         {
                             return Err(invalid("frozen rollout SQL is empty"));
@@ -274,7 +289,10 @@ impl FrozenRollout {
                 removed,
             });
         }
-        if !steps.iter().any(|step| !step.files.is_empty() && step.phase != RolloutPhase::Rollback) {
+        if !steps
+            .iter()
+            .any(|step| !step.files.is_empty() && step.phase != RolloutPhase::Rollback)
+        {
             return Err(invalid("frozen rollout requires forward frozen SQL"));
         }
         Ok(Self {
@@ -307,16 +325,29 @@ impl FrozenRollout {
             .chain(self.steps.iter().filter(|step| {
                 phase == RolloutPhase::Complete && step.phase == RolloutPhase::Complete
             }));
-        journal.get("id") == Some(&Value::RecordId(RecordId::new("__rollout", self.id.clone())))
-            &&
-        string_is(journal, "status", status)
+        journal.get("id")
+            == Some(&Value::RecordId(RecordId::new(
+                "__rollout",
+                self.id.clone(),
+            )))
+            && string_is(journal, "status", status)
             && string_is(journal, "manifest_checksum", &self.manifest_sha256)
             && string_is(journal, "source_schema_hash", &self.source_schema_hash)
             && string_is(journal, "target_schema_hash", &self.target_schema_hash)
-            && actual.iter().all(|observed| match (expected.next(), observed) {
+            && actual
+                .iter()
+                .all(|observed| match (expected.next(), observed) {
                     (Some(step), Value::Object(row)) => {
                         string_is(row, "step_id", &step.id)
-                            && string_is(row, "phase", if step.phase == RolloutPhase::Start { "start" } else { "complete" })
+                            && string_is(
+                                row,
+                                "phase",
+                                if step.phase == RolloutPhase::Start {
+                                    "start"
+                                } else {
+                                    "complete"
+                                },
+                            )
                             && string_is(row, "kind", step.kind)
                             && string_is(row, "checksum", &step.checksum)
                             && string_is(row, "status", "completed")

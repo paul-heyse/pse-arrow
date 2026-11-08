@@ -89,7 +89,9 @@ impl AdmittedCheck {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
-            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Admitted),
+            evidence: self
+                .context
+                .selection_evidence(self.resolved.plan(), Stage::Admitted),
             runner: None,
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: pending("compiler checks do not select a runnable test population"),
