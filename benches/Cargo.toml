@@ -104,4 +104,4 @@ harness = false
 # are outside the bench target directory.
 # cargo-shear path-module limitation: https://github.com/Boshen/cargo-shear/issues/589
 [package.metadata.cargo-shear]
-ignored = ["serde", "tempfile"]
+ignored = ["serde"]
