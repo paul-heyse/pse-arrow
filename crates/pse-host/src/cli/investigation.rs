@@ -268,6 +268,28 @@ pub(super) struct Inspect {
     pub work_result: Option<String>,
 }
 
+impl Inspect {
+    pub(super) fn supports_jq(&self) -> bool {
+        matches!(
+            &self.action,
+            Some(
+                evidence::Action::Dependency { .. }
+                    | evidence::Action::DependencyUnits { .. }
+                    | evidence::Action::DependencyUsage(_)
+                    | evidence::Action::Affected { .. }
+                    | evidence::Action::Changes { .. }
+                    | evidence::Action::Owner { .. }
+                    | evidence::Action::CheckSelection { .. }
+                    | evidence::Action::TestSelection { .. }
+                    | evidence::Action::Settings { .. }
+                    | evidence::Action::Invocation { .. }
+                    | evidence::Action::Log { .. }
+                    | evidence::Action::Tests { .. }
+            )
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub(super) enum View {
     /// Explain qualified source, generator, document and lifecycle connections.

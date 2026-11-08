@@ -31,6 +31,7 @@ pub(in crate::cli::investigation) struct Args {
 }
 
 pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result<i32, HostError> {
+    output.validate_for::<semantic::DependencyUsageAnswer>("inspect dependency-usage")?;
     let environment = std::env::vars_os().collect();
     let error = |error: semantic::Error| HostError::Semantic(Box::new(error));
     let expected = semantic::Configuration {
@@ -72,7 +73,7 @@ pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result
         ))
         .and_then(semantic::Response::into_dependency_usage)
         .map_err(error)?;
-    Ok(output.emit(report(answer))?)
+    Ok(output.emit_observation(report(answer))?)
 }
 
 fn report(answer: semantic::DependencyUsageAnswer) -> Envelope<semantic::DependencyUsageAnswer> {

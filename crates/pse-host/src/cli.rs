@@ -25,6 +25,7 @@ mod control;
 mod dependency;
 mod docs;
 mod investigation;
+mod jq;
 mod placement;
 mod prepare;
 mod private_state;
@@ -101,6 +102,9 @@ enum Command {
     Search(investigation::Search),
     /// Inspect a known source or an addressed search result without preparation.
     Inspect(Box<investigation::Inspect>),
+    /// Filter one supported read with jq, preserving the original command status.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Jq(jq::Args),
     /// Construct a checked change preview from an exact guarded result.
     Propose(investigation::Propose),
     /// Explicitly generate selected native compiler evidence or run authored compiler probes.
@@ -316,6 +320,7 @@ impl Command {
             Self::Boundary(_)
             | Self::Search(_)
             | Self::Inspect(_)
+            | Self::Jq(_)
             | Self::Propose(_)
             | Self::Commands(_)
             | Self::Help(_)
@@ -940,6 +945,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
     match command {
         Command::Search(options) => investigation::search(options, selected, presentation),
         Command::Inspect(options) => investigation::inspect(*options, selected, presentation),
+        Command::Jq(args) => jq::dispatch(args, selected, presentation),
         Command::QualifyStudy(args) => crate::study_qualification::launch(args, selected),
         Command::Propose(options) => investigation::propose(options, selected, presentation),
         Command::Fixture {
@@ -2089,6 +2095,7 @@ pub fn main(kind: BinKind) -> ExitCode {
                                 Command::Schema { .. }
                                     | Command::Search(_)
                                     | Command::Inspect(_)
+                                    | Command::Jq(_)
                                     | Command::Propose(_)
                                     | Command::Api(_)
                                     | Command::Code { .. }

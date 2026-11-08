@@ -294,6 +294,29 @@ pub(super) fn inspect(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if output.presentation.budget.is_some() && matches!(&action, Action::Tests { .. }) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "inspect tests preserves its original continuation; use --limit and --page-bytes",
+        )
+        .into());
+    }
+    let schema = match &action {
+        Action::Dependency { .. } => Some("inspect dependency"),
+        Action::Owner { .. } => Some("inspect owner"),
+        Action::Tests { failures: true, .. } => Some("inspect tests failures"),
+        Action::Tests { .. } => Some("inspect tests"),
+        Action::TestSelection { full: true, .. } => Some("inspect test-selection full"),
+        Action::TestSelection { .. } => Some("inspect test-selection"),
+        Action::CheckSelection { full: true, .. } => Some("inspect check-selection full"),
+        Action::CheckSelection { .. } => Some("inspect check-selection"),
+        _ => None,
+    };
+    if let Some(schema) = schema
+        && (output.presentation.fields.is_some() || output.presentation.budget.is_some())
+    {
+        super::super::response_schema(schema, &output.presentation)?;
+    }
     let source_reference = if let Action::TestSelection {
         from_result: Some(reference),
         ..
@@ -488,7 +511,7 @@ pub(super) fn inspect(
                 feature_member.as_deref(),
             );
             response.command = "inspect dependency".into();
-            Ok(output.emit(response)?)
+            Ok(output.emit_observation(response)?)
         }
         Action::DependencyUnits {
             dependency,
@@ -766,7 +789,7 @@ pub(super) fn inspect(
                     page_bytes,
                 )?;
                 response.command = "inspect tests failures".into();
-                Ok(output.emit(response)?)
+                Ok(output.emit_observation(response)?)
             } else {
                 let cursor = cursor
                     .as_deref()
@@ -782,7 +805,7 @@ pub(super) fn inspect(
                     page_bytes,
                 )?;
                 response.command = "inspect tests".into();
-                Ok(output.emit(response)?)
+                Ok(output.emit_observation(response)?)
             }
         }
         Action::TestSelection {
@@ -1028,13 +1051,13 @@ fn selection_emit(
         response
     }
     if full {
-        Ok(output.emit(mark(
+        Ok(output.emit_observation(mark(
             Envelope::response(command, summary, explanation),
             from_source,
             next,
         ))?)
     } else {
-        Ok(output.emit(mark(
+        Ok(output.emit_observation(mark(
             Envelope::response(command, summary, explanation.brief()),
             from_source,
             next,
@@ -1106,7 +1129,7 @@ fn owner(
     if !response.failures.is_empty() {
         response.observation.completeness = Completeness::Partial;
     }
-    Ok(output.emit(response)?)
+    Ok(output.emit_observation(response)?)
 }
 
 /// Decode an explicitly typed evidence locator through its existing original owner.

@@ -18,6 +18,7 @@ Commands:
   qualify-study      Run the fixed original Study coordinator in this application scope using prepared images
   search             Find source, text, Rust entities and relationships through one typed query
   inspect            Inspect a known source or an addressed search result without preparation
+  jq                 Filter one supported read with jq, preserving the original command status
   propose            Construct a checked change preview from an exact guarded result
   compiler           Explicitly generate selected native compiler evidence or run authored compiler probes
   worktree           Create prepared sibling worktrees or inspect native checkout users
@@ -3600,6 +3601,47 @@ Options:
 
       --explain
           Explain the effective validated query without invoking its providers
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse jq`
+
+~~~~text
+Filter one supported read with jq, preserving the original command status
+
+Usage: pse jq [OPTIONS] --filter <FILTER> -- <READ>...
+
+Arguments:
+  <READ>...
+          Supported pse read and its options, after `--`
+
+Options:
+  -C <checkout>
+
+
+      --filter <FILTER>
+          One jq filter expression
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
 
   -h, --help
           Print help (see a summary with '-h')

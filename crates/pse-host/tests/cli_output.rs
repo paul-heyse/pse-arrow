@@ -100,6 +100,247 @@ fn settings_field_projection_is_passive_and_keeps_the_selected_schema() {
 }
 
 #[test]
+fn routine_inspection_projection_uses_native_views_without_retention() {
+    let state = tempfile::tempdir().unwrap();
+    let invoke = |args: &[&str]| {
+        pse()
+            .env("XDG_STATE_HOME", state.path())
+            .args(args)
+            .output()
+            .unwrap()
+    };
+    let read = [
+        "inspect",
+        "dependency-units",
+        "arrow-array",
+        "pse-columnar",
+        "--lib",
+    ];
+    let full = invoke(&read);
+    assert!(full.status.success(), "{full:?}");
+    let full = json(&full);
+    let view = invoke(
+        &[
+            read.as_slice(),
+            &[
+                "--fields",
+                "dependency,contexts,original_metadata",
+                "--budget",
+                "0",
+            ],
+        ]
+        .concat(),
+    );
+    assert!(view.status.success(), "{view:?}");
+    let view = json(&view);
+    assert_eq!(view["payload"]["dependency"], full["payload"]["dependency"]);
+    assert_eq!(view["payload"]["contexts"], serde_json::json!([]));
+    assert!(view["payload"].get("original_metadata").is_none());
+    assert_eq!(
+        view["view"]["omitted_records"],
+        full["payload"]["contexts"].as_array().unwrap().len()
+    );
+    for key in [
+        "outcome",
+        "subject_state",
+        "observation",
+        "failures",
+        "next",
+        "artifacts",
+    ] {
+        assert_eq!(view[key], full[key], "{key}");
+    }
+    let missing = invoke(&[
+        "inspect",
+        "dependency-units",
+        "pse-missing-projection-fixture",
+        "--fields",
+        "dependency,contexts",
+    ]);
+    assert!(missing.status.success(), "{missing:?}");
+    let missing = json(&missing);
+    assert_eq!(missing["subject_state"], "no_match");
+    assert!(missing["payload"]["contexts"].is_null());
+    for (route, arguments, field) in [
+        ("dependency", &["arrow-array"][..], "query"),
+        ("affected", &[][..], "base_commit"),
+        ("changes", &[][..], "groups"),
+        ("owner", &["Cargo.toml"][..], "source"),
+        (
+            "check-selection",
+            &["pse-columnar", "--lib", "--full"][..],
+            "stage",
+        ),
+        ("test-selection", &["pse-columnar", "--lib"][..], "stage"),
+    ] {
+        let result = invoke(&[&["inspect", route][..], arguments, &["--fields", field]].concat());
+        assert!(result.status.success(), "{route}: {result:?}");
+        let result = json(&result);
+        assert_eq!(result["payload"].as_object().unwrap().len(), 1, "{route}");
+        assert_eq!(result["artifacts"], serde_json::json!([]), "{route}");
+    }
+    for (args, message) in [
+        (
+            &[
+                "inspect",
+                "dependency-units",
+                "arrow-array",
+                "--fields",
+                "unknown-view-field",
+            ][..],
+            "unknown payload field",
+        ),
+        (
+            &[
+                "inspect",
+                "dependency-usage",
+                "fake-package",
+                "--fields",
+                "unknown-view-field",
+            ][..],
+            "unknown payload field",
+        ),
+        (
+            &["inspect", "changes", "--budget", "1"][..],
+            "original path indices",
+        ),
+        (
+            &["inspect", "tests", "nonexistent", "--budget", "1"][..],
+            "--page-bytes",
+        ),
+        (
+            &[
+                "inspect",
+                "tests",
+                "nonexistent",
+                "--failures",
+                "--budget",
+                "1",
+            ][..],
+            "--page-bytes",
+        ),
+    ] {
+        let result = invoke(args);
+        assert_eq!(result.status.code(), Some(2), "{result:?}");
+        assert!(result.stdout.is_empty(), "{result:?}");
+        assert!(
+            String::from_utf8_lossy(&result.stderr).contains(message),
+            "{result:?}"
+        );
+    }
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn jq_adapter_delivers_filtered_data_and_keeps_command_failures_separate() {
+    let state = tempfile::tempdir().unwrap();
+    let invoke = |filter, read: &[&str]| {
+        pse()
+            .env("XDG_STATE_HOME", state.path())
+            .args(["jq", "--filter", filter, "--"])
+            .args(read)
+            .output()
+            .unwrap()
+    };
+    let settings = ["inspect", "settings", "--fields", "checkout"];
+    for (filter, value) in [
+        (".payload.checkout | type", "\"string\"\n"),
+        ("false", "false\n"),
+        ("null", "null\n"),
+        ("empty", ""),
+    ] {
+        let output = invoke(filter, &settings);
+        assert!(output.status.success(), "{output:?}");
+        assert_eq!(output.stdout, value.as_bytes());
+        assert!(output.stderr.is_empty(), "{output:?}");
+    }
+    let producer = invoke(
+        "error(\"formatter started\")",
+        &["inspect", "settings", "--fields", "unknown-view-field"],
+    );
+    assert_eq!(producer.status.code(), Some(2));
+    assert!(producer.stdout.is_empty());
+    let stderr = String::from_utf8_lossy(&producer.stderr);
+    assert!(stderr.contains("unknown payload field"), "{stderr}");
+    assert!(stderr.contains("producer exit 2; jq skipped"), "{stderr}");
+    assert!(!stderr.contains("formatter started"), "{stderr}");
+    for (filter, status) in [(".", 0), ("{", 3), ("1, error(\"runtime fixture\")", 5)] {
+        let output = invoke(filter, &settings);
+        assert_eq!(output.status.code(), Some(status), "{output:?}");
+        if status != 0 {
+            assert!(output.stdout.is_empty(), "{output:?}");
+            assert!(
+                String::from_utf8_lossy(&output.stderr)
+                    .contains(&format!("producer exit 0; jq exit {status}")),
+                "{output:?}"
+            );
+        }
+    }
+    for read in [
+        &["test", "pse-host"][..],
+        &["inspect", "settings", "--format", "human"][..],
+    ] {
+        let output = invoke(".", read);
+        assert_eq!(output.status.code(), Some(2), "{output:?}");
+        assert!(output.stdout.is_empty());
+    }
+    let missing = pse()
+        .env("PATH", state.path())
+        .env("XDG_STATE_HOME", state.path())
+        .args(["jq", "--filter", ".", "--", "inspect", "settings"])
+        .output()
+        .unwrap();
+    assert_eq!(missing.status.code(), Some(125), "{missing:?}");
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("producer exit 0; jq"));
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn jq_adapter_interrupts_the_original_formatter_and_discards_partial_output() {
+    use rustix::process::{Pid, Signal, kill_process};
+    use std::{
+        fs,
+        os::unix::fs::PermissionsExt as _,
+        process::Stdio,
+        time::{Duration, Instant},
+    };
+
+    let fixture = tempfile::tempdir().unwrap();
+    let ready = fixture.path().join("ready");
+    let formatter = fixture.path().join("jq");
+    fs::write(&formatter, "#!/bin/sh\nprintf 'partial'\nprintf '%s\\n' \"$$\" > \"$PSE_JQ_TEST_READY\"\nexec /bin/sleep 20\n").unwrap();
+    fs::set_permissions(&formatter, fs::Permissions::from_mode(0o700)).unwrap();
+    let child = pse()
+        .env("PATH", fixture.path())
+        .env("PSE_JQ_TEST_READY", &ready)
+        .args(["jq", "--filter", ".", "--", "inspect", "settings"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let formatter_pid = loop {
+        if let Ok(pid) = fs::read_to_string(&ready)
+            && let Ok(pid) = pid.trim().parse::<i32>()
+        {
+            break Some(pid);
+        }
+        if Instant::now() >= deadline {
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let pid = Pid::from_raw(i32::try_from(child.id()).unwrap()).unwrap();
+    let _ = kill_process(pid, Signal::INT);
+    let output = child.wait_with_output().unwrap();
+    let formatter_pid = formatter_pid.expect("formatter started before interruption");
+    assert_eq!(output.status.code(), Some(130), "{output:?}");
+    assert!(output.stdout.is_empty(), "{output:?}");
+    assert!(String::from_utf8_lossy(&output.stderr).contains("interrupted by signal 2"));
+    assert!(!Path::new("/proc").join(formatter_pid.to_string()).exists());
+}
+
+#[test]
 fn source_change_status_reports_original_stage_evidence_passively() {
     use pse_host::paths::CheckoutState;
     use std::{

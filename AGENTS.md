@@ -114,6 +114,9 @@ command defaults. Supply overrides when the operation needs a different selectio
 activation puts `scripts/` on `PATH`, exposing the `scripts/pse` launcher as `pse`.
 
 - **Compile and test.** Use `pse check` and `pse test` with the scope in *Execution rhythm*.
+- **Read focused CLI output.** Use `--fields` for top-level payload fields and `--budget`
+  for supported record views. For a nested extraction, `pse jq --filter '.payload.checkout' --
+  inspect settings` keeps the producer's original exit status and reports jq failures separately.
 - **Run and recover work.** `pse run -- COMMAND` supervises an ad hoc workload. `pse wait ID`
   and `pse inspect invocation ID` read the original outcome. `pse inspect log ID` reads a
   bounded window of original output. Check the original verdict and settlement before retrying

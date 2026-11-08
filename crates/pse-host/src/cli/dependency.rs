@@ -164,6 +164,7 @@ pub(super) fn dispatch(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    output.validate_for::<Units>("inspect dependency-units")?;
     let Action::Units {
         dependency,
         selection,
@@ -189,7 +190,7 @@ pub(super) fn dispatch(
                 original_metadata,
             });
             response.command = "inspect dependency-units".into();
-            return Ok(output.emit(response)?);
+            return Ok(output.emit_observation(response)?);
         }
     };
     let world = if native_world {
@@ -272,5 +273,5 @@ pub(super) fn dispatch(
         "only selected check-context dependency instances are returned; original normalized roots/defaults/negative features and host/target identities remain separate".into(),
         "native provider readiness, fixture preparation and original physical settlement are not granted by this read".into(),
     ];
-    Ok(output.emit(response)?)
+    Ok(output.emit_observation(response)?)
 }

@@ -405,6 +405,23 @@ Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
 that consumer's hold. `pse tools prepare-result-expiry --enable` installs and enables
 the repository's user timer for eligible records in its authenticated registered worktrees.
 
+## Focused CLI output
+
+Use `--fields` to select literal top-level payload fields. Where supported, `--budget`
+limits whole records and reports omissions in `view`. Routine inspection views retain
+the response status, diagnostics and observation coverage without storing a second full
+response. `inspect changes` preserves original path indices. Use `inspect affected --budget`
+for a bounded reach view. `inspect tests` and `inspect tests --failures` use `--limit` and
+`--page-bytes` for whole pages. Include `next` in `--fields` when continuing a page.
+
+For nested extraction on a supported read, `pse jq --filter '.payload.checkout' --
+inspect settings` invokes the `jq` on `PATH`. Put checkout and projection arguments after
+`--`. The adapter forces one JSON producer response, runs jq after successful delivery,
+and leaves diagnostics on stderr. A producer failure keeps its exit status and any complete
+original JSON response. A formatter failure reports both stage statuses and discards partial
+formatted output. The adapter caps captured stdout at 16 MiB per stage and allows 30 seconds
+for jq. Narrow a larger read with native fields or page controls.
+
 ## Choosing tests
 
 Use `scripts/pse inspect test-selection --admitted` to explain the Cargo targets and feature

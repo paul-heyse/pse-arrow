@@ -16,6 +16,107 @@ fn payload() -> Payload {
         explanation: "αβ 🦀".into(),
     }
 }
+
+#[test]
+fn selected_optional_field_may_be_absent_without_masking_partial_status() {
+    #[derive(Serialize, JsonSchema)]
+    struct Optional {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        extra: Option<u32>,
+    }
+    let view = Presentation {
+        fields: Some(vec!["extra".into()]),
+        budget: None,
+    };
+    let mut response =
+        Envelope::response("optional", "partial observation", Optional { extra: None });
+    response.observation.completeness = Completeness::Partial;
+    response
+        .observation
+        .limitations
+        .push("fixture reason".into());
+    let mut output = Vec::new();
+    assert_eq!(
+        write(&mut output, response, OutputFormat::Json, &view).unwrap(),
+        1
+    );
+    let response: serde_json::Value = serde_json::from_slice(&output).unwrap();
+    assert_eq!(response["payload"], serde_json::json!({}));
+    assert_eq!(
+        response["observation"]["limitations"],
+        serde_json::json!(["fixture reason"])
+    );
+    jsonschema::validator_for(schema::<Optional>("optional", &view).unwrap().as_value())
+        .unwrap()
+        .validate(&response)
+        .unwrap();
+}
+
+#[test]
+fn projecting_inventory_and_failure_pages_preserves_the_original_cursor() {
+    use crate::catalog::description::Information;
+    use crate::test_inventory::{Cursor, FailureCursor, FailurePage, TestPage};
+
+    fn project<T: Serialize + JsonSchema>(page: T, cursor: serde_json::Value) {
+        let mut output = Vec::new();
+        write(
+            &mut output,
+            Envelope::response("inspect tests", "original page", page),
+            OutputFormat::Json,
+            &Presentation {
+                fields: Some(vec!["records".into(), "next".into()]),
+                budget: None,
+            },
+        )
+        .unwrap();
+        let view: serde_json::Value = serde_json::from_slice(&output).unwrap();
+        assert_eq!(view["payload"]["next"], cursor);
+        assert!(view["artifacts"].as_array().unwrap().is_empty());
+    }
+
+    let invocation = CliInvocationId::new();
+    let cursor = Cursor {
+        invocation: invocation.clone(),
+        inventory_sha256: "a".repeat(64),
+        offset: 1,
+    };
+    let cursor_json = serde_json::to_value(&cursor).unwrap();
+    project(
+        TestPage {
+            original_invocation: invocation.clone(),
+            inventory_sha256: cursor.inventory_sha256.clone(),
+            selected_tests: 2,
+            inventory_complete: true,
+            original_verdict: Information::Unavailable {
+                reason: "fixture".into(),
+            },
+            records: Vec::new(),
+            next: Some(cursor),
+            next_record_bytes: Some(5),
+        },
+        cursor_json,
+    );
+    let cursor = FailureCursor {
+        invocation: invocation.clone(),
+        report_sha256: "b".repeat(64),
+        offset: 1,
+    };
+    let cursor_json = serde_json::to_value(&cursor).unwrap();
+    project(
+        FailurePage {
+            original_invocation: invocation,
+            report_sha256: cursor.report_sha256.clone(),
+            total: 2,
+            original_verdict: Information::Unavailable {
+                reason: "fixture".into(),
+            },
+            records: Vec::new(),
+            next: Some(cursor),
+            next_record_bytes: Some(5),
+        },
+        cursor_json,
+    );
+}
 #[test]
 fn nullable_record_collections_obey_budget_while_optional_tuples_stay_indivisible() {
     #[derive(Serialize, JsonSchema)]

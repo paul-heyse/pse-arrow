@@ -54,12 +54,20 @@ pub(super) fn dispatch(
     selected: Option<&std::path::Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    if output.presentation.budget.is_some() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "inspect changes preserves original path indices; use inspect affected --budget for bounded reach",
+        )
+        .into());
+    }
+    output.validate_for::<Report>("inspect changes")?;
     let root = checkout_root(selected)?;
     let snapshot = match args.metadata {
         Some(path) => MetadataSnapshot::read(&source_path(selected, path)?)?,
         None => crate::dependency::capture(&root, &std::env::vars_os().collect())?,
     };
-    Ok(output.emit(inspect(&root, &snapshot, &args.base)?)?)
+    Ok(output.emit_observation(inspect(&root, &snapshot, &args.base)?)?)
 }
 fn inspect(
     root: &std::path::Path,

@@ -31,7 +31,10 @@ pub struct OutputOptions {
 impl OutputOptions {
     /// Validate selected payload fields from the same schema before starting providers.
     pub fn validate_for<T: JsonSchema>(&self, command: &str) -> std::io::Result<()> {
-        schema::<T>(command, &self.presentation).map(|_| ())
+        if self.presentation.fields.is_some() || self.presentation.budget.is_some() {
+            schema::<T>(command, &self.presentation)?;
+        }
+        Ok(())
     }
     /// Emit a page already selected by its producer, without retaining a rebuildable full answer.
     /// The producer supplies omission facts and has applied the requested record allowance.

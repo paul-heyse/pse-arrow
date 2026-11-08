@@ -208,6 +208,13 @@ fn permits_object(value: &Value, root: &Schema) -> bool {
 }
 /// Serialization-direction schema for the exact full/projected view.
 pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<Schema> {
+    schema_with_shape::<T>(command, view).map(|(schema, _)| schema)
+}
+
+fn schema_with_shape<T: JsonSchema>(
+    command: &str,
+    view: &Presentation,
+) -> io::Result<(Schema, bool)> {
     let mut schema = SchemaSettings::draft2020_12()
         .for_serialize()
         .into_generator()
@@ -216,6 +223,7 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
         .pointer("/properties/payload")
         .ok_or_else(|| invalid("envelope payload schema missing"))?;
     let mut payload = dereference(payload, &schema);
+    let mut open_projection = false;
     if let Some(fields) = &view.fields {
         if payload.get("properties").is_none()
             && let Some(properties) = finite_properties(&payload, &schema)
@@ -236,6 +244,7 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
             }
         }
         if payload.get("properties").is_none() {
+            open_projection = true;
             let field_type = payload
                 .get("additionalProperties")
                 .cloned()
@@ -283,7 +292,7 @@ pub fn schema<T: JsonSchema>(command: &str, view: &Presentation) -> io::Result<S
     if let Some(value) = schema.pointer_mut("/properties/payload") {
         *value = payload;
     }
-    Ok(schema)
+    Ok((schema, open_projection))
 }
 #[derive(Serialize)]
 #[serde(untagged)]
@@ -344,6 +353,7 @@ fn present<'a>(
     view: &Presentation,
     shape: &Value,
     root: &Schema,
+    open_projection: bool,
 ) -> io::Result<(Presented<'a>, DetailView)> {
     let mut detail = DetailView {
         fields: view.fields.clone(),
@@ -357,11 +367,23 @@ fn present<'a>(
     let value = if raw.get().starts_with('{') {
         let UniqueFields(fields) = serde_json::from_str(raw.get())?;
         if let Some(requested) = &view.fields {
+            let required = shape.get("required").and_then(Value::as_array);
             for field in requested {
-                if !fields.contains_key(field) {
+                if fields.contains_key(field) {
+                    continue;
+                }
+                if open_projection {
                     return Err(PresentationError::invalid_field(
                         field,
                         fields.keys().cloned().collect(),
+                    ));
+                }
+                if required
+                    .is_some_and(|names| names.iter().any(|name| name.as_str() == Some(field)))
+                {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        format!("response omitted required payload field {field:?}"),
                     ));
                 }
             }
@@ -450,6 +472,7 @@ pub fn write<T: Serialize + JsonSchema>(
 pub(super) struct PreparedView<'a, T> {
     view: &'a Presentation,
     schema: Schema,
+    open_projection: bool,
     payload: std::marker::PhantomData<fn() -> T>,
 }
 pub(super) fn prepare<'a, T: JsonSchema>(
@@ -457,10 +480,11 @@ pub(super) fn prepare<'a, T: JsonSchema>(
     view: &'a Presentation,
 ) -> io::Result<PreparedView<'a, T>> {
     // Use the same declaration as schema output, once per response.
-    let schema = schema::<T>(command, view)?;
+    let (schema, open_projection) = schema_with_shape::<T>(command, view)?;
     Ok(PreparedView {
         view,
         schema,
+        open_projection,
         payload: std::marker::PhantomData,
     })
 }
@@ -492,7 +516,13 @@ pub(super) fn encode_prepared<T: Serialize>(
         .pointer("/properties/payload")
         .map(|value| dereference(value, &prepared.schema))
         .unwrap_or(Value::Bool(true));
-    let (payload, mut detail) = present(&raw, view, &shape, &prepared.schema)?;
+    let (payload, mut detail) = present(
+        &raw,
+        view,
+        &shape,
+        &prepared.schema,
+        prepared.open_projection,
+    )?;
     detail.budget = envelope.view.budget.or(detail.budget);
     detail.omitted_records += envelope.view.omitted_records;
     detail.truncated |= envelope.view.truncated;

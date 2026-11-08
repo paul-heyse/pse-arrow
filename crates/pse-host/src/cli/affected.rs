@@ -26,6 +26,7 @@ pub(super) fn dispatch(
     selected: Option<&Path>,
     output: &OutputOptions,
 ) -> Result<i32, HostError> {
+    output.validate_for::<crate::affected::Preview>("inspect affected")?;
     let root = checkout_root(selected)?;
     let changes = crate::affected::observe(&root, &args.base, Arc::new(AtomicBool::new(false)))?;
     let mut metadata_failure = None;
@@ -67,5 +68,5 @@ pub(super) fn dispatch(
     if !response.failures.is_empty() {
         response.observation.completeness = Completeness::Partial;
     }
-    Ok(output.emit(response)?)
+    Ok(output.emit_observation(response)?)
 }

@@ -36,6 +36,26 @@ as issued. Keep the compact evidence needed for the decision and regenerate expi
 evidence for a named need. Ad hoc scratch follows the original producer's settlement and the
 [scratch closeout](../../../docs/dev/agent-environment.md#closing-ad-hoc-scratch).
 
+Native field selection and record budgets keep a read focused while preserving its exit status
+and diagnostics. `pse jq` can extract nested data from supported inspection reads when jq is
+available on `PATH`.
+
+```bash
+pse inspect dependency-units arrow-array pse-columnar --lib \
+  --fields dependency,selection,contexts --budget 1 --format human
+pse jq --filter '.payload.dependency.selected.selection' -- \
+  inspect dependency-units arrow-array pse-columnar --lib --fields dependency
+```
+
+The adapter leaves producer diagnostics on stderr and runs jq after a successful, complete
+JSON response. A producer failure keeps its original exit status. A jq failure is reported
+separately. A read's exit status and the observed work's `subject_state` and `settlement`
+answer different questions. Include the relevant fields in a custom filter when both matter.
+For an original test population or failure page, use `pse inspect tests ID --limit 20
+--fields records,next`. Pass the returned cursor to the original page reader. The
+[focused output guide](../../../docs/dev/agent-environment.md#focused-cli-output) covers
+the adapter's limits and error handling.
+
 The [environment guide](../../../docs/dev/agent-environment.md) owns preparation, placement,
 run controls and detailed command examples. The
 [qualification guide](../../../docs/dev/validation-assessment.md) describes what each check establishes.
