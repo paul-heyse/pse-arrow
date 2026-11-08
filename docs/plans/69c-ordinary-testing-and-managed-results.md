@@ -88,6 +88,9 @@ zero failures. Its admitted inventory contained one harness and three runtime he
 images and borrowed the prepared correctness adapter. The authenticated release left
 zero image objects after drain. Focused host controls also covered a changed Cargo
 image, nonmember exclusion, and simultaneous immutable leases.
+`pse inspect test-selection --from-result … --admitted --lib -E …` returned an exact
+parser-checked next action on the current library target and refused a changed target
+source path before a build.
 
 ## C02 — Test outcome and exact failed rerun
 
