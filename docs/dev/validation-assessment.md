@@ -87,11 +87,14 @@ work owner's join and physical drain obligations.
 
 ## Full local assessment
 
-There is no replacement monolithic assessment command. At the authorized scope end, choose the
-relevant unit/public caller, component, native process/fixture, solver and independent reference
-journeys, then the existing `just hygiene`, `just governance`, `just docs`, native lints and
-powerset commands. `just turn-end`, `ready` and `hygiene` are keep-going recipe aggregates, not
-an assessment database. Follow `AGENTS.md` for their timing and report individual failures.
+At the authorized scope end, choose the relevant unit/public caller, component, native
+process/fixture, solver and independent reference journeys, along with the applicable
+hygiene, governance, docs, native lints and powerset commands. When hygiene and governance
+apply to the same unchanged checkout and prepared context, use
+`scripts/pse run-all hygiene governance-tests`. Hygiene already runs `codegen-check` and
+`family-check`. The bundle attempts governance tests after a hygiene failure and retains
+each original verdict. Use `just hygiene` or `just governance` for either standalone
+selection. Follow `AGENTS.md` for timing and report individual failures.
 
 Manual GitHub workflows cover their selected compile/docs/governance and pure test scopes.
 They do not qualify local Linux user-systemd placement, canonical deployment, full native

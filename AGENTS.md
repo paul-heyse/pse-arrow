@@ -84,10 +84,12 @@ those lines are yours. The specialized `pse commit` transaction is deferred (Pla
   shim, or retain a path "as evidence".
 
 **After all functional scope is implemented:** select the relevant integration, component,
-solver and Python journeys, performance campaigns, `just hygiene` (fix what fails and re-run
-the failing recipe) and the manual checks (`just governance`, `just docs`, the native and
-powerset lints). Report the commands, scope and results. The maintainer may also request this
-comprehensive qualification at any other time.
+solver and Python journeys, performance campaigns, and the relevant hygiene, governance,
+docs, native and powerset checks. When hygiene and governance cover the same checkout and
+prepared context, run `scripts/pse run-all hygiene governance-tests` to share their codegen
+and family checks. Use `just hygiene` or `just governance` when selecting either on its own.
+Fix failures and rerun the checks whose evidence the fix changes. Report the commands, scope
+and results. The maintainer may also request this qualification at any other time.
 
 **Don't, mid-plan:** run `just doctor`/`just ready` unless the environment changed or a command
 failed in an environment-shaped way; run formatters, linters, type checks or other
