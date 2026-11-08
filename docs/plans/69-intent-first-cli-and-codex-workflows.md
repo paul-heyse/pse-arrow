@@ -104,11 +104,11 @@ before dependent work. [Plan67 retirement](67e-resource-retirement-and-storage-v
 |---|---|
 | [69a](69a-cli-contracts-configuration-and-presentation.md) | Own catalog metadata and typed syntax, resolved context and provenance, and the original diagnostic projection. |
 | [69b](69b-codex-workstation-and-preparation.md) | Own explicit prepared v4 Study continuation and socket refusal/drain receiving. Supply exact SurrealKit recovery if E03 selects the standalone tool. Use 69a’s recovery projection. |
-| [69c](69c-ordinary-testing-and-managed-results.md) | Own test and result entry points. C05 explains source candidates, Cargo admission, Nextest and rustdoc lanes through 69a’s catalog. Existing execution and custody evidence retain their owners. |
+| [69c](69c-ordinary-testing-and-managed-results.md) | Own test and result entry points. C05 explains source candidates, Cargo admission, Nextest and rustdoc lanes through 69a’s catalog. C06 owns grouping compatible fixture-backed tests and the product-reader preparation reuse decision. |
 | [69d](69d-routine-product-and-data-operations.md) | Receive live typed product operations through 69a’s context and 69b’s prepared Study route. D04 investigates a bounded diagnostic consumer of Plan 68c's existing observations. |
-| [69e](69e-source-model-and-live-schema-operations.md) | Own exact source evidence and guarded publication, local structural-query reuse, and native rollout issue, settlement and activation. E03 uses 69d target selection, 69a recovery, and Plan 68's exact v4 contracts. |
+| [69e](69e-source-model-and-live-schema-operations.md) | Own exact source evidence and guarded publication, local structural-query reuse, the E03 configured rollout adoption decision and lifecycle, and E05 generator selection for previews. E03 uses 69d target selection, 69a recovery, and Plan 68's exact v4 contracts. |
 | [69f](69f-parser-startup-and-argument-forwarding.md) | Parse strictly before recovering usage format and preserve OS-native argv. Compare selective construction only after F01 and A01's discovery contracts are ready. |
-| [69g](69g-output-policy-and-owner-driven-progress.md) | Own A04. Fix machine-format search output first, then apply one presentation policy as owner events and A03 projections become available. |
+| [69g](69g-output-policy-and-owner-driven-progress.md) | Own A04, including source-change stage status and the format policy for the conditional rollout receiver. |
 
 Land each producer, affected callers and removed path together. A shared design can unblock
 consumer authoring before the working contract is ready for integration. Avoid repeating raw
@@ -122,12 +122,21 @@ attribution. B–E receive those shared contracts as needed. Additional progress
 presentation uses each receiver's existing owner events. Conditional experiments
 do not gate receiving work that already has the required contract.
 
-Use B02's v4 Study preparation to unblock D01–D03 and B03 without waiting for E03.
-E03's passive preview, E02 source evidence, C05 and E04 can advance on their own
-available prerequisites. Before exposing E03 apply, settle the executable authority
-investigation, receive the matching B02 recovery if applicable, and verify the original
-nonce issuer and settler. D04 requires a bounded adoption or deferral decision.
-Its candidate CLI route depends on that decision.
+Start with E03's adoption decision. On the adoption branch, establish the persistent
+lifecycle owner and verify original nonce issue and settlement before exposing configured
+apply or recovery. Use the prepared B02 tool path and existing v4 fixture evidence. A04
+rollout presentation receives the original E03 outcome on that branch.
+[E03 adoption decision](69e-source-model-and-live-schema-operations.md#configured-rollout-adoption)
+
+C06 preparation, E05 generator selection, and A04 source-change status can proceed
+independently. Group compatible fixture-backed Nextest filters before comparing
+preparation reuse. For a disputed SurrealQL contract, reproduce the exact expression or
+result slot on the prepared v4 binary before the next Rust build. The D03 protected read
+used this method to expose an early return from the guarded result slot. Use the owned
+fixture for authority, interruption, and recovery across the actual boundary.
+[C06 preparation](69c-ordinary-testing-and-managed-results.md#c06--reduce-repeated-fixture-backed-preparation) ·
+[E05 generator selection](69e-source-model-and-live-schema-operations.md#e05--select-a-complete-generator-route-for-guarded-previews) ·
+[A04 source-change status](69g-output-policy-and-owner-driven-progress.md#passive-source-change-stage-status)
 
 ## Execution checkpoint
 
@@ -161,8 +170,14 @@ The owned v4 probe verified SurrealKit phase execution and exposed an unresolved
 step after a committed SQL effect. The in-process native service can bind a passive preview
 to its physical listener. The configured-state CLI still needs the persistent service
 handoff and the producer of the exact pending and settled nonce before exposing apply.
-E03 and its A03/A04 receiving checks are the remaining functional scope. Scope-end
-qualification follows that assembled rollout journey.
+The current evidence establishes the disposable rollout and passive installed inspection.
+Configured adoption depends on a named persistent deployment and in-place workflow.
+
+**Proposed follow-up.** C06 addresses repeated test preparation. E05 uses the completed
+optional-field journey as its generator equivalence case. A04 adds a passive source-change
+stage view. These packages preserve the prior correctness evidence and qualify the specific
+boundaries they change. Complete the rollout receiving journey if E03 is adopted, or record
+its explicit deferral and verify the passive boundary if no consumer qualifies.
 F02 retains eager construction after selective deferral failed catalog
 parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
@@ -221,18 +236,18 @@ the existing decision route before dependent work adopts it.
 ## Verification and completion
 
 **Proposed.** Run focused parser, owner and terminal checks with each package. At scope end,
-select one assembled journey per row and run the applicable repository qualification. Report
-command, mode, population, result and zero-failure baseline. Existing scientific verdicts
-belong to their owning plan. Use isolated fixtures for parser, configuration, and
-terminal controls. Reuse owner evidence when the premise matches, and add a
-receiving check where a boundary can lose meaning. Use comparable cold and prepared
-conditions or retained-byte observations when making a time or storage claim.
+use the applicable repository qualification and accept existing assembled evidence where the
+owner, inputs and receiving contract still match. Rerun the affected journey where one of those
+premises changes. Report command, mode, population, result and zero-failure baseline. Existing
+scientific verdicts belong to their owning plan. Use isolated fixtures for parser, configuration,
+and terminal controls. Use comparable cold and prepared conditions or retained-byte observations
+when making a time or storage claim.
 
 | Journey | Completion evidence |
 |---|---|
 | Bare ordinary tests and exact rerun | Catalog syntax, advisory source candidates, Cargo admission, Nextest inventory, and verdict are distinct. Preserve workspace root and feature-unit equivalence evidence, and exercise scoped admission, exact inventory and verdict, missing prerequisites and doctest-only routing. A full test-name census requires a separate use case. The exact failed rerun preserves applicable forwarded filters and produces its own original verdict. |
 | Retrieve and expire a result | A returned ID opens a compact result and bounded detail with diagnostic relationships and provenance where captured. Holds block release. The owner releases settled disposable records under the enabled policy. Retired and unknown differ within the witness lifetime. |
-| Live product target and original effects | Typed choices appear before mutation and foreign issuer refuses. The authenticated target and original acknowledgement survive dispatch and uncertain recovery. Protected import reopen and Study publication use their original identities on the prepared v4 fixture. Any export counter describes only its observed stage. |
-| Source model change | Supported change yields unique authored spans, bounded affected reasons, generated consumers, and exact staged diagnostic labels. Stale inputs refuse before edits and partial publication retains exact recovery. Check optional-field source publication, SurrealQL syntax and predecessor-row behavior separately. |
-| Passive, stale and interrupted schema rollout | Preview leaves installed state unchanged. Changed predecessor, instance, target or module refuses before writes. A lost reply before step settlement remains distinct from committed activation in both outputs. Reconcile the original nonce and prove a single activation without blind SQL resubmission. |
+| Live product target and original effects | Typed choices appear before mutation and foreign issuer refuses. The authenticated target and original acknowledgement survive dispatch and uncertain recovery. Protected import reopen and Study publication use their original identities on the prepared v4 fixture. C06 verifies that grouped or reused preparation preserves the selected test identities, fixture isolation and original receipts. Any export counter describes only its observed stage. |
+| Source model change | Supported change yields unique authored spans, bounded affected reasons, generated consumers, and exact staged diagnostic labels. Stale inputs refuse before edits and partial publication retains exact recovery. Check optional-field publication, SurrealQL syntax and predecessor-row behavior separately. E05 compares the candidate and full routes on identical authored inputs. A04 verifies current and last completed stages through passive status. |
+| Passive, stale and interrupted schema rollout | The adoption decision names one configured persistent consumer or records an explicit deferral and verifies passive installed-schema inspection. On adoption, preview leaves installed state unchanged. Changed predecessor, instance, target or module refuses before writes. A lost reply before step settlement remains distinct from committed activation in both outputs. Reconcile the original nonce and prove a single activation without blind SQL resubmission. |
 | Cold Codex checkout | Help and catalog stay passive. Explicit preparation establishes scope and prerequisites. Verify exact v4 Study continuation and warm reuse. Reject invalid socket paths before launch and release scratch after actual drain. Receive exact standalone tool recovery if E03 selects it. |

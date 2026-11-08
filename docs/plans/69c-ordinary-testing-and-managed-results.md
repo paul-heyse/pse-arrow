@@ -199,6 +199,46 @@ timings need an actual comparison and a bounded retention policy. Keep permissiv
 [Dependency capabilities](../libraries/rust_analyzers/rust_dependency_tooling.md) ·
 [Pinned Cargo message parser](https://docs.rs/cargo_metadata/0.23.1/src/cargo_metadata/messages.rs.html)
 
+## C06 — Reduce repeated fixture-backed preparation
+
+**Baseline.** The scoped v4 project journeys spent substantial time preparing the same kind
+of captured product reader in separate invocations. The fixture input owner prepares one
+reader when an invocation's admitted demand includes it. Explicit reader preparation builds
+and captures an executable and verifies discovery and schema evidence before publishing its
+selection. The source fingerprint is checked around the build.
+[Fixture preparation](../../crates/pse-host/src/fixtures/execution.rs) ·
+[Product reader owner](../../crates/pse-host/src/product_reader.rs)
+
+**Proposed.** Group the two verified `pse-runtime:pse-project` journeys in one managed
+`pse test` invocation when their target, feature closure, profile and preparation prerequisites
+agree. Use one filterset union of their exact test identities. In the pinned Nextest 0.9.146,
+`|` combines the selected sets, while Cargo admission and the existing runner determine
+executable and fixture requirements. Keep separate fixture lifetimes wherever their declared
+ownership or isolation requires it. Compare the selected identities with the separate runs
+and verify one reader preparation with original per-test verdicts and normal fixture drain.
+[Runner pin](../../.config/diagnostic-tools.toml) ·
+[Nextest filter composition](../libraries/utilities/nextest.md#33-filtering-composition-and-discovery-optimization) ·
+[Nextest filterset reference](https://nexte.st/docs/filtersets/reference/)
+
+Use the same product-operators feature selection as the verified individual runs.
+
+```bash
+pse test pse-runtime:pse-project -F pse-runtime/product-operators \
+  -E 'test(=project_runtime::tests::configured_project_cli_preserves_the_live_issuer_and_original_acknowledgement) | test(=project_runtime::tests::project_cli_runtime_import_fork_compare_and_passive_discovery)'
+```
+
+If repeated independent invocations still spend material time preparing an identical reader,
+qualify reuse in the existing explicit preparation owner. Match the checkout, reader mode,
+source and build fingerprint, toolchain and features, and prepared host generation. Open and
+verify the matching immutable capture with its executable, discovery and schema evidence.
+Use ordinary preparation for a missing, changed or unverifiable capture. Keep reuse under
+an authenticated release boundary that protects active borrowers and retires superseded
+captures through the owning policy. Start with a grouped run and a warm repeat. If reuse is
+needed, verify an exact hit, refusal to reuse on changed inputs or damaged captures, and
+release after drain. Record preparation count and elapsed time for the bounded comparison.
+If grouping removes the observed repetition, record that disposition and retain the current
+reader owner.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
@@ -208,3 +248,4 @@ timings need an actual comparison and a bounded retention policy. Keep permissiv
 | C03 | complete | A01–A03, existing inspection and history | The current managed CLI recovered exact and session-scoped original results, read bounded detail and logs, exported the selected view and refused an existing destination. Held, retired and unknown results use the existing expiry owner. |
 | C04 | complete | C03 and Plan67 release owner | The timer and foreground expiry class have live evidence. Detached and borrowed tests published their expiry clocks before explicit reconciliation. Separate drain witnesses preserved the original records. A settled interrupted foreground listing released its unpublished inventory while preserving the original result pair. |
 | C05 | complete | C01–C02 selection and verdict owners, A01 catalog | Scoped live admission and the guarded rustdoc route passed. A fresh scoped Nextest listing retained one exact identity and reported the execution verdict unavailable. The original seven-test run separately retained all seven identities and its successful execution verdict. |
+| C06 | planned | C01–C02 Nextest selection and verdicts, D01–D03 v4 project fixtures, existing reader preparation and custody | Verify grouped exact filters and normal fixture settlement. Decide whether remaining independent runs justify exact reader reuse, and qualify its identity and release boundary if adopted. |

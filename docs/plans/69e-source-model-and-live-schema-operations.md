@@ -226,6 +226,33 @@ Assert that stale refusal and uncertain application remain distinguishable from
 completed activation in human output and the machine envelope. Retry reconciliation
 with the original operation ID and owner facts.
 
+### Configured rollout adoption
+
+**Tested baseline.** The owned disposable v4 Nextest control ran the prepared SurrealKit
+phases. After interruption and restart, independent readback found the committed SQL effect
+and the original unresolved journal step. The result establishes the tool path and the need
+for independent settlement. The existing fresh-state owner can drain and reopen its own
+disposable state. Configured target selection establishes issuer identity, while physical
+handoff still requires the service's original lifecycle authority.
+[Owned rollout control](../../crates/pse-operations/src/native_service/rollout_authority.rs) ·
+[Native service ownership](../dev/surreal-substrate.md#setup-and-state-ownership)
+
+**Proposed adoption gate.** First identify a recurring in-place schema change and name one
+configured persistent deployment that needs it. Record the provisioning owner, how it proves
+the original process and listener, and how it can fence and drain writers and registered
+holders. If there is no qualifying consumer, record explicit deferral here with the trigger
+of a named native-owned deployment and a recurring in-place change. Keep the existing passive
+installed-schema inspection available and verify its passive boundary for closeout.
+
+On adoption, support the named native-owned deployment class and qualify one compatible
+additive schema-only rollout against a representative owned persistent fixture. Use frozen
+inputs and the explicit `start` and `complete` phases. Admission for this slice requires a
+provably additive declaration change with independently observable catalog postconditions.
+Reject destructive steps, stored-value rewrites, and targets outside the supported lifecycle
+before closing write admission. A future named case with data effects requires its domain
+owner's independent witness and a separate receiving decision. Deliver the physical handoff
+and restart recovery before wiring configured mutation through A03 and A04.
+
 ### Passive preview and frozen inputs
 
 [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01)
@@ -265,12 +292,12 @@ contract. It issues the original pending nonce and binds the exact inputs before
 dispatch. The checkout's prepared SurrealKit 1.0.0-rc.1 executable uses the locked v4
 remote gRPC feature closure. Evaluate that subprocess first, including the
 [B02 recovery prerequisite](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites).
-Use the existing Plan 68d fixture as evidence that scoped authentication and supervised
-gRPC tool execution compose. Before selecting live apply, verify one small authored
-rollout against an owned v4 fixture. Demonstrate exact endpoint, identity and credentials,
-controlled effective variables, frozen inputs, explicit `start` and `complete`,
-bounded output and actual native and SQL drain. Scope credentials to the required
-maintenance effects and redact their presentation. If the subprocess cannot preserve
+Reuse the existing Plan 68d and E03 fixture evidence for scoped authentication and
+supervised gRPC tool execution. For the adopted persistent slice, demonstrate exact
+endpoint, identity and credentials, controlled effective variables, frozen inputs,
+explicit `start` and `complete`, bounded output and actual native and SQL drain.
+Scope credentials to the required maintenance effects and redact their presentation.
+If the subprocess cannot preserve
 these facts, record the failing contract, compare the pinned Rust `Rollout` API and
 its SDK closure, and keep apply gated until an equivalent owner path is established.
 [Maintenance contract, blueprint §20.5](../authoritative_design/sections/identity-and-publication.md#section-20-5) ·
@@ -323,11 +350,48 @@ parent with an in-range capture must preserve existing behavior under any change
 [Structural query](../../crates/pse-host/src/source_query/native.rs) ·
 [Pinned range contract](https://docs.rs/tree-sitter/0.27.0/tree_sitter/struct.QueryCursor.html#method.set_containing_byte_range)
 
+## E05 — Select a complete generator route for guarded previews
+
+**Baseline.** The optional-field journey produced and verified 43 generated postimages.
+Its private snapshot ran the standard generation stages and full regeneration comparison.
+The run observed about 35 GiB of temporary filesystem use relative to the starting free
+space, most of which returned when the owner released the snapshot. Treat that observation
+as directional evidence from one run. The snapshot and exact publication guard serve
+independent ownership and recovery requirements.
+[Preview stages](../../xtask/src/codegen/source_change.rs) ·
+[Shared generator route](../../scripts/source-change-codegen)
+
+**Proposed.** Keep one `pse source-change preview` route. Derive a conservative generator
+closure from the authoritative registry, declared input and output relationships, and existing
+target selectors. Use a narrower route only when those declarations establish every relevant
+generator, prerequisite, output scope and receiving check for the selected case, including
+added or removed outputs. A package reach list supplies advisory evidence for this choice.
+Unrecognized inputs, incomplete declarations or ambiguous ownership select the full route.
+Record the selected route and fallback reason in the existing preview evidence. Preserve
+the private snapshot, exact source and native identities, generated delta and SurrealQL
+validation, stale refusal, recoverable publication and owner release. Each route must still
+establish regeneration equivalence for its complete output scope.
+[Output map consumer](../../xtask/src/codegen/source_change/delta.rs) ·
+[Generator provenance](../../crates/pse-codegen/src/codegen/provenance.rs) ·
+[Registry, blueprint §4.2](../authoritative_design/sections/schema-and-relations.md#section-4-2)
+
+Compare full and candidate runs from identical authored and generated preimages, with the
+same native selections and comparable cache conditions. Use the portable
+`optional-project-description` fixture through `pse source-change preview` and require equality
+of changed path sets and preimage and postimage digests. The verified baseline had 43 outputs.
+Exercise one incomplete dependency case and confirm full-route selection. Use the original
+optional-field receiving evidence where the exact outputs and receiving inputs match.
+Verify stale refusal, publication and release on the
+candidate path. Compare generator work and temporary allocation in this bounded pair.
+Adopt the narrower route only when it preserves the evidence and removes material work.
+Otherwise record the reason and retain the full route for that case.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
 | E02 | complete | E01 decision, A01 and A03, generator and affected-check owners | Both source-change cases passed. The optional-field preview verified structural anchors, conservative affected evidence, staged SurrealQL and regeneration equivalence. Stale apply preserved all 43 preimages. The exact reviewed apply published all 43 verified postimages. The owned v4 test confirmed historical absence, an explicit string, `NONE`, and refusal of `NULL`. The fixture and preview custody were released. |
-| E03 | blocked | D01 authenticated selection, A03, persistent native maintenance ownership and Plan68 version-specific receiving | The focused v4 Nextest control exercised frozen rc.1 phase execution. After interruption and server restart, it independently observed the committed SQL effect and the unresolved journal step. The in-process native owner binds a passive preview to its live process and listener, catalog, module, generated target and verified tool. The configured deployment path cannot mint that physical proof or close and drain its original service. The production nonce issuer, maintenance handoff, settled activation and CLI receiving remain open. |
+| E03 | in progress | D01 authenticated selection, A03, persistent native maintenance ownership on adoption, and Plan68 version-specific receiving | The disposable v4 phase and interruption controls passed. First record the named configured consumer and lifecycle authority, or explicit deferral with its revisit trigger. On adoption, finish persistent handoff, original nonce issue and settlement, activation, and CLI receiving for the bounded additive rollout. |
 | E04 | complete | Existing immutable source acquisition and structural query owner | The shared source index is implemented. Focused native tests and a scoped live probe verified UTF-8 captures and multiline edit coordinates while preserving the original source bytes and bounded behavior. Native range pushdown remains conditional. |
+| E05 | planned | E02 verified preview and publication, generator provenance and target selectors | Qualify the narrower generator route against the full optional-field preview and an incomplete-input fallback, or record why the full route remains necessary. |

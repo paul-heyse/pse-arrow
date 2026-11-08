@@ -88,6 +88,26 @@ and use `InMemoryTerm` only if layout or removal needs assertions beyond stream 
 [Terminal abstraction](https://docs.rs/indicatif/0.18.6/indicatif/trait.TermLike.html) ·
 [In-memory terminal](https://docs.rs/indicatif/0.18.6/indicatif/struct.InMemoryTerm.html)
 
+### Passive source-change stage status
+
+**Proposed.** Extend `pse source-change status ID` to report the current recorded stage and
+the last completed stage from the existing owner record. The owner already records an
+in-flight stage and ordered stage completions. Project those facts from the same read of the
+original preview. Use optional stage fields for earlier receipts and states where either
+value is unavailable. A recorded in-flight stage describes unfinished work. Present it as
+actively running only when the owner can verify liveness. Keep failure stage, publication
+state and settlement distinct from progress. Use the existing human formatter and versioned
+JSON or NDJSON envelope for the passive observation.
+[Stage producer](../../xtask/src/codegen/source_change.rs) ·
+[CLI receiver](../../crates/pse-host/src/cli/source_change.rs)
+
+Exercise an active preparation or generation stage, a later receiving stage, a failed or
+interrupted record, a terminal record and an earlier receipt without current stage evidence.
+Verify one status read uses the original ID, starts no work and preserves valid machine
+frames and quiet machine stderr. Check human output at a narrow width. This receiving work
+can proceed on the existing stage record independently of the E05 generator choice and the
+E03 rollout adoption decision.
+
 ### Receiving checkpoint
 
 The current terminal policy kept explicit JSON and NDJSON search clean over both
@@ -101,4 +121,4 @@ owner verdict and final settlement in the meantime.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| A04 | in progress | Existing resolved format, A03 projection and actual owner events for receiving work | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Narrow monochrome human output preserved the Unicode refusal. Verify new rollout receiving output when the owner is available. Counted transfer remains deferred until an owner supplies intermediate events. |
+| A04 | in progress | Existing resolved format, A03 projection, source-change stage record, and E03 owner events if adopted | Search and human diagnostics share terminal policy. JSON and NDJSON search emitted valid frames with silent stderr over both a pipe and a PTY. Narrow monochrome human output preserved the Unicode refusal. Add and verify passive source-change stage status. Verify rollout receiving output on E03's adoption branch. Counted transfer remains deferred until an owner supplies intermediate events. |
