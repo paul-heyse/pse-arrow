@@ -147,9 +147,10 @@ target and test name before a build. Discovery acquires only nextest-selected im
 and shares immutable bytes across active invocations. [Analyzer and capture boundaries](69c-ordinary-testing-and-managed-results.md#analyzer-and-capture-boundaries)
 Source-change preview uses an isolated checkout with one retained snapshot per checkout.
 It accepts reviewed source postimage digests, publishes the staged generator delta and
-recovers by exact file identity. The
-installed-catalog observer uses an authenticated Viewer connection and shares the
-normalized inventory with maintenance validation.
+recovers by exact file identity. The optional-field fixture passed the guarded preview,
+stale refusal, exact publication and installed predecessor-row checks and released its
+temporary source and generated changes. The installed-catalog observer uses an authenticated
+Viewer connection and shares the normalized inventory with maintenance validation.
 
 The companion plans retain assembled qualification that remains open. Project packs and
 study deliverables share an issuer-bound publication identity and durable original custody.
@@ -160,6 +161,8 @@ The owned v4 probe verified SurrealKit phase execution and exposed an unresolved
 step after a committed SQL effect. The in-process native service can bind a passive preview
 to its physical listener. The configured-state CLI still needs the persistent service
 handoff and the producer of the exact pending and settled nonce before exposing apply.
+E03 and its A03/A04 receiving checks are the remaining functional scope. Scope-end
+qualification follows that assembled rollout journey.
 F02 retains eager construction after selective deferral failed catalog
 parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
@@ -173,7 +176,7 @@ parity. A04 keeps transfer progress conditional on an owner exposing actual tran
 | [O04](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O04) | Resolved | 69c C03–C04 verified bounded reads of original results and owner release under the selected expiry policy. Durable cross-run history remains conditional. |
 | [O05](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O05) | Resolved | 69d D01–D03 verified authenticated selection, original acknowledgement after reply loss, protected import reopen and bounded Study publication. |
 | [O06](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O06) | Scheduled | 69e E01–E03. Two source cases and guarded live schema maintenance. |
-| [O07](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O07) | Scheduled | 69b B01–B03. Workstation launch, readiness, placement and recurring operational sequences. |
+| [O07](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O07) | Resolved | 69b B01–B03 verified workstation placement, exact prepared v4 continuation and warm reuse, socket preflight and native drain. |
 | [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Scheduled | 69a A03 and 69g A04. Typed diagnostics, redacted recovery and owner-driven progress. |
 
 ## Improvement dispositions
@@ -202,7 +205,7 @@ before any package relies on it.
 |---|---|---|
 | [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01) | Scheduled | [69e E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema) owns passive preview, the prepared execution decision, and original nonce settlement and activation. |
 | [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) | Scheduled | [69b B02–B03](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) prepare and receive the native fixture. [69d D01–D03](69d-routine-product-and-data-operations.md#live-v4-receiving) own live product receiving. [69e E02](69e-source-model-and-live-schema-operations.md#optional-field-receiving) owns optional-field checks and the external fixture candidate. |
-| [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03) | Scheduled | [69e E02](69e-source-model-and-live-schema-operations.md#exact-authored-and-generated-evidence) owns structural spans and the bounded affected view. [69a A03](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) receives original diagnostics. |
+| [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03) | Resolved | [69e E02](69e-source-model-and-live-schema-operations.md#exact-authored-and-generated-evidence) verified structural spans, conservative affected evidence, and guarded publication. [69a A03](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) verified the staged diagnostic projection. |
 | [I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04) | Resolved | [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership) verified the scoped selection explanation, doctest routing, and the separate fresh Nextest inventory and original verdict. |
 | [I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05) | Deferred pending a named recurring consumer | [69d D04](69d-routine-product-and-data-operations.md#d04--decide-whether-typed-graph-diagnosis-belongs-at-the-front-door) completed the comparison and retains the explicit graph diagnostic. A04 transfer display depends on actual owner events. C04 retains the existing expiry policy. |
 | [I06](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I06) | Resolved | [69e E04](69e-source-model-and-live-schema-operations.md#e04--reuse-coordinates-in-bounded-structural-browsing) verified reused source coordinates with exact UTF-8 captures and multiline edits. Range pushdown has a separate revisit condition. |
