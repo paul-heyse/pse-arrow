@@ -1,0 +1,944 @@
+diff --git a/surrealdb/core/src/err/to_types.rs b/surrealdb/core/src/err/to_types.rs
+index ecb186e..9b69f5d 100644
+--- a/surrealdb/core/src/err/to_types.rs
++++ b/surrealdb/core/src/err/to_types.rs
+@@ -113,7 +113,12 @@ fn into_types_error_inner(error: Error, message: String) -> TypesError {
+ 			KvsError::UnsupportedVersionedQueries | KvsError::UnsupportedLockedReads => {
+ 				TypesError::configuration(message, None)
+ 			}
+-			KvsError::Datastore(_)
++			KvsError::MemoryLimit
++			| KvsError::TransactionTooOld
++			| KvsError::DatabasePoisoned(_)
++			| KvsError::AsyncQueueFull
++			| KvsError::DatastoreCorrupted(_)
++			| KvsError::Datastore(_)
+ 			| KvsError::Transaction(_)
+ 			| KvsError::NoSavepoint
+ 			| KvsError::TimestampInvalid(_)
+diff --git a/surrealdb/core/src/exec/api.rs b/surrealdb/core/src/exec/api.rs
+index 8fd0c54..ad29c84 100644
+--- a/surrealdb/core/src/exec/api.rs
++++ b/surrealdb/core/src/exec/api.rs
+@@ -342,6 +342,11 @@ async fn run_middleware(
+ 		.catch_return()
+ 		.and_then(ApiResponse::try_from);
+ 	scope.end(called.is_err()).await.map_err(ControlFlow::Err)?;
++	// A failed stage becomes an ordinary response. Its savepoint cannot
++	// cover writes already made by an enclosing stage or caller.
++	if called.is_err() && let Some(tx) = exec.try_txn() {
++		tx.poison_api_failure();
++	}
+ 
+ 	let is_initial = stage == 0;
+ 	let failed = |e: anyhow::Error| {
+@@ -447,6 +452,11 @@ async fn run_handler(chain: &ApiChain, req: Value, exec: &ExecutionContext) -> F
+ 		.map_err(ControlFlow::Err)?;
+ 	let answered = evaluate_handler(&chain.handler, &exec).await.and_then(ApiResponse::try_from);
+ 	scope.end(answered.is_err()).await.map_err(ControlFlow::Err)?;
++	// A failed stage becomes an ordinary response. Its savepoint cannot
++	// cover writes already made by an enclosing stage or caller.
++	if answered.is_err() && let Some(tx) = exec.try_txn() {
++		tx.poison_api_failure();
++	}
+ 	let mut res = answered.unwrap_or_else(|e| ApiResponse::from_error(e, chain.request_id.clone()));
+ 	res.request_id.clone_from(&chain.request_id);
+ 	res.ensure_request_id_header();
+diff --git a/surrealdb/core/src/kvs/ds.rs b/surrealdb/core/src/kvs/ds.rs
+index f8589df..653db36 100644
+--- a/surrealdb/core/src/kvs/ds.rs
++++ b/surrealdb/core/src/kvs/ds.rs
+@@ -10708,8 +10708,8 @@ impl Datastore {
+ 	}
+ 
+ 	/// Opens the transaction a `BEGIN` asks for: a write transaction, or a
+-	/// read-only one when `read_only` is given, at `isolation` (default
+-	/// `SNAPSHOT`).
++	/// read-only one when `read_only` is given. An unspecified write isolation
++	/// uses the selected datastore's ordinary transaction policy.
+ 	///
+ 	/// A read-only request with a bound of zero reads the current state at the
+ 	/// requested level. A bound above zero reads a snapshot, which is always
+@@ -10722,10 +10722,14 @@ impl Datastore {
+ 		isolation: Option<Isolation>,
+ 		read_only: Option<ReadOnlyOptions>,
+ 	) -> Result<(Transaction, Option<SnapshotInfo>)> {
+-		let isolation = isolation.unwrap_or(Isolation::Snapshot);
+ 		let Some(read_only) = read_only else {
+-			return Ok((self.transaction_at(TransactionType::Write, isolation).await?, None));
++			let txn = match isolation {
++				Some(isolation) => self.transaction_at(TransactionType::Write, isolation).await?,
++				None => self.transaction(TransactionType::Write).await?,
++			};
++			return Ok((txn, None));
+ 		};
++		let isolation = isolation.unwrap_or(Isolation::Snapshot);
+ 		if read_only.max_staleness.is_zero() {
+ 			let txn = self.transaction_at(TransactionType::Read, isolation).await?;
+ 			return Ok((txn, Some(SnapshotInfo::current())));
+@@ -12910,8 +12914,8 @@ impl Datastore {
+ 			}
+ 		};
+ 
+-		// Handle committing or cancelling the transaction
+-		if res.is_ok() {
++		// Preserve a secure error response without committing earlier API writes.
++		if res.is_ok() && !tx.has_api_failure() {
+ 			tx.commit().await?;
+ 		} else {
+ 			tx.cancel().await?;
+diff --git a/surrealdb/core/src/kvs/tests/interrupted_write_test.rs b/surrealdb/core/src/kvs/tests/interrupted_write_test.rs
+index d2cb843..3cfff86 100644
+--- a/surrealdb/core/src/kvs/tests/interrupted_write_test.rs
++++ b/surrealdb/core/src/kvs/tests/interrupted_write_test.rs
+@@ -123,3 +123,69 @@ async fn an_api_handler_cannot_commit_a_record_its_fan_out_left_half_indexed() {
+ 	let _ = ds.invoke_api_handler("test", "test", "fan", &ses, req).await;
+ 	assert_consistent(committed(&ds).await);
+ }
++
++
++/// Complete writes before an ordinary handler/middleware error must roll back,
++/// not just writes interrupted within an index fan-out.
++#[tokio::test(flavor = "multi_thread")]
++async fn api_ordinary_errors_rollback_but_explicit_responses_commit() {
++    use crate::api::request::ApiRequest;
++    use crate::catalog::ApiMethod;
++    let (ds, ses) = fan_out_ds().await;
++    let definitions = r#"
++        DEFINE FUNCTION fn::after_failure($request: object, $next: any) {
++            LET $reply = $next($request);
++            THROW 'middleware failure after handler';
++        };
++        DEFINE FUNCTION fn::bad_conversion($request: object, $next: any) {
++            LET $reply = $next($request);
++            RETURN 42;
++        };
++        DEFINE API '/handler_failure' FOR get PERMISSIONS FULL THEN {
++            CREATE t:11 SET a = [11], b = [11]; THROW 'handler failure after write';
++        };
++        DEFINE API '/conversion_failure' FOR get PERMISSIONS FULL THEN {
++            CREATE t:12 SET a = [12], b = [12]; RETURN 42;
++        };
++        DEFINE API '/middleware_failure' FOR get PERMISSIONS FULL MIDDLEWARE fn::after_failure() THEN {
++            CREATE t:13 SET a = [13], b = [13]; RETURN {status:200};
++        };
++        DEFINE API '/middleware_conversion_failure' FOR get PERMISSIONS FULL MIDDLEWARE fn::bad_conversion() THEN {
++            CREATE t:14 SET a = [14], b = [14]; RETURN {status:200};
++        };
++        DEFINE API '/explicit_refusal' FOR get PERMISSIONS FULL THEN {
++            CREATE t:15 SET a = [15], b = [15]; RETURN {status:409,body:{refused:true}};
++        };
++        DEFINE API '/success' FOR get PERMISSIONS FULL THEN {
++            CREATE t:16 SET a = [16], b = [16]; RETURN {status:200};
++        };
++    "#;
++    for response in ds.execute(definitions,&ses,None).await.unwrap() {response.result.unwrap();}
++    for path in ["handler_failure","conversion_failure","middleware_failure","middleware_conversion_failure"] {
++        let request=ApiRequest {method:ApiMethod::Get,request_id:path.into(),..Default::default()};
++        let response=ds.invoke_api_handler("test","test",path,&ses,request).await.unwrap();
++        assert!(response.status.as_u16() >= 400,"{path} must preserve an error response");
++    }
++    for (path,status) in [("explicit_refusal",409),("success",200)] {
++        let request=ApiRequest {method:ApiMethod::Get,request_id:path.into(),..Default::default()};
++        let response=ds.invoke_api_handler("test","test",path,&ses,request).await.unwrap();
++        assert_eq!(response.status.as_u16(),status);
++    }
++    let mut responses=ds.execute("RETURN (SELECT VALUE id FROM t ORDER BY id) = [t:15, t:16];",&ses,None).await.unwrap();
++    let committed=responses.remove(0).result.unwrap();
++    assert_eq!(committed,surrealdb_types::Value::Bool(true));
++}
++
++/// Internal api::invoke can also convert an error to a value inside a caller's
++/// transaction. Neither an explicit COMMIT nor another successful statement can
++/// authorize those partial writes.
++#[tokio::test(flavor = "multi_thread")]
++async fn api_error_poison_refuses_explicit_caller_commit() {
++    use crate::kvs::QueryRequest;
++    let (ds,ses)=fan_out_ds().await;
++    for response in ds.execute("DEFINE API '/caller_failure' FOR get PERMISSIONS FULL THEN {CREATE t:17 SET a=[17],b=[17]; THROW 'cancel the whole API effect';};",&ses,None).await.unwrap() {response.result.unwrap();}
++    let tx=Arc::new(ds.transaction(TransactionType::Write).await.unwrap());
++    let _=ds.run(QueryRequest::new("RETURN api::invoke('/caller_failure',{method:'get'});",&ses).with_transaction(Arc::clone(&tx))).await;
++    assert!(tx.commit().await.is_err());
++    assert_eq!(committed(&ds).await,(0,0));
++}
+diff --git a/surrealdb/datastore/src/tx.rs b/surrealdb/datastore/src/tx.rs
+index f6c3554..f650541 100644
+--- a/surrealdb/datastore/src/tx.rs
++++ b/surrealdb/datastore/src/tx.rs
+@@ -908,6 +908,8 @@ pub struct Transaction {
+ 	/// Set when a record's write stopped part-way because its query could not
+ 	/// continue. See [`Self::poison_interrupted_write`].
+ 	interrupted_write_poisoned: AtomicBool,
++	/// An API expression failed after its transaction may already have written.
++	api_failure_poisoned: AtomicBool,
+ 	/// Set once this transaction's commit has failed with an outcome the
+ 	/// storage could not report, before its rollback actions run. See
+ 	/// [`Self::commit_outcome_unknown`].
+@@ -2430,6 +2432,7 @@ impl Transaction {
+ 			save_point_poisoned: AtomicBool::new(false),
+ 			compensation_poisoned: AtomicBool::new(false),
+ 			interrupted_write_poisoned: AtomicBool::new(false),
++			api_failure_poisoned: AtomicBool::new(false),
+ 			commit_outcome_unknown: AtomicBool::new(false),
+ 			guarded_writes: AtomicU64::new(0),
+ 			pending_index_build_reservations: Mutex::new(Vec::new()),
+@@ -3126,6 +3129,11 @@ impl Transaction {
+ 	/// transaction survives the statement error that set the flag. An explicit
+ 	/// CANCEL behaves as normal.
+ 	fn poisoned(&self) -> Result<()> {
++		if self.has_api_failure() {
++			return Err(crate::error::DatastoreError::QueryNotExecuted {
++				message: "An API handler or middleware failed; its transaction must roll back".to_string(),
++			}.into());
++		}
+ 		if self.write_guard_poisoned.load(Ordering::Relaxed) {
+ 			let limit = self.write_keys_limit.get().map(|l| l.get()).unwrap_or_default();
+ 			return Err(crate::error::DatastoreError::TransactionWriteKeysExceeded {
+@@ -3213,6 +3221,16 @@ impl Transaction {
+ 		self.external_effect.load(Ordering::Relaxed)
+ 	}
+ 
++	/// Prevent error-to-response conversion from authorizing partial API effects.
++	pub fn poison_api_failure(&self) {
++		self.api_failure_poisoned.store(true, Ordering::Relaxed);
++	}
++
++	/// The API owner can cancel and still return the original secure response.
++	pub fn has_api_failure(&self) -> bool {
++		self.api_failure_poisoned.load(Ordering::Relaxed)
++	}
++
+ 	/// Refuses this transaction's COMMIT, because a record's write stopped
+ 	/// part-way when its query could not continue.
+ 	///
+@@ -10769,6 +10787,7 @@ impl Transaction {
+ 			write_guard_poisoned: AtomicBool::new(false),
+ 			save_point_poisoned: AtomicBool::new(false),
+ 			interrupted_write_poisoned: AtomicBool::new(false),
++			api_failure_poisoned: AtomicBool::new(false),
+ 			commit_outcome_unknown: AtomicBool::new(false),
+ 			guarded_writes: AtomicU64::new(0),
+ 			pending_index_build_reservations: Mutex::new(Vec::new()),
+diff --git a/surrealdb/kvs-mem/src/cnf.rs b/surrealdb/kvs-mem/src/cnf.rs
+index 2af30eb..8a7a627 100644
+--- a/surrealdb/kvs-mem/src/cnf.rs
++++ b/surrealdb/kvs-mem/src/cnf.rs
+@@ -6,6 +6,13 @@ use surrealdb_kvs::config::{AolMode, SnapshotMode, SyncMode};
+ /// Configuration for the in-memory storage engine, parsed from query parameters.
+ #[derive(Debug, Clone)]
+ pub struct MemoryConfig {
++	/// Finite resident key/value allowance; the supervisor reserves process headroom separately.
++	pub memory_limit: usize,
++	/// Maximum lifetime of a pinned transaction snapshot.
++	pub max_transaction_age: Duration,
++	/// Finite asynchronous queue bounds, including when used by explicit tests.
++	pub max_async_queue_depth: usize,
++	pub max_async_queue_bytes: usize,
+ 	/// Path for persistence files (from URL path, e.g. `mem:///tmp/data`). If set, enables disk
+ 	/// persistence.
+ 	pub persist_path: Option<String>,
+@@ -31,6 +38,10 @@ pub struct MemoryConfig {
+ impl Default for MemoryConfig {
+ 	fn default() -> Self {
+ 		Self {
++			memory_limit: 1024 * 1024 * 1024,
++			max_transaction_age: Duration::from_secs(90),
++			max_async_queue_depth: 32,
++			max_async_queue_bytes: 64 * 1024 * 1024,
+ 			persist_path: None,
+ 			sync_mode: SyncMode::Never,
+ 			aol_mode: AolMode::Never,
+@@ -51,6 +62,10 @@ impl Config for MemoryConfig {
+ 				Some(Some(x.to_owned()))
+ 			}
+ 		})
++		.parse_key("datastore_memory_limit", &mut self.memory_limit)
++		.parse_key_with("datastore_max_transaction_age", &mut self.max_transaction_age, |x| parse_duration(x).ok())
++		.parse_key("datastore_max_async_queue_depth", &mut self.max_async_queue_depth)
++		.parse_key("datastore_max_async_queue_bytes", &mut self.max_async_queue_bytes)
+ 		.parse_key("datastore_aol", &mut self.aol_mode)
+ 		.parse_key("datastore_snapshot", &mut self.snapshot_mode)
+ 		.parse_key("datastore_versioned", &mut self.versioned)
+diff --git a/surrealdb/kvs-mem/src/lib.rs b/surrealdb/kvs-mem/src/lib.rs
+index 20815e9..3bb7309 100644
+--- a/surrealdb/kvs-mem/src/lib.rs
++++ b/surrealdb/kvs-mem/src/lib.rs
+@@ -33,7 +33,7 @@ use surrealdb_kvs::err::{Error, Result};
+ #[cfg(not(target_family = "wasm"))]
+ use surrealdb_kvs::snapshot::ViewCapabilities;
+ use surrealdb_kvs::{
+-	Direction, Isolation, IsolationLevels, IsolationLevelsHandle, Key, KeyRange, Metrics,
++	Direction, Isolation, IsolationLevels, IsolationLevelsHandle, Key, KeyRange, Metric, Metrics,
+ 	TransactionBuilder, TransactionType, Val,
+ };
+ 
+@@ -51,11 +51,13 @@ fn kvs_error(e: surrealmx::Error) -> Error {
+ 		surrealmx::Error::KeyReadConflict => Error::TransactionConflict(e.to_string()),
+ 		surrealmx::Error::KeyWriteConflict => Error::TransactionConflict(e.to_string()),
+ 		surrealmx::Error::NoSavepoint => Error::NoSavepoint,
+-		surrealmx::Error::TxCommitNotPersisted(_)
+-		| surrealmx::Error::DatabasePoisoned(_)
+-		| surrealmx::Error::TxTooOld
+-		| surrealmx::Error::MemoryLimit
+-		| surrealmx::Error::AsyncQueueFull => Error::Transaction(e.to_string()),
++		surrealmx::Error::MemoryLimit => Error::MemoryLimit,
++		surrealmx::Error::TxTooOld => Error::TransactionTooOld,
++		surrealmx::Error::DatabasePoisoned(reason) => Error::DatabasePoisoned(reason),
++		surrealmx::Error::AsyncQueueFull => Error::AsyncQueueFull,
++		surrealmx::Error::TxCommitNotPersisted(reason) => {
++			Error::CommitOutcomeUnknown(format!("PSE_MX_COMMIT_UNKNOWN: {reason}"))
++		}
+ 	}
+ }
+ 
+@@ -133,6 +135,17 @@ impl Datastore {
+ 		if config.versioned || !config.retention.is_zero() {
+ 			return Err(Error::UnsupportedVersionedQueries);
+ 		}
++		// This source integration admits one persistent canonical profile.
++		// ConfigMap deliberately ignores invalid values; refuse the resulting
++		// disabled/default persistence settings rather than silently degrading.
++		#[cfg(not(target_family = "wasm"))]
++		if config.persist_path.is_some() && (
++			!matches!(config.aol_mode, AolMode::Sync)
++			|| !matches!(config.sync_mode, SyncMode::Every)
++			|| !matches!(config.snapshot_mode, SnapshotMode::Interval(interval) if interval.as_secs() > 30)
++		) {
++			return Err(Error::Datastore("Canonical MX persistence requires synchronous AOL, every-append fsync and a snapshot interval larger than 30s".into()));
++		}
+ 		// Create the shared blocking threadpool (idempotent)
+ 		surrealdb_kvs::threadpool::initialise();
+ 		#[cfg(not(target_family = "wasm"))]
+@@ -148,7 +161,13 @@ impl Datastore {
+ 		// Create new configuration options. surrealmx reclaims superseded MVCC
+ 		// versions inline at commit time and sweeps the tracked leftovers on the
+ 		// background GC worker, so both workers run with their default intervals.
++		if config.memory_limit == 0 || config.max_transaction_age.is_zero()
++			|| config.max_async_queue_depth == 0 || config.max_async_queue_bytes == 0 {
++			return Err(Error::Datastore("MX requires finite positive memory, transaction age and queue bounds".into()));
++		}
+ 		let opts = DatabaseOptions {
++			memory_limit: Some(config.memory_limit),
++			max_transaction_age: Some(config.max_transaction_age),
+ 			enable_gc: true,
+ 			enable_cleanup: true,
+ 			..Default::default()
+@@ -158,6 +177,8 @@ impl Datastore {
+ 		let db = if let Some(ref persist_path) = config.persist_path {
+ 			// Build persistence options from config
+ 			let mut persistence_opts = surrealmx::PersistenceOptions::new(persist_path);
++			persistence_opts.max_async_queue_depth = Some(config.max_async_queue_depth);
++			persistence_opts.max_async_queue_bytes = Some(config.max_async_queue_bytes);
+ 			// Map AOL mode
+ 			persistence_opts.aol_mode = match config.aol_mode {
+ 				AolMode::Never => surrealmx::AolMode::Never,
+@@ -177,7 +198,10 @@ impl Datastore {
+ 			};
+ 			// Create a persistent database
+ 			Database::new_with_persistence(opts, persistence_opts)
+-				.map_err(|e| Error::Datastore(e.to_string()))?
++				.map_err(|e| match e {
++					_ if e.get_ref().and_then(|source| source.downcast_ref::<surrealmx::PersistenceError>()).is_some_and(|source| matches!(source, surrealmx::PersistenceError::Corrupted(_))) => Error::DatastoreCorrupted(e.to_string()),
++					other => Error::Datastore(other.to_string()),
++				})?
+ 		} else {
+ 			// Create a non-persistent database
+ 			Database::new_with_options(opts)
+@@ -200,9 +224,9 @@ impl Datastore {
+ 		Ok(())
+ 	}
+ 
+-	/// Start a new transaction, under snapshot isolation.
++	/// Start a transaction with serializable writes and current snapshot reads.
+ 	pub async fn transaction(&self, write: TransactionType) -> Result<Box<dyn Transactable>> {
+-		Ok(open_transaction(&self.db, write, Isolation::Snapshot))
++		Ok(open_transaction(&self.db, write, Isolation::Serializable))
+ 	}
+ }
+ 
+@@ -224,11 +248,40 @@ impl TransactionBuilder for Datastore {
+ 	}
+ 
+ 	fn register_metrics(&self) -> Option<Metrics> {
+-		None
++		Some(Metrics {
++			name: "surrealdb.surrealmx",
++			u64_metrics: vec![
++				Metric { name: "surrealmx.live_keys", description: "Live resident keys" },
++				Metric { name: "surrealmx.live_versions", description: "Live committed versions" },
++				Metric { name: "surrealmx.approx_data_bytes", description: "Estimated resident key/value bytes" },
++				Metric { name: "surrealmx.active_readers", description: "Transactions pinning a snapshot" },
++				Metric { name: "surrealmx.oldest_pinned_version", description: "Oldest active snapshot; absent with no reader" },
++				Metric { name: "surrealmx.gc_candidate_keys", description: "Keys awaiting reader release and reclamation" },
++				Metric { name: "surrealmx.commit_ring_occupancy", description: "Unretired commits" },
++				Metric { name: "surrealmx.async_queue_depth", description: "Asynchronous persistence batches" },
++				Metric { name: "surrealmx.async_queue_bytes", description: "Asynchronous persistence bytes" },
++				Metric { name: "surrealmx.async_dropped_batches", description: "Failed asynchronous batches" },
++				Metric { name: "surrealmx.poisoned", description: "One while engine is stopped by a failure" },
++			],
++		})
+ 	}
+ 
+-	fn collect_u64_metric(&self, _metric: &str) -> Option<u64> {
+-		None
++	fn collect_u64_metric(&self, metric: &str) -> Option<u64> {
++		let stats = self.db.stats();
++		Some(match metric {
++			"surrealmx.live_keys" => stats.live_keys as u64,
++			"surrealmx.live_versions" => stats.live_versions as u64,
++			"surrealmx.approx_data_bytes" => stats.approx_data_bytes as u64,
++			"surrealmx.active_readers" => stats.active_readers as u64,
++			"surrealmx.oldest_pinned_version" => return stats.oldest_pinned_version,
++			"surrealmx.gc_candidate_keys" => stats.gc_candidate_keys as u64,
++			"surrealmx.commit_ring_occupancy" => stats.commit_ring_occupancy as u64,
++			"surrealmx.async_queue_depth" => stats.async_queue_depth as u64,
++			"surrealmx.async_queue_bytes" => stats.async_queue_bytes as u64,
++			"surrealmx.async_dropped_batches" => stats.async_dropped_batches,
++			"surrealmx.poisoned" => u64::from(stats.is_poisoned),
++			_ => return None,
++		})
+ 	}
+ 
+ 	fn extension(&self, id: TypeId) -> Option<Arc<dyn Any + Send + Sync>> {
+@@ -1624,4 +1677,82 @@ mod tests {
+ 		assert_eq!(visited, vec![(2, b"b".to_vec())]);
+ 		rd.cancel().await.unwrap();
+ 	}
++	#[tokio::test]
++	async fn ssi_rejects_write_skew_and_missing_key_interference() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let left = ds.transaction(TransactionType::Write).await.unwrap();
++		let right = ds.transaction(TransactionType::Write).await.unwrap();
++		assert_eq!(left.get(Key::from(b"right".as_slice()), None).await.unwrap(), None);
++		assert_eq!(right.get(Key::from(b"left".as_slice()), None).await.unwrap(), None);
++		left.set(Key::from(b"left".as_slice()), b"active".to_vec()).await.unwrap();
++		right.set(Key::from(b"right".as_slice()), b"active".to_vec()).await.unwrap();
++		left.commit().await.unwrap();
++		assert!(matches!(right.commit().await, Err(Error::TransactionConflict(_))));
++	}
++
++	#[tokio::test]
++	async fn ssi_rejects_phantom_in_an_empty_scanned_range() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let reader = ds.transaction(TransactionType::Write).await.unwrap();
++		let range = KeyRange { start: Key::from(b"a".as_slice()), end: Key::from(b"z".as_slice()) };
++		assert!(reader.scan(range, 10, 0, None).await.unwrap().values.is_empty());
++		let writer = ds.transaction(TransactionType::Write).await.unwrap();
++		writer.set(Key::from(b"m".as_slice()), b"inserted".to_vec()).await.unwrap();
++		writer.commit().await.unwrap();
++		reader.set(Key::from(b"outside".as_slice()), b"decision".to_vec()).await.unwrap();
++		assert!(matches!(reader.commit().await, Err(Error::TransactionConflict(_))));
++	}
++
++	#[tokio::test]
++	async fn owned_reads_multi_order_conditionals_and_reverse_cursor() {
++		let ds = Datastore::new(MemoryConfig::default()).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		tx.set(Key::from(b"a".as_slice()), b"one".to_vec()).await.unwrap();
++		tx.set(Key::from(b"b".as_slice()), b"two".to_vec()).await.unwrap();
++		tx.commit().await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		let owned = tx.getu(Key::from(b"a".as_slice())).await.unwrap().unwrap();
++		let keys = [Key::from(b"b".as_slice()), Key::from(b"missing".as_slice()), Key::from(b"a".as_slice())];
++		let multi = tx.getm(&keys, None).await.unwrap();
++		assert_eq!(multi.values, vec![Some(b"two".to_vec()), None, Some(b"one".to_vec())]);
++		tx.new_save_point().await.unwrap();
++		tx.putc(Key::from(b"a".as_slice()), b"changed".to_vec(), Some(b"one".to_vec())).await.unwrap();
++		tx.rollback_to_save_point().await.unwrap();
++		tx.delc(Key::from(b"b".as_slice()), Some(b"two".as_slice())).await.unwrap();
++		let range = KeyRange { start: Key::from(b"a".as_slice()), end: Key::from(b"z".as_slice()) };
++		let rows = tx.scanr(range, 10, 0, None).await.unwrap();
++		assert_eq!(rows.values.len(), 1);
++		tx.commit().await.unwrap();
++		drop(tx);
++		drop(ds);
++		assert_eq!(owned, b"one".to_vec());
++	}
++
++	#[tokio::test]
++	async fn finite_age_releases_reader_and_memory_failure_is_not_conflict() {
++		let ds = Datastore::new(MemoryConfig { max_transaction_age: Duration::from_millis(1), ..Default::default() }).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		assert_eq!(ds.collect_u64_metric("surrealmx.active_readers"), Some(1));
++		tokio::time::sleep(Duration::from_millis(5)).await;
++		assert!(matches!(tx.get(Key::from(b"x".as_slice()), None).await, Err(Error::TransactionTooOld)));
++		assert_eq!(ds.collect_u64_metric("surrealmx.active_readers"), Some(0));
++		let ds = Datastore::new(MemoryConfig { memory_limit: 1, ..Default::default() }).await.unwrap();
++		let tx = ds.transaction(TransactionType::Write).await.unwrap();
++		tx.set(Key::from(b"key".as_slice()), vec![1; 4096]).await.unwrap();
++		assert!(matches!(tx.commit().await, Err(Error::MemoryLimit)));
++		let reader = ds.transaction(TransactionType::Read).await.unwrap();
++		assert_eq!(reader.get(Key::from(b"key".as_slice()), None).await.unwrap(), None);
++	}
++	#[tokio::test]
++	async fn invalid_persistent_snapshot_and_durability_refused_before_open() {
++		use surrealdb_cnf::ConfigMap;
++		for parameters in ["aol=sync&sync=every&snapshot=1s", "aol=never&sync=every&snapshot=60s", "aol=sync&sync=never&snapshot=60s"] {
++			let config = ConfigMap::from_config_string(parameters)
++				.with_key_value("persist", "/unopened-canonical-profile-control")
++				.map_keys(|key| format!("datastore_{key}"))
++				.load::<MemoryConfig>();
++			assert!(matches!(Datastore::new(config).await, Err(Error::Datastore(_))));
++		}
++	}
++
+ }
+diff --git a/surrealdb/kvs/src/err.rs b/surrealdb/kvs/src/err.rs
+index 52baf40..8385d7c 100644
+--- a/surrealdb/kvs/src/err.rs
++++ b/surrealdb/kvs/src/err.rs
+@@ -12,6 +12,16 @@ pub type Result<T> = std::result::Result<T, Error>;
+ #[allow(dead_code, reason = "Some variants are only used by specific KV stores")]
+ #[derive(Error, Debug)]
+ pub enum Error {
++	#[error("PSE_MX_MEMORY_LIMIT: finite resident allowance reached")]
++	MemoryLimit,
++	#[error("PSE_MX_TX_TOO_OLD: transaction snapshot exceeded its lifetime")]
++	TransactionTooOld,
++	#[error("PSE_MX_DATABASE_POISONED: {0}")]
++	DatabasePoisoned(String),
++	#[error("PSE_MX_ASYNC_QUEUE_FULL: finite persistence queue reached")]
++	AsyncQueueFull,
++	#[error("PSE_MX_CORRUPTED: {0}")]
++	DatastoreCorrupted(String),
+ 	/// There was a problem with the underlying datastore
+ 	#[error("There was a problem with the datastore: {0}")]
+ 	Datastore(String),
+diff --git a/surrealdb/server/src/ntw/grpc.rs b/surrealdb/server/src/ntw/grpc.rs
+index 4cde030..5776f12 100644
+--- a/surrealdb/server/src/ntw/grpc.rs
++++ b/surrealdb/server/src/ntw/grpc.rs
+@@ -69,6 +69,7 @@ pub fn router() -> Router<Arc<RpcState>> {
+ async fn handler(
+ 	Extension(state): Extension<AppState>,
+ 	Extension(session): Extension<Session>,
++	Extension(connection): Extension<Arc<super::owned_connection::ConnectionOwner>>,
+ 	State(rpc_state): State<Arc<RpcState>>,
+ 	request: Request,
+ ) -> Result<Response, NetError> {
+@@ -81,7 +82,7 @@ async fn handler(
+ 	// The service is built per request so it can carry that request's
+ 	// authenticated session, which is the principal the handler's ownership
+ 	// gate compares against the session a request names.
+-	let mut service = SurrealDbServiceServer::new(GrpcService::new(rpc_state, session))
++	let mut service = SurrealDbServiceServer::new(GrpcService::new(rpc_state, session).with_connection(connection))
+ 		// `Limits.max_message_bytes` is the largest message the server will
+ 		// "accept or emit", so both directions are bound to the same number
+ 		// the handshake reports. Bounding only the decode side would let the
+diff --git a/surrealdb/server/src/ntw/mod.rs b/surrealdb/server/src/ntw/mod.rs
+index 3eea81c..c021163 100644
+--- a/surrealdb/server/src/ntw/mod.rs
++++ b/surrealdb/server/src/ntw/mod.rs
+@@ -19,6 +19,7 @@ pub mod kvexport;
+ pub mod mcp;
+ pub(crate) mod memory_guard;
+ pub(crate) mod output;
++pub(crate) mod owned_connection;
+ mod params;
+ mod rate_limit;
+ mod ready;
+@@ -41,12 +42,12 @@ use std::sync::Arc;
+ use std::sync::atomic::AtomicBool;
+ use std::time::Duration;
+ 
++use self::owned_connection::OwnedAcceptor;
+ use anyhow::Result;
+ use axum::response::Redirect;
+ use axum::routing::get;
+ use axum::{Extension, Router, middleware};
+ use axum_server::Handle;
+-use axum_server::accept::NoDelayAcceptor;
+ use axum_server::tls_rustls::{RustlsAcceptor, RustlsConfig};
+ use http::header;
+ use surrealdb_core::CommunityComposer;
+@@ -800,6 +801,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 	surreal.spawn_notifications();
+ 
+ 	// Extract the router for serving
++	let connection_acceptor = OwnedAcceptor::new(Arc::clone(&surreal.rpc_state().grpc));
+ 	let axum_app = surreal.into_router();
+ 
+ 	// If a certificate and key are specified, then setup TLS
+@@ -807,7 +809,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 		// Configure certificate and private key used by https
+ 		let tls = RustlsConfig::from_pem_file(cert, key).await?;
+ 		// Disable Nagle's algorithm on the raw TCP stream before the TLS handshake
+-		let acceptor = RustlsAcceptor::new(tls).acceptor(NoDelayAcceptor::new());
++		let acceptor = RustlsAcceptor::new(tls).acceptor(connection_acceptor);
+ 		// Setup the Axum server with TLS
+ 		let server = axum_server::bind(opt.bind).acceptor(acceptor);
+ 		// Log the server startup to the CLI
+@@ -819,7 +821,7 @@ pub async fn init_with_metrics<F: RouterFactory>(
+ 			.await
+ 	} else {
+ 		// Setup the Axum server, disabling Nagle's algorithm on accepted connections
+-		let server = axum_server::bind(opt.bind).acceptor(NoDelayAcceptor::new());
++		let server = axum_server::bind(opt.bind).acceptor(connection_acceptor);
+ 		// Log the server startup to the CLI
+ 		info!(target: LOG, "Started web server on {}", &opt.bind);
+ 		// Start the server and listen for connections
+diff --git a/surrealdb/server/src/ntw/owned_connection.rs b/surrealdb/server/src/ntw/owned_connection.rs
+new file mode 100644
+index 0000000..b7c47fb
+--- /dev/null
++++ b/surrealdb/server/src/ntw/owned_connection.rs
+@@ -0,0 +1,110 @@
++//! Canonical sessions belong to an authentic accepted socket, including cleanup.
++
++use std::future::{Ready, ready};
++use std::io;
++use std::pin::Pin;
++use std::sync::Arc;
++use std::sync::atomic::{AtomicBool, Ordering};
++use std::task::{Context, Poll};
++
++use axum_server::accept::Accept;
++use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
++use tokio::net::TcpStream;
++use tokio::sync::{OwnedSemaphorePermit, Semaphore};
++use tower::Layer;
++use tower_http::add_extension::{AddExtension, AddExtensionLayer};
++use uuid::Uuid;
++
++use crate::cnf::GRPC_MAX_ATTACHED_SESSIONS;
++use crate::rpc::grpc::Grpc;
++
++/// Server-created identity; no request header can select or replace it.
++pub struct ConnectionOwner {
++	pub id: Uuid,
++	closed: AtomicBool,
++	rpc: Arc<Grpc>,
++	// Held through socket shutdown, request contexts, and native cleanup.
++	_permit: OwnedSemaphorePermit,
++}
++
++impl ConnectionOwner {
++	pub fn new(rpc: Arc<Grpc>, permit: OwnedSemaphorePermit) -> Arc<Self> {
++		Arc::new(Self {
++			id: Uuid::new_v4(), closed: AtomicBool::new(false), rpc, _permit: permit,
++		})
++	}
++
++	pub fn is_closed(&self) -> bool {
++		self.closed.load(Ordering::Acquire)
++	}
++
++	fn close(self: &Arc<Self>) {
++		if self.closed.swap(true, Ordering::AcqRel) { return; }
++		let owner = Arc::clone(self);
++		if let Ok(runtime) = tokio::runtime::Handle::try_current() {
++			runtime.spawn(async move {
++				owner.rpc.cleanup_connection(owner.id).await;
++			});
++		}
++	}
++}
++
++#[derive(Clone)]
++pub struct OwnedAcceptor {
++	rpc: Arc<Grpc>,
++	slots: Arc<Semaphore>,
++}
++
++impl OwnedAcceptor {
++	pub fn new(rpc: Arc<Grpc>) -> Self {
++		Self { rpc, slots: Arc::new(Semaphore::new(*GRPC_MAX_ATTACHED_SESSIONS)) }
++	}
++}
++
++impl<S> Accept<TcpStream, S> for OwnedAcceptor {
++	type Stream = OwnedStream;
++	type Service = AddExtension<S, Arc<ConnectionOwner>>;
++	type Future = Ready<io::Result<(Self::Stream, Self::Service)>>;
++
++	fn accept(&self, stream: TcpStream, service: S) -> Self::Future {
++		let permit = match Arc::clone(&self.slots).try_acquire_owned() {
++			Ok(permit) => permit,
++			Err(_) => return ready(Err(io::Error::other("Owned connection/cleanup capacity reached"))),
++		};
++		if let Err(error) = stream.set_nodelay(true) { return ready(Err(error)); }
++		let owner = ConnectionOwner::new(Arc::clone(&self.rpc), permit);
++		let service = AddExtensionLayer::new(Arc::clone(&owner)).layer(service);
++		ready(Ok((OwnedStream { inner: stream, owner }, service)))
++	}
++}
++
++pub struct OwnedStream {
++	inner: TcpStream,
++	owner: Arc<ConnectionOwner>,
++}
++
++impl Drop for OwnedStream {
++	fn drop(&mut self) { self.owner.close(); }
++}
++
++impl AsyncRead for OwnedStream {
++	fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_read(cx, buf)
++	}
++}
++
++impl AsyncWrite for OwnedStream {
++	fn poll_write(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
++		Pin::new(&mut self.inner).poll_write(cx, buf)
++	}
++	fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_flush(cx)
++	}
++	fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
++		Pin::new(&mut self.inner).poll_shutdown(cx)
++	}
++	fn is_write_vectored(&self) -> bool { self.inner.is_write_vectored() }
++	fn poll_write_vectored(mut self: Pin<&mut Self>, cx: &mut Context<'_>, bufs: &[io::IoSlice<'_>]) -> Poll<io::Result<usize>> {
++		Pin::new(&mut self.inner).poll_write_vectored(cx, bufs)
++	}
++}
+diff --git a/surrealdb/server/src/rpc/grpc.rs b/surrealdb/server/src/rpc/grpc.rs
+index 6ca8b75..6eddad6 100644
+--- a/surrealdb/server/src/rpc/grpc.rs
++++ b/surrealdb/server/src/rpc/grpc.rs
+@@ -73,7 +73,7 @@ use surrealdb_types::{
+ 	Array, Error as TypesError, ErrorDetails as TypesErrorDetails, HashMap, Notification,
+ 	QueryError, SurrealValue, Value,
+ };
+-use tokio::sync::{RwLock, mpsc};
++use tokio::sync::{RwLock, mpsc, Semaphore, OwnedSemaphorePermit};
+ use tonic::{Request, Response, Status};
+ use uuid::Uuid;
+ use web_time::Instant;
+@@ -294,6 +294,9 @@ pub struct Grpc {
+ 	/// Sessions attached by `AttachSession`, plus the ephemeral ones minted
+ 	/// for requests that name no session.
+ 	sessions: HashMap<Uuid, Arc<RwLock<Session>>>,
++	connection_owners: DashMap<Uuid, Uuid>,
++	attached_slots: Arc<Semaphore>,
++	session_slots: DashMap<Uuid, OwnedSemaphorePermit>,
+ 	/// The subset of `sessions` created by the transport for a single
+ 	/// request. Tracked so they can never be targeted across requests.
+ 	ephemeral_sessions: HashMap<Uuid, ()>,
+@@ -337,6 +340,9 @@ impl Grpc {
+ 		Self {
+ 			kvs,
+ 			sessions: HashMap::new(),
++			connection_owners: DashMap::new(),
++			attached_slots: Arc::new(Semaphore::new(*GRPC_MAX_ATTACHED_SESSIONS)),
++			session_slots: DashMap::new(),
+ 			ephemeral_sessions: HashMap::new(),
+ 			transactions: DashMap::new(),
+ 			transaction_counts: DashMap::new(),
+@@ -346,6 +352,17 @@ impl Grpc {
+ 		}
+ 	}
+ 
++	/// Reclaim only sessions minted on this accepted physical connection.
++	pub(crate) async fn cleanup_connection(&self, connection: Uuid) {
++		let sessions: Vec<Uuid> = self.connection_owners.iter()
++			.filter(|entry| *entry.value() == connection).map(|entry| *entry.key()).collect();
++		for session in sessions {
++			if let Err(error) = self.del_session(&session).await {
++				warn!("Owned gRPC session cleanup failed: {error}");
++			}
++		}
++	}
++
+ 	/// Registers a session created by the transport for a single request.
+ 	///
+ 	/// The ephemeral marker is inserted *before* the session itself so a
+@@ -356,12 +373,6 @@ impl Grpc {
+ 		self.sessions.insert(id, session);
+ 	}
+ 
+-	/// How many sessions clients hold open, which is what
+-	/// [`GRPC_MAX_ATTACHED_SESSIONS`] caps.
+-	fn attached_session_count(&self) -> usize {
+-		self.sessions.len().saturating_sub(self.ephemeral_sessions.len())
+-	}
+-
+ 	/// Drops a request's ephemeral session and anything it left behind.
+ 	async fn remove_ephemeral_session(&self, id: &Uuid) {
+ 		self.sessions.remove(id);
+@@ -686,6 +697,16 @@ impl Grpc {
+ }
+ 
+ impl RpcProtocol for Grpc {
++	async fn del_session(&self, id: &Uuid) -> Result<(), TypesError> {
++		self.sessions.remove(id);
++		self.connection_owners.remove(id);
++		self.cleanup_lqs(id).await;
++		self.cleanup_txns(id).await;
++		// Capacity remains charged until native cleanup has actually completed.
++		self.session_slots.remove(id);
++		Ok(())
++	}
++
+ 	fn kvs(&self) -> &Datastore {
+ 		&self.kvs
+ 	}
+@@ -717,12 +738,11 @@ impl RpcProtocol for Grpc {
+ 		if self.sessions.contains_key(&session_id) {
+ 			return Err(session_exists(session_id));
+ 		}
+-		// Ephemeral sessions are transient and belong to a request that is
+-		// still running, so they do not count against the cap on how many
+-		// sessions clients may hold open.
+-		if self.attached_session_count() >= *GRPC_MAX_ATTACHED_SESSIONS {
+-			return Err(method_not_allowed(Method::Attach.to_string()));
+-		}
++		// Reserve before insert so concurrent accepted connections cannot
++		// overshoot a len-check cap. Ephemeral request sessions use no slot.
++		let permit = Arc::clone(&self.attached_slots).try_acquire_owned()
++			.map_err(|_| method_not_allowed(Method::Attach.to_string()))?;
++		self.session_slots.insert(session_id, permit);
+ 		let mut session = Session::default().with_rt(Self::LQ_SUPPORT);
+ 		session.id = Some(session_id);
+ 		self.sessions.insert(session_id, Arc::new(RwLock::new(session)));
+@@ -937,6 +957,7 @@ pub struct GrpcService {
+ 	/// The caller's request-level session, as resolved from this request's
+ 	/// headers by the auth middleware.
+ 	caller: Session,
++	connection: Option<Arc<crate::ntw::owned_connection::ConnectionOwner>>,
+ }
+ 
+ impl GrpcService {
+@@ -944,6 +965,20 @@ impl GrpcService {
+ 		Self {
+ 			state,
+ 			caller,
++			connection: None,
++		}
++	}
++
++	pub(crate) fn with_connection(mut self, connection: Arc<crate::ntw::owned_connection::ConnectionOwner>) -> Self {
++		self.connection = Some(connection);
++		self
++	}
++
++	fn verify_connection(&self, session: Uuid) -> Result<(), Status> {
++		match &self.connection {
++			Some(connection) if !connection.is_closed() && self.rpc().connection_owners.get(&session).is_some_and(|owner| *owner == connection.id) => Ok(()),
++			None if cfg!(test) => Ok(()),
++			_ => Err(to_status(&session_not_found(session))),
+ 		}
+ 	}
+ 
+@@ -976,6 +1011,7 @@ impl GrpcService {
+ 			Some(session) => {
+ 				let id = to_uuid(session)?;
+ 				if gate {
++					self.verify_connection(id)?;
+ 					self.rpc()
+ 						.verify_caller_for_session(&id, self.caller.au.as_ref())
+ 						.await
+@@ -1136,6 +1172,7 @@ impl SurrealDbService for GrpcService {
+ 		// and authentication are still in effect.
+ 		if let Some(session) = context.as_ref().and_then(|context| context.session.as_ref()) {
+ 			let id = to_uuid(session)?;
++			self.verify_connection(id)?;
+ 			// A named session is only ever adopted, never created. Creating
+ 			// one here would let a caller choose its own id, and an id a
+ 			// caller can choose is one it can squat, or pre-create so that it
+@@ -1157,7 +1194,19 @@ impl SurrealDbService for GrpcService {
+ 			transaction: None,
+ 			timeout: context.and_then(|context| context.timeout),
+ 		};
++		if self.connection.is_none() && !cfg!(test) {
++			return Err(Status::internal("Accepted connection owner missing"));
++		}
+ 		self.execute(Some(&context), Method::Attach, Array::new()).await?;
++		if let Some(connection) = &self.connection {
++			self.rpc().connection_owners.insert(id, connection.id);
++			// Close attach/disconnect: either the sweep sees the binding or
++			// the just-attached request observes its already closed socket.
++			if connection.is_closed() {
++				let _ = self.rpc().del_session(&id).await;
++				return Err(Status::unavailable("Accepted connection is closed"));
++			}
++		}
+ 		Ok(Response::new(checked_response(rpc::AttachSessionResponse {
+ 			session: Some(proto::Uuid::from_uuid(id)),
+ 			created: true,
+@@ -3282,17 +3331,9 @@ fn proto_error(error: &TypesError) -> proto::SurrealError {
+ 	out
+ }
+ 
+-/// Maps an error onto the gRPC status that terminates a unary call.
+-///
+-/// A status carries a code and a message but no structured error, so the
+-/// reason and the retry hint an [`Error`](TypesError) holds survive only where
+-/// the protocol has a frame to put them in -- a query batch, or a stream's
+-/// error frame. A `BEGIN ... COMMIT` block inside a query reports its conflict
+-/// on the failing statement, and so keeps both; the standalone
+-/// `CommitTransaction` RPC has an empty response message and can only fail as a
+-/// status, so a conflict there reaches the client as `ABORTED` and its message.
+-/// The codes chosen here are the ones the SDK's engine maps back onto the
+-/// matching error kind.
++/// Unary calls preserve the same native error taxonomy as streamed queries.
++/// The binary metadata is bounded independently of the human-readable message;
++/// clients must validate its encoded and decoded envelopes before allocation.
+ /// The most bytes of message a gRPC status carries.
+ ///
+ /// A status travels as the `grpc-message` trailer, so what bounds it is the
+@@ -3320,8 +3361,12 @@ fn bounded_status_message(message: &str) -> String {
+ }
+ 
+ fn to_status(error: &TypesError) -> Status {
++	use surrealdb_types::prost::Message;
+ 	let message = bounded_status_message(error.message());
+-	if error.is_validation() {
++	let mut structured = proto_error(error);
++	structured.message = message.clone();
++	let payload = bounded_error(structured, 8 << 10).encode_to_vec();
++	let mut status = if error.is_validation() {
+ 		Status::invalid_argument(message)
+ 	} else if error.is_configuration() {
+ 		Status::unimplemented(message)
+@@ -3337,7 +3382,12 @@ fn to_status(error: &TypesError) -> Status {
+ 		Status::unavailable(message)
+ 	} else {
+ 		Status::internal(message)
+-	}
++	};
++	status.metadata_mut().insert_bin(
++		"surreal-error-bin",
++		tonic::metadata::MetadataValue::from_bytes(&payload),
++	);
++	status
+ }
+ 
+ /// The status reporting the statements an import could not apply, or `None`
+@@ -4966,3 +5016,35 @@ mod tests {
+ 		assert!(verify_trailer(&wrong, 5, digest).is_err());
+ 	}
+ }
++
++
++#[cfg(test)]
++mod canonical_status_tests {
++    use super::*;
++    use surrealdb_types::{QueryError, prost::Message};
++
++    #[test]
++    fn unary_conflict_keeps_native_details_in_bounded_metadata() {
++        let native = TypesError::query("conflict".to_string(), QueryError::TransactionConflict);
++        let status = to_status(&native);
++        assert_eq!(status.code(), tonic::Code::Aborted);
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(bytes.len() <= 8 << 10);
++        let decoded = proto::SurrealError::decode(bytes).unwrap();
++        assert_eq!(decoded.detail_kind(), Some("TransactionConflict"));
++        assert!(decoded.is_retryable());
++    }
++
++    #[test]
++    fn long_unary_message_keeps_conflict_details_and_internal_stays_nonretryable() {
++        let native = TypesError::query("a".repeat(64 << 10), QueryError::TransactionConflict);
++        let status = to_status(&native);
++        assert!(status.message().len() <= STATUS_MESSAGE_BYTES);
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(bytes.len() <= 8 << 10);
++        assert!(proto::SurrealError::decode(bytes).unwrap().is_retryable());
++        let status = to_status(&TypesError::internal("native failure".to_string()));
++        let bytes = status.metadata().get_bin("surreal-error-bin").unwrap().to_bytes().unwrap();
++        assert!(!proto::SurrealError::decode(bytes).unwrap().is_retryable());
++    }
++}

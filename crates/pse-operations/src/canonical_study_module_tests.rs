@@ -20,30 +20,27 @@ mod surrealism_qualification {
                 .expect("explicit separate qualification receipt required");
             let config: serde_json::Value =
                 serde_json::from_slice(&std::fs::read(state.join("config.json")).unwrap()).unwrap();
-            let limits = &config["study_module_qualification"]["limits"];
-            let memory = limits["max_memory_bytes"].as_u64().unwrap();
-            let server = config["resources"]["server_memory_bytes"].as_u64().unwrap();
+            let controllers = config["study_module_qualification_controllers"]
+                .as_u64()
+                .expect("explicit process-wide controller limit");
             Self {
+                pool: usize::try_from(receipt.limits.max_pool_size).unwrap(),
+                controllers: usize::try_from(controllers).unwrap(),
+                execution_time: Duration::from_millis(receipt.limits.max_execution_time_ms),
                 receipt,
-                pool: usize::try_from(limits["max_pool_size"].as_u64().unwrap()).unwrap(),
-                controllers: usize::try_from(server / 8 / memory).unwrap(),
-                execution_time: Duration::from_millis(
-                    limits["max_execution_time_ms"].as_u64().unwrap(),
-                ),
             }
         }
         fn module(index: usize) -> String {
             format!("pse_qualification_{index}")
         }
         async fn install(&self, store: &CanonicalStore, index: usize) {
-            // Distinct buckets, rather than module aliases, create distinct native
-            // runtime/cache identities for the exact same authenticated bytes.
+            // Distinct buckets exercise separate source lookups for one verified manifest.
             let bucket = format!("{}_qualification_{index}", self.receipt.bucket());
             let module = Self::module(index);
-            bounded_query(store.db.query(format!("DEFINE BUCKET {bucket} READONLY BACKEND $backend PERMISSIONS NONE; DEFINE MODULE mod::{module} FROM f\"{bucket}:/study.surli\" UNSIGNED PERMISSIONS FULL;"))
-                .bind(("backend",self.receipt.backend().unwrap()))).await.unwrap();
-            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.modules.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused','qualification::hold']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
-                .bind(("name",module)).bind(("bucket",bucket))).await.unwrap();
+            bounded_query(store.db.query(self.receipt.extension_declarations(&bucket, &module, false))
+                .bind(("study_module_backend",self.receipt.backend().unwrap()))).await.unwrap();
+            let mut response=bounded_query(store.db.query("LET $info=INFO FOR DB STRUCTURE; LET $module=($info.extensions.filter(|$row|$row.name=$name))[0]; RETURN $module.unsigned=true AND $module.digest=$study_module_manifest_digest AND $module.executable.type='surrealism' AND $module.executable.bucket=$bucket AND $module.executable.key='/study.surli' AND array::sort($module.exports.name)=array::sort(['study::readiness','qualification::trap','qualification::busy','qualification::memory_refused','qualification::hold']) AND array::len($module.exports.filter(|$export|$export.writeable))=0;")
+                .bind(("name",module)).bind(("bucket",bucket)).bind(("study_module_manifest_digest", self.receipt.manifest_digest()))).await.unwrap();
             let index = response.num_statements().saturating_sub(1);
             assert_eq!(
                 response.take::<Option<bool>>(index).unwrap(),
@@ -53,7 +50,7 @@ mod surrealism_qualification {
         }
         async fn memory_refused(&self, store: &CanonicalStore, index: usize) {
             let mut response = bounded_query(store.db.query(format!(
-                "RETURN mod::{}::qualification::memory_refused();",
+                "RETURN ext::{}::qualification::memory_refused();",
                 Self::module(index)
             )))
             .await
@@ -67,7 +64,7 @@ mod surrealism_qualification {
     }
     fn rollback_query(index: usize, export: &str) -> String {
         format!(
-            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; RETURN mod::{}::qualification::{export}(); ",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; RETURN ext::{}::qualification::{export}(); ",
             Qualification::module(index)
         )
     }
@@ -140,7 +137,7 @@ mod surrealism_qualification {
     }
     fn hold_query(index: usize) -> String {
         format!(
-            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false RETURN NONE; RETURN mod::{}::qualification::hold(); ",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false RETURN NONE; RETURN ext::{}::qualification::hold(); ",
             Qualification::module(index)
         )
     }
@@ -175,7 +172,7 @@ mod surrealism_qualification {
                 start.wait().await;
                 HoldInterval::decoded(
                     bounded_query(peer.db.query(format!(
-                        "RETURN mod::{}::qualification::hold();",
+                        "RETURN ext::{}::qualification::hold();",
                         Qualification::module(index)
                     )))
                     .await
@@ -245,7 +242,7 @@ mod surrealism_qualification {
             qualification.memory_refused(&store, 0).await;
         }
         let query = format!(
-            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; LET $refused=mod::{}::qualification::memory_refused(); IF $refused {{ THROW 'PSE_REFUSAL:study_readiness_policy_refused'; }}; RETURN $refused; ",
+            "UPDATE ONLY type::record('canonical_study_readiness',$point) SET eligible=false; LET $refused=ext::{}::qualification::memory_refused(); IF $refused {{ THROW 'PSE_REFUSAL:study_readiness_policy_refused'; }}; RETURN $refused; ",
             Qualification::module(0)
         );
         let result = bounded_query(store.db.query(query).bind(("point", point))).await;
@@ -259,6 +256,11 @@ mod surrealism_qualification {
         let study = "qualification-pool";
         let qualification = Qualification::selected(&store);
         assert_eq!(qualification.pool, 4);
+        assert_eq!(
+            qualification.controllers,
+            qualification.pool,
+            "select an explicit four-controller qualification service for this deadline control"
+        );
         let count = qualification.pool + 1;
         let points = (0..count)
             .map(|key| occurrence(&revision, u32::try_from(key).unwrap(), vec![]))
@@ -325,8 +327,15 @@ mod surrealism_qualification {
             "actual successful guest intervals must certify all four slots occupied through the fifth call's original expiry: {intervals:?}"
         );
         assert!(
-            expired.is_err(),
-            "the occupied pool cannot give an expired call a fresh budget"
+            matches!(
+                expired,
+                Err(CanonicalError::Timeout)
+                    | Err(CanonicalError::Refused {
+                        code: pse_schema::catalog::canonical_refusals::RefusalCode::SurrealismControllerCapacityExceeded,
+                        ..
+                    })
+            ),
+            "the occupied pool must refuse admission or exhaust the original deadline"
         );
         let mut committed = vec![true; qualification.pool];
         committed.push(false);
@@ -360,9 +369,9 @@ mod surrealism_qualification {
         let delayed = original
             .replacen("DEFINE FUNCTION ", "DEFINE FUNCTION OVERWRITE ", 1)
             .replacen(
-                "    RETURN mod::pse::study::readiness",
+                "    RETURN ext::pse::study::readiness",
                 &format!(
-                    "    mod::{}::qualification::hold();\n    RETURN mod::pse::study::readiness",
+                    "    ext::{}::qualification::hold();\n    RETURN ext::pse::study::readiness",
                     Qualification::module(0)
                 ),
                 1,
@@ -466,7 +475,7 @@ mod surrealism_qualification {
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
-    async fn canonical_studies_surrealism_qualification_global_capacity_survives_cache_eviction() {
+    async fn canonical_studies_surrealism_qualification_global_capacity_survives_source_churn() {
         let (store, _, revision) = fixture().await;
         let study = "qualification-global";
         let qualification = Qualification::selected(&store);
@@ -543,7 +552,7 @@ mod surrealism_qualification {
             match result {
                 Ok(response)=>{committed[ordinal]=true;intervals.push((ordinal,HoldInterval::decoded(response)));},
                 Err(CanonicalError::Refused{code:pse_schema::catalog::canonical_refusals::RefusalCode::SurrealismControllerCapacityExceeded,..})=>{
-                    assert_eq!(ordinal,qualification.controllers,"only the extra cold runtime may encounter the saturated process budget");
+                    assert_eq!(ordinal,qualification.controllers,"only the extra source call may encounter the saturated process budget");
                     assert!(refusal_received.replace(received).is_none(),"one exact extra acquisition is under qualification");
                 },
                 Err(error)=>panic!("unexpected native controller outcome for {ordinal}: {error}"),

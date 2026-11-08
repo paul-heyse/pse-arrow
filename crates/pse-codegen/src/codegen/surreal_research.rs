@@ -30,8 +30,8 @@ DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation
     IF bytes::len($row.members)>131072 OR bytes::len($row.request)>262144 {THROW 'PSE_REFUSAL:research_bound';};
     IF $row.role NOT IN ['raw','curated','derived'] {THROW 'PSE_REFUSAL:research_context_differs';};
     IF $row.parent!=NONE {
-        LET $parent=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.parent);
-        IF $parent=NONE OR $parent.project!=$row.project OR $parent.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
+        LET $dataset_parent=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.parent);
+        IF $dataset_parent=NONE OR $dataset_parent.project!=$row.project OR $dataset_parent.physical_context!=$row.physical_context {THROW 'PSE_REFUSAL:research_context_differs';};
     } ELSE { IF $row.role!='raw' {THROW 'PSE_REFUSAL:research_context_differs';}; };
     RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
 };

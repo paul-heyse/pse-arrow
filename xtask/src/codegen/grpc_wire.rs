@@ -32,8 +32,8 @@ pub(super) fn append(root: &Path, tree: &mut GeneratedTree) -> Result<()> {
         .iter()
         .find(|p| p["name"] == "surrealdb-protocol")
         .context("resolved protocol package")?;
-    if protocol["version"] != "0.13.1" {
-        bail!("borrowed wire generator requires reviewed protocol 0.13.1");
+    if protocol["version"] != "0.14.1" {
+        bail!("borrowed wire generator requires reviewed protocol 0.14.1");
     }
     let manifest = protocol["manifest_path"]
         .as_str()
@@ -125,7 +125,7 @@ fn insert_field(
         .iter()
         .any(|k| field.flags.contains(*k))
     {
-        bail!("Pinned wire schema gained fixed32; extend the borrowed validator")
+        "Fixed32".into()
     } else if field.values.contains_key("map") || field.values.contains_key("btree_map") {
         bail!("Pinned wire schema gained a map; extend the borrowed validator")
     } else {
@@ -241,7 +241,7 @@ fn render(source: &Path) -> Result<String> {
         )?;
     }
     let mut output = String::from(
-        "//! Pinned protocol 0.13.1 borrowed wire shapes.\nuse super::wire::Kind;\nuse Kind::*;\npub(super) fn field(message: &str, tag: u32) -> Option<(Kind, bool)> {\nSome(match (message, tag) {\n",
+        "//! Pinned protocol 0.14.1 borrowed wire shapes.\nuse super::wire::Kind;\nuse Kind::*;\npub(super) fn field(message: &str, tag: u32) -> Option<(Kind, bool)> {\nSome(match (message, tag) {\n",
     );
     for (name, fields) in fields {
         for (tag, (kind, repeated)) in fields {
@@ -285,15 +285,14 @@ mod tests {
         assert_eq!(found["Value"][&3], ("Varint".into(), false));
         assert_eq!(found["Record"][&1], ("Blob".into(), false));
         let mut changed = WireFields::new();
-        assert!(
-            messages(
-                &syn::parse_file("pub struct New { #[prost(float,tag=\"1\")] pub x:f32 }")
-                    .unwrap()
-                    .items,
-                &mut changed
-            )
-            .is_err()
-        );
+        messages(
+            &syn::parse_file("pub struct New { #[prost(float,tag=\"1\")] pub x:f32 }")
+                .unwrap()
+                .items,
+            &mut changed,
+        )
+        .unwrap();
+        assert_eq!(changed["New"][&1], ("Fixed32".into(), false));
     }
     #[test]
     fn rpc_ast_finds_streamed_response_but_ignores_comments() {

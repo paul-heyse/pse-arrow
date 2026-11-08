@@ -21,7 +21,7 @@ use surrealdb_types::ToSql as _;
 pub struct CanonicalExpressionParseError {
     input: Arc<str>,
     #[source]
-    source: surrealdb_syn::ParseError,
+    source: surrealdb_expr::parser::ParseError,
 }
 impl CanonicalExpressionParseError {
     /// Exact original input, never a substituted rendered diagnostic.
@@ -29,7 +29,7 @@ impl CanonicalExpressionParseError {
         &self.input
     }
     /// Original typed SurrealDB parser cause.
-    pub fn parse_error(&self) -> &surrealdb_syn::ParseError {
+    pub fn parse_error(&self) -> &surrealdb_expr::parser::ParseError {
         &self.source
     }
 }
@@ -47,12 +47,12 @@ pse_diagnostics::impl_diagnostic! {CanonicalExpressionParseError,
 
 /// A complete inert SurrealQL expression; parsing grants no execution or context validity.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CanonicalExpression(surrealdb_sql::Expr);
+pub struct CanonicalExpression(surrealdb_expr::expr::Expr);
 impl CanonicalExpression {
     fn parse(input: &str, path: &str, facet: &'static str) -> Result<Self, SchemaError> {
-        // Exact 3.3.4 entry parses field-definition context and assert_finished:
-        // https://docs.rs/surrealdb-syn/3.3.4/src/surrealdb_syn/lib.rs.html
-        surrealdb_syn::expr_for_definition(input)
+        // The v4 stored-definition entry parses field context, requires complete input,
+        // and prepares credential expressions for canonical catalog comparison.
+        surrealdb_expr::parser::expr_for_definition(input)
             .map(Self)
             .map_err(|source| SchemaError::CanonicalExpression {
                 context: path.into(),
@@ -68,7 +68,7 @@ impl CanonicalExpression {
         self.0.to_sql()
     }
     /// Parsed native syntax; datastore, type, capability and variable context remain separate.
-    pub fn expression(&self) -> &surrealdb_sql::Expr {
+    pub fn expression(&self) -> &surrealdb_expr::expr::Expr {
         &self.0
     }
 }
@@ -305,15 +305,16 @@ mod tests {
         let assertion = policy.assertion.unwrap();
         assert_eq!(
             assertion.expression(),
-            &surrealdb_syn::expr_for_definition("$value > 0").unwrap()
+            &surrealdb_expr::parser::expr_for_definition("$value > 0").unwrap()
         );
         assert_eq!(
-            surrealdb_syn::expr_for_definition(&assertion.canonical()).unwrap(),
+            surrealdb_expr::parser::expr_for_definition(&assertion.canonical()).unwrap(),
             *assertion.expression()
         );
         assert_eq!(
-            surrealdb_syn::expr_for_definition(&policy.default.unwrap().canonical()).unwrap(),
-            surrealdb_syn::expr_for_definition("1+2").unwrap(),
+            surrealdb_expr::parser::expr_for_definition(&policy.default.unwrap().canonical())
+                .unwrap(),
+            surrealdb_expr::parser::expr_for_definition("1+2").unwrap(),
             "formatting does not evaluate the expression"
         );
     }
@@ -345,13 +346,13 @@ mod tests {
                 assert_eq!(source.input(), input);
                 assert!(matches!(
                     source.parse_error(),
-                    surrealdb_syn::ParseError::InvalidQuery(_)
+                    surrealdb_expr::parser::ParseError::InvalidQuery(_)
                 ));
                 assert!(
                     source
                         .source()
                         .unwrap()
-                        .downcast_ref::<surrealdb_syn::ParseError>()
+                        .downcast_ref::<surrealdb_expr::parser::ParseError>()
                         .is_some()
                 );
                 assert_eq!(

@@ -164,13 +164,14 @@ object_store = "=0.13.2"
 
 # ---- runtime ----
 # Exact server parser/AST, only selected by maintenance catalog validation.
-surrealdb-protocol = { version = "=0.13.1", default-features = false, features = [
+surrealdb-protocol = { version = "=0.14.1", default-features = false, features = [
   "flatbuffers",
 ] }
-surrealism = "=0.6.4"
-surrealdb-types = { version = "=3.3.4", features = ["proto"] }
-surrealdb-syn = "=3.3.4"
-surrealdb-sql = "=3.3.4"
+surrealism = "=0.7.0"
+surrealdb-types = { version = "=4.0.0", features = ["proto"] }
+surrealdb-expr = { version = "=4.0.0", default-features = false }
+surrealdb-parser-next = "=4.0.0"
+zstd = { version = "=0.13.3", default-features = false }
 zbus = { version = "=6.1.0", default-features = false, features = [
   "tokio",
   "proxy",
@@ -237,7 +238,7 @@ miette = { version = "=7.6.0", features = ["fancy-no-syscall"] }
 serde = { version = "=1.0.229", features = ["derive", "rc"] }
 # Manifest and extension-metadata JSON only (blueprint §4.3): never a hash input, never
 # relation data. Identity framing lives in pse-ids (blueprint §5.3).
-serde_json = { version = "=1.0.151", features = ["float_roundtrip"] }
+serde_json = { version = "=1.0.154", features = ["float_roundtrip"] }
 serde_path_to_error = "=0.1.20"
 # JSON Schema (draft 2020-12) of the Rust-owned boundary documents, derived from their
 # serde types; the generator publishes native input/output schemas from them
@@ -429,7 +430,7 @@ petgraph = { version = "=0.8.3", default-features = false, features = [
 blake3 = "=1.8.7"
 # `explicit`-policy entity IDs, minted by `pse authoring assign-ids` only; P1 never
 # mints one (blueprint §5.1).
-uuid = { version = "=1.27.0", features = ["v7"] }
+uuid = { version = "=1.28.0", features = ["v7"] }
 
 
 # ---- optional providers enter here WITH their consumer crate (blueprint §9.8, §13.6,
@@ -664,7 +665,7 @@ dependencies = [
 ]
 
 [workspace.metadata.pse.tool-dependencies]
-surrealdb = { version = "=3.3.4", default-features = false, features = [
+surrealdb = { version = "=4.0.0", default-features = false, features = [
   "protocol-grpc",
   "rustls",
 ] }
@@ -750,7 +751,7 @@ object_store = { version = "0.13.2", crates = ["object_store"] }
 unicode-properties = "The isolated ra_ap 0.0.358 native analysis world requires Unicode 17 tables; 0.1.5 supplies Unicode 18 and fails the analyzer's const alignment checks. Revisit with a coherent analyzer family update and the native source/type/reference controls."
 unicode-ident = "Native ra_ap 0.0.358 Unicode alignment companion to unicode-properties; revisit that family together."
 rustdoc-types = "Decodes rustdoc JSON format 61 emitted by nightly-2026-09-29. Revisit together with the pinned toolchain or an observed rustdoc format change; reject unknown formats before typed decoding."
-surrealdb-types = "The bounded canonical client consumes the public but doc-hidden Error::from_wire proto error constructor at 3.3.4. Revisit on a released supported protobuf-error conversion or protocol/server move; preserve typed causes, details, cardinality and substantive-error selection controls."
+surrealdb-types = "The bounded canonical client consumes the public but doc-hidden Error::from_wire proto error constructor at 4.0.0. Revisit on a released supported protobuf-error conversion; preserve typed causes, details, cardinality and substantive-error selection controls."
 symbolica = "Maintained 3.0.1 bounded exact-root APIs and certified proof conversion; Dualizer expansion, C++ export, build-time abort and remaining global root-cache couplings are release-specific. Numerica Rational::to_f64 double rounds some literals; the three general map_coeff paths retain their existing non-RNE numerical realization. Revisit on supplier/API change or a consumer requiring certified rounding, with exact-source and scientific controls. See vendor/symbolica-bounded-roots.md."
 faer = "Maintained nonfused 0.24.4 kernel realization and companion faer-traits source; update and qualify together, revisiting only with complete consumed dispatch and generated-code controls. See vendor/faer-arithmetic.md."
 levenberg-marquardt = "Exact nalgebra 0.35 compatibility commit; release 0.15 algorithm/API unchanged; revisit when a release carries this family update."

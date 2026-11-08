@@ -1,6 +1,6 @@
 ---
 title: "Plan68a: SurrealDB v4 supplier, runtime and extension"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -184,12 +184,16 @@ busy guest and cold-path timeout.
 
 ## Patch decisions and revealing controls
 
-The preparation owner records the final ordered patch set. Delete an
-old patch with its replaced tests only when the specified v4 control
-establishes equivalent behavior. A failed equivalence control keeps
-the narrow adapted behavior in the v4 source build or blocks private
-qualification when a conforming port is unavailable.
-[Current patch inventory](../../scripts/surrealdb-source/source-build.md)
+The preparation owner records the final ordered patch set. The following
+names identify the superseded v3 inputs in the frozen rollback source.
+Use the existing tests on the private v4 candidate first. The table
+identifies the behavior each disposition must preserve. Existing assertions that
+distinguish that behavior satisfy the row. Add a focused case for a
+changed, consumed contract only when current tests miss the regression.
+A failed test keeps the narrow adapted behavior in the v4 source build
+or blocks private qualification when a conforming port is unavailable.
+[Current patch inventory](../../scripts/surrealdb-source/source-build.md) ·
+[Frozen v3 source inputs](https://github.com/paul-heyse/pse-arrow/tree/9e301a03dd57d46c0d1e8a4c8135ae9369b9acf1/scripts/surrealdb-source)
 
 | Current input | Proposed v4 disposition and acceptance |
 | --- | --- |
@@ -200,8 +204,8 @@ qualification when a conforming port is unavailable.
 | `grpc-session-admission.patch` | Retain atomic global reservation and charge until native cleanup. Test racing connections at the last slot and a deliberately held cleanup. |
 | `grpc-status-details.patch` | Preserve `surreal-error-bin` structured error metadata with its existing 8 KiB bound. Check explicit commit conflict, oversized text and ordinary nonretryable failure against 68b. |
 | `api-failure-rollback.patch` | Keep enclosing-transaction poisoning until actual earlier writes roll back on handler-expression failure. Independently exercise intentional API responses and actor refusal. |
-| `diskann-0.56.0.patch` | Retire the v3 archive and call-site adaptation after the tag's lock-resolved `surrealdb-diskann` 0.61.0 family builds with the selected toolchain. No vector feature adoption follows. |
-| `pinned-compiler.patch` | Try the exact tagged build with the pinned nightly. Retire obsolete hunks and carry only reproduced compatibility fixes under exact pins and the same unwind policy. |
+| `diskann-0.56.0.patch` | The pinned nightly reproduced the generic `Arc<B>: Batch` compile failure with 0.61.0. Keep the one-line call-site adaptation on the checksum-verified 0.61.0 archive and preserve the other tagged lock entries. |
+| `surrealdb-v4-pinned-compiler.patch` | Give the pinned compiler more recursion headroom and erase the VM's concrete `Send` futures and streams before pinning their existing boxes. The compiler uses the ordinary box unsizing path. The heap-backed nested-evaluation driver and its settlement semantics stay in place. |
 | `surrealism-locked-build.patch` | Move locked Cargo metadata and build enforcement to the actual separate builder invocation. Refuse changes to Cargo configuration and lock during guest build. |
 | `surrealism-build-features.patch` | Preserve explicit feature forwarding. Prove production, qualification and long-hold artifacts have their exact intended exports, limits and distinct receipts. |
 | `surrealism-global-controllers.patch` | Use tagged pooling where qualified, retaining stricter process-wide fail-fast physical admission. Exercise simultaneous cold/warm calls and refusal until actual slot release. |
@@ -212,10 +216,10 @@ qualification when a conforming port is unavailable.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| A01 | planned | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
-| A02 | planned | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
-| A03 | planned | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
-| A04 | planned | A02 and A03 tested replacements, actual consumers identified | Final source patch ledger removes superseded integrations with their consumers and tests. Deliver exact receipts and selected native test evidence to 68e. |
+| A01 | complete privately | Plan67 handoff, Plan68 decision route, exact tag and pinned toolchain | Explicit source preparation and matching release import select one verified executable pair. Corruption, incomplete input and interruption preserve the previous selection. |
+| A02 | in progress | A01 source and build recipe, B's agreed wire and API contract | Patched v4 private service proves canonical write isolation, persistent durability and runtime bounds. Plain/TLS session ownership, cap reservation, typed errors and API rollback pass paired controls. |
+| A03 | in progress | A01 prepared builder, A02 runtime capabilities, B01 emitted definitions and witness contract | Pure ABI 4 readiness builds, installs, attests and executes through actual native preparation and claim. Qualification probes distinguish guest failure, refusal, timeout and physical settlement. |
+| A04 | Implemented privately | A02 and A03 tested replacements, actual consumers identified | The candidate source retains the active v4 patches. The frozen v3 source and release remain selectable through the rollback owner. |
 
 ## Verification boundary
 
@@ -233,3 +237,42 @@ and process ownership. 68e owns assembled acceptance and actual
 generation selection.
 [Current source-build controls](../../scripts/surrealdb-source/source-build.md) ·
 [Qualification guide](../dev/validation-assessment.md)
+
+## Private candidate checkpoint
+
+The paired server and builder use the native preparation receipt for
+release import. A focused host run passed the 33 preparation, import,
+reopen and Study artifact tests. The Study guest compiles for WASI with
+the selected SDK, and its seven native readiness tests passed. The
+supplier check reached both packages with the adapted DiskANN input.
+**Tested, pinned release build.** The patched v4 VM compiled both `surreal`
+and `surreal-ext` with the original workspace nightly. The locked paired
+`cargo build --release` used the selected memory, CLI and Surrealism features
+and unwind. It completed with zero errors against the zero target. The build
+still emits supplier warnings, including an embedded client recursion-depth
+warning. The embedded CLI exercised a 16-level nested function call followed
+by a current read-only transaction and returned the expected value.
+
+**Tested, host.** `scripts/pse test pse-host --lib -E
+'test(/server::(tests|release_import)/)'` passed 22 preparation and import
+controls with zero failures and complete settlement. The patch is selected
+by the native source recipe and its digest is part of the release identity.
+
+**Tested, native publication.** `scripts/pse-env -- scripts/pse-host server
+prepare` in the private tool root completed the paired release and published
+its verified receipt. `server select` reopened the same generation, and both
+executables reported the matching `pse.mx.1.1.0.482afb739a0ca349` identity.
+`server prepare --from-release` selected the same release in the independent
+rehearsal tool root. Both executable digests, the Cargo lock and the original
+build receipt matched. The normal Study preparation owner built the ABI 4
+production artifact from that builder. The first live native service tests
+opened the generated catalog and exercised the installed Study readiness
+check. Qualification of resource refusal, deadlines and physical drain
+continues on the separate guest artifact.
+
+**Tested, alternate compiler diagnostic.** The same release pair built in
+scratch on the supplier's tagged Rust 1.95.0 without the VM workaround.
+It carried diagnostic metadata. The selected native recipe uses the pinned
+nightly and the small source patch.
+[Tagged async driver](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/core/src/exec/trampoline.rs)
+[Tagged Linux builder](https://github.com/surrealdb/surrealdb/blob/v4.0.0/docker/Dockerfile)

@@ -1,0 +1,108 @@
+--- a/surrealdb/ext/src/main.rs
++++ b/surrealdb/ext/src/main.rs
+@@ -143,6 +143,10 @@
+ 		/// Build in debug mode (default is release)
+ 		#[arg(long)]
+ 		debug: bool,
++
++		/// Cargo features for the guest package (comma-separated or repeated)
++		#[arg(long, value_delimiter = ',')]
++		features: Vec<String>,
+ 
+ 		/// Output file path or filename
+ 		#[arg(short = 'o', long)]
+@@ -250,9 +254,10 @@
+ 		} => info::init(file, json.json).await,
+ 		Command::Build {
+ 			debug,
++			features,
+ 			out,
+ 			path,
+-		} => build::init(path, out, debug).await,
++		} => build::init(path, out, debug, &features).await,
+ 		#[cfg(feature = "sign")]
+ 		Command::Sign(args) => sign::init(args).await,
+ 		Command::Config(args) => config_cmd::init(args).await,
+--- a/surrealdb/ext/src/build.rs
++++ b/surrealdb/ext/src/build.rs
+@@ -19,7 +19,12 @@
+ 
+ /// Build a Surrealism WASM module from a Rust project, optimize the binary,
+ /// and pack it into a `.surrealism` package file.
+-pub async fn init(path: Option<PathBuf>, out: Option<PathBuf>, debug: bool) -> Result<()> {
++pub async fn init(
++	path: Option<PathBuf>,
++	out: Option<PathBuf>,
++	debug: bool,
++	features: &[String],
++) -> Result<()> {
+ 	let path = match path {
+ 		Some(p) => p,
+ 		None => std::env::current_dir().prefix_err(|| "Failed to determine current directory")?,
+@@ -33,11 +38,11 @@
+ 		);
+ 	}
+ 
+-	let metadata = metadata(&path).prefix_err(|| "Failed to retrieve cargo metadata")?;
++	let metadata = metadata(&path, features).prefix_err(|| "Failed to retrieve cargo metadata")?;
+ 	validate_sdk_version(&metadata)?;
+ 	let (package_name, source_wasm) = get_source_wasm(&metadata, &path, debug)?;
+ 
+-	build_wasm_module(&path, &package_name, debug)?;
++	build_wasm_module(&path, &package_name, debug, features)?;
+ 
+ 	if !source_wasm.exists() {
+ 		anyhow::bail!("Expected WASM file not found: {}", source_wasm.display());
+@@ -253,7 +258,12 @@
+ }
+ 
+ /// Invoke `cargo build` targeting `wasm32-wasip2`.
+-fn build_wasm_module(path: &Path, package_name: &str, debug: bool) -> Result<()> {
++fn build_wasm_module(
++	path: &Path,
++	package_name: &str,
++	debug: bool,
++	features: &[String],
++) -> Result<()> {
+ 	let target = crate::wasm_target::TARGET;
+ 	let profile = if debug {
+ 		"debug"
+@@ -263,7 +273,8 @@
+ 	println!("Building WASM module (target: {target}, profile: {profile})...");
+ 
+ 	let mut cmd = Command::new("cargo");
+-	cmd.args(["build", "-p", package_name, "--target", target]);
++	cmd.args(["build", "--locked", "-p", package_name, "--target", target]);
++	guest_features(&mut cmd, features);
+ 	if !debug {
+ 		cmd.arg("--release");
+ 	}
+@@ -462,9 +473,25 @@
+ ///
+ /// Uses the full resolve (no `--no-deps`) so that transitive dependency
+ /// versions are available for SDK compatibility checks.
+-fn metadata(path: &Path) -> Result<serde_json::Value> {
+-	let output = Command::new("cargo")
+-		.args(["metadata", "--format-version", "1"])
++fn guest_features(cmd: &mut Command, features: &[String]) {
++	cmd.arg("--no-default-features");
++	if !features.is_empty() {
++		cmd.arg("--features").arg(features.join(","));
++	}
++}
++
++fn metadata(path: &Path, features: &[String]) -> Result<serde_json::Value> {
++	let mut cmd = Command::new("cargo");
++	cmd.args([
++		"metadata",
++		"--locked",
++		"--format-version",
++		"1",
++		"--filter-platform",
++		crate::wasm_target::TARGET,
++	]);
++	guest_features(&mut cmd, features);
++	let output = cmd
+ 		.current_dir(path)
+ 		.output()
+ 		.prefix_err(|| "Failed to execute cargo metadata")?;

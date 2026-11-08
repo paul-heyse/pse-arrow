@@ -47,29 +47,50 @@ fn parser_info() -> Result<ParserInfo> {
     let mut packages = lock
         .package
         .into_iter()
-        .filter(|package| package.name == "surrealdb-syn");
+        .filter(|package| package.name == "surrealdb-parser-next");
     let package = packages
         .next()
-        .context("compiled lockfile lacks surrealdb-syn")?;
+        .context("compiled lockfile lacks surrealdb-parser-next")?;
     ensure!(
         packages.next().is_none(),
-        "compiled lockfile has multiple surrealdb-syn versions"
+        "compiled lockfile has multiple surrealdb-parser-next versions"
     );
     Ok(ParserInfo {
-        library: "surrealdb-syn",
+        library: "surrealdb-parser-next",
         version: package.version,
-        syntax_profile: "all-features",
+        syntax_profile: "default-limits",
         scope: "parse-only",
     })
 }
 
 fn parse_error(source: &str) -> Option<ValidationError> {
-    surrealdb_syn::parse(source)
-        .err()
-        .map(|error| ValidationError {
-            kind: "syntax",
-            message: error.to_string(),
-        })
+    let (_, diagnostics) = surrealdb_parser_next::parse(source);
+    (!diagnostics.is_empty()).then(|| ValidationError {
+        kind: "syntax",
+        message: diagnostics
+            .iter()
+            .map(|diagnostic| {
+                let start = diagnostic.start as usize;
+                let end = diagnostic.end as usize;
+                let found = source.get(start..end).unwrap_or("<invalid span>");
+                let message = match diagnostic.kind {
+                    surrealdb_parser_next::DiagKind::Unexpected => {
+                        format!("Unexpected token `{found}`, expected `{}`", diagnostic.msg)
+                    }
+                    surrealdb_parser_next::DiagKind::Message => diagnostic
+                        .msg
+                        .replace("{found}", found)
+                        .replace("{text}", found)
+                        .replace(
+                            "{char}",
+                            &found.chars().next().unwrap_or_default().to_string(),
+                        ),
+                };
+                format!("{message} at bytes {start}..{end}")
+            })
+            .collect::<Vec<_>>()
+            .join("; "),
+    })
 }
 
 fn validate_file(input: &Path) -> FileValidation {
@@ -109,8 +130,9 @@ mod tests {
         assert!(parse_error(source).is_none(), "{:?}", parse_error(source));
         assert!(parse_error("RETURN 1;").is_none());
         let info = parser_info().unwrap();
-        assert_eq!(info.library, "surrealdb-syn");
-        assert_eq!(info.syntax_profile, "all-features");
+        assert_eq!(info.library, "surrealdb-parser-next");
+        assert_eq!(info.version, "4.0.0");
+        assert_eq!(info.syntax_profile, "default-limits");
         assert_eq!(info.scope, "parse-only");
         assert!(!info.version.is_empty());
     }
@@ -120,7 +142,7 @@ mod tests {
         for source in ["DEFINE MODULE mod::probe FROM ;", "RETURN (; junk"] {
             let error = parse_error(source).expect("malformed source must fail");
             assert_eq!(error.kind, "syntax");
-            assert!(error.message.starts_with("Parse error:"));
+            assert!(!error.message.is_empty());
         }
     }
 

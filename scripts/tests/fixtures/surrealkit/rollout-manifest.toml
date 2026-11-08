@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Paul Heyse
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
+id = "20261107215752__canonical_v4_fixture"
+name = "canonical_v4_fixture"
+source_schema_hash = "ad301433f67ec7108b54797ac5d7a61df8c92f62fa52ae631da3f49731576ac3"
+target_schema_hash = "35b61970be4274e0b076742815fdbdc94b21924583ce19874c9d1def95afcafa"
+compatibility = "phased"
+renames = []
+
+[[steps]]
+id = "apply_expand_schema"
+phase = "start"
+kind = "apply_files"
+
+[[steps.files]]
+path = "schema/canonical.surql"
+hash = "1efe932eeb7b8b327cf7fe0bed23c89eda32cc89ece8a2964a8f146905cc987f"
+
+[[steps]]
+id = "rollback_expand_schema"
+phase = "rollback"
+kind = "remove_entities"
+
+[[steps.entities]]
+kind = "field"
+scope = "canonical_interpretations"
+name = "interpretation"
+
+[[steps.entities]]
+kind = "table"
+name = "canonical_interpretations"

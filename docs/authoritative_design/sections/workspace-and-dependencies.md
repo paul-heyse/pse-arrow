@@ -247,6 +247,11 @@ unwinds; an unwinding failure cannot cross a foreign ABI.
 
 ### 3.3 Supporting libraries and their boundaries
 
+> Decision: [ADR-0257](../../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md)
+> The default source-built release is SurrealDB 4.0.0 with MX 1.1.0,
+> protocol 0.14.1 and the ABI 4 Study extension. The client and parser
+> consume the exact matching release family.
+
 > Decision: [ADR-0232](../../adr/0232-native-independent-durable-control.md) (proposed).
 
 **Implemented:** native browse/cancel/reconcile uses the existing bounded canonical gRPC owner

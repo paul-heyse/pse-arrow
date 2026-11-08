@@ -33,7 +33,7 @@ LET $pse_legacy_rows=SELECT key FROM canonical_study_captures WHERE state!='rele
 LET $pse_legacy_capture_page=IF array::len($pse_legacy_rows)=0 {
     LET $gate=SELECT * FROM ONLY type::record('canonical_study_capture_gate','current') FOR UPDATE;
     IF $gate.capture!=NONE { THROW 'PSE_REFUSAL:study_capture_legacy_pending_not_drained'; };
-    RETURN {capture:NONE,done:true};
+    {capture:NONE,done:true}
 } ELSE {
     LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$pse_legacy_rows[0].key) FOR UPDATE;
     LET $owner=SELECT * FROM ONLY type::record('canonical_file_owners',$capture.owner) FOR UPDATE;
@@ -54,7 +54,7 @@ LET $pse_legacy_capture_page=IF array::len($pse_legacy_rows)=0 {
     FOR $row IN $headers { DELETE ONLY type::record('canonical_study_capture_headers',$row.key) RETURN NONE; };
     LET $done=array::len($protections)<__PAGE__ AND array::len($members)<__PAGE__ AND array::len($headers)<64;
     IF $done { UPDATE ONLY type::record('canonical_study_captures',$capture.key) SET state='released' RETURN NONE; };
-    RETURN {capture:$capture.key,done:$done};
+    {capture:$capture.key,done:$done}
 };
 "#;
 

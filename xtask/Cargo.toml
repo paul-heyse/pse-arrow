@@ -71,7 +71,7 @@ evidence-tools = [
   "dep:strum",
   "dep:arrow-array",
 ]
-surrealql-tools = ["dep:surrealdb-syn"]
+surrealql-tools = ["dep:surrealdb-parser-next"]
 canonical-tools = [
   "dep:pse-model",
   "dep:pse-operations",
@@ -135,7 +135,7 @@ strum = { workspace = true, optional = true }
 arrow-array = { workspace = true, optional = true }
 arrow-schema.workspace = true
 tracing.workspace = true
-surrealdb-syn = { workspace = true, optional = true }
+surrealdb-parser-next = { workspace = true, optional = true }
 libfuzzer-sys = { workspace = true, optional = true }
 pse-admission = { workspace = true, optional = true }
 pse-operations = { workspace = true, optional = true }

@@ -35,6 +35,7 @@ expression: "serde_json::to_string_pretty(&response).unwrap()"
   },
   "payload": {
     "executable": "/fixture/surreal",
+    "extension_builder": "/fixture/surreal-ext",
     "recipe": "fixture-generation"
   }
 }

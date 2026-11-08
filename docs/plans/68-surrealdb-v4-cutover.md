@@ -1,8 +1,8 @@
 ---
 title: "Plan68: SurrealDB v4 cutover"
-status: planned
+status: in-progress
 date: 2026-11-07
-adrs: []
+adrs: [ADR-0257]
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
 doc_topics: [current-work, design, deployment, storage, libraries, validation]
@@ -75,9 +75,9 @@ independent assurance attached to scientific fixtures under PS-13.
   release and contract delta. Address Plan66's explicit v4 exclusion
   through the same decision and a cross-plan amendment. That amendment
   gives Plan68 the platform cutover while leaving the scientific scope
-  and its status with Plan66. Record any further authority or rule change
-  before its dependent implementation. This proposed series records no
-  accepted ADR, private qualification or deployment.
+  and its status with Plan66. ADR-0257 records the scoped fresh-default
+  decision. Plan68e records authoritative selection separately from the
+  private receiving evidence.
   [Decision rules](../../.claude/rules/decisions.md#when-an-adr-is-required) ·
   [Existing MX rationale](../adr/0214-surrealmx-canonical-store.md)
 

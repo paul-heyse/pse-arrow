@@ -9,6 +9,7 @@ use super::request::ResponseLimits;
 pub(super) enum Kind {
     Varint,
     Fixed64,
+    Fixed32,
     String,
     Blob,
     FixedUuid,
@@ -68,6 +69,7 @@ impl Counts {
         // Repeated non-message fields additionally allocate vector slots.
         self.own_nodes(1, limits)?;
         let mut items = 0usize;
+        let mut object_keys = Vec::<&[u8]>::new();
         while !bytes.is_empty() {
             let key = varint(&mut bytes)?;
             let tag = u32::try_from(key >> 3).map_err(|_| "invalid protobuf tag")?;
@@ -105,6 +107,7 @@ impl Counts {
                     if let Some((kind, true)) = shape {
                         let count = match kind {
                             Kind::Fixed64 if len % 8 == 0 => len / 8,
+                            Kind::Fixed32 if len % 4 == 0 => len / 4,
                             Kind::Varint => {
                                 let mut packed = value;
                                 let mut count = 0usize;
@@ -117,9 +120,10 @@ impl Counts {
                                 count
                             }
                             Kind::Fixed64 => return Err("malformed packed protobuf scalar"),
+                            Kind::Fixed32 => return Err("malformed packed protobuf scalar"),
                             _ => 0,
                         };
-                        if matches!(kind, Kind::Fixed64 | Kind::Varint) {
+                        if matches!(kind, Kind::Fixed64 | Kind::Fixed32 | Kind::Varint) {
                             self.own_nodes(count.saturating_sub(1), limits)?;
                         }
                         items = items
@@ -135,6 +139,13 @@ impl Counts {
                     }
                     match shape.map(|(kind, _)| kind) {
                         Some(Kind::Message(nested)) => {
+                            if schema == "Object" && nested == "KeyValue" {
+                                let key = object_key(value)?;
+                                if object_keys.contains(&key) {
+                                    return Err("duplicate protobuf object key");
+                                }
+                                object_keys.push(key);
+                            }
                             self.message(value, nested, depth + 1, limits)?
                         }
                         Some(Kind::String) => {
@@ -174,6 +185,49 @@ impl Counts {
         }
         Ok(())
     }
+}
+fn object_key(mut bytes: &[u8]) -> Result<&[u8], &'static str> {
+    let mut key = None;
+    while !bytes.is_empty() {
+        let tag = varint(&mut bytes)?;
+        let number = u32::try_from(tag >> 3).map_err(|_| "invalid protobuf tag")?;
+        if number == 0 {
+            return Err("zero protobuf tag");
+        }
+        match tag & 7 {
+            0 => {
+                if number == 1 {
+                    return Err("malformed protobuf object key");
+                }
+                varint(&mut bytes)?;
+            }
+            1 => {
+                if number == 1 {
+                    return Err("malformed protobuf object key");
+                }
+                take(&mut bytes, 8)?;
+            }
+            2 => {
+                let len =
+                    usize::try_from(varint(&mut bytes)?).map_err(|_| "protobuf length overflow")?;
+                let field = take(&mut bytes, len)?;
+                if number == 1 {
+                    std::str::from_utf8(field).map_err(|_| "invalid protobuf UTF8")?;
+                    if key.replace(field).is_some() {
+                        return Err("repeated protobuf object key field");
+                    }
+                }
+            }
+            5 => {
+                if number == 1 {
+                    return Err("malformed protobuf object key");
+                }
+                take(&mut bytes, 4)?;
+            }
+            _ => return Err("unsupported protobuf wire type"),
+        }
+    }
+    Ok(key.unwrap_or_default())
 }
 fn take<'a>(bytes: &mut &'a [u8], len: usize) -> Result<&'a [u8], &'static str> {
     let (value, rest) = bytes
@@ -268,6 +322,56 @@ mod tests {
             Counts::default()
                 .check(&value, Some("Value"), limits())
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn v4_float_values_use_bounded_fixed32_wire_shapes() {
+        // Value::F16 and Value::F32 are both encoded as protobuf float
+        // (fixed32) alternatives in protocol 0.14.1.
+        let mut counts = Counts::default();
+        assert!(
+            counts
+                .check(&[0xf5, 1, 0, 0, 0xc0, 0x3f], Some("Value"), limits())
+                .is_ok()
+        );
+        assert!(
+            counts
+                .check(&[0xfd, 1, 0, 0, 0xc0, 0x3f], Some("Value"), limits())
+                .is_ok()
+        );
+        assert!(
+            counts
+                .check(&[0xf5, 1, 3, 0], Some("Value"), limits())
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn v4_object_wire_refuses_duplicate_keys_before_prost_decode() {
+        let entry = [0x0a, 3, b'd', b'u', b'p', 0x12, 2, 0x18, 1];
+        let mut unique_object = vec![0x0a, entry.len() as u8];
+        unique_object.extend(entry);
+        let mut unique_value = vec![0x9a, 1, unique_object.len() as u8];
+        unique_value.extend(unique_object);
+        assert!(
+            Counts::default()
+                .check(&unique_value, Some("Value"), limits())
+                .is_ok()
+        );
+
+        let mut duplicate_object = vec![0x0a, entry.len() as u8];
+        duplicate_object.extend(entry);
+        duplicate_object.push(0x0a);
+        duplicate_object.push(entry.len() as u8);
+        duplicate_object.extend(entry);
+        let mut duplicate_value = vec![0x9a, 1, duplicate_object.len() as u8];
+        duplicate_value.extend(duplicate_object);
+        assert_eq!(
+            Counts::default()
+                .check(&duplicate_value, Some("Value"), limits())
+                .unwrap_err(),
+            "duplicate protobuf object key"
         );
     }
 }

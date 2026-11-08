@@ -61,4 +61,4 @@ optional = true
 version = "=0.11.0"
 
 [build-dependencies.serde_json]
-version = "=1.0.151"
+version = "=1.0.154"

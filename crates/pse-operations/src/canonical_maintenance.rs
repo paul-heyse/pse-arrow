@@ -12,10 +12,13 @@ use crate::canonical_script::ResultSlot;
 use crate::canonical_script::{Envelope, GuardedScript};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
-use surrealdb_sql::{
-    Expr,
-    ast::TopLevelExpr,
-    statements::{DefineStatement, define::DefineKind},
+use surrealdb_expr::{
+    expr::{
+        AccessType, Algorithm, Expr, Literal,
+        access_type::JwtAccessVerify,
+        statements::define::{DefineKind, DefineStatement},
+    },
+    parser::TopLevelExpr,
 };
 use surrealdb_types::{Object, ToSql, Value};
 
@@ -107,9 +110,8 @@ fn connection_matches(
 /// Other access kinds/algorithms remain exact; signin/token tests qualify deployed keys.
 fn normalize_control_access(
     input: &str,
-    access: &mut surrealdb_sql::statements::define::DefineAccessStatement,
+    access: &mut surrealdb_expr::expr::statements::define::DefineAccessStatement,
 ) -> Result<(), CanonicalError> {
-    use surrealdb_sql::{AccessType, Algorithm, Literal, access_type::JwtAccessVerify};
     if access.name.to_sql() != "pse_control" {
         return Ok(());
     }
@@ -148,7 +150,7 @@ fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
 }
 
 fn parse_definition_input(input: &str, one_statement: bool) -> Result<Definitions, CanonicalError> {
-    let ast = surrealdb_syn::parse(input)
+    let ast = surrealdb_expr::parser::parse(input)
         .map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
     if one_statement && ast.expressions.len() != 1 {
         return Err(invalid("catalog entry must contain one declaration"));
@@ -639,7 +641,7 @@ mod tests {
     }
     #[test]
     fn control_api_catalog_comparison_retains_permissions_middleware_and_signin() {
-        let endpoint = "DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::res::body('json') THEN {LET $body=fn::pse_control_v1::json($request); RETURN {status:200,body:$body};};";
+        let endpoint = "DEFINE API '/pse/control/v1/probe' FOR post PERMISSIONS WHERE $auth!=NONE MIDDLEWARE api::req::max_body(65536),api::res::body('json') THEN {LET $body=fn::pse_control_v1::json($request); RETURN {status:200,body:$body};} SECURITY DEFINER;";
         let expected = parse_definitions(endpoint).unwrap();
         assert!(
             compare(
@@ -650,6 +652,20 @@ mod tests {
                 .unwrap()
             )
             .is_err()
+        );
+        compare(
+            &expected,
+            &parse_definitions(&endpoint.replace(" SECURITY DEFINER", "")).unwrap(),
+        )
+        .unwrap();
+        assert!(
+            compare(
+                &expected,
+                &parse_definitions(&endpoint.replace("SECURITY DEFINER", "SECURITY INVOKER"))
+                    .unwrap()
+            )
+            .is_err(),
+            "effective v4 SECURITY INVOKER drift must be refused"
         );
         assert!(
             compare(

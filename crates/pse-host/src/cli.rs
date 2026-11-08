@@ -682,6 +682,7 @@ pub fn checkout_root(selected: Option<&Path>) -> Result<PathBuf, HostError> {
 #[derive(serde::Serialize, schemars::JsonSchema)]
 struct ServerSelection {
     executable: PathBuf,
+    extension_builder: PathBuf,
     recipe: String,
 }
 pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<schemars::Schema> {
@@ -1229,9 +1230,10 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             let selected = crate::server::execute(&checkout_root(selected)?, action)?;
             Ok(presentation.emit(Envelope::response(
                 name,
-                "immutable server executable selected",
+                "immutable server and extension builder selected",
                 ServerSelection {
                     executable: selected.executable(),
+                    extension_builder: selected.extension_builder(),
                     recipe: selected.recipe().into(),
                 },
             ))?)
@@ -2698,6 +2700,7 @@ mod tests {
                 action,
                 ServerSelection {
                     executable: "/fixture/surreal".into(),
+                    extension_builder: "/fixture/surreal-ext".into(),
                     recipe: "fixture-generation".into(),
                 },
             );
@@ -2710,6 +2713,7 @@ mod tests {
                     kind: "fixture".into(),
                     artifact: "/fixture/study.surli".into(),
                     sha256: "0".repeat(64),
+                    manifest_sha256: "1".repeat(64),
                     bytes: 32,
                     sdk_version: "fixture".into(),
                     abi: 1,
@@ -2718,8 +2722,6 @@ mod tests {
                         max_memory_bytes: 1024,
                         max_pool_size: 1,
                         max_execution_time_ms: 1000,
-                        max_kv_entries: 0,
-                        max_kv_value_bytes: 0,
                         strict_timeout: true,
                     },
                 },

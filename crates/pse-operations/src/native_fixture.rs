@@ -547,7 +547,25 @@ mod command {
                     .ok_or(NativeServiceError::Refused(
                         "fixture settlement clock overflow",
                     ))?;
-            let mut service = NativeCanonicalService::new(spec)?;
+            use pse_host::study_module::Variant;
+            let qualification = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_QUALIFICATION_RECEIPT");
+            let long_hold = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_LONG_HOLD_RECEIPT");
+            let selected = match (qualification, long_hold) {
+                (Some(_), Some(_)) => {
+                    return Err(NativeServiceError::Refused(
+                        "choose one explicit Study qualification variant",
+                    ));
+                }
+                (Some(path), None) => Some((path, Variant::Qualification)),
+                (None, Some(path)) => Some((path, Variant::LongHold)),
+                (None, None) => None,
+            };
+            let mut service = if let Some((path, variant)) = selected {
+                let receipt = pse_host::study_module::select(Path::new(&path), variant)?;
+                NativeCanonicalService::new_qualification_fixture(spec, receipt)?
+            } else {
+                NativeCanonicalService::new(spec)?
+            };
             let premise = ChildExitPremise::default();
             let child_premise = premise.clone();
             let runner_exit = std::sync::Arc::new(std::sync::atomic::AtomicI32::new(i32::MIN));

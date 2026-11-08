@@ -2,141 +2,29 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit snapshot admission of an established source release, without rebuilding it.
 use super::*;
-use serde_json::Value;
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct SourceRelease {
-    schema: String,
-    version: String,
-    upstream_revision: String,
-    surrealmx_version: String,
-    surrealism_sdk_version: String,
-    effective_key: String,
-    binary: PathBuf,
-    binary_sha256: String,
-    lockfile_sha256: String,
-    inputs: Value,
-    raw_provenance: Value,
-}
-fn source_inputs(source: &SourceIdentity) -> Value {
-    serde_json::json!({
-        "version":source.version, "upstream_revision":source.revision, "upstream_origin":source.origin,
-        "surrealmx_version":source.engine, "surrealism_sdk_version":source.surrealism,
-        "features":source.features, "profile":source.profile, "build_config":[source.build_config],
-        "patches":source.patches, "build_metadata":source.metadata,
-        "diskann_archive_sha256":source.diskann_archive, "diskann_patch_sha256":source.diskann_patch,
-        "platform":format!("Linux-{}",std::env::consts::ARCH),
-    })
-}
-fn nonempty(value: &Value) -> bool {
-    match value {
-        Value::Object(value) => !value.is_empty(),
-        Value::Array(value) => !value.is_empty(),
-        Value::String(value) => !value.is_empty(),
-        _ => false,
-    }
-}
-/// Match the established receipt's canonical sorted ASCII JSON hash without Python.
-fn canonical(value: &Value) -> Result<String, HostError> {
-    Ok(match value {
-        Value::Object(values) => {
-            let mut pairs = values.iter().collect::<Vec<_>>();
-            pairs.sort_by_key(|(key, _)| *key);
-            let pairs = pairs
-                .into_iter()
-                .map(|(key, value)| {
-                    Ok(format!(
-                        "{}:{}",
-                        canonical(&Value::String(key.clone()))?,
-                        canonical(value)?
-                    ))
-                })
-                .collect::<Result<Vec<_>, HostError>>()?;
-            format!("{{{}}}", pairs.join(","))
-        }
-        Value::Array(values) => format!(
-            "[{}]",
-            values
-                .iter()
-                .map(canonical)
-                .collect::<Result<Vec<_>, _>>()?
-                .join(",")
-        ),
-        Value::String(value) => {
-            let encoded = serde_json::to_string(value)
-                .map_err(|_| invalid("cannot encode release context"))?;
-            let mut result = String::new();
-            for character in encoded.chars() {
-                if character.is_ascii() {
-                    result.push(character);
-                } else {
-                    for unit in character.encode_utf16(&mut [0; 2]).iter() {
-                        result.push_str(&format!("\\u{unit:04x}"));
-                    }
-                }
-            }
-            result
-        }
-        Value::Number(value) if value.is_i64() || value.is_u64() => value.to_string(),
-        Value::Number(_) => {
-            return Err(invalid(
-                "floating-point build context identities require a separately established canonical encoding",
-            ));
-        }
-        Value::Bool(value) => value.to_string(),
-        Value::Null => "null".into(),
-    })
-}
-fn decode_release(bytes: &[u8], source: &SourceIdentity) -> Result<SourceRelease, HostError> {
-    let release: SourceRelease = serde_json::from_slice(bytes)
+fn decode_release(bytes: &[u8], source: &SourceIdentity) -> Result<Receipt, HostError> {
+    let receipt: Receipt = serde_json::from_slice(bytes)
         .map_err(|error| invalid(format!("invalid source release: {error}")))?;
-    let inputs = release
-        .inputs
-        .as_object()
-        .ok_or_else(|| invalid("source release inputs are incomplete"))?;
-    let context = inputs
-        .get("build_context")
-        .and_then(Value::as_object)
-        .ok_or_else(|| invalid("source release lacks its original build context"))?;
-    let mut package = inputs.clone();
-    package.remove("build_context");
-    let namespace = package
-        .remove("installation_namespace")
-        .and_then(|value| value.as_str().map(PathBuf::from));
-    if release.schema != "surreal-source-release-v2"
-        || release.version != source.version
-        || release.upstream_revision != source.revision
-        || release.surrealmx_version != source.engine
-        || release.surrealism_sdk_version != source.surrealism
+    if receipt.schema != 1
         || !source.supported()
-        || Value::Object(package) != source_inputs(source)
-        || namespace.is_none_or(|path| !path.is_absolute())
-        || context.get("schema").and_then(Value::as_str) != Some("server-build-context-v1")
-        || [
-            "configuration",
-            "toolchain_declaration",
-            "tools",
-            "toolchain",
-            "native",
-            "owners",
-        ]
-        .iter()
-        .any(|key| !context.get(*key).is_some_and(nonempty))
-        || !release
-            .raw_provenance
-            .as_object()
-            .is_some_and(|value| !value.is_empty())
-        || !hexadecimal(&release.binary_sha256, 64)
-        || !hexadecimal(&release.lockfile_sha256, 64)
-        || !hexadecimal(&release.effective_key, 64)
-        || hash(canonical(&release.inputs)?.as_bytes()) != release.effective_key
+        || &receipt.identity.source != source
+        || !matches!(&receipt.identity.origin, ConstructionOrigin::Built { context } if context.complete())
+        || receipt
+            .files
+            .keys()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>()
+            != BTreeSet::from(["surreal", "surreal-ext", "Cargo.lock"])
+        || receipt
+            .files
+            .values()
+            .any(|digest| !hexadecimal(digest, 64))
     {
         return Err(invalid(
-            "source release does not retain the complete selected source/package identity and original provenance",
+            "source release lacks the exact prepared pair and original build context",
         ));
     }
-    Ok(release)
+    Ok(receipt)
 }
 fn open_regular(path: &Path) -> Result<File, HostError> {
     // Bind the file description without following any symlink component. Hash the
@@ -144,7 +32,7 @@ fn open_regular(path: &Path) -> Result<File, HostError> {
     let descriptor = rustix::fs::openat2(
         rustix::fs::CWD,
         path,
-        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC,
+        rustix::fs::OFlags::RDONLY | rustix::fs::OFlags::CLOEXEC | rustix::fs::OFlags::NONBLOCK,
         rustix::fs::Mode::empty(),
         rustix::fs::ResolveFlags::NO_SYMLINKS,
     )
@@ -160,8 +48,10 @@ struct Candidate {
     identity: Identity,
     receipt: Vec<u8>,
     binary: File,
+    extension_builder: File,
     lock: File,
     binary_sha256: String,
+    extension_builder_sha256: String,
     lock_sha256: String,
 }
 fn admit(root: &Path, path: &Path) -> Result<Candidate, HostError> {
@@ -177,17 +67,16 @@ fn admit(root: &Path, path: &Path) -> Result<Candidate, HostError> {
     let directory = path
         .parent()
         .ok_or_else(|| invalid("source release has no installation directory"))?;
-    let binary = directory.join("source/target/release/surreal");
-    if release.binary != binary {
-        return Err(invalid(
-            "source release binary path differs from its installation",
-        ));
-    }
-    let binary = open_regular(&binary)?;
-    if binary.metadata()?.permissions().mode() & 0o111 == 0 {
-        return Err(invalid("source release binary is not executable"));
-    }
-    let lock = open_regular(&directory.join("source/Cargo.lock"))?;
+    let open_executable = |path: &Path| {
+        let file = open_regular(path)?;
+        if file.metadata()?.permissions().mode() & 0o111 == 0 {
+            return Err(invalid("source release artifact is not executable"));
+        }
+        Ok(file)
+    };
+    let binary = open_executable(&directory.join("surreal"))?;
+    let extension_builder = open_executable(&directory.join("surreal-ext"))?;
+    let lock = open_regular(&directory.join("Cargo.lock"))?;
     Ok(Candidate {
         root: root.to_path_buf(),
         identity: Identity {
@@ -198,9 +87,11 @@ fn admit(root: &Path, path: &Path) -> Result<Candidate, HostError> {
         },
         receipt,
         binary,
+        extension_builder,
         lock,
-        binary_sha256: release.binary_sha256,
-        lock_sha256: release.lockfile_sha256,
+        binary_sha256: release.files["surreal"].clone(),
+        extension_builder_sha256: release.files["surreal-ext"].clone(),
+        lock_sha256: release.files["Cargo.lock"].clone(),
     })
 }
 fn verify_bytes(
@@ -240,19 +131,24 @@ fn copy_verified(input: &mut impl Read, path: &Path, expected: &str) -> Result<(
     output.sync_all()?;
     Ok(())
 }
-fn lock_pins(path: &Path) -> Result<(), HostError> {
+const LOCK_PINS: [(&str, &str); 8] = [
+    (SERVER_PACKAGE, VERSION),
+    ("surrealdb", VERSION),
+    ("surrealdb-core", VERSION),
+    ("surrealdb-types", VERSION),
+    ("surrealdb-protocol", PROTOCOL),
+    ("surrealmx", ENGINE),
+    ("surrealism-runtime", SURREALISM),
+    (EXTENSION_PACKAGE, EXTENSION_VERSION),
+];
+pub(super) fn lock_pins(path: &Path) -> Result<(), HostError> {
     let lock: toml::Value = toml::from_str(&fs::read_to_string(path)?)
         .map_err(|error| invalid(format!("invalid imported lockfile: {error}")))?;
     let packages = lock
         .get("package")
         .and_then(toml::Value::as_array)
         .ok_or_else(|| invalid("imported lockfile has no packages"))?;
-    for (name, version) in [
-        ("surrealdb", VERSION),
-        ("surrealdb-core", VERSION),
-        ("surrealmx", ENGINE),
-        ("surrealism-runtime", SURREALISM),
-    ] {
+    for (name, version) in LOCK_PINS {
         let found = packages
             .iter()
             .filter(|package| package.get("name").and_then(toml::Value::as_str) == Some(name))
@@ -266,6 +162,16 @@ fn lock_pins(path: &Path) -> Result<(), HostError> {
         }
     }
     Ok(())
+}
+#[cfg(test)]
+pub(super) fn fixture_lock() -> String {
+    let mut lock = String::from("version = 4\n");
+    for (name, version) in LOCK_PINS {
+        lock.push_str(&format!(
+            "[[package]]\nname='{name}'\nversion='{version}'\n"
+        ));
+    }
+    lock
 }
 fn import_candidate(
     environment: &Environment,
@@ -298,6 +204,11 @@ fn import_candidate(
             std::io::sink(),
             &candidate.binary_sha256,
         )?;
+        verify_bytes(
+            &mut candidate.extension_builder,
+            std::io::sink(),
+            &candidate.extension_builder_sha256,
+        )?;
         verify_bytes(&mut candidate.lock, std::io::sink(), &candidate.lock_sha256)?;
         if source_identity(&candidate.root)? != candidate.identity.source {
             return Err(invalid(
@@ -317,6 +228,11 @@ fn import_candidate(
         &mut candidate.binary,
         &install.join("surreal"),
         &candidate.binary_sha256,
+    )?;
+    copy_verified(
+        &mut candidate.extension_builder,
+        &install.join("surreal-ext"),
+        &candidate.extension_builder_sha256,
     )?;
     copy_verified(
         &mut candidate.lock,
@@ -357,8 +273,10 @@ pub(super) fn origin_complete(
             }
             let release = decode_release(&bytes, &identity.source)?;
             lock_pins(&generation.join("Cargo.lock"))?;
-            Ok(files.get("surreal") == Some(&release.binary_sha256)
-                && files.get("Cargo.lock") == Some(&release.lockfile_sha256))
+            Ok(release
+                .files
+                .iter()
+                .all(|(name, digest)| files.get(name) == Some(digest)))
         }
     }
 }
@@ -366,6 +284,7 @@ pub(super) fn origin_complete(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::Value;
     struct Fixture {
         directory: tempfile::TempDir,
         root: PathBuf,
@@ -394,27 +313,67 @@ mod tests {
         for name in PATCHES {
             fs::write(patches.join(name), format!("original patch {name}")).unwrap();
         }
-        fs::write(patches.join("diskann-0.56.0.patch"), b"DiskANN patch").unwrap();
+        fs::write(patches.join(DISKANN_PATCH), "original DiskANN patch").unwrap();
         let source = source_identity(&root).unwrap();
         let original = directory.path().join("original");
-        let binary = original.join("source/target/release/surreal");
-        fs::create_dir_all(binary.parent().unwrap()).unwrap();
+        fs::create_dir(&original).unwrap();
+        let binary = original.join("surreal");
         fs::write(&binary, b"#!/bin/sh\nprintf 'original server\\n'\n").unwrap();
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
-        let lock = original.join("source/Cargo.lock");
-        fs::write(&lock,format!("version = 4\n[[package]]\nname='surrealdb'\nversion='{VERSION}'\n[[package]]\nname='surrealdb-core'\nversion='{VERSION}'\n[[package]]\nname='surrealmx'\nversion='{ENGINE}'\n[[package]]\nname='surrealism-runtime'\nversion='{SURREALISM}'\n")).unwrap();
-        let mut inputs = source_inputs(&source);
-        inputs["installation_namespace"] = Value::String(original.to_string_lossy().into_owned());
-        inputs["build_context"] = serde_json::json!({"schema":"server-build-context-v1","cwd":"/original-checkout","configuration":[{"original-config":"retained"}],"toolchain_declaration":["original-toolchain"],"tools":{"original-compiler":"retained"},"toolchain":{"rustc":"original rustc"},"native":["original ABI"],"owners":{"original-controller":"recorded"},"environment":{"ORIGINAL":"retained"}});
-        let receipt = serde_json::json!({"schema":"surreal-source-release-v2","version":VERSION,"upstream_revision":REVISION,"surrealmx_version":ENGINE,"surrealism_sdk_version":SURREALISM,
-            "effective_key":hash(canonical(&inputs).unwrap().as_bytes()),"binary":binary,"binary_sha256":digest(&binary).unwrap(),"lockfile_sha256":digest(&lock).unwrap(),"inputs":inputs,
-            "raw_provenance":{"cargo_configuration":[{"original":"raw input"}],"toolchain_sha256":"original toolchain","unrecognized_original_field":[1,true,"é"]}});
-        let release = original.join("release.json");
+        let extension_builder = original.join("surreal-ext");
         fs::write(
-            &release,
-            format!("{}\n", serde_json::to_string_pretty(&receipt).unwrap()),
+            &extension_builder,
+            b"#!/bin/sh\nprintf 'original builder\\n'\n",
         )
         .unwrap();
+        fs::set_permissions(&extension_builder, fs::Permissions::from_mode(0o755)).unwrap();
+        let lock = original.join("Cargo.lock");
+        fs::write(&lock, fixture_lock()).unwrap();
+        let tool = Tool {
+            path: "/original/bin/tool".into(),
+            sha256: "b".repeat(64),
+        };
+        let context = BuildContext {
+            root: "/original-checkout".into(),
+            target: None,
+            configuration: BTreeMap::from([("/original-checkout/.cargo/config.toml".into(), None)]),
+            toolchain_declaration: "a".repeat(64),
+            tools: [
+                "cargo",
+                "rustc",
+                "rustdoc",
+                "git",
+                "curl",
+                "tar",
+                "CC",
+                "CXX",
+                "CLANG_PATH",
+            ]
+            .into_iter()
+            .map(|name| (name.into(), tool.clone()))
+            .collect(),
+            toolchain: ["cargo", "rustc", "rustdoc"]
+                .into_iter()
+                .map(|name| (name.into(), format!("original {name}")))
+                .collect(),
+            native: BTreeMap::from([("/original/lib/native.so".into(), "c".repeat(64))]),
+            environment: BTreeMap::from([
+                ("HOME".into(), "d".repeat(64)),
+                ("PATH".into(), "e".repeat(64)),
+            ]),
+        };
+        let release = original.join(".complete.json");
+        let receipt = Receipt {
+            schema: 1,
+            identity: Identity {
+                source,
+                origin: ConstructionOrigin::Built {
+                    context: Box::new(context),
+                },
+            },
+            files: file_map(&original).unwrap(),
+        };
+        fs::write(&release, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
         let mut environment = Environment::new();
         environment.insert(
             "PSE_SURREAL_TOOLS".into(),
@@ -431,8 +390,6 @@ mod tests {
         let mut receipt: Value =
             serde_json::from_slice(&fs::read(&fixture.release).unwrap()).unwrap();
         change(&mut receipt);
-        receipt["effective_key"] =
-            Value::String(hash(canonical(&receipt["inputs"]).unwrap().as_bytes()));
         fs::write(&fixture.release, encode(&receipt).unwrap()).unwrap();
     }
     #[test]
@@ -461,6 +418,10 @@ mod tests {
             fs::read(prepared.executable()).unwrap(),
             b"#!/bin/sh\nprintf 'original server\\n'\n"
         );
+        assert_eq!(
+            fs::read(prepared.extension_builder()).unwrap(),
+            b"#!/bin/sh\nprintf 'original builder\\n'\n"
+        );
     }
     #[test]
     fn server_import_reuses_matching_generation_without_staging_and_checks_input_bytes() {
@@ -471,11 +432,7 @@ mod tests {
         fs::write(&stage, b"unexpected staging entry").unwrap();
         let repeated = import_inner(&fixture.root, &fixture.environment, &fixture.release).unwrap();
         assert_eq!(repeated.generation(), prepared.generation());
-        let binary = fixture
-            .release
-            .parent()
-            .unwrap()
-            .join("source/target/release/surreal");
+        let binary = fixture.release.parent().unwrap().join("surreal");
         fs::write(binary, b"changed source bytes").unwrap();
         let failure = import_inner(&fixture.root, &fixture.environment, &fixture.release)
             .unwrap_err()
@@ -487,10 +444,10 @@ mod tests {
         );
     }
     #[test]
-    fn server_import_wrong_patch_or_package_identity_refuses_even_with_recomputed_context_key() {
+    fn server_import_wrong_patch_or_package_identity_refuses() {
         for key in [
             "patch",
-            "diskann",
+            "patch_order",
             "features",
             "config",
             "revision",
@@ -500,21 +457,26 @@ mod tests {
         ] {
             let fixture = fixture();
             rewrite(&fixture, |value| match key {
-                "patch" => value["inputs"]["patches"][PATCHES[0]] = Value::String("f".repeat(64)),
-                "diskann" => {
-                    value["inputs"]["diskann_patch_sha256"] = Value::String("f".repeat(64))
+                "patch" => {
+                    value["identity"]["source"]["patches"][PATCHES[0]] =
+                        Value::String("f".repeat(64))
                 }
-                "features" => value["inputs"]["features"] = Value::String("other".into()),
+                "patch_order" => value["identity"]["source"]["patch_order"] = serde_json::json!([]),
+                "features" => {
+                    value["identity"]["source"]["features"] = Value::String("other".into())
+                }
                 "config" => {
-                    value["inputs"]["build_config"] =
-                        serde_json::json!(["profile.release.panic=abort"])
+                    value["identity"]["source"]["build_config"] =
+                        Value::String("profile.release.panic=abort".into())
                 }
-                "revision" => value["inputs"]["upstream_revision"] = Value::String("f".repeat(40)),
-                "engine" => value["inputs"]["surrealmx_version"] = Value::String("other".into()),
+                "revision" => {
+                    value["identity"]["source"]["revision"] = Value::String("f".repeat(40))
+                }
+                "engine" => value["identity"]["source"]["engine"] = Value::String("other".into()),
                 "surrealism" => {
-                    value["inputs"]["surrealism_sdk_version"] = Value::String("other".into())
+                    value["identity"]["source"]["surrealism"] = Value::String("other".into())
                 }
-                _ => value["inputs"]["build_context"]["native"] = serde_json::json!([]),
+                _ => value["identity"]["origin"]["context"]["native"] = serde_json::json!({}),
             });
             assert!(
                 import_inner(&fixture.root, &fixture.environment, &fixture.release).is_err(),
@@ -530,7 +492,7 @@ mod tests {
     }
     #[test]
     fn server_import_binary_or_lock_hash_failure_preserves_prior_selection() {
-        for key in ["binary_sha256", "lockfile_sha256"] {
+        for key in ["surreal", "surreal-ext", "Cargo.lock"] {
             let fixture = fixture();
             let prepared =
                 import_inner(&fixture.root, &fixture.environment, &fixture.release).unwrap();
@@ -540,7 +502,9 @@ mod tests {
                     .join("current.json"),
             )
             .unwrap();
-            rewrite(&fixture, |value| value[key] = Value::String("0".repeat(64)));
+            rewrite(&fixture, |value| {
+                value["files"][key] = Value::String("0".repeat(64))
+            });
             assert!(import_inner(&fixture.root, &fixture.environment, &fixture.release).is_err());
             assert_eq!(
                 fs::read(
@@ -560,13 +524,14 @@ mod tests {
     #[test]
     fn server_import_matching_lock_hash_with_wrong_engine_resolution_refuses() {
         let fixture = fixture();
-        let lock = fixture.release.parent().unwrap().join("source/Cargo.lock");
-        let contents = fs::read_to_string(&lock)
-            .unwrap()
-            .replace("version='1.0.0'", "version='0.9.0'");
+        let lock = fixture.release.parent().unwrap().join("Cargo.lock");
+        let contents = fs::read_to_string(&lock).unwrap().replace(
+            &format!("name='surrealmx'\nversion='{ENGINE}'"),
+            "name='surrealmx'\nversion='1.0.0'",
+        );
         fs::write(&lock, contents).unwrap();
         rewrite(&fixture, |value| {
-            value["lockfile_sha256"] = Value::String(digest(&lock).unwrap())
+            value["files"]["Cargo.lock"] = Value::String(digest(&lock).unwrap())
         });
         assert!(import_inner(&fixture.root, &fixture.environment, &fixture.release).is_err());
         assert!(
@@ -581,11 +546,7 @@ mod tests {
         let fixture = fixture();
         let prepared = import_inner(&fixture.root, &fixture.environment, &fixture.release).unwrap();
         let candidate = admit(&fixture.root, &fixture.release).unwrap();
-        let binary = fixture
-            .release
-            .parent()
-            .unwrap()
-            .join("source/target/release/surreal");
+        let binary = fixture.release.parent().unwrap().join("surreal");
         fs::write(binary, b"mutated after admission before snapshot").unwrap();
         assert!(import_candidate(&fixture.environment, candidate).is_err());
         assert_eq!(
@@ -598,11 +559,7 @@ mod tests {
         let fixture = fixture();
         let candidate = admit(&fixture.root, &fixture.release).unwrap();
         let original_sha = candidate.binary_sha256.clone();
-        let binary = fixture
-            .release
-            .parent()
-            .unwrap()
-            .join("source/target/release/surreal");
+        let binary = fixture.release.parent().unwrap().join("surreal");
         fs::rename(&binary, binary.with_extension("previous")).unwrap();
         fs::write(&binary, b"replacement pathname").unwrap();
         let prepared = import_candidate(&fixture.environment, candidate).unwrap();
@@ -630,17 +587,14 @@ mod tests {
     }
     #[test]
     fn server_import_symlinked_receipt_binary_lock_or_ancestor_refuses() {
-        for part in ["receipt", "binary", "lock", "ancestor"] {
+        for part in ["receipt", "binary", "extension_builder", "lock", "ancestor"] {
             let fixture = fixture();
             let path = match part {
                 "receipt" => fixture.release.clone(),
-                "binary" => fixture
-                    .release
-                    .parent()
-                    .unwrap()
-                    .join("source/target/release/surreal"),
-                "lock" => fixture.release.parent().unwrap().join("source/Cargo.lock"),
-                _ => fixture.release.parent().unwrap().join("source"),
+                "binary" => fixture.release.parent().unwrap().join("surreal"),
+                "extension_builder" => fixture.release.parent().unwrap().join("surreal-ext"),
+                "lock" => fixture.release.parent().unwrap().join("Cargo.lock"),
+                _ => fixture.release.parent().unwrap().to_path_buf(),
             };
             let moved = path.with_extension("moved");
             fs::rename(&path, &moved).unwrap();
@@ -650,13 +604,5 @@ mod tests {
                 "{part}"
             );
         }
-    }
-    #[test]
-    fn server_import_context_hash_uses_original_sorted_ascii_json_spelling() {
-        let value = serde_json::json!({"é":"🦀","z":[true,32,null],"a":"line\n"});
-        assert_eq!(
-            canonical(&value).unwrap(),
-            "{\"a\":\"line\\n\",\"z\":[true,32,null],\"\\u00e9\":\"\\ud83e\\udd80\"}"
-        );
     }
 }

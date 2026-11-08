@@ -78,6 +78,10 @@ impl pse_diagnostics::TypedDiagnostic for EvidenceError {
 fn config(message: impl Into<String>) -> EvidenceError {
     EvidenceError::Configuration(message.into())
 }
+
+/// The activation guard's exact read, also used for isolated plan observation.
+pub(crate) const EVIDENCE_MEMBERSHIP_COUNT_SQL: &str =
+    "SELECT count() AS n FROM evidence_facts WHERE generation=$generation GROUP ALL";
 fn rpc_expiry(deadline: tokio::time::Instant) -> Result<i64, EvidenceError> {
     let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
     let expiry = std::time::SystemTime::now()
@@ -841,14 +845,15 @@ IF $marker.issuing_store!=$issuer { THROW 'evidence authority changed'; };
 LET $generation_row=SELECT * FROM ONLY type::record('evidence_generations',$generation);
 IF $generation_row=NONE OR $generation_row.content_digest!=$content { THROW 'evidence generation identity differs'; };
 IF $generation_row.state!='active' {
-    LET $members=SELECT count() AS n FROM evidence_facts WHERE generation=$generation GROUP ALL;
+    LET $members=__EVIDENCE_MEMBERSHIP_COUNT__;
     IF $generation_row.expected_members!=0dec AND ($members[0].n=NONE OR <decimal>$members[0].n!=$generation_row.expected_members) { THROW 'evidence incomplete generation'; };
     UPDATE type::record('evidence_generations',$generation) SET state='active';
     UPDATE evidence_interpretations:current SET active_generation=$generation;
 };
 IF time::micros()>=$expiry { THROW 'evidence original deadline expired'; };
-COMMIT;"#;
-            let activated=transport::protected_query("evidence-activate",||self.query(activate).map(|q|q.bind(("issuer",self.issuing_store.clone())).bind(("generation",generation.clone())).bind(("content",content_digest.clone()))).map_err(|e|CanonicalError::Configuration(e.to_string()))).await;
+COMMIT;"#
+                .replace("__EVIDENCE_MEMBERSHIP_COUNT__", EVIDENCE_MEMBERSHIP_COUNT_SQL);
+            let activated=transport::protected_query("evidence-activate",||self.query(activate.clone()).map(|q|q.bind(("issuer",self.issuing_store.clone())).bind(("generation",generation.clone())).bind(("content",content_digest.clone()))).map_err(|e|CanonicalError::Configuration(e.to_string()))).await;
             #[cfg(test)]
             let activated=if self.ack_fault.compare_exchange(2,0,std::sync::atomic::Ordering::SeqCst,std::sync::atomic::Ordering::SeqCst).is_ok(){activated.and_then(|_|Err(CanonicalError::IncompleteResponse))}else{activated};
             if let Err(source)=activated {let receipt=self.generation(&generation).await;if !matches!(receipt,Ok(ref row) if row.state==crate::generated::model::enums::EvidenceGenerationState::Active&&row.content_digest==content_digest){return Err(EvidenceError::Unsettled{generation:generation.clone(),source:Box::new(source)});}}
@@ -1151,7 +1156,9 @@ COMMIT;"#;
             let marker=crate::generated::model::runtime::evidence_interpretations::Row{key:"current".into(),interpretation:wire::INTERPRETATION.into(),schema_digest:wire::SCHEMA_DIGEST.into(),issuing_store:uuid::Uuid::new_v4().to_string(),service_instance_id:options.service_instance_id.clone(),active_generation:None};
             let input=wire::encode_evidence_interpretations(&marker)?;
             let reader=serde_json::to_string(&options.credentials.reader_password).map_err(|e|config(e.to_string()))?;let importer=serde_json::to_string(&options.credentials.importer_password).map_err(|e|config(e.to_string()))?;
-            let sql=format!("BEGIN; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} {} CREATE knowledge_state:current SET key='current'; CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,crate::generated::store::knowledge::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
+            // The fresh schemas and marker commit together. Snapshot isolation
+            // permits the v4 index builder's independent bookkeeping writes.
+            let sql=format!("BEGIN ISOLATION LEVEL SNAPSHOT; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} {} CREATE knowledge_state:current SET key='current'; CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,crate::generated::store::knowledge::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
             transport::bounded_query(db.query(sql).bind(("marker",input)).bind(("expiry",rpc_expiry(deadline)?)).request_context(RequestContext::control(deadline.into_std()))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"initialize",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:marker.issuing_store.clone(),source:Box::new(source)})?;Ok::<_,EvidenceError>(())
         }.await;
         let drained = db.disconnect().await;

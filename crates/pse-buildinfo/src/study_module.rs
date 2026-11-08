@@ -11,19 +11,15 @@ use std::path::PathBuf;
 pub struct ModuleLimits {
     /// Guest linear-memory bound.
     pub max_memory_bytes: u64,
-    /// Guest controller-pool bound.
+    /// Guest concurrency width used by the isolated qualification controls.
     pub max_pool_size: u32,
     /// Guest execution deadline in milliseconds.
     pub max_execution_time_ms: u64,
-    /// Guest-local KV entry bound.
-    pub max_kv_entries: u64,
-    /// Guest-local KV value bound.
-    pub max_kv_value_bytes: u64,
     /// Enforce the declared guest deadline.
     pub strict_timeout: bool,
 }
 
-/// Existing module receipt wire shape, consumed by canonical artifact admission.
+/// Study extension receipt consumed by canonical artifact admission.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct StudyModuleRecord {
@@ -31,8 +27,10 @@ pub struct StudyModuleRecord {
     pub kind: String,
     /// Exact immutable package path.
     pub artifact: PathBuf,
-    /// Package byte identity.
+    /// SHA-256 of the entire immutable archive.
     pub sha256: String,
+    /// SHA-256 of `surrealism/MANIFEST`, used by the installed extension definition.
+    pub manifest_sha256: String,
     /// Exact package extent.
     pub bytes: u64,
     /// Exact SDK release.

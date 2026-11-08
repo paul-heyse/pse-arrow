@@ -1,6 +1,6 @@
 ---
 title: "Plan68b: SurrealDB v4 schema, transport, and authority"
-status: planned
+status: in-progress
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -162,20 +162,51 @@ control unless the actual v4 receiving test proves the whole existing effect bou
 
 ## B05 — Test one shared named type
 
-Compare a registry-generated `DEFINE TYPE pse_exact_u64 AS decimal` with an exact range
-and integer `ASSERT` against today's repeated decimal field assertion and a callable
-generation or ordinal parameter. Start with one existing generation field and a guarded
-function that receives the same declaration. Require equal preexisting bounds, optional
-presence and refusal behavior, plus a consumer benefit from the shared definition. Test
-integer-to-decimal coercion, declaration order, effective permissions and installed
-normalization, the exact maximum, negative, fractional and overflow refusal, and any
-nullable wrapper on the selected path. Preserve codec checks and field/operation-specific
-rules. [O01] demonstrates the syntax on a disposable 4.0.0 fixture. It does not establish
-equivalence for a current guarded consumer. If the field and argument differ or the named
-type widens an admitted shape, keep the qualified literal and callable checks and close
-the investigation with the disqualifying case. B05 is independent of the cutover gate.
+Compare a registry-generated native `u64` field and callable type against today's
+`decimal` field and integral-range assertion. Start with the regenerated private
+evidence generation's `expected_members` and its count guard. A named type is
+useful when the same domain constraint is shared by fields and function
+arguments. Compare a decimal-backed
+named type only if that shared validation is valuable with the existing representation.
+
+**Tested, supplier interface.** A disposable v4.0.0 embedded CLI stored `0u64`,
+`9223372036854775808u64` and `18446744073709551615u64` through a named `u64`
+field with a unique index. A range query returned the two large values in order.
+Negative and fractional writes and maximum-plus-one produced three expected
+refusals. Same-kind addition stayed `u64`; mixing `u64` with ordinary `int` or
+`decimal` produced `decimal`. Use typed operands for operations that require the
+native overflow boundary.
+
+**Interface-checked.** The 0.14.1 Protobuf input accepts `U64`, while v4.0.0's
+ordinary output conversion uses `Number::wide()` and emits `Int64` through
+`i64::MAX`, then exact `Decimal`. Verify the existing bounded gRPC path in both
+directions. A native storage change requires one explicit wire interpretation,
+such as a generated decimal projection, with exact range, integral and
+optional-presence checks. A checked transport projection does not require a
+second stored format. Preserve guard rollback, index ordering and original
+scientific representations. Select native storage only if it reduces the total
+schema and codec burden for the named consumer. [O01] provides the original
+decimal-backed probe. B05 remains independent of the cutover gate.
+[Sized numbers](https://surrealdb.com/docs/reference/query-language/language-primitives/data-types/numbers) ·
 [Named types](https://surrealdb.com/docs/reference/query-language/statements/define/type) ·
+[Tagged Protobuf conversion](https://github.com/surrealdb/surrealdb/blob/v4.0.0/surrealdb/types/src/proto/value.rs) ·
 [Generated field assertions](../../crates/pse-codegen/src/codegen/surreal.rs)
+
+The same evaluation gives reusable named enums and closed objects a narrower
+role. Generate them from the existing registry when they remove repeated domain
+checks across real consumers. Treat enum rank, `NONE` versus `NULL`, and ordered
+array versus set semantics as explicit contracts. Apply `FLEXIBLE` only to a
+declared open metadata subtree. Native civil-time types and `bigdecimal` are
+options for an identified consumer with matching semantics and transport. CBOR v2
+preserves more value identities on its own supported interfaces. The selected
+gRPC path has separate conversions, including temporal degradation and a string
+fallback for `bigdecimal` outside the legacy decimal range. Review exact
+float–decimal equality and decimal literal precision for any new mixed predicate.
+Keep authoritative scientific IEEE bytes and queryable projections, especially
+for signed zero. Named record-ID components are a locality option for a new
+regenerated projection. Existing issued IDs keep their interpretation.
+[Named types and ordering](https://surrealdb.com/docs/reference/query-language/language-primitives/data-types/named-types) ·
+[Field and migration rules](https://surrealdb.com/docs/reference/query-language/statements/define/field)
 
 ## Deferred boundary changes
 
@@ -193,6 +224,13 @@ the investigation with the disqualifying case. B05 is independent of the cutover
   Fresh regeneration requires no in-place field migration. [Field semantics](https://surrealdb.com/docs/reference/query-language/statements/define/field)
 
 ## Packages
+
+Run the existing parser, schema, transport, codec, maintenance and
+control tests on the exact candidate where they need a server. Reuse
+passing assertions for the behaviors they distinguish and fix the
+specific failures observed. Extend a test only when a v4 change or a
+new interface affects a consumed contract that existing tests miss.
+Plan68e owns the assembled receiving and recovery campaigns.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
@@ -213,3 +251,50 @@ result. This plan records proposed work and interface evidence.
 [O01]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O01
 [O08]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O08
 [O09]: ../functional_reviews/surrealdb-v4-cutover-2026-11-07.md#O09
+
+## Private candidate checkpoint
+
+The v4 parsers and bounded transport use the updated lock and generated
+catalog. Stock v4.0.0 on a fresh disposable memory datastore accepted all
+1,132 active definitions after moving the explicit API security clause
+and renaming protected SurrealQL bindings. That run exercised catalog
+installation. The prepared MX 1.1.0 server's gRPC record probe returned
+`DatabaseEmpty` for a missing catalog after `USE` acknowledged the names.
+The bootstrap now uses `INFO FOR DB` under the existing viewer principal.
+The same endpoint returned a typed missing namespace for that request.
+
+The full generated schema and ABI 4 extension reached a read conflict on
+commit under the patched server's serializable default. Blocking index
+builds write their bookkeeping in separate transactions. The same
+definitions committed in an explicit snapshot transaction and the index
+status was available. The fresh installation envelope uses that isolation
+and still commits the fixed interpretation record with the definitions.
+Application writes continue to use the canonical serializable policy.
+The managed `scripts/pse test pse-operations:native_service` run passed
+current migration and ingress reconstruction, cross-connection session
+refusal, and HTTP actor grants and original envelopes against this prepared
+pair. Three tests ran with zero failures against the zero target and
+complete settlement. Protected scientific readback remains with 68e.
+
+The live predecessor recovery test exposed a reserved local `$parent`
+binding in the pinned v3 declarations. The three predecessor replay inputs
+now use v4 local bindings, extension names and explicit API definer
+security. Each replay has its own pinned byte checksum. Historical
+schema/codec identifiers and the archived v3 declaration bytes still
+identify the original contracts. The exact v4 gRPC server committed each
+replay into a disposable catalog. The complete recovery test also checks
+checkpoint settlement, restart and activation.
+The v4 checkpoint uses named `MIGRATE EXISTING ROWS` clauses to add the
+required version, epoch and closed admission fields to the existing marker.
+The epoch comes from the validated original migration request. The three
+literal conversions and a marker update passed in one transaction on the
+exact endpoint.
+[Catalog information](https://surrealdb.com/docs/reference/query-language/statements/info) ·
+[Transaction isolation](https://surrealdb.com/docs/reference/query-language/statements/begin#isolation-level) ·
+[Transactional index definitions](https://surrealdb.com/docs/reference/query-language/statements/define/indexes#defining-an-index-inside-a-transaction) ·
+[Reserved local variables and extension syntax](https://surrealdb.com/docs/build/migrating/from-old-surrealdb-versions/3x-to-4x#parameters-that-surrealdb-binds-itself-are-protected) ·
+[Named field migration](https://surrealdb.com/docs/reference/query-language/statements/define/field#migrating-existing-records)
+
+The targeted wire, value, API comparator and generator tests passed.
+The native operations compile check included the service and maintenance
+features.

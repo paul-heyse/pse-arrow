@@ -108,14 +108,14 @@ DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option
 // These guards participate in the caller's transaction. FOR UPDATE registers
 // the marker for MX commit-time validation; it does not hold a blocking row lock.
 const MIGRATION: &str = r#"
-DEFINE FUNCTION fn::pse_schema_v1::admit($expiry:int,$expected:object,$settlement:option<object>,$access:string) -> bool {
+DEFINE FUNCTION fn::pse_schema_v1::admit($expiry:int,$expected:object,$settlement:option<object>,$schema_access:string) -> bool {
     fn::pse_execution_v1::deadline($expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
     IF $marker=NONE OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store { THROW 'PSE_REFUSAL:schema_epoch_changed'; };
     IF $marker.admission_open { RETURN true; };
     LET $pending=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
     IF $pending=NONE OR $pending.kind!='schema' OR $pending.phase!='schema-draining' OR $pending.next!=$marker.schema_epoch { THROW 'PSE_REFUSAL:schema_migration_closed'; };
-    IF $access IN ['read','cleanup'] { RETURN true; };
+    IF $schema_access IN ['read','cleanup'] { RETURN true; };
     IF $settlement=NONE { THROW 'PSE_REFUSAL:schema_migration_closed'; };
     LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$settlement.attempt) FOR UPDATE;
     LET $run=SELECT * FROM ONLY type::record('canonical_runs',$settlement.run) FOR UPDATE;
