@@ -55,6 +55,19 @@ impl OutputOptions {
         std::io::stdout().lock().write_all(&frame)?;
         Ok(code)
     }
+    /// Present a bounded view whose original evidence remains with its performing owner.
+    pub(crate) fn emit_observation<T: Serialize + JsonSchema>(
+        &self,
+        mut response: Envelope<T>,
+    ) -> std::io::Result<i32> {
+        response.invocation_id = self.invocation_id.clone();
+        write(
+            std::io::stdout().lock(),
+            response,
+            self.format,
+            &self.presentation,
+        )
+    }
     /// Prepare one complete frame for an owned transport to publish. Limited legacy
     /// views retain their original evidence through the same route as `emit`.
     pub fn encode_frame<T: Serialize + JsonSchema>(

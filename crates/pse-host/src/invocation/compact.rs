@@ -1026,8 +1026,20 @@ mod tests {
 
     #[test]
     fn automatic_release_uses_settlement_clock_holds_and_live_borrowers() {
-        let (_temporary, store, directory, settled) = fixture();
+        let (temporary, store, directory, settled) = fixture();
         let id = directory.id();
+        let export = |name: &str| {
+            crate::invocation_view::export(
+                &store,
+                id.as_str(),
+                None,
+                None,
+                &temporary.path().join(name),
+                &RedactionPolicy::default(),
+                &CliInvocationId::new(),
+            )
+            .unwrap()
+        };
         assert_eq!(store.sweep_at(settled + WEEK_MS - 1).unwrap().released, 0);
         let token = store
             .retire_compact_result(id, None)
@@ -1037,6 +1049,8 @@ mod tests {
         store
             .hold_compact_result(id, "assessment", Some("until review closes"))
             .unwrap();
+        assert_eq!(export("held.json").subject_state, SubjectState::Available);
+        assert!(temporary.path().join("held.json").is_file());
         assert!(store.retire_compact_result(id, Some(&token)).is_err());
         assert_eq!(store.sweep_at(settled + WEEK_MS).unwrap().released, 0);
         store.hold_compact_result(id, "assessment", None).unwrap();
@@ -1050,6 +1064,8 @@ mod tests {
             store.observe_compact(id).unwrap().0,
             CompactObservation::Retired
         ));
+        assert_eq!(export("retired.json").subject_state, SubjectState::Unavailable);
+        assert!(!temporary.path().join("retired.json").exists());
         assert!(directory.path().join("result.json").exists());
         assert_eq!(
             store.sweep_at(settled + 2 * WEEK_MS - 1).unwrap().forgotten,
@@ -1060,6 +1076,8 @@ mod tests {
             store.observe_compact(id).unwrap().0,
             CompactObservation::Expired
         ));
+        assert_eq!(export("expired.json").subject_state, SubjectState::NoMatch);
+        assert!(!temporary.path().join("expired.json").exists());
         assert!(directory.path().join("settlement.json").exists());
     }
 

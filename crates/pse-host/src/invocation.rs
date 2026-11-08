@@ -406,6 +406,10 @@ impl InvocationStore {
         Self { state }
     }
 
+    pub(crate) fn state_root(&self) -> &Path {
+        &self.state.root
+    }
+
     /// Initialize this inspected checkout's existing private ledger namespace without
     /// manufacturing an invocation, starting resources or adding a second checkout registry.
     pub fn register(&self) -> Result<(), HostError> {

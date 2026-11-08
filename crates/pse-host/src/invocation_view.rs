@@ -6,18 +6,23 @@ use crate::{
     artifacts::Content,
     envelope::{
         ArtifactReference, CliInvocationId, CommandOutcome, Completeness, Envelope, ErrorRecord,
-        ProviderContext, RedactionPolicy, ScientificReference, Settlement, SubjectState,
+        OutputFormat, Presentation, ProviderContext, RedactionPolicy, ScientificReference,
+        Settlement, SubjectState,
     },
     extraction::OutputStream,
     generation::PreparedGeneration,
+    investigation::NativePath,
     invocation::{CompactObservation, InvocationStore},
 };
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use schemars::JsonSchema;
 use serde::Serialize;
+use sha2::{Digest as _, Sha256};
 use std::{
+    fs,
     io::{Read, Seek, SeekFrom},
     num::NonZeroU64,
+    path::Path,
 };
 
 /// One metadata-only row. Operation payloads and historical results are not acquired.
@@ -348,6 +353,81 @@ pub fn inspect(
     Ok(observed)
 }
 
+/// Receipt for one explicitly published inspection projection.
+#[derive(Debug, Serialize, JsonSchema)]
+pub(crate) struct ResultExport {
+    original_invocation: Option<CliInvocationId>,
+    retired: bool,
+    published: Option<PublishedInspection>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+struct PublishedInspection {
+    destination: NativePath,
+    bytes: usize,
+    sha256: String,
+}
+
+pub(crate) fn export(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+    detail: Option<ResultDetail>,
+    destination: &Path,
+    policy: &RedactionPolicy,
+    receipt_id: &CliInvocationId,
+) -> Result<Envelope<ResultExport>, HostError> {
+    const MAX_EXPORT_BYTES: usize = 128 * 1024;
+    let mut inspected = inspect(store, selector, session, detail, policy)?;
+    inspected.invocation_id = receipt_id.clone();
+    let mut receipt = ResultExport {
+        original_invocation: inspected.payload.original_invocation.clone(),
+        retired: inspected.payload.retired,
+        published: None,
+    };
+    if inspected.payload.response.is_none() {
+        let mut response = Envelope::response("tools export-result", inspected.summary, receipt);
+        response.invocation_id = receipt_id.clone();
+        response.outcome = CommandOutcome::Failure;
+        response.subject_state = inspected.subject_state;
+        response.settlement = Settlement::Complete;
+        return Ok(response);
+    }
+
+    let mut bytes = Vec::new();
+    crate::envelope::write(&mut bytes, inspected, OutputFormat::Json, &Presentation::default())?;
+    let (Some(parent), Some(name)) = (destination.parent(), destination.file_name()) else {
+        return Err(HostError::Ownership(
+            "export requires a fresh destination file".into(),
+        ));
+    };
+    let parent = fs::canonicalize(parent)?;
+    if parent.starts_with(fs::canonicalize(store.state_root())?) {
+        return Err(HostError::Ownership(
+            "export destination must be outside the invocation state".into(),
+        ));
+    }
+    let destination = parent.join(name);
+    crate::invocation::publish_bytes(&destination, &bytes, Some(MAX_EXPORT_BYTES), 0o600)?;
+    receipt.published = Some(PublishedInspection {
+        destination: policy.redact_path(destination.into()),
+        bytes: bytes.len(),
+        sha256: Sha256::digest(&bytes)
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect(),
+    });
+    let mut response = Envelope::response(
+        "tools export-result",
+        "original inspection exported",
+        receipt,
+    );
+    response.invocation_id = receipt_id.clone();
+    response.subject_state = SubjectState::Available;
+    response.settlement = Settlement::Complete;
+    Ok(response)
+}
+
 /// One live raw-stream extent with exact original byte coordinates.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct LogView {
@@ -377,6 +457,13 @@ pub fn log(
     length: NonZeroU64,
     tail: bool,
 ) -> Result<Envelope<LogView>, HostError> {
+    if length.get() > 256 * 1024 {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "log length exceeds 262144 bytes; use the returned offset for another window",
+        )
+        .into());
+    }
     let id = store
         .resolve(selector, session)?
         .ok_or_else(|| HostError::Ownership("no matching invocation for log read".into()))?;

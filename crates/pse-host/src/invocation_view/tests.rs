@@ -159,6 +159,65 @@ fn unavailable_detail_and_observed_empty_detail_are_distinct() {
     assert!(failures.records.is_empty());
     assert_eq!(failures.omitted, 0);
 }
+
+#[test]
+fn result_export_publishes_only_the_bounded_original_view_to_a_fresh_path() {
+    let (temporary, store) = fixture();
+    let original = store.begin(spec("a")).unwrap();
+    let result_path = original.path().join("result.json");
+    let mut terminal = Envelope::response("run", "original private-token", "opaque owner data");
+    terminal.invocation_id = original.id().clone();
+    terminal.outcome = CommandOutcome::Failure;
+    terminal.subject_state = SubjectState::Failed;
+    terminal.child_exit = Some(3);
+    terminal.settlement = Settlement::Complete;
+    let original_bytes = serde_json::to_vec(&terminal).unwrap();
+    fs::write(&result_path, &original_bytes).unwrap();
+    fs::set_permissions(&result_path, fs::Permissions::from_mode(0o600)).unwrap();
+    let foreign = store.begin(spec("b")).unwrap();
+    let receipt_id = CliInvocationId::new();
+    let policy = RedactionPolicy::new([("TOKEN".into(), "private-token".into())]);
+    let perform = |selector: &str, destination: &Path| {
+        export(
+            &store,
+            selector,
+            Some("a"),
+            Some(ResultDetail::Provenance),
+            destination,
+            &policy,
+            &receipt_id,
+        )
+    };
+    let output = temporary.path().join("inspection.json");
+    let receipt = perform("latest", &output).unwrap();
+    assert_eq!(receipt.subject_state, SubjectState::Available);
+    assert_eq!(receipt.invocation_id, receipt_id);
+    assert_eq!(receipt.payload.original_invocation.as_ref(), Some(original.id()));
+    let published = receipt.payload.published.unwrap();
+    let bytes = fs::read(&output).unwrap();
+    assert_eq!(published.bytes, bytes.len());
+    assert_eq!(published.sha256, crate::managed::workflow::digest(&bytes));
+    assert_eq!(fs::metadata(&output).unwrap().permissions().mode() & 0o777, 0o600);
+    let document: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(document["invocation_id"], receipt_id.as_str());
+    assert_eq!(document["payload"]["response"]["outcome"], "failure");
+    assert_eq!(document["payload"]["response"]["child_exit"], 3);
+    assert_eq!(document["payload"]["response"]["summary"], "original <redacted:TOKEN>");
+    assert_eq!(document["payload"]["detail"]["environment_digest"], "b".repeat(64));
+    assert!(!String::from_utf8(bytes.clone()).unwrap().contains("opaque owner data"));
+    assert!(perform("latest", &output).is_err());
+    assert_eq!(fs::read(&output).unwrap(), bytes);
+    assert_eq!(fs::read(&result_path).unwrap(), original_bytes);
+
+    let internal = store.state_root().join("inspection.json");
+    assert!(perform("latest", &internal).is_err());
+    assert!(!internal.exists());
+    let missing = temporary.path().join("unavailable.json");
+    let pending = perform(foreign.id().as_str(), &missing).unwrap();
+    assert_eq!(pending.subject_state, SubjectState::Unknown);
+    assert!(pending.payload.published.is_none());
+    assert!(!missing.exists());
+}
 #[test]
 fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_order() {
     let (_temporary, store) = fixture();
@@ -194,6 +253,18 @@ fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_orde
     assert_eq!(tail.payload.byte_range, 5..8);
     assert!(matches!(tail.payload.content, Content::Utf8(ref value) if value == "def"));
     assert!(!tail.payload.atomic_snapshot);
+    assert!(
+        log(
+            &store,
+            directory.id().as_str(),
+            None,
+            OutputStream::Stdout,
+            0,
+            NonZeroU64::new(256 * 1024 + 1).unwrap(),
+            false,
+        )
+        .is_err()
+    );
     assert!(
         log(
             &store,

@@ -20,6 +20,7 @@ pub(super) struct PrepareArgs {
 #[derive(Debug, clap::Subcommand)]
 enum Action {
     /// Prepare native tools, or copy a matching prepared source generation.
+    #[command(add(crate::catalog::description::CommandEffect::Prepare))]
     #[command(add(crate::catalog::Examples(&[&[]])))]
     Host {
         /// Checkout with an explicitly prepared, equivalent source generation.

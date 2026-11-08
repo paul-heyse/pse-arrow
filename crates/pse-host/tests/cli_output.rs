@@ -98,6 +98,118 @@ fn settings_field_projection_is_passive_and_keeps_the_selected_schema() {
     assert_eq!(value["artifacts"], serde_json::json!([]));
     assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
 }
+
+#[test]
+fn missing_fixture_readiness_keeps_owner_diagnostic_and_exact_preparation() {
+    let state = tempfile::tempdir().unwrap();
+    let help = pse()
+        .env("XDG_STATE_HOME", state.path())
+        .args(["help", "prepare", "host"])
+        .output()
+        .unwrap();
+    let help = json(&help);
+    assert_eq!(help["payload"]["records"][0]["effect"], "prepare");
+    for fixture in ["study-module", "native-lane"] {
+        let output = pse()
+            .env("XDG_STATE_HOME", state.path())
+            .env_remove("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")
+            .args(["fixture", "show", fixture])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(125));
+        assert!(output.stdout.is_empty());
+        let diagnostic: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(diagnostic["subject_state"], "unprepared");
+        assert_eq!(diagnostic["failures"][0]["code"], "fixture.unprepared");
+        assert_eq!(diagnostic["next"][0]["argv"], serde_json::json!([
+            checkout().join("scripts/pse"), "fixture", "prepare", fixture,
+        ]));
+    }
+    assert_eq!(std::fs::read_dir(state.path()).unwrap().count(), 0);
+}
+
+#[test]
+fn retained_result_cli_reads_and_exports_one_selected_original() {
+    use pse_host::{
+        envelope::{CliInvocationId, Envelope, Settlement, SubjectState},
+        generation::PreparedGeneration,
+        invocation::{InvocationSpec, InvocationStore},
+        paths::CheckoutState,
+    };
+    use std::{fs, os::unix::fs::PermissionsExt as _};
+
+    let state = tempfile::tempdir().unwrap();
+    let selection = CheckoutState::resolve(
+        checkout(),
+        &[("XDG_STATE_HOME".into(), state.path().into())].into_iter().collect(),
+    )
+    .unwrap();
+    let root = selection.root.clone();
+    let store = InvocationStore::new(selection);
+    let id = CliInvocationId::new();
+    let original = store
+        .begin(InvocationSpec {
+            invocation_id: id.clone(),
+            command: "run".into(),
+            session: Some("export-fixture".into()),
+            parent: None,
+            operation: (),
+            control: PreparedGeneration {
+                generation: "generation.fixture".into(),
+                protocol: 1,
+                manifest_digest: "a".repeat(64),
+            },
+            environment_digest: "b".repeat(64),
+            scientific: Vec::new(),
+        })
+        .unwrap();
+    let result = original.path().join("result.json");
+    let mut terminal = Envelope::response("run", "original bounded result", "private payload");
+    terminal.invocation_id = id.clone();
+    terminal.subject_state = SubjectState::Succeeded;
+    terminal.settlement = Settlement::Complete;
+    let original_bytes = serde_json::to_vec(&terminal).unwrap();
+    fs::write(&result, &original_bytes).unwrap();
+    fs::set_permissions(&result, fs::Permissions::from_mode(0o600)).unwrap();
+    let stream = original.path().join("stdout.raw");
+    fs::write(&stream, b"0123456789").unwrap();
+    fs::set_permissions(&stream, fs::Permissions::from_mode(0o600)).unwrap();
+    let invoke = || {
+        let mut command = pse();
+        command.env("XDG_STATE_HOME", state.path());
+        command
+    };
+    let history = json(&invoke().args(["history", "--session", "export-fixture", "--fields", "records"]).output().unwrap());
+    assert_eq!(history["payload"]["records"][0]["invocation_id"], id.as_str());
+    let observed = json(&invoke().args([
+        "inspect", "invocation", "latest", "--session", "export-fixture", "--detail",
+        "provenance", "--fields", "detail",
+    ]).output().unwrap());
+    assert_eq!(observed["payload"]["detail"]["environment_digest"], "b".repeat(64));
+    assert_eq!(observed["artifacts"], serde_json::json!([]));
+    let log = json(&invoke().args([
+        "inspect", "log", id.as_str(), "--offset", "1", "--length", "3", "--fields", "content",
+    ]).output().unwrap());
+    assert!(log["payload"]["content"].to_string().contains("123"));
+    assert!(!root.join("artifacts").exists());
+
+    let destination = state.path().join("result-export.json");
+    let export = || {
+        invoke().args([
+            "tools", "export-result", id.as_str(), "--detail", "provenance", "--output",
+        ]).arg(&destination).output().unwrap()
+    };
+    let receipt = json(&export());
+    assert_eq!(receipt["payload"]["original_invocation"], id.as_str());
+    let exported = fs::read(&destination).unwrap();
+    let document: serde_json::Value = serde_json::from_slice(&exported).unwrap();
+    assert_eq!(document["invocation_id"], receipt["invocation_id"]);
+    assert_eq!(document["payload"]["detail"], observed["payload"]["detail"]);
+    assert!(!export().status.success());
+    assert_eq!(fs::read(&destination).unwrap(), exported);
+    assert_eq!(fs::read(&result).unwrap(), original_bytes);
+    assert!(!root.join("artifacts").exists());
+}
 #[test]
 fn env_projection_retains_full_evidence_and_matches_its_projected_schema() {
     let state = tempfile::tempdir().unwrap();

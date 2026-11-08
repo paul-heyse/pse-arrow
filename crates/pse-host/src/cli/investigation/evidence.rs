@@ -244,6 +244,7 @@ pub(super) enum Action {
         stderr: bool,
         #[arg(long, default_value = "0", conflicts_with = "tail")]
         offset: u64,
+        /// Select at most 262144 original bytes in this window.
         #[arg(long, default_value = "4096")]
         length: NonZeroU64,
         #[arg(long)]
@@ -863,7 +864,7 @@ pub(super) fn inspect(
                 detail,
                 &RedactionPolicy::from_environment(),
             )?;
-            Ok(output.emit(response)?)
+            Ok(output.emit_observation(response)?)
         }
         Action::Log {
             invocation,
@@ -891,7 +892,7 @@ pub(super) fn inspect(
                 tail,
             )?;
             response.command = "inspect log".into();
-            Ok(output.emit(response)?)
+            Ok(output.emit_observation(response)?)
         }
         Action::Affected { selection } => {
             super::super::affected::dispatch(selection, selected, output)

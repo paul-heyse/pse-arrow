@@ -346,6 +346,8 @@ fn preparation_receipt_contains_only_the_owner_route_and_releases_construction_l
 
 #[test]
 fn preparation_receipt_preserves_original_failure_status() {
+    use pse_host::generation::{BuildContext, GenerationManifest, SourceFingerprint};
+
     let root = checkout();
     let path = root.path();
     assert!(
@@ -358,6 +360,44 @@ fn preparation_receipt_preserves_original_failure_status() {
     );
     fs::create_dir(path.join(".config")).unwrap();
     fs::write(path.join(".config/diagnostic-tools.toml"), "").unwrap();
+    fs::create_dir(path.join(".cargo")).unwrap();
+    fs::write(path.join(".cargo/config.toml"), "").unwrap();
+    fs::write(path.join("rust-toolchain.toml"), include_str!("../../../rust-toolchain.toml"))
+        .unwrap();
+    fs::write(
+        path.join("Cargo.toml"),
+        "[package]\nname = 'pse-host'\nversion = '0.0.1'\nedition = '2024'\n",
+    )
+    .unwrap();
+    fs::create_dir(path.join("src")).unwrap();
+    fs::write(path.join("src/lib.rs"), "").unwrap();
+    let metadata = cargo_metadata::MetadataCommand::new()
+        .current_dir(path)
+        .other_options(vec!["--offline".into()])
+        .exec()
+        .unwrap();
+    let fingerprint = SourceFingerprint::from_metadata(
+        path,
+        &metadata,
+        BuildContext::new(
+            "fixture rustc".into(),
+            "fixture Cargo".into(),
+            "dev".into(),
+            Default::default(),
+            &Default::default(),
+        ),
+    )
+    .unwrap();
+    let selected = path.join("target/host-tools/current");
+    let generation = path.join("target/host-tools/generation.fixture");
+    fs::create_dir(&generation).unwrap();
+    executable(&generation.join("pse"), "#!/bin/sh\nexit 0\n");
+    let manifest = GenerationManifest::capture(&generation, fingerprint.clone(), &fingerprint, &["pse"])
+        .unwrap();
+    manifest.write(&generation).unwrap();
+    fs::remove_file(&selected).unwrap();
+    std::os::unix::fs::symlink("generation.fixture", &selected).unwrap();
+
     let invoke = || {
         let mut command = Command::new(
             std::env::var_os("CARGO_BIN_EXE_pse")
@@ -377,12 +417,24 @@ fn preparation_receipt_preserves_original_failure_status() {
     assert!(prepared.status.success());
     let response: serde_json::Value = serde_json::from_slice(&prepared.stdout).unwrap();
     assert_eq!(response["payload"]["route"], "verified_current");
+    assert_eq!(response["payload"]["selected_generation"]["generation"], "generation.fixture");
+    assert_eq!(response["payload"]["selected_generation"]["manifest_digest"], manifest.digest().unwrap());
+    let repeated = invoke().output().unwrap();
+    assert!(repeated.status.success());
+    let repeated: serde_json::Value = serde_json::from_slice(&repeated.stdout).unwrap();
+    assert_eq!(repeated["payload"], response["payload"]);
     let unsupported = invoke().args(["--fields", "unsupported"]).output().unwrap();
     assert!(!unsupported.status.success());
     assert!(
         String::from_utf8_lossy(&unsupported.stderr).contains("unknown payload field unsupported")
     );
-    assert_eq!(fs::read(path.join("scripts/invocations")).unwrap(), b"x");
+    assert_eq!(fs::read(path.join("scripts/invocations")).unwrap(), b"xx");
+
+    fs::remove_file(&selected).unwrap();
+    let missing = invoke().output().unwrap();
+    assert!(!missing.status.success());
+    let diagnostic = String::from_utf8_lossy(&missing.stderr);
+    assert!(diagnostic.contains("preparation did not leave an authenticated generation"), "{diagnostic}");
 
     executable(&path.join("scripts/bootstrap-host"), "#!/bin/sh\nexit 79\n");
     let failed = invoke().output().unwrap();

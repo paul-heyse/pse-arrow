@@ -16,7 +16,7 @@ use std::{
     collections::BTreeSet,
     ffi::OsString,
     io::{self, Write},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 #[derive(Debug, Subcommand)]
@@ -35,6 +35,20 @@ pub(super) enum Action {
         /// Exact token returned by the current owner preview.
         #[arg(long)]
         release: Option<String>,
+    },
+    /// Export the selected compact result as bounded JSON to a fresh file.
+    #[command(add(crate::catalog::description::CommandEffect::Apply))]
+    ExportResult {
+        /// An exact invocation ID, unique prefix, or session-scoped latest.
+        invocation: String,
+        #[arg(long)]
+        session: Option<String>,
+        /// Include this bounded detail from the original owner.
+        #[arg(long, value_enum)]
+        detail: Option<crate::invocation_view::ResultDetail>,
+        /// Fresh destination file, relative to the selected checkout if not absolute.
+        #[arg(long)]
+        output: PathBuf,
     },
     /// Set a named compact-result hold or clear it by omitting the condition.
     HoldResult {
@@ -107,6 +121,7 @@ impl Action {
             | Self::RetireResult {
                 release: Some(_), ..
             }
+            | Self::ExportResult { .. }
             | Self::HoldResult { .. }
             | Self::SweepResults { .. }
             | Self::PrepareResultExpiry { .. } => GenerationIntent::ExistingControl,
@@ -222,6 +237,26 @@ pub(super) fn dispatch(
                 "checkout-local compact result retirement",
                 report,
             ))?)
+        }
+        Action::ExportResult {
+            invocation,
+            session,
+            detail,
+            output: destination,
+        } => {
+            output.validate_for::<crate::invocation_view::ResultExport>("tools export-result")?;
+            let session = crate::invocation::select_session(session, &environment)?;
+            let store = super::invocation_store(selected)?;
+            let receipt = crate::invocation_view::export(
+                &store,
+                &invocation,
+                session.as_deref(),
+                detail,
+                &root.join(destination),
+                &crate::envelope::RedactionPolicy::from_inputs(&environment),
+                &output.invocation_id,
+            )?;
+            Ok(output.emit_observation(receipt)?)
         }
         Action::HoldResult {
             invocation,
