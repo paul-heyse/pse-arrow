@@ -51,9 +51,11 @@ effective test selection, admitted population, and verdict as separate facts.
 - **Workspace and feature admission.** Use `cargo_metadata` 0.23.1 for declared
   target roles, `test`, `doctest` and required features. Use the pinned Cargo unit graph
   for the selected operation's exact roots and feature-bearing host and target units.
-  The ordinary workspace check matched Cargo's 128 roots and 1,245 units after recording
-  the benchmark-only package as an explicit exclusion. This check requires no build or
-  test enumeration. [Cargo target metadata](https://docs.rs/cargo_metadata/0.23.1/cargo_metadata/struct.Target.html) ·
+  On current v4 main, `pse inspect test-selection --admitted --full` admitted 35 packages,
+  128 roots and 1,273 units. The pinned `cargo test --unit-graph -Z unstable-options`
+  produced identical roots, unit features and dependency edges for the workspace and
+  the explicit ordinary package set. The benchmark-only package was an explicit
+  exclusion. Both checks use compile-free planning. [Cargo target metadata](https://docs.rs/cargo_metadata/0.23.1/cargo_metadata/struct.Target.html) ·
   [Cargo unit graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph)
 - **Likely tests for a source change.** The prepared native snapshot already exposes
   `ra_ap_ide` 0.0.358 `runnables` and `related_tests` through `inspect entity --view tests`.
