@@ -180,7 +180,7 @@ pub struct SourceRelationship {
     /// Authored docs/attributes owned by precisely this declaration, never nested ones.
     pub attributes: Vec<crate::source_read::SourceFact>,
 }
-fn explain(source: &SourceText, matches: &mut [SyntaxMatch]) {
+fn explain(source: &SourceText, lines: &[usize], matches: &mut [SyntaxMatch]) {
     use ra_ap_syntax::{AstNode as _, ast, ast::HasArgList as _};
     if matches.is_empty() {
         return;
@@ -203,14 +203,18 @@ fn explain(source: &SourceText, matches: &mut [SyntaxMatch]) {
         .collect();
     let facts = crate::source_read::selected_facts(
         &syntax,
-        &crate::source_read::line_starts(source.text()),
+        lines,
         crate::source_read::SourceDetail::Facts,
         &crate::source_read::FactSelection::Attributes { ranges: &owners },
     );
     let capture = |node: ra_ap_syntax::SyntaxNode| {
         let range = node.text_range();
         CapturedNode {
-            locator: locator(source, usize::from(range.start())..usize::from(range.end())),
+            locator: locator(
+                source,
+                lines,
+                usize::from(range.start())..usize::from(range.end()),
+            ),
             text: node.text().to_string(),
         }
     };
@@ -391,13 +395,10 @@ pse_diagnostics::impl_diagnostic! {QueryError,
     forward(_this){None},help(_this){None},related(_this){None},source(_this){None}
 }
 
-fn coordinates(source: &str, range: std::ops::Range<usize>) -> SourceRange {
-    crate::source_read::location(&crate::source_read::line_starts(source), range)
-}
-fn locator(source: &SourceText, range: std::ops::Range<usize>) -> SourceLocator {
+fn locator(source: &SourceText, lines: &[usize], range: std::ops::Range<usize>) -> SourceLocator {
     SourceLocator {
         source: source.identity().clone(),
-        range: coordinates(source.text(), range),
+        range: crate::source_read::location(lines, range),
     }
 }
 fn pattern(text: &str, strictness: Strictness) -> Result<Pattern, QueryError> {
@@ -503,10 +504,14 @@ fn analyze(
         || (Vec::new(), Vec::new(), 0),
         |selected| (selected.matches, selected.edits, selected.total_matches),
     );
+    let lines = parsed.as_ref().map_or_else(
+        || Cow::Owned(crate::source_read::line_starts(source.text())),
+        |parsed| Cow::Borrowed(parsed.lines()),
+    );
     Ok(FileResult {
         coverage: SourceCoverage {
             source: source.identity().clone(),
-            examined_range: coordinates(source.text(), 0..source.text().len()),
+            examined_range: crate::source_read::location(&lines, 0..source.text().len()),
             recovery_regions,
             rust_parse_issues: diagnostics,
             total_matches,

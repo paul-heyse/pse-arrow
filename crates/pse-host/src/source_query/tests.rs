@@ -167,6 +167,77 @@ fn native_grammar_abi_named_and_sequence_captures_retain_exact_unicode() {
 }
 
 #[test]
+fn shared_coordinates_preserve_multiline_utf8_captures_and_edit() {
+    let original = source("fn café() {\n    target(\n        α,\n        β\n    );\n}\n");
+    let range = |byte_start, byte_end, line_start, line_end| SourceRange {
+        byte_start,
+        byte_end,
+        line_start,
+        line_end,
+    };
+    let call = range(17, 53, 2, 5);
+    let alpha = range(33, 35, 3, 3);
+    let beta = range(45, 47, 4, 4);
+    let result = observe(
+        &original,
+        &query("target($A, $B)"),
+        Some("replacement($B, $A)"),
+        1,
+    )
+    .unwrap();
+    assert_eq!(result.coverage.examined_range, range(0, 57, 1, 6));
+    assert!(result.coverage.complete);
+    let [found] = result.matches.as_slice() else {
+        panic!("expected one call");
+    };
+    assert_eq!(found.locator.range, call);
+    for (capture, expected, text) in [
+        (&found.captures[0], &alpha, "α"),
+        (&found.captures[1], &beta, "β"),
+    ] {
+        let node = &capture.nodes[0];
+        assert_eq!(&node.locator.range, expected);
+        assert_eq!(node.locator.select(&original).unwrap(), text);
+    }
+    let proposal = preview_selected(
+        original.clone(),
+        17..53,
+        "target($A, $B)",
+        Strictness::Smart,
+        "replacement($B, $A)",
+    )
+    .unwrap();
+    let edit = proposal.inspect(0).unwrap();
+    assert_eq!(edit.source, original.identity());
+    assert_eq!(edit.range, 17..53);
+    assert_eq!(edit.original, "target(\n        α,\n        β\n    )");
+    assert_eq!(edit.replacement, "replacement(β, α)");
+    assert_eq!(result.edits[0].range(), edit.range);
+
+    let parsed = ParsedSyntax::new(&original).unwrap();
+    let selector = CompiledSyntax::tree_sitter(
+        "(call_expression arguments: (arguments (identifier) @first (identifier) @second))",
+    )
+    .unwrap();
+    let bounded = selector
+        .select(
+            &original,
+            &parsed,
+            SelectionDemand::Inventory,
+            Some(33..47),
+            &CancellationToken::new(),
+        )
+        .unwrap();
+    assert!(bounded.complete);
+    let [found] = bounded.matches.as_slice() else {
+        panic!("expected captures from a parent beyond the selected range");
+    };
+    assert_eq!(found.locator.range, range(33, 47, 3, 4));
+    assert_eq!(found.captures[0].nodes[0].locator.range, alpha);
+    assert_eq!(found.captures[1].nodes[0].locator.range, beta);
+}
+
+#[test]
 fn relation_explanation_retains_exact_owner_receiver_arguments_and_authored_attributes() {
     let original =
         source("#[inline]\nfn outer(){ fn nested(){ inner.call(a); } receiver.call(b, c); }");

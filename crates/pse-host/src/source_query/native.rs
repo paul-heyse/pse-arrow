@@ -78,6 +78,8 @@ impl std::fmt::Debug for CompiledSyntax {
 /// One worker-local parse, shared by compatible AST and Tree-sitter clauses for a file.
 pub struct ParsedSyntax {
     tree: AstGrep<StrDoc<RustGrammar>>,
+    source: SourceIdentity,
+    lines: Vec<usize>,
 }
 impl std::fmt::Debug for ParsedSyntax {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -88,21 +90,41 @@ impl std::fmt::Debug for ParsedSyntax {
     }
 }
 impl ParsedSyntax {
+    fn from_tree(source: &SourceText, tree: AstGrep<StrDoc<RustGrammar>>) -> Self {
+        Self {
+            tree,
+            source: source.identity().clone(),
+            lines: crate::source_read::line_starts(source.text()),
+        }
+    }
+
+    pub(super) fn lines(&self) -> &[usize] {
+        &self.lines
+    }
+
+    fn verify_source(&self, source: &SourceText) -> Result<(), QueryError> {
+        if &self.source != source.identity() {
+            return Err(SourceReadError::StaleSource.into());
+        }
+        Ok(())
+    }
+
     pub(super) fn recovery_regions(&self, source: &SourceText) -> Vec<SourceLocator> {
         self.tree
             .root()
             .dfs()
             .filter(|node| node.is_error() || node.is_missing())
-            .map(|node| locator(source, node.range()))
+            .map(|node| locator(source, self.lines(), node.range()))
             .collect()
     }
     /// Parse once from the exact acquired source; no reparsing is needed for another selector.
     pub fn new(source: &SourceText) -> Result<Self, QueryError> {
-        Ok(Self {
-            tree: AstGrep::doc(
+        Ok(Self::from_tree(
+            source,
+            AstGrep::doc(
                 StrDoc::try_new(source.text(), RustGrammar).map_err(QueryError::Parse)?,
             ),
-        })
+        ))
     }
     /// Parse with the native progress callback; cancellation is an incomplete acquisition.
     pub fn cancellable(
@@ -131,13 +153,14 @@ impl ParsedSyntax {
             Some(tree_sitter::ParseOptions::new().progress_callback(&mut progress)),
         );
         match tree {
-            Some(tree) => Ok(Some(Self {
-                tree: AstGrep::doc(StrDoc {
+            Some(tree) => Ok(Some(Self::from_tree(
+                source,
+                AstGrep::doc(StrDoc {
                     src: source.text().into(),
                     lang: RustGrammar,
                     tree,
                 }),
-            })),
+            ))),
             None if token.is_cancelled() => Ok(None),
             None => Err(QueryError::Parse("native parser returned no tree".into())),
         }
@@ -211,6 +234,7 @@ impl CompiledSyntax {
                 edits: Vec::new(),
             });
         }
+        parsed.verify_source(source)?;
         match self {
             Self::Rule(matcher) => select_rule(
                 source,
@@ -314,7 +338,7 @@ pub(super) fn select_rule(
                 nodes: nodes
                     .into_iter()
                     .map(|node| CapturedNode {
-                        locator: locator(source, node.range()),
+                        locator: locator(source, parsed.lines(), node.range()),
                         text: node.text().into_owned(),
                     })
                     .collect(),
@@ -326,7 +350,7 @@ pub(super) fn select_rule(
         }
         matches.push(SyntaxMatch {
             index: matches.len(),
-            locator: locator(source, matched.range()),
+            locator: locator(source, parsed.lines(), matched.range()),
             kind: matched.kind().into_owned(),
             text: matched.text().into_owned(),
             captures,
@@ -337,7 +361,7 @@ pub(super) fn select_rule(
         complete = false;
     }
     if !token.is_cancelled() {
-        explain(source, &mut matches);
+        explain(source, parsed.lines(), &mut matches);
     }
     Ok(NativeMatches {
         matches,
@@ -371,6 +395,7 @@ pub(super) fn selected_edit<M: ast_grep_core::Matcher>(
     matcher: &M,
     template: &TemplateFix,
 ) -> Result<EditCandidate, QueryError> {
+    parsed.verify_source(source)?;
     let unavailable = || {
         QueryError::Unavailable(
             "selected range is not a current candidate of the explicit native pattern".into(),
@@ -479,13 +504,13 @@ fn tree_sitter_matches(
             for capture in found.captures() {
                 let name = query.capture_names()[capture.index as usize].to_string();
                 captured.entry(name).or_default().push(CapturedNode {
-                    locator: locator(source, capture.node.byte_range()),
+                    locator: locator(source, parsed.lines(), capture.node.byte_range()),
                     text: source.text()[capture.node.byte_range()].to_string(),
                 });
             }
             matches.push(SyntaxMatch {
                 index: matches.len(),
-                locator: locator(source, start..end),
+                locator: locator(source, parsed.lines(), start..end),
                 kind: first.node.kind().into(),
                 text: source.text()[start..end].into(),
                 captures: captured
@@ -509,7 +534,7 @@ fn tree_sitter_matches(
         complete = false;
     }
     if !token.is_cancelled() {
-        explain(source, &mut matches);
+        explain(source, parsed.lines(), &mut matches);
     }
     Ok(NativeMatches {
         total_matches,
