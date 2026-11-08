@@ -35,11 +35,10 @@ mechanisms. They are prerequisites; this plan does not commission their implemen
   and `inspection_fixture.rs`. Source declarations being present does not establish generated
   availability or a migrated consumer.
 
-The paused contracts branch contains an unqualified adapter split; the paused result branch
-contains a consumer depending on its missing generated output. Neither is an integrated
-prerequisite. Reconcile those candidates against current source, then deliver declarations,
-generated outputs, consumers and deletions together. Do not adopt a branch wholesale or use
-its package status as implementation evidence.
+The earlier contracts and result branches supplied candidates for the recorded-result cut.
+Main contains the integrated finite source-forward route below. Compare any further candidate
+by patch and actual consumer before carrying it into a new declaration, generated output and
+receiver delivery.
 
 ## Target responsibilities and composition
 

@@ -96,8 +96,9 @@ ranges borrow the sole owned checks/reports. Completed, failed and unattempted m
 distinct; a later refusal preserves earlier evidence and actually returned partial rows. The shared
 typed strategy policy traverses original cause trees so numerical work with terminal cleanup cannot
 start another member, recovery rung or profile subdivision. It retains the original envelope and
-all causes. The steady observation producer can still lose its own unreturned partial buffer;
-that narrower producer gap remains A02 work.
+all causes. The steady observation producer now retains its completed rows in the original
+caller-owned buffer. The selected fitting control at `7b194b345` checks the original
+typed retirement causes and partial rows through export, preserving unattempted successors.
 
 Joined `FitTrajectory` borrows the original run/report/member/assessment. FlatV3 profile documents
 borrow retained chains through Serde serialization, avoiding deep copies of physical evidence.
@@ -137,7 +138,8 @@ The first L02 consumer initially supplied an integration fixture to `CaseOperati
 contract is an authored solve with SolveSettings; that request correctly refused. Existing typed
 `SimulationOperation` executes the original fixture and retains its physical controls. Preserve
 these distinct operation owners rather than infer a need for universal dispatch from that caller
-mistake. A01 assesses useful discovery/selection improvements against real consumers. The readable
+mistake. A01 assesses useful discovery/selection improvements against real consumers.
+
 The standalone native trajectory now consumes the same member owner, retaining its original
 immutable snapshot, completion, inputs and actual attempt. `qualified_report(&RunResult)` checks
 the real producer/snapshot correspondence. The protected

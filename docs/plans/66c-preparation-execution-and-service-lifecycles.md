@@ -31,10 +31,9 @@ fixture prerequisite assessment, complete passive source recipes and a provider-
 f64 Value/First live-child path also exist. These mechanisms are prerequisites, not new framework
 packages. Earlier focused tests do not qualify every provider, transport or shutdown population.
 
-The prepared compiler bridge still produced a later “compiler cache bridge context changed”
-refusal during generation. That is an unresolved composition case, not proof that the retained
-bridge fix was absent or that strict checking should be weakened. The paused invocation settled;
-resume from inspected source and exact inputs, not an assumed still-running workload.
+The historical “compiler cache bridge context changed” refusal came from a stale standalone
+compiler receipt. C01 records the explicit refresh and confirmed root, nested and sibling
+receiving. A new preparation checks its actual inputs and receipt under the same strict identity.
 
 ## Preparation validity and execution placement
 
@@ -47,12 +46,11 @@ provider, artifact or allocation must refuse or invalidate dependent preparation
 capability or disposable checkout path must not invalidate it spuriously.
 
 Use `crates/pse-host/src/native.rs` and `native/providers.rs` as the preparation owners, including
-their existing retained bridge identities. Diagnose the remaining refusal with exact selected
-compiler, environment, normalized inputs and receipt comparisons. Choose the smallest correction
-that makes those representations compose. Repeated full preparation, relaxed identity, a new
-cache-proof service or source recompile fallback is not the target. Test explicit preparation and
-later ordinary use from sibling worktrees, capability subsets and after removing the preparing
-checkout. Help, discovery, listing, attachment and passive reads never prepare implicitly.
+their existing retained bridge identities. If preparation refuses again, compare the exact
+selected compiler, environment, normalized inputs and receipt. The existing explicit preparation
+route selects the matching immutable provider and bridge. Its controls cover later ordinary use
+from sibling worktrees, capability subsets and removal of the preparing checkout. Help,
+discovery, listing, attachment and passive reads never prepare implicitly.
 
 Preserve the maintainer-selected unbounded ordinary host mode, native profiles, incremental
 compilation and shared sccache. Do not introduce smaller CPU partitions, cache-off acceptance,
@@ -182,7 +180,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
-| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close and abandoned generated Prepare-method departure pass selected main receiving. The bounded diagnostic transfer now preserves keyed causes and refuses opaque rendering before projection. Six focused worker controls passed on main. The actual failed orphan-retirement and remaining session/batch receiving stay open. |
+| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. The bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Remaining session, batch and departure populations stay open. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token/nonblocking I/O/native-error retention are integrated. Actual prepared main reader succeeds and refuses nonregular input; selected host/product controls pass with corrected expectations and complete settlement. Preserve original interrupted/OOM evidence. Complete canonical cancellation/drain, broader transport/process failures, independent sessions and retained response lifetime. |
 
@@ -233,8 +231,9 @@ failure observation without consuming the original result. Tokio's completion wa
 proof; its watch channel only distributes the once-derived bytes. Connectrpc's Bytes-backed
 `PreEncoded` response retains one encoding across readers. A further actual immediate parent
 failure control governs the existing bounded process-finalization allowance; no remote fact
-can grant native authority or replace local I/O join, reap or admission release. This correction
-is not yet claimed received on main.
+can grant native authority or replace local I/O join, reap or admission release. Main contains
+the joined original-cause repair (`0733f5fd0`) and its pre-copy bounded diagnostic follow-up
+(`9d80d9836`). Their controls cover the selected failed-orphan path and immediate parent finish.
 
 Start from the delivered generic admitted-job and unique-surrogate retirement mechanisms.
 Complete the selected preparation abandonment, synchronous fill, provider banks, shared-surrogate,
