@@ -10,6 +10,45 @@ use pse_modeling::expression::occurrences::{CheckedExpression, OccurrenceKey, Pa
 use std::cell::{Cell, RefCell};
 type PhaseResult<T> = std::result::Result<T, pse_modeling::ModelingError>;
 
+#[cfg(test)]
+pub(super) fn observation_ingredients(
+    db: &dyn CompilerDb,
+) -> [(salsa::IngredientIndex, test_observation::Query); 7] {
+    use super::test_observation::Query;
+    use salsa::plumbing::Ingredient;
+    let zalsa = db.zalsa();
+    [
+        (
+            parsed::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::Parsed,
+        ),
+        (
+            resolved::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::Resolved,
+        ),
+        (
+            typed::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::Typed,
+        ),
+        (
+            effective_members::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::EffectiveMembers,
+        ),
+        (
+            occurrence::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::Occurrence,
+        ),
+        (
+            checked_expressions::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::CheckedExpressions,
+        ),
+        (
+            expression_references::fn_ingredient_(db, zalsa).ingredient_index(),
+            Query::ExpressionReferences,
+        ),
+    ]
+}
+
 #[salsa::input]
 struct Source {
     row: Arc<Declaration>,

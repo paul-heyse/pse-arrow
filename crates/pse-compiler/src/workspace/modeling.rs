@@ -840,6 +840,8 @@ impl CompilerWorkspace {
                     .map_or_else(|| self.inputs.clone(), |revision| revision.inputs.clone()),
                 self.limits,
                 self.events.clone(),
+                #[cfg(test)]
+                self.test_queries.clone(),
             )?;
             restored.db.body_retention = self.db.body_retention.clone();
             if let Some(prior) = prior {
@@ -952,8 +954,13 @@ impl CompilerWorkspace {
         self.inputs = inputs;
         let result = admit(self);
         if result.is_err() {
-            let mut restored =
-                Self::with_shared_events(prior_inputs, self.limits, self.events.clone())?;
+            let mut restored = Self::with_shared_events(
+                prior_inputs,
+                self.limits,
+                self.events.clone(),
+                #[cfg(test)]
+                self.test_queries.clone(),
+            )?;
             restored.db.body_retention = self.db.body_retention.clone();
             if let Some(prior) = prior {
                 restored.publish_modeling_revision(prior)?;
@@ -1312,4 +1319,4 @@ mod granular_tests;
 mod physical_premises_tests;
 
 #[cfg(test)]
-mod test_observation;
+pub(super) mod test_observation;

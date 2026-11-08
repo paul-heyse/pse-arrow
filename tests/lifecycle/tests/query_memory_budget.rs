@@ -7,6 +7,23 @@ use pse_columnar::CancellationToken;
 use pse_engine::EngineError;
 use pse_engine::session::EngineSession;
 
+#[test]
+fn typed_query_budget_rows_keep_both_values_and_the_offset() {
+    use arrow::array::UInt64Array;
+    let batch = support::batch(&support::registry(), 3, 10);
+    let column = |index| {
+        batch
+            .column(index)
+            .as_any()
+            .downcast_ref::<UInt64Array>()
+            .expect("registry-declared UInt64 column")
+            .values()
+            .as_ref()
+    };
+    assert_eq!(column(0), &[0, 1, 2]);
+    assert_eq!(column(1), &[13, 12, 11]);
+}
+
 #[tokio::test]
 async fn two_sessions_share_input_charges_and_only_64_kib_of_query_headroom() {
     const LIMIT: usize = 512 << 20;

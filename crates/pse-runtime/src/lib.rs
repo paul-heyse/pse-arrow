@@ -104,3 +104,49 @@ mod reference_source_fixture;
 
 #[cfg(all(test, feature = "engineering-service"))]
 mod result_metadata_projection_tests;
+
+#[cfg(test)]
+#[path = "../tests/reference_support/manifest.rs"]
+mod reference_manifest;
+
+#[cfg(test)]
+#[test]
+fn reference_package_overlay_binds_exact_declared_dependency() {
+    const MODEL: &str =
+        include_str!("../../../tests/fixtures/packages/minimal_explicit/package.toml");
+    const PHYSICAL: &str =
+        include_str!("../../../tests/fixtures/packages/physical-primitives/package.toml");
+    let manifest = reference_manifest::named_model_manifest(MODEL, PHYSICAL.as_bytes()).unwrap();
+    let manifest: toml::Value = toml::from_str(std::str::from_utf8(&manifest).unwrap()).unwrap();
+    assert_eq!(
+        manifest["package"]["id"].as_str(),
+        Some("01991d6a-13a0-7000-8000-000000000001")
+    );
+    assert_eq!(manifest["package"]["id_policy"].as_str(), Some("named"));
+    let [dependency] = manifest["package"]["dependencies"]
+        .as_array()
+        .unwrap()
+        .as_slice()
+    else {
+        panic!("expected the one original physical dependency");
+    };
+    assert_eq!(
+        dependency["package_id"].as_str(),
+        Some("5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a")
+    );
+    assert_eq!(
+        dependency["version_req"]["operator"].as_str(),
+        Some("exact")
+    );
+    assert_eq!(dependency["version_req"]["major"].as_integer(), Some(1));
+    assert!(reference_manifest::named_model_manifest(MODEL, b"").is_err());
+    let other = PHYSICAL.replace(
+        "5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a",
+        "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
+    );
+    assert!(reference_manifest::named_model_manifest(MODEL, other.as_bytes()).is_err());
+    let missing_premise = MODEL.replace("dependencies = []", "");
+    assert!(
+        reference_manifest::named_model_manifest(&missing_premise, PHYSICAL.as_bytes()).is_err()
+    );
+}

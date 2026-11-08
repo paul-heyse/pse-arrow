@@ -25,9 +25,8 @@ workspace = true
 pse-columnar.workspace = true
 pse-diagnostics.workspace = true
 pse-engine.workspace = true
-serde_json.workspace = true
 pse-schema.workspace = true
-pse-relations = { workspace = true, features = ["test-support"] }
+pse-relations.workspace = true
 pse-runtime.workspace = true
 arrow.workspace = true
 datafusion.workspace = true

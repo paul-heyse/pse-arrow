@@ -2781,8 +2781,13 @@ fn path_type(
             break;
         }
     }
-    let (start, mut declaration, mut ty) =
-        root.ok_or_else(|| invalid(at, format!("unknown member {}", first.name)))?;
+    let (start, mut declaration, mut ty) = root.ok_or_else(|| {
+        crate::invalid_reason(
+            at,
+            crate::ModelingContractReason::UnknownMember,
+            format!("unknown member {}", first.name),
+        )
+    })?;
     for (position, segment) in path.segments.iter().enumerate().skip(start) {
         let prefix = dsl::render_path(&Path {
             segments: path.segments[..=position].to_vec(),

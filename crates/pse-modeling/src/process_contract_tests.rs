@@ -969,7 +969,14 @@ fn selected_original_closures_preserve_order_and_unknown_preflight() {
     let error = model
         .assess_closures(&BTreeMap::new(), &unknown, &BTreeMap::new())
         .unwrap_err();
-    assert!(error.to_string().contains("unknown selected closure"));
+    assert!(matches!(
+        error,
+        crate::ModelingError::Contract {
+            reason: crate::ModelingContractReason::UnknownSelectedClosure,
+            declaration: pse_ids::SemanticId::NIL,
+            ..
+        }
+    ));
     assert!(
         model
             .assess_closures(&BTreeMap::new(), &selected, &allowances)
@@ -1248,8 +1255,17 @@ fn process_contract_inherited_guarded_balance_members_share_only_their_source_ph
             "energy:Flow accounting tolerance 0.001{mol/s}",
         )
         .replace("MODE", "0");
-    let error = checked(&unlike).unwrap_err().to_string();
-    assert!(error.contains("unknown member energy"), "{error}");
+    let error = checked(&unlike).unwrap_err();
+    assert!(
+        matches!(
+            &error,
+            crate::ModelingError::Contract {
+                reason: crate::ModelingContractReason::UnknownMember,
+                ..
+            }
+        ),
+        "{error:?}"
+    );
 }
 
 #[test]

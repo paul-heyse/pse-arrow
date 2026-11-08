@@ -384,6 +384,11 @@ fn objective_sense(
         }
     }
 }
+#[cfg(test)]
+pub(super) fn projection_ingredient(db: &dyn CompilerDb) -> salsa::IngredientIndex {
+    use salsa::plumbing::Ingredient;
+    projection::fn_ingredient_(db, db.zalsa()).ingredient_index()
+}
 #[salsa::tracked(returns(clone),lru=64,heap_size=projection_heap)]
 fn projection(
     db: &dyn CompilerDb,

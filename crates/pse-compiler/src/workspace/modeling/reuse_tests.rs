@@ -1383,6 +1383,7 @@ fn reference_three_units_retains_direct_bodies_and_backdates_unrelated_edits() {
         counts.count(Query::Projection),
         body_observations.admissions(),
     ];
+    assert!(first_counts[..3].iter().all(|&count| count > 0));
     assert_eq!(
         first_counts[3],
         first.admitted.bodies.len(),

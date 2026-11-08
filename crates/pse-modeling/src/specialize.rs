@@ -728,7 +728,7 @@ pub const fn root_instance(root: DeclarationId) -> InstanceId {
 /// # }
 /// ```
 ///
-/// ```compile_fail
+/// ```compile_fail,E0308
 /// # use pse_modeling::specialize::{Bindings, DeclarationId, InstanceId, Limits, specialize};
 /// # fn run(package: &pse_modeling::CheckedPackage, root: DeclarationId, instance: InstanceId) {
 /// let _ = specialize(package, instance, root, &Bindings::default(), Limits::default());
@@ -3448,16 +3448,20 @@ impl SpecializedModel {
         selected: &BTreeSet<SemanticId>,
         allowances: &BTreeMap<SemanticId, f64>,
     ) -> Result<Vec<ClosureAssessment>> {
-        if selected.iter().any(|id| !self.closures.contains_key(id)) {
-            return Err(invalid(SemanticId::NIL, "unknown selected closure"));
+        let missing = |id| {
+            crate::invalid_reason(
+                id,
+                crate::ModelingContractReason::UnknownSelectedClosure,
+                "unknown selected closure",
+            )
+        };
+        if let Some(&id) = selected.iter().find(|id| !self.closures.contains_key(*id)) {
+            return Err(missing(id));
         }
         selected
             .iter()
             .map(|id| {
-                let closure = self
-                    .closures
-                    .get(id)
-                    .ok_or_else(|| invalid(SemanticId::NIL, "unknown selected closure"))?;
+                let closure = self.closures.get(id).ok_or_else(|| missing(*id))?;
                 let mut net = 0.0;
                 for term in &closure.terms {
                     let magnitude = magnitudes

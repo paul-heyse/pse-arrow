@@ -521,30 +521,17 @@ impl Kinsol {
     }
 }
 
-/// Handcrafted fixtures have actual source IDs and no local attribution tokens.
-#[cfg(all(test, feature = "root-isolation"))]
-#[allow(
-    clippy::expect_used,
-    reason = "handcrafted test fixtures assert successful source binding and compiled-body construction"
+#[cfg(test)]
+use pse_math as math_fixture_api;
+#[cfg(test)]
+#[cfg_attr(
+    not(feature = "root-isolation"),
+    allow(dead_code, reason = "source binding fixtures require root isolation")
 )]
-pub(crate) fn source_body_for_test(
-    instance: pse_ids::SemanticId,
-    prepared: &pse_math::guarded::PreparedBody,
-    compiled: Arc<pse_math::guarded::CompiledBody>,
-) -> pse_math::SourceBody {
-    assert!(prepared.checked_members().is_empty());
-    assert!(prepared.checked_sources().is_empty());
-    assert!(prepared.occurrence_tokens().is_empty());
-    let bindings = pse_math::SourceBindings::new(
-        instance,
-        prepared,
-        Default::default(),
-        Default::default(),
-        Default::default(),
-    )
-    .expect("handcrafted fixture source bindings");
-    pse_math::SourceBody::new(compiled, bindings).expect("handcrafted fixture compiled source body")
-}
+#[path = "../../../tests/support/residual_fixture.rs"]
+mod residual_fixture;
+#[cfg(all(test, feature = "root-isolation"))]
+pub(crate) use residual_fixture::source_body_for_test;
 
 #[cfg(test)]
 pub(crate) fn test_residual_bodies(
@@ -557,40 +544,13 @@ pub(crate) fn test_residual_bodies(
     } else {
         Vec::new()
     };
-    let cancel = pse_diagnostics::Cancellation::new(false);
-    let support = parameter
-        .prepared_support()
-        .incidence(&axes, &cancel)
-        .unwrap()
-        .at_order(order)
-        .unwrap();
-    let unknown = Arc::new(
-        support
-            .compile(
-                Default::default(),
-                Default::default(),
-                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
-            )
-            .unwrap(),
-    );
-    let source = Arc::new(
-        parameter
-            .prepared_support()
-            .incidence(&[], &cancel)
-            .unwrap()
-            .at_order(DerivativeOrder::Value)
-            .unwrap()
-            .compile(
-                Default::default(),
-                Default::default(),
-                &pse_kernels::ExecutionScope::new(cancel, None),
-            )
-            .unwrap(),
-    );
-    pse_math::implicit::ResidualBodies {
-        unknown: pse_math::SourceBody::new(unknown, parameter.bindings().clone()).unwrap(),
-        source: pse_math::SourceBody::new(source, parameter.bindings().clone()).unwrap(),
-    }
+    residual_fixture::residual_bodies(
+        &parameter,
+        &axes,
+        order,
+        Default::default(),
+        Default::default(),
+    )
 }
 
 // Test-only dense assessment boundary: copy only a successfully completed fill.

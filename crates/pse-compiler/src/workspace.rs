@@ -1839,6 +1839,8 @@ pub struct RetentionExcess {
 /// Single-writer workspace. Callers serialize access; no database clones or partial batches escape.
 pub struct CompilerWorkspace {
     events: Option<CompilerEvents>,
+    #[cfg(test)]
+    test_queries: Option<modeling::test_observation::QueryObservations>,
     db: CompilerDatabase,
     inventory: Inventory,
     inputs: CompilerContext,
@@ -1887,12 +1889,19 @@ impl CompilerWorkspace {
         limits: WorkspaceLimits,
         event: Option<Box<dyn Fn(salsa::Event) + Send + Sync>>,
     ) -> Result<Self> {
-        Self::with_shared_events(inputs, limits, event.map(Arc::from))
+        Self::with_shared_events(
+            inputs,
+            limits,
+            event.map(Arc::from),
+            #[cfg(test)]
+            None,
+        )
     }
     fn with_shared_events(
         inputs: CompilerContext,
         limits: WorkspaceLimits,
         events: Option<CompilerEvents>,
+        #[cfg(test)] test_queries: Option<modeling::test_observation::QueryObservations>,
     ) -> Result<Self> {
         pse_math::initialize()?;
         validate(&inputs, limits)?;
@@ -1900,9 +1909,17 @@ impl CompilerWorkspace {
         let observations = std::sync::Mutex::new(None);
         let query_labels = Arc::new(std::sync::Mutex::new(QueryLabels::default()));
         let event_labels = query_labels.clone();
+        #[cfg(test)]
+        let test_observer = test_queries.as_ref().map(|queries| queries.observer());
+        #[cfg(test)]
+        let test_events = test_observer.clone();
         let mut db = CompilerDatabase {
             storage: salsa::Storage::new(Some(Box::new(move |event| {
                 observe_query_event(&event, &observations, &event_labels);
+                #[cfg(test)]
+                if let Some(observer) = &test_events {
+                    observer.observe(&event);
+                }
                 if let Some(callback) = &callback {
                     callback(event);
                 }
@@ -1917,10 +1934,16 @@ impl CompilerWorkspace {
                 ..Default::default()
             })),
         };
+        #[cfg(test)]
+        if let Some(observer) = test_observer {
+            observer.register(&db);
+        }
         let inventory = inventory(&db, &inputs, pse_math::context()?.environment.identity());
         configure(&mut db, limits.query_values);
         Ok(Self {
             events,
+            #[cfg(test)]
+            test_queries,
             db,
             inventory,
             inputs,
@@ -1943,7 +1966,13 @@ impl CompilerWorkspace {
             context.count("compiler.workspace_rebuilds", "count", 1);
             context.phase("compiler.workspace_rebuild")
         });
-        let mut replacement = Self::with_shared_events(inputs, self.limits, self.events.clone())?;
+        let mut replacement = Self::with_shared_events(
+            inputs,
+            self.limits,
+            self.events.clone(),
+            #[cfg(test)]
+            self.test_queries.clone(),
+        )?;
         if let Ok(mut labels) = replacement.db.query_labels.lock() {
             labels.generation = generation;
         }

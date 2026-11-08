@@ -74,6 +74,18 @@ fn consumed_body_edit_executes_one_source_and_cuts_off_equal_sibling_phases() {
     let references = events.count(Query::ExpressionReferences);
     assert_eq!(parses, source.len());
     assert_eq!(types, source.len());
+    assert!(
+        [
+            resolutions,
+            members,
+            occurrences,
+            expressions,
+            references,
+            specializations
+        ]
+        .into_iter()
+        .all(|count| count > 0)
+    );
     let balance = source
         .iter_mut()
         .find(|row| row.value.equation.is_some())
@@ -323,6 +335,11 @@ fn field_attribution_and_document_identity_are_exact_phase_inputs() {
     let types = events.count(Query::Typed);
     let resolutions = events.count(Query::Resolved);
     let expressions = events.count(Query::CheckedExpressions);
+    assert!(
+        [parses, types, resolutions, expressions]
+            .into_iter()
+            .all(|count| count > 0)
+    );
     docs.field_spans
         .get_mut(&equation)
         .unwrap()
@@ -368,6 +385,11 @@ fn relocating_unchanged_declarations_preserves_type_and_member_memos() {
     let resolutions = events.count(Query::Resolved);
     let members = events.count(Query::EffectiveMembers);
     let expressions = events.count(Query::CheckedExpressions);
+    assert!(
+        [types, resolutions, members, expressions]
+            .into_iter()
+            .all(|count| count > 0)
+    );
     for row in &mut source {
         row.source_start += 10;
         row.source_end += 10;

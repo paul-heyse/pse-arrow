@@ -38,19 +38,18 @@ pub(crate) fn registry() -> Arc<Registry> {
     Arc::new(builder.build().expect("registry"))
 }
 pub(crate) fn batch(registry: &Registry, count: u64, offset: u64) -> pse_relations::RecordBatch {
+    use arrow::array::UInt64Array;
+    use pse_relations::validate::{ValidationContext, validate_batch};
+
     let spec = registry.relation("authored.samples").expect("relation");
-    let rows = (0..count)
-        .map(|id| {
-            vec![
-                serde_json::json!(["u64", id]),
-                serde_json::json!(["u64", count - id + offset]),
-            ]
-        })
-        .collect::<Vec<_>>();
-    let validation = pse_relations::validate::ValidationContext::local(registry)
-        .expect("local primitive fixture");
-    pse_relations::testing::batch_from_literals(registry, spec, &rows, &validation)
-        .expect("typed rows")
+    let schema = Arc::new(pse_schema::arrow::relation_schema(registry, spec).expect("schema"));
+    let ids = UInt64Array::from_iter_values(0..count);
+    let values = UInt64Array::from_iter_values((0..count).map(|id| count - id + offset));
+    let batch = pse_relations::RecordBatch::try_new(schema, vec![Arc::new(ids), Arc::new(values)])
+        .expect("typed rows");
+    let validation = ValidationContext::local(registry).expect("local primitive fixture");
+    validate_batch(registry, spec, &batch, &validation).expect("admitted typed rows");
+    batch
 }
 pub(crate) fn session(
     runtime: &pse_runtime::SharedRuntime,

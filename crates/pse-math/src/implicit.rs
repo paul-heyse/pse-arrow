@@ -2611,27 +2611,13 @@ fn settle_math_error(
     }
 }
 
-/// Bind a handcrafted numerical fixture while its real admitted source is in scope.
-/// These fixtures use actual source IDs directly and have no local attribution tokens.
 #[cfg(test)]
-pub(crate) fn source_body_for_test(
-    instance: SemanticId,
-    prepared: &crate::guarded::PreparedBody,
-    compiled: Arc<CompiledBody>,
-) -> SourceBody {
-    assert!(prepared.checked_members().is_empty());
-    assert!(prepared.checked_sources().is_empty());
-    assert!(prepared.occurrence_tokens().is_empty());
-    let bindings = crate::SourceBindings::new(
-        instance,
-        prepared,
-        BTreeMap::new(),
-        BTreeMap::new(),
-        BTreeMap::new(),
-    )
-    .unwrap();
-    SourceBody::new(compiled, bindings).unwrap()
-}
+use crate as math_fixture_api;
+#[cfg(test)]
+#[path = "../../../tests/support/residual_fixture.rs"]
+mod residual_fixture;
+#[cfg(test)]
+pub(crate) use residual_fixture::source_body_for_test;
 
 #[cfg(test)]
 pub(crate) fn residual_bodies_for_test(parameter: SourceBody) -> ResidualBodies {
@@ -2642,41 +2628,13 @@ pub(crate) fn residual_bodies_for_test(parameter: SourceBody) -> ResidualBodies 
     } else {
         Vec::new()
     };
-    let compile_control = pse_diagnostics::Cancellation::new(false);
-    let cancel = compile_control.flag();
-    let support = parameter
-        .prepared_support()
-        .incidence(&axes, &cancel)
-        .unwrap()
-        .at_order(order)
-        .unwrap();
-    let unknown = Arc::new(
-        support
-            .compile(
-                crate::library::Optimization::default(),
-                crate::jets::EvaluationLimits::default(),
-                &pse_kernels::ExecutionScope::new(compile_control.clone(), None),
-            )
-            .unwrap(),
-    );
-    let source = Arc::new(
-        parameter
-            .prepared_support()
-            .incidence(&[], &cancel)
-            .unwrap()
-            .at_order(DerivativeOrder::Value)
-            .unwrap()
-            .compile(
-                parameter.optimization(),
-                parameter.evaluation_limits(),
-                &pse_kernels::ExecutionScope::new(compile_control, None),
-            )
-            .unwrap(),
-    );
-    ResidualBodies {
-        unknown: SourceBody::new(unknown, parameter.bindings().clone()).unwrap(),
-        source: SourceBody::new(source, parameter.bindings().clone()).unwrap(),
-    }
+    residual_fixture::residual_bodies(
+        &parameter,
+        &axes,
+        order,
+        Default::default(),
+        (parameter.optimization(), parameter.evaluation_limits()),
+    )
 }
 
 #[cfg(test)]

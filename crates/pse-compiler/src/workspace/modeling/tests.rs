@@ -168,7 +168,13 @@ fn document_record_defaults_are_refused_before_bulk_admission_and_retry_releases
     let error = workspace
         .publish_modeling_with(oversized, PhysicalScope::default(), Arc::clone(&documents))
         .unwrap_err();
-    assert!(error.to_string().contains("before expansion"), "{error}");
+    assert!(
+        matches!(
+            &error,
+            CompileError::Modeling(pse_modeling::ModelingError::Budget(_))
+        ),
+        "{error:?}"
+    );
     // Semantic phases establish the dataset plan before its expansion can be
     // preflighted. The bulk row-admission query must never execute on refusal.
     assert!(events.total() > 0);

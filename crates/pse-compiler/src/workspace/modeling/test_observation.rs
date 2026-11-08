@@ -5,10 +5,14 @@ use super::*;
 use pse_diagnostics::observation::{
     EnterGuard, ObservationContext, ObservationHub, OperationGuard, Policy, Value,
 };
-use std::{sync::Mutex, time::Duration};
+use salsa::plumbing::{Ingredient, ZalsaDatabase};
+use std::{
+    sync::{Mutex, OnceLock},
+    time::Duration,
+};
 
-/// Query spellings belong only here; semantic-body admission uses its ordinary counters.
-#[derive(Clone, Copy, Debug)]
+/// Selected query families; semantic-body admission uses its ordinary counters.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Query {
     Selected,
     Specialized,
@@ -25,69 +29,109 @@ pub(super) enum Query {
     CheckedExpressions,
     ExpressionReferences,
 }
-impl Query {
-    fn name(self) -> &'static str {
-        match self {
-            Self::Selected => "selected(",
-            Self::Specialized => "specialized(",
-            Self::Projection => "projection(",
-            Self::InstancePrelude => "instance_prelude(",
-            Self::FunctionFragment => "function_fragment(",
-            Self::FieldFragment => "field_fragment(",
-            Self::DocumentTable => "document_table(",
-            Self::Parsed => "parsed(",
-            Self::Resolved => "resolved(",
-            Self::Typed => "typed(",
-            Self::EffectiveMembers => "effective_members(",
-            Self::Occurrence => "occurrence(",
-            Self::CheckedExpressions => "checked_expressions(",
-            Self::ExpressionReferences => "expression_references(",
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 struct Trace {
-    observed: bool,
     truncated: bool,
-    executions: Vec<String>,
+    unregistered: bool,
+    total: usize,
+    executions: BTreeMap<Query, usize>,
 }
 #[derive(Clone, Debug, Default)]
-pub(super) struct QueryObservations(Arc<Mutex<Trace>>);
+pub(in crate::workspace) struct QueryObservations(Arc<Mutex<Trace>>);
 impl QueryObservations {
-    pub(super) fn callback(&self) -> Box<dyn Fn(salsa::Event) + Send + Sync> {
-        let trace = self.0.clone();
-        Box::new(move |event| {
-            let mut trace = trace.lock().unwrap();
-            trace.observed = true;
-            if matches!(event.kind, salsa::EventKind::WillExecute { .. }) {
-                // An exceeded bound invalidates this observation instead of silently
-                // turning its retained prefix into a smaller execution count.
-                if trace.executions.len() == 1_000_000 {
-                    trace.truncated = true;
-                } else {
-                    trace.executions.push(format!("{:?}", event.kind));
-                }
-            }
+    pub(in crate::workspace) fn observer(&self) -> Arc<GenerationObserver> {
+        Arc::new(GenerationObserver {
+            trace: self.0.clone(),
+            queries: OnceLock::new(),
         })
     }
     fn complete(&self) -> Option<std::sync::MutexGuard<'_, Trace>> {
         let trace = self.0.lock().unwrap();
-        (trace.observed && !trace.truncated).then_some(trace)
+        (trace.total != 0 && !trace.truncated && !trace.unregistered).then_some(trace)
     }
     pub(super) fn count(&self, query: Query) -> usize {
         self.complete()
-            .expect("query observation missing or truncated")
+            .expect("query observation missing, unregistered or truncated")
             .executions
-            .iter()
-            .filter(|event| event.contains(query.name()))
-            .count()
+            .get(&query)
+            .copied()
+            .unwrap_or(0)
     }
     pub(super) fn total(&self) -> usize {
         self.complete()
-            .expect("query observation missing or truncated")
-            .executions
-            .len()
+            .expect("query observation missing, unregistered or truncated")
+            .total
+    }
+}
+
+/// Salsa allocates ingredient identities per database. Register from that generation's
+/// real tracked functions, before any tracked function is executed.
+pub(in crate::workspace) struct GenerationObserver {
+    trace: Arc<Mutex<Trace>>,
+    queries: OnceLock<BTreeMap<salsa::IngredientIndex, Query>>,
+}
+impl GenerationObserver {
+    pub(in crate::workspace) fn register(&self, db: &CompilerDatabase) {
+        let zalsa = db.zalsa();
+        let mut queries = BTreeMap::new();
+        let mut register = |index, query| {
+            assert!(
+                queries.insert(index, query).is_none(),
+                "ambiguous query ingredient"
+            );
+        };
+        for (index, query) in [
+            (
+                selected::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::Selected,
+            ),
+            (
+                specialized::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::Specialized,
+            ),
+            (
+                instance_prelude::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::InstancePrelude,
+            ),
+            (
+                function_fragment::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::FunctionFragment,
+            ),
+            (
+                field_fragment::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::FieldFragment,
+            ),
+            (
+                document_table::fn_ingredient_(db, zalsa).ingredient_index(),
+                Query::DocumentTable,
+            ),
+            (executable::projection_ingredient(db), Query::Projection),
+        ]
+        .into_iter()
+        .chain(granular::observation_ingredients(db))
+        {
+            register(index, query);
+        }
+        self.queries.set(queries).expect("one mapping per database");
+    }
+
+    pub(in crate::workspace) fn observe(&self, event: &salsa::Event) {
+        if let salsa::EventKind::WillExecute { database_key } = event.kind {
+            let mut trace = self.trace.lock().unwrap();
+            let Some(queries) = self.queries.get() else {
+                trace.unregistered = true;
+                return;
+            };
+            if trace.total == 1_000_000 {
+                trace.truncated = true;
+                return;
+            }
+            trace.total += 1;
+            // Unselected ingredients count toward the full trace, never toward a selected family.
+            if let Some(query) = queries.get(&database_key.ingredient_index()) {
+                *trace.executions.entry(*query).or_default() += 1;
+            }
+        }
     }
 }
 
@@ -97,7 +141,8 @@ pub(super) fn observed_workspace(
 ) -> (CompilerWorkspace, QueryObservations) {
     let observations = QueryObservations::default();
     let workspace =
-        CompilerWorkspace::with_events(context, limits, Some(observations.callback())).unwrap();
+        CompilerWorkspace::with_shared_events(context, limits, None, Some(observations.clone()))
+            .unwrap();
     (workspace, observations)
 }
 
@@ -186,16 +231,32 @@ fn query_observation_requires_complete_evidence_and_positive_cold_invalidation_c
         .publish_modeling(rows(1), PhysicalScope::default())
         .unwrap();
     let count = observed.count(Query::Parsed);
+    let resolutions = observed.count(Query::Resolved);
     assert!(count > 0);
+    assert!(resolutions > 0);
     let warm = workspace
         .publish_modeling(rows(1), PhysicalScope::default())
         .unwrap();
     assert!(Arc::ptr_eq(&cold, &warm));
     assert_eq!(observed.count(Query::Parsed), count);
-    workspace
+    let edited = workspace
         .publish_modeling(rows(2), PhysicalScope::default())
         .unwrap();
-    assert!(observed.count(Query::Parsed) > count);
+    assert_eq!(observed.count(Query::Parsed), count + 1);
+    assert_eq!(observed.count(Query::Resolved), resolutions);
+    let unregistered = absent.observer();
+    let mut fresh = CompilerWorkspace::with_events(
+        workspace.inputs.clone(),
+        workspace.limits,
+        Some(Box::new(move |event| unregistered.observe(&event))),
+    )
+    .unwrap();
+    let fresh_edited = fresh
+        .publish_modeling(rows(2), PhysicalScope::default())
+        .unwrap();
+    assert_eq!(edited.checked(), fresh_edited.checked());
+    assert!(absent.0.lock().unwrap().unregistered);
+    assert!(absent.complete().is_none());
     observed.0.lock().unwrap().truncated = true;
     assert!(observed.complete().is_none());
 }

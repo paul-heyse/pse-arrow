@@ -53,6 +53,8 @@ pub enum ModelingContractReason {
     UnknownContextualDeclaration,
     /// The selected declaration type has no requested member.
     UnknownMember,
+    /// The selected accounting subject is absent from the specialized closure.
+    UnknownSelectedClosure,
     /// A contextual reference needs a member path rather than an arbitrary expression.
     ContextualMemberPathRequired,
     /// Runtime data cannot choose a structural value during specialization.
@@ -83,6 +85,7 @@ impl ModelingContractReason {
             Self::AmbiguousName => "ambiguous_name",
             Self::UnknownContextualDeclaration => "unknown_contextual_declaration",
             Self::UnknownMember => "unknown_member",
+            Self::UnknownSelectedClosure => "unknown_selected_closure",
             Self::ContextualMemberPathRequired => "contextual_member_path_required",
             Self::StaticValueRequired => "static_value_required",
             Self::MemberIndexArity => "member_index_arity",
