@@ -306,7 +306,7 @@ codegen-physical-check:
 
 [group('local')]
 codegen-docs-check:
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features host-contracts --locked -- codegen --only docs --check
 
 [group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
@@ -806,7 +806,7 @@ codegen-contracts:
     unset CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUNNER
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only rust-contracts
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features recorded-result-contracts --locked -- codegen --only recorded-result
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only docs
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features host-contracts --locked -- codegen --only docs
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
 
 [group('mutating')]

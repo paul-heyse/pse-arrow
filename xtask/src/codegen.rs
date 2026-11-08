@@ -240,6 +240,16 @@ fn developer_evidence_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("developer evidence projections require host-contracts")
 }
 
+#[cfg(feature = "host-contracts")]
+fn cli_reference() -> Result<Vec<u8>> {
+    Ok(pse_host::catalog::markdown::render(&[])?.into_bytes())
+}
+
+#[cfg(not(feature = "host-contracts"))]
+fn cli_reference() -> Result<Vec<u8>> {
+    bail!("CLI reference generation requires host-contracts")
+}
+
 #[cfg(feature = "product-schemas")]
 fn native_root_tree(root: &Path) -> Result<GeneratedTree> {
     native_root::generate(root)
@@ -300,30 +310,8 @@ fn language_tree(
         grpc_wire::append(root, &mut tree)?;
     }
     if language == Language::Markdown {
-        let output = Command::new("cargo")
-            .args([
-                "run",
-                "--locked",
-                "-p",
-                "pse-host",
-                "--bin",
-                "pse",
-                "--",
-                "commands",
-                "--markdown",
-            ])
-            .current_dir(root)
-            .output()
-            .context("running the parser-owned CLI reference export")?;
-        if !output.status.success() {
-            bail!(
-                "CLI reference export failed ({}): {}",
-                output.status,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        }
         let path = "docs/generated/agent-cli.md";
-        tree.files.insert(path.into(), output.stdout);
+        tree.files.insert(path.into(), cli_reference()?);
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: "pse-command-tree".into(),
             declaration_kind: "cli_parser".into(),
@@ -1121,6 +1109,25 @@ mod tests {
         write_tree(checkout.path(), &docs).unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"independent contract world");
         assert!(!inventory(checkout.path(), &docs).unwrap().contains(&nested));
+    }
+
+    #[cfg(feature = "host-contracts")]
+    #[test]
+    fn markdown_renders_the_parser_reference_without_a_cargo_checkout() {
+        let destination = tempfile::tempdir().unwrap();
+        let registry = pse_schema::catalog::assemble().unwrap();
+        let docs = language_tree(
+            destination.path(),
+            &registry,
+            Language::Markdown,
+            Some(Target::Docs),
+        )
+        .unwrap();
+        let reference = pse_host::catalog::markdown::render(&[]).unwrap();
+        assert_eq!(
+            docs.files[Path::new("docs/generated/agent-cli.md")],
+            reference.as_bytes()
+        );
     }
 
     #[test]
