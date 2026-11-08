@@ -8,7 +8,7 @@ use crate::{
 };
 use nextest_metadata::{FilterMatch, MismatchReason, RustBinaryId, TestCaseName};
 use serde_json::{Value, json};
-use std::time::Duration;
+use std::{os::unix::fs::PermissionsExt as _, time::Duration};
 
 #[path = "rerun_tests.rs"]
 mod rerun_tests;
