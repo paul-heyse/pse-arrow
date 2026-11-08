@@ -294,6 +294,12 @@ and native receiving acceptance exist. Historical readable records can retain un
 
 ### C05 — Verify actual shutdown and transport composition
 
+The canonical observer control now holds a real protected revision on the original reader
+connection, cancels the pending observation and verifies the original grant was released
+before returning. Its fixture independently observes the release and the reader alias refuses
+fresh activity. This covers cancellation after acquisition. Connect and open still have
+their separately bounded native acquisition lifetime.
+
 Original receiving exposed a native launcher gap: a caller without exported placement values
 did not activate the checkout's explicit unbounded selection, so managed test launch chose the
 default finite functional scope and rustc was killed at its 40 GiB limit. Test/check launch now

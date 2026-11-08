@@ -220,3 +220,96 @@ fn connected(
         },
     ))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_operations::{
+        canonical::CanonicalError,
+        native_fixture::{FixtureSelection, canonical_fixture_store},
+    };
+
+    #[test]
+    fn canonical_observer_cancellation_drains_original_protection_and_connection()
+    -> Result<(), ReaderError> {
+        let fixture = canonical_fixture_store().map_err(canonical)?;
+        let options = CanonicalOptions::from_state_for_database(
+            fixture.deployment_state(),
+            Some(fixture.database()),
+        )
+        .map_err(canonical)?;
+        let executor = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()?;
+        let revision = executor
+            .block_on(fixture.edit("observer-cancellation", None, "original", &[]))
+            .map_err(canonical)?;
+        let cancel = pse_columnar::CancellationToken::new();
+        let mut reader = None;
+        let mut grant = None;
+        let result = connected(
+            &options,
+            Instant::now() + Duration::from_millis(MAXIMUM_READ_MILLIS),
+            &cancel,
+            async |store| {
+                reader = Some(store.clone());
+                cancel
+                    .until_cancelled(async {
+                        let protection = store
+                            .protect(revision, Duration::from_secs(60))
+                            .await
+                            .map_err(canonical)?;
+                        grant = Some(protection.grant_key().to_owned());
+                        // Cancel only after the actual store has issued this grant.
+                        // Dropping the pending observation hands its original
+                        // release to the connection's drain owner.
+                        cancel.cancel();
+                        let result =
+                            std::future::pending::<Result<EncodedResponse, ReaderError>>().await;
+                        drop(protection);
+                        result
+                    })
+                    .await?
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(ReaderError::Columnar(pse_columnar::CanonError::Cancelled))
+        ));
+        let Some(reader) = reader else {
+            return Err(super::super::invalid("the canonical reader never opened"));
+        };
+        assert!(matches!(
+            reader.admit_activity(),
+            Err(CanonicalError::ConnectionUnavailable)
+        ));
+        let Some(grant) = grant else {
+            return Err(super::super::invalid(
+                "the original read grant was never issued",
+            ));
+        };
+        let selection = FixtureSelection::selected().map_err(canonical)?;
+        let released = executor
+            .block_on(async {
+                let mut response = selection
+                    .query(
+                        &fixture,
+                        "SELECT VALUE released FROM ONLY type::record('canonical_protections', $key);",
+                        ("key", grant),
+                    )
+                    .await?;
+                response
+                    .take::<Option<bool>>(0)
+                    .map_err(CanonicalError::from)
+            })
+            .map_err(canonical)?;
+        assert_eq!(
+            released,
+            Some(true),
+            "the exact grant must be released before returning"
+        );
+        executor
+            .block_on(fixture.remove_isolated_fixture())
+            .map_err(canonical)
+    }
+}

@@ -1006,6 +1006,9 @@ fn actual_abandoned_shutdown_retains_original_native_retirement_failures() {
     );
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
     assert!(!endpoint.exists());
+    // The proxy still owns its pre-launch physical declaration reservation.
+    assert_eq!(pool.reserved(), baseline + proxy.factory.registry_bytes);
+    drop(proxy);
     assert_eq!(pool.reserved(), baseline);
 }
 
