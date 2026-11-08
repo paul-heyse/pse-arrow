@@ -210,7 +210,11 @@ fn nearest_member_component_boundaries_and_unknown_sources_widen_explicitly() {
     ] {
         let wide = preview(root.path(), &changes(root.path(), &[path]), Some(&metadata)).unwrap();
         assert_eq!(wide.selected_packages.len(), 5);
-        assert!(matches!(wide.widening[0], Widening::UnknownSource { .. }));
+        assert!(
+            wide.widening
+                .iter()
+                .any(|reason| matches!(reason, Widening::UnknownSource { .. }))
+        );
     }
     let mut root_package_metadata = metadata.clone();
     root_package_metadata.packages[3].manifest_path =
@@ -235,6 +239,152 @@ fn nearest_member_component_boundaries_and_unknown_sources_widen_explicitly() {
                 .any(|reason| matches!(reason, Widening::WorkspaceContext { .. }))
         );
     }
+}
+
+fn scientific_sources(root: &Path, shared_dependency: &str) {
+    let shared = "4b32d03e21e647eaad63561b9e259be1";
+    let packages = [
+        ("shared", shared, String::new()),
+        (
+            "left",
+            "21ca4b98ab8e4726bb4d96d986f3fdb4",
+            format!(
+                r#"{{ package_id = "{shared_dependency}", version_req = {{ operator = "exact", major = 1, minor = 0, patch = 0 }} }}"#
+            ),
+        ),
+        (
+            "right",
+            "ed944a698ea344eb8b983d5a8aaee3c0",
+            format!(
+                r#"{{ package_id = "{shared}", version_req = {{ operator = "exact", major = 1, minor = 0, patch = 0 }} }}"#
+            ),
+        ),
+    ];
+    for (name, identity, dependencies) in packages {
+        let package = root.join("packages/reference").join(name);
+        fs::create_dir_all(package.join("models")).unwrap();
+        fs::write(
+            package.join("package.toml"),
+            format!(
+                "[package]\nname = \"fixture.{name}\"\npackage_id = \"{identity}\"\nversion = \"1.0.0\"\ndependencies = [{dependencies}]\n"
+            ),
+        )
+        .unwrap();
+        // These bytes are outside the passive reader's header budget and invalid
+        // as model text. Reaching the consumer still requires no model-body read.
+        fs::File::create(package.join("models/input.pse"))
+            .unwrap()
+            .set_len(2 << 20)
+            .unwrap();
+    }
+    let catalog = root.join(scientific::CATALOG);
+    fs::create_dir_all(catalog.parent().unwrap()).unwrap();
+    fs::write(
+        catalog,
+        r#"
+version = 1
+package_inventory = "packages/reference"
+
+[[families]]
+name = "left"
+roots = ["packages/reference/left"]
+consumers = ["consumer"]
+projection = "authentic-transport"
+
+[[families]]
+name = "right"
+roots = ["packages/reference/right"]
+consumers = ["unrelated"]
+projection = "authentic-transport"
+"#,
+    )
+    .unwrap();
+}
+
+#[test]
+fn scientific_family_reach_seeds_reverse_cargo_scope_without_opening_model_bodies() {
+    let root = tempfile::tempdir().unwrap();
+    map(root.path(), None, "crates/consumer/src/generated");
+    scientific_sources(root.path(), "4b32d03e21e647eaad63561b9e259be1");
+    let metadata = metadata(root.path());
+    let shared = preview(
+        root.path(),
+        &changes(root.path(), &[b"packages/reference/shared/models/input.pse"]),
+        Some(&metadata),
+    )
+    .unwrap();
+    assert_eq!(
+        ids(&shared),
+        [
+            "opaque:consumer@1#source",
+            "opaque:downstream@1#source",
+            "opaque:unrelated@1#source"
+        ]
+    );
+    assert_eq!(shared.changed_packages, ["opaque:consumer@1#source", "opaque:unrelated@1#source"]);
+    assert_eq!(
+        shared.scientific.iter().map(|association| association.family.as_str()).collect::<Vec<_>>(),
+        ["left", "right"]
+    );
+    assert!(shared.widening.is_empty());
+
+    let left = preview(
+        root.path(),
+        &changes(root.path(), &[b"packages/reference/left/models/input.pse"]),
+        Some(&metadata),
+    )
+    .unwrap();
+    assert_eq!(ids(&left), ["opaque:consumer@1#source", "opaque:downstream@1#source"]);
+    assert_eq!(left.scientific[0].family, "left");
+    assert!(left.widening.is_empty());
+
+    let aliased = root.path().join("packages/reference/left/models/input.pse");
+    fs::remove_file(&aliased).unwrap();
+    std::os::unix::fs::symlink(
+        root.path().join("packages/reference/right/models/input.pse"),
+        &aliased,
+    )
+    .unwrap();
+    let aliased = preview(
+        root.path(),
+        &changes(root.path(), &[b"packages/reference/left/models/input.pse"]),
+        Some(&metadata),
+    )
+    .unwrap();
+    assert_eq!(ids(&aliased).len(), metadata.workspace_members.len());
+    assert!(aliased.scientific.is_empty());
+    assert!(aliased.widening.iter().any(|basis| matches!(
+        basis, Widening::ScientificAssociationUnavailable { reason } if reason.contains("alias")
+    )));
+    assert!(!root.path().join("target").exists());
+    assert!(!root.path().join("build").exists());
+}
+
+#[test]
+fn unresolved_scientific_dependency_and_changed_projection_each_widen() {
+    let root = tempfile::tempdir().unwrap();
+    map(root.path(), None, "crates/consumer/src/generated");
+    scientific_sources(root.path(), "178bc2dc3edc4da79d876b290f2d11de");
+    let metadata = metadata(root.path());
+    let path = b"packages/reference/left/models/input.pse";
+    let unknown = preview(root.path(), &changes(root.path(), &[path]), Some(&metadata)).unwrap();
+    assert_eq!(ids(&unknown).len(), metadata.workspace_members.len());
+    assert!(unknown.scientific.is_empty());
+    assert!(unknown.widening.iter().any(|basis| matches!(
+        basis, Widening::ScientificAssociationUnavailable { reason }
+            if reason.contains("missing scientific dependency")
+    )));
+    let changed = preview(
+        root.path(),
+        &changes(root.path(), &[path, scientific::CATALOG.as_bytes()]),
+        Some(&metadata),
+    )
+    .unwrap();
+    assert_eq!(ids(&changed).len(), metadata.workspace_members.len());
+    assert!(changed.scientific.is_empty());
+    assert!(changed.widening.iter().any(|basis| matches!(
+        basis, Widening::ScientificContext { path } if path.as_bytes() == scientific::CATALOG.as_bytes()
+    )));
 }
 #[test]
 fn generated_input_reach_comes_only_from_declared_map_scopes() {

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Conservative source reach. Preview never builds, lists tests or prepares capabilities.
+mod scientific;
+
 use crate::{
     ownership::{self, OwnershipError, OwnershipMap},
     repository::{self, GitName, HeadState, RepositoryError, RepositoryObservation},
@@ -217,6 +219,16 @@ pub enum Widening {
         /// Authored dependency name, not a resolved source ID.
         dependency: String,
     },
+    /// A changed scientific declaration could alter input reach itself.
+    ScientificContext {
+        /// Changed catalog, package header, manifest or projection provenance.
+        path: GitName,
+    },
+    /// The passive projection could not establish a scientific association.
+    ScientificAssociationUnavailable {
+        /// Original incomplete or invalid projection premise.
+        reason: String,
+    },
 }
 /// An actual declared input match; a map is not a freshness or regeneration receipt.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -227,6 +239,16 @@ pub struct GeneratorReach {
     pub producer: String,
     /// Generator's original narrow regeneration argv.
     pub regenerate: Vec<String>,
+}
+/// Passive catalog association, independent of scientific or test admission.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ScientificReach {
+    /// Changed source associated with the family.
+    pub path: GitName,
+    /// Authored catalog family.
+    pub family: String,
+    /// Direct Cargo package identities named by that family.
+    pub consumers: Vec<String>,
 }
 /// Source-only selection. Capability/fixture readiness remains with actual admission owners.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -249,6 +271,8 @@ pub struct Preview {
     pub widening: Vec<Widening>,
     /// Existing generated ownership input matches.
     pub generators: Vec<GeneratorReach>,
+    /// Known scientific fixture associations from the current catalog.
+    pub scientific: Vec<ScientificReach>,
     /// Scope and qualification limits.
     pub coverage_limits: Vec<String>,
     /// Original independent read/domain errors for outer diagnostic projection.
@@ -417,6 +441,15 @@ impl Workspace {
             .max_by_key(|(_, member)| member.directory.components().count())
             .map(|(id, _)| id.as_str())
     }
+
+    fn named(&self, name: &str) -> Option<&str> {
+        let mut named = self
+            .members
+            .iter()
+            .filter(|(_, member)| member.selected.name == name);
+        let id = named.next()?.0;
+        named.next().is_none().then_some(id.as_str())
+    }
     fn closure(&self, seeds: &BTreeSet<String>) -> BTreeSet<String> {
         let mut found = seeds.clone();
         let mut pending: Vec<_> = seeds.iter().cloned().collect();
@@ -433,7 +466,7 @@ impl Workspace {
     }
 }
 
-/// Interpret already observed changes and optional captured metadata. Reads only the existing map.
+/// Interpret observed paths with passive ownership, catalog and package-header reads.
 pub fn preview(
     root: &Path,
     changes: &ChangeSet,
@@ -449,11 +482,12 @@ pub fn preview(
         }
     }
     let mut result = Preview { base: changes.base.clone(), base_commit: changes.base_commit.clone(), head: changes.live.head_after.clone(), changes: paths,
-        changed_packages: Vec::new(), selected_packages: Vec::new(), graph: Graph::NotNeeded, widening: Vec::new(), generators: Vec::new(), failures: Vec::new(),
+        changed_packages: Vec::new(), selected_packages: Vec::new(), graph: Graph::NotNeeded, widening: Vec::new(), generators: Vec::new(), scientific: Vec::new(), failures: Vec::new(),
         coverage_limits: vec!["Conservative source/declaration reach, including optional/build/dev/target declarations; not exhaustive behavior coverage or test execution.".into(),
             "Base-to-observed-HEAD and staged/worktree/untracked paths are unioned conservatively; these observations are not an atomic filesystem snapshot.".into(),
             "Integration required features, native capabilities, fixture readiness and force-validation are established only by the existing selection/admission owners.".into(),
-            "Existing aggregate generated declarations have unknown dirty-source freshness; no regeneration or contributor completeness is inferred.".into()] };
+            "Existing aggregate generated declarations have unknown dirty-source freshness; no regeneration or contributor completeness is inferred.".into(),
+            "Scientific reach uses passive catalog and package-header observations. Semantic projections conservatively include complete selected package trees.".into()] };
     if result.changes.is_empty() {
         return Ok(result);
     }
@@ -493,6 +527,31 @@ pub fn preview(
     };
     result.graph = Graph::Available;
     result.widening.append(&mut workspace.uncertain);
+    let scientific_inputs = root.join(scientific::CATALOG).exists() || result.changes.iter().any(|path| {
+        scientific::scientific_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
+    });
+    let scientific = if scientific_inputs && !result.changes.iter().any(|path| {
+        scientific::context_path(Path::new(std::ffi::OsStr::from_bytes(path.as_bytes())))
+    }) {
+        match scientific::read(&root) {
+            Ok(projection) => Some(projection),
+            Err(reason) => {
+                result
+                    .widening
+                    .push(Widening::ScientificAssociationUnavailable { reason });
+                None
+            }
+        }
+    } else {
+        None
+    };
+    let scientific_context_changed = result.changes.iter().any(|path| {
+        let relative = Path::new(std::ffi::OsStr::from_bytes(path.as_bytes()));
+        scientific::context_path(relative)
+            || scientific
+                .as_ref()
+                .is_some_and(|projection| projection.changes_context(relative))
+    });
     let mut seeds = BTreeSet::new();
     for path in &result.changes {
         let relative = Path::new(std::ffi::OsStr::from_bytes(path.as_bytes()));
@@ -523,7 +582,53 @@ pub fn preview(
             .map(|map| map.input_owners(relative))
             .transpose()?
             .unwrap_or_default();
-        if direct.is_none() && owners.is_empty() {
+        let mut scientific_match = false;
+        if scientific::context_path(relative)
+            || scientific
+                .as_ref()
+                .is_some_and(|projection| projection.changes_context(relative))
+        {
+            result
+                .widening
+                .push(Widening::ScientificContext { path: path.clone() });
+            scientific_match = true;
+        }
+        if let Some(projection) = scientific.as_ref().filter(|_| !scientific_context_changed) {
+            let mut matches = projection.matches(relative).peekable();
+            let admissible = if matches.peek().is_some() {
+                scientific_match = true;
+                match scientific::verify_changed_path(&root, relative) {
+                    Ok(()) => true,
+                    Err(reason) => {
+                        result
+                            .widening
+                            .push(Widening::ScientificAssociationUnavailable { reason });
+                        false
+                    }
+                }
+            } else {
+                false
+            };
+            for family in matches.filter(|_| admissible) {
+                let mut consumers = BTreeSet::new();
+                for name in &family.consumers {
+                    if let Some(id) = workspace.named(name) {
+                        consumers.insert(id.to_owned());
+                    } else {
+                        result.widening.push(Widening::ScientificAssociationUnavailable {
+                            reason: format!("scientific family {} has unknown or ambiguous Cargo consumer {name}", family.name),
+                        });
+                    }
+                }
+                seeds.extend(consumers.iter().cloned());
+                result.scientific.push(ScientificReach {
+                    path: path.clone(),
+                    family: family.name.clone(),
+                    consumers: consumers.into_iter().collect(),
+                });
+            }
+        }
+        if direct.is_none() && owners.is_empty() && !scientific_match {
             result
                 .widening
                 .push(Widening::UnknownSource { path: path.clone() });

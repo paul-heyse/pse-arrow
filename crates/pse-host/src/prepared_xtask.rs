@@ -34,6 +34,7 @@ const SHARED_INPUTS: &[&str] = &[
     "scripts/document-ownership.rs",
     "scripts/generated-outputs.rs",
     "scripts/source-change-proposal.rs",
+    "tests/fixtures/scientific-input-catalog.rs",
 ];
 
 /// A source-built immutable helper, with one authoritative artifact/feature profile.

@@ -9,6 +9,7 @@ pub(crate) const EXTERNAL_INPUTS: &[&str] = &[
     "crates/pse-study-module/package.toml",
     "crates/pse-study-module/package-qualification-long-hold.toml",
     "scripts/source-change-proposal.rs",
+    "tests/fixtures/scientific-input-catalog.rs",
 ];
 
 /// Freshness is an observation and never starts Cargo or changes the selector.
