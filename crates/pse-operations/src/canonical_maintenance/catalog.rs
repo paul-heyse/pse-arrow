@@ -179,7 +179,9 @@ const VIEWER: &str = "INFO FOR USER $viewer ON ROOT STRUCTURE;";
 const LIMITS: ResponseLimits = ResponseLimits {
     wire_bytes: MESSAGE_BYTES,
     nodes: 32 * 1024,
-    depth: 8,
+    // The limit counts protobuf framing and map entries as well as SurrealQL
+    // values. INFO FOR USER includes a nested duration object and role array.
+    depth: 24,
     container_items: 16 * 1024,
     string_bytes: PAYLOAD_BYTES,
     string_length: 128 * 1024,

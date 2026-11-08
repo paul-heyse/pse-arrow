@@ -978,10 +978,11 @@ mod tests {
             issuing_store: uuid::Uuid::new_v4(),
             ..target.clone()
         };
-        assert!(matches!(
-            inspect_catalog(Path::new(&state), &foreign).await,
-            Err(CanonicalError::Configuration(_))
-        ));
+        let refused = inspect_catalog(Path::new(&state), &foreign).await;
+        assert!(
+            matches!(&refused, Err(CanonicalError::Configuration(_))),
+            "{refused:?}"
+        );
         let installed = inspect_catalog(Path::new(&state), &target).await.unwrap();
         assert_eq!(installed.target, target);
         assert!(
