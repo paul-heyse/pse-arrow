@@ -178,6 +178,24 @@ Native build width, incremental compilation and compiler caches remain in force.
 
 ## Verification, current outcome and cleanup handoff
 
+### 66a–e checkpoint — November 8
+
+The maintainer directed the series to deliver current formats and retire superseded
+readers, adapters and their tests. Keep Arrow where the current design uses it for
+authored relations, protected query and portable delivery. Current-format records
+still require exact original source, permission and settlement evidence.
+
+The owning [66a](66a-scientific-operations-and-product-semantics.md),
+[66b](66b-contracts-generation-and-interpretation.md),
+[66c](66c-preparation-execution-and-service-lifecycles.md),
+[66d](66d-mathematical-representation-and-numerical-execution.md) and
+[66e](66e-protected-data-and-result-delivery.md) checkpoints distinguish verified
+slices from working-tree changes. Implementation is paused at the documentation
+checkpoint. The aggregate generator was interrupted and the combined native run
+was cancelled before compilation. Resume with current-only pack and evidence
+cleanup, coherent generation and the pending targeted receiving controls. The
+canonical binary recipe remains gated on bounded reconstruction.
+
 The November 7 [storage cleanup decision](67-storage-lifecycle-and-build-reuse.md#decisions-and-boundaries)
 releases historical incident test and diagnostic results, including results cited in this series.
 Treat those references as previous observations and regenerate the named case or campaign under

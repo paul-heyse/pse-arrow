@@ -94,8 +94,8 @@ Complete the actual connected-result export → portable-reader migration under 
 Use the source-owned generated `RecordedResultSelection` adapter from the existing engineering
 descriptor world. The result-specific adapter must compile for ordinary default-feature export;
 keep service-only adapters/services gated and avoid duplicate native conversion implementations.
-New v1 observations require actual `Some(original_context)`; an absent context is different from
-an empty field and remains available only to deliberately retained predecessor artifacts.
+The current observation requires the exact original context. An absent or empty context
+refuses at the current boundary.
 
 The versioned Arrow key is `pse.canonical.selection.proto.v1`. Maintained Buffa 0.9.2
 [`Message::try_encode_bounded`](../../vendor/buffa/src/message.rs) checks size/cache and the
@@ -105,10 +105,9 @@ the padded string, bounded to 87,384 bytes. Compare input text against bounded s
 expected encoding. This local v1 agreement deliberately rejects alternate encoding, unknown or
 trailing bytes and altered predicate/context; it is not general Protobuf canonicalization,
 authenticity or scientific admission. No untrusted decode-to-permission path is introduced.
-Remove reserved obsolete lineage keys from new exports, retain unrelated metadata, refuse mixed
-reserved interpretations, and never fall back when v1 is present-invalid. Only absent-v1
-artifacts enter the explicitly promised historical reader. Preserve existing raw IPC duplicate
-preflight for both file/stream schemas and nested fields.
+Remove reserved obsolete lineage keys from exports and retain unrelated metadata. Require the
+current key and refuse absent, mixed and malformed metadata. Keep the raw IPC duplicate
+preflight for both file and stream schemas and nested fields.
 
 Selection then reaches the physical reader under its actual assurance. DataFusion 55.1
 [`TableProvider`](https://docs.rs/crate/datafusion-session/55.1.0/source/src/table.rs) receives
@@ -125,16 +124,14 @@ selection passes only after their actual consumers have equivalent guarantees.
 
 ### Original interpretation and coherent derived mappings — DRE03
 
-Acquire the original family-specific descriptor world, interpretation, validation policy,
-mapping revision and source dependency closure once under the existing `ResultRead`, artifact
-or report acquisition. Retain only dependencies promised to that reader. Manifest `descriptors`
-are result-set membership, not automatically a full Protobuf world. An interpretation string
-does not supply a missing historical policy. Buffa 0.9.2
+Acquire the current record's original family-specific descriptor world, interpretation,
+validation policy, mapping revision and source dependency closure under the existing
+`ResultRead`, artifact or report acquisition. Manifest `descriptors` establish result-set
+membership. Acquire the descriptor world separately where required. Buffa 0.9.2
 [`DescriptorPool`/`DynamicMessage`](https://github.com/anthropics/buffa/blob/v0.9.2/buffa-descriptor/src/reflect/dynamic.rs)
-supports passive independent interpretation; 66b owns compatibility checks and native source
-owners own any scientific re-admission. No live fixture, solver or worker is kept prepared for
-historical reading. Missing, expired, malformed or foreign dependencies give explicit
-incompatible/incomplete results rather than today's interpretation or an empty success.
+supports passive independent interpretation. 66b owns the contract checks and native source
+owners own scientific re-admission. Refuse superseded formats and explicitly report missing,
+expired, malformed or foreign dependencies of current records.
 
 For a selected changed native mapping, construct the replacement privately, validate membership
 and original dependencies, and activate a coherent generation. Existing guarded direct queries
@@ -143,16 +140,13 @@ from physical datum, phase/provider or derivative changes that invalidate scient
 Interruption before activation leaves the previous generation; interruption or lost ACK after
 activation resolves the original operation before retry. Restore neither old scientific
 permission nor current permission from stored facts. Migrate all participating writers/readers
-with the cutover and delete replaced writers/maps; retain only specifically promised historical
-readers and the legacy migration/recovery they still require. Do not create a global descriptor
-catalog or attach every dependency to every row.
+with the cutover and delete replaced writers, readers and maps. Keep descriptor custody
+with the selected acquisition.
 
-The storage baseline for this companion is patched SurrealDB 3.3.4 and
-SurrealMX 1.0. [Plan68](68-surrealdb-v4-cutover.md) owns replacement with
-the exact source-built v4 family selected by
-[`pse-host::server`](../../crates/pse-host/src/server.rs). This companion
-continues to own protected scientific interpretation and original-result
-delivery on the qualified selection.
+The storage baseline is the source-built SurrealDB v4 family selected by
+[`pse-host::server`](../../crates/pse-host/src/server.rs). [Plan68](68-surrealdb-v4-cutover.md)
+owns platform qualification. This companion owns protected scientific interpretation
+and original-result delivery on that selection.
 Use generated `SurrealValue::{kind_of,into_value,from_value}` and native `Kind` where their exact
 contracts fit. They do not implement permission predicates, membership transactions or retry
 policy. Preserve explicit Decimal integrality/range and IEEE-bit policies, relationship
@@ -218,13 +212,11 @@ preparation, rerun or scientific permission. 66f remains the sole owner of those
 
 ### Capture and optional expansion decisions — DRE04/DRE06
 
-Accept the implemented atomic capture/witness/protection/receipt population and finish its actual
-legacy migration/retirement evidence. Preserve future matching insert/selector-metadata coverage,
-same-request lost-ACK replay, stale-owner refusal, cancellation and unrelated lease liveness.
-`canonical_capture_legacy` is required bounded predecessor cleanup/recovery while promised data
-still needs it; it is not an ordinary production capture path to reproduce. Delete remaining
-ordinary legacy callers only when replaced; do not delete the historical recovery promise as a
-cleanup shortcut. Use current `canonical_explanations` bound plan inspection and native
+Qualify the atomic capture, witness, protection and receipt population. Cover future matching
+inserts and selector changes, same-request lost-ACK replay, stale-owner refusal, cancellation
+and unrelated lease liveness. The working tree deletes `canonical_capture_legacy` and its
+controls. The cutover refuses predecessor capture records and requires a fresh catalog.
+Use current `canonical_explanations` bound plan inspection and native
 `EXPLAIN FORMAT JSON`/optional `EXPLAIN ANALYZE FORMAT JSON`, with raw output and scope limits.
 Absent counters are not inferred cache misses or inner-function costs.
 
@@ -301,17 +293,22 @@ selected. These three decisions discharge E09's bounded choice; E01–E08/E10 an
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | E01 | planned | Baseline native codecs/admission; 66b source declarations and generated structural products | Reconcile the remaining scientific/runtime/canonical request/result producer-reader population. Complete only missing generated native mappings; preserve exact numeric/identity/relationship policy and owned native predicates. Every selected converter has independent malformed/duplicate/extreme-value controls; remove its replaced field map and callers. |
-| E02 | in-progress | Existing selection/context and IPC duplicate preflight; 66b ordinary root-scoped adapter generation | Migrate connected Arrow export and portable read together under ADR-0250, including default-feature availability and service feature composition. Require original context for v1, remove reserved predecessor new-write keys, reject mixed/present-invalid metadata, retain deliberate absent-v1 reading. Independent raw IPC/wire tests and real protected export/read prove exact bits/context without permission reconstruction. |
+| E02 | in-progress | Existing selection/context and IPC duplicate preflight; 66b ordinary root-scoped adapter generation | The working tree removes the absent-v1 portable metadata reader. Verify current connected Arrow export and portable read under ordinary and service feature selections, including exact context and refusal of predecessor or invalid metadata. |
 | E03 | in-progress | Existing protected snapshot/cohort/inspection readers; E01 needed mappings; E02 metadata consumer | Protected snapshots now push retained query roots into the original Arrow decoder, including exact sparse row selection. The selected controls exercise predicate-only projection and residual-filter/limit order. Continue cohort, pack and bundle consumers under original pool and protection. |
-| E04 | planned | 66b acquired interpretation/compatibility contract; actual family source references from science owners; E01 | Acquire promised historical dependencies once; implement selected mapping reconstruction and coherent activation with original-operation recovery. Migrate corresponding writers/readers and retire replaced production maps. Missing/corrupt/expired/foreign context and unavailable original policy refuse explicitly; mapping-only change and scientific invalidation remain distinct. |
+| E04 | in-progress | Current interpretation contract and original family sources; E01 | The working tree binds physical lookup to the exact protected `ResultRead` and current relation locator. Verify present and unavailable source closure, then finish mapping activation and original-operation recovery. |
 | E05 | in-progress | Existing original opened-file/directory owners; shared contract agreed with 66f; 66c settlement outcomes where consumed | Developer sequential delivery/offline staged publication and project actual-transfer/archive/materialized consumers are integrated. Main's four project and thirteen selected semantic/developer controls pass with complete capture/settlement and zero failures/pending/build warnings. Remaining scientific/review-pack delivery population stays open; original commitments, provisional prefixes and independent publication/release outcomes remain distinct. |
 | E06 | planned | Source diagnostic/outcome owners; 66b directional adapters; working 66c/66f producer outcomes | Complete native diagnostic/result-description and CLI/local-service/sink population. Preserve coverage, qualifiers, original attempt, typed multi-cause and detail dispositions/redaction. Migrate OTLP/Perfetto correlations from common facts, removing string classification and duplicate semantic maps without replacing external protocols. |
 | E07 | in-progress | Acquired 66f original evidence and shared source-fact projections; E06 needed facts | Original invocation/diagnostic analysis and typed prerequisite facts are integrated on main. Fourteen focused controls, full combined generation and selected 23-control main receiving pass. Main's explicitly prepared immutable reader now also returns seven prerequisite patterns over two original members; every original pointer/commitment is checked. Exact member/hash/pointer, absent/empty/Unknown and settlement distinctions remain. Private per-group cause trees and broader analytical population stay open; an empty joined failure tree is not absence of all causes. |
-| E08 | planned | Implemented atomic capture/witness/receipt and original legacy recovery; actual study consumers from science owners | Complete remaining capture caller/migration/deletion population and required acceptance of existing protocol. Cover future membership/selector updates, lost ACK, stale owner, paged abandoned cleanup, both retirement orderings and unrelated lease/cancel liveness. Required historical cleanup remains. This row is verification/migration of baseline, not a second atomic capture implementation. |
+| E08 | in-progress | Implemented atomic capture, witness and receipt; actual study consumers | Finish current capture receiving, including future membership and selector updates, both retirement orderings and complete paging. The predecessor recovery and cleanup obligation is removed. |
 | E09 | complete | Concrete consumer/workload inventory; current plan inspection; DRE04/DRE06 alternatives | Retain current witness, local immutable archive and native immediate-neighborhood queries for the identified current consumers, with source-backed dependency/scope limits and observable reopening triggers above. No narrower-guard equivalence, remote backend or transitive-graph qualification is inferred. |
 | E10 | planned | E01–E08 selected migrations; E09 dispositions; relevant 66b/66c/66f/science consumers | Reconcile exact producer→publication→query→protected read→original interpretation→delivery→release population, deletions and enduring recovery guidance. Supply required evidence to 66l, including late failures and assembled cross-domain journeys below. Targeted success closes only its named population; scope-end qualification and claimed-benefit measurements remain separately identified. |
 
 ## Migration, recovery and acceptance
+
+The working tree adds verified review-pack transfer, staging ownership, typed independent
+publication failures and original developer dependency facts. Finish the current-only pack
+and evidence readers, regenerate their affected contracts and run their native controls.
+The latest combined runtime invocation was cancelled before compilation.
 
 **Tested, selected:** the three canonical snapshot pruning controls passed in
 `01a1bd26-6f64-7207-8da5-08ef8c807c89`. The snapshot provider checks its complete
@@ -322,21 +319,29 @@ the existing allocation-owning Arrow take core. The combined native command and
 remaining aqueous failure are recorded in [66a verification](66a-scientific-operations-and-product-semantics.md#verification-and-outcome).
 [Snapshot provider](../../crates/pse-runtime/src/workflow/result_snapshot.rs)
 
+**Tested, partial:** `scripts/pse test pse-operations --lib --features
+canonical-maintenance,native-service` with the staging, atomic-capture and legacy
+capture filters selected 16 controls in `01a1bd44-67f1-7536-bb01-a0420dfe44d1`.
+Twelve passed, two failed in canonical fixture initialization, and the two
+10,000-member controls timed out against the zero baseline. Original settlement
+completed. The successful controls cover original request replay, stale-owner
+drain, unrelated lease liveness and paged legacy cleanup. The failed initialization
+and scale cases leave future-match and both retirement orderings unqualified for
+this receiving run.
+
 Track selected populations at their native owners with 66l's shared denominator. Inventory
 includes canonical records and request/result codecs; full/selected snapshot and cohort readers;
 connected Arrow export and portable payload validation; scientific result metadata and progress;
 review-pack/project-closure publication; CLI/local-service errors; OTLP/Perfetto; compact/directory
 developer readback and sequential delivery; retained interpretations/mappings and atomic study
-capture/legacy recovery. Additional science families extend the same contracts and acceptance
+capture and original-operation recovery. Additional science families extend the same contracts and acceptance
 population rather than invent parallel export/admission paths.
 
 Activation is per coherent declared mapping/consumer slice. Do not require whole-series completion
 to use a finished reader, and do not activate a new writer before its actual readers and recovery
-policy exist. New writes use only the chosen representation. Historical readers survive only
-their named artifact/data promise; remove them when that promise and dependent data migration
-are retired. Delete old producers, handwritten correspondence, redundant hydration, tests and
-fixtures with proven replacement. Preserve independent counterexamples and required predecessor
-recovery. No compatibility shim becomes a second production path.
+policy exist. Use the chosen representation and refuse superseded formats. Delete replaced
+producers, readers, handwritten correspondence, redundant hydration and their supporting
+tests and fixtures. Preserve current original-operation recovery and independent counterexamples.
 
 Targeted correctness checks accompany each implemented slice, with explicit Arrow
 `force_validate`, required fixtures, exact features/native profiles and original invocation
@@ -355,9 +360,9 @@ Required assembled journeys, coordinated with 66l:
    failure. Selected readability cannot upgrade whole-product scientific permission.
 2. Multi-experiment capture concurrent with future matching insert/selector change → cohort
    query → unavailable-member classification → original analysis → retirement. Exercise lost
-   ACK, stale owner, both retirement commit orderings, legacy version migration and paged cleanup.
+   ACK, stale owner, both retirement commit orderings and paged cleanup.
 3. Mapping-only revision versus physical/provider/derivative change → private reconstruction →
-   interrupted/uncertain activation → old promised read → explicit current re-admission. Include
+   interrupted/uncertain activation → verified current read → explicit current re-admission. Include
    absent/expired/corrupt original descriptor/policy and foreign run/attempt.
 4. Conditional/exact developer readiness → explicit preparation → native command/test → original
    compact or member above compact limits → sequential independent read → 66f exact rerun after
@@ -385,7 +390,7 @@ metadata/backend/relation/kernel or authority changes follow the repository's de
 before affected implementation. A bounded non-selection records its actual consumer boundary
 and observable revisit trigger rather than pretending the library lacks the capability.
 
-At completion, E10 hands 66l the exact implemented population, deletions, historical promises,
+At completion, E10 hands 66l the exact implemented population, deletions,
 activation/recovery behavior and remaining evidence limits. Enduring storage, diagnostic and
 delivery contracts move to their architectural owners through the established decision route;
 the coordinator owns final status and retirement. Outcome evidence will distinguish Proposed,

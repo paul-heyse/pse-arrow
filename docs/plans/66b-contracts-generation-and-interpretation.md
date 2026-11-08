@@ -200,6 +200,15 @@ meaning and its independent reader. Verify changed-source generation before upda
 exist, plus default/service feature closures after publication. Then retire intermediate broad
 root registrations, handwritten fallback adapters and obsolete generator assumptions.
 
+The reference closure now uses the same source-owned projection producer in its
+early reference-only and aggregate routes. `scripts/pse-env --recipe-default-class
+functional -- sh scripts/source-change-codegen reference-exchange` emitted the new
+degeneracy result from the passive model declarations with the predecessor
+runtime adapters still present. No product runtime was compiled for that stage.
+The runtime continues to own contextual reference admission and scientific
+receiving. Broader engineering inspection bootstrap remains open.
+[Reference generator](../../xtask/src/codegen/reference_exchange.rs)
+
 ### B02 — Make interpretation usable and refusal precise
 
 Complete metadata for actual native field meanings and local constraints, including source
@@ -255,8 +264,11 @@ The PID reference now uses `ReferenceCaseContract` and `ReferenceEnvelope`. The 
 Python receiver validates the original time, physical roles and source artifacts before
 running the exact and PETSc oracles. The native receiver checks the complete typed result,
 the performing interpreter and solver-stage evidence, and all eleven candidate dispositions.
-The previous PID JSON route was removed from the legacy driver. Covariance, degeneracy and
-sensitivity still have separate legacy crossings. [PID receiving test](../../crates/pse-runtime/tests/reference_pid_exchange.rs)
+The PID JSON route was removed and its native receiver was tested. The working tree also
+moves covariance, degeneracy and sensitivity to generated exchange and deletes the remaining
+JSON driver. The 24 independent Python controls passed after the parity environment was
+refreshed. The three new native solver exchanges await the combined receiving run.
+[PID receiving test](../../crates/pse-runtime/tests/reference_pid_exchange.rs)
 
 Replace the mechanical portions of `engineering/rpc/wire.rs::prepare_from_pb`,
 `submit_from_pb`, `progress_value_to_pb`, `page_to_pb` and identifier helpers with generated
@@ -321,6 +333,7 @@ Metadata convention changes follow the coordinator's ADR route before affected i
 ADR-0250's current proposal is not automatic acceptance. No new rule waiver is introduced here.
 The original-world, unknown/presence, native-authority and clean-room constraints remain binding.
 Completion requires all finite selected callers moved, replaced mechanisms deleted, generated
-artifacts reproducible and the applicable L acceptance complete. Preserve historical interpretation
-only where an actual retained artifact requires it, with explicit unavailable adoption; do not
-retain a second production path as evidence.
+artifacts reproducible and the applicable L acceptance complete. Use the current declared
+crossing and refuse a superseded contract. Keep precise original source and presence checks
+for current records. The independent-host dependency-usage mapping still needs its combined
+Buf descriptor and native conversion owners.

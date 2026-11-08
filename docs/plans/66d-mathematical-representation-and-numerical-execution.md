@@ -251,7 +251,7 @@ native quality check was weakened. The source controls are
 | D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
 | D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. Continue other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
 | D03 | in-progress | A selected large-response consumer; current direct factor/SVD route | Retain factors and SVD for the traced current consumers. A large-response comparison is pending a named workload and an admitted operator/preconditioner. |
-| D04 | planned | Changed maintained arithmetic/provider consumers | Complete receiving controls for actual SCIP/Diffsol/KINSOL/NLP/native-root closures affected by changes; add missing invocation-bound regime/selection observation under ADR-0251's selected contract. Source/preparation logs cannot stand in for winning observations. |
+| D04 | in-progress | Changed maintained arithmetic/provider consumers | The working tree adds opt-in, invocation-bound regime observations under ADR-0251 and a native BT receiving control. Run the actual liquid, two-phase and vapor control and complete the affected provider, generated readback and solver populations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
 
 D03 is a decision obligation, not a mandatory second backend. Likewise expression streaming,
@@ -259,6 +259,11 @@ new tensor machinery or another property/DAE library requires a demonstrated rem
 record the concrete gap before adopting it. Existing native mathematical meaning stays authoritative.
 
 ## Verification and outcome
+
+The new observation path seals the original winning provider invocation only when the
+consumer requests the fact. Its native and kernel controls await verification. JSON v3
+remains the current canonical recipe implementation pending the reconstruction gate.
+Binary activation includes deletion of the replaced reader.
 
 **Proposed verification:** changed coefficients with unchanged structure; changed sparsity,
 phase regime and precision; ill-conditioned/rank-deficient cases; incompatible strided/ragged

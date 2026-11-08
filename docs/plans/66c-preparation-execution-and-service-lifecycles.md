@@ -397,6 +397,16 @@ coverage gap instead. No task-library substitution is a package-completion requi
 
 ## Verification and decision limits
 
+The working tree closes the Unix listener before native drain and retains an original
+retirement failure after confirmed method departure. Their actual listener and worker
+controls await a new runtime invocation. The prepared Study client journey and the aqueous
+source-to-export rerun remain open. The prior combined runtime invocation was cancelled
+before compilation.
+
+For canonical recipe receiving, JSON v3 is the active implementation. C04 activates the
+binary reader only after D02 establishes bounded reconstruction for its consumers. The
+cutover removes the replaced reader in the same slice.
+
 Implementation is active. C01's targeted evidence and the remaining launcher/service work are
 bounded above; neither establishes broader lifecycle qualification. Implementation uses
 targeted native routes and matching prepared profiles, with Arrow `force_validate` where consumed.

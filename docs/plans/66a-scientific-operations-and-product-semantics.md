@@ -102,13 +102,14 @@ typed retirement causes and partial rows through export, preserving unattempted 
 
 Joined `FitTrajectory` borrows the original run/report/member/assessment. FlatV3 profile documents
 borrow retained chains through Serde serialization, avoiding deep copies of physical evidence.
-The source-owned registry emits `fit_experiment_assessments` and profile-points interpretation4's
-optional original assessment, including explicit historical unavailability. See
+The prior delivery emitted `fit_experiment_assessments` and profile-points interpretation 4.
+The current working tree advances profile points to interpretation 5 and requires the
+original assessment and callback terminal flag. See
 [native-math declarations](../../crates/pse-schema/src/catalog/native_math.rs),
 [borrowed document](../../crates/pse-runtime/src/workflow/fitting/documents.rs) and proposed
 [ADR-0253](../adr/0253-retain-original-fit-experiment-assessments.md).
-Missing-column refusal and absent historical metadata have controls; authentic persisted-v3
-adoption remains unqualified. These observations confer no new scientific-use permission.
+Finish generation and test the current producer and receiver together. The predecessor
+profile-reader obligation is removed. FlatV3 remains the current fit document format.
 
 The first native permission delivery is integrated: `ProductScope::Member` and the output-only
 [`MemberScientificPermission`](../../crates/pse-runtime/src/workflow/completion/member.rs)
@@ -173,15 +174,20 @@ is unresolved. The separate standalone sampled-value control passed under native
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers now share exact sampled-output lookup under original member permission. The steady partial-buffer control retains completed rows, typed retirement causes and unattempted successors through original export. Broader point/product authority, Study receiving and authentic historical adoption remain open. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers now share exact sampled-output lookup under original member permission. Verify the current profile contract and finish broader point/product authority and Study receiving. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
-| A04 | planned | A01/A03; J mixed experiments | Integrate shared/local fitting roles and selected schedule targets; distinguish admitted value reuse from structural/scientific invalidation in native and portable consumers. |
+| A04 | in-progress | A01/A03; J mixed experiments | The working tree binds exact authored later intervals to local fit axes and keeps the initial interval as the current default when the field is absent. Finish generation and run mixed steady/transient, replay and wrong-boundary controls. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
 
 Packages consume narrow working prerequisites rather than entire companions. In particular,
 ordinary steady analysis does not wait for distributed or specialized physics.
 
 ## Verification and outcome
+
+The working tree also checks the admitted route and procedure kind before preparation.
+Run the relabeling and same-kind initialization controls with A04. Arrow remains active
+in the authored fit relation, registry, canonical admission and replay. Current-only
+acceptance uses the generated fit relation and original native inputs.
 
 **Tested, selected:** the original fit-member and standalone-member controls passed
 in native runtime invocation `01a1bd26-6f64-7207-8da5-08ef8c807c89`, selected with
@@ -212,6 +218,7 @@ That original population did not include the member extension; the subsequent 23
 receive above includes its selected producers, protected reader and lifetime controls. Neither
 population receives every A02 consumer.
 
-**Outcome:** implementation is active with the bounded assessment/member/trajectory deliveries
-above. Shared operation discovery, remaining point/product and physical contracts, wider member
-consumers and authentic historical adoption remain open. No full A or Plan66 qualification is claimed.
+**Outcome:** the bounded assessment, member and trajectory deliveries above have selected
+evidence. Shared operation discovery, remaining point/product and physical contracts and wider
+member consumers remain open. The newer admission, schedule and profile changes await
+integrated verification.
