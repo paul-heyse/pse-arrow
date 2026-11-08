@@ -905,8 +905,15 @@ Project import uses one operation key. Run `pse project import-issue --operation
 then `pse project import --operation KEY PACK`. The checkout retains the bounded original
 intent, and `pse project import-status --operation KEY` reads the authoritative checkpoint.
 `pse project import-recover --operation KEY` reconciles the current original artifact.
+`pse project import-open --operation KEY` reopens the admitted receiving project after
+the original membership completes, using its retained receiving intent.
 `pse project import-forget --operation KEY` releases the local intent after the owner confirms
-the project is complete. The portable pack is an authored input throughout. Installed-schema
+the project is complete. The portable pack is an authored input for issue and apply.
+For a deliberate deliverable, `pse project export`, `export-cohort`, `export-result`, and
+`export-analysis` use an original `--operation KEY`, a fresh destination, and a typed intent
+on stdin or `--intent FILE`. The performing owner publishes the verified files and receipt
+together. `pse project export-status --operation KEY DESTINATION` reads the original custody
+and `export-recover` reconciles that same key and destination. Installed-schema
 observation describes the catalog at the authenticated issuer and keeps activation authority
 with the maintenance owner.
 
