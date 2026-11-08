@@ -778,7 +778,6 @@ async fn fixture_requirements(
     if listed.requirements.is_empty() {
         return Ok(selected);
     }
-    let mut reuse_verified = false;
     for (group, inventory) in listed.inventory.groups.iter().enumerate() {
         let declarations = listed
             .requirements
@@ -813,10 +812,6 @@ async fn fixture_requirements(
         let supplemental = if expressions.is_empty() {
             None
         } else {
-            if !reuse_verified {
-                listed.verify_reuse_inputs()?;
-                reuse_verified = true;
-            }
             Some(
                 fixture_scope_listing(input, destination, listed, report, group, &expressions)
                     .await?,
@@ -841,7 +836,7 @@ async fn fixture_scope_listing(
     group: usize,
     expressions: &[String],
 ) -> Result<TestListSummary, WorkflowError> {
-    let mut command = reuse_listing(listed, group);
+    let mut command = reuse_listing(listed, group)?;
     command.arg("--ignore-default-filter");
     for expression in expressions {
         command.args(["-E", expression]);
@@ -893,7 +888,11 @@ async fn fixture_scope_listing(
     Ok(listing)
 }
 
-fn reuse_listing(listed: &test_workflow::Listed, group: usize) -> Command {
+fn reuse_listing(
+    listed: &test_workflow::Listed,
+    group: usize,
+) -> Result<Command, WorkflowError> {
+    listed.verify_reuse_inputs(group)?;
     let directory = listed.capture_root.join(format!("group-{group}"));
     let mut command = Command::new(&listed.inventory.nextest.captured);
     command
@@ -915,7 +914,7 @@ fn reuse_listing(listed: &test_workflow::Listed, group: usize) -> Command {
         .env_clear()
         .envs(&listed.context.environment)
         .env_remove("NEXTEST_TEST_PHASE");
-    command
+    Ok(command)
 }
 
 /// Ask the native policy evaluator for membership, never decode config/filter grammar.
@@ -929,9 +928,9 @@ async fn group_policy(
         return Ok(BTreeMap::new());
     }
     // Read declaration names only. Nextest remains the policy/filter membership authority.
-    let configuration: toml::Value = toml::from_str(&fs::read_to_string(
-        listed.capture_root.join("nextest.toml"),
-    )?)
+    let configuration = std::str::from_utf8(&listed.inventory.nextest_configuration)
+        .map_err(|error| WorkflowError::Invalid(error.to_string()))?;
+    let configuration: toml::Value = toml::from_str(configuration)
     .map_err(|error| WorkflowError::Invalid(error.to_string()))?;
     let names: Vec<_> = configuration
         .get("test-groups")
@@ -948,7 +947,7 @@ async fn group_policy(
             continue;
         }
         for (ordinal, name) in names.iter().enumerate() {
-            let mut command = reuse_listing(listed, group);
+            let mut command = reuse_listing(listed, group)?;
             command.args(["-E", &format!("group(={})", selection::equality(name))]);
             if listed.inventory.selection.filters().ignore_default_filter {
                 command.arg("--ignore-default-filter");

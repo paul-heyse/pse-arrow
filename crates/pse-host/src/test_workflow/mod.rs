@@ -580,18 +580,24 @@ impl Admitted {
         )
         .await?;
         self.context.verify()?;
-        let mut paths = vec![destination.join("nextest.toml")];
-        for group in 0..inventory.groups.len() {
-            let directory = destination.join(format!("group-{group}"));
-            paths.extend([
-                directory.join("cargo-metadata.json"),
-                directory.join("binaries.json"),
+        let mut controls = vec![Input {
+            path: destination.join("nextest.toml"),
+            digest: Some(Sha256::digest(&inventory.nextest_configuration).into()),
+        }];
+        for (index, group) in inventory.groups.iter().enumerate() {
+            let directory = destination.join(format!("group-{index}"));
+            let binary_bytes = serde_json::to_vec(&group.binaries).map_err(DiscoveryError::from)?;
+            controls.extend([
+                Input {
+                    path: directory.join("cargo-metadata.json"),
+                    digest: group.cargo_metadata_digest,
+                },
+                Input {
+                    path: directory.join("binaries.json"),
+                    digest: Some(Sha256::digest(&binary_bytes).into()),
+                },
             ]);
         }
-        let controls = paths
-            .into_iter()
-            .map(|path| digest(&path).map(|digest| Input { path, digest }))
-            .collect::<Result<_, _>>()?;
         Ok(Listed {
             context: self.context,
             resolved: self.resolved,
@@ -682,13 +688,14 @@ impl Listed {
         }
         let total = self.inventory.selected_tests_iter().count();
         let mut records = Vec::new();
+        let mut verified = self.inventory.verified_tests();
         for identity in self
             .inventory
             .selected_tests_iter()
             .skip(offset)
             .take(limit)
         {
-            let captured = self.inventory.test(&identity)?;
+            let captured = verified.test(&identity)?;
             let fixtures = self
                 .requirements
                 .iter()
@@ -739,25 +746,36 @@ impl Listed {
             pending: vec!["external_runtime_readiness", "physical_settlement"],
         }
     }
-    fn verify_reuse_inputs(&self) -> Result<(), WorkflowError> {
+    fn verify_reuse_inputs(&self, group: usize) -> Result<(), WorkflowError> {
         self.context.verify()?;
-        for control in &self.controls {
-            if digest(&control.path)? != control.digest {
-                return Err(WorkflowError::Changed(control.path.clone()));
+        let group_directory = self.capture_root.join(format!("group-{group}"));
+        for path in [
+            self.capture_root.join("nextest.toml"),
+            group_directory.join("binaries.json"),
+            group_directory.join("cargo-metadata.json"),
+        ] {
+            let expected = self
+                .controls
+                .iter()
+                .find(|control| control.path == path)
+                .and_then(|control| control.digest)
+                .ok_or_else(|| WorkflowError::Changed(path.clone()))?;
+            if digest(&path)? != Some(expected) {
+                return Err(WorkflowError::Changed(path));
             }
         }
-        self.inventory.verify_executables()?;
+        self.inventory.verify_group_executables(group)?;
         Ok(())
     }
     /// Build an ordinary native reused-binary request. No Cargo build-scope flags are forwarded
     /// to reused execution: native metadata owns that scope, while profile/filter policy is exact.
     pub fn command(&self, group: usize) -> Result<GroupCommand, WorkflowError> {
-        self.verify_reuse_inputs()?;
         let listed = self
             .inventory
             .groups
             .get(group)
             .ok_or_else(|| WorkflowError::Invalid("captured group is absent".into()))?;
+        self.verify_reuse_inputs(group)?;
         if !listed
             .build
             .resolution
@@ -768,19 +786,8 @@ impl Listed {
                 listed.build.resolution.native_capabilities.clone(),
             ));
         }
-        let configuration = self.capture_root.join("nextest.toml");
-        if fs::read(&configuration)? != self.inventory.nextest_configuration {
-            return Err(WorkflowError::Changed(configuration));
-        }
         let directory = self.capture_root.join(format!("group-{group}"));
         let binaries = directory.join("binaries.json");
-        let captured: nextest_metadata::BinaryListSummary =
-            serde_json::from_slice(&fs::read(&binaries)?).map_err(DiscoveryError::from)?;
-        if serde_json::to_vec(&captured).map_err(DiscoveryError::from)?
-            != serde_json::to_vec(&listed.binaries).map_err(DiscoveryError::from)?
-        {
-            return Err(WorkflowError::Changed(binaries));
-        }
         let mut command = std::process::Command::new(&self.inventory.nextest.captured);
         command
             .args([

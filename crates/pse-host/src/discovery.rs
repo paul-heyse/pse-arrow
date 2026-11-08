@@ -14,6 +14,7 @@ use crate::{
 use nextest_metadata::{BinaryListSummary, RustTestSuiteStatusSummary, TestListSummary};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeSet,
     fs,
@@ -117,6 +118,10 @@ pub struct ListedGroup {
     pub binaries: BinaryListSummary,
     /// Actual public nextest enumeration and filter-match results.
     pub listing: TestListSummary,
+    /// Same-build Cargo metadata identity for in-process reuse. Historical
+    /// inventories have their own receiving boundary.
+    #[serde(skip)]
+    pub(crate) cargo_metadata_digest: Option<[u8; 32]>,
 }
 
 /// Original required phase custody, retained before native I/O errors are projected.
@@ -277,6 +282,22 @@ impl Inventory {
             for artifact in &group.build.artifacts {
                 artifact.executable.verify()?;
             }
+        }
+        Ok(())
+    }
+
+    /// Authenticate every image that Nextest can open from one original binary list,
+    /// including binaries enumerated before name selection and integration helpers.
+    pub(crate) fn verify_group_executables(&self, group: usize) -> Result<(), DiscoveryError> {
+        if !self.capture_complete() {
+            return Err(invalid("inventory lacks supported complete discovery capture"));
+        }
+        let group = self.groups.get(group).ok_or_else(|| invalid("captured group is absent"))?;
+        let mut verification = capture::Verification::default();
+        verification.verify(&self.nextest)?;
+        verification.verify(&self.correctness)?;
+        for artifact in &group.build.artifacts {
+            verification.verify(&artifact.executable)?;
         }
         Ok(())
     }
@@ -629,7 +650,10 @@ pub(crate) async fn list_with_permit(
             pinned?;
             let binaries_path = group_directory.join("binaries.json");
             capture::write_json(&binaries_path, &binaries)?;
-            let _: cargo_metadata::Metadata = serde_json::from_slice(&fs::read(&cargo_metadata)?)?;
+            let cargo_metadata_bytes = fs::read(&cargo_metadata)?;
+            let _: cargo_metadata::Metadata = serde_json::from_slice(&cargo_metadata_bytes)?;
+            let cargo_metadata_digest = Sha256::digest(&cargo_metadata_bytes).into();
+            drop(cargo_metadata_bytes);
             let mut enumerate = Command::new(&nextest.captured);
             enumerate
                 .current_dir(&checkout)
@@ -658,6 +682,7 @@ pub(crate) async fn list_with_permit(
                 build: captured,
                 binaries,
                 listing,
+                cargo_metadata_digest: Some(cargo_metadata_digest),
             });
         }
         let inventory = Inventory {

@@ -200,6 +200,57 @@ fn ordinary_selection_skips_rerun_authentication_but_launch_still_refuses_missin
     source::verify_rerun(&listed.inventory).unwrap();
     assert!(listed.command(0).is_err());
 }
+
+#[test]
+fn launch_verifies_its_group_helpers_and_pre_filter_images_without_opening_another_group() {
+    let (_root, intent) = intent();
+    let mut listed = listed(intent);
+    let mut unrelated: discovery::ListedGroup =
+        serde_json::from_value(serde_json::to_value(&listed.inventory.groups[0]).unwrap()).unwrap();
+    unrelated.build.artifacts[0].executable.captured = listed.capture_root.join("missing-other-image");
+    listed.inventory.groups.push(unrelated);
+    listed.inventory.capture.extend(
+        listed.inventory.capture[1..].to_vec().into_iter().map(|mut capture| {
+            capture.group = Some(1);
+            capture
+        }),
+    );
+    let mut artifacts = Vec::new();
+    for name in ["helper", "before-name-filter"] {
+        let mut artifact = listed.inventory.groups[0].build.artifacts[0].clone();
+        artifact.executable.captured = listed.capture_root.join(name);
+        fs::copy(&listed.inventory.nextest.captured, &artifact.executable.captured).unwrap();
+        artifacts.push(artifact);
+    }
+    let group = &mut listed.inventory.groups[0];
+    let helper = artifacts[0].executable.captured.clone();
+    let before_filter = artifacts[1].executable.captured.clone();
+    let target_directory = &group.binaries.rust_build_meta.target_directory;
+    let relative = pathdiff::diff_paths(&helper, target_directory).unwrap();
+    let mut binaries = serde_json::to_value(&group.binaries).unwrap();
+    binaries["rust-build-meta"]["non-test-binaries"] =
+        json!({"case-id":[{"name":"worker","kind":"bin-exe","path":relative}]});
+    let mut earlier = binaries["rust-binaries"]["case"].clone();
+    earlier["binary-id"] = "before-name-filter".into();
+    earlier["binary-path"] = json!(before_filter);
+    binaries["rust-binaries"]["before-name-filter"] = earlier;
+    group.binaries = serde_json::from_value(binaries).unwrap();
+    group.build.artifacts.extend(artifacts);
+    let binary_metadata = listed.capture_root.join("group-0/binaries.json");
+    fs::write(&binary_metadata, serde_json::to_vec(&group.binaries).unwrap()).unwrap();
+    listed.controls.iter_mut().find(|control| control.path == binary_metadata).unwrap().digest =
+        digest(&binary_metadata).unwrap();
+
+    assert!(listed.inventory.verify_executables().is_err());
+    assert_eq!(listed.page(0, 1).unwrap().total, 2);
+    assert!(listed.command(0).is_ok());
+    fs::remove_file(&helper).unwrap();
+    assert!(listed.command(0).is_err());
+    fs::copy(&listed.inventory.nextest.captured, helper).unwrap();
+    fs::remove_file(before_filter).unwrap();
+    assert!(listed.command(0).is_err());
+}
+
 #[test]
 fn rerun_verification_preserves_exact_source_feature_identity_and_capture_guards() {
     let (_root, intent) = intent();
@@ -412,6 +463,7 @@ pub(super) fn listed(intent: Intent) -> Listed {
             },
             binaries,
             listing,
+            cargo_metadata_digest: None,
         }],
         setup: discovery::SetupObservation::NotRunByListing,
         runtime_inputs: discovery::RuntimeInputObservation::NotCapturedByDiscovery,
