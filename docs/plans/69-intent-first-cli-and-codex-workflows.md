@@ -161,23 +161,21 @@ stale refusal, exact publication and installed predecessor-row checks and releas
 temporary source and generated changes. The installed-catalog observer uses an authenticated
 Viewer connection and shares the normalized inventory with maintenance validation.
 
-The companion plans retain assembled qualification that remains open. Project packs and
+The companion plans retain their assembled qualification. Project packs and
 study deliverables share an issuer-bound publication identity and durable original custody.
 The live v4 project receiver verified configured issuer selection and original acknowledgement
 readback. The exchange journey passed protected pack reopen and bounded Study publication
 after correcting v4 protected-read result binding.
 The owned v4 probe verified SurrealKit phase execution and exposed an unresolved journal
 step after a committed SQL effect. The in-process native service can bind a passive preview
-to its physical listener. The configured-state CLI still needs the persistent service
-handoff and the producer of the exact pending and settled nonce before exposing apply.
-The current evidence establishes the disposable rollout and passive installed inspection.
-Configured adoption depends on a named persistent deployment and in-place workflow.
+to its physical listener. E03 deferred configured apply and recovery pending a named native-owned
+persistent deployment and a recurring in-place change. Its owned v4 CLI check verified passive
+inspection with the expected Viewer and issuer, foreign-issuer refusal, and a stopped listener.
 
-**Proposed follow-up.** C06 addresses repeated test preparation. E05 uses the completed
-optional-field journey as its generator equivalence case. A04 adds a passive source-change
-stage view. These packages preserve the prior correctness evidence and qualify the specific
-boundaries they change. Complete the rollout receiving journey if E03 is adopted, or record
-its explicit deferral and verify the passive boundary if no consumer qualifies.
+C06 verified the grouped project tests twice with one reader preparation per invocation.
+E05 retained full generation because the current declarations cannot prove a narrower route.
+A04 now reports the recorded and last completed stages through passive source-change status.
+These packages preserve prior receiving evidence and qualify the boundaries they change.
 F02 retains eager construction after selective deferral failed catalog
 parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
@@ -185,25 +183,25 @@ parity. A04 keeps transfer progress conditional on an owner exposing actual tran
 
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
-| [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01) | Scheduled | 69a A01 and 69f F01–F02. Parser-owned front door, discovery and exact forwarding. Completion and deferral have explicit triggers. |
+| [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01) | Resolved | 69a A01 and 69f F01–F02 verified parser-owned discovery and exact forwarding, and retained eager construction after the catalog comparison. |
 | [O02](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O02) | Resolved | 69a A02 verified effective defaults and provenance. The captured v4 receiver preserved the issuer and refused ambiguous or foreign targets before effects. |
 | [O03](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O03) | Resolved | 69c C01–C02 verified ordinary admission, scoped Nextest execution and the exact failed-test rerun. C05 verified the separate Cargo, Nextest and rustdoc evidence. |
 | [O04](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O04) | Resolved | 69c C03–C04 verified bounded reads of original results and owner release under the selected expiry policy. Durable cross-run history remains conditional. |
 | [O05](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O05) | Resolved | 69d D01–D03 verified authenticated selection, original acknowledgement after reply loss, protected import reopen and bounded Study publication. |
-| [O06](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O06) | Scheduled | 69e E01–E03. Two source cases and guarded live schema maintenance. |
+| [O06](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O06) | Deferred for configured mutation | 69e verified both source cases and passive installed-schema inspection. E03 records the deployment and recurring change needed to revisit live apply and recovery. |
 | [O07](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O07) | Resolved | 69b B01–B03 verified workstation placement, exact prepared v4 continuation and warm reuse, socket preflight and native drain. |
-| [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Scheduled | 69a A03 and 69g A04. Typed diagnostics, redacted recovery and owner-driven progress. |
+| [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Resolved | 69a A03 and 69g A04 verified diagnostics, recovery and recorded-stage status for supported routes. Rollout and counted transfer retain their separate triggers. |
 
 ## Improvement dispositions
 
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
-| [I01](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I01) | Scheduled | 69f F01 strict parse and usage fallback. F02 evaluates deferral after F01 and A01. Forwarding grammar changes are conditional. |
-| [I02](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I02) | Scheduled | 69a A01 extends typed catalog associations, checks the package candidate domain, and evaluates optional completion and help controls on demand. |
-| [I03](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I03) | Scheduled | 69a A02 acquires and resolves once. B02, D01 and E03 carry or revalidate the selection across owners. |
-| [I04](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I04) | Scheduled | 69a A02 projects effective provenance. C03 exposes trustworthy captured detail. Mixed-origin arrays remain conditional. |
-| [I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) | Scheduled | 69a A03 defines the typed projection and B–E verify their receiving adapters. |
-| [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Resolved | 69g A04 verified the shared terminal policy with JSON and NDJSON over pipes and PTYs and with narrow monochrome human output. Rollout receiving remains an assembled obligation. |
+| [I01](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I01) | Resolved | 69f verified strict parse, usage fallback and exact forwarding. F02 retained eager construction on catalog parity evidence. |
+| [I02](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I02) | Resolved | 69a A01 verified typed catalog associations and passive package candidates. Optional completion and help controls depend on a named use. |
+| [I03](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I03) | Resolved | 69a A02 verified exact target and provenance across the current receiving owners. Configured rollout remains deferred under E03. |
+| [I04](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I04) | Resolved | 69a A02 and 69c C03 verified effective provenance and bounded original detail. Mixed-origin arrays remain conditional. |
+| [I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) | Resolved | 69a A03 and the supporting plans verified typed projection for the supported preparation, project and source receiving routes. |
+| [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Resolved | 69g A04 verified the shared terminal policy and recorded-stage status with JSON and NDJSON over pipes and PTYs and with narrow monochrome human output. |
 | [I07](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I07) | Deferred pending a publication event producer | 69g A04 owns display lifetime. The captured transfer owner currently publishes a terminal receipt. Revisit counted transfer when an intermediate stage has authoritative byte events. |
 | [I08](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I08) | Scheduled | Coordinator owns the assembled journeys below. The producing packages own isolated checks and B–E own their receiving evidence. |
 
@@ -218,8 +216,8 @@ before any package relies on it.
 
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
-| [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01) | Scheduled | [69e E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema) owns passive preview, the prepared execution decision, and original nonce settlement and activation. |
-| [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) | Scheduled | [69b B02–B03](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) prepare and receive the native fixture. [69d D01–D03](69d-routine-product-and-data-operations.md#live-v4-receiving) own live product receiving. [69e E02](69e-source-model-and-live-schema-operations.md#optional-field-receiving) owns optional-field checks and the external fixture candidate. |
+| [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01) | Deferred for configured mutation | [69e E03](69e-source-model-and-live-schema-operations.md#configured-rollout-adoption) verified passive inspection and records the revisit trigger for original nonce settlement and activation. |
+| [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) | Resolved | B02–B03 verified v4 fixture preparation and receiving, D01–D03 verified the live product paths, and E02 verified the installed optional field. External fixture adoption retains its named-use trigger. |
 | [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03) | Resolved | [69e E02](69e-source-model-and-live-schema-operations.md#exact-authored-and-generated-evidence) verified structural spans, conservative affected evidence, and guarded publication. [69a A03](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) verified the staged diagnostic projection. |
 | [I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04) | Resolved | [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership) verified the scoped selection explanation, doctest routing, and the separate fresh Nextest inventory and original verdict. |
 | [I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05) | Deferred pending a named recurring consumer | [69d D04](69d-routine-product-and-data-operations.md#d04--decide-whether-typed-graph-diagnosis-belongs-at-the-front-door) completed the comparison and retains the explicit graph diagnostic. A04 transfer display depends on actual owner events. C04 retains the existing expiry policy. |
@@ -251,3 +249,27 @@ when making a time or storage claim.
 | Source model change | Supported change yields unique authored spans, bounded affected reasons, generated consumers, and exact staged diagnostic labels. Stale inputs refuse before edits and partial publication retains exact recovery. Check optional-field publication, SurrealQL syntax and predecessor-row behavior separately. E05 compares the candidate and full routes on identical authored inputs. A04 verifies current and last completed stages through passive status. |
 | Passive, stale and interrupted schema rollout | The adoption decision names one configured persistent consumer or records an explicit deferral and verifies passive installed-schema inspection. On adoption, preview leaves installed state unchanged. Changed predecessor, instance, target or module refuses before writes. A lost reply before step settlement remains distinct from committed activation in both outputs. Reconcile the original nonce and prove a single activation without blind SQL resubmission. |
 | Cold Codex checkout | Help and catalog stay passive. Explicit preparation establishes scope and prerequisites. Verify exact v4 Study continuation and warm reuse. Reject invalid socket paths before launch and release scratch after actual drain. Receive exact standalone tool recovery if E03 selects it. |
+
+## Outcome
+
+**Implemented, 2026-11-08.** Passive source-change status exposes the original recorded
+stage and last completed stage with separate failure and settlement. C06 qualifies
+one native test selection for the two exact project journeys and retains ordinary reader
+preparation across invocations. E03 defers configured rollout mutation. E05 retains full
+generation based on current ownership-map coverage.
+
+**Tested, 2026-11-08.** The final focused Nextest invocations used the default profile
+and the configured unbounded native placement, with a zero-failure baseline.
+
+| Command and selected scope | Result |
+|---|---|
+| `pse test pse-host:cli_output -E 'test(=source_change_status_reports_original_stage_evidence_passively)'` | 1 passed, 0 failed. One test exercised 12 machine pipe responses across current and earlier receipts. |
+| `pse test pse-runtime:pse-project -F pse-runtime/product-operators` with C06's exact filter union, twice | 2 passed, 0 failed on each invocation. One verified reader preparation and complete fixture settlement per invocation. |
+| `pse test pse-operations:native_service --features pse-operations/native-service -E 'test(=installed_schema::installed_schema_cli_observes_only_the_original_v4_issuer)' --ignored all` with the explicitly prepared installed-schema reader | 1 passed, 0 failed. The owned v4 service verified live passive inspection and refusal after shutdown. |
+
+`pse check pse-host --all-targets` passed with zero compile failures. The passive status
+probe passed JSON and NDJSON with PTY stderr and 44-column monochrome human output.
+The initial PTY probe expected a success exit for unfinished settlement. The corrected
+control verifies the existing nonzero exit alongside successful observation. During the
+Viewer qualification, one preparation refused changed source inputs and one inventory
+attempt refused a changed executable. The exact retry passed in a quiet artifact window.
