@@ -1,6 +1,7 @@
 # Build output and regenerable artifacts
 /target/
 /vendor/*/target/
+/tests/fixtures/buffa-stock/target/
 /build/
 /dist/
 /wheels/

@@ -75,7 +75,7 @@ fn allocation_accounted_generated_decoders_compile_and_run() {
     config.lazy_views = true;
     config.emit_register_fn = false;
     let standard = buffa_codegen::generate(&fds.file, &["allocation.proto".into()], &config).unwrap();
-    assert_published_default_output(dir.path(), &standard);
+    assert_published_default_output(dir.path(), &standard, &config);
     assert!(!config.allocation_accounted_views);
     config.allocation_accounted_views = true;
     let accounted = buffa_codegen::generate(&fds.file, &["allocation.proto".into()], &config).unwrap();
@@ -132,47 +132,46 @@ fn allocation_accounted_generated_decoders_compile_and_run() {
 
 /// Compare default generation with the actual published 0.9.2 generator, rather
 /// than asserting only that the new flag can be toggled back to its default.
-fn assert_published_default_output(dir: &Path, standard: &[buffa_codegen::GeneratedFile]) {
+fn assert_published_default_output(
+    dir: &Path,
+    standard: &[buffa_codegen::GeneratedFile],
+    config: &CodeGenConfig,
+) {
+    use std::collections::BTreeSet;
+
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap();
-    fs::copy(root.join("rust-toolchain.toml"), dir.join("rust-toolchain.toml")).unwrap();
-    let generator = dir.join("published-generator");
+    let generator = root.join("tests/fixtures/buffa-stock");
     let output_dir = dir.join("published-output");
-    fs::create_dir_all(generator.join("src")).unwrap();
     fs::create_dir(&output_dir).unwrap();
-    fs::write(generator.join("Cargo.toml"), r#"
-        [package]
-        name = "published-buffa-default-control"
-        version = "0.0.0"
-        edition = "2021"
-        [dependencies]
-        buffa = "=0.9.2"
-        buffa-codegen = "=0.9.2"
-        [workspace]
-    "#).unwrap();
-    fs::copy(root.join("Cargo.lock"), generator.join("Cargo.lock")).unwrap();
-    fs::write(generator.join("src/main.rs"), r#"
-        use buffa::Message;
-        fn main() {
-            let args: Vec<_> = std::env::args_os().collect();
-            let fds = buffa_codegen::generated::descriptor::FileDescriptorSet::decode_from_slice(
-                &std::fs::read(&args[1]).unwrap()).unwrap();
-            let mut config = buffa_codegen::CodeGenConfig::default();
-            config.lazy_views = true;
-            config.emit_register_fn = false;
-            config.extern_paths.push((".outside.Unaccounted".into(), "crate::external::Unaccounted".into()));
-    config.extern_paths.push((".accounted.Prepared".into(), "crate::accounted::Prepared".into()));
-            for file in buffa_codegen::generate(&fds.file, &["allocation.proto".into()], &config).unwrap() {
-                std::fs::write(std::path::Path::new(&args[2]).join(file.name), file.content).unwrap();
-            }
-        }
-    "#).unwrap();
+    let lock = fs::read_to_string(generator.join("Cargo.lock")).unwrap();
+    let entries: Vec<_> = lock
+        .split("\n[[package]]\n")
+        .filter(|entry| entry.lines().any(|line| line == r#"name = "buffa-codegen""#))
+        .collect();
+    assert_eq!(entries.len(), 1, "exactly one stock generator");
+    for line in [
+        r#"version = "0.9.2""#,
+        r#"source = "registry+https://github.com/rust-lang/crates.io-index""#,
+        r#"checksum = "bb4bea10ef85ea3d06a20412c67cb612527feb25f33367eab850139441fb5dd9""#,
+    ] {
+        assert!(entries[0].lines().any(|entry| entry == line), "stock generator lock lacks {line}");
+    }
     let output = Command::new("cargo").current_dir(&generator)
-        .args(["run", "--offline", "--"]).arg(dir.join("descriptor.bin")).arg(&output_dir)
+        .args(["run", "--offline", "--locked", "--"])
+        .arg(dir.join("descriptor.bin"))
+        .arg(&output_dir)
+        .arg("allocation.proto")
+        .arg(config.lazy_views.to_string())
+        .arg(config.emit_register_fn.to_string())
+        .args(config.extern_paths.iter().flat_map(|(source, target)| [source, target]))
         .output().unwrap();
     assert!(output.status.success(), "published generator control:\n{}\n{}",
         String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr));
-    let selected = fs::read_to_string(generator.join("Cargo.lock")).unwrap();
-    assert!(selected.contains("bb4bea10ef85ea3d06a20412c67cb612527feb25f33367eab850139441fb5dd9"));
+    let actual: BTreeSet<_> = fs::read_dir(&output_dir).unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    let expected: BTreeSet<_> = standard.iter().map(|file| file.name.clone()).collect();
+    assert_eq!(actual, expected, "default output population changed");
     for file in standard {
         assert_eq!(file.content, fs::read_to_string(output_dir.join(&file.name)).unwrap(),
             "default output changed: {}", file.name);
