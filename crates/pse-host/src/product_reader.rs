@@ -715,26 +715,26 @@ impl ProductReaderSelection {
         self.evidence(&self.manifest.discovery, "discovery.json", RESPONSE_BYTES)
     }
     pub(crate) fn supports_project_perform(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability("project_perform")
+        self.project_capability("project_perform", 1)
     }
 
     pub(crate) fn supports_project_import(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability("project_import")
+        self.project_capability("project_import", 1)
     }
 
     pub(crate) fn supports_project_import_open(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability("project_import_open")
+        self.project_capability("project_import_open", 1)
     }
 
     pub(crate) fn supports_project_export(&self) -> Result<bool, ProductReaderError> {
-        self.project_capability("project_export")
+        self.project_capability("project_export", 2)
     }
 
-    fn project_capability(&self, selected: &str) -> Result<bool, ProductReaderError> {
+    fn project_capability(&self, selected: &str, version: u64) -> Result<bool, ProductReaderError> {
         let response: Response = serde_json::from_slice(&self.discovery()?)?;
         let capability: serde_json::Value = serde_json::from_str(response.payload.get())?;
         Ok(capability["project_perform"].as_u64() == Some(1)
-            && capability[selected].as_u64() == Some(1))
+            && capability[selected].as_u64() == Some(version))
     }
 
     pub(crate) fn perform_project(

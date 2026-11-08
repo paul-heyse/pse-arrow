@@ -842,6 +842,11 @@ fn emit_project_read(
     output: &OutputOptions,
     environment: &Environment,
 ) -> Result<i32, HostError> {
+    if command == "project export-status"
+        && !reader.supports_project_export().map_err(product_error)?
+    {
+        return Err(HostError::Ownership("selected capture does not support exact publication custody; prepare the current product reader".into()));
+    }
     let reply = reader
         .read(request, output.invocation_id.as_str(), environment)
         .map_err(product_error)?;

@@ -886,7 +886,7 @@ fn handle(
             project_perform: cfg!(feature = "product-reader").then_some(1),
             project_import: cfg!(feature = "product-reader").then_some(1),
             project_import_open: cfg!(feature = "product-reader").then_some(1),
-            project_export: cfg!(feature = "product-reader").then_some(1),
+            project_export: cfg!(feature = "product-reader").then_some(2),
         }),
         Request::Schema { contract } => Ok(Payload::Schema {
             identity: match contract {

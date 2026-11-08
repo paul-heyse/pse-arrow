@@ -201,7 +201,18 @@ pub enum PublicationStatus {
     Published {
         /// Exact observed publication.
         receipt: Box<PublicationReceipt>,
+        /// The owner retained acknowledgement of final directory synchronization.
+        synchronized: bool,
     },
+}
+
+impl PublicationStatus {
+    fn visible(receipt: Box<PublicationReceipt>) -> Self {
+        Self::Published {
+            receipt,
+            synchronized: false,
+        }
+    }
 }
 
 fn io_error(source: io::Error) -> WorkflowError {
@@ -282,18 +293,46 @@ fn document(value: &impl Serialize) -> Result<Vec<u8>, WorkflowError> {
 
 struct OperationIndex {
     state: PathBuf,
+    identity: DeploymentDirectory,
     root: PathBuf,
     key: String,
     failed: String,
+    published: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DeploymentDirectory {
+    device: u64,
+    inode: u64,
+}
+impl DeploymentDirectory {
+    fn of(directory: &File) -> Result<Self, WorkflowError> {
+        let metadata = directory.metadata().map_err(io_error)?;
+        Ok(Self {
+            device: metadata.dev(),
+            inode: metadata.ino(),
+        })
+    }
+}
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct OwnerRecord {
+    state: DeploymentDirectory,
+    original: OriginalPublication,
 }
 
 impl OperationIndex {
     fn select(state: &Path, operation: &str, issuer: &str) -> Result<Self, WorkflowError> {
-        if !state.is_absolute() || private_directory(state)?.is_none() {
+        if !state.is_absolute() {
             return Err(contract(
                 "the original publication state directory is unavailable",
             ));
         }
+        let directory = private_directory(state)?
+            .ok_or_else(|| contract("the original publication state directory is unavailable"))?;
+        let identity = DeploymentDirectory::of(&directory)?;
         let state = state.canonicalize().map_err(io_error)?;
         let key = pse_ids::encoding_checksum(&document(&(issuer, operation))?)
             .content_hash()
@@ -301,17 +340,43 @@ impl OperationIndex {
         let root = state.join(INDEX);
         Ok(Self {
             state,
+            identity,
             root,
             key: format!("{key}.json"),
             failed: format!("{key}.failed.json"),
+            published: format!("{key}.published.json"),
         })
     }
 
     fn bound(&self) -> Result<Option<OriginalPublication>, WorkflowError> {
+        self.state_directory()?;
         let Some(root) = private_directory(&self.root)? else {
             return Ok(None);
         };
-        read_document(&root, &self.key)
+        self.read(&root, &self.key)
+    }
+
+    fn state_directory(&self) -> Result<File, WorkflowError> {
+        let directory = private_directory(&self.state)?
+            .ok_or_else(|| contract("the original publication state directory is unavailable"))?;
+        if DeploymentDirectory::of(&directory)? != self.identity {
+            return Err(contract(
+                "the original publication deployment directory changed",
+            ));
+        }
+        Ok(directory)
+    }
+
+    fn read(&self, root: &File, name: &str) -> Result<Option<OriginalPublication>, WorkflowError> {
+        let Some(record) = read_document::<OwnerRecord>(root, name)? else {
+            return Ok(None);
+        };
+        if record.state != self.identity {
+            return Err(contract(
+                "publication custody belongs to another deployment directory incarnation",
+            ));
+        }
+        Ok(Some(record.original))
     }
 
     fn status(
@@ -322,55 +387,93 @@ impl OperationIndex {
         cancel: &CancellationToken,
     ) -> Result<PublicationStatus, WorkflowError> {
         checkpoint(cancel)?;
+        self.state_directory()?;
         let Some(root) = private_directory(&self.root)? else {
             return Ok(PublicationStatus::Unknown);
         };
-        let Some(original) = read_document::<OriginalPublication>(&root, &self.key)? else {
+        let Some(original) = self.read(&root, &self.key)? else {
             return Ok(PublicationStatus::Unknown);
         };
         publication.matches(&original, operation, issuer)?;
-        if let Some(failed) = read_document::<OriginalPublication>(&root, &self.failed)? {
-            if failed != original {
+        let acknowledged = self.read(&root, &self.published)?;
+        if acknowledged
+            .as_ref()
+            .is_some_and(|retained| retained != &original)
+        {
+            return Err(contract(
+                "publication acknowledgement differs from the bound operation",
+            ));
+        }
+        if let Some(failed) = self.read(&root, &self.failed)? {
+            if failed != original || acknowledged.is_some() {
                 return Err(contract(
                     "failed publication disposition differs from its bound operation",
                 ));
             }
             return Ok(PublicationStatus::Failed { original });
         }
-        let status = publication.status(operation, issuer, cancel)?;
-        let retained = match &status {
-            PublicationStatus::Unknown => return Ok(PublicationStatus::Pending { original }),
-            PublicationStatus::Pending { original } | PublicationStatus::Failed { original } => {
-                original
-            }
-            PublicationStatus::Ready { receipt } | PublicationStatus::Published { receipt } => {
-                &receipt.original
-            }
-        };
+        let mut status = publication.status(operation, issuer, cancel)?;
+        if acknowledged.is_some() && !matches!(status, PublicationStatus::Published { .. }) {
+            return Err(contract(
+                "the synchronized original deliverable is no longer available",
+            ));
+        }
+        let retained =
+            match &status {
+                PublicationStatus::Unknown => return Ok(PublicationStatus::Pending { original }),
+                PublicationStatus::Pending { original }
+                | PublicationStatus::Failed { original } => original,
+                PublicationStatus::Ready { receipt }
+                | PublicationStatus::Published { receipt, .. } => &receipt.original,
+            };
         if retained != &original {
             return Err(contract(
                 "destination publication differs from its bound original operation",
             ));
         }
+        if let PublicationStatus::Published { synchronized, .. } = &mut status {
+            *synchronized = acknowledged.is_some();
+        }
         Ok(status)
     }
 
-    fn write(&self, name: &str, original: &OriginalPublication) -> Result<bool, WorkflowError> {
-        let created = match DirBuilder::new().mode(0o700).create(&self.root) {
-            Ok(()) => true,
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => false,
-            Err(error) => return Err(io_error(error)),
+    fn acknowledge(&self, status: PublicationStatus) -> Result<PublicationStatus, WorkflowError> {
+        let PublicationStatus::Published { receipt, .. } = status else {
+            return Ok(status);
         };
+        if !self.write(&self.published, &receipt.original)? {
+            let root = private_directory(&self.root)?
+                .ok_or_else(|| contract("original publication index disappeared"))?;
+            if self.read(&root, &self.published)?.as_ref() != Some(&receipt.original) {
+                return Err(contract(
+                    "publication acknowledgement differs from the bound operation",
+                ));
+            }
+        }
+        Ok(PublicationStatus::Published {
+            receipt,
+            synchronized: true,
+        })
+    }
+
+    fn write(&self, name: &str, original: &OriginalPublication) -> Result<bool, WorkflowError> {
+        let state = self.state_directory()?;
+        match DirBuilder::new().mode(0o700).create(&self.root) {
+            Ok(()) => {}
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(error) => return Err(io_error(error)),
+        }
         let root = private_directory(&self.root)?
             .ok_or_else(|| contract("original publication index disappeared"))?;
-        if created {
-            directory(&self.state)
-                .and_then(|dir| dir.sync_all())
-                .map_err(io_error)?;
-        }
+        // A second process may see the new directory before its creator syncs it.
+        // Each admitted writer must prove this ancestor durable before staging payloads.
+        state.sync_all().map_err(io_error)?;
         let mut temporary = tempfile::NamedTempFile::new_in(&self.root).map_err(io_error)?;
         temporary
-            .write_all(&document(original)?)
+            .write_all(&document(&OwnerRecord {
+                state: self.identity,
+                original: original.clone(),
+            })?)
             .map_err(io_error)?;
         temporary.as_file().sync_all().map_err(io_error)?;
         let added = match temporary.persist_noclobber(self.root.join(name)) {
@@ -379,6 +482,7 @@ impl OperationIndex {
             Err(error) => return Err(io_error(error.error)),
         };
         root.sync_all().map_err(io_error)?;
+        self.state_directory()?;
         Ok(added)
     }
 }
@@ -551,9 +655,7 @@ impl Publication {
     ) -> Result<PublicationStatus, WorkflowError> {
         checkpoint(cancel)?;
         if let Some(receipt) = self.published(operation, issuer, cancel)? {
-            return Ok(PublicationStatus::Published {
-                receipt: Box::new(receipt),
-            });
+            return Ok(PublicationStatus::visible(Box::new(receipt)));
         }
         if let Some(stage) = optional_directory(&self.stage)? {
             if let Some(original) = read_document::<OriginalPublication>(&stage, INTENT)? {
@@ -572,17 +674,13 @@ impl Publication {
                     });
                 }
                 return Ok(match self.published(operation, issuer, cancel)? {
-                    Some(receipt) => PublicationStatus::Published {
-                        receipt: Box::new(receipt),
-                    },
+                    Some(receipt) => PublicationStatus::visible(Box::new(receipt)),
                     None => PublicationStatus::Pending { original },
                 });
             }
         }
         Ok(match self.published(operation, issuer, cancel)? {
-            Some(receipt) => PublicationStatus::Published {
-                receipt: Box::new(receipt),
-            },
+            Some(receipt) => PublicationStatus::visible(Box::new(receipt)),
             None => PublicationStatus::Unknown,
         })
     }
@@ -653,10 +751,10 @@ impl Publication {
                 }
                 self.publish_ready(receipt, cancel)
             }
-            PublicationStatus::Published { receipt } => {
+            PublicationStatus::Published { receipt, .. } => {
                 self.parent.sync_all().map_err(io_error)?;
                 self.release_stage(&receipt.original)?;
-                Ok(PublicationStatus::Published { receipt })
+                Ok(PublicationStatus::visible(receipt))
             }
             original => Ok(original),
         }
@@ -676,9 +774,7 @@ impl Publication {
             )? && actual.original == receipt.original
             {
                 self.parent.sync_all().map_err(io_error)?;
-                return Ok(PublicationStatus::Published {
-                    receipt: Box::new(actual),
-                });
+                return Ok(PublicationStatus::visible(Box::new(actual)));
             }
             return Err(contract(
                 "complete original stage disappeared before publication",
@@ -710,7 +806,7 @@ impl Publication {
         stage.sync_all().map_err(io_error)?;
         self.parent.sync_all().map_err(io_error)?;
         self.release_stage(&receipt.original)?;
-        Ok(PublicationStatus::Published { receipt })
+        Ok(PublicationStatus::visible(receipt))
     }
 
     fn release_stage(&self, original: &OriginalPublication) -> Result<(), WorkflowError> {
@@ -777,6 +873,9 @@ mod tests {
         let original = target
             .original("operation", "issuer", &"original request")
             .unwrap();
+        let deployment = tempfile::tempdir_in(root.path()).unwrap();
+        let index = OperationIndex::select(deployment.path(), "operation", "issuer").unwrap();
+        assert!(index.write(&index.key, &original).unwrap());
         let changed = target
             .original("operation", "issuer", &"changed request")
             .unwrap();
@@ -838,13 +937,40 @@ mod tests {
             target.status("operation", "issuer", &cancel).unwrap(),
             PublicationStatus::Ready { .. }
         ));
+        let visible = target
+            .recover(
+                target.status("operation", "issuer", &cancel).unwrap(),
+                &cancel,
+            )
+            .unwrap();
+        assert!(matches!(
+            visible,
+            PublicationStatus::Published {
+                synchronized: false,
+                ..
+            }
+        ));
+        assert!(matches!(
+            index
+                .status(&target, "operation", "issuer", &cancel)
+                .unwrap(),
+            PublicationStatus::Published {
+                synchronized: false,
+                ..
+            }
+        ));
         for _ in 0..2 {
-            let PublicationStatus::Published { receipt: retained } = target
-                .recover(
-                    target.status("operation", "issuer", &cancel).unwrap(),
-                    &cancel,
-                )
-                .unwrap()
+            let PublicationStatus::Published {
+                receipt: retained,
+                synchronized: true,
+            } = recover_publication(
+                deployment.path(),
+                destination.clone().into(),
+                "operation",
+                "issuer",
+                &cancel,
+            )
+            .unwrap()
             else {
                 panic!("the complete original must publish without taking another cut");
             };
@@ -853,6 +979,15 @@ mod tests {
                 document(&receipt).unwrap()
             );
         }
+        assert!(matches!(
+            index
+                .status(&target, "operation", "issuer", &cancel)
+                .unwrap(),
+            PublicationStatus::Published {
+                synchronized: true,
+                ..
+            }
+        ));
         assert!(!target.stage.exists());
         assert_eq!(
             fs::read(destination.join(COHORT_FILE)).unwrap(),
@@ -920,6 +1055,24 @@ mod tests {
                 .status(&different, "operation", "issuer", &token)
                 .is_err()
         );
+        let moved = root.path().join("moved-state");
+        fs::rename(state.path(), &moved).unwrap();
+        assert!(index.bound().is_err());
+        assert!(OperationIndex::select(state.path(), "operation", "issuer").is_err());
+        let moved_index = OperationIndex::select(&moved, "operation", "issuer").unwrap();
+        assert_eq!(moved_index.bound().unwrap(), Some(original));
+        let copied = tempfile::tempdir_in(root.path()).unwrap();
+        let copied_index = OperationIndex::select(copied.path(), "operation", "issuer").unwrap();
+        DirBuilder::new()
+            .mode(0o700)
+            .create(&copied_index.root)
+            .unwrap();
+        fs::copy(
+            moved_index.root.join(&moved_index.key),
+            copied_index.root.join(&copied_index.key),
+        )
+        .unwrap();
+        assert!(copied_index.bound().is_err());
     }
 }
 
@@ -992,10 +1145,11 @@ pub fn recover_publication(
 ) -> Result<PublicationStatus, WorkflowError> {
     let index = OperationIndex::select(state, operation, issuer)?;
     let publication = Publication::select(destination)?;
-    publication.recover(
+    let status = publication.recover(
         index.status(&publication, operation, issuer, cancel)?,
         cancel,
-    )
+    )?;
+    index.acknowledge(status)
 }
 
 /// Original local publication and its independently attempted cleanup.
@@ -1111,7 +1265,10 @@ pub async fn export(
         checkpoint(&token)?;
         publication.claim(&original)?;
         owns_stage = true;
-        deliver(
+        if optional_directory(&publication.destination)?.is_some() {
+            return Err(contract("publication destination became occupied before delivery").into());
+        }
+        let status = deliver(
             &runtime,
             &shared,
             &publication,
@@ -1119,7 +1276,8 @@ pub async fn export(
             request,
             cancel,
         )
-        .await
+        .await?;
+        Ok(index.acknowledge(status)?)
     })
     .await
     .map_err(ProjectOperationError::action);

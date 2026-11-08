@@ -312,7 +312,7 @@ pub(super) enum ExportStatus {
     Pending,
     Failed,
     Ready,
-    Published,
+    Published { synchronized: bool },
 }
 
 impl ExportStatus {
@@ -342,11 +342,19 @@ impl ExportStatus {
                 Settlement::Incomplete,
                 "the original complete deliverable is staged",
             ),
-            Self::Published => (
+            Self::Published { synchronized: true } => (
                 Disposition::Published,
                 SubjectState::Succeeded,
                 Settlement::Complete,
                 "the original deliverable and receipt are published",
+            ),
+            Self::Published {
+                synchronized: false,
+            } => (
+                Disposition::Published,
+                SubjectState::Succeeded,
+                Settlement::Unknown,
+                "the original deliverable is visible and final synchronization is unproved",
             ),
         };
         (disposition, subject, settlement, summary.into())
@@ -1223,7 +1231,15 @@ pub(super) fn dispatch(
                 &target.operation,
                 destination,
                 &policy,
-                matches!(export_status, Some(ExportStatus::Ready)),
+                matches!(
+                    export_status,
+                    Some(
+                        ExportStatus::Ready
+                            | ExportStatus::Published {
+                                synchronized: false
+                            }
+                    )
+                ),
             ));
         }
     } else if matches!(

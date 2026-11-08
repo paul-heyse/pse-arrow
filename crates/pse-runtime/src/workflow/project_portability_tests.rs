@@ -1236,7 +1236,7 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
             request: request.clone(), physical: None,
         }, &cancel)).await.unwrap();
         assert!(prepared.cleanup.is_none());
-        let PublicationStatus::Published { receipt } = prepared.result.unwrap() else { unreachable!("descriptive publication must settle"); };
+        let PublicationStatus::Published { receipt, synchronized: true } = prepared.result.unwrap() else { unreachable!("descriptive publication must settle"); };
         let Deliverable::Pack { manifest: file, executable_complete, .. } = &receipt.deliverable else { unreachable!("original pack receipt"); };
         assert!(!executable_complete);
         let pack = ProjectBundleReader::open(&prepared_path, request.maximum_document_bytes).unwrap();
@@ -1252,7 +1252,7 @@ async fn project_portability_descriptive_export_never_hydrates_missing_selected_
             request: request.clone(), physical: None,
         }, &cancel)).await.is_err());
         assert!(!changed_destination.exists());
-        let PublicationStatus::Published { receipt: recovered } = readback else { unreachable!("lost publication response recovers the original"); };
+        let PublicationStatus::Published { receipt: recovered, synchronized: true } = readback else { unreachable!("lost publication response recovers the original"); };
         assert_eq!(serde_json::to_vec(&receipt).unwrap(), serde_json::to_vec(&recovered).unwrap());
         Box::pin(runtime.project_export_metadata(&metadata_path,&request,&cancel)).await.unwrap()
     }).await.unwrap();
