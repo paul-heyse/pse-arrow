@@ -40,6 +40,12 @@ use std::{
 };
 use surrealdb_types::{Number, SurrealValue, ToSql, Value};
 
+#[cfg(feature = "canonical-maintenance")]
+#[path = "native_service/rollout_preview.rs"]
+mod rollout_preview;
+#[cfg(feature = "canonical-maintenance")]
+pub use rollout_preview::OwnedRolloutPreview;
+
 const PRIVATE_BYTES: u64 = 256 * 1024;
 const ROOT_USER: &str = "pse-fixture-owner";
 const VIEWER_USER: &str = "pse-selection";
@@ -1100,7 +1106,10 @@ impl NativeCanonicalService {
         .await?;
         Ok(())
     }
-    async fn wait_owned_listener(&self, deadline: Instant) -> Result<(), NativeServiceError> {
+    async fn wait_owned_listener(
+        &self,
+        deadline: Instant,
+    ) -> Result<UnitObservation, NativeServiceError> {
         let unit = self.unit.as_ref().ok_or(NativeServiceError::Refused(
             "original service capability is unavailable",
         ))?;
@@ -1138,7 +1147,7 @@ impl NativeCanonicalService {
                         && after.invocation == observed.invocation
                     {
                         deadline_left(deadline)?;
-                        return Ok(());
+                        return Ok(after);
                     }
                     return Err(NativeServiceError::Refused(
                         "owned listener changed during observation",
@@ -1687,6 +1696,11 @@ impl NativeCanonicalService {
 fn hex_bytes(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
+
+#[cfg(all(test, feature = "canonical-maintenance"))]
+#[path = "native_service/rollout_authority.rs"]
+mod rollout_authority;
+
 fn owns_listener(pid: u32, bind: SocketAddr) -> Result<bool, NativeServiceError> {
     let SocketAddr::V4(address) = bind else {
         return Err(NativeServiceError::Refused(

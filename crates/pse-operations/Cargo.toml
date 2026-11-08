@@ -211,6 +211,16 @@ inputs = ["server", "study-module", "service-helper"]
 scope.modules = ["native_fixture::migration_tests"]
 
 [[package.metadata.pse.test-fixtures]]
+id = "surrealkit-rollout-authority"
+target = "pse_operations"
+kind = "lib"
+required-features = ["native-service", "canonical-maintenance"]
+# The control owns its raw v4 listener. It only borrows a prepared executable.
+ownership = "preparation-only"
+inputs = ["server"]
+scope.modules = ["native_service::rollout_authority"]
+
+[[package.metadata.pse.test-fixtures]]
 id = "operator-evidence"
 target = "pse_operations"
 kind = "lib"

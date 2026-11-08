@@ -13,8 +13,9 @@ use crate::transport::{
     operation_scope, original_deadline, within_clock,
 };
 use serde::Serialize;
+use sha2::{Digest as _, Sha256};
 use std::{net::SocketAddr, path::Path};
-use surrealdb_types::{Object, Value};
+use surrealdb_types::{Object, ToSql as _, Value};
 use tokio::time::Instant;
 use uuid::Uuid;
 
@@ -48,6 +49,8 @@ pub struct CatalogDefinition {
 pub struct CatalogComparison {
     /// SHA-256 of the generated SQL input bytes.
     pub generated_declaration_sha256: String,
+    /// SHA-256 of the observed normalized installed declarations in identity order.
+    pub installed_catalog_sha256: String,
     /// Managed identities read from the installed catalog, in definition order.
     pub installed: Vec<CatalogDefinition>,
     /// Expected identities absent from the installed catalog.
@@ -156,12 +159,30 @@ impl CatalogRead {
 
     /// Read the marker and managed definitions in a bounded read transaction.
     pub async fn inspect(self) -> Result<CatalogObservation, CanonicalError> {
+        self.inspect_with_compatibility(None).await
+    }
+
+    #[cfg(feature = "native-service")]
+    pub(crate) async fn inspect_v4(self) -> Result<CatalogObservation, CanonicalError> {
+        self.inspect_with_compatibility(Some(4)).await
+    }
+
+    async fn inspect_with_compatibility(
+        self,
+        required_compatibility: Option<i64>,
+    ) -> Result<CatalogObservation, CanonicalError> {
         let deadline = original_deadline(REQUEST_TIMEOUT);
         operation_scope(deadline.into_std(), async {
             let client = Client::connect_pinned(self.address, MESSAGE_BYTES).await?;
             let result = within_clock(
                 deadline,
-                observe(&client, &self.target, self.viewer, deadline),
+                observe(
+                    &client,
+                    &self.target,
+                    self.viewer,
+                    deadline,
+                    required_compatibility,
+                ),
             )
             .await;
             let drained = client.disconnect().await;
@@ -214,6 +235,7 @@ async fn observe(
     target: &CatalogTarget,
     viewer: Root,
     deadline: Instant,
+    required_compatibility: Option<i64>,
 ) -> Result<CatalogObservation, CanonicalError> {
     let context = || RequestContext::control(deadline.into_std());
     let query_context = || context().with_response_limits(LIMITS);
@@ -267,6 +289,12 @@ async fn observe(
         return Err(invalid("catalog predecessor changed during observation"));
     }
     let database = take_object(&mut response, 1)?;
+    if let Some(level) = required_compatibility
+        && database.get("compatibility")
+            != Some(&Value::Number(surrealdb_types::Number::Int(level)))
+    {
+        return Err(invalid("installed database compatibility level differs"));
+    }
     if managed_table_names(&database)? != tables {
         return Err(invalid("managed table set changed during observation"));
     }
@@ -315,6 +343,7 @@ fn compare_generated(expected: &Definitions, installed: &Definitions) -> Catalog
     };
     let mut comparison = CatalogComparison {
         generated_declaration_sha256: sha256(wire::SCHEMA.as_bytes()),
+        installed_catalog_sha256: catalog_digest(installed),
         installed: installed.keys().map(identity).collect(),
         missing: Vec::new(),
         changed: Vec::new(),
@@ -331,4 +360,33 @@ fn compare_generated(expected: &Definitions, installed: &Definitions) -> Catalog
         comparison.unexpected.push(identity(key));
     }
     comparison
+}
+
+fn catalog_digest(installed: &Definitions) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"pse.canonical.catalog.normalized.v1");
+    for ((kind, scope, name), statement) in installed {
+        let sql = statement.to_sql();
+        for part in [kind, scope, name, &sql] {
+            digest.update((part.len() as u64).to_be_bytes());
+            digest.update(part.as_bytes());
+        }
+    }
+    hex::encode(digest.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rollout_catalog_digest_binds_definitions_beyond_changed_identities() {
+        let expected = parse_definitions("DEFINE TABLE canonical_probe SCHEMAFULL;").unwrap();
+        let first = parse_definitions("DEFINE TABLE canonical_probe SCHEMALESS;").unwrap();
+        let second = parse_definitions("DEFINE TABLE canonical_probe TYPE ANY SCHEMAFULL;").unwrap();
+        let first = compare_generated(&expected, &first);
+        let second = compare_generated(&expected, &second);
+        assert_eq!(first.changed, second.changed);
+        assert_ne!(first.installed_catalog_sha256, second.installed_catalog_sha256);
+    }
 }

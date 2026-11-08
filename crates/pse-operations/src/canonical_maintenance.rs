@@ -28,6 +28,9 @@ pub use catalog::{
     CatalogComparison, CatalogDefinition, CatalogObservation, CatalogRead, CatalogTarget,
     inspect_catalog,
 };
+#[path = "canonical_maintenance/frozen_rollout.rs"]
+mod frozen_rollout;
+pub use frozen_rollout::{FrozenRollout, RolloutPhase};
 
 /// Exact predecessor, distinct from the generated target and beta schema hash.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
@@ -80,6 +83,13 @@ fn sha256(bytes: &[u8]) -> String {
         .collect()
 }
 
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
 fn invalid(reason: impl Into<String>) -> CanonicalError {
     CanonicalError::Configuration(reason.into())
 }
@@ -103,6 +113,25 @@ fn connection_matches(
         .iter()
         .all(|(key, value)| {
             credentials.get(*key).and_then(serde_json::Value::as_str) == Some(value.as_str())
+        })
+}
+
+fn listener_matches(configured: &serde_json::Value, observed: &serde_json::Value) -> bool {
+    configured
+        .get("instance_id")
+        .and_then(serde_json::Value::as_str)
+        .is_some_and(|id| !id.is_empty())
+        && [
+            ("instance_id", "instance_id"),
+            ("service_supervisor", "supervisor"),
+            ("server", "server"),
+            ("resources", "resources"),
+        ]
+        .iter()
+        .all(|(config_key, listener_key)| {
+            configured.get(*config_key).is_some_and(|expected| {
+                !expected.is_null() && observed.get(*listener_key) == Some(expected)
+            })
         })
 }
 
@@ -146,13 +175,20 @@ fn normalize_control_access(
 }
 
 fn parse_definitions(input: &str) -> Result<Definitions, CanonicalError> {
-    parse_definition_input(input, false)
+    parse_definition_input(input, DefinitionInput::Schema)
 }
 
-fn parse_definition_input(input: &str, one_statement: bool) -> Result<Definitions, CanonicalError> {
+#[derive(Clone, Copy)]
+enum DefinitionInput {
+    Schema,
+    CatalogEntry,
+    FrozenRollout,
+}
+
+fn parse_definition_input(input: &str, mode: DefinitionInput) -> Result<Definitions, CanonicalError> {
     let ast = surrealdb_expr::parser::parse(input)
         .map_err(|error| invalid(format!("generated catalog parse: {error}")))?;
-    if one_statement && ast.expressions.len() != 1 {
+    if matches!(mode, DefinitionInput::CatalogEntry) && ast.expressions.len() != 1 {
         return Err(invalid("catalog entry must contain one declaration"));
     }
     let mut definitions = BTreeMap::new();
@@ -163,6 +199,13 @@ fn parse_definition_input(input: &str, one_statement: bool) -> Result<Definition
             ));
         };
         let mut statement = *statement;
+        if matches!(mode, DefinitionInput::FrozenRollout)
+            && (matches!(&statement, DefineStatement::Table(table) if table.drop || table.view.is_some())
+                || matches!(&statement, DefineStatement::Field(field) if field.migrate.is_some())
+                || matches!(&statement, DefineStatement::Index(index) if index.concurrently))
+        {
+            return Err(invalid("frozen rollout requires independent effect handling"));
+        }
         // These flags affect installation, not the installed definition. Every
         // semantic clause (including permission/assertion/function body) survives.
         let key = match &mut statement {
@@ -297,7 +340,7 @@ impl ManagedCatalog {
         if self.declaration_bytes > super::PAYLOAD_BYTES || self.definitions.len() >= 8192 {
             return Err(CanonicalError::PayloadLimit);
         }
-        let mut parsed = parse_definition_input(sql.as_str(), true)
+        let mut parsed = parse_definition_input(sql.as_str(), DefinitionInput::CatalogEntry)
             .map_err(|_| invalid("installed managed declaration is malformed"))?;
         let Some((key, definition)) = parsed.pop_first() else {
             return Err(invalid("catalog entry must contain one declaration"));
@@ -334,44 +377,38 @@ fn compare(expected: &Definitions, observed: &Definitions) -> Result<(), Canonic
 
 impl CanonicalStore {
     pub(crate) fn maintenance_config(&self) -> Result<serde_json::Value, CanonicalError> {
-        let admission = WriteAdmission::read(&self.state_path)?;
+        let configuration_bytes = crate::deployment::CONFIGURATION_FILE_BYTES as usize;
+        let read = |name, max_bytes| {
+            frozen_rollout::bounded_file(&self.state_path.join(name), max_bytes, true)
+        };
+        let raw = read("config.json", configuration_bytes)?;
+        let admission: WriteAdmission = serde_json::from_str(&raw)
+            .map_err(|_| invalid("invalid maintenance admission configuration"))?;
         admission.require_initializer(
             &self.state_path,
             &self.namespace,
             &self.database,
             self.connection_options.initializer_nonce.as_deref(),
         )?;
-        let config: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(self.state_path.join("config.json"))
-                .map_err(|error| invalid(error.to_string()))?,
-        )
-        .map_err(|error| invalid(error.to_string()))?;
-        let listener: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(self.state_path.join(".maintenance-listener.json"))
-                .map_err(|_| CanonicalError::Quiesced)?,
-        )
-        .map_err(|_| CanonicalError::Quiesced)?;
-        let owner: serde_json::Value = serde_json::from_slice(
-            &std::fs::read(self.state_path.join("lifecycle-owner.json"))
-                .map_err(|_| CanonicalError::Quiesced)?,
-        )
-        .map_err(|_| CanonicalError::Quiesced)?;
-        if listener.get("owner") != Some(&owner)
-            || listener.get("instance_id") != config.get("instance_id")
-            || listener.get("supervisor") != config.get("service_supervisor")
-            || listener.get("server") != config.get("server")
-            || listener.get("resources") != config.get("resources")
-        {
+        let config = serde_json::from_str(&raw)
+            .map_err(|_| invalid("invalid maintenance configuration"))?;
+        let owner_record = |name| {
+            let raw = read(name, configuration_bytes).map_err(|_| CanonicalError::Quiesced)?;
+            serde_json::from_str::<serde_json::Value>(&raw).map_err(|_| CanonicalError::Quiesced)
+        };
+        let listener = owner_record(".maintenance-listener.json")?;
+        let owner = owner_record("lifecycle-owner.json")?;
+        if listener.get("owner") != Some(&owner) || !listener_matches(&config, &listener) {
             return Err(CanonicalError::Quiesced);
         }
-        let credentials = std::fs::read(self.state_path.join("credentials.json"))
+        let credentials = read("credentials.json", super::CREDENTIALS_FILE_BYTES as usize)
             .map_err(|_| CanonicalError::Quiesced)?;
         let credential_document: serde_json::Value =
-            serde_json::from_slice(&credentials).map_err(|_| CanonicalError::Quiesced)?;
+            serde_json::from_str(&credentials).map_err(|_| CanonicalError::Quiesced)?;
         if !connection_matches(&self.connection_options, &config, &credential_document) {
             return Err(CanonicalError::Quiesced);
         }
-        let digest = sha256(&credentials);
+        let digest = sha256(credentials.as_bytes());
         if listener
             .get("credentials_sha256")
             .and_then(serde_json::Value::as_str)
@@ -518,8 +555,10 @@ impl CanonicalStore {
                     return Err(invalid("exact rollout phase is not completely settled"));
                 }
                 let nonce = pending.get("nonce").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("pending nonce absent"))?;
-                if nonce.len() != 32 || !nonce.bytes().all(|byte| byte.is_ascii_hexdigit()) || settlement_path != self.state_path.join(".surrealkit").join(nonce).join("settled.json") || settlement_path.symlink_metadata().map_err(|error| invalid(error.to_string()))?.file_type().is_symlink() { return Err(invalid("exact owned settlement path required")); }
-                let settled: serde_json::Value = serde_json::from_slice(&std::fs::read(settlement_path).map_err(|error| invalid(error.to_string()))?).map_err(|error| invalid(error.to_string()))?;
+                if nonce.len() != 32 || !nonce.bytes().all(|byte| byte.is_ascii_hexdigit()) || settlement_path != self.state_path.join(".surrealkit").join(nonce).join("settled.json") { return Err(invalid("exact owned settlement path required")); }
+                let settled: serde_json::Value = serde_json::from_str(
+                    &frozen_rollout::bounded_file(settlement_path, crate::deployment::CONFIGURATION_FILE_BYTES as usize, true)?,
+                ).map_err(|_| invalid("invalid owned settlement record"))?;
                 for key in ["nonce", "input_sha256", "instance_id", "namespace", "database", "settlement", "previous_marker"] {
                     if pending.get(key).is_none() || pending.get(key) != settled.get(key) { return Err(invalid(format!("settlement binding differs: {key}"))); }
                 }
@@ -533,7 +572,15 @@ impl CanonicalStore {
                 if recorded.scope != "generated-target" || recorded.definition_inputs != witness.definition_inputs || recorded.interpretation != witness.interpretation || recorded.schema_digest != witness.schema_digest || recorded.study_module_sha256 != witness.study_module_sha256 || recorded.namespace != witness.namespace || recorded.database != witness.database || recorded.instance_id != witness.instance_id || recorded.catalog_definition_count != witness.catalog_definition_count { return Err(invalid("settled target differs from actual installed target")); }
                 let predecessor: Option<Marker> = serde_json::from_value(pending.get("previous_marker").cloned().ok_or_else(|| invalid("original predecessor absent"))?).map_err(|error| invalid(error.to_string()))?;
                 let predecessor_bytes = serde_json::to_vec(&predecessor).map_err(|error| invalid(error.to_string()))?;
-                let input_sha256 = pending.get("input_sha256").and_then(serde_json::Value::as_str).ok_or_else(|| invalid("pending input identity absent"))?;
+                let input_sha256 = pending.get("input_sha256").and_then(serde_json::Value::as_str)
+                    .filter(|digest| is_sha256(digest)).ok_or_else(|| invalid("pending input identity absent or invalid"))?;
+                if recorded.previous_marker != predecessor
+                    || pending.get("instance_id").and_then(serde_json::Value::as_str) != Some(witness.instance_id.as_str())
+                    || pending.get("namespace").and_then(serde_json::Value::as_str) != Some(witness.namespace.as_str())
+                    || pending.get("database").and_then(serde_json::Value::as_str) != Some(witness.database.as_str())
+                {
+                    return Err(invalid("original rollout deployment or predecessor differs"));
+                }
                 let mut existing = bounded_query(self.db.query("SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce);").bind(("nonce",nonce.to_owned()))).await?;
                 if let Some(receipt) = existing.take::<Option<Object>>(0)?.map(wire::decode_canonical_maintenance_activations).transpose()? {
                     if receipt.key != nonce
@@ -542,6 +589,7 @@ impl CanonicalStore {
                         || receipt.interpretation != wire::INTERPRETATION
                         || receipt.schema_digest != wire::SCHEMA_DIGEST
                         || receipt.study_module_sha256 != witness.study_module_sha256
+                        || predecessor.as_ref().is_some_and(|marker| marker.issuing_store != receipt.issuing_store)
                         || witness.previous_marker != Some(Marker { interpretation: wire::INTERPRETATION.into(), schema_digest: wire::SCHEMA_DIGEST.into(), study_module_sha256: witness.study_module_sha256.clone(), issuing_store: receipt.issuing_store }) {
                         return Err(CanonicalError::OperationReused);
                     }
@@ -593,6 +641,36 @@ impl CanonicalStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn maintenance_listener_requires_every_physical_owner_identity() {
+        let mut configuration = serde_json::json!({
+            "instance_id": "live",
+            "service_supervisor": {"invocation": "exact"},
+            "server": {"recipe": "exact"},
+            "resources": {"unit": "exact"}
+        });
+        let listener = serde_json::json!({
+            "instance_id": "live",
+            "supervisor": {"invocation": "exact"},
+            "server": {"recipe": "exact"},
+            "resources": {"unit": "exact"}
+        });
+        assert!(listener_matches(&configuration, &listener));
+        for key in ["instance_id", "service_supervisor", "server", "resources"] {
+            let mut changed = configuration.clone();
+            changed[key] = serde_json::Value::Null;
+            assert!(!listener_matches(&changed, &listener));
+            let mut absent = configuration.clone();
+            absent.as_object_mut().unwrap().remove(key);
+            assert!(!listener_matches(&absent, &listener));
+        }
+        configuration["service_supervisor"]["invocation"] = serde_json::json!("foreign");
+        assert!(!listener_matches(&configuration, &listener));
+        let absent = serde_json::json!({});
+        assert!(!listener_matches(&absent, &absent));
+    }
+
     #[test]
     fn maintenance_authority_binds_original_connection_and_credentials() {
         let options = super::super::CanonicalOptions {
