@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 361
-date: 2026-11-06
+revision: 362
+date: 2026-11-08
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 362 | 2026-11-08 | Calibrate engine, lifecycle, and diagnostic test evidence to the controls at their owners (§23.2, §24.1). | Plan70c C04 evidence wording under ADR-0160 and ADR-0170. |
 | 361 | 2026-11-07 | Adopt the source-built SurrealDB 4.0.0 family and fresh owned canonical catalogs under [ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md) (§3.3, §20.6). | Plan68 owns scoped platform receiving and selection. Plan66 owns scientific acceptance. |
 | 360 | 2026-11-06 | Propose invocation-bound native provider selection observations, separate from derivative premises, physical stability and product-use authority (§18.2, §19.2). | ADR-0251; authorized Plan65i concrete BT consumer; focused independent source assessment before kernel implementation. |
 | 359 | 2026-11-06 | Propose source-owned generated selected-result observation metadata with exact bounded serialization and pre-map duplicate refusal (§19.2, §20.5). | ADR-0250; authorized Plan65 A06/C02/F04 consumer migration; passive artifact agreement does not grant native read or scientific authority. |

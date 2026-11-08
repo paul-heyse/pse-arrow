@@ -536,8 +536,9 @@ by miette (`authoring::parse::missing_id`).
 - Every public `*Error` enum in `crates/*/src` derives `thiserror::Error` and implements
   `miette::Diagnostic`, either derived or through the shared
   `pse_diagnostics::impl_diagnostic!` projection that assigns a typed `DiagnosticCode`.
-  `tests/governance/tests/error_taxonomy.rs` checks the implementations; the compiler
-  checks that each code is a declared variant. No `anyhow` in library crates.
+  `tests/governance/tests/error_taxonomy.rs` checks implementation presence. Typed
+  projections use the declared variants, and the engine error controls sample actual
+  leaf and forwarded codes and exercise refusal of absent codes. No `anyhow` in library crates.
 - Wrappers retain original causes and related failures. Aggregates keep every leaf;
   the first error is never the only one reported. Formatting an error into a string
   does not establish its class or erase an uncertain commit.
@@ -795,9 +796,9 @@ availability; metadata references are not current protection grants.
 |---|---|---|
 | Crate tests | `#[cfg(test)]` modules and `crates/*/tests` | the owning contract: identity, admission, compilation, physical providers, native adapters, workflow, publication and settlement; `pse-rules` owns independent integrity mechanism witnesses and catalog/enforcement controls |
 | Governance | `tests/governance` | workspace invariants: sole hasher, dependency pins and floors, error taxonomy, crate registration, FFI unwind containment, no shadow structs, registry governance, MSRV, unsafe allowlist |
-| Engine | `tests/engine` | provider hierarchy, plan codec, pushdown truthfulness against unpruned sources, relational expansion, unified sources |
+| Engine | `tests/engine` | pushdown against unpruned sources, native session row and extension behavior, owned lifetimes, and refusal of foreign functions and unadmitted plans |
 | Conformance | `tests/conformance` | selected scientific acceptance journeys; native value/IEEE framing and Arrow admission properties remain in their owning crates |
-| Lifecycle | `tests/lifecycle` | guarded canonical admission, interruption, exact retained reads and result memory budgets |
+| Lifecycle | `tests/lifecycle` | shared input charges, query and result memory pressure, scoped cancellation, recovery, and release |
 | Native application | `crates/pse-runtime/tests/native_*.rs` and workflow tests | actual typed scientific/local/durable callers, protected data, original completion and resource settlement |
 | Developer tools | `xtask` and `pse-host` tests | native source/doc/governance/evidence owners, exact command/environment selection, the `pse` agent verbs and their run ledger, and authenticated independent operator effects |
 | Independent references | native exchange tests and isolated `tests/reference/oracles` | the IDAES 2.13.0 environment and selected scientific reference comparisons (proposed [ADR-0097](../../adr/0097-modeling-scope-and-parity.md)) |
