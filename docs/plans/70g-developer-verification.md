@@ -171,7 +171,49 @@ Nextest filters belongs to its ordinary selection route. [Scope-end guide](../de
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [G01](#g01) | planned | Fresh rendered trees, existing tracking and publication owners, Plan69e E05 full-route boundary | Direct comparison passes ownership, drift and refusal controls and replaces the scratch comparator. Each conditional reduction is integrated with equivalent receiving evidence or has a recorded reason to retain its current route. |
-| [G02](#g02) | planned | Hosted consumer inventory, pinned Rust and uv tools, existing host and adapter contracts | Cold hosted paths select their required preparation, Taplo consumes the lock and stale-lock refusal survives removal of duplicate metadata. If adopting G01's hosted grouping, coordinate the shared workflow edit after its grouped invocation is qualified. |
-| [G03](#g03) | planned | Registry Buffa 0.9.2 source and checksum, maintained decoder fixture, separate Cargo roots | Complete the bounded comparison and preserve fresh decoder results. Adopt the independent locked stock fixture only with equivalent receiving evidence and measured recurring cost worth the maintenance. |
-| [G04](#g04) | planned | Current recipe leaves and native keep-going bundle in one applicable checkout/context | Equivalent coverage and independent nonpass controls establish the combined scope-end route for Q01. Guidance reflects the verified composition. |
+| [G01](#g01) | complete | Fresh rendered trees, existing tracking and publication owners, Plan69e E05 full-route boundary | Direct comparison passes ownership, drift and refusal controls and replaces the scratch comparator. Each conditional reduction is integrated with equivalent receiving evidence or has a recorded reason to retain its current route. |
+| [G02](#g02) | in-progress | Hosted consumer inventory, pinned Rust and uv tools, existing host and adapter contracts | Cold hosted paths select their required preparation, Taplo consumes the lock and stale-lock refusal survives removal of duplicate metadata. If adopting G01's hosted grouping, coordinate the shared workflow edit after its grouped invocation is qualified. |
+| [G03](#g03) | complete | Registry Buffa 0.9.2 source and checksum, maintained decoder fixture, separate Cargo roots | Complete the bounded comparison and preserve fresh decoder results. Adopt the independent locked stock fixture only with equivalent receiving evidence and measured recurring cost worth the maintenance. |
+| [G04](#g04) | complete | Current recipe leaves and native keep-going bundle in one applicable checkout/context | Equivalent coverage and independent nonpass controls establish the combined scope-end route for Q01. Guidance reflects the verified composition. |
+
+## Execution checkpoint
+
+**Tested.** The direct codegen comparison passed 13 selected xtask binary controls with zero
+failures in `01a1bc09-9dab-73bc-a839-a952be850dbb`. Retain per-tree Git queries. Their native
+pathspecs attribute an untracked path to every matching scope, including overlaps excluded
+from checkout comparison. A grouped query would add a separate scope-attribution mechanism
+for this small set of independent invocations.
+
+The locked no-default hosted invocation checked six output trees in one assembly. Each focused
+projection checked its two trees independently, and a scratch checkout with deliberate Rust
+and Surreal drift reported both owners. The Markdown projection invokes the prepared
+source-built host export in that graph. The local Rust contracts recipe retains its additional
+recorded-result feature graph. Four physical fixture controls passed with zero failures in
+`01a1bc23-080b-726e-a00e-908dd3f43127`, including fresh registry reuse and refusal of an
+independent registry disagreement. `just codegen-bindgen-check` passed the focused Ipopt and
+CoolProp comparison with zero failures. The full aggregate comparison belongs to Q01.
+
+**Tested.** A fresh locked uv quality environment and pinned rustfmt accepted valid formatting
+inputs in an isolated receiver, and each refused its own deliberate drift. The already-built
+`xtask family-check` and the retained hosted correctness-adapter command independently
+refused a stale lock and left it byte-identical. The complete lock also exposed one pre-existing
+compiler normal-closure dependency finding on both the start revision and the updated inputs
+against a baseline of zero. `actionlint` passed with zero findings. Hosted cold-run evidence
+is still separate from the local receiving checks.
+
+**Measured.** A fresh isolated registry Buffa 0.9.2 stock build and invocation took 6.18 s,
+and the unchanged-target invocation took 0.10 s. The comparison used the same selected
+descriptor, default development profile, locked offline graph and no compiler wrapper.
+The output names and bytes matched across both runs, and the changed descriptor changed the
+output. The timing covers the stock tool only. The first-party
+`scripts/pse test pse-codegen:buffa_allocation` receiving route passed both tests with
+zero failures in `01a1bc4b-514c-7278-adb6-6aa8a6898cae`. It compares the locked registry
+generator's output with fresh maintained generation and requires all seven freshly compiled
+decoder controls to pass with zero failures, skips or compilation warnings.
+
+**Tested.** The real `pse run-all` owner executed equivalent bundle leaves in an isolated
+Just recipe. In separate controls it retained the injected family exit 11 and codegen exit 12,
+the successful sibling, and a successful governance child after a failed hygiene child. Both
+bundles returned nonpass with complete settlement. The actual recipes put one codegen check
+and one family check under hygiene. The combined guidance therefore selects hygiene plus
+governance tests and preserves standalone governance.

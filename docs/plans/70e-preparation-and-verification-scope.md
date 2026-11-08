@@ -226,8 +226,64 @@ remain conditional on such evidence and compatibility. [Timing route](../dev/bui
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [E01](#e01) | planned | Authored catalog and production admission | Selected closure and conservative associations serve ordinary consumers and A04. D04 and F02 receive source identity and lifetime. Scoped exactness, missing/changed input and affected-preview controls pass. |
-| [E02](#e02) | planned | Plan69c binary-membership facts and pinned nextest interfaces | Bounded comparison establishes safe group transfer/borrow or identifies the unresolved proof. Receiver verification and custody boundaries are recorded for E03. |
-| [E03](#e03) | planned | Existing passive traversal. E02 decision for launch and borrowing, A01 exact comparison at applicable receivers | Page verifies reached images once. Selected launch and receiver authenticate their proved scope and preserve exact selection, tamper refusal and original custody. Replaced broad paths retire where moved. |
-| [E04](#e04) | planned | Real workspace membership and live checkout discovery | Scoped membership and sole-hasher checks, equivalent relocated diagnostics, and preserved full-graph policies. |
-| [E05](#e05) | planned | A01 pinned graph and exact unit comparison, existing native runner and image custody | Named focused and empty-harness decisions supported by graph and execution evidence. Adopt only equivalent narrower routes. Retain applicable cache and validation policy. |
+| [E01](#e01) | complete | Authored catalog and production admission | Selected closure and conservative associations serve ordinary consumers and A04. D04 and F02 receive source identity and lifetime. Scoped exactness, missing/changed input and affected-preview controls pass. |
+| [E02](#e02) | complete | Plan69c binary-membership facts and pinned nextest interfaces | Bounded comparison establishes safe group transfer/borrow or identifies the unresolved proof. Receiver verification and custody boundaries are recorded for E03. |
+| [E03](#e03) | complete | Existing passive traversal. E02 decision for launch and borrowing, A01 exact comparison at applicable receivers | Page verifies reached images once. Selected launch and receiver authenticate their proved scope and preserve exact selection, tamper refusal and original custody. Replaced broad paths retire where moved. |
+| [E04](#e04) | complete | Real workspace membership and live checkout discovery | Scoped membership and sole-hasher checks, equivalent relocated diagnostics, and preserved full-graph policies. |
+| [E05](#e05) | complete | A01 pinned graph and exact unit comparison, existing native runner and image custody | Named focused and empty-harness decisions supported by graph and execution evidence. Adopt only equivalent narrower routes. Retain applicable cache and validation policy. |
+
+## Execution checkpoint
+
+**Tested.** With the normal correctness profile, the selected xtask binary's nine
+scientific-input controls passed with zero failures in
+`01a1bc14-04fa-724e-b49d-86dc5e05493e`. The capsule-free compiler and modeling library
+selection passed 20 with zero failures in `01a1bc18-95fa-75bb-9f9c-c3145582c751`, using
+explicit force-validation through their selected development closures. The separately owned
+native campaign receipt is recorded in [F02](70f-conformance-and-benchmark-execution.md#f02).
+
+**Implemented.** For an in-process `Listed` group, the owner already holds the binary list,
+same-build artifacts and selected metadata digests. Verify the two shared tool images and
+every image that group can list or launch, including pre-name-filter binaries and
+`CARGO_BIN_EXE_*` helpers. Supplemental fixture and group-policy listings use that same
+verification boundary before invoking Nextest. The page uses one verification traversal
+for its visible rows.
+The borrowed service retains full-inventory verification. A narrowed cross-process handoff
+would need independently authenticated original group, runner configuration and Cargo
+metadata, plus continuity of the original image lifetime through borrower drain. The
+discovery inventory labels dynamic runtime/provider inputs as outside its capture.
+
+**Tested.** The selected `pse-host --lib` affected and test-workflow controls passed
+13 with zero failures in `01a1bc49-858d-731b-a85a-3f0eb88bc508`. The two-group
+control refused a changed helper and a pre-filter image while an absent unrelated image
+had no effect on the selected group's launch. The affected controls preserve shared
+transitive reach, single-family reach and conservative widening when the input identity
+or association cannot be established. Exact analyzer nominations remain candidates
+under the existing selection owner.
+
+**Tested.** `scripts/pse test pse-tests-governance:every_crate_registered
+pse-tests-governance:blake3_owner pse-tests-governance:workspace_location
+pse-tests-governance:error_taxonomy pse-tests-governance:no_shadow_structs` passed 12 with
+zero failures in `01a1bc09-ef78-7430-90e9-ddca626f0b7d`. Membership uses locked
+`no_deps()` metadata. Policies that reason over resolved dependencies retain their graph.
+
+**Interface-checked.** `scripts/pse inspect test-selection xtask:xtask --target-kind bin
+--admitted --full` with the exact timestamp filter admitted 574 compiler units under
+`--no-default-features` and 1,105 under `--features full-codegen`. Both graphs explicitly
+validated the Arrow leaf and neither selected a native provider. This counts compiler work
+admitted by the graph. It gives no elapsed-time estimate.
+`just codegen-timestamp-test` ran the exact case once with zero failures in
+`01a1bc22-e878-7683-bb9b-3d34aa91b5b7` under the focused correctness selection.
+
+**Tested.** The pinned managed binary listing found zero test cases across `pse`,
+`pse-host`, `cargo-pse-correctness` and `pse-deployment` in
+`01a1bc4b-b0a2-7580-aecb-ab38a66827d6`. The locked correctness adapter's `pse-contract`
+rustdoc listing found zero doctests. Cargo now skips those default harnesses. The selected
+`pse-host:correctness`, `pse-host:boundary` and `pse-host:cli_output` integration checks
+passed all three with zero failures and complete settlement in
+`01a1bc52-c2aa-7681-aa7b-65413b2077da`. They still launch the captured ordinary binaries.
+The selected `pse-host --lib` original-failure and setup-refusal controls passed two with
+zero failures and complete settlement in `01a1bc69-ed11-7407-bca8-1565fddde025`.
+The exact rerun control proves that the fixture's `test = false` binary remains available
+through `CARGO_BIN_EXE_*` and absent from the harness population. The original failed case
+launched it, and a fresh exact rerun after image disposal launched it again. The setup
+refusal still supplies no assertion rerun grant.

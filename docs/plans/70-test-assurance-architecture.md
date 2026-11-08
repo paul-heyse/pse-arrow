@@ -157,8 +157,8 @@ records the active selection and execution scope and its remaining receiving che
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [Q01](#q01) | planned | Functional packages integrated, exact applicable external evidence | Assembled changed-scope qualification and a reconciled finding disposition for each required claim. |
-| [Q02](#q02) | planned | Q01 and replacement review | Enduring contracts and operator documentation are owned, replaced paths are absent, and closure distinguishes tested scope and any measured benefit. |
+| [Q01](#q01) | in-progress | Functional packages integrated, G02 hosted evidence | Assembled changed-scope qualification and a reconciled finding disposition for each required claim. |
+| [Q02](#q02) | in-progress | Replacement review, then Q01 for retirement | Enduring contracts and operator documentation are owned, replaced paths are absent, and closure distinguishes tested scope and any measured benefit. |
 
 ### <a id="q01"></a>Q01 — Assemble assurance after functional scope
 
@@ -169,9 +169,16 @@ benchmark controls, and changed developer verification. Use
 [G04's verified composition](70g-developer-verification.md#g04) for hygiene and governance
 at the same source and context, with relevant manual docs, native and feature/powerset checks.
 Use each standalone route where applicable evidence differs. Record command, selected
-mode/conditions, actual scope and results against zero failures. Link matching Plan66/69
-evidence. Required evidence unavailable at the owning route stays open. Measure only where
-a conditional decision or quantitative claim requires it.
+mode/conditions, actual scope and results against zero failures. Link matched Plan69 receiving
+evidence. Record Plan66's configured scientific acceptance separately at its source owner.
+Measure only where a conditional decision or quantitative claim requires it.
+
+Local receiving checks are recorded in their owning packages. The current lock and the
+execution baseline both expose one `family-check` finding against zero. The normal
+compiler closure reaches Tokio through Protovalidate Buffa and ConnectRPC. The full
+dependency policy and that diagnostic remain in force. G02's hosted cold setup still needs
+evidence from the changed workflow. Plan66l's configured scientific population retains its
+separate acceptance and schedule.
 
 ### <a id="q02"></a>Q02 — Reconcile ownership, evidence and retirement
 
@@ -182,6 +189,12 @@ deviations using the repository evidence vocabulary. Preserve historical finding
 lineage when retiring work. Reconcile the DTA and improvement dispositions with package
 evidence. Record the outcome of each conditional inquiry and its revisit condition where
 the current mechanism was retained.
+
+The owning packages record the scoped replacements and the decisions to retain export
+preflight, borrowed inventory authentication and the existing compiler cache policy.
+The [qualification guide](../dev/validation-assessment.md) and
+[environment guide](../dev/agent-environment.md) own the operator routes. Retirement awaits
+Q01's remaining qualification evidence.
 
 ## Finding dispositions
 
@@ -214,23 +227,23 @@ evidence. Companion package tables own progress.
 | [DTA-020](../design_review/test-audit/oracles-and-acceptance.md#dta-020) | — | resolved — scoped preservation | — | Keep the named nonlinear curvature and reopened covariance cases in their native fixture scopes. |
 | [DTA-021](../design_review/test-audit/oracles-and-acceptance.md#dta-021) | — | resolved — scoped preservation | — | Keep the named countercurrent and unequal-pressure physical controls. |
 | [DTA-022](../design_review/test-audit/test-execution-system.md#dta-022) | — | superseded | — | Independent Python runner interpretation retired. Current native contract divergence remains DTA-063. |
-| [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | [S01](#s01) | planned | [A04](70a-selection-and-execution.md#a04) | Named specialist recipes select their real target and stale references are removed. |
+| [DTA-023](../design_review/test-audit/test-execution-system.md#dta-023) | [S01](#s01) | resolved | [A04](70a-selection-and-execution.md#a04) | Named parity, reference, Miri, arbitrary and qualification routes exercised their intended prerequisites and actual owners. |
 | [DTA-024](../design_review/test-audit/test-execution-system.md#dta-024) | [S01](#s01) | resolved | [A01](70a-selection-and-execution.md#a01) | The native correctness controls verified the configured runner pin and refusal for a wrong or changed executable. |
 | [DTA-025](../design_review/test-audit/evidence-routes-and-execution.md#dta-025) | [S01](#s01) | resolved | [A02](70a-selection-and-execution.md#a02) | Setup refusal, the deliberate live assertion failure, and original physical settlement were observed separately. |
 | [DTA-026](../design_review/test-audit/test-execution-system.md#dta-026) | — | superseded | — | The Python reciprocal tooling cause retired. Preserve lineage in the broad audit's DA-037 redirect. |
-| [DTA-027](../design_review/test-audit/doubles-and-coupling.md#dta-027) | [S05](#s05) | planned | [E01](70e-preparation-and-verification-scope.md#e01) | Known transitive package and fixture closure feeds the selected consumers. C01 checks dependency and lineage changes. |
+| [DTA-027](../design_review/test-audit/doubles-and-coupling.md#dta-027) | [S05](#s05) | resolved | [E01](70e-preparation-and-verification-scope.md#e01) | The shared catalog feeds the selected transitive package and fixture closure. Ordinary consumers passed without a prebuilt capsule. C01 checks dependency and lineage changes. |
 | [DTA-028](../design_review/test-audit/doubles-and-coupling.md#dta-028) | [S03](#s03) | resolved | [C01](70c-test-support-and-contract-evidence.md#c01) | The selected modeling and host controls distinguished the original typed refusal and its receiving boundary. |
 | [DTA-029](../design_review/test-audit/execution-efficiency.md#dta-029) | — | resolved — scoped preservation | — | Scenario feature variants retired. Keep actual service and maintenance capability distinctions. |
-| [DTA-030](../design_review/test-audit/execution-efficiency.md#dta-030) | [S05](#s05) | planned | [E01](70e-preparation-and-verification-scope.md#e01) | Selected family work reads its required body closure and retains ambiguity and missing-input controls. |
+| [DTA-030](../design_review/test-audit/execution-efficiency.md#dta-030) | [S05](#s05) | resolved | [E01](70e-preparation-and-verification-scope.md#e01) | Selected family capture and its changed, missing and ambiguous input controls passed. Unrelated bodies stay outside the materialized closure. |
 | [DTA-031](../design_review/test-audit/execution-efficiency.md#dta-031) | — | superseded | — | The Python runtime fixture dependency for capability-only checks retired. |
 | [DTA-032](../design_review/test-audit/execution-efficiency.md#dta-032) | — | resolved — scoped preservation | — | Retain compatible compiler-graph reuse at its Plan67d scope. Remaining variants are DTA-053. |
 | [DTA-033](../design_review/test-audit/execution-efficiency.md#dta-033) | — | superseded | — | The Python extension preparation path retired. |
 | [DTA-034](../design_review/test-audit/execution-efficiency.md#dta-034) | — | resolved — scoped preservation | — | Keep one managed source build/list per context. DTA-039 covers repeated verification of the resulting capture. |
 | [DTA-035](../design_review/test-audit/execution-efficiency.md#dta-035) | — | resolved — scoped preservation | — | Keep the sampled removal of scientific package embedding. Generated descriptors establish a different contract. |
-| [DTA-036](../design_review/test-audit/execution-efficiency.md#dta-036) | [S05](#s05) | planned | [E01](70e-preparation-and-verification-scope.md#e01) | Affected preview uses known associations and widens unknown coverage. |
+| [DTA-036](../design_review/test-audit/execution-efficiency.md#dta-036) | [S05](#s05) | resolved | [E01](70e-preparation-and-verification-scope.md#e01) | Passive affected preview passed the shared, single-family and conservative widening controls. |
 | [DTA-037](../design_review/test-audit/execution-efficiency.md#dta-037) | — | resolved — scoped preservation | — | Keep one aggregate codegen comparison with separate focused routes. |
 | [DTA-038](../design_review/test-audit/execution-efficiency.md#dta-038) | — | superseded | — | The Python invocation-state rewrite path retired. |
-| [DTA-039](../design_review/test-audit/execution-efficiency.md#dta-039) | [S05](#s05) | planned | [E03](70e-preparation-and-verification-scope.md#e03) | One page verifies each reached executable once. A group verifies the full consumed closure and refuses a changed image. |
+| [DTA-039](../design_review/test-audit/execution-efficiency.md#dta-039) | [S05](#s05) | resolved | [E03](70e-preparation-and-verification-scope.md#e03) | A page shares one verification traversal. Group controls refused changed consumed images and preserved ordinary launch and exact rerun. Borrowed launch retains whole-inventory authentication. |
 | [DTA-040](../design_review/test-audit/execution-efficiency.md#dta-040) | — | superseded | — | Preserve the earlier rejected blanket aggregate-reuse claim. |
 | [DTA-041](../design_review/test-audit/execution-efficiency.md#dta-041) | — | superseded | — | Preserve the withdrawal of the generic recovery machinery diagnosis. |
 | [DTA-042](../design_review/test-audit/execution-efficiency.md#dta-042) | — | superseded | — | Earlier Python cleanup joins retired. Target-owned settlement remains DTA-060. |
@@ -241,19 +254,19 @@ evidence. Companion package tables own progress.
 | [DTA-047](../design_review/test-audit/execution-efficiency.md#dta-047) | — | superseded | — | Earlier generic reclamation path retired. |
 | [DTA-048](../design_review/test-audit/execution-efficiency.md#dta-048) | — | superseded | — | Earlier growing Python checkpoint maps retired. |
 | [DTA-049](../design_review/test-audit/oracles-and-acceptance.md#dta-049) | [S03](#s03) | open — external evidence | [Plan66l L01/L03](66l-required-population-and-assembled-acceptance.md#packages) | Match required configured seed population and assembled scientific acceptance at Plan66l. A04 and D01 own route and oracle quality. |
-| [DTA-050](../design_review/test-audit/evidence-routes-and-execution.md#dta-050) | [S01](#s01) | planned | [A04](70a-selection-and-execution.md#a04) | Prove named reference, Miri, arbitrary, capsule and qualification routes with real prerequisites. A02 owns the marked-helper selection. |
+| [DTA-050](../design_review/test-audit/evidence-routes-and-execution.md#dta-050) | [S01](#s01) | resolved | [A04](70a-selection-and-execution.md#a04) | Selected reference, Miri, arbitrary, source and qualification cases passed through their performing owners. A02 owns the marked-helper selection. |
 | [DTA-051](../design_review/test-audit/doubles-and-coupling.md#dta-051) | — | superseded | — | The demonstrated Python orphan population retired. Retain currently used Plan14 controls. |
 | [DTA-052](../design_review/test-audit/execution-efficiency.md#dta-052) | [S02](#s02) | resolved | [B03](70b-fixtures-and-process-ownership.md#b03) | The deliberate live assertion failure released eligible images after verified drain. The host receiver refused release with incomplete original settlement evidence. |
-| [DTA-053](../design_review/test-audit/execution-efficiency.md#dta-053) | [S05](#s05) | planned | [E05](70e-preparation-and-verification-scope.md#e05) | Compare the focused xtask control and actual harness populations. Preserve real variants and record the narrower route or retention decision. |
-| [DTA-054](../design_review/test-audit/oracles-and-acceptance.md#dta-054) | [S03](#s03) | planned | [D01](70d-scientific-references.md#d01) | Bind cases and reference inputs to exact experiment conditions, release and independent expectation. |
+| [DTA-053](../design_review/test-audit/execution-efficiency.md#dta-053) | [S05](#s05) | resolved | [E05](70e-preparation-and-verification-scope.md#e05) | The exact timestamp control passed on the narrower validated graph. Four empty binary harnesses and one empty doctest harness retired. Ordinary helper launch and exact rerun passed. |
+| [DTA-054](../design_review/test-audit/oracles-and-acceptance.md#dta-054) | [S03](#s03) | resolved | [D01](70d-scientific-references.md#d01) | Eight generator compare routes validated retained inputs and provenance without regeneration. Scoped endpoint and mixer expectations use their actual independent evidence. |
 | [DTA-055](../design_review/test-audit/doubles-and-coupling.md#dta-055) | [S02](#s02) | resolved | [B03](70b-fixtures-and-process-ownership.md#b03) | Production connection ownership replaced the cleanup executor substitution and the actual borrower and protection controls passed. |
 | [DTA-056](../design_review/test-audit/oracles-and-acceptance.md#dta-056) | [S04](#s04) | resolved | [C04](70c-test-support-and-contract-evidence.md#c04) | Seeded identity and the engine and native complete-row comparisons passed, including the wrong-pruning oracle and original drain. |
 | [DTA-057](../design_review/test-audit/evidence-routes-and-execution.md#dta-057) | [S02](#s02) | resolved | [B04](70b-fixtures-and-process-ownership.md#b04) | The original exec gate, preparation lock and child interruption witnesses passed at their performing owners. |
 | [DTA-058](../design_review/test-audit/oracles-and-acceptance.md#dta-058) | [S04](#s04) | resolved | [C04](70c-test-support-and-contract-evidence.md#c04) | The selected taxonomy, leaf and delegated diagnostics, and locked compile-fail and neighboring examples passed. A04 owns parity route wording. |
 | [DTA-059](../design_review/test-audit/doubles-and-coupling.md#dta-059) | [S02](#s02) | resolved | [B03](70b-fixtures-and-process-ownership.md#b03) | Shared authenticated fixture inputs served the live service cases. C01's exact dependency overlay control passed. |
 | [DTA-060](../design_review/test-audit/evidence-routes-and-execution.md#dta-060) | [S02](#s02) | resolved | [B02](70b-fixtures-and-process-ownership.md#b02) | The work-cutoff reserve and both live consumers passed. Their effective runner cutoff leaves the original work and settlement windows available. |
-| [DTA-061](../design_review/test-audit/oracles-and-acceptance.md#dta-061) | [S03](#s03) | planned | [D01](70d-scientific-references.md#d01) | Wrong value plus inflated candidate allowance refuses, with a valid units/physical-basis control. |
-| [DTA-062](../design_review/test-audit/oracles-and-acceptance.md#dta-062) | [S03](#s03) | planned | [D02](70d-scientific-references.md#d02) | Actual interpreter, packages, solver and indirect initializer match case capabilities. Wrong or missing identity refuses. |
+| [DTA-061](../design_review/test-audit/oracles-and-acceptance.md#dta-061) | [S03](#s03) | resolved | [D01](70d-scientific-references.md#d01) | The actual covariance and sensitivity exchanges accepted valid witnesses and refused wrong values paired with inflated candidate allowances. |
+| [DTA-062](../design_review/test-audit/oracles-and-acceptance.md#dta-062) | [S03](#s03) | resolved | [D02](70d-scientific-references.md#d02) | All four native parity exchanges authenticated their performing tools. The locked solver controls covered indirect initialization and alternative or noisy executables. |
 | [DTA-063](../design_review/test-audit/test-execution-system.md#dta-063) | [S01](#s01) | resolved | [A01](70a-selection-and-execution.md#a01) | Generic correctness and managed discovery use the same pin interpretation at their own launch boundaries. |
 | [DTA-064](../design_review/test-audit/test-execution-system.md#dta-064) | — | superseded | — | Old surviving-route dependency on Python launch tooling retired. Verify current route adequacy under DTA-050. |
 | [DTA-065](../design_review/test-audit/oracles-and-acceptance.md#dta-065) | [S04](#s04) | resolved | [C03](70c-test-support-and-contract-evidence.md#c03) | Independent v2/v3 specification witnesses established the supported compatibility and retarget refusal. |
@@ -262,8 +275,8 @@ evidence. Companion package tables own progress.
 | [DTA-068](../design_review/test-audit/doubles-and-coupling.md#dta-068) | [S02](#s02) | resolved | [B04](70b-fixtures-and-process-ownership.md#b04) | Both native preparation cancellation controls passed, preserving publication until successful retry. |
 | [DTA-069](../design_review/test-audit/doubles-and-coupling.md#dta-069) | [S02](#s02) | resolved | [B04](70b-fixtures-and-process-ownership.md#b04) | The named real-manager cgroup, SIGKILL and exec-gate controls passed with complete settlement. |
 | [DTA-070](../design_review/test-audit/doubles-and-coupling.md#dta-070) | — | superseded | — | Python orchestration and supervisor test mechanisms retired. Retained reference tools serve distinct claims. |
-| [DTA-071](../design_review/test-audit/execution-efficiency.md#dta-071) | [S05](#s05) | planned | [E04](70e-preparation-and-verification-scope.md#e04) | Membership-only acquisition and scoped stray control, while dependency policies retain full graph. |
-| [DTA-072](../design_review/test-audit/execution-efficiency.md#dta-072) | [S03](#s03) | planned | [D03](70d-scientific-references.md#d03) | Actual overflow with exit zero and authentic settlement plus before-decode response bounds. B01/B02 deliver capture. |
+| [DTA-071](../design_review/test-audit/execution-efficiency.md#dta-071) | [S05](#s05) | resolved | [E04](70e-preparation-and-verification-scope.md#e04) | Membership and stray controls passed on locked membership-only metadata. Dependency policies retain their resolved graph. |
+| [DTA-072](../design_review/test-audit/execution-efficiency.md#dta-072) | [S03](#s03) | resolved | [D03](70d-scientific-references.md#d03) | Both streams overflowed with an original zero exit and complete settlement. The managed receiver and independent producer refused excessive response extent. |
 
 ## Improvement dispositions
 
@@ -275,17 +288,17 @@ whose findings determine whether the candidate is adopted.
 |---|---|---|---|
 | [I01](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i01) | resolved | [A01](70a-selection-and-execution.md#a01) | The reference walk agreed on pure, Arrow and workspace root decisions. The workspace comparison records reduced edge visits as structural evidence. |
 | [I02](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i02) | resolved | [A01](70a-selection-and-execution.md#a01) | Complete unit multiset comparison serves the migrated receivers. The prepared xtask receiver accepted permutation and refused multiplicity and context substitution. |
-| [I03](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i03) | planned | [E04](70e-preparation-and-verification-scope.md#e04) | Member-scoped hasher policy rejects missing or competing owners. Full graph policies retain their evidence. |
+| [I03](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i03) | resolved | [E04](70e-preparation-and-verification-scope.md#e04) | Member-scoped hasher tests reject missing and competing owners. Full graph policies retain their evidence. |
 | [I04](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i04) | resolved | [C01](70c-test-support-and-contract-evidence.md#c01) | The typed fixture and both query-memory cases passed under explicit Arrow validation, including pressure, cancellation, recovery and release. |
-| [I05](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i05) | planned — export inquiry | [F01](70f-conformance-and-benchmark-execution.md#f01) | Demand-accounted capacity and deterministic outcomes. Export choice preserves the publication boundary. |
-| [I06](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i06) | planned | [F02](70f-conformance-and-benchmark-execution.md#f02) | One capture for the native run, with exact identities and separate semantic admissions. |
-| [I07](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i07) | planned — secondary inquiries | [G01](70g-developer-verification.md#g01) | Scratch-free comparison retains independent drift and tracking. Decide inventory, projection and registry reuse on equivalent evidence. |
-| [I08](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i08) | planned | [G02](70g-developer-verification.md#g02) | Hosted jobs prepare their consumed capabilities and still refuse stale locks. |
+| [I05](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i05) | resolved | [F01](70f-conformance-and-benchmark-execution.md#f01) | Demand-accounted capacity, ordering, linked cancellation and release passed. The existing export preflight preserves publication order and refusal precedence. |
+| [I06](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i06) | resolved | [F02](70f-conformance-and-benchmark-execution.md#f02) | Shared exact physical document ownership and separate semantic admissions passed. The native control preserved six IPC relations and the original unknown-fixture refusal after drain. |
+| [I07](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i07) | resolved | [G01](70g-developer-verification.md#g01) | Fresh direct comparison, grouped hosted projections and registry reuse passed their focused checks. Per-tree Git tracking retains independent pathspec attribution. |
+| [I08](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i08) | open — hosted evidence | [G02](70g-developer-verification.md#g02) | Local cold tool and stale-lock controls passed. The changed hosted jobs still need cold-run qualification. |
 | [I09](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i09) | resolved | [B05](70b-fixtures-and-process-ownership.md#b05) | Observed phases drive ordering. The retained real-clock control passed with active dispatch and original settlement. |
-| [I10](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i10) | planned — graph and listing inquiry | [E05](70e-preparation-and-verification-scope.md#e05) | Retire only confirmed empty harnesses or equivalent broader focused routes. Preserve real doctest and helper selection. |
-| [I11](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i11) | planned | [D04](70d-scientific-references.md#d04) | Verified bytes reach independent calculation under transient substitution and scientific receiving controls. |
+| [I10](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i10) | resolved | [E05](70e-preparation-and-verification-scope.md#e05) | Pinned runner and rustdoc confirmed the empty harnesses. The focused timestamp graph and the helper's live launch and exact rerun passed. |
+| [I11](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i11) | resolved | [D04](70d-scientific-references.md#d04) | The fresh binary producer and receiving controls passed, including transient substitution and a single property decode. |
 | [I12](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i12) | resolved | [B04](70b-fixtures-and-process-ownership.md#b04) | The pinned live suite proved exact two-case negative selection and bounded report admission. The full 19-case positive selection remains. |
-| [I13](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i13) | planned | [E04](70e-preparation-and-verification-scope.md#e04) | One live checkout acquisition per governance control, with equivalent paths and relocation refusal. |
-| [I14](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i14) | planned — sample reuse inquiry | [F03](70f-conformance-and-benchmark-execution.md#f03) | Accurate smoke population and prepared native routes. Preserve measured phases and prove any source reuse. |
-| [I15](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i15) | planned — preparation inquiry | [G03](70g-developer-verification.md#g03) | Decide stock preparation using exact supplier and fresh decoder evidence plus a recurring-cost comparison where warranted. |
-| [I16](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i16) | planned | [G04](70g-developer-verification.md#g04) | Equivalent leaf coverage and independent failures without duplicate codegen or family checks at scope end. |
+| [I13](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i13) | resolved | [E04](70e-preparation-and-verification-scope.md#e04) | The five targeted governance suites passed, including relocated path rendering and checkout refusal. |
+| [I14](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i14) | resolved | [F03](70f-conformance-and-benchmark-execution.md#f03) | Local and prepared smoke passed at their named scopes. Equivalent phase, admission and cleanup observations support K4's immutable source reuse across fresh scientific work. |
+| [I15](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i15) | resolved | [G03](70g-developer-verification.md#g03) | The isolated locked stock build can be reused. Supplier equality and fresh decoder outcomes passed, with cold and warm stock work measured separately. |
+| [I16](../plan_improvement_reviews/plan70-repository-test-efficiency-2026-11-08.md#i16) | resolved | [G04](70g-developer-verification.md#g04) | The combined route preserves independent generator, family and governance outcomes with one occurrence of each shared check. |

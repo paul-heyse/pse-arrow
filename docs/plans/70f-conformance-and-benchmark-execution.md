@@ -218,6 +218,74 @@ remain at their source owner.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [F01](#f01) | planned | Runtime report and pool ownership, existing export contract | Demand-accounted rows survive cap, pressure, ordering and cancellation controls. Eager capacity is retired. The export comparison records adoption with equivalent behavior or retains the existing path. |
-| [F02](#f02) | planned | Campaign and document owners, E01 selected-source identity for the native run | Exact physical input is captured once. Shared document ownership or verified-byte fallback serves both separate admissions. Pure evidence and original outcomes survive. |
-| [F03](#f03) | planned | Criterion and workload owners, authenticated fixture and provider inputs for prepared cases | Local and prepared populations execute through their declared routes. Unselected authoring is retired. The capture comparison records equivalent reuse or retention, with sampled phases and cleanup verified. |
+| [F01](#f01) | complete | Runtime report and pool ownership, existing export contract | Demand-accounted rows survive cap, pressure, ordering and cancellation controls. Eager capacity is retired. The export comparison records adoption with equivalent behavior or retains the existing path. |
+| [F02](#f02) | complete | Campaign and document owners, E01 selected-source identity for the native run | Exact physical input is captured once. Shared document ownership or verified-byte fallback serves both separate admissions. Pure evidence and original outcomes survive. |
+| [F03](#f03) | complete | Criterion and workload owners, authenticated fixture and provider inputs for prepared cases | Local and prepared populations execute through their declared routes. Unselected authoring is retired. The capture comparison records equivalent reuse or retention, with sampled phases and cleanup verified. |
+
+## Execution checkpoint
+
+**Tested.** The focused force-validated `pse-runtime --lib` report selection passed seven
+tests with zero failures in `01a1bc0c-7539-7594-a671-730fcc2c3614`. The controls cover
+bounded growth at a cap of 100,000, exact charge and drop accounting, allocation rollback,
+parallel completion order and retained outcome scope. The linked worker-order case passed in
+`01a1bc53-5bf8-7201-b3f7-6d713c8fd0a7`. The companion cancellation case drained its workers
+and initially returned an incorrect failure classification. Both worker joins now preserve the
+original typed acknowledgement of a shared cancellation. Three independent failure and deadline
+controls passed with zero failures in `01a1bc69-af88-72b3-ad52-e3337295b48d`.
+The first rerun preserved the cancellation and unattempted counts but checked final pool release
+before retiring the runtime. The corrected exact `scripts/pse test --rerun-failed` selection
+passed with zero failures and complete settlement in `01a1bc6e-b266-701e-a74a-f516a85e5d74`.
+It observed sixteen cancelled workers, four unattempted fixtures and zero pool reservations
+after explicit runtime shutdown.
+
+**Tested.** `scripts/pse test xtask --lib -F package-fixtures -E
+'test(development::conformance::tests)'` passed eight with zero failures in
+`01a1bc1b-0f6b-7166-b8d1-f91855cb474f`. The export comparison retained its existing
+preflight and publication order. Interleaving preparation and publication can change the
+published prefix or reverse the original writer-versus-projection error precedence. Dropping
+previously prepared owners also changes the pool pressure seen by later projections. The
+native campaign tests exercised overlapping physical input, separate semantic admissions,
+independent same-label sources, changed checkout refusal and the pure control.
+The shared parse used the same document owner, identity and bytes through both admissions.
+The live native composition control published all six report relations after drain and
+preserved the original unknown-fixture refusal.
+The managed `scripts/pse test xtask:conformance_cli -F package-fixtures` selection passed
+three with zero failures and complete settlement in `01a1bc6b-6748-74e0-af51-7c6eb85d3678`.
+It preserved pure publication, no-clobber and original scientific failure outcomes.
+
+**Implemented.** Local smoke selects four explicit harnesses. The preparation harness
+authors only the selected case, and prepared workloads admit provider and canonical
+requirements separately. The fixture owner re-executes the original benchmark image, lends a
+private selection and records cleanup.
+
+**Tested.** The captured force-validated `modeling_preparation` image ran the two local
+cases under Criterion `--bench --test` without a prepared fixture. The corrected demand
+control observes an enforced regional-partials refusal and the accepted Hessian and reuse
+paths. The worker lifetime control consumes the original cancellation before demanding a
+fresh worker and verifies final pool release. The same image ran the prepared canonical
+K4 smoke with its private fixture, one callback and complete disposal. The missing
+canonical capture and missing solver feature refused before fixture effects.
+
+**Measured.** Named K4 measurement under `--bench` retained ten flat Criterion samples
+and eleven callback observations including warmup. Shared immutable source capture and
+per-iteration capture both retained the same nine ordered scientific stages, body and
+admission counts, zero pool charge after each iteration and complete fixture settlement.
+K4 now shares its exact source bytes while each callback constructs a fresh runtime and
+performs semantic admission. The comparison establishes phase and science equivalence.
+The PR-inline probe reached canonical source admission, returned an unknown server outcome
+on source edit and disposed its fixture after the failed child. Linked solver smoke remains
+separate receiving evidence.
+
+**Implemented.** Prepared process runs now drain native lanes explicitly and use one
+post-drain pool observation for both the per-case and aggregate records. The canonical
+parent retains the verified capsule in a private file through child settlement so the
+child consumes those exact bytes. The earlier one-callback `compact-root-diagonal-4`
+KINSOL smoke passed its scientific assertions. Its two teardown reads disagreed, so
+the memory records from that attempt cannot establish final release.
+
+**Tested.** The rebuilt, force-validated `just bench-prepared-process` smoke route passed
+both named cases with zero failures. `compact-root-diagonal-4` performed one KINSOL callback
+without starting a fixture. `mixed-scale-1-1` performed one callback with the private verified
+physical capsule and the prepared canonical fixture. The child exited zero and the fixture
+owner recorded complete settlement. Both per-case and aggregate observations reported zero
+reserved pool bytes after teardown for both cases. No timing comparison was drawn from smoke.

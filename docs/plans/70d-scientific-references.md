@@ -193,10 +193,10 @@ calculations after their receiving controls pass.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [D01](#d01) | planned | Current independent comparators and authored case identities. E01 closure when the case is moved to selected authored inputs. | Independent comparison allowances reject altered results even with inflated candidate policy. Exact reference attribution and legacy generator stale-input controls exercise their scoped cases. |
-| [D02](#d02) | planned | Locked parity environment and named caller roles for direct owner checks. | Prepared interpreter and actual per-stage solver identity are admitted and observed. Substituted or missing tools produce attributable nonpass. A04 consumes this contract for the assembled routes. |
-| [D03](#d03) | planned | B02's finite two-stream capture and settlement contract. D02's executed environment identity for assembled reference verification. | Migrated exchanges bound live diagnostics and legacy response production and readback. Zero-exit overflow and malformed response controls pass with authentic settlement, and the Proto bounds stay exercised. |
-| [D04](#d04) | planned | E01's selected capture contract, D02 environment and solver identity and D03 response boundary for assembled receiving | Independent calculation consumes verified bytes and parses once. Transient substitution and source, extent and scientific cases distinguish the actual input and outcome. |
+| [D01](#d01) | complete | Current independent comparators and authored case identities. E01 closure when the case is moved to selected authored inputs. | Independent comparison allowances reject altered results even with inflated candidate policy. Exact reference attribution and legacy generator stale-input controls exercise their scoped cases. |
+| [D02](#d02) | complete | Locked parity environment and named caller roles for direct owner checks. | Prepared interpreter and actual per-stage solver identity are admitted and observed. Substituted or missing tools produce attributable nonpass. A04 consumes this contract for the assembled routes. |
+| [D03](#d03) | complete | B02's finite two-stream capture and settlement contract. D02's executed environment identity for assembled reference verification. | Migrated exchanges bound live diagnostics and legacy response production and readback. Zero-exit overflow and malformed response controls pass with authentic settlement, and the Proto bounds stay exercised. |
+| [D04](#d04) | complete | E01's selected capture contract, D02 environment and solver identity and D03 response boundary for assembled receiving | Independent calculation consumes verified bytes and parses once. Transient substitution and source, extent and scientific cases distinguish the actual input and outcome. |
 
 Use targeted comparator and encoding controls as changes land, then the affected native
 exchanges with the repository correctness route and force validation where applicable. At
@@ -210,3 +210,58 @@ availability. Plan66l owns population and assembled acceptance evidence.
 [Simultaneous-controller case](../../packages/reference/campaign/models/cstr-dynamics.pse) ·
 [Seed manifest](../../packages/reference/conformance.toml) ·
 [Plan66l](66l-required-population-and-assembled-acceptance.md)
+
+## Execution checkpoint
+
+**Tested.** The locked reference unit selection passed seven scientific generator and 18
+independent wire, agreement, environment and thermodynamic controls with zero failures.
+The eight Python generator compare routes passed without regenerating the retained banks.
+The authored 358 K and 378 K BTIdeal endpoint cases use separate analytic provenance.
+The genuine 368 K comparison retains its IDAES attribution. The unequal-pressure mixer
+binds its energy and minimum-pressure expectations to the selected inlet conditions.
+
+**Tested.** The locked Ipopt solver selection passed seven controls with zero failures,
+including the alternate `PATH` image and noisy shell solver controls. The actual exchanger initializer issued 14
+selected Ipopt commands. The direct design, rating when selected, and costing stages each
+retain the performing executable and release. The separately named recycle stages retain
+their own command counts and witness for the overheated refusal.
+
+The four isolated legacy drivers completed their original scientific cases using the bounded
+solver log path, with one parmest fit and 30 covariance solves, two SCIP search solves,
+one PETSc initialization and four integration solves, and one sIPOPT solve. The Rust
+comparisons retain their own actual candidate and failure controls.
+
+**Tested.** `just parity` passed degeneracy, covariance, sensitivity and PID with zero
+failures and zero skips under the locked reference environment, linked native providers and
+the local Nextest profile. The first selection passed three of four. The fixed sensitivity
+case needed tighter Ipopt stationarity and complementarity budgets to reach the case's
+analytic active-bound point. The independent comparison limit and the default engineering
+allowances stayed in force. The rerun also exercised the wrong-value and inflated-allowance
+controls.
+
+**Implemented.** All five exchange drivers use finite two-stream capture. The legacy producer
+admits comparison population and variable-length fields before encoding and the native
+receiver checks the finite extent before decoding. Ordinary calculations consume the
+original verified TSV, JSON and Parquet bytes and decode properties once. The native
+producer uses the same declared package-file selection as E01 and retains its existing
+artifact population and aggregate byte and file bounds.
+
+**Tested.** The managed ordinary producer ran the five binary comparisons and twelve
+source, wire and process controls under explicit force validation with Ipopt, KINSOL and
+root isolation. All 17 passed with zero failures and complete settlement in
+`01a1bc2f-8f83-71b1-a813-e4298fa02311`. The earlier retained native contracts refused
+against the updated source. The fresh contracts bind the updated attribution and exact
+package bytes. Plan66l owns its separate configured exchanger and scientific campaign
+acceptance.
+
+The managed selection also exercised a child that overflowed both diagnostic streams,
+exited zero and settled. The exchange reported overflow and preserved both original prefixes
+within the retained budget. The native response reader refused an oversized file before
+decode. The locked Python wire and agreement controls refused oversized legacy producer
+metadata before publication and preserved the bounded Proto path.
+
+The locked Python `OrdinaryExchangeBinaryTests` suite passed six receiving controls with
+zero failures against those fresh contracts, with the selected Ipopt executable and shared
+libraries. The substitution control replaced an admitted property file during computation
+and restored it before the final digest check. The actual reference solve used the original
+bytes and the parser ran once.

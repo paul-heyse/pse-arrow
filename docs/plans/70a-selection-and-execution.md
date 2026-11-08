@@ -133,7 +133,7 @@ that alter the compiled target population.
 | [A01](#a01) | complete | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
 | [A02](#a02) | complete | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
 | [A03](#a03) | complete | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
-| [A04](#a04) | in-progress | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |
+| [A04](#a04) | complete | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |
 
 ## Execution checkpoint
 
@@ -220,7 +220,16 @@ tests against those fresh bytes. This establishes the selected producer and rece
 The configured exchanger population and its scientific qualification remain with [Plan66l](66l-required-population-and-assembled-acceptance.md#packages)
 on its own schedule.
 
-A04 remains open for D02's actual performing solver admission for the four named parity exchanges
-and E01's selected authored closure for ordinary compiler and modeling capsule migration. The
-staged receipt cases retain their explicit capture route. Run build-bearing checks one at a time
-in the shared checkout or combine compatible selectors under one Cargo invocation.
+A04 now uses E01's selected authored closure in ordinary compiler and modeling tests. The
+capsule-free selection passed 20 tests with zero failures under the normal force-validated
+correctness profile. The staged receipt cases retain their explicit capture route.
+
+D02's four isolated producers observed the required performing solver stages in the locked
+parity environment. The fresh managed ordinary producer passed 17 cases, including the
+five binary comparisons, with zero failures and complete settlement. The independent
+receiver passed six tests against those fresh contracts. `just parity` passed all four
+selected native exchanges with zero failures and zero skips in the prepared, locked
+reference environment. The parity recipe defaults to the local Nextest profile so
+the native harness and reference child have their own deadline and settlement windows under
+the profile's finite whole-run limit. Select build-bearing checks sequentially in the shared
+checkout, or combine compatible selectors under one Cargo invocation.
