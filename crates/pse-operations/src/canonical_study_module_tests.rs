@@ -355,10 +355,10 @@ mod surrealism_qualification {
         operation: &str,
         study: &str,
         run: &str,
-    ) -> Option<Object> {
+    ) -> Result<Option<Object>, CanonicalError> {
         let mut response=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_settlement($pse_rpc_expires_at,$operation,$study,$run);")
-            .bind(("operation",operation.to_owned())).bind(("study",study.to_owned())).bind(("run",run.to_owned()))).await.unwrap();
-        response.take::<Option<Object>>(0).unwrap()
+            .bind(("operation",operation.to_owned())).bind(("study",study.to_owned())).bind(("run",run.to_owned()))).await?;
+        Ok(response.take::<Option<Object>>(0)?)
     }
     #[tokio::test]
     #[ignore = "requires an explicitly admitted Study qualification companion"]
@@ -436,10 +436,22 @@ mod surrealism_qualification {
             );
             if committed_before_recovery {
                 within_clock(original_deadline(Duration::from_secs(5)), async {
-                    while settlement(&store, &operation, study, &run).await.is_none() {
+                    loop {
+                        match settlement(&store, &operation, study, &run).await {
+                            Ok(Some(_)) => return Ok(()),
+                            Ok(None) => {}
+                            // A live apply can conflict with a read before publishing
+                            // its receipt. Observe the same operation again within
+                            // the original clock without replaying the apply.
+                            Err(CanonicalError::Driver(error))
+                                if matches!(
+                                    error.query_details(),
+                                    Some(surrealdb_types::QueryError::TransactionConflict)
+                                ) => {}
+                            Err(error) => return Err(error),
+                        }
                         tokio::time::sleep(Duration::from_millis(10)).await;
                     }
-                    Ok(())
                 })
                 .await
                 .unwrap();
@@ -449,7 +461,10 @@ mod surrealism_qualification {
             // applying the original page, never a freshly allocated operation.
             assert_eq!(store.resume_readiness_page(pending, true).await.unwrap(), 1);
             caller.disconnect().await.unwrap();
-            let receipt = settlement(&store, &operation, study, &run).await.unwrap();
+            let receipt = settlement(&store, &operation, study, &run)
+                .await
+                .unwrap()
+                .unwrap();
             validate_repair_outcomes(&receipt, &keys).unwrap();
             assert_eq!(
                 store.readiness_cursor(study).await.unwrap().revision,
@@ -465,7 +480,10 @@ mod surrealism_qualification {
                 Some(&Value::String("settled".into()))
             );
             assert_eq!(
-                settlement(&store, &operation, study, &run).await.unwrap(),
+                settlement(&store, &operation, study, &run)
+                    .await
+                    .unwrap()
+                    .unwrap(),
                 receipt
             );
             assert_eq!(
