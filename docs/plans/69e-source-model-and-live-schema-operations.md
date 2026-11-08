@@ -162,5 +162,5 @@ behavior. Plan68b owns version-specific inventory and the bounded wire, and Plan
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
-| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The CLI receiver, isolated snapshot and guarded publication are implemented. The full authored optional-description and field-rename journeys remain. |
-| E03 | blocked | Authenticated physical instance and original rollout producer, D01 target selection, A03, Plan68 version-specific receiving | Passive installed-catalog observation is implemented. Exact rollout preview, stale refusal, original settlement and fresh-witness activation remain. |
+| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The real recorded-result rename passed generated equivalence, receiving checks, stale zero-write refusal, exact publication and custody release. The optional-description journey remains under qualification. |
+| E03 | blocked | Authenticated physical instance and original rollout producer, D01 target selection, A03, Plan68 version-specific receiving | A live Viewer fixture authenticated its issuer, refused a foreign issuer and detected installed event drift. Exact rollout preview, stale refusal, original settlement and fresh-witness activation remain. |

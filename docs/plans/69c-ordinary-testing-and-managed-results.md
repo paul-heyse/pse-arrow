@@ -116,6 +116,6 @@ would establish the query, real-role selection, durability, exact retirement and
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | in progress | A01 and current Cargo, Nextest and fixture contracts | Bare tests select the workspace ordinary profile and the managed primary has its own profile. The complete admitted workspace journey remains. |
-| C02 | in progress | C01, F01, A03 and Plan67 exact custody | Rerun verification checks an exact one-to-one identity match. The original-to-rerun journey remains. |
+| C02 | complete | C01, F01, A03 and Plan67 exact custody | The original failure remained readable after its executable was released. The live owner fixture ran exactly that identity with a fresh verdict and refused incomplete, changed and missing original evidence. Separate controls preserved the exact filters and rejected target or feature replacement. |
 | C03 | in progress | A01–A03, existing inspection and history | Compact lookup and selected failure, provenance and output references are available. A prepared CLI recovered both live test results by ID. Remaining receivers and deliberate export stay open. |
 | C04 | complete | C03 and Plan67 release owner | The enabled timer and foreground expiry class have live evidence. Detached and borrowed test runs both published the expiry clock before explicit reconciliation. Their separate drain witnesses preserved the original paired records, and the targeted controls exercised expiry, holds and exact-pair release. |
