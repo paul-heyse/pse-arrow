@@ -1259,10 +1259,12 @@ fn process_contract_inherited_guarded_balance_members_share_only_their_source_ph
     assert!(
         matches!(
             &error,
-            crate::ModelingError::Contract {
-                reason: crate::ModelingContractReason::UnknownMember,
-                ..
-            }
+            ModelingError::Located { name, cause, .. }
+                if name == "demand"
+                    && matches!(cause.as_ref(), ModelingError::Contract {
+                        reason: crate::ModelingContractReason::UnknownMember,
+                        ..
+                    })
         ),
         "{error:?}"
     );
