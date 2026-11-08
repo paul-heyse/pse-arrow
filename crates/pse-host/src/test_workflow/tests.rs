@@ -430,6 +430,38 @@ fn explain_is_stage_specific_and_changed_declarations_refuse_before_effects() {
     assert!(matches!(intent.admit(), Err(WorkflowError::Changed(_))));
     assert!(!root.path().join("target").exists());
 }
+
+#[test]
+fn doctest_only_target_remains_a_cargo_root_with_separate_inventory_and_verdict() {
+    let (_root, mut intent) = intent();
+    let target = &mut intent.context.metadata.packages[0].targets[0];
+    target.test = false;
+    target.doctest = true;
+    let request = Request {
+        operation: selection::Operation::Test,
+        scope: selection::Scope::Workspace {
+            exclude: Vec::new(),
+            features: selection::Features::default(),
+        },
+        platform: None,
+        non_incremental: false,
+        filters: selection::Filters::default(),
+        ignored: selection::IgnoredPolicy::Default,
+    };
+    intent.plan = selection::plan(&intent.context.metadata, request).unwrap();
+    assert_eq!(intent.plan.groups()[0].roots()[0].package_name(), "case");
+    let explanation = intent.explain().brief();
+    let [target] = explanation.evidence.cargo_targets.as_slice() else {
+        panic!("expected the library declaration");
+    };
+    assert_eq!(target.kinds, ["lib"]);
+    assert!(!target.test);
+    assert!(target.doctest);
+    assert!(matches!(explanation.evidence.doctest_route, Information::Available("just doctest")));
+    assert!(matches!(explanation.admission, Information::Unavailable { .. }));
+    assert!(matches!(explanation.evidence.nextest_inventory, Information::Unavailable { .. }));
+    assert!(matches!(explanation.evidence.original_verdict, Information::Unavailable { .. }));
+}
 #[test]
 fn actual_admission_uses_selected_checkout_without_changing_process_context() {
     let (root, _) = intent();
@@ -519,7 +551,7 @@ fn actual_admission_uses_selected_checkout_without_changing_process_context() {
     );
     assert!(matches!(
         admitted.explain().selected_tests,
-        Information::Unavailable { .. }
+        Information::Unavailable { reason } if reason == "Nextest inventory requires explicit build/list"
     ));
     assert!(
         !root.path().join("target/debug/deps").exists(),
@@ -530,6 +562,9 @@ fn actual_admission_uses_selected_checkout_without_changing_process_context() {
 fn listed_commands_preserve_context_profile_policy_and_refuse_changed_capture() {
     let (_root, intent) = intent();
     let listed = listed(intent);
+    let explanation = listed.explain();
+    assert!(matches!(explanation.evidence.nextest_inventory, Information::Available(_)));
+    assert!(matches!(explanation.evidence.original_verdict, Information::Unavailable { .. }));
     let command = listed.command(0).unwrap();
     let args: Vec<_> = command
         .arguments

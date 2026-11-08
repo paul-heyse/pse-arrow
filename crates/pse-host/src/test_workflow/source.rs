@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit source selection resolves before the pure Cargo declaration normalizer.
-use super::{WorkflowError, execute::Action};
+use super::{
+    WorkflowError,
+    execute::Action,
+    explanation::{AffectedSelection, OriginalVerdict},
+};
 use crate::{
     environment::Environment,
     selection::{self, Plan, Request, RerunCase, Scope, SourceBasis},
@@ -108,12 +112,24 @@ fn failed_cases(
     Ok(cases)
 }
 
+pub(super) struct Selection {
+    pub plan: Plan,
+    pub profile: String,
+    pub evidence: Evidence,
+}
+
+#[derive(Default)]
+pub(super) struct Evidence {
+    pub affected: Option<AffectedSelection>,
+    pub original_verdict: Option<OriginalVerdict>,
+}
+
 pub(super) fn resolve(
     metadata: &cargo_metadata::Metadata,
     mut request: Request,
     profile: String,
     environment: &Environment,
-) -> Result<(Plan, String), WorkflowError> {
+) -> Result<Selection, WorkflowError> {
     let root = metadata.workspace_root.as_std_path();
     let target_selector = if let Scope::Targets { scope, selector } = request.scope.clone() {
         request.scope = *scope;
@@ -145,7 +161,14 @@ pub(super) fn resolve(
                 }
                 None => selection::empty(&request),
             };
-            Ok((plan.source(basis, Vec::new()), profile))
+            Ok(Selection {
+                plan: plan.source(basis, Vec::new()),
+                profile,
+                evidence: Evidence {
+                    affected: Some(AffectedSelection::from(preview)),
+                    ..Evidence::default()
+                },
+            })
         }
         Scope::RerunFailed { invocation } => {
             if target_selector.is_some() || request.operation != selection::Operation::Test {
@@ -162,6 +185,7 @@ pub(super) fn resolve(
                 .ok_or_else(|| WorkflowError::Invalid("rerun invocation is absent".into()))?;
             let captured_evidence = crate::test_inventory::captured(&store, id.as_str(), None)?;
             let cases = failed_cases(&captured_evidence)?;
+            let original_verdict = OriginalVerdict::of(&captured_evidence.observation);
             let original = crate::managed::workflow::retained_input(
                 &store,
                 &id,
@@ -190,14 +214,22 @@ pub(super) fn resolve(
             } else {
                 selection::plan(metadata, request)?
             };
-            Ok((
-                plan.source(SourceBasis::RerunFailed { invocation: id }, cases),
-                inventory.runner_profile,
-            ))
+            Ok(Selection {
+                plan: plan.source(SourceBasis::RerunFailed { invocation: id }, cases),
+                profile: inventory.runner_profile,
+                evidence: Evidence {
+                    original_verdict,
+                    ..Evidence::default()
+                },
+            })
         }
         _ => {
             request.scope = scope_targets(request.scope);
-            Ok((selection::plan(metadata, request)?, profile))
+            Ok(Selection {
+                plan: selection::plan(metadata, request)?,
+                profile,
+                evidence: Evidence::default(),
+            })
         }
     }
 }
@@ -312,27 +344,31 @@ mod tests {
             non_incremental: false,
             ignored: selection::IgnoredPolicy::Default,
         };
-        let (empty, _) = resolve(
+        let empty = resolve(
             &metadata,
             request.clone(),
             "default".into(),
             &Environment::new(),
         )
         .unwrap();
-        assert!(empty.groups().is_empty());
+        assert!(empty.plan.groups().is_empty());
+        assert!(empty.evidence.affected.unwrap().selected_packages.is_empty());
         std::fs::write(
             root.join("crates/alpha/src/lib.rs"),
             "pub fn changed() {}\n",
         )
         .unwrap();
-        let (selected, _) =
+        let selected =
             resolve(&metadata, request, "default".into(), &Environment::new()).unwrap();
-        assert_eq!(selected.groups().len(), 1);
+        let affected = selected.evidence.affected.unwrap();
+        assert_eq!(affected.changed_packages, [id]);
+        assert_eq!(affected.selected_packages[0].id, id);
+        assert_eq!(selected.plan.groups().len(), 1);
         assert_eq!(
-            selected.groups()[0].roots()[0].target().unwrap().name,
+            selected.plan.groups()[0].roots()[0].target().unwrap().name,
             "actual_library"
         );
-        let serialized = serde_json::to_value(selected).unwrap();
+        let serialized = serde_json::to_value(selected.plan).unwrap();
         assert_eq!(serialized["source"]["kind"], "changed");
         assert_eq!(serialized["source"]["base"], "HEAD");
     }

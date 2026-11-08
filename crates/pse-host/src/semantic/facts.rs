@@ -212,6 +212,17 @@ pub struct RunnableTargetFact {
     /// Captured metadata feature eligibility, not compilation or execution.
     pub required_features_satisfied: bool,
 }
+impl RunnableTargetFact {
+    /// Cargo metadata spelling for a native library that can nominate rustdoc.
+    pub(crate) fn doctest_target_kind(&self) -> Option<&'static str> {
+        match self.kind.as_str() {
+            "library" | "lib" => Some("lib"),
+            "rlib" => Some("rlib"),
+            "proc_macro" | "proc-macro" => Some("proc-macro"),
+            _ => None,
+        }
+    }
+}
 /// Actual native macro-use metadata; false means the native scan found no such use.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct SnapshotUpdateFact {

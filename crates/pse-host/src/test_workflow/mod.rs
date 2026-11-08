@@ -3,6 +3,7 @@
 //! Test selection stages, immutable listed commands and required observation, without launch.
 mod check;
 pub mod execute;
+mod explanation;
 mod observation;
 mod source;
 use crate::{
@@ -17,6 +18,10 @@ use crate::{
 pub use check::{
     AdmittedCheck, CheckIntent, CompilerFailureReference, CompilerObservation,
     CompilerObservationError, CompilerObserver, PreparedCheck,
+};
+pub use explanation::{
+    AffectedSelection, CandidateLane, OriginalVerdict, SelectionEvidence, SourceCandidate,
+    TargetDeclaration,
 };
 pub use observation::{CompletedObserver, FailureReference, Observation, ObservationError};
 use schemars::JsonSchema;
@@ -126,6 +131,7 @@ struct Context {
     environment: Environment,
     inputs: Vec<Input>,
     selected_native: BTreeSet<String>,
+    source_evidence: source::Evidence,
 }
 impl std::fmt::Debug for Context {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -142,6 +148,7 @@ impl Context {
         plan: &Plan,
         profile: String,
         environment: Environment,
+        source_evidence: source::Evidence,
     ) -> Result<Self, WorkflowError> {
         if plan.non_incremental()
             && environment
@@ -213,6 +220,7 @@ impl Context {
             environment,
             inputs,
             selected_native: BTreeSet::new(),
+            source_evidence,
         })
     }
     fn runner_policy(&self) -> RunnerPolicy<'_> {
@@ -307,6 +315,8 @@ pub struct Explanation<'a> {
     pub stage: Stage,
     /// Original normalized selection, including roots/platform/features/filter/ignored policy.
     pub selection: &'a Plan,
+    /// Availability and provenance of the separate source, declaration and execution facts.
+    pub evidence: SelectionEvidence<'a>,
     /// Original runner selection for tests; compiler checks have no runner.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub runner: Option<RunnerPolicy<'a>>,
@@ -339,6 +349,8 @@ pub struct BriefExplanation<'a> {
     pub stage: Stage,
     /// The same normalized intent used by execution.
     pub selection: &'a Plan,
+    /// Same source, declaration and execution evidence as the full view.
+    pub evidence: SelectionEvidence<'a>,
     /// Original runner selection for tests; compiler checks have no runner.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub runner: Option<RunnerPolicy<'a>>,
@@ -372,6 +384,7 @@ impl<'a> Explanation<'a> {
         BriefExplanation {
             stage: self.stage,
             selection: self.selection,
+            evidence: self.evidence,
             runner: self.runner,
             admission,
             selected_tests: self.selected_tests,
@@ -448,14 +461,18 @@ impl Intent {
         if profile.is_empty() {
             return Err(WorkflowError::Invalid("runner profile is empty".into()));
         }
-        let (plan, profile) = source::resolve(&metadata, request, profile, &environment)?;
+        let source::Selection {
+            plan,
+            profile,
+            evidence,
+        } = source::resolve(&metadata, request, profile, &environment)?;
         if plan.operation() != selection::Operation::Test {
             return Err(WorkflowError::Invalid(
                 "test workflow requires test intent".into(),
             ));
         }
         Ok(Self {
-            context: Context::capture(metadata, &plan, profile, environment)?,
+            context: Context::capture(metadata, &plan, profile, environment, evidence)?,
             plan,
         })
     }
@@ -464,9 +481,10 @@ impl Intent {
         Explanation {
             stage: Stage::Intent,
             selection: &self.plan,
+            evidence: self.context.selection_evidence(&self.plan, Stage::Intent),
             runner: Some(self.context.runner_policy()),
             admission: pending("correctness admission not requested"),
-            selected_tests: pending("explicit build/list not requested"),
+            selected_tests: pending("Nextest inventory requires explicit build/list"),
             fixture_requirements: pending("admitted feature context is pending"),
             pending: vec![
                 "correctness_admission",
@@ -504,9 +522,10 @@ impl Admitted {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
+            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Admitted),
             runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
-            selected_tests: pending("explicit build/list not requested"),
+            selected_tests: pending("Nextest inventory requires explicit build/list"),
             fixture_requirements: Information::Available(&self.requirements),
             pending: vec![
                 "explicit_build_and_list",
@@ -683,6 +702,7 @@ impl Listed {
         Explanation {
             stage: Stage::Listed,
             selection: self.resolved.plan(),
+            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Listed),
             runner: Some(self.context.runner_policy()),
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: Information::Available(self.inventory.selected_tests_iter().count()),

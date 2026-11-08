@@ -3,10 +3,12 @@
 //! Passive pages of an original captured population; never execution or fixture authority.
 use crate::{
     HostError,
+    catalog::description::Information,
     discovery::Inventory,
     envelope::{CliInvocationId, Envelope},
     invocation::InvocationStore,
     managed::result::ManagedSummary,
+    test_workflow::OriginalVerdict,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -50,6 +52,10 @@ pub struct TestPage {
     pub inventory_sha256: String,
     /// Actual selected population size in this inventory.
     pub selected_tests: usize,
+    /// Whether Nextest established the entire selected population.
+    pub inventory_complete: bool,
+    /// Original performing test outcome, independently of enumeration.
+    pub original_verdict: Information<OriginalVerdict>,
     /// Complete rows only; a byte budget never truncates a test identity.
     pub records: Vec<TestRow>,
     /// Explicit continuation, bound to these exact inventory bytes.
@@ -130,6 +136,8 @@ pub struct FailurePage {
     pub original_invocation: CliInvocationId,
     /// Original frozen report byte identity.
     pub report_sha256: String,
+    /// Original performing test outcome, independent of the rows on this page.
+    pub original_verdict: Information<OriginalVerdict>,
     /// All original diagnostic and native test/runner rows.
     pub total: usize,
     /// Whole rows only; source fields are never cut to fit.
@@ -233,7 +241,12 @@ pub fn failures(
     limit: NonZeroUsize,
     byte_budget: NonZeroUsize,
 ) -> Result<Envelope<FailurePage>, HostError> {
-    let CapturedReport { id, report, .. } = captured_report(store, selector, session)?;
+    let CapturedReport {
+        id,
+        report,
+        observation,
+        ..
+    } = captured_report(store, selector, session)?;
     let sha = digest(&report);
     let mut rows = failure_rows(&report)?;
     address_failures(&mut rows, &id, &sha);
@@ -275,6 +288,7 @@ pub fn failures(
         FailurePage {
             original_invocation: id,
             report_sha256: sha,
+            original_verdict: original_verdict(&observation),
             total,
             records,
             next,
@@ -287,6 +301,20 @@ pub fn failures(
 }
 fn invalid(message: &str) -> HostError {
     HostError::Ownership(format!("test inventory: {message}"))
+}
+
+fn original_verdict(
+    report: &crate::test_workflow::execute::ReportObservation,
+) -> Information<OriginalVerdict> {
+    OriginalVerdict::of(report).map_or_else(
+        || Information::Unavailable {
+            reason: format!(
+                "the original {} operation did not execute the Nextest test lane",
+                report.action.command()
+            ),
+        },
+        Information::Available,
+    )
 }
 pub(crate) fn read_private(path: &Path) -> Result<Vec<u8>, HostError> {
     read_private_bounded(path, None)
@@ -1035,6 +1063,7 @@ pub fn read(
     let CapturedEvidence {
         id,
         report,
+        observation,
         inventory,
         inventory_sha256: sha,
         ..
@@ -1134,13 +1163,18 @@ pub fn read(
             original_invocation: id,
             inventory_sha256: sha,
             selected_tests: total,
+            inventory_complete: inventory.selected_population_complete(),
+            original_verdict: original_verdict(&observation),
             records,
             next,
             next_record_bytes,
         },
     );
     response.observation.scope = "retained_native_test_inventory_page".into();
-    response.observation.limitations=vec!["Listing evidence only: fixture readiness, executable reuse eligibility, physical settlement and test acceptance remain with their original owners.".into(),"The full retained inventory is decoded; page limits bound whole-record output, not underlying scan cost.".into()];
+    response.observation.limitations = vec![
+        "Nextest identities project the original listing. The original performing outcome has its own report evidence.".into(),
+        "The full retained inventory is decoded. Page limits bound whole-record output.".into(),
+    ];
     Ok(response)
 }
 fn position(

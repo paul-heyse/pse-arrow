@@ -4,7 +4,8 @@
 use crate::{
     HostError,
     envelope::{Completeness, Envelope, ErrorRecord, OutputOptions, RedactionPolicy},
-    investigation::{EvidenceKind, Locator},
+    investigation::{EvidenceKind, Locator, ResultReference},
+    test_workflow::{CandidateLane, SourceCandidate},
 };
 use clap::Subcommand;
 use std::{
@@ -209,6 +210,8 @@ pub(super) enum Action {
         from_result: Option<String>,
         #[arg(long, hide = true, requires = "from_result")]
         target_witness: Option<String>,
+        #[arg(long, hide = true, requires = "from_result", conflicts_with = "admitted")]
+        doctest_candidate: bool,
         #[arg(long)]
         admitted: bool,
         #[arg(long)]
@@ -291,7 +294,7 @@ pub(super) fn inspect(
         ..
     } = &action
     {
-        Some(crate::investigation::ResultReference::decode(reference)?)
+        Some(ResultReference::decode(reference)?)
     } else {
         None
     };
@@ -781,24 +784,50 @@ pub(super) fn inspect(
             mut tests,
             from_result: _,
             target_witness,
+            doctest_candidate,
             admitted,
             full,
         } => {
-            let from_source = source_reference.is_some();
             let inputs = std::env::vars_os().collect();
             let mut metadata_root = root.clone();
-            let candidate_path = if let Some(reference) = &source_reference {
+            let candidate_witness = if let Some(reference) = &source_reference {
                 match &reference.locator {
-                    Locator::Source {path,source:crate::investigation::SourceKind::Working,..}=>{let _witness=crate::investigation::providers::inspect(&root,&reference.locator)?;Some(path.to_path_buf())},
-                    Locator::Semantic {..}=>{
-                        let token=tokio_util::sync::CancellationToken::new();
-                        let resolved=crate::cli::runtime()?.block_on(async {
-                            let operation=crate::investigation::rust::resolve_entity(&root,&reference.locator,&token);
-                            tokio::pin!(operation);
-                            tokio::select! {result=&mut operation=>result,signal=tokio::signal::ctrl_c()=>{token.cancel();let result=operation.await;signal?;result}}
+                    Locator::Source {
+                        path,
+                        source: crate::investigation::SourceKind::Working,
+                        ..
+                    } => {
+                        let witness =
+                            crate::investigation::providers::inspect(&root, &reference.locator)?;
+                        let reference = witness.reference.ok_or_else(|| {
+                            HostError::Ownership(
+                                "source inspection did not return a guarded current witness".into(),
+                            )
                         })?;
-                        let Locator::Semantic {project,path,..}=resolved.locator else {return Err(HostError::Ownership("native source refinement did not retain its original project/source locator".into()));};
-                        metadata_root=project;Some(path.to_path_buf())
+                        Some((path.to_path_buf(), reference))
+                    }
+                    Locator::Semantic { .. } => {
+                        let token = tokio_util::sync::CancellationToken::new();
+                        let resolved = crate::cli::runtime()?.block_on(async {
+                            let operation = crate::investigation::rust::resolve_entity(&root, &reference.locator, &token);
+                            tokio::pin!(operation);
+                            tokio::select! {
+                                result = &mut operation => result,
+                                signal = tokio::signal::ctrl_c() => {
+                                    token.cancel();
+                                    let result = operation.await;
+                                    signal?;
+                                    result
+                                }
+                            }
+                        })?;
+                        let Locator::Semantic { project, path, .. } = &resolved.locator else {
+                            return Err(HostError::Ownership(
+                                "native source refinement did not retain its original project/source locator".into(),
+                            ));
+                        };
+                        metadata_root = project.clone();
+                        Some((path.to_path_buf(), ResultReference::new(resolved.locator)))
                     }
                     _=>return Err(HostError::Ownership("--from-result requires a guarded working-source/native entity witness; retained revisions and evidence do not establish a current test candidate".into())),
                 }
@@ -806,7 +835,7 @@ pub(super) fn inspect(
                 None
             };
             let snapshot = crate::dependency::capture(&metadata_root, &inputs)?;
-            if let Some(path) = candidate_path {
+            let candidate = if let Some((path, reference)) = candidate_witness {
                 let workspace_root = snapshot.metadata.workspace_root.as_std_path();
                 let owner = crate::ownership::source_owner(workspace_root, &path, Some(&snapshot))?;
                 let crate::ownership::PackageOwnership::WorkspacePackage { package_id, .. } =
@@ -815,14 +844,37 @@ pub(super) fn inspect(
                     return Err(HostError::Ownership("source witness has no current containing workspace package; select tests explicitly".into()));
                 };
                 if let Some(witness) = &target_witness {
-                    tests.verify_source_target(&snapshot.metadata, &package_id, witness)?;
+                    tests.verify_source_target(
+                        &snapshot.metadata,
+                        &package_id,
+                        witness,
+                        doctest_candidate,
+                    )?;
                 }
-                tests.select_source_package(package_id)?;
-            }
+                tests.select_source_package(package_id.clone())?;
+                let lane = if doctest_candidate {
+                    CandidateLane::Rustdoc
+                } else {
+                    CandidateLane::Nextest
+                };
+                Some(SourceCandidate {
+                    reference,
+                    package_id,
+                    lane,
+                })
+            } else {
+                None
+            };
             let metadata = snapshot.metadata;
             let request = tests.request()?;
-            let next = if from_source && admitted {
-                tests.admitted_source_argv(&metadata_root, &request)
+            let next = if candidate.is_some() && admitted {
+                tests
+                    .admitted_source_argv(&metadata_root, &request)
+                    .map(|argv| crate::envelope::NextAction::Command {
+                        argv,
+                        reason: "run the admitted Cargo target with the selected Nextest filters"
+                            .into(),
+                    })
             } else {
                 None
             };
@@ -833,9 +885,19 @@ pub(super) fn inspect(
                 let admitted = intent
                     .admit()
                     .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                selection_emit(output, "test", full, admitted.explain(), from_source, next)
+                selection_emit(output, "test", full, admitted.explain(), candidate, next)
             } else {
-                selection_emit(output, "test", full, intent.explain(), from_source, None)
+                let explanation = intent.explain();
+                let next = metadata_root.join("justfile").to_str().filter(|_| {
+                    doctest_candidate && matches!(
+                        explanation.evidence.doctest_route,
+                        crate::catalog::description::Information::Available(_)
+                    )
+                }).map(|justfile| crate::envelope::NextAction::Command {
+                    argv: vec!["just".into(), "--justfile".into(), justfile.into(), "doctest".into()],
+                    reason: "run the workspace rustdoc doctest lane for eligible declarations; rustdoc selects the examples".into(),
+                });
+                selection_emit(output, "test", full, explanation, candidate, next)
             }
         }
         Action::CheckSelection {
@@ -855,9 +917,9 @@ pub(super) fn inspect(
                 let admitted = intent
                     .admit()
                     .map_err(|error| HostError::Workflow(Box::new(error)))?;
-                selection_emit(output, "check", full, admitted.explain(), false, None)
+                selection_emit(output, "check", full, admitted.explain(), None, None)
             } else {
-                selection_emit(output, "check", full, intent.explain(), false, None)
+                selection_emit(output, "check", full, intent.explain(), None, None)
             }
         }
         Action::Invocation {
@@ -918,9 +980,9 @@ fn selection_emit(
     output: &OutputOptions,
     kind: &str,
     full: bool,
-    explanation: crate::test_workflow::Explanation<'_>,
-    from_source: bool,
-    next: Option<Vec<String>>,
+    mut explanation: crate::test_workflow::Explanation<'_>,
+    candidate: Option<SourceCandidate>,
+    next: Option<crate::envelope::NextAction>,
 ) -> Result<i32, HostError> {
     let command = format!(
         "inspect {kind}-selection{}",
@@ -930,20 +992,34 @@ fn selection_emit(
         "native {kind} {:?} intent; no source build, runtime preparation or test listing performed",
         explanation.stage
     );
+    let from_source = candidate.is_some();
+    if let Some(candidate) = candidate {
+        use crate::catalog::description::Information;
+        if matches!(candidate.lane, CandidateLane::Rustdoc) {
+            let reason = "rustdoc owns doctest execution through just doctest";
+            explanation.evidence.nextest_inventory = Information::Unavailable {
+                reason: reason.into(),
+            };
+            explanation.selected_tests = Information::Unavailable {
+                reason: reason.into(),
+            };
+            explanation.runner = None;
+            explanation.fixture_requirements = Information::Unavailable {
+                reason: reason.into(),
+            };
+            explanation.pending = vec!["rustdoc_doctest_execution"];
+        }
+        explanation.evidence.source_candidate = Information::Available(candidate);
+    }
     fn mark<T>(
         mut response: Envelope<T>,
         from_source: bool,
-        next: Option<Vec<String>>,
+        next: Option<crate::envelope::NextAction>,
     ) -> Envelope<T> {
         if from_source {
-            response.observation.limitations.push("Current test candidate in the containing package from a validated source witness. Cargo checks any explicit target selection. This does not establish dependency impact, a listed population, coverage or a verdict.".into());
+            response.observation.limitations.push("A validated current source witness supports the candidate. Dependency reach, exact inventory, coverage and execution verdict each require their own evidence.".into());
         }
-        if let Some(argv) = next {
-            response.next.push(crate::envelope::NextAction::Command {
-                argv,
-                reason: "run the admitted Cargo target with the selected nextest filters".into(),
-            });
-        }
+        response.next.extend(next);
         response
     }
     if full {
@@ -1358,6 +1434,32 @@ mod tests {
         };
         assert_eq!(packages[0].package, "pse-host");
         assert!(packages[0].features.absent.contains("native-solvers"));
+    }
+    #[test]
+    fn doctest_candidate_requires_current_doctest_target_before_routing() {
+        let witness = serde_json::json!({
+            "package_id":"fixture","manifest":"/workspace/Cargo.toml","root":"/workspace/src/lib.rs",
+            "name":"fixture","kind":"library","required_features":[],"active_features":[],
+            "required_features_satisfied":true
+        }).to_string();
+        let arguments = [
+            "inspect", "test-selection", "--from-result", "guarded", "--lib",
+            "--target-witness", &witness, "--doctest-candidate",
+        ];
+        let parsed = Parsed::try_parse_from(arguments).unwrap();
+        assert!(Parsed::try_parse_from(arguments.into_iter().chain(["--admitted"])).is_err());
+        let Action::TestSelection { tests, doctest_candidate, .. } = parsed.action else {
+            panic!("wrong query");
+        };
+        assert!(doctest_candidate);
+        let mut metadata: cargo_metadata::Metadata = serde_json::from_value(serde_json::json!({
+            "packages":[{"name":"fixture","version":"0.0.0","id":"fixture","manifest_path":"/workspace/Cargo.toml","dependencies":[],"targets":[{"name":"fixture","kind":["lib"],"crate_types":["lib"],"src_path":"/workspace/src/lib.rs","edition":"2024","test":false,"doctest":true}],"features":{}}],
+            "workspace_members":["fixture"],"workspace_default_members":["fixture"],
+            "workspace_root":"/workspace","target_directory":"/workspace/target","version":1
+        })).unwrap();
+        tests.verify_source_target(&metadata, "fixture", &witness, true).unwrap();
+        metadata.packages[0].targets[0].doctest = false;
+        assert!(tests.verify_source_target(&metadata, "fixture", &witness, true).is_err());
     }
     #[test]
     fn rerun_retains_native_policy_and_refuses_feature_override() {

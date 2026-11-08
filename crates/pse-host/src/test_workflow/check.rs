@@ -30,7 +30,8 @@ impl CheckIntent {
         request: Request,
         environment: crate::environment::Environment,
     ) -> Result<Self, WorkflowError> {
-        let (plan, _) = super::source::resolve(&metadata, request, String::new(), &environment)?;
+        let super::source::Selection { plan, evidence, .. } =
+            super::source::resolve(&metadata, request, String::new(), &environment)?;
         if !matches!(
             plan.operation(),
             selection::Operation::Check | selection::Operation::Rustdoc
@@ -39,7 +40,7 @@ impl CheckIntent {
                 "check workflow requires check intent".into(),
             ));
         }
-        let context = Context::capture(metadata, &plan, String::new(), environment)?;
+        let context = Context::capture(metadata, &plan, String::new(), environment, evidence)?;
         Ok(Self { context, plan })
     }
     /// Pure projection; compiler units remain pending until actual correctness admission.
@@ -47,6 +48,7 @@ impl CheckIntent {
         Explanation {
             stage: Stage::Intent,
             selection: &self.plan,
+            evidence: self.context.selection_evidence(&self.plan, Stage::Intent),
             runner: None,
             admission: pending("correctness admission not requested"),
             selected_tests: pending("compiler checks do not select a runnable test population"),
@@ -87,6 +89,7 @@ impl AdmittedCheck {
         Explanation {
             stage: Stage::Admitted,
             selection: self.resolved.plan(),
+            evidence: self.context.selection_evidence(self.resolved.plan(), Stage::Admitted),
             runner: None,
             admission: Information::Available(self.resolved.admitted()),
             selected_tests: pending("compiler checks do not select a runnable test population"),

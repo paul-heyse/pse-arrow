@@ -192,6 +192,7 @@ impl TestArgs {
         metadata: &cargo_metadata::Metadata,
         package_id: &str,
         encoded: &str,
+        doctest: bool,
     ) -> Result<(), CorrectnessError> {
         let stale = || {
             CorrectnessError::Invalid(
@@ -203,7 +204,12 @@ impl TestArgs {
         }
         let witness: crate::semantic::RunnableTargetFact =
             serde_json::from_str(encoded).map_err(|_| stale())?;
-        let selector = match witness.kind.as_str() {
+        let kind = if doctest {
+            witness.doctest_target_kind().ok_or_else(stale)?
+        } else {
+            witness.kind.as_str()
+        };
+        let selector = match kind {
             "lib" | "rlib" | "proc-macro" => selection::CargoTargets::Library,
             "test" => selection::CargoTargets::Test(witness.name.clone()),
             "bin" => selection::CargoTargets::Bin(witness.name.clone()),
@@ -226,8 +232,9 @@ impl TestArgs {
                     && target
                         .kind
                         .iter()
-                        .any(|kind| kind.to_string() == witness.kind)
+                        .any(|actual| actual.to_string() == kind)
                     && target.required_features == witness.required_features
+                    && (!doctest || target.doctest)
             })
             .count();
         if matches != 1 {

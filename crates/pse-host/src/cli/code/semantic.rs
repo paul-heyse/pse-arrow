@@ -730,6 +730,20 @@ pub(in crate::cli) fn test_routes(
             continue;
         };
         let Some(root) = root.to_str() else { continue };
+        let target = match candidate.cargo_targets.as_slice() {
+            [target]
+                if target.required_features_satisfied
+                    && target.manifest.parent().is_some_and(|owner| {
+                        owner.starts_with(root)
+                            && path.starts_with(owner)
+                            && target.root.starts_with(owner)
+                    }) =>
+            {
+                Some(target)
+            }
+            _ => None,
+        };
+        let doctest = candidate.runnable_kind.as_deref() == Some("doctest");
         let mut argv = vec![
             "pse".into(),
             "-C".into(),
@@ -738,8 +752,21 @@ pub(in crate::cli) fn test_routes(
             "test-selection".into(),
             "--from-result".into(),
             reference,
-            "--admitted".into(),
         ];
+        if doctest {
+            argv.push("--doctest-candidate".into());
+            if let Some(target) = target.filter(|target| target.doctest_target_kind().is_some())
+                && let Ok(witness) = serde_json::to_string(target)
+            {
+                argv.extend(["--lib".into(), "--target-witness".into(), witness]);
+            }
+            next.push(envelope::NextAction::Command {
+                argv,
+                reason: "recheck the current source and Cargo doctest declaration before routing to just doctest".into(),
+            });
+            continue;
+        }
+        argv.push("--admitted".into());
         if !configuration.features.is_empty() {
             argv.extend(["--features".into(), configuration.features.join(",")]);
         }
@@ -751,11 +778,7 @@ pub(in crate::cli) fn test_routes(
         }
         let exact = if candidate.runnable_kind.as_deref() == Some("test")
             && candidate.eligible == Some(true)
-            && let [target] = candidate.cargo_targets.as_slice()
-            && target.required_features_satisfied
-            && target.manifest.parent().is_some_and(|owner| {
-                owner.starts_with(root) && path.starts_with(owner) && target.root.starts_with(owner)
-            })
+            && let Some(target) = target
             && let Some(test) = &candidate.test_id
             && !test.is_empty()
             && test
@@ -895,6 +918,17 @@ mod runnable_route_tests {
             panic!("conservative route missing")
         };
         assert!(!argv.iter().any(|arg| arg == "--lib" || arg == "-E"));
+        let candidate = &mut answer.observed.tests[0];
+        candidate.runnable_kind = Some("doctest".into());
+        candidate.cargo_targets[0].kind = "library".into();
+        let routes = test_routes(temporary.path(), &answer, &configuration);
+        let [envelope::NextAction::Command { argv, reason }] = routes.as_slice() else {
+            panic!("guarded doctest route missing")
+        };
+        assert!(argv.iter().any(|arg| arg == "--doctest-candidate"));
+        assert!(argv.iter().any(|arg| arg == "--target-witness"));
+        assert!(!argv.iter().any(|arg| arg == "--admitted" || arg == "-E"));
+        assert!(reason.contains("just doctest"));
         std::fs::write(path, "changed historical witness\n").unwrap();
         assert!(test_routes(temporary.path(), &answer, &configuration).is_empty());
     }

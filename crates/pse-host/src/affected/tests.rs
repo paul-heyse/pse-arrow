@@ -142,6 +142,40 @@ fn reverse_declarations_include_optional_renamed_build_dev_and_native_integratio
     assert!(!root.path().join("target").exists());
     assert!(!root.path().join("build").exists());
 }
+
+#[test]
+fn absent_optional_edge_keeps_conservative_reach_and_the_integration_helper() {
+    let root = tempfile::tempdir().unwrap();
+    map(root.path(), None, "crates/consumer/src/generated");
+    let mut metadata = metadata(root.path());
+    let consumer = &mut metadata.packages[1];
+    let consumer_id = consumer.id.to_string();
+    let dependency = &mut consumer.dependencies[0];
+    assert!(dependency.optional);
+    dependency.path = None;
+    metadata.resolve = Some(serde_json::from_value(json!({
+        "root": null,
+        "nodes": [{"id": consumer_id, "dependencies": [], "deps": [], "features": []}]
+    })).unwrap());
+    let preview = preview(
+        root.path(),
+        &changes(root.path(), &[b"crates/consumer/tests/support/helper.rs"]),
+        Some(&metadata),
+    )
+    .unwrap();
+    assert_eq!(preview.changed_packages, [consumer_id.clone()]);
+    assert_eq!(preview.selected_packages.len(), metadata.workspace_members.len());
+    assert!(preview.widening.iter().any(|basis| {
+        matches!(basis, Widening::UnknownDependency { package_id, dependency }
+            if package_id == &consumer_id && dependency == "pse-backend-native")
+    }));
+    let scope = preview.scope(selection::Features::default()).unwrap().unwrap();
+    let selection::Scope::Packages(roots) = scope else {
+        panic!("affected workspace scope lost its declared roots");
+    };
+    assert!(roots.iter().any(|root| root.package == consumer_id
+        && root.target.as_ref().is_some_and(|target| target.name == "native_journey")));
+}
 #[test]
 fn nearest_member_component_boundaries_and_unknown_sources_widen_explicitly() {
     let root = tempfile::tempdir().unwrap();
