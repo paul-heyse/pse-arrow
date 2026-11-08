@@ -1702,9 +1702,31 @@ impl CanonicalStore {
             return ResultSlot::<Option<Object>>::returned().take(&mut response);
         }
         if let Some(selection) = selection {
-            let mut response = self.protected_query(&selection.revision().problem, crate::canonical::QueryEffect::Read, "canonical_staging::authorized_record", || Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead{selection,recheck:Recheck::Pin}).returning::<Option<Object>>("LET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\nLET $row = IF array::len($members) = 0 { RETURN NONE; } ELSE { RETURN SELECT * FROM ONLY type::record($table, $key); };","$row")?)
-
-                .bind(("version", version.to_owned())).bind(("table", table.to_owned())).bind(("key", key.to_owned())))).await?;
+            // A branch RETURN exits the v4 statement before LET binds the row.
+            // Keep the pin recheck and final result in the guarded script.
+            let mut response = self
+                .protected_query(
+                    &selection.revision().problem,
+                    crate::canonical::QueryEffect::Read,
+                    "canonical_staging::authorized_record",
+                    || {
+                        Ok(self.db.script(GuardedScript::new(Envelope::ProtectedRead {
+                            selection,
+                            recheck: Recheck::Pin,
+                        })
+                        .returning::<Option<Object>>(
+                            concat!(
+                                "LET $members = SELECT key FROM canonical_memberships WHERE problem = $problem AND version = $version AND from_sequence <= $sequence AND (to_sequence = NONE OR to_sequence > $sequence) LIMIT 1;\n",
+                                "LET $row = IF array::len($members) = 0 { NONE } ELSE { SELECT * FROM ONLY type::record($table, $key) };",
+                            ),
+                            "$row",
+                        )?)
+                        .bind(("version", version.to_owned()))
+                        .bind(("table", table.to_owned()))
+                        .bind(("key", key.to_owned())))
+                    },
+                )
+                .await?;
             ResultSlot::<Option<Object>>::returned().take(&mut response)
         } else {
             Ok(request(self.db.select((table, key))).await?)
