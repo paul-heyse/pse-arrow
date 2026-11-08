@@ -4,16 +4,21 @@
 use anyhow::{Context, Result, ensure};
 use datafusion::arrow::{
     array::{ArrayRef, Float64Array, Int64Array, RecordBatch, StringArray},
+    compute::concat_batches,
     datatypes::{DataType, Field, Schema},
 };
 use feos::pcsaft::{PcSaft, PcSaftParameters};
 use feos_core::{Contributions, State, parameter::IdentifierOption};
 use nalgebra::DVector;
-use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
+use parquet::{
+    arrow::{ArrowWriter, arrow_reader::ParquetRecordBatchReaderBuilder},
+    basic::Compression,
+    file::properties::WriterProperties,
+};
 use quantity::{JOULE, KELVIN, METER, MOL, PASCAL, RGAS};
 use std::{path::Path, sync::Arc};
 
-pub(super) fn run(root: &Path, output: &Path) -> Result<()> {
+pub(super) fn run(root: &Path, output: &Path, regenerate: bool) -> Result<()> {
     let source = root.join("packages/reference/data/gross-sadowski-2001/data/gross2001.json");
     let content = std::fs::read(&source)?;
     use sha2::{Digest, Sha256};
@@ -104,7 +109,9 @@ pub(super) fn run(root: &Path, output: &Path) -> Result<()> {
             fugacities.push(*ln_phi);
         }
     }
-    std::fs::create_dir_all(output)?;
+    if regenerate {
+        std::fs::create_dir_all(output)?;
+    }
     let mut fields = vec![Field::new("case", DataType::Int64, false)];
     fields.extend(
         [
@@ -123,9 +130,10 @@ pub(super) fn run(root: &Path, output: &Path) -> Result<()> {
             .into_iter()
             .map(|values| -> ArrayRef { Arc::new(Float64Array::from(values)) }),
     );
-    write(
+    retain(
         &output.join("states.parquet"),
         RecordBatch::try_new(Arc::new(Schema::new(fields)), arrays)?,
+        regenerate,
     )?;
     let fields = [
         Field::new("case", DataType::Int64, false),
@@ -133,7 +141,7 @@ pub(super) fn run(root: &Path, output: &Path) -> Result<()> {
         Field::new("fraction", DataType::Float64, false),
         Field::new("ln_phi", DataType::Float64, false),
     ];
-    write(
+    retain(
         &output.join("components.parquet"),
         RecordBatch::try_new(
             Arc::new(Schema::new(fields.to_vec())),
@@ -144,10 +152,69 @@ pub(super) fn run(root: &Path, output: &Path) -> Result<()> {
                 Arc::new(Float64Array::from(fugacities)),
             ],
         )?,
+        regenerate,
     )?;
-    println!("FeOS 0.10.1: seven states, all component fugacities, fixed T/p departure convention");
+    let action = if regenerate { "Wrote" } else { "Compared" };
+    println!(
+        "{action} FeOS 0.10.1 references for seven states and all component fugacities at fixed T and p"
+    );
     Ok(())
 }
+
+fn retain(path: &Path, actual: RecordBatch, regenerate: bool) -> Result<()> {
+    if regenerate {
+        return write(path, actual);
+    }
+    let reader = ParquetRecordBatchReaderBuilder::try_new(std::fs::File::open(path)?)?;
+    let schema = reader.schema().clone();
+    ensure!(
+        actual.schema() == schema,
+        "stale reference schema in {}",
+        path.display()
+    );
+    let batches = reader
+        .build()?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let frozen = concat_batches(&schema, &batches)?;
+    ensure!(
+        actual.num_rows() == frozen.num_rows(),
+        "stale reference population in {}",
+        path.display()
+    );
+    for (index, field) in schema.fields().iter().enumerate() {
+        let (observed, expected) = (actual.column(index), frozen.column(index));
+        let same = if *field.data_type() == DataType::Float64
+            && !matches!(field.name().as_str(), "T" | "rho" | "fraction")
+        {
+            let observed = observed
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .context("generated reference must have typed floating values")?;
+            let expected = expected
+                .as_any()
+                .downcast_ref::<Float64Array>()
+                .context("retained reference must have typed floating values")?;
+            // Both runs use the same FeOS release and authored physical inputs.
+            // Bound binary64 evaluation variation separately from native acceptance.
+            observed.iter().zip(expected.iter()).all(|(left, right)| {
+                matches!((left, right), (Some(left), Some(right))
+                    if left.is_finite() && right.is_finite()
+                        && (left - right).abs()
+                            <= 64. * f64::EPSILON * left.abs().max(right.abs()).max(1.))
+            })
+        } else {
+            observed.to_data() == expected.to_data()
+        };
+        ensure!(
+            same,
+            "stale reference column {} in {}",
+            field.name(),
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 fn write(path: &Path, batch: RecordBatch) -> Result<()> {
     let properties = WriterProperties::builder()
         .set_compression(Compression::ZSTD(Default::default()))

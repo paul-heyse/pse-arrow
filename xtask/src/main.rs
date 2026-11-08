@@ -274,10 +274,13 @@ enum Cmd {
         #[arg(long)]
         output: PathBuf,
     },
-    /// Freeze independent FeOS PC-SAFT properties as typed oracle Parquet banks.
+    /// Compare independent FeOS PC-SAFT properties with the retained Parquet banks.
     #[cfg(feature = "thermodynamic-oracles")]
     FeosReference {
         output: PathBuf,
+        /// Explicitly replace the retained banks.
+        #[arg(long)]
+        regenerate: bool,
     },
     /// Assert one resolved version per dependency family, equal to the declared pin.
     FamilyCheck {
@@ -883,7 +886,9 @@ fn main() -> Result<()> {
             Ok(())
         }
         #[cfg(feature = "thermodynamic-oracles")]
-        Cmd::FeosReference { output } => feos_reference::run(&root, &output),
+        Cmd::FeosReference { output, regenerate } => {
+            feos_reference::run(&root, &output, regenerate)
+        }
         Cmd::FamilyCheck {
             evidence,
             evidence_families_only,
