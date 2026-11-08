@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Protocol, TextIO, cast
 from unittest.mock import patch
 
 from google.protobuf import message_factory
+
 from proto_exchange import encode_reference, reference_type
 
 from .ordinary_exchange import (
@@ -34,9 +35,9 @@ from .ordinary_exchange import (
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
-    from google.protobuf.message import Message
     import pyomo.dae as dae
     import pyomo.environ as pyo
+    from google.protobuf.message import Message
     from idaes.models.control.controller import ControllerType
     from pyomo.core.base.var import IndexedVar, VarData
 

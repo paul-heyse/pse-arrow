@@ -124,7 +124,10 @@ pub fn assess(
             )
         }
         Policy::RecordedResult => {
-            if selected_files.iter().any(|file| file != RECORDED_RESULT_FILE) {
+            if selected_files
+                .iter()
+                .any(|file| file != RECORDED_RESULT_FILE)
+            {
                 return Err(SchemaError::Invalid(
                     "recorded-result policy covers only recorded_result.proto; imports are context, not native source coverage".into(),
                 ));
@@ -273,11 +276,8 @@ mod tests {
         assert_eq!(missing.disposition, Disposition::Unknown, "{missing:?}");
         assert!(!missing.native_coverage_available);
 
-        let newer = with_unknown_version(
-            &source.set,
-            RECORDED_RESULT_FILE,
-            "RecordedResultSelection",
-        );
+        let newer =
+            with_unknown_version(&source.set, RECORDED_RESULT_FILE, "RecordedResultSelection");
         let unknown = assess(&runtime, &bundle(&newer), &file, Policy::RecordedResult).unwrap();
         assert_eq!(unknown.disposition, Disposition::Unknown, "{unknown:?}");
         assert!(unknown.native_coverage_available);
