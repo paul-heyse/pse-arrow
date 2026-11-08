@@ -319,9 +319,18 @@ impl Group {
             }
         }
         if found.len() != self.roots.len() || found.is_empty() {
-            return Err(
-                invalid("admitted Cargo graph omits an intended package/target root").into(),
-            );
+            let missing = self
+                .roots
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| !found.contains(index))
+                .map(|(_, root)| root.package_name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(invalid(format!(
+                "admitted Cargo graph omits intended package/target roots: {missing}"
+            ))
+            .into());
         }
         if !absent.is_empty() {
             return Err(AdmissionMismatch::FeatureAbsence(absent));
@@ -466,6 +475,8 @@ pub struct Plan {
     source: Option<SourceBasis>,
     #[serde(default)]
     rerun: Vec<RerunCase>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    packages_without_default_tests: Vec<String>,
     operation: Operation,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     non_incremental: bool,
@@ -670,6 +681,7 @@ pub(crate) fn empty(request: &Request) -> Plan {
     Plan {
         source: None,
         rerun: Vec::new(),
+        packages_without_default_tests: Vec::new(),
         operation: request.operation,
         non_incremental: request.non_incremental,
         groups: Vec::new(),
@@ -691,6 +703,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
         Scope::Targets { scope, selector } => (*scope, Some(selector)),
         scope => (scope, None),
     };
+    let mut packages_without_default_tests = Vec::new();
     let mut intents = match scope {
         Scope::Targets { .. } | Scope::Changed { .. } | Scope::RerunFailed { .. } => {
             return Err(invalid(
@@ -703,14 +716,29 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
                 .iter()
                 .map(|name| package(metadata, name).map(|package| package.id.clone()))
                 .collect::<Result<_, _>>()?;
+            let ordinary = request.operation == Operation::Test && target_selector.is_none();
             metadata
                 .workspace_packages()
                 .into_iter()
                 .filter(|package| !excluded.contains(&package.id))
-                .map(|package| PackageIntent {
-                    package: package.id.repr.clone(),
-                    target: None,
-                    features: features.clone(),
+                .filter_map(|package| {
+                    // Cargo also builds example targets for an unqualified test, even
+                    // when their harness is disabled. Required features remain subject
+                    // to actual graph admission.
+                    if ordinary
+                        && !package.targets.iter().any(|target| {
+                            !target.is_custom_build()
+                                && (target.test || target.doctest || target.is_example())
+                        })
+                    {
+                        packages_without_default_tests.push(package.name.to_string());
+                        return None;
+                    }
+                    Some(PackageIntent {
+                        package: package.id.repr.clone(),
+                        target: None,
+                        features: features.clone(),
+                    })
                 })
                 .collect()
         }
@@ -888,6 +916,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
     Ok(Plan {
         source: None,
         rerun: Vec::new(),
+        packages_without_default_tests,
         operation: request.operation,
         non_incremental: request.non_incremental,
         groups,

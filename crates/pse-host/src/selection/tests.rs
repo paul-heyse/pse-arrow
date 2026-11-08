@@ -178,6 +178,44 @@ fn workspace_exclusions_and_default_members_keep_exact_package_ids() {
 }
 
 #[test]
+fn ordinary_workspace_keeps_test_and_example_roots_and_reports_testless_packages() {
+    let mut data = metadata();
+    for package in &mut data.packages[1..] {
+        package.targets[0].test = false;
+        package.targets[0].doctest = false;
+    }
+    data.packages[2].targets[0].kind = vec![cargo_metadata::TargetKind::Example];
+    let mut input = request(vec![]);
+    input.scope = Scope::Workspace {
+        exclude: Vec::new(),
+        features: Features::default(),
+    };
+    let ordinary = plan(&data, input.clone()).unwrap();
+    assert_eq!(ordinary.packages_without_default_tests, ["beta"]);
+    let names = ordinary
+        .groups()
+        .iter()
+        .flat_map(Group::roots)
+        .map(Root::package_name)
+        .collect::<Vec<_>>();
+    assert_eq!(names, ["alpha", "gamma"]);
+
+    input.scope = Scope::Targets {
+        scope: Box::new(input.scope),
+        selector: CargoTargets::AllTargets,
+    };
+    let explicit = plan(&data, input).unwrap();
+    assert!(explicit.packages_without_default_tests.is_empty());
+    assert!(
+        explicit
+            .groups()
+            .iter()
+            .flat_map(Group::roots)
+            .any(|root| root.package_name() == "beta")
+    );
+}
+
+#[test]
 fn explicit_target_activates_only_its_requirements_and_ambiguous_names_refuse() {
     let data = metadata();
     assert!(plan(&data, request(vec![intent(Some(("same", None)))])).is_err());
