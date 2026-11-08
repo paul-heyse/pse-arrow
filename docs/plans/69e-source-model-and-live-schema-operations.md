@@ -253,7 +253,12 @@ application admission, tool metadata and the installed catalog unchanged.
 
 The activation consumer requires an initializer-authorized maintenance listener and exact
 pending and settled records. Current main has no production producer for those records.
-Extend the existing native lifecycle owner. Recheck preview premises before the first
+The existing native lifecycle owner can drain its original holders and server, and its
+stopped-state capability can reopen the same disposable fixture. Persistent configured
+state needs an authenticated handoff with durable closed admission, an initializer-only
+listener, and recovery from the original pending nonce. Reuse the native drain machinery
+under that owner. Establish the original listener and loaded module without assuming the
+predecessor already satisfies current-schema readiness. Recheck preview premises before the first
 effect. The owner fences writes, drains authentic holders and the ordinary server, and
 owns the isolated listener and tool child under the existing initializer and credential
 contract. It issues the original pending nonce and binds the exact inputs before SQL
@@ -323,6 +328,6 @@ parent with an in-range capture must preserve existing behavior under any change
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | E01 | complete | Existing source registry and generator consumers | Two source-change maps and authored-edit decisions recorded above. |
-| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The recorded-result rename passed its full journey. The optional codec passed on the original baseline. Two focused current-main xtask nextest controls passed for proposal postimage binding and clearing the inherited toolchain override. Exact source diagnostics and the v4 optional publication, syntax and predecessor-row receiving checks remain. |
-| E03 | blocked | D01 authenticated selection, A03, verified native rollout authority and Plan68 version-specific receiving. B02 standalone-tool recovery if selected. | A live Viewer fixture authenticated its issuer, refused a foreign issuer and detected installed event drift. The activation consumer exists. Complete the executable authority investigation, production issuer and settler, exact passive preview, refusal, interruption and activation controls. |
-| E04 | planned | Existing immutable source acquisition and structural query owner | A single coordinate index preserves UTF-8 capture and edit locations and bounded query behavior. |
+| E02 | in progress | E01 decision, A01 and A03, generator and affected-check owners | The recorded-result rename passed its full journey. Current focused Nextest controls cover structural anchors, conservative affected evidence, staged SurrealQL validation and redacted diagnostic projection. The v4 predecessor-row probe established absent, string, `NONE` and `NULL` behavior. The guarded optional-field publication still needs a combined run through the source owner. |
+| E03 | blocked | D01 authenticated selection, A03, persistent native maintenance ownership and Plan68 version-specific receiving | The focused v4 Nextest control exercised frozen rc.1 phase execution. After interruption and server restart, it independently observed the committed SQL effect and the unresolved journal step. The in-process native owner binds a passive preview to its live process and listener, catalog, module, generated target and verified tool. The configured deployment path cannot mint that physical proof or close and drain its original service. The production nonce issuer, maintenance handoff, settled activation and CLI receiving remain open. |
+| E04 | complete | Existing immutable source acquisition and structural query owner | The shared source index is implemented. Focused native tests and a scoped live probe verified UTF-8 captures and multiline edit coordinates while preserving the original source bytes and bounded behavior. Native range pushdown remains conditional. |

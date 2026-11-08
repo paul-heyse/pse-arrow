@@ -153,10 +153,14 @@ normalized inventory with maintenance validation.
 
 The companion plans retain assembled qualification that remains open. Project packs and
 study deliverables share an issuer-bound publication identity and durable original custody.
-Live schema rollout still needs an owner for the original rollout nonce, physical
-server instance and settled activation. The v4 merge supplies the current server and client
-family. The production producer for the maintenance owner's exact pending and settled
-rollout remains a prerequisite. F02 retains eager construction after selective deferral failed catalog
+The live v4 project receiver verified configured issuer selection and original acknowledgement
+readback. The exchange journey passed protected pack reopen and bounded Study publication
+after correcting v4 protected-read result binding.
+The owned v4 probe verified SurrealKit phase execution and exposed an unresolved journal
+step after a committed SQL effect. The in-process native service can bind a passive preview
+to its physical listener. The configured-state CLI still needs the persistent service
+handoff and the producer of the exact pending and settled nonce before exposing apply.
+F02 retains eager construction after selective deferral failed catalog
 parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
 ## Opportunity dispositions
@@ -164,10 +168,10 @@ parity. A04 keeps transfer progress conditional on an owner exposing actual tran
 | Review reference | Disposition | Owning intervention |
 |---|---|---|
 | [O01](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O01) | Scheduled | 69a A01 and 69f F01–F02. Parser-owned front door, discovery and exact forwarding. Completion and deferral have explicit triggers. |
-| [O02](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O02) | Scheduled | 69a A02. Resolve defaults once with identity, provenance and effect controls. |
-| [O03](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O03) | Scheduled | 69c C01–C02. Bare ordinary tests, population evidence, explicit specialist lanes and original failed rerun. |
-| [O04](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O04) | Scheduled | 69c C03–C04. Identity-based bounded results, owner release and expiry decision. Durable cross-run history remains conditional. |
-| [O05](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O05) | Scheduled | 69d D01–D03. Typed product routes with original effect identity and supported data operations. |
+| [O02](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O02) | Resolved | 69a A02 verified effective defaults and provenance. The captured v4 receiver preserved the issuer and refused ambiguous or foreign targets before effects. |
+| [O03](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O03) | Resolved | 69c C01–C02 verified ordinary admission, scoped Nextest execution and the exact failed-test rerun. C05 verified the separate Cargo, Nextest and rustdoc evidence. |
+| [O04](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O04) | Resolved | 69c C03–C04 verified bounded reads of original results and owner release under the selected expiry policy. Durable cross-run history remains conditional. |
+| [O05](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O05) | Resolved | 69d D01–D03 verified authenticated selection, original acknowledgement after reply loss, protected import reopen and bounded Study publication. |
 | [O06](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O06) | Scheduled | 69e E01–E03. Two source cases and guarded live schema maintenance. |
 | [O07](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O07) | Scheduled | 69b B01–B03. Workstation launch, readiness, placement and recurring operational sequences. |
 | [O08](../functional_reviews/intent-first-cli-and-codex-workflows-2026-11-07.md#O08) | Scheduled | 69a A03 and 69g A04. Typed diagnostics, redacted recovery and owner-driven progress. |
@@ -181,8 +185,8 @@ parity. A04 keeps transfer progress conditional on an owner exposing actual tran
 | [I03](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I03) | Scheduled | 69a A02 acquires and resolves once. B02, D01 and E03 carry or revalidate the selection across owners. |
 | [I04](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I04) | Scheduled | 69a A02 projects effective provenance. C03 exposes trustworthy captured detail. Mixed-origin arrays remain conditional. |
 | [I05](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I05) | Scheduled | 69a A03 defines the typed projection and B–E verify their receiving adapters. |
-| [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Scheduled | 69g A04 begins with format-gated search and its PTY regression, then shares local presentation policy. |
-| [I07](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I07) | Scheduled | 69g A04 defines display lifetime from owner events. D03 can receive truthful transfer progress. Richer modes and features require a named consumer. |
+| [I06](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I06) | Resolved | 69g A04 verified the shared terminal policy with JSON and NDJSON over pipes and PTYs and with narrow monochrome human output. Rollout receiving remains an assembled obligation. |
+| [I07](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I07) | Deferred pending a publication event producer | 69g A04 owns display lifetime. The captured transfer owner currently publishes a terminal receipt. Revisit counted transfer when an intermediate stage has authoritative byte events. |
 | [I08](../plan_improvement_reviews/plan69-cli-library-leverage-2026-11-07.md#I08) | Scheduled | Coordinator owns the assembled journeys below. The producing packages own isolated checks and B–E own their receiving evidence. |
 
 Carry the review appendix as the source of other feature dispositions. Revisit a
@@ -199,10 +203,10 @@ before any package relies on it.
 | [I01](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I01) | Scheduled | [69e E03](69e-source-model-and-live-schema-operations.md#e03--inspect-preview-apply-and-recover-live-schema) owns passive preview, the prepared execution decision, and original nonce settlement and activation. |
 | [I02](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I02) | Scheduled | [69b B02–B03](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) prepare and receive the native fixture. [69d D01–D03](69d-routine-product-and-data-operations.md#live-v4-receiving) own live product receiving. [69e E02](69e-source-model-and-live-schema-operations.md#optional-field-receiving) owns optional-field checks and the external fixture candidate. |
 | [I03](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I03) | Scheduled | [69e E02](69e-source-model-and-live-schema-operations.md#exact-authored-and-generated-evidence) owns structural spans and the bounded affected view. [69a A03](69a-cli-contracts-configuration-and-presentation.md#a03--original-outcomes-and-safe-recovery) receives original diagnostics. |
-| [I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04) | Scheduled | [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership) owns selection explanation and doctest routing, with 69a A01 catalog receiving. |
+| [I04](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I04) | Resolved | [69c C05](69c-ordinary-testing-and-managed-results.md#c05--explain-test-selection-and-doctest-ownership) verified the scoped selection explanation, doctest routing, and the separate fresh Nextest inventory and original verdict. |
 | [I05](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I05) | Deferred pending a named recurring consumer | [69d D04](69d-routine-product-and-data-operations.md#d04--decide-whether-typed-graph-diagnosis-belongs-at-the-front-door) completed the comparison and retains the explicit graph diagnostic. A04 transfer display depends on actual owner events. C04 retains the existing expiry policy. |
-| [I06](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I06) | Scheduled | [69e E04](69e-source-model-and-live-schema-operations.md#e04--reuse-coordinates-in-bounded-structural-browsing) owns source-coordinate reuse. Range pushdown has a separate revisit condition. |
-| [I07](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I07) | Deferred until E03 selects the standalone tool | [69b B02](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) and 69a A03 own exact preparation and recovery as an apply prerequisite when selected. |
+| [I06](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I06) | Resolved | [69e E04](69e-source-model-and-live-schema-operations.md#e04--reuse-coordinates-in-bounded-structural-browsing) verified reused source coordinates with exact UTF-8 captures and multiline edits. Range pushdown has a separate revisit condition. |
+| [I07](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#I07) | Resolved | [69b B02](69b-codex-workstation-and-preparation.md#exact-v4-prerequisites) verified exact standalone tool preparation and recovery. E03 still owns admission to live apply. |
 
 The [coverage appendix](../plan_improvement_reviews/plan69-surrealdb-and-rust-tooling-2026-11-08.md#coverage-appendix)
 retains the detailed guide dispositions. Revisit optional analyzers, language services,
