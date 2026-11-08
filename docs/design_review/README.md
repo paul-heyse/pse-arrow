@@ -56,11 +56,15 @@ recommendations form one tooling plan without an ADR. The hakari retirement stan
 consolidates the same-day [functional review](../functional_reviews/rust-build-reuse-tooling-2026-10-24.md),
 whose probes remain the reproducible evidence.
 
-The [test architecture target review](reviews/design_review_test-architecture-target_2026-10-23.md)
+The [November test assurance architecture review](reviews/design_review_test-assurance-target_2026-11-08.md)
+accounts for all 72 test audit findings and recommends how native selection, fixtures, scientific
+oracles and evidence should compose. Plan66 and Plan69 retain their existing acceptance boundaries.
+
+The historical [October test architecture review](reviews/design_review_test-architecture-target_2026-10-23.md)
 develops a coherent target and corrective changes from the holistic test audit. It accounts
 for all 48 DTA identities, including retained guarantees and withdrawn diagnoses, and connects
 scientific assurance, shared preparation, execution requirements, evidence lifetimes and
-scheduling. [Plan53](../plans/53-test-architecture-target.md) now owns scheduled dispositions and
+scheduling. [Plan53](../plans/53-test-architecture-target.md) records its historical dispositions and
 implementation packages, including the operator-accepted RC01/RC02. Its draft plans and
 rule acceptance establish no implementation or qualification evidence.
 
