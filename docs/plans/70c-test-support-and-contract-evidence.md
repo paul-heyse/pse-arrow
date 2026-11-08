@@ -21,7 +21,7 @@ construction, process settlement, and release.
 
 ## <a id="c01"></a>C01 — Make support inputs and observations explicit
 
-**Interface-checked at `e707f70a3`.** The compiler observation records formatted Salsa events and
+**Interface-checked at `622261d8f`.** The compiler observation records formatted Salsa events and
 counts query-name substrings. Its bounded trace already rejects missing or truncated evidence. The
 cold control establishes activity for `Parsed`, while several no-reexecution assertions consume
 other query identities. Reference package setup still rewrites dependency literals, and the math and
@@ -44,10 +44,16 @@ these inputs without importing a solver or service for a pure control. Delete du
 when callers share an equivalent path. Keep distinct constructors when their visible differences
 carry the test's scientific claim.
 
-Record complete, bounded execution observations under stable identities at the compiler test
-boundary. The pinned Salsa event exposes `WillExecute` and the key's `ingredient_index()`.
-Use that identity only if the test can map it to the intended query through a stable supported
-boundary. Otherwise keep the observation local to the owning query using a typed test-only seam.
+Record complete, bounded execution observations at the compiler test boundary. Vendored Salsa
+0.28.5 `EventKind::WillExecute` exposes the database key when a query runs, and
+`DatabaseKeyIndex::ingredient_index()` supplies a typed ingredient identity. This can replace
+debug-name matching if a stable supported mapping to the intended query exists. Confirm that
+mapping with the pinned source and a cold control that distinguishes the intended query from an
+adjacent one. If the mapping cannot be established, keep the observation local to the owning
+query using a typed test-only seam. This decision gates the replacement observation in C01.
+[Runtime events overview](../libraries/scientific_calcs/salsa.md#141-runtime-events) ·
+[Vendored event](../../vendor/salsa/src/event.rs) · [Vendored key](../../vendor/salsa/src/key.rs)
+
 Replace debug-string matching. For each asserted absence of new work, first establish a positive
 execution of the same query or phase. Verify the warm result against fresh semantic checking and
 challenge a changed input that must run the affected phase. Missing, unrecognized, and truncated
@@ -62,13 +68,24 @@ a uniquely discriminating branch test. It grants no evidence of physical settlem
 
 ## <a id="c02"></a>C02 — Resolve historical provenance and final-apply fault control
 
-**Interface-checked at `e707f70a3`.** The v2/v3 receipt tests construct predecessor requests and
+**Interface-checked at `622261d8f`.** The v2/v3 receipt tests construct predecessor requests and
 activation records using today's serializer and helpers. The existing real native lost-ACK case
 commits an intermediate v2 checkpoint and reopens its original request. The current final
 `apply_receipt` issues the activation write, reads back the original operation on write error,
 and distinguishes a found receipt, definite absence, and readback error. The intermediate case
 exercises a different transition. [Migration owner](../../crates/pse-operations/src/canonical_migration.rs) ·
 [Native checkpoint control](../../crates/pse-operations/src/native_fixture/migration_tests.rs)
+
+Keep the selected SurrealDB 4.0.0 transaction and canonical gRPC path for the physical control.
+`MigrationScript` uses `BEGIN` and `COMMIT` to publish activation within the original write.
+`apply_receipt` owns the exact-operation `SELECT` readback and verifies the returned receipt
+against the original request. The transaction supplies the commit boundary. PSE owns original
+identity, acknowledgement classification, readback and the decision against replay. C03 uses
+that contract. C02 still needs to demonstrate which candidate fault seam can suppress the
+response after the real commit without replacing the write or the readback.
+[v4 transaction overview](../libraries/surrealDB/SurrealDB_v4.md#6-transactions-isolation-and-concurrent-state) ·
+[SurrealDB transaction contract](https://surrealdb.com/docs/learn/querying/concepts-and-guides/transactions) ·
+[Exact-request activation and readback](../../crates/pse-operations/src/canonical_migration.rs)
 
 Search the retained fixtures and evidence for original v2/v3 request and activation bytes.
 Follow the actual predecessor producer and its pinned schema or digest through Git history.
@@ -120,24 +137,40 @@ Use bounded, replayable generated cases alongside the named deterministic contro
 owning encoding boundaries, exercise admitted slices and offsets, dictionary repacks, nested
 nulls, and partition choices under the identity that each representation claims to preserve.
 Derive expected equivalence from the declared semantic inputs and include a meaningful value or
-identity mutation. Use an existing pinned property harness where it fits. Preserve the distinct
+identity mutation. Use proptest 1.11.0's `TestRunner` with a bounded case count and reproducible
+seed for the generated identity controls. The runner generates and shrinks counterexamples.
+PSE owns admissible data, the comparison property and the deliberate mutation. Retain enough
+case information to replay failures. Preserve the distinct
 roles of DSL AST generation and executing the named AST selection in the selection companion.
+[Pinned runner and configuration](https://docs.rs/proptest/1.11.0/proptest/test_runner/index.html) ·
+[Existing seeded controls](../../crates/pse-authoring/tests/dsl_roundtrip.rs)
 
-Extend the existing `MemTable` unpruned comparison and add the equivalent-source control at the
-canonical pruning owner. Cover nullable ranges and negation, empty and multiple block/file shapes,
+Extend the DataFusion 55.1.0 `MemTable::try_new` comparison and add the equivalent-source
+control at the canonical pruning owner. The reference exposes all rows and lets the same
+DataFusion engine evaluate the residual predicate. `TableProvider::supports_filters_pushdown`
+controls whether DataFusion can drop that residual for `Exact` or must retain it for `Inexact`
+and `Unsupported`. This isolates pruning behavior while sharing SQL semantics. PSE owns
+the complete reference rows and multiset comparison. Cover nullable ranges and negation, empty and multiple block/file shapes,
 multiplicity, and residual filtering before limit. Compare the actual returned results against the
 same data evaluated without the pruning under test. Keep deterministic invalid-statistics,
 protected-schema, and omitted-decode controls. Retain a deliberately wrong provider or wrong-pruning
 control to show that the comparison detects lost rows. Engine predicate semantics and canonical
-statistics/physical pruning remain separate assurance boundaries. [Unpruned comparison](../../tests/engine/tests/pushdown_vs_unpruned.rs) ·
+statistics/physical pruning remain separate assurance boundaries.
+[Pushdown overview](../libraries/analytical_infrastructure/datafusion.md#42-predicate-projection-and-limit-pushdown) ·
+[Pinned provider contract](https://docs.rs/datafusion/55.1.0/datafusion/catalog/trait.TableProvider.html#method.supports_filters_pushdown) ·
+[Pinned memory table](https://docs.rs/datafusion/55.1.0/datafusion/datasource/struct.MemTable.html) ·
+[Unpruned comparison](../../tests/engine/tests/pushdown_vs_unpruned.rs) ·
 [Canonical pruning](../../crates/pse-runtime/src/workflow/result_pruning_tests.rs)
 
-Keep the broad implementation-presence scan where it earns its scope. Check actual stable
-diagnostic codes through the selected leaf and delegated owner errors, including a case that fails
-when the code is absent. Reuse the existing diagnostic catalog. For compile-fail examples, name the
+Keep the broad implementation-presence scan where it earns its scope. Check stable codes through
+selected leaf and delegated owner errors using miette 7.6.0 `Diagnostic::code()`. The trait permits
+an absent code. PSE's `TypedDiagnostic` adapter and catalog supply stable meanings and define
+forwarding, so include an absent-code failure control. For compile-fail examples, name the
 intended compiler error and pair it with a compiling neighboring form. Match authoritative and
 operator documentation claims to the exact lifecycle and engine controls exercised. Keep the
 existing architecture publication route for enduring contract wording. [Taxonomy checks](../../tests/governance/tests/error_taxonomy.rs) ·
+[Pinned diagnostic contract](https://docs.rs/miette/7.6.0/miette/trait.Diagnostic.html#method.code) ·
+[Typed diagnostic adapter](../../crates/pse-diagnostics/src/lib.rs) ·
 [Diagnostics and validation](../authoritative_design/sections/operations-and-validation.md)
 
 ## Packages

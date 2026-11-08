@@ -22,7 +22,7 @@ contract protects the exchange while each oracle retains its scientific method a
 [Coordinator](70-test-assurance-architecture.md) ·
 [Review R04](../design_review/reviews/design_review_test-assurance-target_2026-11-08.md#r04)
 
-**Interface-checked at `e707f70a3`.** The covariance request copies the primary candidate's
+**Interface-checked at `622261d8f`.** The covariance request copies the primary candidate's
 allowances into its supposedly frozen reference acceptance input. Sensitivity uses candidate
 allowances and scales for comparisons, including its independent sIPOPT-to-analytic check. Their
 existing perturbation controls use the allowance under test, so a wrong value paired with an
@@ -87,13 +87,21 @@ to that interpreter and require its actual package observations to match the sel
 Preserve IDAES 2.13.0 and the clean-room reference boundary. Put each required solver capability
 with the case or stage that consumes it, including the initialization stage when it governs
 the reference. Bind the solver invocation to the admitted prepared executable and capture
-the actual executable identity and release in the returned evidence, including solver objects
-created inside the Pyomo or IDAES call. Reuse pinned library construction where it exposes
-selection, and verify its resolved executable at the consuming boundary. A separate PATH
-probe can explain readiness but cannot attest an indirect solve. Preserve an explicit refused
-outcome when a selected stage cannot establish provenance. Keep genuinely analytic stages
+the actual executable identity and release in the returned evidence. For direct shell-backed
+solves use Pyomo 6.10.1 `SolverFactory` and the selected plugin's `set_executable` and
+`executable()` to bind and observe the executable on the instance that runs. IDAES 2.13.0's
+heat exchanger `initialize_build` takes a solver name and calls `get_solver`, which creates a
+solver separately. The direct binding alone supplies no initializer witness. Determine which
+supported selection and observation path reaches that instance and any consumed submodel
+initializer. Verify with an admitted executable and a distinct substitute on PATH. The indirect
+part of D02 and A04's dependent parity routes require this evidence. Keep a typed nonpass when a
+selected stage cannot establish provenance. Keep genuinely analytic stages
 independent of solver admission. Share environment checks while leaving model construction,
 comparators and each sound wire exchange with their owners.
+[Solver configuration overview](../libraries/idaes-pse.md#81-solver-independence-and-solver-configuration) ·
+[Pyomo 6.10.1 shell solver](https://github.com/Pyomo/pyomo/blob/6.10.1/pyomo/opt/solver/shellcmd.py) ·
+[IDAES 2.13.0 exchanger initializer](https://github.com/IDAES/idaes-pse/blob/2.13.0/idaes/models/unit_models/heat_exchanger.py) ·
+[IDAES 2.13.0 solver factory](https://github.com/IDAES/idaes-pse/blob/2.13.0/idaes/core/solvers/get_solver.py) ·
 [Parity lock declaration](../../pyproject.toml) ·
 [Existing interpreter roles](../../crates/pse-runtime/Cargo.toml) ·
 [Host input selection](../../crates/pse-host/src/fixtures/execution.rs) ·
@@ -123,12 +131,19 @@ Apply finite case-derived response limits in both producer and receiver for the 
 exchanges. Admit the case's result cardinality and variable-length fields before encoding so
 the producer's working buffer and file are bounded. Publish the completed response only on
 successful encoding. The receiver verifies extent and reads within the limit before
-decoding, then checks case identity and semantic completeness. Keep ordinary Proto's existing
-16 MiB encoder and readback contract and its separate source-admission bounds. Avoid format
+decoding, then checks case identity and semantic completeness. In the ordinary exchange, Python
+protobuf 7.36.2 uses a private `DescriptorPool` and `GetMessageClass` to load the selected
+binary descriptor, then checks `ByteSize()` before `SerializeToString`. The Rust receiver
+keeps the 16 MiB readback cap and uses vendored Buffa 0.9.2 `DecodeOptions::decode_from_slice`
+with message, element-memory, recursion and unknown-field limits. These mechanisms bound the
+ordinary wire path while preserving the original binary envelope. PSE owns custody before
+reading, descriptor and case correspondence, and scientific completeness. Avoid format
 consolidation that would lose accepted distinctions or duplicate semantic validation.
 [B02](70b-fixtures-and-process-ownership.md#b02) ·
 [Original supervisor](../../crates/pse-diagnostics/src/supervised_child.rs) ·
-[Proto reference encoding](../../tests/reference/proto_exchange.py)
+[Python reference encoding and descriptor limits](../../tests/reference/proto_exchange.py) ·
+[Rust decoding and named limits](../../crates/pse-runtime/src/reference_exchange.rs) ·
+[Buffa overview](../libraries/proto/Buffa.md) · [Exact maintained Buffa delta](../../vendor/buffa/pse-patch.md)
 
 **Proposed verification.** Exercise a child that exceeds the diagnostic limit and returns
 zero. The exchange reports overflow, preserves the raw exit and authentic settlement, and

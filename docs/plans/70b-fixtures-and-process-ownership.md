@@ -15,22 +15,31 @@ review_sources: [docs/design_review/reviews/design_review_test-assurance-target_
 and the process portion of R04. Keep effect-free assertions with small inputs, logical database
 borrowers on the real client contract, and private physical services where the claim depends on
 process, wire, permissions or persistence. Keep Plan67's demonstrated service evidence and
-Plan69's result custody at their named scopes. [Coordinator](70-test-assurance-architecture.md)
+the selected Plan68 v4 fixture and Plan69 custody evidence at their named scopes.
+[Coordinator](70-test-assurance-architecture.md) · [v4 fixture receiving](68d-surrealdb-v4-developer-and-test-receiving.md)
 
 ### <a id="b01"></a>B01 — Select bounded capture without changing drain semantics
 
-The existing `SupervisedChild::spawn` capture is prepaid, stderr-only and restricted to
-`DrainFailurePolicy::Park`. Finite `Refuse` users do not receive that capability. Compare an
-owned cancellable pipe multiplexer with two supervised bounded readers, using pinned primitives
-and the existing process-group and PIDFD owner. Choose the smallest composition that admits
-bounded resources before spawn, drains both streams concurrently without pipe deadlock, preserves
+Keep `SupervisedChild` as the process owner. Its rustix 1.1.5 `process` primitives
+(`pidfd_open`, `pidfd_send_signal`, and `waitid` with `NOWAIT`) support identity-bound signalling
+and observing exit before reaping. PSE checks the process group and settles its observed members.
+Exit of the leader alone cannot establish group drain. Existing `StderrCapture` is prepaid,
+stderr-only, and restricted to `DrainFailurePolicy::Park`.
+[Pinned PIDFD API](https://docs.rs/rustix/1.1.5/rustix/process/fn.pidfd_open.html) ·
+[Pinned wait API](https://docs.rs/rustix/1.1.5/rustix/process/fn.waitid.html) ·
+[Supervisor](../../crates/pse-diagnostics/src/supervised_child.rs)
+
+Compare two candidates for finite capture. Use rustix 1.1.5 `event::poll` over owned nonblocking
+pipes and a cancellation wakeup, or use two supervised bounded readers with a demonstrated
+way to interrupt and join each reader when a writer keeps a pipe open. Choose the smallest
+composition that admits bounded resources before spawn, drains both streams without pipe deadlock, preserves
 an overflow fact, and supports finite refusal without detaching a reader or releasing a live
 group. Prefer the option that adds no separate process owner. Resolve a material uncertainty
 with a child that exceeds both bounds then exits zero and a descendant that holds a pipe open.
 The deciding record must show bounded retained bytes, explicit overflow, and authentic join or
 unresolved custody. If neither realization meets the contract, leave bounded-capture consumers
 gated and record the specific constraint. Keep legacy Park behavior for its current callers.
-[Supervisor](../../crates/pse-diagnostics/src/supervised_child.rs)
+[Pinned poll API](https://docs.rs/rustix/1.1.5/rustix/event/fn.poll.html)
 
 ### <a id="b02"></a>B02 — Deliver the common process and settlement contract
 
@@ -40,11 +49,15 @@ deadline, derive the work cutoff once and clamp startup, RPC, child waits and ca
 their owned budget. Keep physical drain authoritative and preserve the first failure and
 settlement refusal separately. An unresolved drain retains original custody. For SurrealKit and
 the repeated-analysis target, verify that the effective nextest profile cannot silently cut
-off legitimate reserved work and drain. Correct the selected lane or budget relationship.
-Never infer safe disposal from a process exit or a passing test. D03 and C03 consume this
-contract for reference diagnostics and committed lost-acknowledgement evidence respectively.
+off legitimate reserved work and drain. Nextest's `slow-timeout` with `terminate-after` can
+terminate the harness before its internal settlement deadline. It supplies the runner cutoff.
+The fixture owner still budgets work and retains cleanup authority. Correct the selected lane or
+budget relationship. Require owner drain before disposal. [D03](70d-scientific-references.md#d03)
+and [C03](70c-test-support-and-contract-evidence.md#c03) consume this contract for reference
+diagnostics and committed lost-acknowledgement evidence respectively.
 [Service run](../../crates/pse-operations/src/native_service.rs) ·
-[Runner profiles](../../.config/nextest.toml)
+[Runner profiles](../../.config/nextest.toml) ·
+[Nextest timeout configuration](https://nexte.st/docs/features/slow-tests/)
 
 ### <a id="b03"></a>B03 — Make logical borrower cleanup representative
 
@@ -66,9 +79,20 @@ The already corrected unpublished-listing release is separate. [Canonical protec
 
 ### <a id="b04"></a>B04 — Observe the phase and reason the control claims
 
-For the SurrealKit seed failure, capture bounded attributable evidence of the seed `THROW`,
-verify expected finality, and show an unrelated startup or endpoint refusal cannot satisfy it.
-Preserve the separately named assertion and rollout drift controls. Replace elapsed-time
+Use SurrealKit `1.0.0-rc.1` at `625e264c4e134def842bfe8ac9d2f918a42bb6c3` on the selected
+SurrealDB 4.0.0 fixture. `test --schema-from sync --suite <name>` supplies selected declarative database
+assertions. The `both` mode builds sync and rollout schemas separately and supplies schema-parity
+evidence. It does not by itself establish behavior on a predecessor row. `--json-out` supplies
+named suite results when a report is produced. PSE owns service identity and credentials,
+diagnostics before report publication, deadline, physical drain and disposal.
+[Pinned tester](https://github.com/surrealdb/surrealkit/blob/625e264c4e134def842bfe8ac9d2f918a42bb6c3/crates/surrealkit/src/tester/runner.rs) ·
+[Selected fixture and receipt](68d-surrealdb-v4-developer-and-test-receiving.md#packages)
+
+The current v4 control uses distinct setup and seed `THROW` markers, exit 1 without a report,
+and a 64 KiB stderr readback limit. Preserve these discriminators and the separate assertion and
+rollout drift controls. Move live diagnostics to B02's bounded process contract because a
+readback cap leaves the producer file free to grow. Verify that a startup or endpoint refusal
+cannot satisfy the intended-marker check. Replace elapsed-time
 inference in worker cancellation, lease and park cases with a phase/lease or original process
 observation where one exists. Challenge a wrong PID or missing witness. Drive the actual
 preparation owner through its lock and a controlled cancellable build stage, checking

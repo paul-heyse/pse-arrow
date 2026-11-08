@@ -22,27 +22,29 @@ oracles own scientific expectations. The original workflow owner reports selecti
 process exit and settlement separately. Focused feedback should demand only the work and state
 the claim requires, while preserving the full guarantees of real integrations and required science.
 
-**Interface-checked at `e707f70a373020ca5e054cfb7cbc16c97ae47b3a`.** The
+**Interface-checked at `622261d8f5cab55159e7543b7df1762f78ca22f4`.** The
 [design review](../design_review/reviews/design_review_test-assurance-target_2026-11-08.md)
 published at `efc1a7cb4`, including its scoped audit reconciliation, is the design input.
-The intervening optional-field codec receiving changes belong to Plan69e and leave the
-selected test architecture mechanisms unchanged. During authoring, `70eeed28d` added a
-guarded exact Cargo target candidate to the analyzer route. E01 receives that as advisory
-input while retaining its distinct scientific fixture associations and conservative widening.
-Concurrent working-tree changes are outside the source baseline. Core 3.4, heuristics 1.0, test-assessment 1.2 and the
-process-simulator profile 1.5 guide the target. No new architecture rule change is proposed.
+The current baseline includes the accepted SurrealDB 4.0.0 fresh-default cutover and
+Plan69c's guarded analyzer candidate and scoped binary-membership and image-leasing evidence.
+[E01](70e-preparation-and-verification-scope.md#e01) receives the analyzer result as advisory input
+and retains its scientific fixture associations and conservative widening. Core 3.4, heuristics
+1.0, test-assessment 1.2 and the process-simulator profile 1.5 guide the target.
+No new architecture rule change is proposed. [ADR-0257](../adr/0257-rebuild-canonical-storage-on-surrealdb-v4.md) ·
+[Plan68 selection evidence](68e-surrealdb-v4-fresh-generation-and-acceptance.md#e03--select-open-writes-and-release)
 
 The foundation assessment uses Plan69's delivered ordinary graph admission, pinned managed
-nextest capture, native result pairing and release. Its exact binary membership and original
-image custody remain Plan69c work. Plan70 uses those outputs and corrects downstream repeated
-verification and the missing specialist semantics. Plan67's selected SurrealKit and native
-borrower evidence supports using existing private service owners. It does not establish that
-logical borrower cleanup exercises the production executor. The current process supervisor
+nextest capture, native result pairing and release. Plan69c now supplies binary membership,
+helper selection and image leases with scoped receiving evidence. [E02](70e-preparation-and-verification-scope.md#e02)
+and [E03](70e-preparation-and-verification-scope.md#e03) use that foundation to narrow downstream
+verification. Plan68's v4 SurrealKit receiving and Plan67's native borrower evidence support using
+existing private service owners. Representative production-executor cleanup remains B03 work.
+The current process supervisor
 authenticates group drain but its optional stderr reader is Park-only. B01 must qualify bounded
 two-stream capture before it becomes a common consumer contract. The ordinary Proto exchange's
 independent physical values and bounded wire model are reusable. Legacy candidate allowances
-and current-generated predecessor bytes require independent witnesses. [Plan69c](69c-ordinary-testing-and-managed-results.md) ·
-[Plan67c](67c-surrealkit-and-rust-test-consolidation.md) ·
+and current-generated predecessor bytes require independent witnesses. [Plan69c capture](69c-ordinary-testing-and-managed-results.md#analyzer-and-capture-boundaries) ·
+[Plan68d receiving](68d-surrealdb-v4-developer-and-test-receiving.md) · [Plan67c](67c-surrealkit-and-rust-test-consolidation.md) ·
 [Plan66l](66l-required-population-and-assembled-acceptance.md)
 
 Choose small changes at those owners over a new scheduler, generic fixture framework, oracle
@@ -63,8 +65,8 @@ workload.
 | [70e](70e-preparation-and-verification-scope.md) | R06 | Demand-selected source closure, authenticated group and page verification, and proportionate graph acquisition |
 
 Start A01, B01, C01/C02 and C04's pure controls, D01/D02, and E01/E02/E04 on their
-existing inputs as capacity permits. E02 can inspect nextest and receiver boundaries before
-the final Plan69c membership and custody facts are available.
+existing inputs as capacity permits. E02 uses the delivered Plan69c membership and lease
+mechanisms and must verify their applicability to each proposed group handoff.
 A03 can map contention early. Its enforcement consumes A02's selected requirements and its
 receiving checks consume B02's drain contract. B01 settles the capture slice of B02, while
 deadline composition can advance independently. B03/B04, C03 and D03 need the relevant
@@ -84,8 +86,9 @@ Plan66l L01/L03 owns the exact configured scientific population and assembled sc
 acceptance. Plan69c owns ordinary admission, exact failed rerun, managed result custody and
 binary membership/capture. Link their exact source, case or identity evidence where consumed.
 The new work tests its changed interfaces, retaining Plan69's live verdict, rerun and settlement
-receiving controls. Plan53 is historical. The v4 receiver is conditional on its later activation
-and would inherit the same SurrealKit, settlement and artifact-identity obligations.
+receiving controls. Plan53 is historical. Plan68 retains its outstanding platform qualification
+and historical custody. [B04](70b-fixtures-and-process-ownership.md#b04) uses the selected v4
+fixture and retains the SurrealKit, settlement and artifact-identity obligations.
 
 ## Verification scenarios
 

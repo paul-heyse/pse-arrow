@@ -23,11 +23,17 @@ Resolve the generic nextest executable once against the configured tool pin and 
 executable selected for launch. Share the existing pin interpretation with managed discovery.
 Where the runner claims captured-image identity, retain the authenticated copy and verify the
 executable used. Refuse a version mismatch or substitution. Retain generic Cargo as a
-fixture-free route and use the pinned Cargo unit graph to enforce explicit Arrow validation in
-the actual selected normal, build and dev units. Exercise pure closure, Arrow closure and an
+fixture-free route. Use `cargo_metadata` 0.23.1 `Target` for declared target kinds, test/doctest
+eligibility and required features. Use `--unit-graph -Z unstable-options` on the checkout's pinned
+Cargo nightly for actual roots, enabled features and host/target dependency edges. Target metadata
+supplies candidates. The correctness adapter checks the admitted graph for explicit Arrow
+validation in the actual selected normal, build and dev units. Exercise pure closure, Arrow closure and an
 Arrow-consuming doctest with an omitted leaf. The doctest control must distinguish leaf
 validation from ordinary source compilation and nextest listing.
-[Correctness adapter](../../crates/pse-host/src/correctness.rs) · [Discovery](../../crates/pse-host/src/discovery.rs)
+[Target API](https://docs.rs/cargo_metadata/0.23.1/cargo_metadata/struct.Target.html) ·
+[Cargo unit graph](https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#unit-graph) ·
+[Toolchain pin](../../rust-toolchain.toml) · [Correctness adapter](../../crates/pse-host/src/correctness.rs) ·
+[Discovery](../../crates/pse-host/src/discovery.rs)
 
 ### <a id="a02"></a>A02 — Bind selected requirements and truthful outcomes
 
@@ -39,20 +45,24 @@ only the target owner can observe setup, retain an attributable typed setup resu
 assertion-not-reached distinction. Receive that outcome in the existing Plan69 managed
 result contract. Migrate callers and remove duplicated rule interpretations.
 
-Nextest 0.9.146 and `nextest-metadata` 0.15.0 remain the filter and dispatch mechanisms.
-`RustTestCaseSummary` has no effective group. Keep native `group(=…)` queries where per-run
-membership is required and scope them to relevant contexts. Do not infer membership from human
-output. A renamed required case, stale role, wrong runner, empty selection and exit zero with
+Use nextest 0.9.146 native filters and dispatch. In `nextest-metadata` 0.15.0,
+`RustTestCaseSummary::filter_match` exposes the case's filter result without effective group
+membership. Use native `group(=…)` queries where per-run membership is required and scope them to
+relevant contexts. PSE still matches fixture roles to actual cases and owns setup and settlement.
+[E02](70e-preparation-and-verification-scope.md#e02) owns the binary and helper listing contract.
+A renamed required case, stale role, wrong runner, empty selection and exit zero with
 missing evidence must each remain observable as distinct nonpasses. Unrelated pure cases need no
 fixture. Exclude unmarked park/foreground subprocess helper entries from assurance counts. Their
 marked parent controls must affirm that the helper reached its intended stage.
-[Managed runner](../../crates/pse-host/src/test_workflow/execute/runner.rs)
+[Pinned case summary](https://docs.rs/nextest-metadata/0.15.0/nextest_metadata/struct.RustTestCaseSummary.html) ·
+[Filtersets](https://nexte.st/docs/filtersets/reference/) · [Managed runner](../../crates/pse-host/src/test_workflow/execute/runner.rs)
 
 ### <a id="a03"></a>A03 — Find the actual shared exclusion boundary
 
 Inspect ownership of the named scientific groups and store effects under two independent
-invocations. Compare existing owner admission with a narrow owner-held claim if the actual
-shared effect can overlap. Trace claimant identity, acquisition, cancellation, original drain
+invocations. Nextest's named groups enforce scheduling within a run. Cross-invocation exclusion,
+where required, belongs to the owner of the shared effect. Compare existing owner admission with
+a narrow owner-held claim if the actual shared effect can overlap. Trace claimant identity, acquisition, cancellation, original drain
 and safe release. The deciding cases are two runs contending for the same resource, unrelated
 pure and private work, and a stopped run whose drain is unresolved. The same-resource case
 must serialize where the underlying effect requires it, unrelated work remains concurrent,
@@ -60,19 +70,24 @@ and a stopped owner retains the claim until settlement. Use an existing guard wh
 establishes the whole contract. Where it does not, specify enforcement at the actual effect owner
 and schedule that change here. Where no shared constraint exists, retain per-run nextest policy.
 Keep ordinary host width and retain native manager ownership. The inquiry must settle the
-scope before adding any enforcement and use B02's custody contract for receiving verification.
+scope before adding any enforcement and use [B02](70b-fixtures-and-process-ownership.md#b02) for
+receiving verification. [Nextest test groups](https://nexte.st/docs/configuration/test-groups/) ·
+[Pinned group implementation](https://github.com/nextest-rs/nextest/blob/cargo-nextest-0.9.146/nextest-runner/src/runner/imp.rs)
 
 ### <a id="a04"></a>A04 — Make specialist routes reachable and discriminating
 
 Wire the four parity interpreter selectors to the explicitly prepared locked interpreter and
 D02's actual solver admission. Exercise each selected exchange with clean caller variables and
 verify a missing input refuses. Name separate selections for reference-only controls and controls
-that consume source-produced native contracts. Send local and CI Miri through supported explicit
-toolchain and Arrow-validation selection, replacing the invalid adapter invocation. Add an exact
+that consume source-produced native contracts. Use `cargo miri test` on the pinned nightly for
+the interpreter control, with explicit Arrow validation on its selected relation closure. Replace
+the unsupported adapter invocation. Keep doctests on `cargo test --doc` through the correctness
+adapter so rustdoc's real selection receives A01's graph checks. Add an exact
 feature route for the arbitrary AST test. Bind qualification-module and long-hold tests to their
 own receipt and readiness, separate from production-module borrowing. Migrate ordinary compiler
 and modeling capsule consumers to E01's selected authored closure. Keep staged-receipt cases
 on their explicit capture route. Repair obsolete binding and validation guide command references.
+[Miri CI route](../../.github/workflows/rust-scheduled.yml) · [Cargo test target selection](https://doc.rust-lang.org/cargo/commands/cargo-test.html#target-selection) ·
 [Recipes](../../justfile) · [Fixture declarations](../../crates/pse-operations/Cargo.toml) ·
 [Qualification guide](../dev/validation-assessment.md)
 
