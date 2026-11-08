@@ -120,18 +120,21 @@ selected generation.
 Detached and borrowed test presentations can enter the compact expiry class after the
 owner proves native drain and image release. The original settlement bytes stay immutable.
 Bare ordinary test admission now has a compile-free Cargo graph check. Exact scoped test
-enumeration and execution use nextest. The current executable capture and analyzer opportunities
-are tracked with the test owner. [Analyzer and capture boundaries](69c-ordinary-testing-and-managed-results.md#analyzer-and-capture-boundaries)
+enumeration and execution use nextest. Guarded analyzer candidates can narrow the Cargo
+target and test name before a build. Discovery acquires only nextest-selected images
+and shares immutable bytes across active invocations. [Analyzer and capture boundaries](69c-ordinary-testing-and-managed-results.md#analyzer-and-capture-boundaries)
 Source-change preview uses an isolated checkout with one retained snapshot per checkout.
-It publishes the staged generator delta and recovers by exact file identity. The
+It accepts reviewed source postimage digests, publishes the staged generator delta and
+recovers by exact file identity. The
 installed-catalog observer uses an authenticated Viewer connection and shares the
 normalized inventory with maintenance validation.
 
 The companion plans retain assembled qualification that remains open. Project export and
 study deliverables still need publication identities that survive a lost reply.
 Live schema rollout still needs an owner for the original rollout nonce, physical
-server instance and settled activation. Receive those guarantees on Plan68's selected
-candidate baseline. F02 retains eager construction after selective deferral failed catalog
+server instance and settled activation. The v4 merge supplies the current server and client
+family. The production producer for the maintenance owner's exact pending and settled
+rollout remains a prerequisite. F02 retains eager construction after selective deferral failed catalog
 parity. A04 keeps transfer progress conditional on an owner exposing actual transfer events.
 
 ## Opportunity dispositions

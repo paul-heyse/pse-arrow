@@ -116,10 +116,11 @@ Complete the real authored-case journeys before retiring the manual route.
 [Ownership map](../../xtask/src/codegen/ownership.rs) ·
 [Ipopt writer](../../xtask/src/codegen/ipopt.rs) · [CoolProp writer](../../xtask/src/codegen/coolprop.rs)
 
-**Interface-checked.** Compose the existing guarded semantic rename and SSR proposals
-with source-change preview when their selected Rust world resolves the authored symbol
-and its consumers. `ra_ap_ide` 0.0.358 returns a structured `SourceChange`; use its exact
-file edits as preview inputs. Tree-sitter and ast-grep can provide cheaper structural
+**Implemented.** The guarded semantic rename and SSR proposals can supply a reviewed
+checkout and exact file digest handoff to `source-change preview --proposal PATH|-`.
+Preview validates the authored postimages before preparing a generation. `ra_ap_ide`
+0.0.358 returns the structured `SourceChange` used to derive those digests. Tree-sitter
+and ast-grep can provide cheaper structural
 anchors for declarative patterns. The generator still owns schema, wire-name and
 compatibility decisions, and the receiving checks own the resulting behavior.
 For a public API change, compare the existing rustdoc-backed API capture when that

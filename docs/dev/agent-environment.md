@@ -49,7 +49,7 @@ configuration. Without activation, use `scripts/pse` explicitly. The local `pse-
 select capabilities and progressively expand useful detail. `scripts/pse commands` and
 `scripts/pse help COMMAND` describe its actual parser. Current invocation commands include
 `run [--detach] -- COMMAND`, `wait INVOCATION [--timeout SECONDS]`, `cancel INVOCATION`,
-`history`, `result INVOCATION` and bounded `log INVOCATION`. A selector can be an exact ID,
+`history`, `inspect invocation INVOCATION` and bounded `inspect log INVOCATION`. A selector can be an exact ID,
 a unique prefix or `latest`, optionally scoped by `--session`. A timed-out wait ends that
 observation and leaves the subject running. The original child, payload settlement and service
 finalization remain separate facts; a successful control response does not rewrite the child.
@@ -393,6 +393,12 @@ settled ordinary test summaries can expire after seven days. The retirement witn
 expires seven days after release. The original report and protected evidence keep
 their own custody rules.
 
+Use `pse inspect log ID` for a bounded original stream window. To deliver one compact
+inspection as JSON, use `pse tools export-result ID --output FILE` with an optional
+`--detail` selector. The destination must be fresh. The receipt identifies the exact
+selected result and export digest. The command keeps raw logs and product payloads
+under their original owners.
+
 Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
 `--release TOKEN` to release that selection. Use `pse tools hold-result ID` with
 `--consumer NAME --condition CONDITION` to record a hold. Omit the condition to clear
@@ -401,23 +407,24 @@ the repository's user timer for eligible records in its authenticated registered
 
 ## Choosing tests
 
-The Plan59 native commands support `scripts/pse tests PACKAGE -E 'test(name)'`,
-`scripts/pse test PACKAGE -E 'test(name)'` and `scripts/pse check PACKAGE`. Listing explicitly
-builds and captures the actual selected population. Test/check/list can use `--detach` and
-`--session NAME`; `scripts/pse wait ID` reads the original result independently. A zero-match
-test selection is a nonpass. Missing fixture lifecycle readiness remains explicit; the broader
-fixture/rerun migration is still owned by [Plan59c](../plans/59c-tests-and-fixtures.md).
+Use `scripts/pse inspect test-selection --admitted` to explain the Cargo targets and feature
+closure without building. `scripts/pse tests PACKAGE -E 'test(name)'` builds the selected
+targets and asks nextest for their actual population. `scripts/pse test` runs the selection
+through nextest and defaults to the ordinary workspace. Test/check/list can use `--detach`
+and `--session NAME`. `scripts/pse wait ID` reads the original result independently. A
+zero-match selection and missing fixture readiness are explicit nonpasses.
 
 `--non-incremental` selects Cargo's `build.incremental=false` for that check, test or
 listing. Admission and the build carry the same setting, and failed-test rerun uses the
 original selection. Unset an inherited `CARGO_INCREMENTAL=1` before using the flag because
 that environment value takes precedence in Cargo. Ordinary editing keeps the existing mode.
 
-The original detached owner releases private test and compiler images after native drain and
-paired result publication, including when nobody waits. Borrowed runs keep their images until
-the exact enclosing owner drains. `wait` can reconcile an explicitly selected settled workflow
-and leaves live borrowed scopes under their enclosing owner. The original working report and
-inventory remain available after image release.
+Nextest's binary list selects the harnesses and integration helpers that need immutable
+images. Active invocations in a checkout share identical image bytes. The original detached
+owner releases its image leases after native drain and paired result publication, including
+when nobody waits. Borrowed runs retain their leases until the exact enclosing owner drains.
+The last release collects the image. `wait` can reconcile an explicitly selected settled
+workflow. The original working report and inventory remain available after image release.
 
 Use an original working report while it is available. After cleanup, select the named test
 or campaign from source and run it again under current admission. Record the resulting
@@ -431,14 +438,15 @@ an oversized next row reports its required extent without splitting its identity
 still scans the retained inventory and grants no fixture readiness or executable-reuse authority.
 New command grammar requires an explicitly prepared image containing that grammar.
 
-`scripts/pse inspect test-selection --from-result REF --lib -E 'test(NAME)'` validates a
+`scripts/pse inspect test-selection --from-result REF --admitted --lib -E 'test(=NAME)'` validates a
 working-source result's original root and bytes, resolves its current containing package
 from native Cargo metadata, and delegates unchanged target/feature/filter policy to the
 test owner. It does not list tests or prepare fixtures. Explicit package/workspace/changed
 scopes and original failed-run selection conflict with this source-derived package. The
 answer names a current candidate; source search did not capture an original Cargo graph
 and cannot establish dependency impact or sufficient coverage. Use `inspect affected` for
-the separate conservative changed-source explanation, then explicitly list or execute.
+the separate conservative changed-source explanation. A narrowed admitted selection can
+return the exact parser-checked test command as its next action.
 
 - `scripts/pse check PACKAGE --all-targets` compiles the package's eligible targets without
   running tests; `--lib`, `--test NAME` and `--bin NAME` narrow that scope.
@@ -913,6 +921,9 @@ Neither can initialize/start an unrelated canonical service during a read. See
 After editing a supported declaration and its consumers, use `pse source-change preview --case
 optional-project-description` or `recorded-result-field-rename` to derive and check the generated
 consequences in isolation. `pse source-change status ID` reads the original receipt directly.
+When the Rust edits came from a reviewed `pse propose rename` or `pse propose ssr` result,
+pass its JSON receipt as `--proposal PATH` or `--proposal -` for stdin. Preview checks that
+the applied source edits match the reviewed whole-file postimages before generation.
 Add `--diagnostic` to read the recorded failed stage's bounded diagnostic tail.
 `pse source-change apply ID` guards the original source premise before publishing.
 `pse source-change recover ID` resumes the original preview or publication.
