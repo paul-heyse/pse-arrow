@@ -1,6 +1,6 @@
 ---
 title: "Plan70: Test assurance architecture"
-status: planned
+status: in-progress
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -121,6 +121,9 @@ fixture and retains the SurrealKit, settlement and artifact-identity obligations
 Plan66l L04 owns simulator-wide complete-operation benefit claims. Plan70 verifies
 the changed conformance and benchmark paths and links matching measurements where
 needed. Plan69e retains its full-generation decision for guarded previews.
+
+[70a's execution checkpoint](70a-selection-and-execution.md#execution-checkpoint)
+records the active selection and execution scope and its remaining receiving checks.
 
 ## Verification scenarios
 

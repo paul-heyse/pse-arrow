@@ -1,6 +1,6 @@
 ---
 title: "Plan70a: Selection and execution"
-status: planned
+status: in-progress
 date: 2026-11-08
 adrs: []
 doc_role: plan
@@ -130,7 +130,42 @@ that alter the compiled target population.
 
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
-| [A01](#a01) | planned | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
-| [A02](#a02) | planned | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
-| [A03](#a03) | planned | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
-| [A04](#a04) | planned | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |
+| [A01](#a01) | in-progress | Current Cargo adapter and tool pin | Actual nextest identity and scoped unit-graph and doctest controls. Shared graph analysis preserves validation decisions. Complete unit comparison reaches its migrated receivers and rejects substitution. |
+| [A02](#a02) | in-progress | A01 runner identity and existing managed result receiver | Exact selected requirement correspondence, explicit verdict and settlement, and named missing/wrong/unmarked controls. |
+| [A03](#a03) | in-progress | A02 requirement ownership for any enforcement, B02 drain contract for receiving checks | Record the resource owner and observed contention boundary. Where needed enforce it and prove independent overlap and cancellation behavior. |
+| [A04](#a04) | in-progress | A01/A02 route semantics, D02 reference admission for parity, E01 for source-consuming routes, B02 for deadline-sensitive qualification | Each named specialist route selects the intended case and prerequisites. Remove superseded invocation and stale route descriptions. |
+
+## Execution checkpoint
+
+**Implemented.** A01 analyzes the reached unit graph once for each admitted argument set
+and compares complete unit records at the existing receiving boundaries. The generic
+Nextest route verifies the checkout pin on an invocation-private captured executable and
+checks those bytes again before dispatch. Managed discovery uses the same pin interpretation.
+
+**Implemented.** A02 associates prerequisites with exact cases and rejects a stale declared
+scope or incompatible performing owners before fixture preparation. A native listing can
+enumerate a skipped suite for declaration validation. Only the original listing authorizes
+execution. A typed setup refusal from a selected native service target stays distinct from
+an assertion failure and from physical settlement. The Park and foreground helpers are
+child-only entries with explicit parent markers.
+
+**Interface-checked.** A03 traced the named scientific group to Nextest scheduling within
+one invocation. Fresh borrowed runs construct their own private server; their child cases
+use isolated UUID databases on that server. Target-owned lifecycle cases construct or reopen
+their own private service state. The qualification expiry case saturates its own server's
+controller pool and uses the store group within that run to keep competing cases out.
+Cross-invocation same-effect overlap and cancellation remain for the B02 receiving check.
+That check will determine whether any genuinely shared owner needs a narrow exclusion claim.
+[Nextest policy](../../.config/nextest.toml) ·
+[Borrowing owner](../../crates/pse-operations/src/native_fixture.rs) ·
+[Service owner](../../crates/pse-operations/src/native_service.rs)
+
+**Implemented.** A04 selects the locked reference interpreter, separates reference-only,
+solver and native-contract controls, and restores the direct pinned Miri route. The Study
+qualification cases require the corresponding companion receipt separately from production
+module borrowing. [Operator routes](../dev/validation-assessment.md#individual-commands)
+
+The four parity exchanges still require D02's actual performing solver admission. Ordinary
+compiler and modeling capsule migration still needs E01's selected authored closure.
+The physical qualification and cross-invocation cancellation checks still need B02's
+deadline and drain contract. The staged-receipt cases retain their explicit capture route.
