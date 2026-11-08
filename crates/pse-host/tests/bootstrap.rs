@@ -393,7 +393,13 @@ fn preparation_receipt_preserves_original_failure_status() {
     .unwrap();
     let selected = path.join("target/host-tools/current");
     let generation = path.join("target/host-tools/generation.fixture");
+    fs::set_permissions(
+        path.join("target/host-tools"),
+        fs::Permissions::from_mode(0o700),
+    )
+    .unwrap();
     fs::create_dir(&generation).unwrap();
+    fs::set_permissions(&generation, fs::Permissions::from_mode(0o700)).unwrap();
     executable(&generation.join("pse"), "#!/bin/sh\nexit 0\n");
     let manifest =
         GenerationManifest::capture(&generation, fingerprint.clone(), &fingerprint, &["pse"])
@@ -418,7 +424,12 @@ fn preparation_receipt_preserves_original_failure_status() {
         "#!/bin/sh\n[ \"$1\" = --report-route ] || exit 92\nprintf x >> \"$(dirname \"$0\")/invocations\"\nprintf 'verified-current\\n'\n",
     );
     let prepared = invoke().output().unwrap();
-    assert!(prepared.status.success());
+    assert!(
+        prepared.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&prepared.stdout),
+        String::from_utf8_lossy(&prepared.stderr)
+    );
     let response: serde_json::Value = serde_json::from_slice(&prepared.stdout).unwrap();
     assert_eq!(response["payload"]["route"], "verified_current");
     assert_eq!(
