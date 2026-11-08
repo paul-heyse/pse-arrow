@@ -105,6 +105,10 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
                         descriptors, contract.SerializeToString()
                     )
 
+
+class OrdinaryExchangeSolverTests(unittest.TestCase):
+    """Independent exchange refusal controls that exercise a real solver."""
+
     def test_nonfinite_failed_witness_cannot_supply_a_reference_failure(self) -> None:
         read_original = exchange.ordinary_recycle.overheated_observations
 

@@ -435,22 +435,26 @@ packages/executables fail. Keep the declared parity environment and explicitly p
 capabilities; ordinary reference execution does not install them.
 
 The PID candidate captures and verifies its authored scientific inputs in the Rust test
-process. Select the independent interpreters and run:
+process. Prepare the checkout's reference environment once, then run the specialist route:
 
 ```bash
-export PSE_COVARIANCE_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
-export PSE_SENSITIVITY_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
-export PSE_PID_REFERENCE_PYTHON="$PWD/.venv-parity/bin/python"
-scripts/pse-env --native=compiler,solver,klu -- /bin/sh -c '
-  export PATH="$IPOPT_DIR/bin:$PATH"
-  exec scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast \
-    -p pse-runtime --locked --features solver-ipopt,solver-diffsol \
-    --test reference_covariance_exchange --test reference_sensitivity_exchange \
-    --test reference_pid_exchange
-'
+bash scripts/setup-env reference
+just parity
 ```
 
-The degeneracy target selects `solver-highs`, `compiler,solver` and
-`PSE_DEGENERACY_REFERENCE_PYTHON` instead. These selected exchanges retain scientific tolerances,
-physical interpretation and adverse-result comparisons. They do not constitute all-family parity
-or assembled deployment qualification.
+The recipe checks the prepared lock and supplies the same absolute interpreter to the four
+candidate-specific input roles. The native correctness adapter receives the four integration
+targets and their HiGHS, Ipopt and Diffsol features. The recipe selects the prepared compiler,
+solver and KLU inputs and exposes the prepared Ipopt, sIPOPT and SCIP executables to the current
+oracles. This establishes the route's input selection. Solver identity at the performing stage,
+including the IDAES initializer, is a separate evidence obligation.
+
+Use `just reference-unit` for the helper, wire and thermodynamic controls. Use
+`just reference-solver-unit` for the independent exchanger and recycle solves and the exchange
+failure-witness control with prepared Ipopt. Use `just reference-contract-unit CONTRACT_DIR`
+for the receiver tests that consume the five original Rust-produced contract files.
+Select an existing directory of original outputs
+from the five `ordinary_reference_*_binary_comparison` cases. Their managed producing invocation
+uses `PSE_ORDINARY_REFERENCE_CONTRACTS` to publish into a fresh, absolute, caller-owned evidence
+directory. These routes establish their selected assertions. All-family parity and assembled
+deployment qualification have separate scopes.

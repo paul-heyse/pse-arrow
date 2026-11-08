@@ -35,6 +35,7 @@ set script-interpreter := ["bash", "scripts/pse-env", "--", "bash", "-euo", "pip
 # direnv, doctor and CI all read it); earlier interpreters are a CI-matrix concern.
 python := env("PSE_PYTHON", trim(read(".python-version")))
 venv := env("UV_PROJECT_ENVIRONMENT", ".venv")
+parity_venv := ".venv-parity"
 # Always the project's own tools, never whatever is on PATH: a stale global ruff
 # silently produces a different diff than CI.
 bin := venv / if os() == "windows" { "Scripts" } else { "bin" }
@@ -193,7 +194,7 @@ worker-cli-unit-test *args:
 [group('local')]
 [doc('Miri controls for the pure qualified scientific reconstruction authority')]
 scientific-replay-miri:
-    scripts/cargo-bin/cargo-pse-correctness miri test -p pse-ids --lib --locked scientific_replay::tests
+    cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
 
 [group('discovery')]
 [doc('Native tool and host observations as structured output; never repairs prerequisites')]
@@ -700,12 +701,21 @@ docs-serve:
     cargo run --locked -p xtask --no-default-features -- docs serve
 
 [group('manual')]
-[doc('Four native candidate exchanges with the explicitly isolated IDAES/Pyomo reference environment')]
+[doc('Four native candidate exchanges with the prepared locked IDAES/Pyomo reference environment')]
 [positional-arguments]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-parity *args:
-    UV_PROJECT_ENVIRONMENT=.venv-parity uv sync --locked --only-group parity --no-install-project --python 3.13
-    scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast -p pse-runtime --test reference_degeneracy_exchange --test reference_covariance_exchange --test reference_sensitivity_exchange --test reference_pid_exchange --features solver-highs,solver-ipopt,solver-diffsol --locked "$@"
+[script("bash", "scripts/pse-env", "--native=compiler,solver,klu", "--", "bash", "-euo", "pipefail")]
+parity *args: reference-environment
+    reference_python="$PWD/{{ parity_venv }}/bin/python"
+    export PSE_DEGENERACY_REFERENCE_PYTHON="$reference_python"
+    export PSE_COVARIANCE_REFERENCE_PYTHON="$reference_python"
+    export PSE_SENSITIVITY_REFERENCE_PYTHON="$reference_python"
+    export PSE_PID_REFERENCE_PYTHON="$reference_python"
+    if [[ ! -x "$IPOPT_DIR/bin/ipopt" || ! -x "$IPOPT_DIR/bin/ipopt_sens" || ! -x "$SCIPOPTDIR/bin/scip" ]]; then
+        echo 'parity requires the prepared Ipopt, sIPOPT and SCIP executables' >&2
+        exit 1
+    fi
+    export PATH="$IPOPT_DIR/bin:$SCIPOPTDIR/bin:$PATH"
+    exec scripts/cargo-bin/cargo-pse-correctness nextest run --no-fail-fast -p pse-runtime --test reference_degeneracy_exchange --test reference_covariance_exchange --test reference_sensitivity_exchange --test reference_pid_exchange --features solver-highs,solver-ipopt,solver-diffsol --locked "$@"
 
 [group('manual')]
 [doc('Optional aggregate of native Rust, repository quality and documentation checks; references are separate')]
@@ -1051,7 +1061,56 @@ diagnostic-python-tools:
 workspace-sources *args:
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features evidence-tools --locked -- workspace-sources "$@"
 
+[private]
+[script]
+reference-environment:
+    if [[ ! -x "$PWD/{{ parity_venv }}/bin/python" ]]; then
+        echo 'prepare the locked reference interpreter with bash scripts/setup-env reference' >&2
+        exit 1
+    fi
+    unset VIRTUAL_ENV UV_PYTHON UV_PROJECT UV_WORKING_DIR UV_NO_PROJECT UV_NO_SYNC UV_FROZEN
+    UV_PROJECT_ENVIRONMENT="$PWD/{{ parity_venv }}" uv sync --check --locked --offline --no-python-downloads --only-group parity --no-install-project --python 3.13
+
 [group('manual')]
-[doc('Independent reference helper assertions in the locked numerical-reference environment')]
-reference-unit:
-    UV_PROJECT_ENVIRONMENT=.venv-parity uv run --locked --only-group parity --python 3.13 -- python -m unittest scripts.tests.test_scientific_references
+[doc('Independent reference helper, wire and thermodynamic controls without a native candidate or solver')]
+[script]
+reference-unit: reference-environment
+    reference_python="$PWD/{{ parity_venv }}/bin/python"
+    "$reference_python" -E -s -m unittest scripts.tests.test_scientific_references
+    cd tests/reference
+    exec "$reference_python" -E -s -m unittest \
+        test_proto_exchange.ForeignProtoExchangeTests \
+        test_ordinary_exchange.OrdinaryExchangeUnitTests \
+        test_ordinary_thermo.OrdinaryThermodynamicReferenceTests
+
+[group('manual')]
+[doc('Independent exchanger, recycle and exchange refusal controls with prepared Ipopt')]
+[script("bash", "scripts/pse-env", "--native=solver", "--", "bash", "-euo", "pipefail")]
+reference-solver-unit: reference-environment
+    reference_python="$PWD/{{ parity_venv }}/bin/python"
+    if [[ ! -x "$IPOPT_DIR/bin/ipopt" ]]; then
+        echo 'reference solves require the prepared Ipopt executable' >&2
+        exit 1
+    fi
+    export PATH="$IPOPT_DIR/bin:$PATH"
+    cd tests/reference
+    exec "$reference_python" -E -s -m unittest \
+        test_ordinary_exchange.OrdinaryExchangeSolverTests \
+        test_ordinary_exchanger.OrdinaryExchangerReferenceTests \
+        test_ordinary_recycle.OrdinaryRecycleReferenceTests
+
+[group('manual')]
+[doc('Exercise the independent reference receiver against five original native contracts')]
+[positional-arguments]
+[script("bash", "scripts/pse-env", "--native=solver", "--", "bash", "-euo", "pipefail")]
+reference-contract-unit directory: reference-environment
+    reference_python="$PWD/{{ parity_venv }}/bin/python"
+    if [[ ! -x "$IPOPT_DIR/bin/ipopt" ]]; then
+        echo 'reference contract controls require the prepared Ipopt executable' >&2
+        exit 1
+    fi
+    export PATH="$IPOPT_DIR/bin:$PATH"
+    contract_directory=$(cd -- "$1" && pwd -P)
+    export PSE_ORDINARY_REFERENCE_CONTRACTS="$contract_directory"
+    cd tests/reference
+    exec "$reference_python" -E -s -m unittest test_ordinary_exchange.OrdinaryExchangeBinaryTests

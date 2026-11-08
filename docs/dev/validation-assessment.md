@@ -28,6 +28,9 @@ qualification meaning of the resulting evidence.
 | `scripts/pse test PACKAGE:TARGET ...` | Selected source-built tests with their declared Rust fixture ownership | Other deployments, historical state and unselected scientific cases |
 | `just modeling-conformance ...` | Selected authored conformance runs in the manifest's supported native/pure mode | Unselected packages and independent reference execution |
 | `just parity` | Four native candidate exchanges against the isolated pinned IDAES/Pyomo environment | Other cases, versions and exhaustive parity |
+| `just reference-unit` | Independent helper, wire and thermodynamic controls in the prepared parity environment | Solver execution and native candidate contracts |
+| `just reference-solver-unit` | Independent exchanger and recycle solves and the exchange failure-witness control using prepared Ipopt | Native candidate contracts and full parity |
+| `just reference-contract-unit CONTRACT_DIR` | Independent receiver checks against five original Rust-produced contracts | Regeneration or provenance of the supplied contracts |
 | `just docs` / `just adr-lint` | Rendering/search or authored decision/register consistency respectively | Truth or quality of the scientific/design prose |
 
 Report the command, mode, scope, baseline and actual failures. The failure baseline is zero.
@@ -109,6 +112,9 @@ scripts/pse check pse-runtime --all-targets
 scripts/pse test pse-host --lib -E 'test(correctness::)'
 scripts/pse test pse-ids --lib
 scripts/pse tests pse-ids --lib -E 'test(scientific_replay)'
+scripts/pse test pse-authoring:dsl_roundtrip -F pse-authoring/arbitrary \
+  -E 'test(=arbitrary_ast_render_parse_preserves_structure)'
+just scientific-replay-miri
 just doctest
 ```
 
@@ -198,11 +204,13 @@ Independent references remain distinct from native model execution.
 
 `just plan14-reference` generates frozen teqp PC-SAFT and Decimal caloric reference files from
 the published parameter banks in an isolated locked CPython 3.12 environment, without product
-imports. `just parity` explicitly provisions `.venv-parity` from the parity group and exercises
-native exchange callers. The pinned IDAES release is `idaes-pse==2.13.0`. `just reference-unit`
-checks retained independent reference helpers. Missing/wrong reference prerequisites fail;
-they are not skipped parity. Analytic/reference checks establish only their stated cases and
-conditions; a local flash root is not a global stability certificate.
+imports. `bash scripts/setup-env reference` prepares `.venv-parity` from the locked parity
+group. `just parity` checks that prepared environment and exercises the four native exchange
+callers with the pinned `idaes-pse==2.13.0`. The narrower reference routes distinguish
+helper and analytic checks, independent solves, and checks that require original native
+contracts. Missing or wrong prerequisites fail the selected route. Analytic and reference
+checks establish only their stated cases and conditions. Global stability requires its own
+certificate. [Reference entry points](native-workflow.md#independent-native-reference-exchanges)
 
 ## Outside this scope
 

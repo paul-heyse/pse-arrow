@@ -302,8 +302,8 @@ where one governs how the review itself is conducted or reported, such as eviden
 
 | Evidence | Command |
 |---|---|
-| Targeted behaviour (*Tested*) | `just unit-package <pkg> <filter>` |
-| Compilation of touched code | `just check-package <pkg>`, `just check` |
+| Targeted behaviour (*Tested*) | `scripts/pse test PACKAGE --lib -E 'test(=NAME)'`, or select an integration target with `PACKAGE:TARGET` |
+| Compilation of touched code | `scripts/pse check PACKAGE --all-targets`, or use `--workspace --all-targets` for cross-crate changes |
 | Library fit where doubt remains (DP-15) | capability maps (`just lib-outline`), optional overviews, Context7/primary sources and the native solver skill |
 | Dependency families (DP-15) | `just family-check` |
 | Reference validation (PS-13) | `just parity` |
