@@ -3891,6 +3891,28 @@ mod tests {
             );
             assert_eq!(grant.permits_result(), permitted);
             assert_eq!(trajectory.qualified_report(&result).is_some(), permitted);
+            let output = prepared
+                .model()
+                .compiled()
+                .admitted
+                .outputs
+                .iter()
+                .find_map(|output| match output {
+                    ModelingOutput::Member(symbol)
+                        if prepared.contract().outputs.contains(&output.row_id()) =>
+                    {
+                        Some(*symbol)
+                    }
+                    _ => None,
+                })
+                .expect("original trajectory output");
+            assert_eq!(
+                trajectory
+                    .qualified_output_at(&result, 160., output)
+                    .unwrap()
+                    .is_some(),
+                permitted
+            );
             assert!(trajectory.clone().governing_permission(&result).is_some());
             assert!(!trajectory.report().samples.is_empty());
             if max_steps == 1 {
@@ -3916,6 +3938,12 @@ mod tests {
             ));
             let other = prepared.start(&services).unwrap().wait().await.unwrap();
             assert!(trajectory.governing_permission(&other).is_none());
+            assert!(
+                trajectory
+                    .qualified_output_at(&other, 160., output)
+                    .unwrap()
+                    .is_none()
+            );
             let RunReport::Simulation(other_trajectory) = other.report().unwrap() else {
                 panic!("second simulation absent")
             };
@@ -3943,6 +3971,12 @@ mod tests {
             let original = result.completion.clone();
             result.completion = Ok(passive);
             assert!(trajectory.governing_permission(&result).is_none());
+            assert!(
+                trajectory
+                    .qualified_output_at(&result, 160., output)
+                    .unwrap()
+                    .is_none()
+            );
             result.completion = original;
             let duplicate = result
                 .completion()
@@ -3957,6 +3991,12 @@ mod tests {
                 .member_permissions
                 .push(duplicate);
             assert!(trajectory.governing_permission(&result).is_none());
+            assert!(
+                trajectory
+                    .qualified_output_at(&result, 160., output)
+                    .unwrap()
+                    .is_none()
+            );
             result
                 .completion
                 .as_mut()

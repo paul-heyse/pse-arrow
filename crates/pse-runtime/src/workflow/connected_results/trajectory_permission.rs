@@ -267,15 +267,22 @@ impl ResultReader {
                     .map(|array| array.as_ref())
                     .ok_or_else(|| contract("original trajectory permission root absent"))
             };
+            let run_id = column(sample::RUN_ID.name)?;
+            let sample_index = column(sample::SAMPLE.name)?;
+            let time = column(sample::TIME.name)?;
+            let symbol = column(sample::SYMBOL_ID.name)?;
+            let quantity = column(sample::QUANTITY_ID.name)?;
+            let unit = column(sample::UNIT_ID.name)?;
+            let value = column(sample::VALUE.name)?;
             for row in 0..batch.num_rows() {
                 let sample = simulation_samples::Row {
-                    run_id: read(column(sample::RUN_ID.name)?, row)?,
-                    sample: read(column(sample::SAMPLE.name)?, row)?,
-                    time: read(column(sample::TIME.name)?, row)?,
-                    symbol_id: read(column(sample::SYMBOL_ID.name)?, row)?,
-                    quantity_id: read(column(sample::QUANTITY_ID.name)?, row)?,
-                    unit_id: read(column(sample::UNIT_ID.name)?, row)?,
-                    value: read(column(sample::VALUE.name)?, row)?,
+                    run_id: read(run_id, row)?,
+                    sample: read(sample_index, row)?,
+                    time: read(time, row)?,
+                    symbol_id: read(symbol, row)?,
+                    quantity_id: read(quantity, row)?,
+                    unit_id: read(unit, row)?,
+                    value: read(value, row)?,
                 };
                 if !sample_matches(
                     &sample,

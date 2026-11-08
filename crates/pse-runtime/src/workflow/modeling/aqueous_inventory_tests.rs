@@ -1144,6 +1144,41 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         unit_id: *unit,
         value: f64::from_bits(*value),
     };
+    for ((symbol, sample), (run_id, quantity, unit, time, value)) in &expected {
+        let selected = trajectory
+            .qualified_output_at(&run, f64::from_bits(*time), *symbol)
+            .unwrap()
+            .unwrap();
+        assert_eq!(selected.run_id, *run_id);
+        assert_eq!(selected.symbol_id, *symbol);
+        assert_eq!(selected.sample, *sample);
+        assert_eq!(selected.quantity_id, *quantity);
+        assert_eq!(selected.unit_id, *unit);
+        assert_eq!(selected.time.to_bits(), *time);
+        assert_eq!(selected.value.to_bits(), *value);
+    }
+    assert!(
+        trajectory
+            .qualified_output_at(&run, 5.125, *symbol)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        trajectory
+            .qualified_output_at(&run, f64::NAN, *symbol)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        trajectory
+            .qualified_output_at(
+                &run,
+                f64::from_bits(*time),
+                pse_ids::named_id(*symbol, "foreign-output")
+            )
+            .unwrap()
+            .is_none()
+    );
     let matches = |row: &pse_relations::generated::runtime::simulation_samples::Row, observed| {
         crate::workflow::connected_results::trajectory_permission::sample_matches(
             row,

@@ -88,6 +88,12 @@ providers, numerical execution or derivative permission.
 Required and observed counts retain the existing original trajectory sample-population
 meaning (`profile.samples.len()` and native coverage), rather than counting assessment objects.
 
+For the standalone sampled-value consumer, select an authored output at an exact physical
+time in the original qualified full trajectory. Native snapshot custody, original coverage,
+and the prepared output coordinate bind the value to its run, attempt and member. Its stored
+row index is a projection of that coordinate. Exact sample selection neither establishes
+independent derivative or interval validity nor assigns a `ProductScope::Point` identity.
+
 Pass the already-owned `DurableAttempt` identity into completion capture from the existing
 finished/refused transition. Do not introduce a second retained mutable attempt stamp.
 Genuinely ephemeral runs retain `None`; no NIL or synthetic attempt is introduced.
@@ -134,3 +140,4 @@ still require their own original correspondence.
 - 2026-11-06 — Proposed before the authorized original-member permission declaration.
 - 2026-11-06 — Extended the same proposed contract to the standalone original-root consumer
   and descriptive protected trajectory reader before those consuming paths were integrated.
+- 2026-11-08 — Proposed bounded native selection of an original sampled output value.

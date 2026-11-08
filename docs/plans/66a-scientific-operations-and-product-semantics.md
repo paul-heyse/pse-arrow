@@ -153,6 +153,13 @@ Decoded observations retain no native proof. This does not restore providers, in
 certificate from historical bytes. The actual aqueous protected/IPC journey passes after producer
 drop, with independent raw wire interpretation and native-coordinate mismatch controls.
 
+Native standalone callers can select one authored output at an exact retained physical time
+through `ModelingTrajectory::qualified_output_at`. It uses the original joined report and
+full native sample coverage, and returns the existing sampled-value row with canonical
+quantity/unit. The projected row index follows the native coordinate. Missing, foreign,
+refused or passively decoded member proof cannot select a qualified value. Independent
+point-product accuracy and derivative permission still need their own original evidence.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |

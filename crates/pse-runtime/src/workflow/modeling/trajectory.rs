@@ -49,6 +49,80 @@ fn sensitivity_parameters(
 }
 
 impl ModelingTrajectory {
+    /// Select an authored output at an exact retained physical time under the
+    /// original joined trajectory's permission. The row is a value observation.
+    pub fn qualified_output_at(
+        &self,
+        producer: &crate::workflow::RunResult,
+        time: f64,
+        symbol: SemanticId,
+    ) -> Result<Option<pse_relations::generated::runtime::simulation_samples::Row>, WorkflowError>
+    {
+        use pse_relations::generated::runtime::simulation_samples;
+
+        let Some(report) = self.qualified_report(producer) else {
+            return Ok(None);
+        };
+        if !time.is_finite() || report.coverage.retention != native::SampleRetention::Full {
+            return Ok(None);
+        }
+        let Ok(sample) = report
+            .samples
+            .binary_search_by(|point| point.time.total_cmp(&time))
+        else {
+            return Ok(None);
+        };
+        let point = &report.samples[sample];
+        if report
+            .coverage
+            .points
+            .get(sample)
+            .map(|(time, mode)| (time.to_bits(), *mode))
+            != Some((point.time.to_bits(), point.mode))
+        {
+            return Err(contract("retained sample differs from original coverage"));
+        }
+        let prepared = self.prepared();
+        let target = ModelingOutput::Member(symbol).row_id();
+        let Some(column) = prepared
+            .contract
+            .outputs
+            .iter()
+            .position(|id| *id == target)
+        else {
+            return Ok(None);
+        };
+        let product = prepared.model().compiled();
+        let row = product
+            .admitted
+            .case()
+            .rows()
+            .iter()
+            .find(|row| row.id == target)
+            .ok_or_else(|| contract("trajectory physical row absent"))?;
+        let value = point
+            .outputs
+            .get(column)
+            .copied()
+            .filter(|value| value.is_finite())
+            .ok_or_else(|| contract("retained trajectory output absent or nonfinite"))?;
+        let unit = prepared
+            .quantities
+            .quantity_type(row.quantity)
+            .map_err(math)?
+            .canonical_unit;
+        Ok(Some(simulation_samples::Row {
+            run_id: self.run_id(),
+            sample: i64::try_from(sample)
+                .map_err(|_| contract("trajectory sample index extent"))?,
+            time: point.time,
+            symbol_id: symbol,
+            quantity_id: row.quantity.as_id(),
+            unit_id: unit.as_id(),
+            value,
+        }))
+    }
+
     pub(in crate::workflow) fn relation_ids() -> Vec<SemanticId> {
         use pse_relations::generated::runtime::*;
         vec![
