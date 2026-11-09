@@ -133,6 +133,24 @@ fn power_chain_associates_on_the_right() {
 }
 
 #[test]
+fn power_accepts_negative_exponent_without_negating_the_base() {
+    let ast = parse_expr("x^-2").unwrap();
+    let ExprKind::Binary {
+        op: BinaryOp::Pow,
+        lhs,
+        rhs,
+    } = ast.kind
+    else {
+        panic!("power with a negative exponent expected");
+    };
+    assert!(matches!(lhs.kind, ExprKind::Path(_)));
+    let ExprKind::Neg(magnitude) = rhs.kind else {
+        panic!("the exponent must be negated");
+    };
+    assert!(matches!(magnitude.kind, ExprKind::Number(_)));
+}
+
+#[test]
 fn power_refuses_unparenthesized_negative_base() {
     assert_ambiguous_unary_power("-x^2", 0);
 }

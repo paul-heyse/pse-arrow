@@ -442,6 +442,8 @@ mod canonical_server_unit {
         let borrower = store.clone();
         let independent = canonical_fixture_store().unwrap();
         assert_ne!(independent.database(), database);
+        independent.open().await.unwrap();
+        assert!(database_exists(independent.database()).await);
         store.remove_isolated_fixture().await.unwrap();
         assert!(database_exists(&database).await);
         // An outstanding borrower keeps its connection and owns final drain.
@@ -451,7 +453,7 @@ mod canonical_server_unit {
         assert!(database_exists(&database).await);
         // The two test cases have separate logical databases on the same
         // admitted runner service; draining one cannot close the other.
-        independent.open().await.unwrap();
+        assert!(database_exists(independent.database()).await);
         independent.remove_isolated_fixture().await.unwrap();
         assert!(database_exists(independent.database()).await);
     }
