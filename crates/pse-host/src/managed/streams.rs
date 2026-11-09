@@ -19,6 +19,9 @@ use tokio::{
 };
 
 const CHUNK_BYTES: usize = 64 * 1024;
+/// Per-pipe bound for native workflow evidence. Readers keep draining after
+/// exhaustion so retention limits do not stall the performing process.
+pub(crate) const WORKFLOW_PIPE_BYTES: u64 = 16 * 1024 * 1024;
 
 /// Optional live bytes, never the retained raw representation or a cross-pipe producer order.
 #[derive(Clone, Debug)]
@@ -99,15 +102,17 @@ pub struct PresentationReport {
 struct StreamState<W: LogSink> {
     sink: W,
     bytes_retained: u64,
+    maximum: Option<u64>,
     write_error: Option<io::Error>,
     io_unresolved: bool,
     presentation: PresentationReport,
 }
 impl<W: LogSink> StreamState<W> {
-    fn new(sink: W) -> Self {
+    fn new(sink: W, maximum: Option<u64>) -> Self {
         Self {
             sink,
             bytes_retained: 0,
+            maximum,
             write_error: None,
             io_unresolved: false,
             presentation: PresentationReport::default(),
@@ -118,6 +123,13 @@ impl<W: LogSink> StreamState<W> {
         if self.write_error.is_some() {
             return;
         }
+        let allowed = self.maximum.map_or(bytes.len(), |maximum| {
+            usize::try_from(maximum.saturating_sub(self.bytes_retained))
+                .unwrap_or(usize::MAX)
+                .min(bytes.len())
+        });
+        let limited = allowed != bytes.len();
+        let bytes = &bytes[..allowed];
         let Some(deadline) = Instant::now().checked_add(write_timeout) else {
             self.write_error = Some(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -155,6 +167,9 @@ impl<W: LogSink> StreamState<W> {
                     return;
                 }
             }
+        }
+        if limited {
+            self.write_error = Some(io::Error::other("original stream exceeded its retained byte allowance"));
         }
     }
 
@@ -355,9 +370,29 @@ where
     W2: LogSink,
     O: ChunkObserver,
 {
+    start_with_limit(stdout, stderr, sinks, observer, presentation, write_timeout, None)
+}
+
+/// Bound the retained prefix without stopping pipe drain or semantic observation.
+pub(crate) fn start_with_limit<R1, R2, W1, W2, O>(
+    stdout: R1,
+    stderr: R2,
+    sinks: (W1, W2),
+    observer: O,
+    presentation: Option<mpsc::Sender<PresentationChunk>>,
+    write_timeout: Duration,
+    maximum: Option<u64>,
+) -> TeeHandle<W1, W2, O>
+where
+    R1: AsyncRead + Unpin + Send + 'static,
+    R2: AsyncRead + Unpin + Send + 'static,
+    W1: LogSink,
+    W2: LogSink,
+    O: ChunkObserver,
+{
     let progress = [Arc::new(Progress::default()), Arc::new(Progress::default())];
-    let stdout_state = Arc::new(Mutex::new(StreamState::new(sinks.0)));
-    let stderr_state = Arc::new(Mutex::new(StreamState::new(sinks.1)));
+    let stdout_state = Arc::new(Mutex::new(StreamState::new(sinks.0, maximum)));
+    let stderr_state = Arc::new(Mutex::new(StreamState::new(sinks.1, maximum)));
     let observer_state = Arc::new(Mutex::new(ObserverState {
         observer,
         errors: [None, None],

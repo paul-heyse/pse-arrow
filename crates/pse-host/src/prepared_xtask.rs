@@ -15,11 +15,11 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     ffi::{OsStr, OsString},
     fs::{self, OpenOptions},
     io::{Read as _, Write as _},
-    os::unix::fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
+    os::unix::{ffi::OsStrExt as _, fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _}},
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
@@ -55,6 +55,10 @@ pub enum NativeToolTarget {
     /// Existing development composition and document owner.
     #[default]
     Xtask,
+    /// Native conformance campaign with built-in providers.
+    Conformance,
+    /// Native conformance campaign with the explicit CoolProp water capability.
+    ConformanceCoolprop,
     /// Explicitly prepared native HIR/IDE semantic service.
     NativeAnalysis,
     /// Explicitly prepared, one-shot pinned compiler observation wrapper.
@@ -68,6 +72,9 @@ struct ToolProfile {
     features: &'static [&'static str],
 }
 impl NativeToolTarget {
+    pub(crate) fn is_conformance(self) -> bool {
+        matches!(self, Self::Conformance | Self::ConformanceCoolprop)
+    }
     fn profile(self) -> ToolProfile {
         match self {
             Self::Xtask => ToolProfile {
@@ -76,6 +83,17 @@ impl NativeToolTarget {
                 binary: "xtask",
                 source: "xtask/src/main.rs",
                 features: &["force-validate"],
+            },
+            Self::Conformance | Self::ConformanceCoolprop => ToolProfile {
+                name: if self == Self::Conformance { "conformance" } else { "conformance-coolprop" },
+                package: "xtask",
+                binary: "xtask",
+                source: "xtask/src/main.rs",
+                features: if self == Self::Conformance {
+                    &["force-validate", "native-solvers"]
+                } else {
+                    &["force-validate", "native-solvers", "property-coolprop"]
+                },
             },
             Self::NativeAnalysis => ToolProfile {
                 name: "native-analysis",
@@ -334,6 +352,28 @@ struct Manifest {
     owner_schema: Option<Evidence>,
     #[serde(default)]
     protocol: Option<Evidence>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    conformance_environment: Option<BTreeMap<String, Option<String>>>,
+}
+
+fn conformance_environment(environment: &Environment) -> BTreeMap<String, Option<String>> {
+    [
+        "LD_LIBRARY_PATH",
+        "LD_PRELOAD",
+        "LD_AUDIT",
+        "IPOPT_DIR",
+        "SCIPOPTDIR",
+        "SUITESPARSE_INCLUDE_DIR",
+        "SUITESPARSE_LIBRARY_DIR",
+        "PSE_KLU_PROVIDER_RECEIPT",
+        "PSE_ROOT_ISOLATION_DIR",
+        "UNO_DIR",
+        "PETSC_DIR",
+        "COOLPROP_DIR",
+    ]
+    .into_iter()
+    .map(|key| (key.to_owned(), environment.get(OsStr::new(key)).map(|value| hash(value.as_bytes()))))
+    .collect()
 }
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -591,15 +631,18 @@ impl PreparedNativeTool {
         if self.manifest.features != self.manifest.target.features() {
             return Err(invalid("unsupported captured native tool feature profile"));
         }
+        if self.manifest.target.is_conformance() != self.manifest.conformance_environment.is_some() {
+            return Err(invalid("conformance image is missing its native loader selection"));
+        }
         executable.verify()?;
         match self.manifest.target {
-            NativeToolTarget::CompilerAnalysis => {
+            NativeToolTarget::CompilerAnalysis | NativeToolTarget::Conformance | NativeToolTarget::ConformanceCoolprop => {
                 if self.manifest.catalog.is_some()
                     || self.manifest.owner_schema.is_some()
                     || self.manifest.protocol.is_some()
                 {
                     return Err(invalid(
-                        "compiler observations are a one-shot stage, not a passive document/service protocol",
+                        "this native profile cannot carry an unrelated tool protocol",
                     ));
                 }
             }
@@ -715,12 +758,47 @@ impl PreparedNativeTool {
     ) -> Result<PayloadCommand, PreparedNativeToolError> {
         self.verify()?;
         self.require_current_sources()?;
-        Ok(PayloadCommand {
+        Ok(self.payload(arguments, environment))
+    }
+    pub(crate) fn launch_conformance(
+        &self,
+        arguments: Vec<OsString>,
+        environment: Environment,
+        historical: bool,
+    ) -> Result<PayloadCommand, PreparedNativeToolError> {
+        if !self.target().is_conformance()
+            || arguments.first().is_none_or(|argument| argument != "conformance")
+        {
+            return Err(invalid("conformance requires a matching prepared campaign image"));
+        }
+        self.verify()?;
+        if self.manifest.conformance_environment.as_ref() != Some(&conformance_environment(&environment)) {
+            return Err(invalid("native loader selection differs from the captured campaign profile"));
+        }
+        if !historical {
+            self.require_current_sources()?;
+        }
+        Ok(self.payload(arguments, environment))
+    }
+    fn payload(&self, arguments: Vec<OsString>, environment: Environment) -> PayloadCommand {
+        PayloadCommand {
             program: self.manifest.executable.captured.clone(),
             arguments,
             cwd: self.checkout.clone(),
             environment,
-        })
+        }
+    }
+    pub(crate) fn conformance_readiness(
+        &self,
+        mut arguments: Vec<OsString>,
+        environment: Environment,
+    ) -> Result<serde_json::Value, PreparedNativeToolError> {
+        arguments.push("--readiness".into());
+        let payload = self.launch_conformance(arguments, environment, false)?;
+        let mut command = Command::new(payload.program);
+        command.args(payload.arguments).current_dir(payload.cwd).env_clear().envs(payload.environment);
+        let output = process::run(command, MAX_DOCUMENT, Some(READ_TIMEOUT))?;
+        Ok(serde_json::from_slice(&successful(output, "conformance-readiness", true)?)?)
     }
     /// Bounded typed read of the existing native document-owner protocol only.
     pub fn document_owner(
@@ -1126,6 +1204,7 @@ pub fn prepare_for(
     target: NativeToolTarget,
 ) -> Result<PreparedNativeTool, PreparedNativeToolError> {
     let checkout = checkout.canonicalize()?;
+    let conformance_environment = target.is_conformance().then(|| conformance_environment(environment));
     let state = CheckoutState::resolve(&checkout, environment)?;
     fs::DirBuilder::new()
         .recursive(true)
@@ -1218,6 +1297,7 @@ pub fn prepare_for(
             protocol: protocol
                 .as_ref()
                 .map(|bytes| Evidence::new("protocol.json", bytes)),
+            conformance_environment,
         },
     };
     selected.verify()?;

@@ -71,6 +71,43 @@ fn conformance_command_help_needs_no_manifest_python_or_store() -> Result<()> {
 }
 
 #[test]
+fn conformance_readiness_resolves_authored_roots_without_output_or_execution() -> Result<()> {
+    let (directory, manifest) = fixture(5)?;
+    let checkpoint = directory.path().join("progress.json");
+    let output = command()
+        .env("PSE_CONFORMANCE_PROGRESS", &checkpoint)
+        .args(["conformance", "--readiness", "--manifest"])
+        .arg(&manifest)
+        .output()?;
+    assert!(output.status.success(), "{output:?}");
+    let readiness: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    assert_eq!(readiness["runs"][0]["run"], "first");
+    assert_eq!(readiness["runs"][0]["execution"], "pure");
+    assert_eq!(readiness["fixture_admission"], "requires_runtime");
+    assert!(!checkpoint.exists());
+    std::fs::remove_file(directory.path().join("model/package.toml"))?;
+    let missing = command()
+        .args(["conformance", "--readiness", "--manifest"])
+        .arg(&manifest)
+        .output()?;
+    assert!(!missing.status.success());
+    assert!(String::from_utf8(missing.stderr)?.contains("has no package.toml"));
+    let reports = directory.path().join("reports");
+    let execution = command()
+        .env("PSE_CONFORMANCE_PROGRESS", &checkpoint)
+        .args(["conformance", "--manifest"])
+        .arg(&manifest)
+        .arg("--report-dir")
+        .arg(&reports)
+        .output()?;
+    assert!(!execution.status.success());
+    assert!(String::from_utf8(execution.stderr)?.contains("has no package.toml"));
+    assert!(!checkpoint.exists());
+    assert!(!reports.exists());
+    Ok(())
+}
+
+#[test]
 fn conformance_command_runs_pure_manifest_and_preserves_complete_reports() -> Result<()> {
     let (directory, manifest) = fixture(4)?;
     let reports = directory.path().join("reports");
@@ -121,7 +158,9 @@ fn conformance_command_runs_pure_manifest_and_preserves_complete_reports() -> Re
 fn conformance_command_reports_failed_science_and_returns_nonzero() -> Result<()> {
     let (directory, manifest) = fixture(5)?;
     let reports = directory.path().join("failed-report");
+    let progress = directory.path().join("conformance-progress.json");
     let output = command()
+        .env("PSE_CONFORMANCE_PROGRESS", &progress)
         .args(["conformance", "--manifest"])
         .arg(&manifest)
         .arg("--report-dir")
@@ -142,5 +181,39 @@ fn conformance_command_reports_failed_science_and_returns_nonzero() -> Result<()
         .map(|row| datafusion::arrow::util::display::array_value_to_string(status.as_ref(), row))
         .collect::<std::result::Result<Vec<_>, _>>()?;
     assert!(statuses.iter().any(|status| status == "failed"));
+    let progress: serde_json::Value = serde_json::from_slice(&std::fs::read(progress)?)?;
+    let run = &progress["runs"]["first"];
+    assert_eq!(run["passed"], false);
+    assert_eq!(run["settlement"], "no_native_lanes");
+    assert_eq!(run["export"], "published");
+    assert_eq!(run["published_outputs"].as_array().map(Vec::len), Some(6));
+    let case = run["cases"].as_object().and_then(|cases| cases.values().next()).context("original case")?;
+    assert_eq!(case["phase"], "returned");
+    assert_eq!(case["status"], "Failed");
+    Ok(())
+}
+
+#[test]
+fn conformance_reports_science_and_partial_export_after_collision() -> Result<()> {
+    let (directory, manifest) = fixture(4)?;
+    let reports = directory.path().join("partial-reports");
+    let progress = directory.path().join("conformance-progress.json");
+    std::fs::create_dir(&reports)?;
+    let existing = reports.join("first.fixtures.arrow");
+    std::fs::write(&existing, "earlier result")?;
+    let output = command()
+        .env("PSE_CONFORMANCE_PROGRESS", &progress)
+        .args(["conformance", "--manifest"])
+        .arg(&manifest)
+        .arg("--report-dir")
+        .arg(&reports)
+        .output()?;
+    assert!(!output.status.success(), "a partial export is not complete");
+    assert_eq!(std::fs::read(&existing)?, b"earlier result");
+    let progress: serde_json::Value = serde_json::from_slice(&std::fs::read(progress)?)?;
+    let run = &progress["runs"]["first"];
+    assert_eq!(run["passed"], true, "original science completed before export failed");
+    assert_eq!(run["export"], "failed");
+    assert_eq!(run["published_outputs"], serde_json::json!(["first.arrow"]));
     Ok(())
 }

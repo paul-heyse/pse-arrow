@@ -116,6 +116,13 @@ pub async fn conform_pure_documents(
     let mut report =
         ModelingConformanceReport::new(registry, resources.pool.clone(), validation, &fixture_ids)?;
     report.selection = selection;
+    let observer = conformance::observer();
+    if let Some(publish) = &observer {
+        publish(ConformanceObservation::Selected {
+            run: report.run_id,
+            fixtures: fixture_ids,
+        });
+    }
     let flag = pse_diagnostics::Cancellation::new(token.is_cancelled());
     let worker_flag = flag.clone();
     let task = tokio::task::spawn_blocking(
@@ -154,6 +161,7 @@ pub async fn conform_pure_documents(
             let mut covered = BTreeSet::new();
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
                 let fixture = row.declaration_id;
+                let check_start = report.checks.len();
                 let oracle = revision.oracle(fixture);
                 report.note_oracle(oracle, |oracle| revision.release_of(oracle));
                 let data = row.value.scope.as_ref().and_then(|s| s.fixture.as_ref());
@@ -169,6 +177,13 @@ pub async fn conform_pure_documents(
                     );
                     continue;
                 }
+                if let Some(publish) = &observer {
+                    publish(ConformanceObservation::Phase {
+                        run: report.run_id,
+                        fixture,
+                        phase: "compiler_preparation",
+                    });
+                }
                 if data.and_then(|f| f.procedure) != Some(Procedure::Check) {
                     report.record_fixture(
                         fixture,
@@ -178,6 +193,9 @@ pub async fn conform_pure_documents(
                         oracle,
                         maximum_checks,
                     );
+                    if let Some(publish) = &observer {
+                        publish(report.returned_observation(report.run_id, fixture, check_start));
+                    }
                     continue;
                 }
                 let bindings = Bindings::default();
@@ -200,6 +218,9 @@ pub async fn conform_pure_documents(
                             oracle,
                             maximum_checks,
                         );
+                        if let Some(publish) = &observer {
+                            publish(report.returned_observation(report.run_id, fixture, check_start));
+                        }
                         continue;
                     }
                 };
@@ -219,6 +240,9 @@ pub async fn conform_pure_documents(
                     .map_err(crate::math::MathRuntimeError::from)
                     .map_err(WorkflowError::from);
                 report.pure_result(fixture, &model, checked, maximum_checks);
+                if let Some(publish) = &observer {
+                    publish(report.returned_observation(report.run_id, fixture, check_start));
+                }
             }
             report.coverage(revision.declarations(), &covered, maximum_checks);
             Ok(report)

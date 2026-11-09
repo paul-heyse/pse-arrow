@@ -8,6 +8,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  conformance        Inspect, prepare, or execute the original conformance campaign
   prepare            Explicitly prepare the independent native host
   project            Read or change project data through its prepared product owner
   source-change      Preview or publish generated consequences of an authored source-model change
@@ -60,6 +61,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  conformance        Inspect, prepare, or execute the original conformance campaign
   prepare            Explicitly prepare the independent native host
   project            Read or change project data through its prepared product owner
   source-change      Preview or publish generated consequences of an authored source-model change

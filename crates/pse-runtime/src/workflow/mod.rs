@@ -23,6 +23,7 @@
 //! None of these local operations requires a canonical deployment, Python or a CLI.
 mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
+pub use modeling::{ConformanceObservation, with_conformance_observer};
 mod diagnostic_request;
 mod reduction;
 mod reproducer;

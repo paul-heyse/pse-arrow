@@ -162,7 +162,8 @@ pub(super) async fn captured_child<O: ChunkObserver>(
             },
         });
     };
-    let capture = streams::start(stdout, stderr, sinks, observer, None, write);
+    let maximum = directory.has_bounded_workflow_streams().then_some(streams::WORKFLOW_PIPE_BYTES);
+    let capture = streams::start_with_limit(stdout, stderr, sinks, observer, None, write, maximum);
     Ok((child, gate_write, capture))
 }
 
@@ -176,5 +177,6 @@ pub(crate) struct PayloadRequest<O: ChunkObserver> {
     pub(crate) trampoline: PathBuf,
     pub(crate) policy: PayloadPolicy,
     pub(crate) cancellation: CancellationToken,
+    pub(crate) cooperative: bool,
     pub(crate) observer: O,
 }

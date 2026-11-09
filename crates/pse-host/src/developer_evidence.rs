@@ -722,6 +722,7 @@ pub(crate) mod tests {
             parent: "unused-native-owner-fixture".into(),
             scope: EvidenceScope::Report,
             files: vec![],
+            _workflow_reader: None,
         };
         contracts::encode_captured_workflow_report(&captured).unwrap()
     }
@@ -1004,6 +1005,7 @@ pub(crate) mod tests {
             parent: "unused-native-full-fixture".into(),
             scope: EvidenceScope::Full,
             files,
+            _workflow_reader: None,
         };
         contracts::encode_captured_workflow_report(&captured).unwrap()
     }

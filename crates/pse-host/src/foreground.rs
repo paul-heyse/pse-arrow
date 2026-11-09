@@ -101,6 +101,28 @@ fn pidfd(pid: u32) -> Result<std::os::fd::OwnedFd, HostError> {
     )
 }
 
+/// Signal only the unreaped child owned by this supervisor and leave the
+/// remainder of the normal drain budget for forced settlement if needed.
+pub(crate) async fn cooperative_child_exit(
+    child: &mut Child,
+    signal: rustix::process::Signal,
+    drain: Duration,
+) -> Result<Option<ExitStatus>, HostError> {
+    if let Some(exit) = child.try_wait()? {
+        return Ok(Some(exit));
+    }
+    let id = child.id().ok_or_else(|| HostError::Ownership("original child is unavailable".into()))?;
+    let fd = pidfd(id)?;
+    match rustix::process::pidfd_send_signal(&fd, signal) {
+        Ok(()) | Err(rustix::io::Errno::SRCH) => {}
+        Err(error) => return Err(std::io::Error::from(error).into()),
+    }
+    match tokio::time::timeout(drain / 2, child.wait()).await {
+        Ok(result) => Ok(Some(result?)),
+        Err(_) => Ok(None),
+    }
+}
+
 pub(crate) fn preflight(group: &str, default_tasks_max: u64) -> Result<(), HostError> {
     preflight_entry(group, default_tasks_max, true)
 }
@@ -320,6 +342,8 @@ struct OutputCapture<O: ChunkObserver> {
     child: Option<ExitStatus>,
     borrowed: bool,
     cancelled: bool,
+    cooperative: bool,
+    stream_limit: Option<u64>,
     drain_deadline: Option<Instant>,
 }
 impl<O: ChunkObserver> OutputCapture<O> {
@@ -390,8 +414,8 @@ impl<O: ChunkObserver> OutputCapture<O> {
                 },
             ));
         };
-        self.tee = Some(streams::start(
-            stdout, stderr, sinks, observer, None, self.write,
+        self.tee = Some(streams::start_with_limit(
+            stdout, stderr, sinks, observer, None, self.write, self.stream_limit,
         ));
         Ok(child)
     }
@@ -407,6 +431,8 @@ pub(crate) async fn run_captured<O: ChunkObserver>(
     release_route: Option<borrowed::Route>,
 ) -> CapturedForeground<O> {
     let drain = request.drain_timeout;
+    let cooperative = directory.is_conformance();
+    let stream_limit = directory.has_bounded_workflow_streams().then_some(streams::WORKFLOW_PIPE_BYTES);
     let mut state = OutputCapture {
         directory: directory.path().to_owned(),
         custody: Some(directory),
@@ -417,6 +443,8 @@ pub(crate) async fn run_captured<O: ChunkObserver>(
         child: None,
         borrowed: false,
         cancelled: false,
+        cooperative,
+        stream_limit,
         drain_deadline: None,
     };
     let operation = run_owned(request, coordinator, Some(selection), Some(&mut state)).await;
@@ -523,12 +551,26 @@ async fn run_owned<O: ChunkObserver>(
                 gate_write.write_all(&[1])?;
                 tokio::select! {
                     result = child.wait() => result.map(|exit| { capture.child = Some(exit); status(exit) }).map_err(HostError::from),
-                    _ = interrupt.recv() => { capture.cancelled = true; Ok(130) },
-                    _ = terminate.recv() => { capture.cancelled = true; Ok(143) },
+                    _ = interrupt.recv() => {
+                        capture.cancelled = true;
+                        if capture.cooperative {
+                            capture.drain_deadline = Some(Instant::now() + request.drain_timeout);
+                            capture.child = cooperative_child_exit(&mut child, rustix::process::Signal::INT, request.drain_timeout).await?;
+                        }
+                        Ok(130)
+                    },
+                    _ = terminate.recv() => {
+                        capture.cancelled = true;
+                        if capture.cooperative {
+                            capture.drain_deadline = Some(Instant::now() + request.drain_timeout);
+                            capture.child = cooperative_child_exit(&mut child, rustix::process::Signal::TERM, request.drain_timeout).await?;
+                        }
+                        Ok(143)
+                    },
                 }
             }.await;
             drop(gate_write);
-            let deadline = Instant::now() + request.drain_timeout;
+            let deadline = capture.drain_deadline.unwrap_or_else(|| Instant::now() + request.drain_timeout);
             capture.drain_deadline = Some(deadline);
             let killed = match child.try_wait() {
                 Ok(None) => child.start_kill().map_err(HostError::from),
@@ -700,12 +742,27 @@ async fn run_owned<O: ChunkObserver>(
                 if let Some(capture) = capture.as_deref_mut() { capture.child = Some(exit); }
                 Ok(status(exit))
             },
-            _ = interrupt.recv() => { cancellation = Some(130); Ok(130) },
-            _ = terminate.recv() => { cancellation = Some(143); Ok(143) },
+            _ = interrupt.recv() => {
+                cancellation = Some(130);
+                if let Some(capture) = capture.as_deref_mut().filter(|capture| capture.cooperative) {
+                    capture.drain_deadline = Some(Instant::now() + request.drain_timeout);
+                    capture.child = cooperative_child_exit(&mut child, rustix::process::Signal::INT, request.drain_timeout).await?;
+                }
+                Ok(130)
+            },
+            _ = terminate.recv() => {
+                cancellation = Some(143);
+                if let Some(capture) = capture.as_deref_mut().filter(|capture| capture.cooperative) {
+                    capture.drain_deadline = Some(Instant::now() + request.drain_timeout);
+                    capture.child = cooperative_child_exit(&mut child, rustix::process::Signal::TERM, request.drain_timeout).await?;
+                }
+                Ok(143)
+            },
         }
     }.await;
     drop(gate_write);
-    let drain_deadline = Instant::now() + request.drain_timeout;
+    let drain_deadline = capture.as_ref().and_then(|capture| capture.drain_deadline)
+        .unwrap_or_else(|| Instant::now() + request.drain_timeout);
     if let Some(capture) = capture.as_deref_mut() {
         capture.drain_deadline = Some(drain_deadline);
         capture.cancelled = cancellation.is_some();
@@ -803,6 +860,26 @@ async fn run_owned<O: ChunkObserver>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn cooperative_stop_keeps_the_original_child_exit() {
+        use tokio::io::AsyncBufReadExt as _;
+        let mut child = tokio::process::Command::new("/bin/sh")
+            .args(["-c", "trap 'exit 42' TERM; echo ready; while :; do sleep 0.01; done"])
+            .stdout(Stdio::piped())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let mut output = tokio::io::BufReader::new(child.stdout.take().unwrap());
+        let mut ready = String::new();
+        tokio::time::timeout(Duration::from_secs(3), output.read_line(&mut ready))
+            .await.unwrap().unwrap();
+        assert_eq!(ready, "ready\n");
+        let status = cooperative_child_exit(&mut child, rustix::process::Signal::TERM, Duration::from_secs(4))
+            .await.unwrap().unwrap();
+        assert_eq!(status.code(), Some(42));
+    }
+
     #[tokio::test]
     async fn foreground_capture_preserves_both_raw_streams_and_actual_child_exit() {
         let directory = tempfile::tempdir().unwrap();
@@ -816,6 +893,8 @@ mod tests {
             child: None,
             borrowed: false,
             cancelled: false,
+            cooperative: false,
+            stream_limit: None,
             drain_deadline: None,
         };
         let deadline = Instant::now() + Duration::from_secs(10);

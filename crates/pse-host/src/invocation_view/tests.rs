@@ -246,9 +246,7 @@ fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_orde
         directory.id().as_str(),
         None,
         OutputStream::Stdout,
-        1,
-        NonZeroU64::new(3).unwrap(),
-        false,
+        LogWindow { phase_file: None, offset: 1, length: NonZeroU64::new(3).unwrap(), tail: false },
     )
     .unwrap();
     assert_eq!(part.payload.byte_range, 1..4);
@@ -261,9 +259,7 @@ fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_orde
         directory.id().as_str(),
         None,
         OutputStream::Stdout,
-        0,
-        NonZeroU64::new(3).unwrap(),
-        true,
+        LogWindow { phase_file: None, offset: 0, length: NonZeroU64::new(3).unwrap(), tail: true },
     )
     .unwrap();
     assert_eq!(tail.payload.byte_range, 5..8);
@@ -275,9 +271,7 @@ fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_orde
             directory.id().as_str(),
             None,
             OutputStream::Stdout,
-            0,
-            NonZeroU64::new(256 * 1024 + 1).unwrap(),
-            false,
+            LogWindow { phase_file: None, offset: 0, length: NonZeroU64::new(256 * 1024 + 1).unwrap(), tail: false },
         )
         .is_err()
     );
@@ -287,9 +281,7 @@ fn raw_stream_windows_preserve_non_utf8_and_tail_offsets_without_cross_pipe_orde
             directory.id().as_str(),
             None,
             OutputStream::Stdout,
-            9,
-            NonZeroU64::MIN,
-            false
+            LogWindow { phase_file: None, offset: 9, length: NonZeroU64::MIN, tail: false },
         )
         .is_err()
     );

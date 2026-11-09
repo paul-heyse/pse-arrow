@@ -1,6 +1,6 @@
 ---
 title: "Plan71: Workflow and simulation test feedback"
-status: draft
+status: in-progress
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -111,3 +111,41 @@ absence of such a claim is not an incomplete package.
 Retire replaced paths when their consumers move. At closure, move enduring contract and
 operator guidance to the architecture and developer documentation owners. This draft
 records no implementation or qualification, and no other plan status changes on publication.
+
+## Execution checkpoint — November 9
+
+The implementation lives on the Plan 71 branch. Nextest 0.9.151 is installed for
+that worktree. Existing Plan 66 evidence retains its original scope.
+
+The host now has original phase-file, phase, and test-attempt views. Attempt comparison
+uses original context and completed JUnit without replacing the performing verdict.
+Campaign changes add explicit preparation/readiness, bounded checkpoints, scoped
+cooperative interruption, and deliberate export. The selected DSL and fixture changes
+split useful test identities and remove repeated immutable input work while preserving
+independent science and fixture ownership.
+
+**Tested:** The focused `pse test pse-host --lib --timings -E …` run selected 16
+tests on the local managed context (`01a1c23e-7f49-7662-889c-2cafde9389f1`,
+zero failures against a zero baseline). It exercised the original native selection
+and exact rerun, host capture and release controls, and the opt-in timing path.
+Passive reads showed live build activity, the committed Cargo timing file, and a
+settled ordinary result with enrolled bytes. An exact case comparison kept the
+two invocations' verdicts independent of the selected case's outcomes.
+`pse test xtask:conformance_cli --features package-fixtures -E 'test(conformance_)'`
+then passed five tests against a zero baseline (`01a1c248-8a6a-7733-a32a-4da41937420a`),
+covering pure conformance, missing-root refusal, failed science, and partial export.
+The host follow-up passed eight focused checks for original file custody, release,
+cooperative child stop and CLI help (`01a1c24a-a10a-728b-b1d9-83e1d256d074`);
+`pse test pse-authoring:dsl_examples -E …` passed the four renamed power grammar
+cases (`01a1c24c-13f5-74df-90ef-a3bb7c976297`). Both had zero failures against a
+zero baseline in the local managed context.
+These controls do not qualify weighted runner admission or native scientific journeys.
+
+Remaining qualification includes weighted admission, the managed campaign
+signal/export journey, the selected fixture and exchanger journey, and scope-end
+checks. The ordinary capture path has bounded stream prefixes and
+release of newly enrolled, authenticated workflow members. Aggregate pre-admission
+accounting for all ordinary outputs and lifecycle of outer raw streams remain open;
+the campaign checkpoint reservation does not cover those objects. The live owner
+projection is not yet complete across all test, fixture and scientific phases.
+No plan closure or measured speedup is claimed.

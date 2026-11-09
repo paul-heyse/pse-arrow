@@ -12,8 +12,9 @@ Arguments:
 
 Options:
   -C <checkout>
-      --release <RELEASE>  Exact token returned by the current owner preview
+      --conformance        Select the original campaign checkpoint instead of an ordinary test result
       --format <FORMAT>    Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --release <RELEASE>  Exact token returned by the current owner preview
       --fields <FIELDS>    Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --budget <BUDGET>    Limit whole payload records; producer pages retain their omission and continuation facts
   -h, --help               Print help (see more with '--help')
@@ -30,8 +31,8 @@ Options:
   -C <checkout>
 
 
-      --release <RELEASE>
-          Exact token returned by the current owner preview
+      --conformance
+          Select the original campaign checkpoint instead of an ordinary test result
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -44,6 +45,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --release <RELEASE>
+          Exact token returned by the current owner preview
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices

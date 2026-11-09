@@ -26,6 +26,60 @@ use pse_model::{
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 
+/// An observation from the owner performing the selected conformance work.
+#[derive(Clone, Debug)]
+pub enum ConformanceObservation {
+    /// Exact inventory after scientific fixture selection, before issuing work.
+    Selected {
+        /// Original conformance report identity.
+        run: RunId,
+        /// Admitted fixture identities in discovery order.
+        fixtures: Vec<DeclarationId>,
+    },
+    /// Last known phase of an issued fixture, not a verdict.
+    Phase {
+        /// Original conformance report identity.
+        run: RunId,
+        /// Exact authored fixture identity.
+        fixture: DeclarationId,
+        /// Owner-observed phase.
+        phase: &'static str,
+    },
+    /// An issued fixture returned; other work or resources may remain unsettled.
+    Returned {
+        /// Original conformance report identity.
+        run: RunId,
+        /// Exact authored fixture identity.
+        fixture: DeclarationId,
+        /// Last status actually recorded by the performing owner.
+        status: Option<Status>,
+        /// First available actionable finding, independent of process exit.
+        finding: Option<String>,
+    },
+}
+
+pub(super) type ConformanceObserver = Arc<dyn Fn(ConformanceObservation) + Send + Sync>;
+tokio::task_local! {
+    static CONFORMANCE_OBSERVER: ConformanceObserver;
+}
+
+/// Receive selected conformance facts for the supplied execution future.
+/// The observer cannot admit, cancel or complete any scientific work.
+pub async fn with_conformance_observer<T>(
+    observer: impl Fn(ConformanceObservation) + Send + Sync + 'static,
+    future: impl Future<Output = T>,
+) -> T {
+    CONFORMANCE_OBSERVER.scope(Arc::new(observer), future).await
+}
+
+pub(super) fn observer() -> Option<ConformanceObserver> {
+    CONFORMANCE_OBSERVER.try_with(Arc::clone).ok()
+}
+
+fn observe(event: impl FnOnce() -> ConformanceObservation) {
+    let _ = CONFORMANCE_OBSERVER.try_with(|publish| publish(event()));
+}
+
 #[cfg(test)]
 tokio::task_local! {
     static CONFORMANCE_TEST_PROBE: Arc<tests::FixtureProbe>;
@@ -275,6 +329,16 @@ fn reserve_report_slot<T>(
 }
 
 impl ModelingConformanceReport {
+    pub(super) fn returned_observation(&self, run: RunId, fixture: DeclarationId, check_start: usize) -> ConformanceObservation {
+        ConformanceObservation::Returned {
+            run,
+            fixture,
+            status: self.fixture_statuses.get(&fixture).copied(),
+            finding: self.checks.iter().skip(check_start).find(|check| {
+                check.fixture_id == fixture && matches!(check.status, Status::Failed | Status::Inconclusive | Status::Cancelled)
+            }).map(|check| check.message.chars().take(128).collect()),
+        }
+    }
     pub(super) fn new(
         registry: Arc<pse_schema::Registry>,
         pool: Arc<dyn pse_columnar::MemoryPool>,
@@ -1253,6 +1317,10 @@ impl ModelingPackage {
                         .map(|r| r.declaration_id)
                         .collect::<Vec<_>>(),
                 )?;
+                observe(|| ConformanceObservation::Selected {
+                    run: report.run_id,
+                    fixtures: fixtures.iter().map(|row| row.declaration_id).collect(),
+                });
                 report.selection = policy.fixtures.clone();
                 let mut covered = BTreeSet::new();
                 let cap = policy.maximum_checks;
@@ -1300,6 +1368,11 @@ impl ModelingPackage {
                         #[cfg(test)]
                         let probe = CONFORMANCE_TEST_PROBE.try_with(Arc::clone).ok();
                         pending.push(async move {
+                            observe(|| ConformanceObservation::Phase {
+                                run: run_id,
+                                fixture: row.declaration_id,
+                                phase: "preparation",
+                            });
                             #[cfg(not(test))]
                             let outcome = self
                                 .conform_fixture(
@@ -1352,6 +1425,15 @@ impl ModelingPackage {
                         }
                     };
                     if let Some((index, fixture, mut outcome)) = next {
+                        observe(|| match &outcome {
+                            Ok(local) => local.report.returned_observation(run_id, fixture, 0),
+                            Err(error) => ConformanceObservation::Returned {
+                                run: run_id,
+                                fixture,
+                                status: None,
+                                finding: Some(error.to_string()),
+                            },
+                        });
                         use pse_model::diagnostic::BoundaryClass as C;
                         match &mut outcome {
                             Ok(local) => {
@@ -1449,6 +1531,8 @@ impl ModelingPackage {
         let mut covered = BTreeSet::new();
         'fixture: {
             let fixture = row.declaration_id;
+            let phase = |phase| observe(|| ConformanceObservation::Phase { run: run_id, fixture, phase });
+            phase("source_admission");
             #[cfg(test)]
             probe_phase(fixture, "selected source");
             let revision = match self
@@ -1463,6 +1547,7 @@ impl ModelingPackage {
             };
             let oracle = revision.oracle(fixture);
             report.note_oracle(oracle, |oracle| revision.release_of(oracle));
+            phase("declared_preparation");
             #[cfg(test)]
             probe_phase(fixture, "declared preparation");
             let admitted = match self
@@ -1485,6 +1570,7 @@ impl ModelingPackage {
                 }
             };
             let model = admitted.model.clone();
+            phase("case_resolution");
             #[cfg(test)]
             probe_phase(fixture, "case resolution");
             let bindings = admitted.analysis.bindings.clone();
@@ -1507,6 +1593,7 @@ impl ModelingPackage {
             let mut expected_failure = data.and_then(|f| f.expected_failure.as_ref());
             let case = admitted.analysis.case.clone();
             if matches!(&admitted.procedure, DeclaredProcedure::Check) {
+                phase("model_check");
                 let checked = match self.pure_workspace(services.preparation()) {
                     Ok(workspace) => services
                         .preparation()
@@ -1528,6 +1615,7 @@ impl ModelingPackage {
             // its schedules held free are the controls and the model's objective level is
             // minimized; the stitched trajectory carries the model's checks.
             if matches!(&admitted.procedure, DeclaredProcedure::Shooting { .. }) {
+                phase("shooting");
                 #[cfg(feature = "solver-diffsol")]
                 match self.conform_shooting(services, &admitted, cancel).await {
                     Ok(result) => {
@@ -1569,6 +1657,7 @@ impl ModelingPackage {
                 break 'fixture;
             }
             if matches!(&admitted.procedure, DeclaredProcedure::Integrate(_)) {
+                phase("integration");
                 match self.conform_integrated(services, &admitted, cancel).await {
                     Ok(trajectory) => {
                         if let Some(failure) = trajectory.diagnostic() {
@@ -2063,6 +2152,7 @@ impl ModelingPackage {
                                 break 'fixture;
                             }
                         }
+                        phase("solve");
                         self.solve_case(services, prepared, policy.compiler, cancel)
                             .await
                     }

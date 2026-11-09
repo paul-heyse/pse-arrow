@@ -56,7 +56,7 @@ fn tool_pins_and_paths_retain_existing_layout_and_cargo_selections() {
             .ends_with("pse/tools/perfetto/58.2/trace_processor_shell")
     );
     let selected = cargo_tool_specs(&root, &["cargo-nextest".into(), "other-tool".into()]).unwrap();
-    assert_eq!(selected, ["cargo-nextest@=0.9.146", "other-tool"]);
+    assert_eq!(selected, ["cargo-nextest@=0.9.151", "other-tool"]);
     assert!(Tool::parse("cargo-tools").is_err());
     assert!(verify(&root, Tool::Rr, &env).is_err());
     assert!(

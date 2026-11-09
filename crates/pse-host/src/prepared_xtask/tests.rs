@@ -160,6 +160,7 @@ fn fixture() -> (tempfile::TempDir, Environment, PreparedNativeTool) {
             catalog: Some(Evidence::new("commands.json", &catalog)),
             owner_schema: Some(Evidence::new("owner-schema.json", &schema)),
             protocol: None,
+            conformance_environment: None,
         },
     };
     publish(

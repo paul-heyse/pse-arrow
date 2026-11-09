@@ -604,16 +604,17 @@ reference_manifest := "packages/reference/conformance.toml"
 
 [group('local')]
 [doc('Run admitted manifest-driven conformance through the native Rust owner')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
+[script("bash", "-euo", "pipefail")]
 [positional-arguments]
 modeling-conformance *args:
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask --locked -p xtask --features native-solvers,force-validate -- conformance "$@"
+    scripts/pse conformance run "$@"
 
 [group('local')]
-[doc('Run every reference fixture once from packages/reference/conformance.toml; Arrow reports in build/seed-conformance')]
-[script("bash", "scripts/pse-env", "--native=solver,klu,isolation,uno,petsc", "--", "bash", "-euo", "pipefail")]
-seed-conformance:
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask --locked -p xtask --features native-solvers,force-validate -- conformance --manifest {{ reference_manifest }} --report-dir build/seed-conformance
+[doc('Run every reference fixture once from packages/reference/conformance.toml')]
+[script("bash", "-euo", "pipefail")]
+[positional-arguments]
+seed-conformance *args:
+    scripts/pse conformance run --manifest {{ reference_manifest }} "$@"
 
 [group('local')]
 [doc('Repository-config lint: taplo, typos, reuse, actionlint, zizmor, shellcheck, ast-grep')]

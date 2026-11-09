@@ -22,6 +22,9 @@ use std::{
     path::Path,
 };
 
+mod attempt;
+pub use attempt::{AttemptCursor, AttemptPage, CaseComparison, attempts, compare_case};
+
 /// One indivisible actual selected test, preserving its original compiler context.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct TestRow {
@@ -779,6 +782,8 @@ pub(crate) struct CapturedReport {
     pub scope: crate::test_workflow::execute::EvidenceScope,
     /// Exact bytes for the original report's committed dependencies only.
     pub files: Vec<crate::test_workflow::execute::CapturedFile>,
+    /// Keeps the original workflow owner from retiring files during this read.
+    pub(crate) _workflow_reader: Option<fs::File>,
 }
 impl pse_contract::boundary_projection::ProjectionType for CapturedReport {
     fn projection(
@@ -931,6 +936,7 @@ pub(crate) fn captured_report_at_limit(
     let id = store
         .resolve(selector, session)?
         .ok_or_else(|| invalid("original invocation is absent"))?;
+    let workflow_reader = store.borrow_workflow_evidence(&id)?;
     let result = store
         .result::<serde::de::IgnoredAny, ManagedSummary>(&id)?
         .ok_or_else(|| invalid("original workflow has no published terminal evidence"))?;
@@ -967,6 +973,7 @@ pub(crate) fn captured_report_at_limit(
         observation,
         scope: crate::test_workflow::execute::EvidenceScope::Report,
         files: Vec::new(),
+        _workflow_reader: Some(workflow_reader),
     })
 }
 

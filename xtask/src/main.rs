@@ -152,6 +152,11 @@ enum Cmd {
         providers: xtask::development::conformance::NativeProviders,
         #[arg(long)]
         report_dir: Option<PathBuf>,
+        /// Resolve the declared campaign without constructing its runtime or producing results.
+        #[arg(long, conflicts_with = "report_dir")]
+        readiness: bool,
+        #[arg(long, hide = true, conflicts_with = "readiness")]
+        historical_image: bool,
     },
     /// Capture exact scientific source bytes and derived package/import closures.
     #[cfg(feature = "physical-admission")]
@@ -409,13 +414,15 @@ fn conformance_command(
     fixtures: Vec<String>,
     providers: xtask::development::conformance::NativeProviders,
     report_dir: Option<&Path>,
+    readiness: bool,
+    historical_image: bool,
 ) -> Result<()> {
     use pse_model::generated::{enums::ConformanceExecution, identities::DeclarationId};
     use std::{
         panic::{AssertUnwindSafe, catch_unwind},
         sync::Arc,
     };
-    use xtask::development::conformance::{Campaign, budget};
+    use xtask::development::conformance::{Campaign, CampaignProgress, ProcessInterrupt, budget};
     let fixtures = if fixtures.is_empty() {
         None
     } else {
@@ -431,20 +438,55 @@ fn conformance_command(
         )
     };
     let campaign = Campaign::load(manifest, selected_run, fixtures)?;
-    providers.validate()?;
-    if let Some(directory) = report_dir {
-        std::fs::create_dir_all(directory)?;
+    if readiness {
+        println!("{}", campaign.readiness(providers)?);
+        return Ok(());
     }
+    campaign.preflight(providers)?;
     let executor = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
     let cancel = pse_runtime::CancelSource::new();
+    let signals = {
+        let _entered = executor.enter();
+        ProcessInterrupt::new(cancel.clone())?
+    };
+    let progress = CampaignProgress::from_environment(&campaign, historical_image);
+    if historical_image {
+        eprintln!("running a historical prepared conformance image");
+    }
+    let outcome = (|| -> Result<()> {
     let mut passed = true;
     for run in campaign.runs() {
+        if cancel.token().is_cancelled() {
+            if let Some(progress) = &progress {
+                progress.phase(&run.name, "unattempted");
+            }
+            passed = false;
+            continue;
+        }
+        if let Some(progress) = &progress {
+            progress.phase(&run.name, "preparation");
+        }
         let spill = tempfile::tempdir()?;
+        let perform = |result: Result<xtask::development::conformance::RunReport>| {
+            if let Some(progress) = &progress {
+                match &result {
+                    Ok(report) => progress.report(report),
+                    Err(error) => progress.execution_error(&run.name, error),
+                }
+            }
+            result
+        };
         let report = match run.execution {
             ConformanceExecution::Pure => {
-                executor.block_on(campaign.run_pure(run, spill.path(), &cancel))?
+                let result = executor.block_on(observe_campaign_run(
+                    &progress, &run.name, Box::pin(campaign.run_pure(run, spill.path(), &cancel)),
+                ));
+                if let Some(progress) = &progress {
+                    progress.settlement(&run.name, "no_native_lanes");
+                }
+                perform(result)?
             }
             ConformanceExecution::Native => {
                 let _entered = executor.enter();
@@ -457,11 +499,20 @@ fn conformance_command(
                     factory.bind_model(pse_schema::shared_registry()?)?,
                 )?;
                 let result = catch_unwind(AssertUnwindSafe(|| {
-                    executor.block_on(campaign.run_native(run, &runtime, providers, &cancel))
+                    executor.block_on(observe_campaign_run(
+                        &progress, &run.name, Box::pin(campaign.run_native(run, &runtime, providers, &cancel)),
+                    ))
                 }));
+                let result = result.map(perform);
+                if let Some(progress) = &progress {
+                    progress.phase(&run.name, "draining_native_lanes");
+                }
                 runtime.close();
                 runtime.clear_program_cache();
                 let cleanup = executor.block_on(shared.math().shutdown_native_lanes());
+                if let Some(progress) = &progress {
+                    progress.settlement(&run.name, if cleanup.is_ok() { "drained" } else { "unresolved" });
+                }
                 match (result, cleanup) {
                     (Ok(result), Ok(())) => result?,
                     (Ok(Err(error)), Err(cleanup)) => {
@@ -478,7 +529,24 @@ fn conformance_command(
             }
         };
         if let Some(directory) = report_dir {
-            report.export(&directory.join(format!("{}.arrow", report.name)))?;
+            if let Some(progress) = &progress {
+                progress.export(&run.name, "publishing");
+            }
+            let export = (|| -> Result<_> {
+                std::fs::create_dir_all(directory)?;
+                report.export_observed(&directory.join(format!("{}.arrow", report.name)), |path| {
+                    if let Some(progress) = &progress {
+                        progress.published_output(&run.name, path);
+                    }
+                })
+            })();
+            if let Some(progress) = &progress {
+                progress.export(&run.name, if export.is_ok() { "published" } else { "failed" });
+            }
+            export?;
+        }
+        if let Some(progress) = &progress {
+            progress.phase(&run.name, "returned");
         }
         let mut statuses = BTreeMap::<String, usize>::new();
         for status in report.report.fixture_statuses.values() {
@@ -501,10 +569,40 @@ fn conformance_command(
         passed &= report.passed_completely();
     }
     ensure!(
-        passed,
+        passed && !cancel.token().is_cancelled(),
         "conformance campaign contains failed or incomplete runs"
     );
     Ok(())
+    })();
+    executor.block_on(signals.finish());
+    outcome
+}
+
+#[cfg(feature = "package-fixtures")]
+async fn observe_campaign_run<T>(
+    progress: &Option<xtask::development::conformance::CampaignProgress>,
+    run: &str,
+    future: std::pin::Pin<Box<impl Future<Output = T>>>,
+) -> T {
+    if let Some(progress) = progress.clone() {
+        let run = run.to_owned();
+        let observer = progress.clone();
+        let observed = pse_runtime::workflow::with_conformance_observer(
+            move |event| observer.observation(&run, event),
+            future,
+        );
+        tokio::pin!(observed);
+        let mut refresh = tokio::time::interval(std::time::Duration::from_millis(250));
+        refresh.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        loop {
+            tokio::select! {
+                output = &mut observed => break output,
+                _ = refresh.tick() => progress.flush(),
+            }
+        }
+    } else {
+        future.await
+    }
 }
 
 fn command_catalog(
@@ -707,12 +805,16 @@ fn main() -> Result<()> {
             fixtures,
             providers,
             report_dir,
+            readiness,
+            historical_image,
         } => conformance_command(
             &manifest,
             run.as_deref(),
             fixtures,
             providers,
             report_dir.as_deref(),
+            readiness,
+            historical_image,
         ),
         #[cfg(feature = "physical-admission")]
         Cmd::ScientificInputs { catalog, output } => {

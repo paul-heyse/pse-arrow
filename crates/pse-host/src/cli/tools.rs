@@ -32,6 +32,9 @@ pub(super) enum Action {
     RetireResult {
         #[arg(value_parser = super::parse_invocation_id)]
         invocation: crate::envelope::CliInvocationId,
+        /// Select the original campaign checkpoint instead of an ordinary test result.
+        #[arg(long)]
+        conformance: bool,
         /// Exact token returned by the current owner preview.
         #[arg(long)]
         release: Option<String>,
@@ -54,6 +57,9 @@ pub(super) enum Action {
     HoldResult {
         #[arg(value_parser = super::parse_invocation_id)]
         invocation: crate::envelope::CliInvocationId,
+        /// Select the original campaign checkpoint instead of an ordinary test result.
+        #[arg(long)]
+        conformance: bool,
         #[arg(long)]
         consumer: String,
         #[arg(long)]
@@ -162,6 +168,9 @@ pub(super) fn run(
     if args.tool == NativeToolTarget::CompilerAnalysis {
         return Err(HostError::Ownership("compiler-analysis is a controlled compiler stage; use compiler generate --kind facts with an exact --body selection".into()));
     }
+    if args.tool.is_conformance() {
+        return Err(HostError::Ownership("use pse conformance run for a prepared campaign image".into()));
+    }
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     let tool = PreparedNativeTool::open_for(&root, &environment, &args.selection, args.tool)
@@ -229,8 +238,17 @@ pub(super) fn dispatch(
         Action::RetireResult {
             invocation,
             release,
+            conformance,
         } => {
             let store = super::invocation_store(selected)?;
+            if conformance {
+                let report = store.retire_conformance(&invocation, release.as_deref())?;
+                return Ok(output.emit(Envelope::response(
+                    "tools retire-result conformance",
+                    "original campaign checkpoint retirement",
+                    report,
+                ))?);
+            }
             let report = store.retire_compact_result(&invocation, release.as_deref())?;
             Ok(output.emit(Envelope::response(
                 "tools retire-result",
@@ -262,6 +280,7 @@ pub(super) fn dispatch(
             invocation,
             consumer,
             condition,
+            conformance,
         } => {
             let store = super::invocation_store(selected)?;
             let policy = crate::envelope::RedactionPolicy::from_environment();
@@ -274,7 +293,11 @@ pub(super) fn dispatch(
                     "compact result hold contains a protected value".into(),
                 ));
             }
-            store.hold_compact_result(&invocation, &consumer, condition.as_deref())?;
+            if conformance {
+                store.hold_conformance(&invocation, &consumer, condition.as_deref())?;
+            } else {
+                store.hold_compact_result(&invocation, &consumer, condition.as_deref())?;
+            }
             Ok(output.emit(Envelope::response(
                 "tools hold-result",
                 "compact result hold updated",
@@ -302,6 +325,9 @@ pub(super) fn dispatch(
             ))?)
         }
         Action::Prepare { tool: target } => {
+            if target.is_conformance() {
+                return Err(HostError::Ownership("use pse conformance prepare for a campaign image".into()));
+            }
             let tool =
                 prepared_xtask::prepare_for(&root, &environment, target).map_err(tool_error)?;
             Ok(output.emit(Envelope::response(

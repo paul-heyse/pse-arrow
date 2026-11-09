@@ -13,11 +13,12 @@ Arguments:
 Options:
   -C <checkout>
       --session <SESSION>
-      --detail <DETAIL>    Inspect a bounded detail retained by the original owner [possible values: failures, provenance, outputs]
-      --format <FORMAT>    Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
-      --fields <FIELDS>    Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
-      --budget <BUDGET>    Limit whole payload records; producer pages retain their omission and continuation facts
-  -h, --help               Print help (see more with '--help')
+      --detail <DETAIL>            Inspect a bounded detail retained by the original owner [possible values: failures, provenance, outputs, workflow-files, workflow-phases, conformance]
+      --format <FORMAT>            Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --fields <FIELDS>            Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --file-offset <FILE_OFFSET>  Original commitment ordinal for the next workflow-files page
+      --budget <BUDGET>            Limit whole payload records; producer pages retain their omission and continuation facts
+  -h, --help                       Print help (see more with '--help')
 --help
 Read the original managed result without waiting, cancellation or resubmission
 
@@ -38,9 +39,12 @@ Options:
           Inspect a bounded detail retained by the original owner
 
           Possible values:
-          - failures:   Bounded original diagnostic trees
-          - provenance: Originally captured environment and provider provenance
-          - outputs:    References to owner-managed artifacts and scientific outputs
+          - failures:        Bounded original diagnostic trees
+          - provenance:      Originally captured environment and provider provenance
+          - outputs:         References to owner-managed artifacts and scientific outputs
+          - workflow-files:  Original workflow dependency ordinals for phase streams and other captured files
+          - workflow-phases: Original discovery and execution phases, including elapsed and capture facts
+          - conformance:     Bounded original campaign progress and case outcomes
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -56,6 +60,9 @@ Options:
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --file-offset <FILE_OFFSET>
+          Original commitment ordinal for the next workflow-files page
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts

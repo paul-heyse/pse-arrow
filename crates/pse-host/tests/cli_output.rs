@@ -777,6 +777,32 @@ fn protocol_outputs_ignore_format_and_never_gain_an_envelope() {
     assert!(String::from_utf8_lossy(&print.stdout).contains("activation-data"));
 }
 #[test]
+fn missing_original_phase_stream_refuses_passively() {
+    let state = tempfile::tempdir().unwrap();
+    let output = pse()
+        .env("XDG_STATE_HOME", state.path())
+        .args([
+            "inspect",
+            "log",
+            "00000000-0000-0000-0000-000000000001",
+            "--phase-file",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    let assertion = Assert::new(output).failure().code(125).stdout(b"".as_slice());
+    let diagnostic: serde_json::Value =
+        serde_json::from_slice(&assertion.get_output().stderr).unwrap();
+    assert_eq!(diagnostic["outcome"], "boundary_failure");
+    assert_eq!(diagnostic["failures"][0]["code"], "host.ownership");
+    assert_eq!(
+        std::fs::read_dir(state.path()).unwrap().count(),
+        0,
+        "an absent original must not trigger managed preparation or create retained state"
+    );
+}
+
+#[test]
 fn foreground_managed_failure_retains_literal_child_arguments_and_original_exit() {
     let state = tempfile::tempdir().unwrap();
     let output = prepared_pse()

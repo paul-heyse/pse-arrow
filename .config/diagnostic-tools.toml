@@ -72,7 +72,7 @@ archive = "tar.gz"
 # Protocol-sensitive Cargo diagnostics. One declaration serves bootstrap, CI and reuse.
 [cargo-tools]
 cargo-shear = "1.14.0"
-cargo-nextest = "0.9.146"
+cargo-nextest = "0.9.151"
 cargo-hack = "0.6.45"
 cargo-llvm-cov = "0.9.1"
 cargo-mutants = "27.1.0"
