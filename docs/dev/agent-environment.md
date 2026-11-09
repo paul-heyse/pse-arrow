@@ -97,6 +97,12 @@ selected build mode instead of manually redeclaring capacity or changing OS limi
 
 On this workstation the Codex Bash bridge initializes the machine
 baseline once, then refreshes approved direnv settings without rebuilding unchanged activation.
+The project `.codex/config.toml` selects that existing bridge through `BASH_ENV`, disables
+login shells and shell snapshots, and supplies `UV_LOCKED=1`. The shared daemon stays enabled;
+each command refreshes its own directory instead of replaying the daemon's launch environment.
+After changing these settings, exit and resume the affected CLI session to reload configuration;
+the daemon and other sessions can stay running. The bridge is workstation-local at
+`~/.config/codex/bash-env.bash` and must already be installed.
 It unsets `BASH_ENV` for workload children, which retain their native or oracle owner's selection.
 Existing daemons without the initialized baseline use a safe compatibility path until a fresh
 terminal-launched session. Claude Code's global SessionStart adapter sources the same bridge
