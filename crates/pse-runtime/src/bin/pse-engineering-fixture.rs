@@ -17,7 +17,10 @@ use pse_operations::{
 use pse_runtime::{
     CancelSource,
     host_operations::engineering::EngineeringFixtureReady,
-    workflow::{NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, WorkerSettings},
+    workflow::{
+        NativeAllocation, NativeStudyWorker, NativeStudyWorkerSpec, NativeWorkerTerminal,
+        WorkerSettings, WorkflowError,
+    },
 };
 use std::{
     io::Read as _,
@@ -239,6 +242,37 @@ fn complete_fixture_cleanup(
     FixtureDisposition::Preserve
 }
 
+fn observe_keeper_drain(
+    marker: Option<&std::path::Path>,
+    physical_drained: bool,
+    worker: Option<Result<Option<NativeWorkerTerminal>, WorkflowError>>,
+    failures: &mut Vec<Error>,
+) -> Result<(), Error> {
+    let native_joined = match worker {
+        None => true,
+        Some(Ok(terminal)) => {
+            if terminal.as_ref().is_some_and(|receipt| receipt.failure.is_some()) {
+                failures.push("original scientific worker reported failure; its original terminal and diagnostics are retained".into());
+            }
+            let joined = terminal.is_some_and(|receipt| receipt.native_joined);
+            if !joined {
+                failures.push("original scientific worker application join is unestablished".into());
+            }
+            joined
+        }
+        Some(Err(error)) => {
+            failures.push(Box::new(error));
+            false
+        }
+    };
+    // A scientific failure can coexist with a known native join. The original
+    // terminal still governs the failure and forbids fixture disposal.
+    if physical_drained && native_joined && let Some(marker) = marker {
+        publish_worker_started(marker)?;
+    }
+    Ok(())
+}
+
 fn start_requested(path: &std::path::Path) -> Result<bool, Error> {
     use std::os::unix::fs::OpenOptionsExt as _;
     let file = match std::fs::OpenOptions::new()
@@ -420,14 +454,20 @@ async fn run(args: Args) -> Result<(), Error> {
     // Every independent teardown is attempted even after launch ambiguity, body
     // failure or panic. The frontend never receives this performing worker owner.
     let mut failures: Vec<Error> = Vec::new();
+    let mut worker_drained = true;
     if let Some(worker) = &mut worker
         && let Err(error) = worker.shutdown(terminal).await
     {
+        worker_drained = false;
         failures.push(Box::new(error));
     }
-    if let Err(error) = service.shutdown(terminal).await {
-        failures.push(Box::new(error));
-    }
+    let canonical_drained = match service.shutdown(terminal).await {
+        Ok(()) => true,
+        Err(error) => {
+            failures.push(Box::new(error));
+            false
+        }
+    };
     match action {
         Ok(Ok(())) => {}
         Ok(Err(error)) => failures.insert(0, error),
@@ -447,25 +487,18 @@ async fn run(args: Args) -> Result<(), Error> {
             std::panic::resume_unwind(panic);
         }
     }
-    if failures.is_empty()
-        && let Some(worker) = &worker
-    {
-        match worker.terminal() {
-            Ok(Some(receipt)) if receipt.failure.is_some() => failures.push("original scientific worker reported failure; its original terminal and diagnostics are retained".into()),
-            Ok(Some(receipt)) if receipt.native_joined => {}
-            Ok(_) => failures.push("original scientific worker application join is unestablished".into()),
-            Err(error) => failures.push(Box::new(error)),
-        }
+    let worker_terminal = worker.as_ref().filter(|_| worker_drained).map(NativeStudyWorker::terminal);
+    if let Err(error) = observe_keeper_drain(
+        args.drained.as_deref(),
+        worker_drained && canonical_drained,
+        worker_terminal,
+        &mut failures,
+    ) {
+        failures.push(error);
     }
     let mut disposition = FixtureDisposition::Dispose;
     if let Some(finish) = &args.finish_request {
         disposition = FixtureDisposition::Preserve;
-        if failures.is_empty()
-            && let Some(drained) = &args.drained
-            && let Err(error) = publish_worker_started(drained)
-        {
-            failures.push(error);
-        }
         loop {
             if stop.token().is_cancelled() {
                 failures.push(
@@ -749,9 +782,10 @@ mod tests {
     #[test]
     fn scientific_keeper_cleanup_acceptance_preserves_on_stop_or_drain_failure_and_disposes_success()
      {
-        for condition in ["stopped", "failed-drain", "success", "late-stop"] {
+        for condition in ["stopped", "failed-drain", "failed-science", "unjoined-science", "success", "late-stop"] {
             let directory = tempfile::tempdir().unwrap();
             let fixture = directory.path().join("original-stopped-fixture");
+            let drain = directory.path().join("drained.json");
             std::fs::write(&fixture, b"original state").unwrap();
             let stop = CancelSource::new();
             if condition == "stopped" {
@@ -762,6 +796,16 @@ mod tests {
             } else {
                 Vec::new()
             };
+            let worker = matches!(condition, "failed-science" | "unjoined-science").then(|| {
+                let terminal = serde_json::from_value(serde_json::json!({
+                    "nonce": "original", "pid": 1, "invocation": "original",
+                    "native_joined": condition == "failed-science", "processed": null,
+                    "failure": "original scientific refusal"
+                })).unwrap();
+                Ok(Some(terminal))
+            });
+            observe_keeper_drain(Some(&drain), condition != "failed-drain", worker, &mut failures).unwrap();
+            assert_eq!(start_requested(&drain).unwrap(), !matches!(condition, "failed-drain" | "unjoined-science"));
             let accepted = complete_fixture_cleanup(
                 FixtureDisposition::Dispose,
                 Some(&stop),
@@ -778,6 +822,9 @@ mod tests {
             assert_eq!(accepted == FixtureDisposition::Dispose, disposed);
             assert_eq!(fixture.exists(), !disposed);
             assert_eq!(failures.is_empty(), disposed);
+            if condition == "failed-science" {
+                assert!(failures[0].to_string().contains("original scientific worker reported failure"));
+            }
         }
     }
 

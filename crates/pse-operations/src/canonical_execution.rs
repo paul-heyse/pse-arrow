@@ -5430,11 +5430,13 @@ impl CanonicalStore {
         activity.scope(async {
             within_clock(original_deadline(REQUEST_TIMEOUT), async {
                 identity(run)?;
-                let mut response = bounded_query(self.db.query(crate::canonical_history::run_query(
+                // Concurrent progress publication can conflict with the history guard.
+                // Rebuild this read under its original clock and fixed generation cut.
+                let mut response = protected_query("canonical_execution::canonical_attempt_page", || Ok(self.db.query(crate::canonical_history::run_query(
                     "SELECT key,run,generation,phase IN ['terminal','terminal_compacted'] AS terminal,outcome,closed_manifest,close_generation FROM canonical_attempts WHERE run=$run AND generation>$after AND generation<=$through ORDER BY generation LIMIT 64;", "run"))
                     .bind(("run", run.to_owned()))
                     .bind(("after", after.map(canonical_codec::encode_uint).transpose()?.unwrap_or(canonical_codec::encode_int(-1)?)))
-                    .bind(("through", canonical_codec::encode_uint(through)?))).await?;
+                    .bind(("through", canonical_codec::encode_uint(through)?)))).await?;
                 response.take::<Vec<Object>>(0)?.into_iter().map(decode_attempt_metadata).collect()
             }).await
         }).await
