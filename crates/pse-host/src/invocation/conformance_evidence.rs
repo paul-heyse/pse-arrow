@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Admission and release for the managed campaign's bounded original checkpoint.
-use super::{InvocationDirectory, InvocationStore, directory, evidence_file, invalid, unix_millis, workflow_evidence};
+use super::{InvocationDirectory, InvocationStore, directory, evidence_file, invalid, unix_millis};
 use crate::{HostError, envelope::{ArtifactReference, CliInvocationId, Settlement}, managed::result::ManagedSummary};
 use rustix::fs::{FlockOperation, Mode, OFlags, flock, openat, unlinkat};
 use schemars::JsonSchema;
@@ -260,15 +260,6 @@ impl InvocationStore {
         digest.update(id.as_str().as_bytes());
         let reservation_identity = crate::artifacts::descriptor_identity(&reservation)?;
         digest.update(reservation_identity.inode.to_be_bytes());
-        let raw = if let Some(streams) = workflow_evidence::streams(&original)? {
-            digest.update(serde_json::to_vec(&streams).map_err(io::Error::other)?);
-            streams.prepare_release(&owner, true)?
-        } else {
-            Vec::new()
-        };
-        for member in &raw {
-            preview.allocated_bytes = preview.allocated_bytes.saturating_add(member.allocated()?);
-        }
         let mut selected = Vec::new();
         for name in [SNAPSHOT, STAGING] {
             let Some(member) = selected_file(&owner, name)? else { continue; };
@@ -295,9 +286,6 @@ impl InvocationStore {
         }
         if !sweep && token != Some(release.as_str()) {
             return Err(invalid("conformance release token no longer matches the original evidence"));
-        }
-        for member in raw {
-            member.unlink(&owner)?;
         }
         for (name, identity) in selected {
             let current = File::from(openat(&owner, name, OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC, Mode::empty()).map_err(io::Error::from)?);

@@ -118,10 +118,6 @@ pub(super) struct RawRelease {
 }
 
 impl RawRelease {
-    pub(super) fn allocated(&self) -> Result<u64, HostError> {
-        Ok(self.original.metadata()?.blocks().saturating_mul(512))
-    }
-
     pub(super) fn unlink(self, parent: &File) -> Result<u64, HostError> {
         let name = Path::new(self.name);
         if descriptor_identity(&self.original)? != self.identity

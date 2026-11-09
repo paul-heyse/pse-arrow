@@ -248,8 +248,7 @@ impl TerminalResult<ManagedSummary> {
         directory: &crate::invocation::InvocationDirectory,
         policy: &RedactionPolicy,
     ) -> Self {
-        if !directory.is_conformance()
-            && directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
+        if directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
         {
             return self;
         }
