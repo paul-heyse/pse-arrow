@@ -30,14 +30,12 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueScopeFixtureSpecificationsItem,
     AuthoredModelingDeclarationsFieldValueScopeFixture,
     AuthoredModelingDeclarationsFieldValueScope,
-    AuthoredModelingDeclarationsFieldValueBindingIndicesItem,
     AuthoredModelingDeclarationsFieldValueBinding,
     AuthoredModelingDeclarationsFieldValueFunctionArgumentsItem,
     AuthoredModelingDeclarationsFieldValueFunctionExternal,
     AuthoredModelingDeclarationsFieldValueFunction,
     AuthoredModelingDeclarationsFieldValueCoordinateMapArgumentsItem,
     AuthoredModelingDeclarationsFieldValueCoordinateMap,
-    AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem,
     AuthoredModelingDeclarationsFieldValueCoordinateSlot,
     AuthoredModelingDeclarationsFieldValueReconstructionArgumentsItem,
     AuthoredModelingDeclarationsFieldValueReconstruction,
@@ -45,22 +43,14 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueResponse,
     AuthoredModelingDeclarationsFieldValueReferenceTranslationArgumentsItem,
     AuthoredModelingDeclarationsFieldValueReferenceTranslation,
-    AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem,
     AuthoredModelingDeclarationsFieldValueBoundary,
-    AuthoredModelingDeclarationsFieldValueExchangeIndicesItem,
     AuthoredModelingDeclarationsFieldValueExchange,
-    AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
     AuthoredModelingDeclarationsFieldValueEquationCondition,
     AuthoredModelingDeclarationsFieldValueEquation,
-    AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
     AuthoredModelingDeclarationsFieldValueOrderedSet,
-    AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
     AuthoredModelingDeclarationsFieldValueCardinality,
-    AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
     AuthoredModelingDeclarationsFieldValuePiecewise,
-    AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
     AuthoredModelingDeclarationsFieldValueLogic,
-    AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem,
     AuthoredModelingDeclarationsFieldValueComplementarity,
     AuthoredModelingDeclarationsFieldValueTableKeysItem,
     AuthoredModelingDeclarationsFieldValueTableColumnsItem,
@@ -82,24 +72,15 @@ pub use pse_model::generated::r#authored::r#modeling_declarations::{
     AuthoredModelingDeclarationsFieldValueConstant,
     AuthoredModelingDeclarationsFieldValueImport,
     AuthoredModelingDeclarationsFieldValueGuard,
-    AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem,
     AuthoredModelingDeclarationsFieldValueAccumulator,
-    AuthoredModelingDeclarationsFieldValueContributionIndicesItem,
     AuthoredModelingDeclarationsFieldValueContribution,
-    AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
-    AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem,
     AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem,
-    AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem,
     AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem,
-    AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem,
     AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem,
     AuthoredModelingDeclarationsFieldValueStateSpecification,
-    AuthoredModelingDeclarationsFieldValueStatePortIndicesItem,
     AuthoredModelingDeclarationsFieldValueStatePort,
-    AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
     AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem,
     AuthoredModelingDeclarationsFieldValueInventoryBalance,
-    AuthoredModelingDeclarationsFieldValueConnectionIndicesItem,
     AuthoredModelingDeclarationsFieldValueConnection,
     AuthoredModelingDeclarationsFieldValueAnnotationConnectivity,
     AuthoredModelingDeclarationsFieldValueAnnotationObjective,
@@ -2071,51 +2052,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueScope
         })
     }
 }
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueBindingIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBinding {
     fn append(
         &self,
@@ -2150,7 +2086,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBindi
             Vec<crate::generated::structures::ModelingTypeArenaNode>,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
-            AuthoredModelingDeclarationsFieldValueBindingIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
             String,
@@ -2178,7 +2114,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBindi
                 index,
             )?,
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueBindingIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
@@ -2623,51 +2559,6 @@ for AuthoredModelingDeclarationsFieldValueCoordinateMap {
     }
 }
 impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
 for AuthoredModelingDeclarationsFieldValueCoordinateSlot {
     fn append(
         &self,
@@ -2693,7 +2584,7 @@ for AuthoredModelingDeclarationsFieldValueCoordinateSlot {
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
@@ -2707,7 +2598,7 @@ for AuthoredModelingDeclarationsFieldValueCoordinateSlot {
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3164,51 +3055,6 @@ for AuthoredModelingDeclarationsFieldValueReferenceTranslation {
         })
     }
 }
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBoundary {
     fn append(
         &self,
@@ -3230,7 +3076,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBound
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         output.append(false);
         Ok(())
@@ -3243,54 +3089,9 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueBound
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueExchangeIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3319,7 +3120,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueExcha
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueExchangeIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -3334,7 +3135,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueExcha
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueExchangeIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3345,51 +3146,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueExcha
             )?,
             r#to: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueEquationIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3472,7 +3228,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <Option<
@@ -3489,7 +3245,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueEquationIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3502,51 +3258,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueEquat
                 AuthoredModelingDeclarationsFieldValueEquationCondition,
             > as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3575,7 +3286,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueOrder
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -3590,7 +3301,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueOrder
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3601,51 +3312,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueOrder
             )?,
             r#weight: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3674,7 +3340,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueCardi
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -3689,7 +3355,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueCardi
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3700,51 +3366,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueCardi
             )?,
             r#member: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3781,7 +3402,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValuePiece
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -3798,7 +3419,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValuePiece
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -3817,51 +3438,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValuePiece
             )?,
             r#ordinate: <String as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueLogicIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -3892,7 +3468,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueLogic
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
@@ -3906,57 +3482,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueLogic
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueLogicIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
             r#proposition: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -3987,7 +3518,7 @@ for AuthoredModelingDeclarationsFieldValueComplementarity {
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -4002,7 +3533,7 @@ for AuthoredModelingDeclarationsFieldValueComplementarity {
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -5424,51 +4955,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueGuard
         })
     }
 }
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAccumulator {
     fn append(
         &self,
@@ -5500,7 +4986,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAccum
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
@@ -5523,7 +5009,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAccum
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -5546,51 +5032,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueAccum
             )?,
             r#tolerance: <String as crate::columnar::ArrowValue>::read(
                 input.column(4usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -5623,7 +5064,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueContr
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueContributionIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -5641,7 +5082,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueContr
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueContributionIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -5656,96 +5097,6 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueContr
             )?,
             r#role: <crate::generated::enums::ModelingContributionRole as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -5776,7 +5127,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
-            AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         output.append(false);
@@ -5794,58 +5145,13 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
                 index,
             )?,
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
             r#target: <String as crate::columnar::ArrowValue>::read(
                 input.column(2usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -5883,7 +5189,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem 
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
-            AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
@@ -5902,7 +5208,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem 
                 index,
             )?,
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
@@ -5913,51 +5219,6 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem 
             )?,
             r#tolerance: <String as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
                 index,
             )?,
         })
@@ -5995,7 +5256,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
         let children = output.field_builders_mut();
         <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
-            AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[3usize].as_mut())?;
@@ -6014,7 +5275,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
                 index,
             )?,
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
@@ -6069,7 +5330,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecification {
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Option<
             String,
@@ -6095,7 +5356,7 @@ for AuthoredModelingDeclarationsFieldValueStateSpecification {
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -6131,51 +5392,6 @@ for AuthoredModelingDeclarationsFieldValueStateSpecification {
         })
     }
 }
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueStatePortIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueStatePort {
     fn append(
         &self,
@@ -6201,7 +5417,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueState
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueStatePortIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         output.append(false);
@@ -6215,57 +5431,12 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueState
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueStatePortIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
             )?,
             r#specification: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
                 input.column(1usize).as_ref(),
                 index,
             )?,
@@ -6357,7 +5528,7 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalance {
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <Vec<
             crate::generated::structures::ModelingTypeArenaNode,
@@ -6380,7 +5551,7 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalance {
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,
@@ -6416,51 +5587,6 @@ for AuthoredModelingDeclarationsFieldValueInventoryBalance {
         })
     }
 }
-impl crate::columnar::ArrowValue
-for AuthoredModelingDeclarationsFieldValueConnectionIndicesItem {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
-        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
-        output.append(true);
-        Ok(())
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        let output = crate::columnar::builder::<
-            arrow_array::builder::StructBuilder,
-        >(output)?;
-        let children = output.field_builders_mut();
-        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
-        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
-        output.append(false);
-        Ok(())
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::visible(input, index)?;
-        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
-        Ok(Self {
-            r#name: <String as crate::columnar::ArrowValue>::read(
-                input.column(0usize).as_ref(),
-                index,
-            )?,
-            r#domain: <String as crate::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
-                index,
-            )?,
-        })
-    }
-}
 impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueConnection {
     fn append(
         &self,
@@ -6484,7 +5610,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueConne
         >(output)?;
         let children = output.field_builders_mut();
         <Vec<
-            AuthoredModelingDeclarationsFieldValueConnectionIndicesItem,
+            crate::generated::structures::ModelingIndexBinding,
         > as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
         <String as crate::columnar::ArrowValue>::append_null(children[2usize].as_mut())?;
@@ -6499,7 +5625,7 @@ impl crate::columnar::ArrowValue for AuthoredModelingDeclarationsFieldValueConne
         let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
         Ok(Self {
             r#indices: <Vec<
-                AuthoredModelingDeclarationsFieldValueConnectionIndicesItem,
+                crate::generated::structures::ModelingIndexBinding,
             > as crate::columnar::ArrowValue>::read(
                 input.column(0usize).as_ref(),
                 index,

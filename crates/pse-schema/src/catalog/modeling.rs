@@ -301,13 +301,16 @@ fn table_constraints() -> Vec<T> {
     ]
 }
 fn indices() -> T {
-    let mut field = T::list(T::structure(vec![
-        text("name"),
-        T::extended(crate::model::ExtensionUse::ExprDsl(
-            crate::model::ExpressionGrammar::Static,
-        ))
-        .with_name("domain"),
-    ]))
+    let mut field = T::list(
+        T::structure(vec![
+            text("name"),
+            T::extended(crate::model::ExtensionUse::ExprDsl(
+                crate::model::ExpressionGrammar::Static,
+            ))
+            .with_name("domain"),
+        ])
+        .named("ModelingIndexBinding"),
+    )
     .with_name("indices")
     .into_field();
     field.metadata_mut().insert(

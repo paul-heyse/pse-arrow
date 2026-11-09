@@ -7,15 +7,17 @@
 //! occurrence of one name, in any relation and at any depth, must declare the same
 //! contract; the generators then emit the named structure once and every relation
 //! references it. The name is presentation only: two occurrences are compared under
-//! the execution-identity projection, which excludes prose and the name itself.
+//! the execution-identity projection of the reusable value. Source-expression paths
+//! belong to each original occurrence.
 
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
-use pse_columnar::native_field::{MetadataPurpose, project};
+use pse_columnar::native_field::{MetadataPurpose, map, project};
 
 use crate::SchemaError;
 use crate::model::{FieldContract, RelationSpec};
+use crate::model::field_facets::{EXPRESSION_ORDINAL, EXPRESSION_ROLE};
 
 /// Collect every named structure, refusing two different contracts under one name.
 ///
@@ -33,7 +35,14 @@ pub(super) fn resolve(
                 let Some(name) = field.structure_name() else {
                     continue;
                 };
-                let mut contract = field.value_type();
+                let reusable = map(field.value_type().field(), &mut |field| {
+                    let mut field = field.clone();
+                    field.metadata_mut().remove(EXPRESSION_ROLE);
+                    field.metadata_mut().remove(EXPRESSION_ORDINAL);
+                    field
+                })
+                .map_err(|error| crate::checks::invalid("named structure", error.to_string()))?;
+                let mut contract = FieldContract::from_field(reusable);
                 // Generation needs the actual source's presentation, independently
                 // of the value-domain and execution-identity projections.
                 let presentation = crate::model::BoundaryShape::from_field(field.field())?;
@@ -186,6 +195,32 @@ mod tests {
         builder.declare_relation(relation("first", pair(DataType::Int64).named("Pair")));
         builder.declare_relation(relation("second", pair(DataType::Int64).named("Pair")));
         assert_eq!(builder.build().unwrap().structures().len(), 1);
+    }
+
+    #[test]
+    fn named_expression_values_preserve_their_distinct_source_occurrences() {
+        use super::{EXPRESSION_ORDINAL, EXPRESSION_ROLE};
+
+        let structure = |role, ordinal| {
+            let mut value = F::native(DataType::Utf8).with_name("value").into_field();
+            value.metadata_mut().insert(EXPRESSION_ROLE.into(), String::from(role));
+            value.metadata_mut().insert(EXPRESSION_ORDINAL.into(), String::from(ordinal));
+            F::structure(vec![F::from_field(value)]).named("SourceValue")
+        };
+        let mut builder = RegistryBuilder::new();
+        builder.declare_relation(relation("first", structure("first.values.value", "list")));
+        builder.declare_relation(relation("second", structure("second.values.value", "flatten")));
+        let registry = builder.build().unwrap();
+        let owner = registry.structures()["SourceValue"].children()[0].clone();
+        assert!(owner.expression_source_contract().unwrap().is_none());
+        for (name, expected) in [("first", "first.values.value"), ("second", "second.values.value")] {
+            let relation = registry.relation(&format!("authored.{name}")).unwrap();
+            let mut fields = Vec::new();
+            relation.columns[1].walk(&mut fields);
+            let field = fields.iter().find(|field| field.name() == "value").unwrap();
+            assert_eq!(field.field().metadata()[EXPRESSION_ROLE], expected);
+            assert!(field.expression_source_contract().unwrap().is_some());
+        }
     }
 
     #[test]

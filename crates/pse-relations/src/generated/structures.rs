@@ -28,12 +28,13 @@ pub use pse_model::generated::r#structures::{
     ModelingCellUncertainty, ModelingCell, ModelingCellValueBoolean,
     ModelingCellValueIdentifier, ModelingCellValueInteger, ModelingCellValueQuantity,
     ModelingCellValueReference, ModelingCellValueText, ModelingColumnStorage,
-    ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIntegerRange,
-    ModelingKeyCell, ModelingKeyCellSelected, ModelingKnowledgeLineage,
-    ModelingKnowledgeUncertainty, ModelingKnowledgeValueNode, ModelingLineageEntry,
-    ModelingProvenance, ModelingTransferContext, ModelingTypeArenaNodeExponent,
-    ModelingTypeArenaNode, ModelingUnitFactor, ScientificArtifactCoordinate,
-    ScientificCoordinateValue, ScopedPropagationUse, VersionRequirement,
+    ModelingCompleteness, ModelingEnvelope, ModelingEnvelopeGuard, ModelingIndexBinding,
+    ModelingIntegerRange, ModelingKeyCell, ModelingKeyCellSelected,
+    ModelingKnowledgeLineage, ModelingKnowledgeUncertainty, ModelingKnowledgeValueNode,
+    ModelingLineageEntry, ModelingProvenance, ModelingTransferContext,
+    ModelingTypeArenaNodeExponent, ModelingTypeArenaNode, ModelingUnitFactor,
+    ScientificArtifactCoordinate, ScientificCoordinateValue, ScopedPropagationUse,
+    VersionRequirement,
 };
 impl crate::columnar::ArrowValue
 for FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem {
@@ -3445,6 +3446,50 @@ impl crate::columnar::ArrowValue for ModelingEnvelopeGuard {
                 String,
             > as crate::columnar::ArrowValue>::read(
                 input.column(3usize).as_ref(),
+                index,
+            )?,
+        })
+    }
+}
+impl crate::columnar::ArrowValue for ModelingIndexBinding {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        crate::columnar::ArrowValue::append(&self.r#name, children[0usize].as_mut())?;
+        crate::columnar::ArrowValue::append(&self.r#domain, children[1usize].as_mut())?;
+        output.append(true);
+        Ok(())
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        let output = crate::columnar::builder::<
+            arrow_array::builder::StructBuilder,
+        >(output)?;
+        let children = output.field_builders_mut();
+        <String as crate::columnar::ArrowValue>::append_null(children[0usize].as_mut())?;
+        <String as crate::columnar::ArrowValue>::append_null(children[1usize].as_mut())?;
+        output.append(false);
+        Ok(())
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::visible(input, index)?;
+        let input = crate::columnar::array::<arrow_array::StructArray>(input)?;
+        Ok(Self {
+            r#name: <String as crate::columnar::ArrowValue>::read(
+                input.column(0usize).as_ref(),
+                index,
+            )?,
+            r#domain: <String as crate::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
                 index,
             )?,
         })

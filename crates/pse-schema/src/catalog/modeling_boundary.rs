@@ -205,6 +205,11 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
+        path: "@ModelingIndexBinding",
+        fields: &[("name", 1), ("domain", 2)],
+        alternatives: &[],
+    },
+    RecordLayout {
         path: "value",
         fields: &[
             ("kind", 1),
@@ -334,11 +339,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.accumulator.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.annotation",
         fields: &[
             ("kind", 1),
@@ -443,28 +443,13 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.binding.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.boundary",
         fields: &[("indices", 1)],
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.boundary.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.cardinality",
         fields: &[("indices", 1), ("count", 2), ("member", 3)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.cardinality.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -478,18 +463,8 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.complementarity.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.connection",
         fields: &[("indices", 1), ("from", 2), ("to", 3)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.connection.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -518,11 +493,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.contribution.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.coordinate_map",
         fields: &[("arguments", 1), ("validity", 2)],
         alternatives: &[],
@@ -535,11 +505,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
     RecordLayout {
         path: "value.coordinate_slot",
         fields: &[("indices", 1), ("expression", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.coordinate_slot.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -615,18 +580,8 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.equation.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.exchange",
         fields: &[("indices", 1), ("from", 2), ("to", 3)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.exchange.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -696,11 +651,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.inventory_balance.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.inventory_balance.transfers",
         fields: &[("event", 1), ("expression", 2)],
         alternatives: &[],
@@ -711,18 +661,8 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.logic.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.ordered_set",
         fields: &[("indices", 1), ("member", 2), ("weight", 3)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.ordered_set.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -744,11 +684,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
             ("abscissa", 4),
             ("ordinate", 5),
         ],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.piecewise.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {
@@ -1019,11 +954,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.state_port.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.state_specification",
         fields: &[
             ("indices", 1),
@@ -1041,16 +971,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.state_specification.coordinates.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.state_specification.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.state_specification.reconstructions",
         fields: &[
             ("name", 1),
@@ -1061,11 +981,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
         alternatives: &[],
     },
     RecordLayout {
-        path: "value.state_specification.reconstructions.indices",
-        fields: &[("name", 1), ("domain", 2)],
-        alternatives: &[],
-    },
-    RecordLayout {
         path: "value.state_specification.transports",
         fields: &[
             ("name", 1),
@@ -1073,11 +988,6 @@ pub(super) const LAYOUTS: &[RecordLayout] = &[
             ("expression", 3),
             ("tolerance", 4),
         ],
-        alternatives: &[],
-    },
-    RecordLayout {
-        path: "value.state_specification.transports.indices",
-        fields: &[("name", 1), ("domain", 2)],
         alternatives: &[],
     },
     RecordLayout {

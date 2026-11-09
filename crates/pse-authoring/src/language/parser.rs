@@ -7,7 +7,7 @@ use super::*;
 use crate::dsl::lexer::{Kind, Token, tokenize};
 use crate::{AuthoringError, ParseBudget, SourceSpan};
 use pse_ids::SemanticId;
-use pse_model::generated::identities::DeclarationId;
+use pse_model::generated::{identities::DeclarationId, structures::ModelingIndexBinding};
 use std::collections::{BTreeMap, BTreeSet};
 use winnow::stream::LocatingSlice;
 
@@ -1262,7 +1262,7 @@ impl Cursor<'_> {
         }
         Ok(result)
     }
-    fn indices(&mut self) -> Result<Vec<(String, String)>> {
+    fn indices(&mut self) -> Result<Vec<ModelingIndexBinding>> {
         if !self.eat("[") {
             return Ok(Vec::new());
         }
@@ -1271,7 +1271,7 @@ impl Cursor<'_> {
             let name = self.word()?;
             self.expect("in")?;
             let domain = self.until(&[",", "]"])?;
-            result.push((name, domain));
+            result.push(ModelingIndexBinding { name, domain });
             if self.eat("]") {
                 break;
             }
@@ -1742,13 +1742,7 @@ impl Cursor<'_> {
                 })
             }
             "sos1" | "sos2" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let member = self.until(&["weight"])?;
                 self.expect("weight")?;
@@ -1766,16 +1760,7 @@ impl Cursor<'_> {
                 }
             }
             "atmost" | "atleast" | "exactly" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let count = self.until(&["of"])?;
                 self.expect("of")?;
@@ -1793,13 +1778,7 @@ impl Cursor<'_> {
                 }
             }
             "piecewise" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let output = self.until(&["=="])?;
                 self.expect("==")?;
@@ -1820,16 +1799,7 @@ impl Cursor<'_> {
                 })
             }
             "complements" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 self.expect("(")?;
                 let first = self.until(&[">="])?;
@@ -1847,12 +1817,7 @@ impl Cursor<'_> {
             }
             "logic" => {
                 let indices =
-                    self.indices()?
-                        .into_iter()
-                        .map(|(name, domain)| {
-                            AuthoredModelingDeclarationsFieldValueLogicIndicesItem { name, domain }
-                        })
-                        .collect();
+                    self.indices()?;
                 self.expect(":")?;
                 let proposition = self.until(&[";"])?;
                 self.expect(";")?;
@@ -2693,16 +2658,7 @@ impl Cursor<'_> {
                 })
             }
             "slot" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect("=")?;
                 let expression = self.until(&[";"])?;
                 self.expect(";")?;
@@ -2815,24 +2771,12 @@ impl Cursor<'_> {
                 )
             }
             "boundary" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(";")?;
                 Value::from_boundary(AuthoredModelingDeclarationsFieldValueBoundary { indices })
             }
             "exchange" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueExchangeIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect("between")?;
                 let from = self.until(&["and"])?;
                 self.expect("and")?;
@@ -2944,13 +2888,7 @@ impl Cursor<'_> {
                 })
             }
             "param" | "var" | "let" | "alias" | "set" | "child" | "port" | "preset" | "scope" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueBindingIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 let r#type = if self.eat(":") {
                     Some(self.type_expr()?)
                 } else {
@@ -3007,13 +2945,7 @@ impl Cursor<'_> {
                 }
             }
             "eq" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueEquationIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 // ADR-0104: `when y` or `when not y` makes an indicator constraint.
                 let condition = if self.eat("when") {
                     let active = !self.eat("not");
@@ -3051,13 +2983,7 @@ impl Cursor<'_> {
                 })
             }
             "connect" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueConnectionIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 let from = self.until(&["->"])?;
                 self.expect("->")?;
                 let to = self.until(&[";"])?;
@@ -3069,16 +2995,7 @@ impl Cursor<'_> {
                 })
             }
             "state" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 let extends = if self.eat("extends") {
                     Some(self.until(&["supplied"])?)
                 } else {
@@ -3101,8 +3018,7 @@ impl Cursor<'_> {
                             self.expect("=")?;
                             let target = self.until(&[";"])?;
                             coordinates.push(AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem {
-                                name, target, indices: indices.into_iter().map(|(name, domain)|
-                                    AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem {name,domain}).collect(),
+                                name, target, indices,
                             });
                         }
                         "reconstruct" => {
@@ -3111,8 +3027,7 @@ impl Cursor<'_> {
                             self.expect("tolerance")?;
                             let tolerance = self.until(&[";"])?;
                             reconstructions.push(AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem {
-                                name, equation, tolerance, indices: indices.into_iter().map(|(name, domain)|
-                                    AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem {name,domain}).collect(),
+                                name, equation, tolerance, indices,
                             });
                         }
                         "transport" => {
@@ -3121,8 +3036,7 @@ impl Cursor<'_> {
                             self.expect("tolerance")?;
                             let tolerance = self.until(&[";"])?;
                             transports.push(AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem {
-                                name, expression, tolerance, indices: indices.into_iter().map(|(name, domain)|
-                                    AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem {name,domain}).collect(),
+                                name, expression, tolerance, indices,
                             });
                         }
                         _ => return Err(self.error("state coordinate, reconstruct or transport")),
@@ -3142,13 +3056,7 @@ impl Cursor<'_> {
                 )
             }
             "state_port" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueStatePortIndicesItem { name, domain }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect("=")?;
                 let specification = self.until(&[";"])?;
                 self.expect(";")?;
@@ -3158,16 +3066,7 @@ impl Cursor<'_> {
                 })
             }
             "conserve" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
                 self.expect("on")?;
@@ -3212,16 +3111,7 @@ impl Cursor<'_> {
                 )
             }
             "accumulate" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let r#type = self.type_expr()?;
                 let boundary = if self.eat("boundary") {
@@ -3245,16 +3135,7 @@ impl Cursor<'_> {
                 })
             }
             "contribute" => {
-                let indices = self
-                    .indices()?
-                    .into_iter()
-                    .map(|(name, domain)| {
-                        AuthoredModelingDeclarationsFieldValueContributionIndicesItem {
-                            name,
-                            domain,
-                        }
-                    })
-                    .collect();
+                let indices = self.indices()?;
                 let target = self.until(&["role"])?;
                 self.expect("role")?;
                 let role = self

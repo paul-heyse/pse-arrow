@@ -5150,6 +5150,163 @@ impl pse_contract::boundary_projection::ValidateProjection for ModelingEnvelopeG
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ModelingIndexBinding {
+    ///name
+    pub r#name: String,
+    ///domain
+    pub r#domain: String,
+}
+impl crate::SemanticEq for ModelingIndexBinding {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#name, &other.r#name)
+            && crate::SemanticEq::semantic_eq(&self.r#domain, &other.r#domain)
+    }
+}
+impl PartialEq for ModelingIndexBinding {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl pse_contract::boundary_projection::ProjectionType for ModelingIndexBinding {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ModelingIndexBinding",
+                "crates/pse-schema/src/catalog/modeling.rs",
+                27u32,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "name",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::String,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "name",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\"},\"name\":\"name\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    String,
+                                >(
+                                    graph,
+                                    "domain",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Both,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::String,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "domain",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Utf8\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.extension\":\"pse.expr_dsl\",\"pse.domain.parameter\":\"static\"},\"name\":\"domain\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.extension".into(), "pse.expr_dsl".into()),
+                                            ("pse.domain.parameter".into(), "static".into()),
+                                        ]),
+                                    )
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord for ModelingIndexBinding {
+    const VERSION: u32 = 27u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "name"),
+        (2u32, "domain"),
+    ];
+    type Fields = (String, String);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#name, self.r#domain)
+    }
+    fn from_projection_fields(
+        (r#name, r#domain): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self { r#name, r#domain })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for ModelingIndexBinding {
+    const NEEDS_RECURSIVE_VALIDATION: bool = <String as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#name,
+                &pse_contract::boundary_projection::field_path(path, "name"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#domain,
+                &pse_contract::boundary_projection::field_path(path, "domain"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct ModelingIntegerRange {
     ///lower
     pub r#lower: i64,
@@ -8504,6 +8661,21 @@ impl crate::HeapUsage for ModelingEnvelopeGuard {
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#envelope))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#extent))
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#arguments))
+    }
+}
+impl crate::SemanticFrame for ModelingIndexBinding {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#name));
+        crate::SemanticFrame::frame(&self.r#name, hash);
+        hash.str(stringify!(r#domain));
+        crate::SemanticFrame::frame(&self.r#domain, hash);
+    }
+}
+impl crate::HeapUsage for ModelingIndexBinding {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#name))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#domain))
     }
 }
 impl crate::SemanticFrame for ModelingIntegerRange {
