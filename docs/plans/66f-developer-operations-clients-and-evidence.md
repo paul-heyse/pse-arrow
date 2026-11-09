@@ -203,7 +203,7 @@ Private per-group verdict facts and full F04/E07 population are still open.
 | F02 | in-progress | Existing original evidence owners; B's one-way report/manifest projection; E05 sequential delivery contract and E custody where consumed | Native sequential OpenedFile delivery and actual offline member publication are integrated; main's thirteen selected semantic/developer controls pass. Completed publication survives an independent control-listener failure; combined failures retain both causes. Complete remaining report/consumer population; compact/range contracts, original omissions, provisional prefixes and separate publication outcomes remain intact. |
 | F03 | in-progress | F01 exact current listing and F02 original result inventory | Historical failed intent uses committed original correspondence after old executable disposal; new listing/selection/launch authenticate current captures. Main passes actual failure→commit→old-binary disposal→fresh invocation, expected-refusal/zero-failed rerun, and setup-failure controls. Actual CLI failed-rerun also passed the three original timeout identities after their shared Cargo prerequisite settled. Remaining changed-feature/renamed/independent consumer population stays open; retire parallel routes with their last callers. |
 | F04 | in-progress | Existing lightweight schema reader; B01/B02/B03 contracts for each actual family; E07 factual projection agreement | Complete finite independent-host/code-intelligence families and semantic comparison; supply original invocation facts to E07 and migrate the selected ephemeral analytical consumer without product-runtime coupling or changed verdict authority. |
-| F05 | in-progress | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | The Study qualification coordinator includes separate exact endpoint identity and edit, run and reconnect phases against the original keeper. Run the prepared sequence and independent tool and reference clients. Complete the selected error, cancel, lost-ACK and protected-read population and retire the replaced client translations and fixtures. |
+| F05 | in-progress | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | The prepared Study coordinator passed all six phases against its original keeper, including the mixed operation and separate endpoint and edit/run/reconnect controls. Complete the remaining independent tool, reference and ordinary protected-result clients and retire the replaced translations and fixtures. |
 | F06 | in-progress | Working F01–F05 slices, E05/E07 actual delivery/analysis consumers and native/scientific owners | Selected original setup/signal/refusal/rerun controls pass on main, with original incomplete runs retained separately. Complete remaining developer/client and sequential-delivery failures plus useful cross-invocation query acceptance; original evidence, physical settlement and native verdict remain distinct. |
 
 The native engineering binary built with `property-coolprop` can authorize
@@ -395,6 +395,13 @@ The corrected Routes phase passed 1/1 with complete settlement
 coordinator). The mixed request receives simulation, fit and estimator-only held-input Horizon
 products. It checks the separately rejected wrong-quantity binding and the protected estimate,
 joined to the original step identity supplied by the Horizon event.
+
+The same fixed sequence passed Submit, Recover, Complete, Endpoint Identity, and
+Edit/Run/Reconnect, six of six selected local-profile controls against zero failures.
+The original coordinator exited successfully after both frontends settled and the original
+worker and canonical keeper acknowledged drain. Dispose removed the fixture. This is the
+selected live Study/client journey; the broader F05 population and [G04's exchanger result](66g-properties-equipment-and-steady-workflows.md#native-realization-and-shared-contracts)
+remain open.
 
 ### F06 — Close the selected population and teach extension
 

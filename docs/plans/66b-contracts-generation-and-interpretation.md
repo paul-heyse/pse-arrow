@@ -198,13 +198,12 @@ physical declarations, and immutable native custody belong to
 
 #### Shared index bindings and compiled contract ownership
 
-Name the authored index-binding item in the registry, following the existing named
-`ModelingUnitFactor` pattern. Generate its wire type and common local rule once and
-reference it from equivalent index fields. Check effective options, tags, presence and
-interpretation before moving the 19 occurrences identified in the review. Keep binder order,
-lexical resolution and occurrence provenance at the declaring field. Distinct vocabularies,
-identity roles and cohort page limits retain their own contracts. Retire the replaced anonymous
-items and their conversions with their callers. [Modeling registry](../../crates/pse-schema/src/catalog/modeling.rs)
+The [modeling registry](../../crates/pse-schema/src/catalog/modeling.rs) owns one
+`ModelingIndexBinding`, following the named `ModelingUnitFactor` pattern. Equivalent fields
+reference the same generated value; binder order, lexical resolution and occurrence provenance
+remain with each declaring field. Distinct vocabularies, identity roles and cohort page limits
+retain their own contracts. The [cutover evidence](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
+records the selected schema and modeling controls. This does not close the other B01 families.
 
 Start from the finite recorded-result cut. Derive separate roots for passive
 `ModelingInspection` and the [two Study input capabilities](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities).
@@ -370,6 +369,21 @@ independent-host configuration, requests, facts, graph/investigation and code-in
 clients; and E's selected result/storage metadata readers. Identify each existing production
 caller at implementation time and keep its disposition in the owning package, not a second
 permanent schema inventory. A new exemplar does not complete that population.
+
+The exact ordinary exchanger closure has 19 modeling package maps and about 1.7 MB of
+authored bytes including the separate physical vector. Its generated client could not submit
+the original source under the former 16-modeling-package rule. The [native declaration](../../crates/pse-model/src/engineering.rs)
+now allows 32 modeling packages, with the existing 16 MiB aggregate ingress, decoded-element
+budget, per-package and physical/provider limits unchanged. The emitted validators and
+descriptors were regenerated. The prepared client control uses the original complete source;
+it does not reconstruct a reduced surrogate or grant rating/recycle initialization authority.
+The isolated endpoint admitted all 19 maps and returned the original source bytes. The
+subsequent `SubmitRun` refusals were separate native specialization and proof allowances, owned by
+[66g](66g-properties-equipment-and-steady-workflows.md#native-realization-and-shared-contracts).
+The exact source-only client subsequently passed on the standard force-validated local
+engineering profile without root isolation, including a fresh connection, the original case
+identity and original file bytes/hash (`01a1c199-ef38-71fc-9e74-d6c4e57985f0`, 1/1 with zero
+failures/build warnings and complete settlement).
 
 The PID reference now uses `ReferenceCaseContract` and `ReferenceEnvelope`. The isolated
 Python receiver validates the original time, physical roles and source artifacts before

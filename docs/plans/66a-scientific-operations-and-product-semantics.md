@@ -176,19 +176,13 @@ quantity/unit. The projected row index follows the native coordinate. Missing, f
 refused or passively decoded member proof cannot select a qualified value. Independent
 point-product accuracy and derivative permission still need their own original evidence.
 
-The Case entry now identifies the authored case when its integration procedure requires the
+The Case entry identifies the authored case when its integration procedure requires the
 Simulation entry and integration controls. Its paired control is in the aqueous protected
-journey. The latest receiving run completed source staging and reached canonical activation.
-The original 90-second publication clock expired before activation produced an immutable receipt,
-and original readback could not dispatch on the expired clock. This occurred while publishing
-the initial authored package, before project fork or solver execution. The separate standalone
-sampled-value control and the local four-cell original physical-clock control passed under native
-Diffsol. The local control used the default profile and force validation in invocation
-`01a1bdf2-e013-7126-9634-28bb9baf13d8`, with complete settlement.
-The latest guarded source-publication changes passed the selected
-[66e controls](66e-protected-data-and-result-delivery.md#migration-recovery-and-acceptance).
-The full aqueous export and portable read still need receiving after the maintainer stopped the
-combined runtime rerun described in the [Plan 66 checkpoint](66-integrated-simulation-target.md#66af-checkpoint--november-8).
+journey. The earlier 90-second publication timeout preceded any immutable source receipt, fork,
+or solve. The [November 9 receiving run](66-integrated-simulation-target.md#66ah-execution-checkpoint--november-9)
+passed the original protected aqueous export and portable read. The separate sampled-value and
+nonzero-clock controls exercise their own native selection. Point and derivative permission
+outside the accepted trajectory scope remains open.
 
 ## Packages
 
@@ -196,7 +190,7 @@ combined runtime rerun described in the [Plan 66 checkpoint](66-integrated-simul
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
 | A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers share exact sampled-output lookup under original member permission. The selected Study control checks the original result identity and sibling refusal. Verify the current profile and Study controls, then finish the broader point and product authority population. |
-| A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
+| A03 | in-progress | Selected G/H/I physical consumers | The wall-stock consumer uses declared thermal capacity and conductance, a named IAPWS95 enthalpy difference, and an explicit datum translation in the shared physical context. Both selected simultaneous cases passed. Extend the remaining material, coordinate and operating-program contracts at their actual consumers. |
 | A04 | in-progress | A01/A03; J mixed experiments | The mixed steady/transient control checks that the current portable inputs reconstruct the exact authored later interval and forward axes. An absent selection still uses the initial interval. Run the native and replay controls, including refusal of a caller-only schedule. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
 
@@ -211,6 +205,10 @@ pse-backend-native --lib` invocation `01a1bf59-4a25-70ea-83c2-825d4ea8fd90`
 passed the three selected mixed-fit, original experiment policy and exact interval
 controls, zero failures for those controls. The same invocation had unrelated fixture
 failures recorded in the coordinator; it did not exercise the live Study route.
+
+The later [combined runtime selection](66-integrated-simulation-target.md#66ah-receiving-and-physics-follow-up--november-9)
+passed the exact authored-interval and original durable fitting member permission controls.
+The test checked the actual attempt and the passive facts separately from permission.
 
 Packages consume narrow working prerequisites rather than entire companions. In particular,
 ordinary steady analysis does not wait for distributed or specialized physics.

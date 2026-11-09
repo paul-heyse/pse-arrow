@@ -172,7 +172,7 @@ select every candidate in that investigation or change delivered evidence.
 
 | ID | Review finding | Disposition | Work owner | Required evidence or decision |
 | --- | --- | --- | --- | --- |
-| I01 | [Bounded symbolic restore](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01) | open | [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation), [C04](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts) | Fixed-shape cold copy is tested. Neither alternative qualifies for activation; keep JSON v3 as the sole current route. The sealed route needs independent typed source-to-stage and receipt correspondence; replay needs admission before supplier growth. |
+| I01 | [Bounded symbolic restore](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01) | open | [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation), [C04](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts) | Fixed-shape cold copy and the guarded compiler stage/receipt comparison are tested. The sealed route still needs bounded source framing, exact packed dependency custody and the actual cold symbolic consumer; replay still needs admission before supplier growth. JSON v3 remains the sole current route. |
 | I02 | [Shared derivative construction](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I02) | open | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products) | Staged polynomial actions and shared Symbolica partial bindings use original ordered axes. Keep the bounded direct guarded or entry products where staged intermediates cannot serve the original demand. |
 | I03 | [Exact objective and coefficient reuse](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I03) | complete | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-exact-objectives) | Joint degree and coefficient consumers reuse the bounded request-local objective. Exact elimination still needs a named block with original-coordinate checks. |
 | I04 | [Exact adapter demand](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I04) | open | [D01/D02/D04](66d-mathematical-representation-and-numerical-execution.md#d01d02--shared-admission-and-exact-native-demand), C02/C04 | Selected adapter and conditional preparation use the checked callback demand. Keep reassessment for a changed layout or request. |
@@ -257,6 +257,71 @@ owns native predicate meaning. D01/D04 retain the selected native controls and L
 assembled proof-path evidence.
 
 ## Verification, current outcome and cleanup handoff
+
+### 66a–h receiving and physics follow-up — November 9
+
+The bounded compiler schedule matches one guarded producer's exact typed stages and ordered
+receipts without constructing Symbolica atoms. Strict export retains the original guard and
+refuses the equal-arm division at zero. The selected native ethane comparator agrees with a
+separately executed IDAES Chapman–Enskog expression. The combined default-profile
+`scripts/pse test pse-compiler pse-math pse-backend-native --lib` selection passed nine controls
+with zero failures or build warnings and complete original settlement
+(`01a1c12d-b299-73f5-82d6-b881a7f8a58f`). See [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
+and [G03](66g-properties-equipment-and-steady-workflows.md#selected-pure-ethane-transport).
+JSON v3 remains the sole production canonical reader; the cold symbolic receiving gate is open.
+
+The ordinary `product-reader,native-service` selection passed all nine protected-result,
+portable bundle, original physical context, group-evidence, and project reader controls, with
+neither engineering feature, zero failures/warnings and complete settlement
+(`01a1c130-7700-7725-b27a-b99de0f0af64`). This closes the selected ordinary portable receiving
+requirement at [E02](66e-protected-data-and-result-delivery.md#packages).
+
+`just codegen` passed 16 targets for the wall-stock physical declarations and the exact
+ordinary exchanger client closure. The first selected runtime run compiled but refused inventory
+before tests because the nested BT control's fixture omitted the root-isolation requirement.
+Moving it to the matching three-solver fixture group allowed the same build to proceed.
+
+The combined runtime library run `01a1c144-abf1-75b6-b44f-d3820c760ffe` passed 12 of 16
+controls against zero failures, with complete settlement. All selected service, worker and fitting
+controls passed, including original failure custody after generated RPC departure and the live
+Run terminal trailer. The native wet turbine agreed with the independently executed binary
+IAPWS95 reference. Three wall cases failed typed enthalpy admission and the wet protected case
+failed a report lookup. These are G/H receiving obligations; they do not invalidate the independent
+wet reference or the service controls. No 66l simulation qualification was started.
+
+After adding the named IAPWS95 enthalpy difference and reading computed wet energy flows
+from the original report rows, the same force-validated runtime feature selection passed
+five of seven targeted controls, with complete capture and settlement
+(`01a1c15e-09d5-718b-bbdc-0b54ec360e95`). Both simultaneous wall-stock cases and all three
+wet turbine cases passed, including protected export and the independent binary comparison.
+The standalone PH helper rejected its actual non-Native outcome, and the closed-transfer
+control exposed a missing scalar lookup. The next run (`01a1c170-0a47-72e7-8eeb-9fb925467ff5`)
+passed eight of ten controls, with no build warnings and complete settlement. It received both
+PH states through the actual Ipopt component roots and checked closed-transfer stocks from
+their original typed phase/species facts. The valve's zero/reverse control passed; two positive
+valve cases refused the structural callback used to provide its numeric rating.
+The same valve selection passed three of three controls with direct typed rating values,
+zero failures/build warnings and complete settlement (`01a1c175-3ae9-708a-9099-49838ad56697`).
+
+The isolated exchanger endpoint admitted the original 19-package modeling closure and
+returned the exact source. The standard engineering source-only client also passed, including
+byte/hash readback after a new connection. The authored case now passes its specialization budget; the
+live `SubmitRun` still refuses the separate mathematical proof allowance before issuing a
+run. [G04](66g-properties-equipment-and-steady-workflows.md#native-realization-and-shared-contracts)
+owns the remaining typed physics and costing journey.
+
+The fixed Study coordinator passed Submit, Recover and Complete on freshly captured runtime
+and canonical images. Routes stopped on an original canonical attempt-page read conflict,
+with a separate invalid roleless Horizon request recorded in the later joined worker terminal.
+See [F05](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients)
+for the verdict and teardown distinction. The next sequence passed those first three phases,
+but the original worker rejected the estimator's measurement of an underlying state rather
+than the authored output. The keeper confirmed drain and preserved the failed fixture. The
+corrected fixture used the exact authored output and a non-fixing estimate start. All six
+fixed phases then passed against zero failures, including mixed Routes, Endpoint Identity,
+and Edit/Run/Reconnect, with complete original settlement and keeper disposal. The separate
+Study reset and lost-acknowledgement selection passed both controls. See [C05](66c-preparation-execution-and-service-lifecycles.md#c05--verify-actual-shutdown-and-transport-composition)
+and [F05](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients).
 
 ### Symbolica execution — November 9
 

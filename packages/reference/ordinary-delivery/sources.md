@@ -170,8 +170,14 @@ outlet flow must fail the same comparator. Canonical readback compares the entir
 retained `runtime.modeling_reports` batch and its coordinates after releasing the
 completed run handle.
 
-The declarations and native tests implement the handoff; their current acceptance
-evidence belongs to Plan64b/64c. Plan64h H02/H03 owns construction and execution of
-the matched independent references, complete required-output comparisons and
-assembled scientific qualification. Those reference executions have not been
-performed by this package's implementation.
+**Tested on November 6, 2026 at `1b2240537`:** the force-validated local-profile
+`scripts/pse test pse-runtime pse-backend-native pse-host pse-math --lib` selection
+passed 314 tests with zero failures against a zero baseline, zero build warnings
+and complete settlement. The original invocation `01a1b123-7fa6-76cd-81dc-7125e1cb2ef2`
+includes all five `ordinary_reference_*_binary_comparison` controls against pinned
+IDAES 2.13.0 and the protected intake, publication and exact-source readback control.
+The [immutable receiving record](https://github.com/paul-heyse/pse-arrow/blob/66341514d81b2035dc0f59b3206c0a8c35800ba0/docs/plans/65h-integration-and-qualification.md#remaining-scope-receiving--november-6)
+specifies the features, native profiles and selected populations. That run establishes
+the named native and independent reference journeys at its recorded revision.
+[Plan66g](../../../docs/plans/66g-properties-equipment-and-steady-workflows.md) owns current
+receiving, including the separate typed engineering-client journey.

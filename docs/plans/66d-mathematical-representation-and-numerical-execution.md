@@ -306,9 +306,9 @@ native quality check was weakened. The source controls are
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction, allocation accounting, request-local objective reuse and strict-domain export are integrated. H03 separates row floors, numerical requirements and the scheme/domain conflict. Remaining family demands and assembled evidence stay with their owners. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine, shared derivative and adapter demand work is implemented. The active recipe checks cancellation before decoding and symbolic construction. The bounded-copy test does not qualify canonical receipt admission; C04 keeps JSON v3 as the only production reader. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine, shared derivative and adapter demand work is implemented. The guarded compiler control matches the original stage order and ordered receipts without atoms. The packed dependency and source bounds and cold canonical symbolic consumer remain open. C04 keeps JSON v3 as the only production reader. |
 | D03 | complete | Current direct factor and SVD routes and their selected consumers | Retain factors and SVD for the traced workloads. Reopen for a named large repeated-response workload with an admitted operator and preconditioner candidate. |
-| D04 | in-progress | Changed maintained arithmetic/provider consumers; confirmed strict-domain rule through the decision route for that slice | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. BT passed for liquid, two-phase and vapor with original ports and member identity; the canonical two-phase read retained the original attempt. Other provider and solver populations remain open, including strict-domain proof-path and affected demand/precision controls. |
+| D04 | in-progress | Changed maintained arithmetic/provider consumers; confirmed strict-domain rule through the decision route for that slice | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. BT passed for liquid, two-phase and vapor with original ports and member identity; the canonical two-phase read retained the original attempt. The equal-arm division guard passed the strict endpoint negative control. Other provider, precision and solver proof paths remain open. |
 | D05 | in-progress | Selected changed D02/D04 deliveries; actual family consumers | Selected polynomial actions use staged products and no longer flatten the shared body. Retain bounded symbolic cancellation and the actual entry products. Complete remaining caller-specific retirements and hand off the enduring contracts and independent evidence to L. Candidate composition is not required. |
 | D06 | complete | Verified published 3.0.1 archive and current tracked supplier tree | The refreshed delta and receipt reproduce all 159 tracked paths, bytes and executable modes, including the build-provenance fix. No dependency change. |
 
@@ -349,6 +349,15 @@ Serial and ready conditional initialization use it to prepare the selected callb
 including a distinct KINSOL Jacobian action and assembled preconditioner where required.
 A derived path with a newly frozen layout reassesses that layout; the original source
 eligibility check and the derived decision are for different premises.
+
+The [ordinary exchanger client](66g-properties-equipment-and-steady-workflows.md#native-realization-and-shared-contracts)
+exposed a separate compiler proof limit after native specialization succeeded. The
+[preparation owner](../../crates/pse-runtime/src/math/solves.rs) distinguishes solver class
+evidence from affine-row evidence demanded by presolve and output accuracy. Determine which
+rows the original auto presolve and any required accuracy product actually consume. Keep an
+unproved row in its original problem where the qualified pass is optional; an explicitly
+required pass or accuracy proof still needs its admitted evidence. Qualify the work bound and
+the unchanged original-coordinate results before selecting a change for this client.
 
 Preserve KINSOL directional Jacobian action versus an assembled preconditioner, constrained
 optimization curvature and bounds, residual fitting eligibility, and dynamic event and
