@@ -64,7 +64,13 @@ async fn conform_source(source: &str) -> ModelingConformanceReport {
         .modeling_package(rows, fixture::physical())
         .await
         .unwrap();
-    conform_admitted(&runtime, &package, selected, &PreparationSettings::default()).await
+    conform_admitted(
+        &runtime,
+        &package,
+        selected,
+        &PreparationSettings::default(),
+    )
+    .await
 }
 
 async fn conform_reference(name: &str) -> ModelingConformanceReport {
@@ -79,7 +85,13 @@ async fn conform_reference(name: &str) -> ModelingConformanceReport {
         .find(|row| row.name == name)
         .unwrap()
         .declaration_id;
-    conform_admitted(&runtime, &package, selected, &PreparationSettings::default()).await
+    conform_admitted(
+        &runtime,
+        &package,
+        selected,
+        &PreparationSettings::default(),
+    )
+    .await
 }
 
 #[tokio::test]
@@ -90,9 +102,10 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
     };
     use pse_relations::{columnar::RelationRow, generated::runtime::provider_selections};
 
-    let (runtime, package, _spill, preparation) = pr_jacobian_tests::ordinary_delivery_package(false)
-        .await
-        .unwrap();
+    let (runtime, package, _spill, preparation) =
+        pr_jacobian_tests::ordinary_delivery_package(false)
+            .await
+            .unwrap();
     let declarations = package
         .declarations(&runtime.preparation_services())
         .await
@@ -128,7 +141,9 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
         let report = conform_admitted(&runtime, &package, selected, &preparation).await;
         assert!(
             report.complete && report.passed(),
-            "{fixture}: {:?}; {:?}", report.checks, report.failures
+            "{fixture}: {:?}; {:?}",
+            report.checks,
+            report.failures
         );
         let result = &report.results[&selected];
         let table = result.table("runtime.provider_selections").unwrap();
@@ -159,7 +174,9 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
             .regimes
             .iter()
             .find_map(|(selector, selection)| {
-                selection.alternatives.iter()
+                selection
+                    .alternatives
+                    .iter()
                     .find(|alternative| alternative.declaration == authored_regime)
                     .map(|alternative| (*selector, alternative.id))
             })
@@ -195,7 +212,11 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
             .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
             .unwrap();
         for alternative in &model.regimes[&selector].alternatives {
-            let residual = system.residuals.iter().find(|r| r.id == alternative.id).unwrap();
+            let residual = system
+                .residuals
+                .iter()
+                .find(|r| r.id == alternative.id)
+                .unwrap();
             assert_eq!(residual.rows.len(), alternative.equations.len());
             for row in &alternative.equations {
                 let outside = outer.target(row.id).unwrap();
@@ -233,7 +254,11 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
                 })
                 .unwrap();
             assert_eq!(
-                registration.inputs.iter().filter(|port| port.id == member).count(),
+                registration
+                    .inputs
+                    .iter()
+                    .filter(|port| port.id == member)
+                    .count(),
                 1,
             );
         }
@@ -250,13 +275,11 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
 }
 
 #[tokio::test]
-async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_read() -> Result<(), WorkflowError> {
+async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_read()
+-> Result<(), WorkflowError> {
     use futures_util::FutureExt as _;
     use pse_backend_native::solve::SolveIntent;
-    use pse_relations::{
-        columnar::RelationRow as _,
-        generated::runtime::provider_selections,
-    };
+    use pse_relations::{columnar::RelationRow as _, generated::runtime::provider_selections};
 
     let (runtime, package, _spill, preparation) =
         pr_jacobian_tests::ordinary_delivery_package(true)
@@ -289,18 +312,11 @@ async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_rea
         .await
         .unwrap();
         let revision = source.key.clone();
-        let original = Box::pin(runtime.modeling_revision(
-            source,
-            physical,
-            BTreeMap::new(),
-        ))
-        .await
-        .unwrap();
-        let services = runtime.execution_services();
-        let declarations = original
-            .declarations(services.preparation())
+        let original = Box::pin(runtime.modeling_revision(source, physical, BTreeMap::new()))
             .await
             .unwrap();
+        let services = runtime.execution_services();
+        let declarations = original.declarations(services.preparation()).await.unwrap();
         let selected = declarations
             .iter()
             .find(|row| row.name == "nested_two_phase")
@@ -368,16 +384,18 @@ async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_rea
                     .map(|alternative| (*selector, alternative.id))
             })
             .unwrap();
-        assert!(result.provider_selections().iter().any(|visit| {
-            let observation = visit.observation;
-            let selected = observation.selection();
-            selected.selector == selector.as_id() && selected.regime == expected_regime
-        }), "the actual original invocation must select the authored two-phase regime");
+        assert!(
+            result.provider_selections().iter().any(|visit| {
+                let observation = visit.observation;
+                let selected = observation.selection();
+                selected.selector == selector.as_id() && selected.regime == expected_regime
+            }),
+            "the actual original invocation must select the authored two-phase regime"
+        );
 
-        let expected = provider_selections::Row::rows(
-            &run.table("runtime.provider_selections").unwrap(),
-        )
-        .unwrap();
+        let expected =
+            provider_selections::Row::rows(&run.table("runtime.provider_selections").unwrap())
+                .unwrap();
         assert!(!expected.is_empty());
         assert!(expected.iter().all(|row| row.run_id == run.run_id));
         assert!(expected.iter().all(|row| row.attempt_id == Some(attempt)));
@@ -405,7 +423,10 @@ async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_rea
         assert_eq!(protected.attempt, attempt_key);
         assert_eq!(protected.relation, "runtime.provider_selections");
         assert_eq!((protected.row_start, protected.row_end), (0, count));
-        assert_eq!(protected.usability, crate::workflow::PackScientificState::Unknown);
+        assert_eq!(
+            protected.usability,
+            crate::workflow::PackScientificState::Unknown
+        );
         let context = protected.context.as_ref().unwrap();
         assert_eq!(context.problem, "nested-bt-protected-problem");
         assert_eq!(context.revision, revision);
@@ -413,7 +434,10 @@ async fn nested_bt_two_phase_provider_selection_survives_canonical_protected_rea
         while let Some(batch) = reader.next_relation_batch().await.unwrap() {
             recovered.extend(provider_selections::Row::rows(&batch).unwrap());
         }
-        assert_eq!(recovered, expected, "protected read must retain the original visit rows");
+        assert_eq!(
+            recovered, expected,
+            "protected read must retain the original visit rows"
+        );
     })
     .catch_unwind()
     .await;

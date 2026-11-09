@@ -1055,7 +1055,10 @@ async fn aqueous_integrated_feed_wash_feed_carries_stock_through_authored_holds(
     assert_eq!(native.events.len(), 2);
     for (transition, time) in native.events.iter().zip([6., 8.]) {
         assert_eq!(transition.time, time);
-        assert!(transition.event.is_none(), "a hold change is not a root event");
+        assert!(
+            transition.event.is_none(),
+            "a hold change is not a root event"
+        );
         let after = transition.after.as_ref().expect("hold must settle");
         for read in &reads {
             let [(_, index)] = read.stocks.as_slice() else {
@@ -1091,7 +1094,11 @@ async fn aqueous_integrated_feed_wash_feed_carries_stock_through_authored_holds(
         let read = &reads[1];
         assert!((physical.scalars[&scheduled] - active_inlet).abs() < 1e-9);
         for (label, actual, expected) in [
-            ("stock", physical.scalars[&read.stocks[0].0], 0.001 * concentration),
+            (
+                "stock",
+                physical.scalars[&read.stocks[0].0],
+                0.001 * concentration,
+            ),
             ("supplied", sample.integrals[read.incoming], supplied),
             ("discharged", sample.integrals[read.outgoing], discharged),
         ] {
@@ -1186,7 +1193,9 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
     .await
     .unwrap_err();
     let WorkflowError::Boundary(wrong_route) = wrong_route else {
-        panic!("the Case operation must attribute the unsupported authored procedure: {wrong_route:?}");
+        panic!(
+            "the Case operation must attribute the unsupported authored procedure: {wrong_route:?}"
+        );
     };
     assert_eq!(wrong_route.sources, vec![case.as_id()]);
     assert!(matches!(

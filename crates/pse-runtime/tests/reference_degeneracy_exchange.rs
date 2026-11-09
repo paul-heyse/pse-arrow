@@ -14,22 +14,27 @@
 mod reference_environment;
 #[path = "reference_support/process.rs"]
 mod reference_process;
-#[path = "reference_support/mod.rs"]
-mod reference_support;
 #[path = "reference_support/scalar.rs"]
 mod reference_scalar;
 #[path = "reference_support/scalar_exchange.rs"]
 mod reference_scalar_exchange;
+#[path = "reference_support/mod.rs"]
+mod reference_support;
 
 #[path = "reference_degeneracy_support/mod.rs"]
 mod support;
 
 use futures_util::FutureExt;
 use pse_ids::SemanticId;
-use pse_model::reference_exchange::{ReferenceDegenerateCertificate, ReferenceDegeneracyResult, ReferenceMeaning};
+use pse_model::reference_exchange::{
+    ReferenceDegeneracyResult, ReferenceDegenerateCertificate, ReferenceMeaning,
+};
 use reference_scalar::Inputs;
 use reference_scalar_exchange::Oracle;
-use std::{collections::{BTreeMap, BTreeSet}, panic::AssertUnwindSafe};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    panic::AssertUnwindSafe,
+};
 use support::{Candidate, CandidateReport, LinearCase, NativeCandidate, Result};
 
 const SUPPORTS: [(&[&str], &[f64]); 2] = [
@@ -43,14 +48,20 @@ fn proportional(actual: &Multipliers, expected: &Multipliers) -> std::result::Re
     if actual.keys().ne(expected.keys()) || actual.is_empty() {
         return Err("multiplier support mismatch".into());
     }
-    if !actual.values().chain(expected.values()).all(|value| value.is_finite() && *value != 0.0) {
+    if !actual
+        .values()
+        .chain(expected.values())
+        .all(|value| value.is_finite() && *value != 0.0)
+    {
         return Err("multipliers must be finite and nonzero on their support".into());
     }
     let pivot = actual.keys().next().unwrap();
     for (row, multiplier) in actual {
         let actual_ratio = multiplier / actual[pivot];
         let expected_ratio = expected[row] / expected[pivot];
-        if !actual_ratio.is_finite() || (actual_ratio - expected_ratio).abs() > (1e-6 * expected_ratio.abs()).max(1e-12) {
+        if !actual_ratio.is_finite()
+            || (actual_ratio - expected_ratio).abs() > (1e-6 * expected_ratio.abs()).max(1e-12)
+        {
             return Err(format!("multiplier ratio differs at {row}"));
         }
     }
@@ -58,7 +69,10 @@ fn proportional(actual: &Multipliers, expected: &Multipliers) -> std::result::Re
 }
 
 fn weights(rows: &[&str], multipliers: &[f64]) -> Multipliers {
-    rows.iter().zip(multipliers).map(|(row, multiplier)| ((*row).to_owned(), *multiplier)).collect()
+    rows.iter()
+        .zip(multipliers)
+        .map(|(row, multiplier)| ((*row).to_owned(), *multiplier))
+        .collect()
 }
 
 fn validate_reference(
@@ -66,18 +80,31 @@ fn validate_reference(
     expected: &[Vec<SemanticId>; SUPPORTS.len()],
     result: &ReferenceDegeneracyResult,
 ) -> Result<IndependentSupports> {
-    if result.version != 1 || &result.meaning != meaning || result.supports.len() != expected.len() {
-        return Err("reference degeneracy result differs from its original context or support population".into());
+    if result.version != 1 || &result.meaning != meaning || result.supports.len() != expected.len()
+    {
+        return Err(
+            "reference degeneracy result differs from its original context or support population"
+                .into(),
+        );
     }
     let mut selected: IndependentSupports = Default::default();
     for (index, (support, expected_ids)) in result.supports.iter().zip(expected).enumerate() {
         if &support.rows != expected_ids {
-            return Err("reference degeneracy support rows differ from their exact original identity/order".into());
+            return Err(
+                "reference degeneracy support rows differ from their exact original identity/order"
+                    .into(),
+            );
         }
-        if let ReferenceDegenerateCertificate::Reported { multipliers, irreducible_at_tolerance } = &support.certificate {
+        if let ReferenceDegenerateCertificate::Reported {
+            multipliers,
+            irreducible_at_tolerance,
+        } = &support.certificate
+        {
             let (rows, original) = SUPPORTS[index];
             if !irreducible_at_tolerance || multipliers.len() != rows.len() {
-                return Err("reference degeneracy certificate is incomplete or not irreducible".into());
+                return Err(
+                    "reference degeneracy certificate is incomplete or not irreducible".into(),
+                );
             }
             let actual = weights(rows, multipliers);
             proportional(&actual, &weights(rows, original))?;
@@ -93,16 +120,29 @@ fn validate_reference(
 fn exchange(inputs: Inputs) -> Result<IndependentSupports> {
     const LIMIT: usize = 64 << 10;
     let meaning = inputs.contract.meaning.clone();
-    let ids = inputs.contract.observables.iter().map(|coordinate| (coordinate.key.as_str(), coordinate.output)).collect::<BTreeMap<_, _>>();
-    let expected = SUPPORTS.map(|(rows, _)| rows.iter().map(|row| ids[format!("row:{row}").as_str()]).collect());
-    let (bytes, execution) = reference_scalar_exchange::perform(inputs, Oracle {
-        role: "PSE_DEGENERACY_REFERENCE_PYTHON",
-        driver: "degeneracy_reference_driver.py",
-        diagnostic_prefix: "degeneracy_reference_environment ",
-        provider: "SCIPOPTDIR",
-        solver: "scip",
-        stages: &[("degeneracy.search", 2..=3)],
-    }, LIMIT)?;
+    let ids = inputs
+        .contract
+        .observables
+        .iter()
+        .map(|coordinate| (coordinate.key.as_str(), coordinate.output))
+        .collect::<BTreeMap<_, _>>();
+    let expected = SUPPORTS.map(|(rows, _)| {
+        rows.iter()
+            .map(|row| ids[format!("row:{row}").as_str()])
+            .collect()
+    });
+    let (bytes, execution) = reference_scalar_exchange::perform(
+        inputs,
+        Oracle {
+            role: "PSE_DEGENERACY_REFERENCE_PYTHON",
+            driver: "degeneracy_reference_driver.py",
+            diagnostic_prefix: "degeneracy_reference_environment ",
+            provider: "SCIPOPTDIR",
+            solver: "scip",
+            stages: &[("degeneracy.search", 2..=3)],
+        },
+        LIMIT,
+    )?;
     let decoded = pse_runtime::reference_exchange::decode_degeneracy_result(&bytes, LIMIT)
         .map_err(|error| execution.failure("response refused", error))?;
     let original = decoded.known();
@@ -122,29 +162,48 @@ fn exchange(inputs: Inputs) -> Result<IndependentSupports> {
     Ok(reference)
 }
 
-fn compare(report: &CandidateReport, reference: &IndependentSupports) -> std::result::Result<(), String> {
+fn compare(
+    report: &CandidateReport,
+    reference: &IndependentSupports,
+) -> std::result::Result<(), String> {
     if !report.complete {
         return Err("native all-anchor analysis incomplete".into());
     }
     if !report.unavailable.is_empty() {
-        return Err(format!("native analysis unavailable: {:?}", report.unavailable));
+        return Err(format!(
+            "native analysis unavailable: {:?}",
+            report.unavailable
+        ));
     }
     if report.sets.len() != SUPPORTS.len() {
         return Err("native result must contain both constructed sets".into());
     }
     let mut visited = BTreeSet::new();
     for item in &report.sets {
-        let rows = item.rows.iter().map(String::as_str).collect::<BTreeSet<_>>();
+        let rows = item
+            .rows
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
         if rows.is_empty() || rows.len() != item.rows.len() {
             return Err("duplicate or empty rows".into());
         }
-        if item.multipliers.keys().map(String::as_str).ne(rows.iter().copied()) {
+        if item
+            .multipliers
+            .keys()
+            .map(String::as_str)
+            .ne(rows.iter().copied())
+        {
             return Err("certificate and row support differ".into());
         }
         if !item.irreducible_at_tolerance {
             return Err("set is not irreducible at tolerance".into());
         }
-        let index = SUPPORTS.iter().position(|(expected, _)| expected.len() == rows.len() && expected.iter().all(|row| rows.contains(row)))
+        let index = SUPPORTS
+            .iter()
+            .position(|(expected, _)| {
+                expected.len() == rows.len() && expected.iter().all(|row| rows.contains(row))
+            })
             .ok_or("native result must contain both constructed sets")?;
         if !visited.insert(index) {
             return Err("duplicate degenerate set".into());
@@ -202,13 +261,13 @@ async fn native_degeneracy_matches_independent_reference_and_rejects_bad_populat
         let mut reducible = report.clone();
         reducible.sets[0].irreducible_at_tolerance = false;
         let candidates = [
-                record("native", Some(report.clone())),
-                record("wrong-multiplier", Some(wrong)),
-                record("missing", None),
-                record("incomplete", Some(incomplete)),
-                record("missing-set", Some(missing_set)),
-                record("reducible", Some(reducible)),
-                record("native-after-failures", Some(report)),
+            record("native", Some(report.clone())),
+            record("wrong-multiplier", Some(wrong)),
+            record("missing", None),
+            record("incomplete", Some(incomplete)),
+            record("missing-set", Some(missing_set)),
+            record("reducible", Some(reducible)),
+            record("native-after-failures", Some(report)),
         ];
         let reference = tokio::task::spawn_blocking(move || exchange(contract)).await??;
         let expected = [
@@ -229,9 +288,16 @@ async fn native_degeneracy_matches_independent_reference_and_rejects_bad_populat
                 },
                 None => ("missing", "native result missing".into()),
             };
-            assert_eq!(candidate.id, id, "retain input order through mixed outcomes");
+            assert_eq!(
+                candidate.id, id,
+                "retain input order through mixed outcomes"
+            );
             assert_eq!(actual, status, "{id}: {diagnostic}");
-            assert_eq!(diagnostic.is_empty(), status == "passed", "{id}: {diagnostic}");
+            assert_eq!(
+                diagnostic.is_empty(),
+                status == "passed",
+                "{id}: {diagnostic}"
+            );
             assert!(diagnostic.contains(reason), "{id}: {diagnostic}");
         }
         Ok(())

@@ -114,20 +114,29 @@ fn check(name: &str) {
 fn authored_ethane_vapor_viscosity_matches_released_observations_and_jets() {
     let source = crate::scientific_inputs::family_sources("pure-transport");
     let (mut workspace, declarations) = fresh_workspace(&source);
-    let selected = root(&declarations, "transport_fixtures", "ethane_vapor_viscosity");
+    let selected = root(
+        &declarations,
+        "transport_fixtures",
+        "ethane_vapor_viscosity",
+    );
     let result = workspace
         .check_modeling_point(
             selected,
             root_instance(selected),
             Bindings::default(),
             Limits::default(),
-            &CaseValues { scalars: BTreeMap::new() },
+            &CaseValues {
+                scalars: BTreeMap::new(),
+            },
             Profile::default(),
             pse_diagnostics::Cancellation::default(),
         )
         .unwrap_or_else(|error| panic!("authored ethane vapor viscosity: {error}"));
     assert_eq!(result.expectations.len(), 6);
-    assert!(result.expectations.iter().all(|value| value.passed), "{result:?}");
+    assert!(
+        result.expectations.iter().all(|value| value.passed),
+        "{result:?}"
+    );
 }
 
 #[test]

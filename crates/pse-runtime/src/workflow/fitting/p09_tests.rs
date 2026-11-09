@@ -1049,7 +1049,12 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
         (id(72), "Time", Some(74.5), Some(1.)),
         (id(73), "Time", Some(74.25), Some(1.)),
     ]));
-    let case = |name| rows.iter().find(|row| row.name == name).unwrap().declaration_id;
+    let case = |name| {
+        rows.iter()
+            .find(|row| row.name == name)
+            .unwrap()
+            .declaration_id
+    };
     let bare = case("Bare");
     let fit_id = FitId::from(id(70));
     let experiments = [74, 75, 76].map(|value| InstanceId::from(id(value)));
@@ -1097,7 +1102,14 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
         uncertainty: None,
     };
     let prepared = package
-        .prepare_fit(services.preparation(), fit_id, profile.clone(), compiler_profile(), Default::default(), &cancel)
+        .prepare_fit(
+            services.preparation(),
+            fit_id,
+            profile.clone(),
+            compiler_profile(),
+            Default::default(),
+            &cancel,
+        )
         .await
         .unwrap();
     let problem = prepared.problem.clone();
@@ -1110,12 +1122,24 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
     assert_eq!(report.rank, Some(2));
     let candidate = report.candidate.as_ref().unwrap();
     for (coordinate, (expected, parameter)) in [(2., id(3)), (4., id(4))].into_iter().enumerate() {
-        assert_action(candidate[coordinate], expected, parameter_allowance(&problem, parameter));
+        assert_action(
+            candidate[coordinate],
+            expected,
+            parameter_allowance(&problem, parameter),
+        );
     }
     let responses = report.responses.as_ref().unwrap();
-    let expected = [candidate[0], 71. + 0.25 * candidate[0] + 0.75 * candidate[1], 71. + 0.75 * candidate[0] + 0.25 * 7.];
+    let expected = [
+        candidate[0],
+        71. + 0.25 * candidate[0] + 0.75 * candidate[1],
+        71. + 0.75 * candidate[0] + 0.25 * 7.,
+    ];
     for (row, slopes) in [[1., 0.], [0.25, 0.75], [0.75, 0.]].iter().enumerate() {
-        assert_action(report.predictions[row].unwrap(), expected[row], allowances[row]);
+        assert_action(
+            report.predictions[row].unwrap(),
+            expected[row],
+            allowances[row],
+        );
         for (column, slope) in slopes.iter().enumerate() {
             assert_action(responses[(row, column)] * 0.5, slope * 0.5, allowances[row]);
         }
@@ -1128,7 +1152,9 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
     assert_eq!(late.parameters().unwrap(), [candidate[0], 7.]);
 
     {
-        use crate::workflow::replay::{ReplayConstructor, ReplayFitConstructor, ReplaySourceDocument};
+        use crate::workflow::replay::{
+            ReplayConstructor, ReplayFitConstructor, ReplaySourceDocument,
+        };
 
         let document = result.replay().document_with_limit(128 << 20).unwrap();
         let ReplayConstructor::Fit { fit: constructor } = &document.constructor else {
@@ -1170,37 +1196,67 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
             assert_eq!(restored.parameters, original.parameters);
             assert_eq!(restored.bindings.len(), original.bindings.len());
             for (restored, original) in restored.bindings.iter().zip(&original.bindings) {
-                assert_eq!((restored.local, restored.parameter), (original.local, original.parameter));
+                assert_eq!(
+                    (restored.local, restored.parameter),
+                    (original.local, original.parameter)
+                );
             }
         }
     }
 
     let mut caller_profile = package
-        .declared_simulation(services.preparation(), bare, compiler_profile(), None, Default::default(), &cancel)
+        .declared_simulation(
+            services.preparation(),
+            bare,
+            compiler_profile(),
+            None,
+            Default::default(),
+            &cancel,
+        )
         .await
         .unwrap()
         .profile()
         .clone();
-    caller_profile.schedule.push(native::dynamics::ScheduledInput {
-        parameter: 0,
-        times: vec![160.25],
-    });
+    caller_profile
+        .schedule
+        .push(native::dynamics::ScheduledInput {
+            parameter: 0,
+            times: vec![160.25],
+        });
     let mut injected_profile = profile.clone();
-    injected_profile.simulations.insert(experiments[1], caller_profile);
+    injected_profile
+        .simulations
+        .insert(experiments[1], caller_profile);
     let early_case = declarations.fits[0].experiments[1].case_id;
-    for (case, time, controls) in [(early_case, 160.5, profile), (bare, 160.25, injected_profile)] {
+    for (case, time, controls) in [
+        (early_case, 160.5, profile),
+        (bare, 160.25, injected_profile),
+    ] {
         let mut invalid = declarations.clone();
         invalid.fits[0].experiments[1].case_id = case;
         invalid.fits[0].experiments[1].bindings[1].schedule_start = Some(time);
-        let changed = package.clone()
+        let changed = package
+            .clone()
             .with_fit_declarations(&runtime.source_services(), invalid)
             .await
             .unwrap();
         let refused = changed
-            .prepare_fit(services.preparation(), fit_id, controls, compiler_profile(), Default::default(), &cancel)
+            .prepare_fit(
+                services.preparation(),
+                fit_id,
+                controls,
+                compiler_profile(),
+                Default::default(),
+                &cancel,
+            )
             .await
             .unwrap_err();
-        assert!(refused.to_string().contains("not an exact authored interval start"), "{refused}");
+        assert!(
+            refused
+                .to_string()
+                .contains("not an exact authored interval start"),
+            "{refused}"
+        );
     }
 }
 
@@ -1489,41 +1545,64 @@ async fn mixed_fit_resolves_fit_owned_scale_without_exposing_it_to_experiments()
     let (package, mut profile) = source(&runtime, true, 73.).await;
     let fit = FitId::from(id(73));
     let registry = pse_quantity::standard::standard_registry().unwrap();
-    let pse_quantity::PhysicalName::QuantityType(quantity) = registry.physical_name("Scalar").unwrap() else {
+    let pse_quantity::PhysicalName::QuantityType(quantity) =
+        registry.physical_name("Scalar").unwrap()
+    else {
         panic!("fixture requires the authored Scalar quantity");
     };
     let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
-    profile.solver.numerics.engineering_scales.push(EngineeringScale {
-        scale_id: id(90).into(),
-        model_id: None,
-        case_id: None,
-        instance_id: None,
-        fit_id: Some(fit),
-        target_id: id(3),
-        target_kind: NumericalTarget::Variable,
-        quantity_id: quantity.as_id(),
-        unit_id: unit.as_id(),
-        kind: EngineeringScaleKind::Magnitude,
-        value: 12.0,
-        source: NumericalSource::Analysis,
-        priority: 100,
-        provenance: "joint fit parameter characteristic".into(),
-    });
+    profile
+        .solver
+        .numerics
+        .engineering_scales
+        .push(EngineeringScale {
+            scale_id: id(90).into(),
+            model_id: None,
+            case_id: None,
+            instance_id: None,
+            fit_id: Some(fit),
+            target_id: id(3),
+            target_kind: NumericalTarget::Variable,
+            quantity_id: quantity.as_id(),
+            unit_id: unit.as_id(),
+            kind: EngineeringScaleKind::Magnitude,
+            value: 12.0,
+            source: NumericalSource::Analysis,
+            priority: 100,
+            provenance: "joint fit parameter characteristic".into(),
+        });
     let cancel = crate::CancelSource::new();
     let prepare = |profile| {
         package.prepare_fit_problem(
-            services.preparation(), fit, profile, compiler_profile(), Default::default(),
+            services.preparation(),
+            fit,
+            profile,
+            compiler_profile(),
+            Default::default(),
             &cancel,
         )
     };
     let (problem, assessments) = prepare(profile.clone()).await.unwrap();
-    let target = crate::workflow::tests::engineering_target(&problem.numerics, NumericalTarget::Variable, id(3));
+    let target = crate::workflow::tests::engineering_target(
+        &problem.numerics,
+        NumericalTarget::Variable,
+        id(3),
+    );
     assert_eq!(target.unit, unit.as_id());
-    assert_eq!(target.engineering.as_ref().unwrap().characteristic, Some(12.0));
+    assert_eq!(
+        target.engineering.as_ref().unwrap().characteristic,
+        Some(12.0)
+    );
     let modeling::Assessment::Steady { numerics, .. } = &assessments[1] else {
         panic!("original steady experiment required");
     };
-    assert!(numerics.policy.engineering_scales.iter().all(|scale| scale.scale_id.as_id() != id(90)));
+    assert!(
+        numerics
+            .policy
+            .engineering_scales
+            .iter()
+            .all(|scale| scale.scale_id.as_id() != id(90))
+    );
 
     profile.solver.numerics.engineering_scales[0].target_id = id(91);
     let Err(error) = prepare(profile).await else {
@@ -2845,10 +2924,14 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
         source.numerics(),
         NumericalTarget::Variable,
         state,
-    ).budget;
+    )
+    .budget;
     for (time, expected_state, expected_report) in [(160., 10., 70.), (161., 12., 73.)] {
         let x = selected.qualified_output_at(time, state).unwrap().unwrap();
-        let y = selected.qualified_output_at(time, reported).unwrap().unwrap();
+        let y = selected
+            .qualified_output_at(time, reported)
+            .unwrap()
+            .unwrap();
         assert!(x.trajectory().belongs_to(&original));
         assert_eq!(y.trajectory().experiment_id(), ids[0]);
         assert_eq!(x.sample().time, time);
@@ -2861,7 +2944,12 @@ async fn fitting_member_permission_preserves_qualified_sibling_and_exact_origina
         assert_action(y.sample().value, expected_report, allowance);
     }
     for (time, symbol) in [(160.5, state), (f64::NAN, state), (160., id(99))] {
-        assert!(selected.qualified_output_at(time, symbol).unwrap().is_none());
+        assert!(
+            selected
+                .qualified_output_at(time, symbol)
+                .unwrap()
+                .is_none()
+        );
     }
     assert_eq!(
         coordinates

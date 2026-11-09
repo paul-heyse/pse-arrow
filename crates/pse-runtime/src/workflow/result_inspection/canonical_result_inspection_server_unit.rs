@@ -682,7 +682,11 @@ async fn canonical_result_physical_pages_reopen_original_context_bind_cursor_and
     let read = &original._custody.as_ref().unwrap()._read;
     let foreign = pse_operations::native_fixture::canonical_fixture_store().unwrap();
     let error = foreign.result_source_revisions(read).await.unwrap_err();
-    assert!(error.to_string().contains("result source read belongs to another store"));
+    assert!(
+        error
+            .to_string()
+            .contains("result source read belongs to another store")
+    );
     foreign.remove_isolated_fixture().await.unwrap();
     let sources = store.result_source_revisions(read).await.unwrap();
     assert!(sources.contains(read.source_revision()));
@@ -1611,15 +1615,15 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
     );
     let preflight = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = preflight.start("complete result permission preflight");
-    let selection = pse_diagnostics::observation::scope(
-        Some(observed.context()),
-        reader.pack_selection(),
-    )
-    .await
-    .unwrap();
+    let selection =
+        pse_diagnostics::observation::scope(Some(observed.context()), reader.pack_selection())
+            .await
+            .unwrap();
     assert_eq!(selection.usability, PackScientificState::Unusable);
     assert_eq!(decode_count(&preflight), 1);
-    assert!(metric_count(&preflight, "canonical.result.hydrated_roots") < original.num_columns() as u64);
+    assert!(
+        metric_count(&preflight, "canonical.result.hydrated_roots") < original.num_columns() as u64
+    );
 
     let scalar = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = scalar.start("scalar result permission preflight");
@@ -1628,7 +1632,12 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         (owner, "step:0", Some(-1.), PackScientificState::Unusable),
         (owner, "step:2", Some(-1.), PackScientificState::Unknown),
         (owner, "step:0", Some(1.), PackScientificState::Unknown),
-        (pse_ids::SemanticId::from_bytes([0x34; 16]), "step:0", Some(-1.), PackScientificState::Unknown),
+        (
+            pse_ids::SemanticId::from_bytes([0x34; 16]),
+            "step:0",
+            Some(-1.),
+            PackScientificState::Unknown,
+        ),
     ] {
         let mut selected = runtime
             .output_results(
@@ -1662,7 +1671,9 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         }
     }
     assert_eq!(decode_count(&scalar), 1);
-    assert!(metric_count(&scalar, "canonical.result.hydrated_roots") < original.num_columns() as u64);
+    assert!(
+        metric_count(&scalar, "canonical.result.hydrated_roots") < original.num_columns() as u64
+    );
 
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = hub.start("assessed selected root hydration");

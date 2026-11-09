@@ -162,7 +162,14 @@ impl ProtectedResultDecode {
         cancel: &CancellationToken,
     ) -> Result<DecodedResultBatch, WorkflowError> {
         self.decode
-            .access_block(self.authority(), block, descriptor, cancel, true, projection)
+            .access_block(
+                self.authority(),
+                block,
+                descriptor,
+                cancel,
+                true,
+                projection,
+            )
             .await?
             .ok_or_else(|| contract("protected observed batch decode absent"))
     }
@@ -283,11 +290,18 @@ impl InspectionBatch {
             .and_then(|bytes| bytes.checked_add(size_of::<TakeOwner>()))
             .ok_or_else(|| contract("inspection take wrapper extent"))?;
         let wrappers = MemoryConsumer::new("canonical:inspection-take-wrappers").register(pool);
-        wrappers.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
-        let batch = batch.with_payload_owner(Arc::new(TakeOwner {
-            _original: self._working_owner.clone(),
-            _wrappers: wrappers,
-        }), cancel).map_err(pse_engine::EngineError::from)?;
+        wrappers
+            .try_grow(bytes)
+            .map_err(pse_engine::EngineError::from)?;
+        let batch = batch
+            .with_payload_owner(
+                Arc::new(TakeOwner {
+                    _original: self._working_owner.clone(),
+                    _wrappers: wrappers,
+                }),
+                cancel,
+            )
+            .map_err(pse_engine::EngineError::from)?;
         Ok(Self {
             batch,
             roots: self.roots.clone(),
@@ -311,7 +325,10 @@ impl DecodedResultBatch {
 
     fn slice(&self, offset: usize, length: usize) -> Result<Self, WorkflowError> {
         match self {
-            Self::Full(batch) => batch.slice(offset, length).map(Self::Full).map_err(super::relation),
+            Self::Full(batch) => batch
+                .slice(offset, length)
+                .map(Self::Full)
+                .map_err(super::relation),
             Self::Inspection(batch) => batch.slice(offset, length).map(Self::Inspection),
         }
     }
@@ -537,7 +554,12 @@ impl ResultSnapshot {
             .batches
             .get(&block.batch)
             .ok_or_else(|| contract("block outside frozen snapshot"))?;
-        match self.0.decode.read_observed_block(block, descriptor, Some(projection), cancel).await? {
+        match self
+            .0
+            .decode
+            .read_observed_block(block, descriptor, Some(projection), cancel)
+            .await?
+        {
             DecodedResultBatch::Inspection(batch) => Ok(batch),
             _ => Err(contract("protected inspection batch decode absent")),
         }
@@ -918,7 +940,9 @@ impl SelectedRows {
                 batch.slice(*offset, *length).map_err(super::relation)
             }
             Self::Sparse { offsets, .. } => with_take_indices(offsets, pool, |indices| {
-                batch.take_reserved(indices, pool, cancel).map_err(super::relation)
+                batch
+                    .take_reserved(indices, pool, cancel)
+                    .map_err(super::relation)
             }),
         }
     }
@@ -930,15 +954,17 @@ impl SelectedRows {
         cancel: &CancellationToken,
     ) -> Result<DecodedResultBatch, WorkflowError> {
         match (self, batch) {
-            (_, DecodedResultBatch::Full(batch)) => {
-                self.apply(batch, pool, cancel).map(DecodedResultBatch::Full)
-            }
-            (Self::Range { offset, length }, DecodedResultBatch::Inspection(batch)) => {
-                batch.slice(*offset, *length).map(DecodedResultBatch::Inspection)
-            }
+            (_, DecodedResultBatch::Full(batch)) => self
+                .apply(batch, pool, cancel)
+                .map(DecodedResultBatch::Full),
+            (Self::Range { offset, length }, DecodedResultBatch::Inspection(batch)) => batch
+                .slice(*offset, *length)
+                .map(DecodedResultBatch::Inspection),
             (Self::Sparse { offsets, .. }, DecodedResultBatch::Inspection(batch)) => {
                 with_take_indices(offsets, pool, |indices| {
-                    batch.take(indices, pool, cancel).map(DecodedResultBatch::Inspection)
+                    batch
+                        .take(indices, pool, cancel)
+                        .map(DecodedResultBatch::Inspection)
                 })
             }
         }
@@ -951,9 +977,13 @@ fn with_take_indices<T>(
     take: impl FnOnce(&datafusion::arrow::array::UInt32Array) -> Result<T, WorkflowError>,
 ) -> Result<T, WorkflowError> {
     let scratch = MemoryConsumer::new("canonical:selected-take-offsets").register(pool);
-    let bytes = offsets.len().checked_mul(size_of::<u32>())
+    let bytes = offsets
+        .len()
+        .checked_mul(size_of::<u32>())
         .ok_or_else(|| contract("selected take offsets extent"))?;
-    scratch.try_grow(bytes).map_err(pse_engine::EngineError::from)?;
+    scratch
+        .try_grow(bytes)
+        .map_err(pse_engine::EngineError::from)?;
     let indices = datafusion::arrow::array::UInt32Array::from(offsets.to_vec());
     take(&indices)
 }
@@ -1087,7 +1117,10 @@ impl FrozenSnapshot {
                     if lower >= upper {
                         continue;
                     }
-                    let descriptor = snapshot.0.batches.get(&block.batch)
+                    let descriptor = snapshot
+                        .0
+                        .batches
+                        .get(&block.batch)
                         .ok_or_else(|| contract("block outside frozen snapshot"))?;
                     if pruning.is_some_and(|selection| !selection.keeps(position)) {
                         self.decode()
@@ -1095,7 +1128,10 @@ impl FrozenSnapshot {
                             .await?;
                         continue;
                     }
-                    let batch = self.decode().read_observed_block(block, descriptor, projection, cancel).await?;
+                    let batch = self
+                        .decode()
+                        .read_observed_block(block, descriptor, projection, cancel)
+                        .await?;
                     let offset = usize::try_from(lower - block.start)
                         .map_err(|_| contract("snapshot row offset extent"))?;
                     let count = usize::try_from(upper - lower)
@@ -1133,7 +1169,12 @@ impl FrozenSnapshot {
                         snapshot
                             .0
                             .decode
-                            .read_observed_block(&entry.block, &entry.descriptor, projection, cancel)
+                            .read_observed_block(
+                                &entry.block,
+                                &entry.descriptor,
+                                projection,
+                                cancel,
+                            )
                             .await?
                     }
                 };
@@ -1273,8 +1314,8 @@ impl NativeResultSelection {
         services: &RetainedDataServices,
         projection: &pse_relations::validate::PreparedInspectionProjection,
     ) -> NativeResult<ProjectedResultPredicate> {
-        let owner = MemoryConsumer::new("canonical:projected-result-predicate")
-            .register(&services.pool());
+        let owner =
+            MemoryConsumer::new("canonical:projected-result-predicate").register(&services.pool());
         // Rebinding only clones the bounded native expression tree; schema and
         // root checks remain owned by the prepared inspection projection.
         owner.try_grow(64 * 1024)?;
@@ -1282,7 +1323,10 @@ impl NativeResultSelection {
             self.physical.clone(),
             projection.schema().as_ref(),
         )?;
-        Ok(ProjectedResultPredicate { physical, _owner: owner })
+        Ok(ProjectedResultPredicate {
+            physical,
+            _owner: owner,
+        })
     }
 
     pub(super) fn prune_members<'a>(
@@ -1440,7 +1484,9 @@ impl TableProvider for SnapshotProvider {
         let schema = self.schema();
         let mut scan_projection = None;
         let mut roots = None;
-        if let Some(requested) = projection.filter(|requested| requested.len() < schema.fields().len()) {
+        if let Some(requested) =
+            projection.filter(|requested| requested.len() < schema.fields().len())
+        {
             // Inexact pushdown consults the filter on the original schema. Keep
             // any predicate-only columns in the physical read, then return the
             // exact projection requested by DataFusion for residual evaluation.
@@ -1450,19 +1496,27 @@ impl TableProvider for SnapshotProvider {
                     dependencies.push(schema.index_of(&column.name)?);
                 }
             }
-            let prepared = self.0.decode().inspection_projection(&dependencies)
+            let prepared = self
+                .0
+                .decode()
+                .inspection_projection(&dependencies)
                 .map_err(pse_columnar::external)?;
             if prepared.roots().len() < schema.fields().len() {
-                let relative = requested.iter().map(|root| {
-                    prepared.roots().binary_search(root).map_err(|_| {
-                        DataFusionError::Plan("query root outside protected projection".into())
+                let relative = requested
+                    .iter()
+                    .map(|root| {
+                        prepared.roots().binary_search(root).map_err(|_| {
+                            DataFusionError::Plan("query root outside protected projection".into())
+                        })
                     })
-                }).collect::<NativeResult<Vec<_>>>()?;
+                    .collect::<NativeResult<Vec<_>>>()?;
                 scan_projection = Some(relative);
                 roots = Some(prepared);
             }
         }
-        let schema = roots.as_ref().map_or(schema, |roots| roots.schema().clone());
+        let schema = roots
+            .as_ref()
+            .map_or(schema, |roots| roots.schema().clone());
         StreamingTable::try_new(
             schema.clone(),
             vec![Arc::new(SnapshotPartition { snapshot: self.0.clone(), schema, pruning, roots })],
@@ -1503,25 +1557,26 @@ impl PartitionStream for SnapshotPartition {
                     ));
                 }
                 let batch = snapshot
-                    .next(&mut index, &mut cache, &cancel, pruning.as_deref(), roots.as_ref())
+                    .next(
+                        &mut index,
+                        &mut cache,
+                        &cancel,
+                        pruning.as_deref(),
+                        roots.as_ref(),
+                    )
                     .await
                     .map_err(pse_columnar::external)?;
                 let Some(batch) = batch else {
                     return Ok(None);
                 };
-                let batch = batch
-                    .query_batch(&cancel)
-                    .map_err(pse_columnar::external)?;
+                let batch = batch.query_batch(&cancel).map_err(pse_columnar::external)?;
                 Ok::<_, DataFusionError>(Some((
                     batch,
                     (snapshot, index, cache, cancel, pool_matches, pruning, roots),
                 )))
             },
         );
-        Box::pin(RecordBatchStreamAdapter::new(
-            self.schema.clone(),
-            stream,
-        ))
+        Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
     }
 }
 

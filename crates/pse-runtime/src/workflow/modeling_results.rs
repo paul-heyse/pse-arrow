@@ -10,9 +10,9 @@ use pse_relations::generated::{
     enums::DualQualification,
     runtime::{
         incumbents, infeasibility_certificates as certificates, modeling_checks, modeling_findings,
-        modeling_reports, provider_selections, solution_pool as pool, solve_constraints as constraints,
-        solve_metrics as metrics, solve_runs as runs, solve_strategy_events,
-        solve_variables as variables,
+        modeling_reports, provider_selections, solution_pool as pool,
+        solve_constraints as constraints, solve_metrics as metrics, solve_runs as runs,
+        solve_strategy_events, solve_variables as variables,
     },
 };
 use std::{borrow::Cow, collections::BTreeMap};
@@ -175,7 +175,12 @@ impl RunResult {
                 && let Some(result) = result
             {
                 result
-                    .project_provider_selections(self.run_id, self.issued_attempt, step, &mut collection)
+                    .project_provider_selections(
+                        self.run_id,
+                        self.issued_attempt,
+                        step,
+                        &mut collection,
+                    )
                     .await?;
             }
             let trace = result

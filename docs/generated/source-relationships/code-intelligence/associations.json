@@ -12,7 +12,7 @@
     "xtask/Cargo.toml": "2e035b94ebf15cfa65740b32f72057506fe4afd0c9f022457c8f14266c9708b8",
     "xtask/src/codegen/code_intelligence.rs": "dfc954a7e71b1fd6af37312c4679705fe10188be8ddd6a015bf071586cdfe182",
     "xtask/src/codegen/code_intelligence/associations.rs": "f693bd1f50108d5c8fcf08826f8bf2a46b859da50b4d695e483d3a85cf24e4c2",
-    "xtask/src/codegen/proto_projection.rs": "09f9cc2379787a930ac3cc3e89d199b07d9c43f56987d6f4119062810dbee0fe",
+    "xtask/src/codegen/proto_projection.rs": "641410dfa53ad48974fd6e9ed175b0b0596324758b7b0b2aa0ab97215e078439",
     "xtask/src/codegen/proto_projection/composition.rs": "db56a7fd7c2b83ede9bb9d51a969bc81165fd542f292553729dae4aad9d7643a"
   },
   "associations": [

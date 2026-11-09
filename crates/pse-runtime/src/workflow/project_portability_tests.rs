@@ -241,7 +241,11 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         let error =
             workflow::result_selection::publish_selection_metadata(&mut export_metadata, result)
                 .unwrap_err();
-        assert!(error.to_string().contains("requires complete original context"));
+        assert!(
+            error
+                .to_string()
+                .contains("requires complete original context")
+        );
         assert!(export_metadata.is_empty());
 
         // Encode below the selected-result admission boundary: both the
@@ -263,7 +267,9 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
             panic!("matching bytes cannot replace the original {qualifier}");
         };
         assert!(
-            error.to_string().contains("requires complete original context"),
+            error
+                .to_string()
+                .contains("requires complete original context"),
             "unexpected admission failure for {qualifier}: {error}"
         );
     }
@@ -278,7 +284,10 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         ("pse.canonical.problem".into(), "original-problem".into()),
         ("pse.canonical.revision".into(), "original-revision".into()),
         ("pse.canonical.manifest".into(), "original-manifest".into()),
-        ("pse.canonical.interpretation".into(), "original-interpretation".into()),
+        (
+            "pse.canonical.interpretation".into(),
+            "original-interpretation".into(),
+        ),
     ]);
     for metadata in [std::collections::HashMap::new(), retired] {
         let unqualified = ipc(metadata);
@@ -286,7 +295,9 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         let mut no_current_lineage = original.clone();
         let member = no_current_lineage.members.last_mut().unwrap();
         member.copied_bytes = unqualified.len() as u64;
-        member.digest = pse_ids::encoding_checksum(&unqualified).content_hash().to_hex();
+        member.digest = pse_ids::encoding_checksum(&unqualified)
+            .content_hash()
+            .to_hex();
         save(root.path(), &no_current_lineage);
         assert!(
             ProjectBundleReader::open(root.path(), 16 << 20).is_err(),

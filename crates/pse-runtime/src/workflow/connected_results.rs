@@ -340,7 +340,11 @@ impl CanonicalResultReader {
         &mut self,
         projection: &Arc<PreparedInspectionProjection>,
     ) -> Result<Option<super::result_snapshot::InspectionBatch>, WorkflowError> {
-        match self.reader.next_native_batch(Some(ObservedProjection::roots_only(projection))).await? {
+        match self
+            .reader
+            .next_native_batch(Some(ObservedProjection::roots_only(projection)))
+            .await?
+        {
             Some(DecodedResultBatch::Inspection(batch)) => Ok(Some(batch)),
             None => Ok(None),
             _ => Err(contract("unexpected full inspection batch")),
@@ -567,7 +571,10 @@ struct ObservedProjection<'a> {
 
 impl<'a> ObservedProjection<'a> {
     fn roots_only(roots: &'a Arc<PreparedInspectionProjection>) -> Self {
-        Self { roots, scalar: None }
+        Self {
+            roots,
+            scalar: None,
+        }
     }
 }
 
@@ -810,17 +817,25 @@ impl ResultReader {
         {
             Some(SelectedScientificProduct::Original)
         } else if self.relation == parametric_sensitivities::RELATION_ID {
-            Some(SelectedScientificProduct::Derived(DerivedQuantity::ParametricSensitivity))
+            Some(SelectedScientificProduct::Derived(
+                DerivedQuantity::ParametricSensitivity,
+            ))
         } else if self.relation == reduced_hessians::RELATION_ID {
-            Some(SelectedScientificProduct::Derived(DerivedQuantity::ReducedHessian))
+            Some(SelectedScientificProduct::Derived(
+                DerivedQuantity::ReducedHessian,
+            ))
         } else if self.relation == parameter_intervals::RELATION_ID {
             Some(SelectedScientificProduct::Interval)
         } else if self.relation == propagated_covariances::RELATION_ID {
             Some(SelectedScientificProduct::Propagation)
         } else if self.relation == parameter_covariances::RELATION_ID {
-            Some(SelectedScientificProduct::Task(DerivedQuantity::ParameterCovariance))
+            Some(SelectedScientificProduct::Task(
+                DerivedQuantity::ParameterCovariance,
+            ))
         } else if self.relation == profile_points::RELATION_ID {
-            Some(SelectedScientificProduct::Task(DerivedQuantity::ProfileInterval))
+            Some(SelectedScientificProduct::Task(
+                DerivedQuantity::ProfileInterval,
+            ))
         } else {
             None
         }
@@ -839,9 +854,11 @@ impl ResultReader {
             trajectory_permission::SAMPLE_ROOTS
         } else {
             match product {
-                Some(SelectedScientificProduct::Original
+                Some(
+                    SelectedScientificProduct::Original
                     | SelectedScientificProduct::Derived(_)
-                    | SelectedScientificProduct::Propagation) => &[PERMISSION_STEP],
+                    | SelectedScientificProduct::Propagation,
+                ) => &[PERMISSION_STEP],
                 Some(SelectedScientificProduct::Interval) => &[PERMISSION_METHOD],
                 Some(SelectedScientificProduct::Task(DerivedQuantity::ProfileInterval)) => {
                     &[PERMISSION_ACCEPTED]
@@ -850,8 +867,11 @@ impl ResultReader {
             }
         };
         for name in required {
-            requested.push(self.schema.index_of(name)
-                .map_err(|_| contract(format!("original permission root {name} absent")))?);
+            requested.push(
+                self.schema
+                    .index_of(name)
+                    .map_err(|_| contract(format!("original permission root {name} absent")))?,
+            );
         }
         match product {
             Some(SelectedScientificProduct::Original) => {
@@ -859,10 +879,16 @@ impl ResultReader {
                     DUAL_VALUE_ROOTS.contains(&output.field.as_str())
                 } else {
                     let before = requested.len();
-                    requested.extend(DUAL_VALUE_ROOTS.iter().filter_map(|name| self.schema.index_of(name).ok()));
+                    requested.extend(
+                        DUAL_VALUE_ROOTS
+                            .iter()
+                            .filter_map(|name| self.schema.index_of(name).ok()),
+                    );
                     requested.len() != before
                 };
-                if observes_dual && let Ok(index) = self.schema.index_of(PERMISSION_DUAL_QUALIFICATION) {
+                if observes_dual
+                    && let Ok(index) = self.schema.index_of(PERMISSION_DUAL_QUALIFICATION)
+                {
                     requested.push(index);
                 }
             }
@@ -942,11 +968,15 @@ impl ResultReader {
             None
         };
         let roots = projection.or(prepared.as_ref());
-        let scalar = roots.zip(self.native_selection.as_ref())
+        let scalar = roots
+            .zip(self.native_selection.as_ref())
             .map(|(roots, native)| native.project(&self.services, roots))
             .transpose()
             .map_err(pse_engine::EngineError::from)?;
-        let projection = roots.map(|roots| ObservedProjection { roots, scalar: scalar.as_ref() });
+        let projection = roots.map(|roots| ObservedProjection {
+            roots,
+            scalar: scalar.as_ref(),
+        });
         let mut rows = self.fresh_selection("result:product-scope-read")?;
         let mut seen = false;
         let mut unknown = false;
@@ -1395,16 +1425,14 @@ impl ResultReader {
         &'a mut self,
         projection: Option<ObservedProjection<'a>>,
     ) -> Result<
-        PrepaidReaderFuture<
-            'a,
-            Result<Option<DecodedResultBatch>, WorkflowError>,
-        >,
+        PrepaidReaderFuture<'a, Result<Option<DecodedResultBatch>, WorkflowError>>,
         WorkflowError,
     > {
         let pool = self.services.pool();
         prepaid_reader_future(&pool, async move {
             if self.output.is_none() {
-                self.next_snapshot_body(projection.map(|projection| projection.roots)).await
+                self.next_snapshot_body(projection.map(|projection| projection.roots))
+                    .await
             } else {
                 self.next_selected_body(None, projection).await
             }
@@ -1435,9 +1463,9 @@ impl ResultReader {
                         .read_inspection_block(metadata, projection, &self.cancel)
                         .await?,
                 ),
-                None => DecodedResultBatch::Full(
-                    snapshot.read_block(metadata, &self.cancel).await?,
-                ),
+                None => {
+                    DecodedResultBatch::Full(snapshot.read_block(metadata, &self.cancel).await?)
+                }
             };
             self.snapshot_position += 1;
             self.exhausted = self.snapshot_position == snapshot.blocks().len();
@@ -1450,14 +1478,10 @@ impl ResultReader {
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
             return Ok(Some(match batch {
                 DecodedResultBatch::Full(batch) => {
-                    DecodedResultBatch::Full(
-                        batch.slice(offset, length).map_err(super::relation)?,
-                    )
+                    DecodedResultBatch::Full(batch.slice(offset, length).map_err(super::relation)?)
                 }
                 DecodedResultBatch::Inspection(batch) => {
-                    DecodedResultBatch::Inspection(
-                        batch.slice(offset, length)?,
-                    )
+                    DecodedResultBatch::Inspection(batch.slice(offset, length)?)
                 }
             }));
         }
@@ -1647,8 +1671,10 @@ impl ResultReader {
                 .selected_batch
                 .as_ref()
                 .filter(|cached| {
-                    cached.block == metadata && cached.descriptor == descriptor
-                        && matches!(&cached.batch, DecodedResultBatch::Inspection(_)) == projection.is_some()
+                    cached.block == metadata
+                        && cached.descriptor == descriptor
+                        && matches!(&cached.batch, DecodedResultBatch::Inspection(_))
+                            == projection.is_some()
                 })
                 .map(|cached| cached.batch.clone());
             let checked = if let Some(checked) = cached {
@@ -1682,14 +1708,20 @@ impl ResultReader {
                 });
                 checked
             };
-            let filter = self.output.as_deref().ok_or_else(|| contract("selected result filter absent"))?;
-            let indexes = self.indexes.remove(&metadata.batch)
+            let filter = self
+                .output
+                .as_deref()
+                .ok_or_else(|| contract("selected result filter absent"))?;
+            let indexes = self
+                .indexes
+                .remove(&metadata.batch)
                 .ok_or_else(|| contract("selected output block lacks index"))?;
             let batch = match &checked {
                 DecodedResultBatch::Full(batch) => OriginalRowBatch::Native(batch),
                 DecodedResultBatch::Inspection(batch) => OriginalRowBatch::Projected {
                     batch,
-                    predicate: projection.and_then(|projection| projection.scalar)
+                    predicate: projection
+                        .and_then(|projection| projection.scalar)
                         .ok_or_else(|| contract("projected scalar selection plan absent"))?,
                 },
             };
@@ -1705,7 +1737,8 @@ impl ResultReader {
                 batch,
                 self.start..self.end,
                 &self.cancel,
-            )? else {
+            )?
+            else {
                 continue;
             };
             let selected = rows.apply_observation(&checked, &self.services.pool(), &self.cancel)?;
@@ -2457,7 +2490,8 @@ pub(super) fn select_original_rows(
         OriginalRowBatch::Native(&checked),
         range,
         cancel,
-    )? else {
+    )?
+    else {
         return Ok(None);
     };
     let selected = rows.apply(&checked, &services.pool(), cancel)?;
@@ -2487,7 +2521,9 @@ fn select_original_row_offsets(
     let batch = match &checked {
         OriginalRowBatch::Native(checked) if relation == checked.relation_id() => checked.batch(),
         OriginalRowBatch::Native(_) => {
-            return Err(contract("original result relation differs from selected predicate"));
+            return Err(contract(
+                "original result relation differs from selected predicate",
+            ));
         }
         OriginalRowBatch::Projected { batch, .. } => batch.batch(),
     };
@@ -2522,9 +2558,11 @@ fn select_original_row_offsets(
                 OriginalRowBatch::Native(_) => native_selection
                     .ok_or_else(|| contract("original scalar selection plan absent"))?
                     .mask(&batch.slice(base, count)),
-                OriginalRowBatch::Projected { predicate, .. } => predicate
-                    .mask(&batch.slice(base, count)),
-            }.map_err(pse_engine::EngineError::from)?;
+                OriginalRowBatch::Projected { predicate, .. } => {
+                    predicate.mask(&batch.slice(base, count))
+                }
+            }
+            .map_err(pse_engine::EngineError::from)?;
             use datafusion::arrow::array::Array;
             datafusion::arrow::buffer::BooleanBuffer::collect_bool(count, |offset| {
                 mask.is_valid(offset) && mask.value(offset)
@@ -2532,7 +2570,9 @@ fn select_original_row_offsets(
         }
         OutputRows::Dense(output) => {
             let OriginalRowBatch::Native(checked) = checked else {
-                return Err(contract("dense trajectory selection requires all original roots"));
+                return Err(contract(
+                    "dense trajectory selection requires all original roots",
+                ));
             };
             let view =
                 pse_relations::generated::runtime::simulation_samples::View::from_checked(checked)

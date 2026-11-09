@@ -6,8 +6,14 @@ use crate::reference_support::Result;
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::reference_exchange::ReferenceMeaning;
 use pse_runtime::{
-    reference_exchange::{ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact, ReferenceObservableContract},
-    workflow::{PhysicalContext, PhysicalInspectionDocument, PhysicalInspectionQuery, PhysicalInspectionRequest},
+    reference_exchange::{
+        ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact,
+        ReferenceObservableContract,
+    },
+    workflow::{
+        PhysicalContext, PhysicalInspectionDocument, PhysicalInspectionQuery,
+        PhysicalInspectionRequest,
+    },
 };
 use sha2::{Digest as _, Sha256};
 use std::{collections::BTreeMap, sync::Arc};
@@ -31,32 +37,56 @@ pub(super) fn bind(
     context: &PhysicalContext,
     originals: BTreeMap<String, Vec<u8>>,
 ) -> Result<Inputs> {
-    let PhysicalInspectionDocument::Page { mut quantities, owner, .. } = context.describe(&PhysicalInspectionRequest {
-        query: PhysicalInspectionQuery::QuantityNamed { name: "Scalar".into() },
+    let PhysicalInspectionDocument::Page {
+        mut quantities,
+        owner,
+        ..
+    } = context.describe(&PhysicalInspectionRequest {
+        query: PhysicalInspectionQuery::QuantityNamed {
+            name: "Scalar".into(),
+        },
         offset: 0,
         limit: 1,
-    })? else {
+    })?
+    else {
         return Err("scalar reference physical description is unavailable".into());
     };
     if quantities.len() != 1 {
         return Err("scalar reference physical description is absent or ambiguous".into());
     }
     let physical = quantities.remove(0);
-    let artifacts = originals.into_iter().map(|(path, content)| {
-        ReferenceInputArtifact { path, sha256: Sha256::digest(content).to_vec().into() }
-    }).collect::<Vec<_>>();
+    let artifacts = originals
+        .into_iter()
+        .map(|(path, content)| ReferenceInputArtifact {
+            path,
+            sha256: Sha256::digest(content).to_vec().into(),
+        })
+        .collect::<Vec<_>>();
     let source = pse_ids::preimage::hash(&serde_json::to_vec(&(
         case.source,
-        artifacts.iter().map(|artifact| (&artifact.path, artifact.sha256.as_slice())).collect::<Vec<_>>(),
+        artifacts
+            .iter()
+            .map(|artifact| (&artifact.path, artifact.sha256.as_slice()))
+            .collect::<Vec<_>>(),
     ))?);
-    let specification = case.inputs.into_iter().map(|(key, value)| ReferenceFixedInput {
-        key, value, physical: physical.clone(),
-    }).collect();
-    let observables = case.outputs.into_iter().map(|(key, output)| ReferenceObservableContract {
-        output,
-        key,
-        physical: physical.clone(),
-    }).collect();
+    let specification = case
+        .inputs
+        .into_iter()
+        .map(|(key, value)| ReferenceFixedInput {
+            key,
+            value,
+            physical: physical.clone(),
+        })
+        .collect();
+    let observables = case
+        .outputs
+        .into_iter()
+        .map(|(key, output)| ReferenceObservableContract {
+            output,
+            key,
+            physical: physical.clone(),
+        })
+        .collect();
     Ok(Inputs {
         contract: ReferenceCaseContract {
             version: Default::default(),
