@@ -133,7 +133,7 @@ pub struct CompactSweep {
     unavailable: usize,
     /// Apparent workflow bytes actually unlinked by this sweep.
     pub released_workflow_bytes: u64,
-    /// Original campaign checkpoint reservations retired during this sweep.
+    /// Original campaign evidence reservations retired during this sweep.
     pub released_conformance: usize,
     /// Campaign records this sweep could not release or independently validate.
     pub blocked_conformance: usize,

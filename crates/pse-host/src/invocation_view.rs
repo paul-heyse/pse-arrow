@@ -290,6 +290,8 @@ pub enum InspectionDetail {
         /// Original published case page.
         page: crate::cli::conformance::ConformancePage,
     },
+    /// The original owner positively recorded release of the campaign checkpoint.
+    ConformanceRetired,
     /// Required original evidence is absent for the selected detail.
     Unavailable {
         /// Detail requested by the caller.
@@ -465,6 +467,7 @@ pub(crate) fn inspect_at(
             )?;
             match page {
                 Some(page) => Some(InspectionDetail::Conformance { page }),
+                None if directory.conformance_checkpoint_retired()? => Some(InspectionDetail::ConformanceRetired),
                 None => Some(InspectionDetail::Unavailable { detail: ResultDetail::Conformance }),
             }
         }

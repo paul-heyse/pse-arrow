@@ -70,7 +70,7 @@ struct RetiredRaw {
 }
 
 /// Exact bounded raw streams identified by the performing owner's open descriptors.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct WorkflowStreams {
     pub(crate) invocation: CliInvocationId,
@@ -82,7 +82,7 @@ pub(super) fn streams(original: &InvocationDirectory) -> Result<Option<WorkflowS
     Ok(stream_receipt(original)?.map(|(record, _)| record))
 }
 
-fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(WorkflowStreams, DescriptorIdentity)>, HostError> {
+pub(super) fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(WorkflowStreams, DescriptorIdentity)>, HostError> {
     let owner = private_root(original.path())?;
     let name = Path::new(InvocationEvidence::WorkflowStreams.filename());
     let file = match open_child(&owner, name) {
@@ -106,7 +106,7 @@ fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(WorkflowStre
 }
 
 impl WorkflowStreams {
-    fn members(&self) -> impl Iterator<Item = (&'static str, &DescriptorIdentity)> {
+    pub(super) fn members(&self) -> impl Iterator<Item = (&'static str, &DescriptorIdentity)> {
         [("stdout.raw", self.stdout.as_ref()), ("stderr.raw", self.stderr.as_ref())]
             .into_iter()
             .filter_map(|(name, identity)| identity.map(|identity| (name, identity)))
@@ -145,6 +145,10 @@ pub(super) struct RawRelease {
 }
 
 impl RawRelease {
+    pub(super) fn allocated_bytes(&self) -> Result<u64, HostError> {
+        Ok(self.original.metadata()?.blocks().saturating_mul(512))
+    }
+
     pub(super) fn unlink(self, parent: &File) -> Result<u64, HostError> {
         let name = Path::new(self.name);
         if descriptor_identity(&self.original)? != self.identity
@@ -295,7 +299,7 @@ fn open_member(root: &Path, path: &str) -> Result<(File, PathBuf, File), HostErr
     Err(invalid("enrolled member has no filename"))
 }
 
-fn open_child(parent: &File, name: &Path) -> Result<File, HostError> {
+pub(super) fn open_child(parent: &File, name: &Path) -> Result<File, HostError> {
     let file = File::from(openat(
         parent,
         name,

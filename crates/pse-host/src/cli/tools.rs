@@ -248,7 +248,7 @@ pub(super) fn dispatch(
                 let report = store.retire_conformance(&invocation, release.as_deref())?;
                 return Ok(output.emit(Envelope::response(
                     "tools retire-result conformance",
-                    "original campaign checkpoint retirement",
+                    "original campaign evidence retirement",
                     report,
                 ))?);
             }

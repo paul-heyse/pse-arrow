@@ -785,19 +785,28 @@ impl InvocationDirectory {
     /// The descriptor is a live mutable observation, never an atomic snapshot.
     pub fn stream(&self, stream: crate::extraction::OutputStream) -> Result<File, HostError> {
         directory(&self.path, false)?;
-        let path = self.path.join(match stream {
+        let name = match stream {
             crate::extraction::OutputStream::Stdout => "stdout.raw",
             crate::extraction::OutputStream::Stderr => "stderr.raw",
-        });
-        let file = match evidence_file(&path) {
-            Err(HostError::Io(error))
-                if error.kind() == std::io::ErrorKind::NotFound
-                    && self.has_bounded_workflow_streams()
-                    && workflow_evidence::raw_stream_retired(self, stream)? =>
-            {
-                return Err(invalid("original workflow raw streams have been retired"));
+        };
+        let path = self.path.join(name);
+        let campaign = self.is_conformance().then(|| self.borrow_conformance()).transpose()?;
+        let file = if let Some(owner) = &campaign {
+            if self.conformance_raw_retired(owner, stream)? {
+                return Err(invalid("original campaign raw stream has been retired"));
             }
-            result => result?,
+            workflow_evidence::open_child(owner, Path::new(name))?
+        } else {
+            match evidence_file(&path) {
+                Err(HostError::Io(error))
+                    if error.kind() == std::io::ErrorKind::NotFound
+                        && self.has_bounded_workflow_streams()
+                        && workflow_evidence::raw_stream_retired(self, stream)? =>
+                {
+                    return Err(invalid("original workflow raw streams have been retired"));
+                }
+                result => result?,
+            }
         };
         if self.has_bounded_workflow_streams() {
             rustix::fs::flock(&file, rustix::fs::FlockOperation::LockShared)
@@ -807,7 +816,12 @@ impl InvocationDirectory {
             if (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
                 return Err(invalid("original raw stream changed during access"));
             }
-            if let Some(streams) = workflow_evidence::streams(self)? {
+            let streams = if let Some(owner) = &campaign {
+                self.conformance_raw_streams(owner)?
+            } else {
+                workflow_evidence::streams(self)?
+            };
+            if let Some(streams) = streams {
                 let identity = match stream {
                     crate::extraction::OutputStream::Stdout => streams.stdout,
                     crate::extraction::OutputStream::Stderr => streams.stderr,

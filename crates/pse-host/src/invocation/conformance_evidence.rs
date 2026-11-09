@@ -1,12 +1,21 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Admission and release for the managed campaign's bounded original checkpoint.
-use super::{InvocationDirectory, InvocationStore, directory, evidence_file, invalid, unix_millis};
-use crate::{HostError, envelope::{ArtifactReference, CliInvocationId, Settlement}, managed::result::ManagedSummary};
-use rustix::fs::{FlockOperation, Mode, OFlags, flock, openat, unlinkat};
+//! Admission and release of original managed campaign observations.
+use super::{
+    InvocationDirectory, InvocationEvidence, InvocationStore, META_LIMIT, directory,
+    evidence_file, invalid, publish, unix_millis,
+    workflow_evidence::{RawRelease, WorkflowStreams, open_child, stream_receipt},
+};
+use crate::{
+    HostError,
+    artifacts::{DescriptorIdentity, descriptor_identity},
+    envelope::{ArtifactReference, CliInvocationId, Envelope, Settlement},
+    extraction::OutputStream,
+    managed::{result::ManagedSummary, workflow::digest},
+};
+use rustix::fs::{AtFlags, FlockOperation, Mode, OFlags, RenameFlags, flock, openat, renameat_with, unlinkat};
 use schemars::JsonSchema;
-use serde::Serialize;
-use sha2::{Digest, Sha256};
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, fs::{self, File, OpenOptions}, io::{self, Read}, os::unix::fs::{MetadataExt, OpenOptionsExt}, path::{Path, PathBuf}, time::SystemTime};
 
 pub(crate) const SNAPSHOT: &str = "conformance-progress.json";
@@ -15,6 +24,129 @@ const RESERVATION_BYTES: u64 = 4 * 1024 * 1024;
 const CHECKOUT_BYTES: u64 = 4 * 1024 * 1024 * 1024;
 const WEEK_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 const SEAL: &str = "conformance_worker_drain.json";
+const RELEASE_INTENT: &str = "conformance-release-intent.json";
+const RETIRED: &str = "conformance-retired.json";
+const CHECKPOINT_KIND: &str = "conformance_checkpoint";
+const RAW_KIND: &str = "conformance_raw_streams";
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CampaignRelease {
+    invocation: CliInvocationId,
+    reservation: DescriptorIdentity,
+    checkpoints: BTreeMap<String, CheckpointCommitment>,
+    raw: Option<RawCommitment>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CheckpointCommitment {
+    identity: DescriptorIdentity,
+    fingerprint: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawCommitment {
+    streams: WorkflowStreams,
+    receipt: DescriptorIdentity,
+}
+
+impl RawCommitment {
+    fn read(original: &InvocationDirectory) -> Result<Option<Self>, HostError> {
+        Ok(stream_receipt(original)?.map(|(streams, receipt)| Self { streams, receipt }))
+    }
+
+    fn fingerprint(&self) -> Result<String, HostError> {
+        Ok(digest(&serde_json::to_vec(self).map_err(io::Error::other)?))
+    }
+}
+
+fn checkpoint_commitments(artifacts: &[ArtifactReference]) -> Result<BTreeMap<&str, &str>, HostError> {
+    let mut commitments = BTreeMap::new();
+    for artifact in artifacts.iter().filter(|artifact| artifact.kind == CHECKPOINT_KIND) {
+        let name = artifact.location.as_str();
+        let expected = artifact.digest.as_deref().ok_or_else(|| invalid("campaign checkpoint lacks a terminal identity"))?;
+        if ![SNAPSHOT, STAGING].contains(&name) || commitments.insert(name, expected).is_some() {
+            return Err(invalid("invalid or duplicate terminal campaign checkpoint commitment"));
+        }
+    }
+    Ok(commitments)
+}
+
+fn raw_commitment(artifacts: &[ArtifactReference]) -> Result<Option<&str>, HostError> {
+    let mut entries = artifacts.iter().filter(|artifact| artifact.kind == RAW_KIND);
+    let Some(artifact) = entries.next() else { return Ok(None); };
+    if entries.next().is_some() || artifact.location != InvocationEvidence::WorkflowStreams.filename() {
+        return Err(invalid("invalid or duplicate terminal campaign raw stream commitment"));
+    }
+    artifact.digest.as_deref().map(Some).ok_or_else(|| invalid("campaign raw streams lack a terminal identity"))
+}
+
+impl CampaignRelease {
+    fn authenticate(&self, id: &CliInvocationId, artifacts: &[ArtifactReference]) -> Result<(), HostError> {
+        let checkpoint_match = checkpoint_commitments(artifacts)? == self.checkpoints.iter()
+            .map(|(name, member)| (name.as_str(), member.fingerprint.as_str())).collect();
+        let raw = self.raw.as_ref().map(RawCommitment::fingerprint).transpose()?;
+        if &self.invocation != id || !checkpoint_match
+            || self.raw.as_ref().is_some_and(|member| &member.streams.invocation != id)
+            || raw_commitment(artifacts)? != raw.as_deref()
+        {
+            return Err(invalid("campaign release record differs from the original terminal commitments"));
+        }
+        Ok(())
+    }
+
+    fn token(&self) -> Result<String, HostError> {
+        Ok(digest(&serde_json::to_vec(self).map_err(io::Error::other)?))
+    }
+
+    fn prepare_raw(
+        &self,
+        owner: &File,
+        original: &InvocationDirectory,
+        replay: bool,
+    ) -> Result<(Vec<RawRelease>, bool), HostError> {
+        let Some(raw) = &self.raw else { return Ok((Vec::new(), false)); };
+        let current = RawCommitment::read(original)?;
+        if current.as_ref().is_some_and(|current| current != raw) || current.is_none() && !replay {
+            return Err(invalid("original campaign raw stream receipt is missing or replaced"));
+        }
+        let selected = raw.streams.prepare_release(owner, replay)?;
+        if current.is_none() && !selected.is_empty() {
+            return Err(invalid("campaign raw stream receipt disappeared before its original members"));
+        }
+        Ok((selected, current.is_some()))
+    }
+}
+
+fn optional_member(owner: &File, name: &str) -> Result<Option<File>, HostError> {
+    match open_child(owner, Path::new(name)) {
+        Ok(file) => Ok(Some(file)),
+        Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) => Err(error),
+    }
+}
+
+fn read_release(owner: &File, name: &str) -> Result<Option<(CampaignRelease, DescriptorIdentity)>, HostError> {
+    let Some(file) = optional_member(owner, name)? else { return Ok(None); };
+    let identity = descriptor_identity(&file)?;
+    let mut bytes = Vec::new();
+    (&file).take(META_LIMIT + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > META_LIMIT || descriptor_identity(&file)? != identity {
+        return Err(invalid("campaign release record is unbounded or changed while observed"));
+    }
+    let release = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+    Ok(Some((release, identity)))
+}
+
+fn unlink_exact(parent: &File, name: &str, expected: &DescriptorIdentity) -> Result<(), HostError> {
+    if descriptor_identity(&open_child(parent, Path::new(name))?)? != *expected {
+        return Err(invalid("original campaign member was replaced before release"));
+    }
+    unlinkat(parent, name, AtFlags::empty()).map_err(io::Error::from)?;
+    Ok(())
+}
 
 #[derive(Debug, Serialize, JsonSchema)]
 /// Exact release preview for one original managed campaign observation.
@@ -41,7 +173,7 @@ fn lock(path: &Path, mode: FlockOperation) -> Result<File, HostError> {
 }
 
 struct CampaignMember {
-    identity: crate::artifacts::DescriptorIdentity,
+    identity: DescriptorIdentity,
     allocated: u64,
     fingerprint: String,
     bytes: Vec<u8>,
@@ -50,7 +182,7 @@ struct CampaignMember {
 impl CampaignMember {
     fn committed_by(&self, name: &str, artifacts: &[ArtifactReference]) -> bool {
         artifacts.iter().any(|artifact| {
-            artifact.kind == "conformance_checkpoint" && artifact.location == name
+            artifact.kind == CHECKPOINT_KIND && artifact.location == name
                 && artifact.digest.as_deref() == Some(self.fingerprint.as_str())
         })
     }
@@ -69,13 +201,13 @@ fn selected_file(owner: &File, name: &str) -> Result<Option<CampaignMember>, Hos
         || metadata.len() > RESERVATION_BYTES / 2 {
         return Err(invalid("conformance evidence is not a bounded original owner file"));
     }
-    let identity = crate::artifacts::descriptor_identity(&file)?;
+    let identity = descriptor_identity(&file)?;
     let mut bytes = Vec::new();
     (&file).take(RESERVATION_BYTES / 2 + 1).read_to_end(&mut bytes)?;
-    if bytes.len() as u64 != metadata.len() || crate::artifacts::descriptor_identity(&file)? != identity {
+    if bytes.len() as u64 != metadata.len() || descriptor_identity(&file)? != identity {
         return Err(invalid("conformance evidence changed while calculating release identity"));
     }
-    let fingerprint = format!("{}:{}:{}", identity.device, identity.inode, crate::managed::workflow::digest(&bytes));
+    let fingerprint = format!("{}:{}:{}", identity.device, identity.inode, digest(&bytes));
     Ok(Some(CampaignMember {
         identity,
         allocated: metadata.blocks().saturating_mul(512),
@@ -92,7 +224,17 @@ impl InvocationDirectory {
     ) -> Result<Option<Vec<u8>>, HostError> {
         if !self.is_conformance() { return Ok(None); }
         let owner = lock(self.path(), FlockOperation::LockShared)?;
-        let Some(member) = selected_file(&owner, SNAPSHOT)? else { return Ok(None); };
+        if self.retired_campaign(&owner)?.is_some_and(|release| release.checkpoints.contains_key(SNAPSHOT)) {
+            return Ok(None);
+        }
+        let Some(member) = selected_file(&owner, SNAPSHOT)? else {
+            if terminal.is_some_and(|artifacts| artifacts.iter().any(|artifact| {
+                artifact.kind == CHECKPOINT_KIND && artifact.location == SNAPSHOT
+            })) {
+                return Err(invalid("committed campaign checkpoint is missing without a retirement witness"));
+            }
+            return Ok(None);
+        };
         if terminal.is_some_and(|artifacts| !member.committed_by(SNAPSHOT, artifacts)) {
             return Err(invalid("campaign checkpoint differs from the original terminal commitment"));
         }
@@ -107,13 +249,71 @@ impl InvocationDirectory {
         for name in [SNAPSHOT, STAGING] {
             if let Some(member) = selected_file(&owner, name)? {
                 artifacts.push(ArtifactReference {
-                    kind: "conformance_checkpoint".into(),
+                    kind: CHECKPOINT_KIND.into(),
                     location: name.into(),
                     digest: Some(member.fingerprint),
                 });
             }
         }
         Ok(artifacts)
+    }
+
+    pub(super) fn borrow_conformance(&self) -> Result<File, HostError> {
+        lock(self.path(), FlockOperation::LockShared)
+    }
+
+    pub(crate) fn conformance_raw_artifact(&self) -> Result<ArtifactReference, HostError> {
+        let raw = RawCommitment::read(self)?.ok_or_else(|| invalid("campaign raw stream receipt is absent"))?;
+        Ok(ArtifactReference {
+            kind: RAW_KIND.into(),
+            location: InvocationEvidence::WorkflowStreams.filename().into(),
+            digest: Some(raw.fingerprint()?),
+        })
+    }
+
+    fn campaign_terminal(&self, owner: &File) -> Result<Option<Envelope<serde::de::IgnoredAny>>, HostError> {
+        let Some(file) = optional_member(owner, "result.json")? else { return Ok(None); };
+        let terminal = serde_json::from_reader(file).map_err(io::Error::other)?;
+        super::validate_result(self.id(), &self.command, &terminal)?;
+        Ok(Some(terminal))
+    }
+
+    fn retired_campaign(&self, owner: &File) -> Result<Option<CampaignRelease>, HostError> {
+        let Some((release, _)) = read_release(owner, RETIRED)? else { return Ok(None); };
+        let terminal = self.campaign_terminal(owner)?.ok_or_else(|| invalid("retired campaign lacks its original terminal result"))?;
+        release.authenticate(self.id(), &terminal.artifacts)?;
+        Ok(Some(release))
+    }
+
+    pub(crate) fn conformance_checkpoint_retired(&self) -> Result<bool, HostError> {
+        if !self.is_conformance() {
+            return Ok(false);
+        }
+        let owner = self.borrow_conformance()?;
+        Ok(self.retired_campaign(&owner)?.is_some_and(|release| release.checkpoints.contains_key(SNAPSHOT)))
+    }
+
+    pub(super) fn conformance_raw_retired(&self, owner: &File, stream: OutputStream) -> Result<bool, HostError> {
+        Ok(self.retired_campaign(owner)?.and_then(|release| release.raw).is_some_and(|raw| {
+            match stream {
+                OutputStream::Stdout => raw.streams.stdout.is_some(),
+                OutputStream::Stderr => raw.streams.stderr.is_some(),
+            }
+        }))
+    }
+
+    pub(super) fn conformance_raw_streams(&self, owner: &File) -> Result<Option<WorkflowStreams>, HostError> {
+        let Some(terminal) = self.campaign_terminal(owner)? else {
+            return Ok(None);
+        };
+        let Some(expected) = raw_commitment(&terminal.artifacts)? else {
+            return Ok(None);
+        };
+        let current = RawCommitment::read(self)?.ok_or_else(|| invalid("original campaign raw stream receipt is absent"))?;
+        if expected != current.fingerprint()? {
+            return Err(invalid("campaign raw stream receipt differs from its original terminal commitment"));
+        }
+        Ok(Some(current.streams))
     }
 
     /// Only the authenticated detached finalizer records positive worker drain.
@@ -157,11 +357,9 @@ impl InvocationStore {
         Ok(())
     }
 
-    fn campaign_holds(&self, id: &CliInvocationId) -> Result<BTreeMap<String, String>, HostError> {
-        let file = match evidence_file(&self.conformance_root().join(format!("{id}.holds"))) {
-            Ok(file) => file,
-            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => return Ok(BTreeMap::new()),
-            Err(error) => return Err(error),
+    fn campaign_holds(index: &File, id: &CliInvocationId) -> Result<BTreeMap<String, String>, HostError> {
+        let Some(file) = optional_member(index, &format!("{id}.holds"))? else {
+            return Ok(BTreeMap::new());
         };
         let mut bytes = Vec::new();
         file.take(65_537).read_to_end(&mut bytes)?;
@@ -172,20 +370,35 @@ impl InvocationStore {
     }
 
     pub(crate) fn hold_conformance(&self, id: &CliInvocationId, consumer: &str, condition: Option<&str>) -> Result<(), HostError> {
-        if !self.directory(id)?.is_conformance() || consumer.is_empty() || consumer.len() > 128
+        let original = self.directory(id)?;
+        if !original.is_conformance() || consumer.is_empty() || consumer.len() > 128
             || consumer.chars().any(char::is_control)
             || condition.is_some_and(|text| text.is_empty() || text.len() > 1024 || text.chars().any(char::is_control))
         {
             return Err(invalid("a campaign hold requires an original run, consumer, and bounded condition"));
         }
         let root = self.conformance_root();
-        let _index = lock(&root, FlockOperation::LockExclusive)?;
-        evidence_file(&root.join(id.as_str()))?;
-        let mut holds = self.campaign_holds(id)?;
+        let index = lock(&root, FlockOperation::LockExclusive)?;
+        let owner = lock(original.path(), FlockOperation::LockShared)?;
+        if optional_member(&owner, RELEASE_INTENT)?.is_some()
+            || optional_member(&owner, RETIRED)?.is_some()
+        {
+            return Err(invalid("original campaign evidence release has already started"));
+        }
+        open_child(&index, Path::new(id.as_str()))?;
+        let mut holds = Self::campaign_holds(&index, id)?;
         if let Some(condition) = condition {
             holds.insert(consumer.to_owned(), condition.to_owned());
         } else {
             holds.remove(consumer);
+        }
+        let hold_name = format!("{id}.holds");
+        if holds.is_empty() {
+            if let Some(file) = optional_member(&index, &hold_name)? {
+                unlink_exact(&index, &hold_name, &descriptor_identity(&file)?)?;
+                index.sync_all()?;
+            }
+            return Ok(());
         }
         let bytes = serde_json::to_vec(&holds).map_err(io::Error::other)?;
         if bytes.len() > 65_536 {
@@ -195,7 +408,7 @@ impl InvocationStore {
         let mut file = tempfile::NamedTempFile::new_in(&root)?;
         file.write_all(&bytes)?;
         file.as_file().sync_all()?;
-        file.persist(root.join(format!("{id}.holds"))).map_err(|error| error.error)?;
+        file.persist(root.join(hold_name)).map_err(|error| error.error)?;
         File::open(root)?.sync_all()?;
         Ok(())
     }
@@ -220,19 +433,34 @@ impl InvocationStore {
             return Err(invalid("release requires an original managed campaign"));
         }
         let root = self.conformance_root();
-        let _index = lock(&root, FlockOperation::LockExclusive)?;
-        let reservation_path = root.join(id.as_str());
-        let reservation = evidence_file(&reservation_path)?;
+        let index = lock(&root, FlockOperation::LockExclusive)?;
         let owner = lock(original.path(), FlockOperation::NonBlockingLockExclusive)?;
-        let terminal = self.result::<serde::de::IgnoredAny, ManagedSummary>(id)?;
         let mut preview = ConformanceRetirement {
             invocation: id.clone(),
             disposition: "unsettled",
             allocated_bytes: 0,
             eligible_after_unix_ms: None,
-            holds: self.campaign_holds(id)?,
+            holds: Self::campaign_holds(&index, id)?,
             release: None,
         };
+        if let Some(released) = original.retired_campaign(&owner)? {
+            if let Some(reservation) = optional_member(&index, id.as_str())? {
+                if descriptor_identity(&reservation)? != released.reservation {
+                    return Err(invalid("retired campaign reservation has been replaced"));
+                }
+                // Complete interrupted index cleanup only on an authorized release or sweep.
+                if sweep || token == Some(released.token()?.as_str()) {
+                    owner.sync_all()?;
+                    unlink_exact(&index, id.as_str(), &released.reservation)?;
+                    index.sync_all()?;
+                }
+            }
+            preview.disposition = "retired";
+            return Ok(preview);
+        }
+        let reservation = open_child(&index, Path::new(id.as_str()))?;
+        let reservation_identity = descriptor_identity(&reservation)?;
+        let terminal = self.result::<serde::de::IgnoredAny, ManagedSummary>(id)?;
         let Some(terminal) = terminal else { return Ok(preview); };
         let native_drained = terminal.settlement == Settlement::Complete
             && terminal.payload.native_lifetime_pending == Some(false)
@@ -256,22 +484,6 @@ impl InvocationStore {
         if sweep && now < expiry {
             return Ok(preview);
         }
-        let mut digest = Sha256::new();
-        digest.update(id.as_str().as_bytes());
-        let reservation_identity = crate::artifacts::descriptor_identity(&reservation)?;
-        digest.update(reservation_identity.inode.to_be_bytes());
-        let mut selected = Vec::new();
-        for name in [SNAPSHOT, STAGING] {
-            let Some(member) = selected_file(&owner, name)? else { continue; };
-            if !member.committed_by(name, &terminal.artifacts) {
-                return Err(invalid("campaign checkpoint differs from the original terminal commitment"));
-            }
-            digest.update(name.as_bytes());
-            digest.update(member.fingerprint.as_bytes());
-            preview.allocated_bytes = preview.allocated_bytes.saturating_add(member.allocated);
-            selected.push((name, member.identity));
-        }
-        let release = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect::<String>();
         if !preview.holds.is_empty() {
             preview.disposition = "held";
             if token.is_some() {
@@ -279,30 +491,84 @@ impl InvocationStore {
             }
             return Ok(preview);
         }
-        preview.disposition = "settled";
-        preview.release = Some(release.clone());
-        if !sweep && token.is_none() || sweep && now < expiry {
+        let current_checkpoints = [SNAPSHOT, STAGING].into_iter()
+            .filter_map(|name| selected_file(&owner, name).transpose().map(|result| result.map(|member| (name, member))))
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        let intent = read_release(&owner, RELEASE_INTENT)?;
+        let intent_identity = intent.as_ref().map(|(_, identity)| identity.clone());
+        let replay = intent.is_some();
+        let release = match intent {
+            Some((intent, _)) => intent,
+            None => CampaignRelease {
+                invocation: id.clone(),
+                reservation: reservation_identity.clone(),
+                checkpoints: current_checkpoints.iter().map(|(&name, member)| (name.into(), CheckpointCommitment {
+                    identity: member.identity.clone(),
+                    fingerprint: member.fingerprint.clone(),
+                })).collect(),
+                raw: if raw_commitment(&terminal.artifacts)?.is_some() {
+                    RawCommitment::read(&original)?
+                } else {
+                    None
+                },
+            },
+        };
+        release.authenticate(id, &terminal.artifacts)?;
+        if release.reservation != reservation_identity {
+            return Err(invalid("campaign release does not match the original reservation"));
+        }
+        for (&name, member) in &current_checkpoints {
+            if !release.checkpoints.get(name).is_some_and(|expected| {
+                expected.identity == member.identity && expected.fingerprint == member.fingerprint
+            }) {
+                return Err(invalid("original campaign checkpoint was replaced before release"));
+            }
+            preview.allocated_bytes = preview.allocated_bytes.saturating_add(member.allocated);
+        }
+        let (raw, remove_receipt) = release.prepare_raw(&owner, &original, replay)?;
+        for member in &raw {
+            preview.allocated_bytes = preview.allocated_bytes.saturating_add(member.allocated_bytes()?);
+        }
+        let release_token = release.token()?;
+        preview.disposition = if replay { "release_pending" } else { "settled" };
+        preview.release = Some(release_token.clone());
+        if !sweep && token.is_none() {
             return Ok(preview);
         }
-        if !sweep && token != Some(release.as_str()) {
+        if !sweep && token != Some(release_token.as_str()) {
             return Err(invalid("conformance release token no longer matches the original evidence"));
         }
-        for (name, identity) in selected {
-            let current = File::from(openat(&owner, name, OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC, Mode::empty()).map_err(io::Error::from)?);
-            if crate::artifacts::descriptor_identity(&current)? != identity {
-                return Err(invalid("conformance evidence was replaced before release"));
+        let intent_identity = if let Some(identity) = intent_identity {
+            identity
+        } else {
+            publish(original.path(), RELEASE_INTENT, &release, Some(META_LIMIT))?;
+            let (intent, identity) = read_release(&owner, RELEASE_INTENT)?
+                .ok_or_else(|| invalid("published campaign release intent is absent"))?;
+            if intent != release {
+                return Err(invalid("published campaign release intent was replaced"));
             }
-            unlinkat(&owner, name, rustix::fs::AtFlags::empty()).map_err(io::Error::from)?;
-        }
+            identity
+        };
+        // A prior publisher may have failed after rename and before synchronizing the intent.
         owner.sync_all()?;
-        fs::remove_file(reservation_path)?;
-        let hold_path = root.join(format!("{id}.holds"));
-        match fs::remove_file(hold_path) {
-            Ok(()) => {}
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
+        for (name, member) in current_checkpoints {
+            unlink_exact(&owner, name, &member.identity)?;
         }
-        File::open(root)?.sync_all()?;
+        for member in raw {
+            member.unlink(&owner)?;
+        }
+        if remove_receipt && let Some(raw) = &release.raw {
+            unlink_exact(&owner, InvocationEvidence::WorkflowStreams.filename(), &raw.receipt)?;
+        }
+        // Retain the authenticated record as positive expiry only after member removals are durable.
+        owner.sync_all()?;
+        if descriptor_identity(&open_child(&owner, Path::new(RELEASE_INTENT))?)? != intent_identity {
+            return Err(invalid("campaign release intent was replaced before retirement"));
+        }
+        renameat_with(&owner, RELEASE_INTENT, &owner, RETIRED, RenameFlags::NOREPLACE).map_err(io::Error::from)?;
+        owner.sync_all()?;
+        unlink_exact(&index, id.as_str(), &release.reservation)?;
+        index.sync_all()?;
         preview.disposition = "retired";
         preview.release = None;
         Ok(preview)
@@ -339,57 +605,199 @@ impl InvocationStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{envelope::Envelope, generation::PreparedGeneration, invocation::InvocationSpec, paths::CheckoutState};
+    use crate::{generation::PreparedGeneration, invocation::InvocationSpec, paths::CheckoutState};
+    use std::io::Write as _;
+
+    struct Fixture {
+        _temp: tempfile::TempDir,
+        store: InvocationStore,
+        original: InvocationDirectory,
+        raw: RawCommitment,
+    }
+
+    fn write(path: &Path, bytes: &[u8]) -> File {
+        let mut file = OpenOptions::new().write(true).create_new(true).mode(0o600).open(path).unwrap();
+        file.write_all(bytes).unwrap();
+        file
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let temp = tempfile::tempdir().unwrap();
+            let environment = BTreeMap::from([("XDG_STATE_HOME".into(), temp.path().join("state").into_os_string())]);
+            let state = CheckoutState::from_paths(&temp.path().join("checkout"), &temp.path().join("common.git"), &environment).unwrap();
+            let store = InvocationStore::new(state);
+            let original = store.begin(InvocationSpec {
+                invocation_id: CliInvocationId::new(),
+                command: "conformance run".into(),
+                session: None,
+                parent: None,
+                operation: (),
+                control: PreparedGeneration {
+                    generation: "generation.fixture".into(),
+                    protocol: 1,
+                    manifest_digest: "a".repeat(64),
+                },
+                environment_digest: "b".repeat(64),
+                scientific: Vec::new(),
+            }).unwrap();
+            store.reserve_conformance(&original).unwrap();
+            write(&original.path().join(SNAPSHOT), b"original");
+            let stdout = write(&original.path().join("stdout.raw"), b"original raw stdout");
+            let stderr = write(&original.path().join("stderr.raw"), b"original raw stderr");
+            original.publish_evidence(InvocationEvidence::WorkflowStreams, &WorkflowStreams {
+                invocation: original.id().clone(),
+                stdout: Some(descriptor_identity(&stdout).unwrap()),
+                stderr: Some(descriptor_identity(&stderr).unwrap()),
+            }).unwrap();
+            let raw = RawCommitment::read(&original).unwrap().unwrap();
+            Self { _temp: temp, store, original, raw }
+        }
+
+        fn finish(&self, foreground_drained: bool) -> Vec<ArtifactReference> {
+            let mut terminal = Envelope::response("conformance run", "fixture complete", ManagedSummary {
+                bundle: None,
+                native_lifetime_pending: Some(!foreground_drained),
+                workflow: None,
+                child_exit: Some(0),
+                stdout: None,
+                stderr: None,
+                borrowed_reservation: false,
+                service_result: None,
+            });
+            terminal.invocation_id = self.original.id().clone();
+            terminal.settlement = Settlement::Complete;
+            terminal.artifacts = self.original.conformance_artifacts().unwrap();
+            terminal.artifacts.push(self.original.conformance_raw_artifact().unwrap());
+            publish(self.original.path(), "result.json", &terminal, None).unwrap();
+            terminal.artifacts
+        }
+
+        fn path(&self, name: &str) -> PathBuf {
+            self.original.path().join(name)
+        }
+
+        fn retire(&self, token: Option<&str>) -> Result<ConformanceRetirement, HostError> {
+            self.store.retire_conformance(self.original.id(), token)
+        }
+    }
 
     #[test]
     fn campaign_release_requires_drain_hold_clear_and_exact_member() {
-        let temp = tempfile::tempdir().unwrap();
-        let environment = BTreeMap::from([("XDG_STATE_HOME".into(), temp.path().join("state").into_os_string())]);
-        let state = CheckoutState::from_paths(&temp.path().join("checkout"), &temp.path().join("common.git"), &environment).unwrap();
-        let store = InvocationStore::new(state);
-        let original = store.begin(InvocationSpec {
-            invocation_id: CliInvocationId::new(),
-            command: "conformance run".into(),
-            session: None,
-            parent: None,
-            operation: (),
-            control: PreparedGeneration {
-                generation: "generation.fixture".into(),
-                protocol: 1,
-                manifest_digest: "a".repeat(64),
-            },
-            environment_digest: "b".repeat(64),
-            scientific: Vec::new(),
-        }).unwrap();
-        let id = original.id();
-        store.reserve_conformance(&original).unwrap();
-        let checkpoint = original.path().join(SNAPSHOT);
-        let owned = OpenOptions::new().write(true).create_new(true).mode(0o600).open(&checkpoint).unwrap();
-        std::io::Write::write_all(&mut &owned, b"original").unwrap();
-        assert_eq!(store.retire_conformance(id, None).unwrap().disposition, "unsettled");
-        let mut terminal = Envelope::response("conformance run", "fixture complete", ManagedSummary {
-            bundle: None,
-            native_lifetime_pending: Some(false),
-            workflow: None,
-            child_exit: Some(0),
-            stdout: None,
-            stderr: None,
-            borrowed_reservation: false,
-            service_result: None,
-        });
-        terminal.invocation_id = id.clone();
-        terminal.settlement = Settlement::Complete;
-        terminal.artifacts = original.conformance_artifacts().unwrap();
-        super::super::publish(original.path(), "result.json", &terminal, None).unwrap();
-        let lease = lock(original.path(), FlockOperation::LockShared).unwrap();
-        assert!(store.retire_conformance(id, None).is_err());
+        let fixture = Fixture::new();
+        let id = fixture.original.id();
+        assert_eq!(fixture.retire(None).unwrap().disposition, "unsettled");
+        let artifacts = fixture.finish(false);
+        assert_eq!(fixture.retire(None).unwrap().disposition, "unsettled");
+        fixture.original.record_conformance_worker_drain().unwrap();
+
+        let lease = fixture.original.borrow_conformance().unwrap();
+        assert!(fixture.retire(None).is_err());
         drop(lease);
-        let token = store.retire_conformance(id, None).unwrap().release.unwrap();
-        store.hold_conformance(id, "review", Some("until reviewed")).unwrap();
-        assert!(store.retire_conformance(id, Some(&token)).is_err());
-        store.hold_conformance(id, "review", None).unwrap();
-        assert_eq!(store.retire_conformance(id, Some(&token)).unwrap().disposition, "retired");
-        assert!(!checkpoint.exists());
-        assert!(original.path().join("result.json").exists());
+        let preview = fixture.retire(None).unwrap();
+        let token = preview.release.unwrap();
+        assert!(preview.allocated_bytes > 0);
+        let raw_reader = fixture.original.stream(OutputStream::Stdout).unwrap();
+        assert!(fixture.retire(Some(&token)).is_err());
+        assert!(!fixture.path(RELEASE_INTENT).exists());
+        drop(raw_reader);
+
+        fixture.store.hold_conformance(id, "review", Some("until reviewed")).unwrap();
+        assert!(fixture.retire(Some(&token)).is_err());
+        fixture.store.hold_conformance(id, "review", None).unwrap();
+        let unowned = fixture.path("other");
+        write(&unowned, b"do not remove");
+        assert_eq!(fixture.retire(Some(&token)).unwrap().disposition, "retired");
+        assert_eq!(fixture.retire(None).unwrap().disposition, "retired");
+        assert!(!fixture.path(SNAPSHOT).exists());
+        assert!(!fixture.path("stdout.raw").exists());
+        assert!(!fixture.path("stderr.raw").exists());
+        assert!(!fixture.path(InvocationEvidence::WorkflowStreams.filename()).exists());
+        assert!(fixture.path("result.json").exists());
+        assert!(unowned.exists());
+        assert!(fixture.original.conformance_checkpoint(Some(&artifacts)).unwrap().is_none());
+        assert!(fixture.original.conformance_checkpoint_retired().unwrap());
+        write(&fixture.path("stdout.raw"), b"foreign after expiry");
+        assert!(fixture.original.stream(OutputStream::Stdout).unwrap_err().to_string().contains("retired"));
+        assert!(fixture.path("stdout.raw").exists());
+    }
+
+    #[test]
+    fn campaign_release_refuses_unexplained_missing_checkpoint_or_raw() {
+        let fixture = Fixture::new();
+        let artifacts = fixture.finish(true);
+        let token = fixture.retire(None).unwrap().release.unwrap();
+        fs::remove_file(fixture.path(SNAPSHOT)).unwrap();
+        assert!(fixture.original.conformance_checkpoint(Some(&artifacts)).is_err());
+        assert!(!fixture.original.conformance_checkpoint_retired().unwrap());
+        assert!(fixture.retire(Some(&token)).is_err());
+        assert!(!fixture.path(RELEASE_INTENT).exists());
+        assert!(fixture.path("stdout.raw").exists());
+
+        let fixture = Fixture::new();
+        fixture.finish(true);
+        let token = fixture.retire(None).unwrap().release.unwrap();
+        fs::remove_file(fixture.path("stdout.raw")).unwrap();
+        assert!(fixture.retire(Some(&token)).is_err());
+        assert!(!fixture.path(RELEASE_INTENT).exists());
+        assert!(fixture.path("stderr.raw").exists());
+        assert!(fixture.path(SNAPSHOT).exists());
+    }
+
+    #[test]
+    fn campaign_release_replays_original_members_without_removing_replacements() {
+        let fixture = Fixture::new();
+        fixture.finish(true);
+        let id = fixture.original.id();
+        let owner = fixture.original.borrow_conformance().unwrap();
+        let checkpoint = selected_file(&owner, SNAPSHOT).unwrap().unwrap();
+        let release = CampaignRelease {
+            invocation: id.clone(),
+            reservation: descriptor_identity(&evidence_file(&fixture.store.conformance_root().join(id.as_str())).unwrap()).unwrap(),
+            checkpoints: BTreeMap::from([(SNAPSHOT.into(), CheckpointCommitment {
+                identity: checkpoint.identity,
+                fingerprint: checkpoint.fingerprint,
+            })]),
+            raw: Some(RawCommitment {
+                streams: fixture.raw.streams.clone(),
+                receipt: fixture.raw.receipt.clone(),
+            }),
+        };
+        let token = fixture.retire(None);
+        assert!(token.is_err());
+        drop(owner);
+        let token = fixture.retire(None).unwrap().release.unwrap();
+        assert_eq!(token, release.token().unwrap());
+        publish(fixture.original.path(), RELEASE_INTENT, &release, Some(META_LIMIT)).unwrap();
+        fs::remove_file(fixture.path(SNAPSHOT)).unwrap();
+        fs::remove_file(fixture.path("stdout.raw")).unwrap();
+        write(&fixture.path("stdout.raw"), b"unrelated replacement");
+        assert!(fixture.retire(Some(&token)).is_err());
+        assert!(fixture.path("stdout.raw").exists());
+        assert!(fixture.path("stderr.raw").exists());
+        assert!(!fixture.path(RETIRED).exists());
+        fs::remove_file(fixture.path("stdout.raw")).unwrap();
+
+        let receipt = fixture.path(InvocationEvidence::WorkflowStreams.filename());
+        // Same bytes in another inode cannot replace the original writer receipt.
+        let saved = fs::read(&receipt).unwrap();
+        let original = evidence_file(&receipt).unwrap();
+        fs::remove_file(&receipt).unwrap();
+        write(&receipt, &saved);
+        assert!(fixture.retire(Some(&token)).is_err());
+        assert!(receipt.exists());
+        assert!(fixture.path("stderr.raw").exists());
+        // Simulate interruption after the authenticated raw member and receipt were removed.
+        fs::remove_file(&receipt).unwrap();
+        drop(original);
+        fs::remove_file(fixture.path("stderr.raw")).unwrap();
+        let retry = fixture.retire(None).unwrap();
+        assert_eq!(retry.disposition, "release_pending");
+        assert_eq!(retry.release.as_deref(), Some(token.as_str()));
+        assert!(fixture.store.hold_conformance(id, "late", Some("would be too late")).is_err());
+        assert_eq!(fixture.retire(Some(&token)).unwrap().disposition, "retired");
+        assert!(!fixture.path(RELEASE_INTENT).exists());
+        assert!(fixture.path(RETIRED).exists());
+        assert!(!fixture.store.conformance_root().join(id.as_str()).exists());
     }
 }

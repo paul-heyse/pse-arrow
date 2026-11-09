@@ -207,6 +207,9 @@ impl<T> TerminalResult<T> {
         mut self,
         directory: &crate::invocation::InvocationDirectory,
     ) -> Self {
+        if directory.is_conformance() {
+            return self;
+        }
         for stream in ["stdout", "stderr"] {
             let location = directory
                 .path()
@@ -248,7 +251,8 @@ impl TerminalResult<ManagedSummary> {
         directory: &crate::invocation::InvocationDirectory,
         policy: &RedactionPolicy,
     ) -> Self {
-        if directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
+        let campaign = directory.is_conformance();
+        if !campaign && directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
         {
             return self;
         }
@@ -274,6 +278,21 @@ impl TerminalResult<ManagedSummary> {
             };
             if streams.stdout.is_some() || streams.stderr.is_some() {
                 directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowStreams, &streams)?;
+                if campaign {
+                    self.response.artifacts.push(directory.conformance_raw_artifact()?);
+                    for (name, present) in [("stdout", streams.stdout.is_some()), ("stderr", streams.stderr.is_some())] {
+                        if present {
+                            let mut argv = vec!["pse".into(), "inspect".into(), "log".into(), directory.id().to_string()];
+                            if name == "stderr" {
+                                argv.push("--stderr".into());
+                            }
+                            self.response.next.push(crate::envelope::NextAction::Command {
+                                argv,
+                                reason: format!("read the original campaign owner's {name} under its evidence lease"),
+                            });
+                        }
+                    }
+                }
             }
             Ok(())
         })();
