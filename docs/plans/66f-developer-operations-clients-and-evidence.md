@@ -316,9 +316,13 @@ physical settlement. The next original Routes run (`01a1be06-b60c-732f-b033-9865
 passed state selection and failed when the combined request's refusal lacked the expected
 physical-binding rule. Submit, Recover and Complete passed again. The failed Routes verdict
 retained complete capture, and the coordinator verified and released the original socket owners.
-The negative request now isolates the exact incompatible Horizon point and displays the original
-typed refusal on mismatch. The complete three-point positive request still needs receiving.
-Endpoint refusal and edit/run/reconnect remain unexercised by the live coordinator.
+The [shared-contract cutover](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
+passed Submit, Recover and Complete through the current Study services. Its focused negative
+Horizon request preserved the exact code, rule and source. The positive three-point request
+exposed fit policy inheritance: a fit-owned engineering scale entered the nested experiment's
+coordinate selection. Keep that scale at the joint fit, retain the original experiment demands
+at their source, and rerun the positive request. Endpoint refusal and edit/run/reconnect remain
+unexercised by the live coordinator.
 
 The coordinator now gives every phase the same solver-enabled Cargo feature set as the
 prepared frontend and worker. Exact test identities and separate original results still

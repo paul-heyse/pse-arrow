@@ -1339,7 +1339,7 @@ pub(super) fn failure(error: &dyn pse_diagnostics::TypedDiagnostic) -> Engineeri
         code: error
             .diagnostic_code()
             .unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure)
-            .to_string(),
+            .into(),
         message: error.to_string(),
         sources: facts
             .sources
@@ -1556,12 +1556,16 @@ mod tests {
             .unwrap();
         assert!(shutdown_started.is_ok());
         assert!(work_still_owned);
-        assert_eq!(reconnect.unwrap().unwrap_err().kind(), std::io::ErrorKind::ConnectionRefused);
+        assert_eq!(
+            reconnect.unwrap().unwrap_err().kind(),
+            std::io::ErrorKind::ConnectionRefused
+        );
         assert!(matches!(operation.snapshot().unwrap(), Outcome::Retained));
     }
 
     #[tokio::test]
-    async fn engineering_run_observation_deadline_keeps_native_work_and_delivers_terminal_trailer() {
+    async fn engineering_run_observation_deadline_keeps_native_work_and_delivers_terminal_trailer()
+    {
         use super::super::generated::pb::pse::engineering::v1 as pb;
         use buffa::Message as _;
         use http_body_util::{BodyExt as _, Full};
@@ -1627,14 +1631,16 @@ mod tests {
                 let mut frame = vec![0];
                 frame.extend_from_slice(&(u32::try_from(wire.len()).unwrap()).to_be_bytes());
                 frame.extend_from_slice(&wire);
-                let request = http::Request::post("http://localhost/pse.engineering.v1.EngineeringService/ObserveRun")
-                    .version(http::Version::HTTP_2)
-                    .header(http::header::HOST, "localhost")
-                    .header(http::header::CONTENT_TYPE, "application/grpc+proto")
-                    .header("te", "trailers")
-                    .header("grpc-timeout", "1S")
-                    .body(Full::new(bytes::Bytes::from(frame)))
-                    .unwrap();
+                let request = http::Request::post(
+                    "http://localhost/pse.engineering.v1.EngineeringService/ObserveRun",
+                )
+                .version(http::Version::HTTP_2)
+                .header(http::header::HOST, "localhost")
+                .header(http::header::CONTENT_TYPE, "application/grpc+proto")
+                .header("te", "trailers")
+                .header("grpc-timeout", "1S")
+                .body(Full::new(bytes::Bytes::from(frame)))
+                .unwrap();
                 client.ready().await.unwrap();
                 let response = client.send_request(request).await.unwrap();
                 let response = response.into_body().collect().await.unwrap();

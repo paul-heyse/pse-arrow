@@ -451,7 +451,16 @@ impl crate::HeapUsage for Observation {
 pse_diagnostics::impl_diagnostic! {
     BoundaryDiagnostic,
     code(this) { Some(this.code) },
-    forward(_this) {None}, help(_this) {None}, related(this) { if this.causes.is_empty() { None } else { Some(Box::new(this.causes.iter().map(|cause| -> &dyn pse_diagnostics::TypedDiagnostic { cause }))) } }, source(_this) {None}
+    forward(_this) {None}, help(_this) {None}, related(this) { if this.causes.is_empty() { None } else { Some(Box::new(this.causes.iter().map(|cause| -> &dyn pse_diagnostics::TypedDiagnostic { cause }))) } }, source(_this) {None},
+    facts(this) {
+        // Shared attribution comes from the original envelope. Scientific
+        // observations and locations stay on the full boundary projection.
+        pse_diagnostics::DiagnosticFacts {
+            sources: this.sources.iter().map(|source| *source.as_bytes()).collect(),
+            rule: Some(this.rule),
+            ..Default::default()
+        }
+    }
 }
 
 /// Upper owners preserve model-owned scientific payload while lower owners supply facts.

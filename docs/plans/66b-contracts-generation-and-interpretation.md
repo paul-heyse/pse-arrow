@@ -276,13 +276,15 @@ admitted descriptor graph. Each world owns its Rust emission and exact imports.
 The aggregate route collects the separate reference and worker generators alongside
 engineering. [Engineering generator](../../xtask/src/codegen/engineering.rs)
 
-Change one `ModelingInspection` field while the former service adapters still exist.
-Build the extractor from the source owners, emit the new closure, then compile both
-the ordinary and service consumers. Inspect planned units and actual module includes for
-the ordinary result reader, explicit Study client and performing service. Show that an
-unrelated service-only edit leaves passive compiled inputs unchanged. Move full-world
-interop assertions to the service or independent reader. Keep ordinary result assertions
-on the finite descriptor and real native reader.
+The source-only generator emitted the replacement worlds with the predecessor adapters
+still on disk. The focused generator control changes a `ModelingInspection` field in the
+source descriptor graph and verifies the affected world. A service-only change leaves the
+inspection and explicit worlds equal. The ordinary reader, inspection-only runtime,
+independent explicit client and performing runtime compiled in their selected contexts.
+Full-world interop assertions belong to service consumers; ordinary result assertions use
+the finite descriptor and native reader. The
+[cutover evidence](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
+records the selected checks.
 
 ### B02 — Make interpretation usable and refusal precise
 

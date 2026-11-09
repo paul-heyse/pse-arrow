@@ -31,7 +31,10 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let graph = engineering_graph()?;
     let recorded_imports = super::recorded_result::engineering_imports(&graph, &imports)?;
     let source = boundary_projection::descriptors_with_imports(
-        &graph, PACKAGE, MAIN, &recorded_imports.file,
+        &graph,
+        PACKAGE,
+        MAIN,
+        &recorded_imports.file,
     )?;
     let source = selection::partition(source)?;
     let mut tree = compile_selection(
@@ -56,9 +59,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     )?;
     super::proto_projection::merge_independent(&mut tree, explicit)?;
 
-    let shared_externs = external_types(
-        &source, SHARED, "::pse_host::engineering_types::pb",
-    )?;
+    let shared_externs = external_types(&source, SHARED, "::pse_host::engineering_types::pb")?;
     let mut inspection = compile_selection(
         &graph,
         &selection::world(&source, &[INSPECTION])?,
@@ -69,13 +70,17 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         INSPECTION_PRODUCER,
         &shared_externs,
     )?;
-    publish_adapters(&graph, &mut inspection, AdapterOutput {
-        roots: &[INSPECTION_ROOT],
-        imports: &[],
-        wire: "crate::host_operations::engineering::inspection::types",
-        destination: INSPECTION_DESTINATION,
-        producer: INSPECTION_PRODUCER,
-    })?;
+    publish_adapters(
+        &graph,
+        &mut inspection,
+        AdapterOutput {
+            roots: &[INSPECTION_ROOT],
+            imports: &[],
+            wire: "crate::host_operations::engineering::inspection::types",
+            destination: INSPECTION_DESTINATION,
+            producer: INSPECTION_PRODUCER,
+        },
+    )?;
     super::proto_projection::merge_independent(&mut tree, inspection)?;
 
     let mut config = boundary_projection::default_config(&format!("{BROAD_MODULE}::__buffa_fds"));
@@ -83,8 +88,14 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
         .extern_paths
         .extend(super::recorded_result::extern_paths()?);
     config.extern_paths.extend(shared_externs);
-    config.extern_paths.extend(external_types(&source, EXPLICIT, "::pse_host::engineering_client::pb")?);
-    config.extern_paths.extend(external_types(&source, INSPECTION, INSPECTION_MODULE)?);
+    config.extern_paths.extend(external_types(
+        &source,
+        EXPLICIT,
+        "::pse_host::engineering_client::pb",
+    )?);
+    config
+        .extern_paths
+        .extend(external_types(&source, INSPECTION, INSPECTION_MODULE)?);
     let output = generation_output(&graph, &source, &[MAIN, EXPANDED], &config)?;
     let mut engineering = super::proto_projection::publish_projection(
         &graph,
@@ -136,13 +147,17 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     }
     adapter_roots.remove(INSPECTION_ROOT);
     let adapter_roots = adapter_roots.into_iter().collect::<Vec<_>>();
-    publish_adapters(&graph, &mut engineering, AdapterOutput {
-        roots: &adapter_roots,
-        imports: &[INSPECTION_ROOT],
-        wire: "crate::host_operations::engineering::generated::pb::pse::engineering::v1",
-        destination: BROAD_DESTINATION,
-        producer: &producer(PACKAGE),
-    })?;
+    publish_adapters(
+        &graph,
+        &mut engineering,
+        AdapterOutput {
+            roots: &adapter_roots,
+            imports: &[INSPECTION_ROOT],
+            wire: "crate::host_operations::engineering::generated::pb::pse::engineering::v1",
+            destination: BROAD_DESTINATION,
+            producer: &producer(PACKAGE),
+        },
+    )?;
     super::proto_projection::merge_independent(&mut tree, engineering)?;
     Ok(tree)
 }
@@ -155,8 +170,18 @@ struct AdapterOutput<'a> {
     producer: &'a str,
 }
 
-fn publish_adapters(graph: &ProjectionGraph, tree: &mut GeneratedTree, output: AdapterOutput<'_>) -> Result<()> {
-    let AdapterOutput { roots, imports, wire, destination, producer } = output;
+fn publish_adapters(
+    graph: &ProjectionGraph,
+    tree: &mut GeneratedTree,
+    output: AdapterOutput<'_>,
+) -> Result<()> {
+    let AdapterOutput {
+        roots,
+        imports,
+        wire,
+        destination,
+        producer,
+    } = output;
     let adapters = boundary_projection::native_adapters_with_imports(
         graph,
         roots,
@@ -171,7 +196,10 @@ fn publish_adapters(graph: &ProjectionGraph, tree: &mut GeneratedTree, output: A
     insert(tree, destination, filename, adapters.as_bytes())?;
     let output_path = destination.join(filename).to_string_lossy().into_owned();
     for name in roots {
-        let owner = graph.definitions().get(*name).context("native adapter owner absent from its graph")?;
+        let owner = graph
+            .definitions()
+            .get(*name)
+            .context("native adapter owner absent from its graph")?;
         tree.relationships.push(provenance::SourceRelationship {
             declaration_key: owner.name.clone(),
             declaration_kind: "native_projection_adapter".into(),
@@ -187,7 +215,8 @@ fn publish_adapters(graph: &ProjectionGraph, tree: &mut GeneratedTree, output: A
             basis: "declared".into(),
         });
     }
-    tree.files.extend(provenance::sidecar(producer, &tree.relationships)?.files);
+    tree.files
+        .extend(provenance::sidecar(producer, &tree.relationships)?.files);
     Ok(())
 }
 
@@ -196,13 +225,24 @@ fn external_types(
     file_name: &str,
     module: &str,
 ) -> Result<Vec<(String, String)>> {
-    let file = source.file.iter()
+    let file = source
+        .file
+        .iter()
         .find(|file| file.name.as_deref() == Some(file_name))
         .with_context(|| format!("missing engineering file {file_name}"))?;
-    file.message_type.iter().map(|message| {
-        let name = message.name.as_deref().context("unnamed engineering message")?;
-        Ok((format!(".{PACKAGE}.{name}"), format!("{module}::pse::engineering::v1::{name}")))
-    }).collect()
+    file.message_type
+        .iter()
+        .map(|message| {
+            let name = message
+                .name
+                .as_deref()
+                .context("unnamed engineering message")?;
+            Ok((
+                format!(".{PACKAGE}.{name}"),
+                format!("{module}::pse::engineering::v1::{name}"),
+            ))
+        })
+        .collect()
 }
 
 fn generation_output(
@@ -211,7 +251,10 @@ fn generation_output(
     targets: &[&str],
     config: &buffa_codegen::CodeGenConfig,
 ) -> Result<boundary_projection::ProjectionOutput> {
-    let targets = targets.iter().map(|name| (*name).to_owned()).collect::<Vec<_>>();
+    let targets = targets
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<Vec<_>>();
     let generation = boundary_projection::ProjectionGeneration::new(source, &targets, config)?;
     let support = generation.support("descriptor.bin")?;
     Ok(boundary_projection::ProjectionOutput {
@@ -224,7 +267,10 @@ fn generation_output(
     })
 }
 
-#[allow(clippy::too_many_arguments, reason = "publication names are explicit and each scope has one output owner")]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "publication names are explicit and each scope has one output owner"
+)]
 fn compile_selection(
     graph: &ProjectionGraph,
     source: &buffa_codegen::generated::descriptor::FileDescriptorSet,
@@ -235,13 +281,25 @@ fn compile_selection(
     producer: &str,
     extern_paths: &[(String, String)],
 ) -> Result<GeneratedTree> {
-    let owned = source.file.iter().filter(|file| {
-        file.name.as_deref().is_some_and(|name| targets.contains(&name))
-    }).collect::<Vec<_>>();
-    let owners = owned.iter().flat_map(|file| &file.message_type)
-        .filter_map(|message| message.name.as_deref()).collect();
-    let services = owned.iter().flat_map(|file| &file.service)
-        .filter_map(|service| service.name.as_deref()).collect();
+    let owned = source
+        .file
+        .iter()
+        .filter(|file| {
+            file.name
+                .as_deref()
+                .is_some_and(|name| targets.contains(&name))
+        })
+        .collect::<Vec<_>>();
+    let owners = owned
+        .iter()
+        .flat_map(|file| &file.message_type)
+        .filter_map(|message| message.name.as_deref())
+        .collect();
+    let services = owned
+        .iter()
+        .flat_map(|file| &file.service)
+        .filter_map(|service| service.name.as_deref())
+        .collect();
     let selected = graph.publication_scope(&owners, &services);
     let mut config = boundary_projection::default_config(&format!("{rust_module}::__buffa_fds"));
     config.extern_paths.extend_from_slice(extern_paths);
@@ -250,7 +308,10 @@ fn compile_selection(
         &selected,
         ProjectionTarget {
             package: PACKAGE,
-            file: targets.first().copied().context("selected engineering files missing")?,
+            file: targets
+                .first()
+                .copied()
+                .context("selected engineering files missing")?,
             destination,
             rust_module,
             document_root,
@@ -286,6 +347,7 @@ mod tests {
     use buffa::Message as _;
     use buffa_descriptor::generated::descriptor::FileDescriptorSet;
     use buffa_descriptor::{DescriptorPool, DynamicMessage, Value};
+    use pse_contract::boundary_projection::Service;
     use std::sync::Arc;
 
     #[test]
@@ -294,53 +356,108 @@ mod tests {
         let imports = imports(root).unwrap();
         let graph = engineering_graph().unwrap();
         let imports = super::super::recorded_result::engineering_imports(&graph, &imports).unwrap();
-        let original = boundary_projection::descriptors_with_imports(&graph, PACKAGE, MAIN, &imports.file).unwrap();
+        let original =
+            boundary_projection::descriptors_with_imports(&graph, PACKAGE, MAIN, &imports.file)
+                .unwrap();
         let source = selection::partition(original).unwrap();
         let explicit = selection::world(&source, &[EXPLICIT, CONTROL]).unwrap();
         let inspection = selection::world(&source, &[INSPECTION]).unwrap();
-        assert!(inspection.file.iter().all(|file| !matches!(file.name.as_deref(), Some(EXPLICIT | CONTROL))));
+        assert!(
+            inspection
+                .file
+                .iter()
+                .all(|file| !matches!(file.name.as_deref(), Some(EXPLICIT | CONTROL)))
+        );
         let shared = selection::world(&source, &[SHARED]).unwrap();
         let shared = DescriptorPool::new(shared).unwrap();
         let explicit = DescriptorPool::new(explicit).unwrap();
         let inspection = DescriptorPool::new(inspection).unwrap();
         let full = DescriptorPool::new(source).unwrap();
 
-        for name in ["EngineeringPrepareExplicitStudy", "ExplicitStudyDefinition", "EngineeringStudyStatus"] {
+        for name in [
+            "EngineeringPrepareExplicitStudy",
+            "ExplicitStudyDefinition",
+            "EngineeringStudyStatus",
+        ] {
             let qualified = format!("{PACKAGE}.{name}");
-            assert!(explicit.message_by_name(&qualified).is_some(), "{qualified}");
+            assert!(
+                explicit.message_by_name(&qualified).is_some(),
+                "{qualified}"
+            );
             assert!(full.message_by_name(&qualified).is_some(), "{qualified}");
         }
-        for name in ["SourceDelta", "ExpandedStudyDefinition", "EngineeringEditSource", "ModelingInspection"] {
+        for name in [
+            "SourceDelta",
+            "ExpandedStudyDefinition",
+            "EngineeringEditSource",
+            "ModelingInspection",
+        ] {
             let qualified = format!("{PACKAGE}.{name}");
-            assert!(explicit.message_by_name(&qualified).is_none(), "{qualified}");
+            assert!(
+                explicit.message_by_name(&qualified).is_none(),
+                "{qualified}"
+            );
             assert!(full.message_by_name(&qualified).is_some(), "{qualified}");
         }
-        assert!(inspection.message_by_name("pse.engineering.v1.ModelingInspection").is_some());
-        assert!(inspection.message_by_name("pse.engineering.v1.ExpandedStudyDefinition").is_none());
+        assert!(
+            inspection
+                .message_by_name("pse.engineering.v1.ModelingInspection")
+                .is_some()
+        );
+        assert!(
+            inspection
+                .message_by_name("pse.engineering.v1.ExpandedStudyDefinition")
+                .is_none()
+        );
         let source = "pse.engineering.v1.OperationSource";
         assert!(shared.message_by_name(source).is_some());
         assert!(inspection.message_by_name(source).is_some());
         assert!(explicit.message_by_name(source).is_some());
-        assert!(shared.message_by_name("pse.engineering.v1.StudyPoint").is_none());
-        let binding = full.message_by_name("pse.engineering.v1.ModelingIndexBinding").unwrap();
-        assert_eq!(binding.fields().iter().map(|field| (field.name(), field.number())).collect::<Vec<_>>(),
-            [("name", 1), ("domain", 2)]);
+        assert!(
+            shared
+                .message_by_name("pse.engineering.v1.StudyPoint")
+                .is_none()
+        );
+        let binding = full
+            .message_by_name("pse.engineering.v1.ModelingIndexBinding")
+            .unwrap();
+        assert_eq!(
+            binding
+                .fields()
+                .iter()
+                .map(|field| (field.name(), field.number()))
+                .collect::<Vec<_>>(),
+            [("name", 1), ("domain", 2)]
+        );
     }
 
     #[test]
     fn changing_source_inspection_rederives_only_its_narrow_world() {
-        use buffa_codegen::generated::descriptor::{FieldDescriptorProto, field_descriptor_proto::{Label, Type}};
+        use buffa_codegen::generated::descriptor::{
+            FieldDescriptorProto,
+            field_descriptor_proto::{Label, Type},
+        };
 
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
         let graph = engineering_graph().unwrap();
         let imports = imports(root).unwrap();
         let imports = super::super::recorded_result::engineering_imports(&graph, &imports).unwrap();
-        let source = boundary_projection::descriptors_with_imports(&graph, PACKAGE, MAIN, &imports.file).unwrap();
+        let source =
+            boundary_projection::descriptors_with_imports(&graph, PACKAGE, MAIN, &imports.file)
+                .unwrap();
         let before = selection::partition(source.clone()).unwrap();
         let changed = |name| {
             let mut source = source.clone();
-            let file = source.file.iter_mut().find(|file| file.name.as_deref() == Some(MAIN)).unwrap();
-            let message = file.message_type.iter_mut().find(|message| message.name.as_deref() == Some(name)).unwrap();
+            let file = source
+                .file
+                .iter_mut()
+                .find(|file| file.name.as_deref() == Some(MAIN))
+                .unwrap();
+            let message = file
+                .message_type
+                .iter_mut()
+                .find(|message| message.name.as_deref() == Some(name))
+                .unwrap();
             message.field.push(FieldDescriptorProto {
                 name: Some("new_observation".into()),
                 number: Some(123),
@@ -351,19 +468,40 @@ mod tests {
             selection::partition(source).unwrap()
         };
         let after = changed(INSPECTION_ROOT);
-        let file = |world: &buffa_codegen::generated::descriptor::FileDescriptorSet, name| {
-            world.file.iter().find(|file| file.name.as_deref() == Some(name)).unwrap().clone()
+        let file = |world: &FileDescriptorSet, name| {
+            world
+                .file
+                .iter()
+                .find(|file| file.name.as_deref() == Some(name))
+                .unwrap()
+                .clone()
         };
         assert_eq!(file(&before, MAIN), file(&after, MAIN));
-        assert_eq!(selection::world(&before, &[EXPLICIT, CONTROL]).unwrap(), selection::world(&after, &[EXPLICIT, CONTROL]).unwrap());
+        assert_eq!(
+            selection::world(&before, &[EXPLICIT, CONTROL]).unwrap(),
+            selection::world(&after, &[EXPLICIT, CONTROL]).unwrap()
+        );
         assert_ne!(file(&before, INSPECTION), file(&after, INSPECTION));
         let narrow = DescriptorPool::new(selection::world(&after, &[INSPECTION]).unwrap()).unwrap();
-        assert!(narrow.message_by_name("pse.engineering.v1.ModelingInspection").unwrap().fields().iter().any(|field| field.number() == 123));
+        assert!(
+            narrow
+                .message_by_name("pse.engineering.v1.ModelingInspection")
+                .unwrap()
+                .fields()
+                .iter()
+                .any(|field| field.number() == 123)
+        );
 
         let service_only = changed("EngineeringAdmitSource");
         assert_ne!(file(&before, MAIN), file(&service_only, MAIN));
-        assert_eq!(selection::world(&before, &[INSPECTION]).unwrap(), selection::world(&service_only, &[INSPECTION]).unwrap());
-        assert_eq!(selection::world(&before, &[EXPLICIT, CONTROL]).unwrap(), selection::world(&service_only, &[EXPLICIT, CONTROL]).unwrap());
+        assert_eq!(
+            selection::world(&before, &[INSPECTION]).unwrap(),
+            selection::world(&service_only, &[INSPECTION]).unwrap()
+        );
+        assert_eq!(
+            selection::world(&before, &[EXPLICIT, CONTROL]).unwrap(),
+            selection::world(&service_only, &[EXPLICIT, CONTROL]).unwrap()
+        );
     }
 
     #[test]
@@ -458,7 +596,10 @@ mod tests {
         )));
     }
 
-    #[cfg(all(feature = "scientific-worker-contracts", feature = "reference-contracts"))]
+    #[cfg(all(
+        feature = "scientific-worker-contracts",
+        feature = "reference-contracts"
+    ))]
     #[test]
     fn all_selected_world_metadata_has_typed_native_coverage() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();

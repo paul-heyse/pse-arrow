@@ -78,8 +78,9 @@ impl Supervisors {
     }
 }
 impl MathService {
-    /// Ready joins leave the lock before consuming arbitrary panic payloads.
-    /// Reentrant admission refuses while this bounded population is settling.
+    /// Successful joins leave no work to settle. Failed joins leave the lock
+    /// before consuming arbitrary payloads. Reentrant admission refuses while
+    /// those failures are being reconciled.
     /// Extraction, normalization and reconciliation contain no suspension point.
     fn with_supervisors<R>(
         &self,
@@ -94,7 +95,9 @@ impl MathService {
                 owner.check_open()?;
                 let mut ready = Vec::new();
                 while let Some(joined) = owner.tasks.try_join_next() {
-                    ready.push(joined);
+                    if !matches!(&joined, Ok(Ok(()))) {
+                        ready.push(joined);
+                    }
                 }
                 if ready.is_empty() {
                     return effect(&mut owner);

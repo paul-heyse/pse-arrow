@@ -153,7 +153,7 @@ below still owns current integration and receiving evidence.
 | ID | Finding and scenario | Disposition | Work owner | Required evidence |
 | --- | --- | --- | --- | --- |
 | F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | resolved | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item with 19 references. The selected registry and modeling tests preserve occurrence roles, ordinals and local grammar. |
-| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | verification pending | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and the independent host and performing consumer compiles passed. Verify ordinary and inspection-only consumers on the final sources. |
+| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | resolved | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation, narrow consumer compiles and focused descriptor-world controls passed. The ordinary reader excludes both engineering features, and the explicit client excludes the performing runtime. |
 | F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | resolved | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | Authenticated Submit and Recover used both current capabilities, refused the retired methods and restored the exact original preparation identities on the replacement frontend. |
 | F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | resolved | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | The current worker refused the retired route and stale and foreign sessions on the original connection. Transport tests preserved derivative products, output order, abandonment and original stop. |
 | F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | resolved | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Adapter, Krylov, fitting and shooting controls passed. The witness custody control passed for fresh, retained and refused work. |
@@ -264,15 +264,60 @@ failures and complete settlement (`01a1bece-beec-70d1-9283-01b26d1f6a84`).
 
 **Tested, selected.** `pse qualify-study` used the captured original keeper, canonical
 service, frontend and worker and the declared functional worker allocation. Its
-default Nextest Submit and Recover phases used engineering-service, native-service,
+Nextest `local` Submit and Recover phases used engineering-service, native-service,
 product-operators, Diffsol, Ipopt, KINSOL and force-validation. Each passed its
 single selected test with zero failures and verified original settlement
 (`01a1bed9-88d8-7582-8e3f-b289d56914c6`, `01a1bee0-78af-7191-a5ac-482f9b267765`).
 The independent client prepared, read and restored explicit points; the performing
 client did the same for source expansion. The actual endpoint refused the three
 retired methods and refused the wrong current capability. Both reconnect reads
-preserved the exact original preparation hashes. The ordinary and inspection-only
-controls and broader qualification remain separate.
+preserved the exact original preparation hashes.
+
+The original Complete phase also passed (`01a1bee1-1aff-7511-a85f-75c8f7b3da68`).
+Routes had one failure against zero (`01a1bee1-e468-7347-a574-0de507ac4bcd`): the
+native supervisor refused admission during concurrent join settlement before the negative
+Horizon request could reach the physical binding check. The original run captured
+the failure and settled its owners. The native supervisor now consumes successful
+joins without opening a settlement interval; typed failures and panic payloads
+still reconcile outside the lock. The second Routes run reached the original
+physical binding refusal (`01a1beec-1894-7078-990d-6189dc03fdca`), but its
+wire projection lost the rule and authored source. The model boundary diagnostic
+now supplies both through its existing typed facts. The next Routes run received
+the original rule (`01a1bef7-3105-73c2-84a5-423ef1080b74`) and exposed the final
+code spelling mismatch. Engineering responses now use the registry conversion
+instead of the human-facing miette spelling. The final Routes run
+(`01a1bf0b-e075-7458-b3ea-1e415d26ebcd`) passed the exact code, rule and source
+assertions. The positive mixed Study then failed separately: the worker's fit
+experiment inherited a fit-owned engineering scale and refused the unselected
+coordinate. The client timed out observing the result, one failing test against
+zero. This policy inheritance predates the shared oracle admission change. The
+test and frontends settled. The coordinator timed out waiting for the keeper's
+drain acknowledgement after the worker failure. The keeper later exited and the
+original worker terminal receipt recorded `native_joined: true`. The small
+diagnostic fixture and receipts were retained; the settled executable copies were
+released.
+The remaining [scientific client receiving](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients)
+owns this mixed route and the unreached endpoint and edit/run follow-ups. Full
+simulation qualification was not run.
+
+**Tested, selected.** `pse check pse-runtime:pse-project -F product-reader,force-validate`
+explicitly excluded both engineering features and passed with no compiler diagnostics
+and complete settlement (`01a1bef8-fa8e-7524-b42e-7d8314b800db`). `pse test pse-runtime
+--lib -F engineering-inspection,force-validate` explicitly excluded `engineering-service`
+and passed all 12 selected tests with zero failures and complete settlement in default
+mode (`01a1befa-876a-7145-8562-03cac9405123`). They cover inspection presence, domain
+and ordered inputs, passive adoption refusal and recorded-result reflection. The same
+selection covers immediate capacity after a successful join, failure harvest, panic
+reentry, concurrent shutdown and the original and independent finish causes after refusal.
+
+**Tested, selected.** `pse test xtask --bin xtask --no-default-features -F
+engineering-contracts,scientific-worker-contracts,force-validate` passed all four
+selected generator controls with zero failures and complete settlement in default
+mode (`01a1bf02-c0d8-76fb-b3b3-fc068533a355`). They verify unique message ownership,
+affected descriptor worlds for inspection and service changes, the independent recorded
+result adapter, and the generated worker service. The first test compile exposed a
+missing test import and a redundant qualification; both were removed. These checks
+establish structural isolation and selected behavior. No build speedup is claimed.
 
 ### 66a–f checkpoint — November 8
 
