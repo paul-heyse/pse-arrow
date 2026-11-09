@@ -150,7 +150,13 @@ tests covering original fixture effect attribution, JUnit overflow, the real
 weighted Nextest wakeup, native selection, and original failure rerun across a
 listing change. Both settled with zero failures against the zero baseline.
 The JUnit overflow control covered an interim relay that was later removed at
-the maintainer's direction; it is not part of the target acceptance.
+the maintainer's direction; it is not part of the target acceptance. The
+uncapped follow-up passed the direct runner, weighted wakeup, and exact rerun
+controls. Four retirement controls initially refused an insecure test directory;
+after the fixture explicitly created a private directory, `pse test --rerun-failed
+01a1c280-af41-7245-b550-3cf0dc69b116` passed all four and settled with zero
+failures (`01a1c283-46ba-7157-aab7-508c805ee580`). The explicit retirement preview
+reported actual apparent and allocated bytes for a retained DSL run.
 
 On `main`, `pse test xtask --lib --features package-fixtures -E …` passed four
 campaign controls (`01a1c279-3970-7458-b55c-b1f85affd5d9`), including a small

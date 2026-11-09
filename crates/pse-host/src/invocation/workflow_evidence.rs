@@ -665,7 +665,11 @@ mod tests {
         PathBuf,
         PathBuf,
     ) {
-        let temporary = tempfile::tempdir().unwrap();
+        use std::os::unix::fs::PermissionsExt as _;
+        let temporary = tempfile::Builder::new()
+            .permissions(fs::Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
         let environment = Environment::from([(
             "XDG_STATE_HOME".into(), temporary.path().join("state").into_os_string(),
         )]);
