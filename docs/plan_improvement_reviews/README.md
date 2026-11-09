@@ -1,5 +1,11 @@
 # Plan improvement reviews
 
+The [Plan 66 Symbolica leverage review](plan66-symbolica-leverage-2026-11-09.md)
+covers the full Symbolica guide and the A–L series. It compares bounded symbolic restore,
+shared derivative and coefficient preparation, and wire operations that could be retired.
+It also identifies a strict-domain fidelity gap and distinguishes the maintained supplier
+from released evaluator composition candidates. Recommendations do not amend the plans.
+
 The [repository-wide test efficiency review](plan70-repository-test-efficiency-2026-11-08.md)
 assesses the full first-party test population against Plan70 and the efficiency principles.
 It proposes narrower compiler and fixture work, proportionate conformance report capacity,
