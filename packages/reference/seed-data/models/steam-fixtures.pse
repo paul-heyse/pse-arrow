@@ -7,8 +7,136 @@
 @id("64d03000000000000000000000000204") use provenance @"1.0.0";
 @id("64d0300000000000000000000000021c") use chemistry @"1.0.0";
 @id("64d03000000000000000000000000232") use numerical_policy @"1.0.0";
+@id("66e02000000000000000000000000050") use heat_exchange @"1.0.0";
+@id("66e02000000000000000000000000051") use distributed_volumes @"1.0.0";
+@id("66e04000000000000000000000000010") use pressure_change @"1.0.0";
+@id("66e04000000000000000000000000011") use references @"1.0.0";
 @id("64d03000000000000000000000000205") entity provenance.source iapws_table {title="IAPWS R6-95(2018), Table7: T300 K, density996.556 kg/m3, pressure0.0992418352 MPa; https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf"}
 @id("64d03000000000000000000000000206") entity provenance.source released_turbines {title="IDAES2.13.0 pressure-changer tests TestIAPWS.test_verify, two single-phase cases and one wet case; core84532d7f99a9f976b05170948147afdd69cfa5f6/idaes/models/unit_models/tests/test_pressure_changer.py; rounded source outputs, not an executed reference receipt"}
+@id("66e02000000000000000000000000008") entity provenance.source released_wall_case {title="IDAES 2.13.0 TestHXLCGeneric.model/test_solve, core 84532d7f99a9f976b05170948147afdd69cfa5f6/idaes/models/unit_models/tests/test_heat_exchanger_lc.py; two no-holdup PH/MIX Water sides"}
+@id("66e02000000000000000000000000009") constant wall_hot_inlet_h:Iapws95MolarEnthalpy=4000{J/mol} provenance(released_wall_case,provenance.Role.published);
+@id("66e0200000000000000000000000000a") constant wall_cold_inlet_h:Iapws95MolarEnthalpy=3000{J/mol} provenance(released_wall_case,provenance.Role.published);
+@id("66e0200000000000000000000000000b") constant wall_inlet_pressure:Pressure=101325{Pa} provenance(released_wall_case,provenance.Role.published);
+@id("66e0200000000000000000000000000c") constant wall_inlet_flow:Flow=100{mol/s} provenance(released_wall_case,provenance.Role.published);
+@id("66e02000000000000000000000000052") set wall_water_members:Set<chemistry.species>={chem.water};
+@id("66e02000000000000000000000000053") fn wall_inlet_fraction(j:chemistry.species)->MoleFraction valid(j in wall_water_members)=1{1};
+// Only the released two inlet states are admitted by this binding. The root
+// solves for T and density with the existing bounded HEOS Liquid registration.
+@id("66e0200000000000000000000000000d") def ReleasedWallInlet(source_h:Iapws95MolarEnthalpy) {
+@id("66e0200000000000000000000000000e") require source_h==wall_hot_inlet_h or source_h==wall_cold_inlet_h : "released wall inlet selects one of the two published liquid PH inputs";
+@id("66e02000000000000000000000000010") let feed_composition[j in wall_water_members]:MoleFraction=wall_inlet_fraction(j);
+@id("66e02000000000000000000000000011") child state:steam.WaterState=steam.Liquid(water_component=chem.water,guess_temperature=if source_h==wall_hot_inlet_h then 326.2{K} else 312.89{K},guess_density=if source_h==wall_hot_inlet_h then 54800{mol/m^3} else 55100{mol/m^3});
+@id("66e02000000000000000000000000012") eq enthalpy_input:state.h==steam.iapws95_to_stock(source_h,feed_composition,wall_water_members);
+@id("66e02000000000000000000000000013") eq pressure_input:state.pressure==wall_inlet_pressure;
+@id("66e02000000000000000000000000014") eq flow_input:state.flow==wall_inlet_flow;
+@id("66e02000000000000000000000000015") eq composition_input:state.z[chem.water]==feed_composition[chem.water];
+}
+// Temperatures are independent IAPWS95 PH observations from the selected
+// IDAES 2.13.0 reference case. Guesses are numerical inputs only.
+@id("66e02000000000000000000000000016") test released_wall_inlet_ph oracle released_wall_case fixture {dof 0;route steady;procedure solve;} {
+@id("66e02000000000000000000000000017") child hot:ReleasedWallInlet=ReleasedWallInlet(source_h=wall_hot_inlet_h);
+@id("66e02000000000000000000000000018") child cold:ReleasedWallInlet=ReleasedWallInlet(source_h=wall_cold_inlet_h);
+@id("66e02000000000000000000000000019") expect hot.state.T==326.16674287074414{K} tolerance 0.01{K};
+@id("66e0200000000000000000000000001a") expect cold.state.T==312.8889890696322{K} tolerance 0.01{K};
+}
+@id("66e02000000000000000000000000054") constant wall_area:Area=1000{m^2} provenance(released_wall_case,provenance.Role.published);
+@id("66e02000000000000000000000000055") constant wall_hot_film:ThermalConductance=100{W/K} provenance(released_wall_case,provenance.Role.published);
+@id("66e02000000000000000000000000056") constant wall_cold_film:ThermalConductance=100{W/K} provenance(released_wall_case,provenance.Role.published);
+// The released assignment to `heat_capacity` is a different member; the
+// active balance uses the declared 1 J/K `heat_capacity_wall` parameter.
+@id("66e02000000000000000000000000057") constant wall_capacity:ThermalCapacity=1{J/K} provenance(released_wall_case,provenance.Role.published);
+@id("66e02000000000000000000000000058") entity provenance.source wall_stock_perturbation {title="Independent wall-stock control: same released two-fluid feed and one backward step; initial wall at 321.5 K instead of zero heat rate"}
+@id("66e02000000000000000000000000059") constant perturbed_wall_temperature:Temperature=321.5{K} provenance(wall_stock_perturbation,provenance.Role.synthetic);
+@id("66e0200000000000000000000000005a") def ReleasedWallExchanger(equilibrium_initial:Boolean) {
+@id("66e0200000000000000000000000005b") require analysis.route==analysis.simultaneous : "released wall case uses the selected simultaneous backward time step";
+@id("66e0200000000000000000000000005c") domain t:Time from 0{s} to 1{s};
+@id("66e0200000000000000000000000005d") discretize timeline on t using distributed_volumes.backward(elements=1,order=1);
+@id("66e0200000000000000000000000005e") let feed_composition[j in wall_water_members]:MoleFraction=wall_inlet_fraction(j);
+@id("66e0200000000000000000000000005f") child cell[k in t]:heat_exchange.WallStockInstant=heat_exchange.WallStockInstant(
+hot_inlet=steam.Liquid(water_component=chem.water,guess_temperature=326.2{K},guess_density=54800{mol/m^3}),
+hot_outlet=steam.Liquid(water_component=chem.water,defined_state=false,guess_temperature=326.08{K},guess_density=54800{mol/m^3}),
+cold_inlet=steam.Liquid(water_component=chem.water,guess_temperature=312.89{K},guess_density=55100{mol/m^3}),
+cold_outlet=steam.Liquid(water_component=chem.water,defined_state=false,guess_temperature=312.98{K},guess_density=55100{mol/m^3}),
+area=wall_area,hot_film=wall_hot_film,cold_film=wall_cold_film,capacity=wall_capacity,temperature_guess=320{K});
+@id("66e02000000000000000000000000060") eq hot_enthalpy[k in t]:cell[k].hot.inlet.h==steam.iapws95_to_stock(wall_hot_inlet_h,feed_composition,wall_water_members);
+@id("66e02000000000000000000000000061") eq cold_enthalpy[k in t]:cell[k].cold.inlet.h==steam.iapws95_to_stock(wall_cold_inlet_h,feed_composition,wall_water_members);
+@id("66e02000000000000000000000000062") eq hot_pressure[k in t]:cell[k].hot.inlet.pressure==wall_inlet_pressure;
+@id("66e02000000000000000000000000063") eq cold_pressure[k in t]:cell[k].cold.inlet.pressure==wall_inlet_pressure;
+@id("66e02000000000000000000000000064") eq hot_flow[k in t]:cell[k].hot.inlet.flow==wall_inlet_flow;
+@id("66e02000000000000000000000000065") eq cold_flow[k in t]:cell[k].cold.inlet.flow==wall_inlet_flow;
+@id("66e02000000000000000000000000066") eq hot_composition[k in t]:cell[k].hot.inlet.z[chem.water]==feed_composition[chem.water];
+@id("66e02000000000000000000000000067") eq cold_composition[k in t]:cell[k].cold.inlet.z[chem.water]==feed_composition[chem.water];
+@id("66e02000000000000000000000000068") conserve wall_balance[k in t]:Energy on t inventory cell[k].wall_energy flux cell[k].wall_rate tolerance 0.001{J};
+@id("66e02000000000000000000000000069") when equilibrium_initial {
+@id("66e0200000000000000000000000006a") eq initial_zero_rate:cell[0{s}].wall_rate==0{W};
+}
+@id("66e0200000000000000000000000006b") when not equilibrium_initial {
+@id("66e0200000000000000000000000006c") eq initial_wall_temperature:cell[0{s}].wall_temperature==perturbed_wall_temperature;
+}
+// Compare actual fluid enthalpy-flow changes with the wall stock change at
+// the selected backward time step; do not reuse the local wall heat rate.
+@id("66e0200000000000000000000000006d") let fluid_supplied:Energy=(cell[1{s}].hot.inlet.energy_flow+cell[1{s}].cold.inlet.energy_flow)*1{s};
+@id("66e0200000000000000000000000006e") let fluid_discharged:Energy=(cell[1{s}].hot.outlet.energy_flow+cell[1{s}].cold.outlet.energy_flow)*1{s};
+@id("66e0200000000000000000000000006f") accumulate whole_energy:Energy observation tolerance 0.001{J};
+@id("66e02000000000000000000000000070") contribute whole_energy role positive=cell[1{s}].wall_energy;
+@id("66e02000000000000000000000000071") contribute whole_energy role negative=cell[0{s}].wall_energy;
+@id("66e02000000000000000000000000072") contribute whole_energy role positive=fluid_discharged;
+@id("66e02000000000000000000000000073") contribute whole_energy role negative=fluid_supplied;
+}
+@id("66e02000000000000000000000000074") test released_wall_stock_equilibrium oracle released_wall_case fixture {dof 0;route simultaneous;procedure solve;policy {derivatives cells(10000);}} {
+@id("66e02000000000000000000000000075") child root:ReleasedWallExchanger=ReleasedWallExchanger(equilibrium_initial=true);
+@id("66e02000000000000000000000000076") expect root.cell[0{s}].wall_temperature==319.5278809679338{K} tolerance 0.01{K};
+@id("66e02000000000000000000000000077") expect root.cell[1{s}].wall_temperature==319.5278809679338{K} tolerance 0.01{K};
+@id("66e02000000000000000000000000078") expect root.cell[1{s}].hot.outlet.T==326.079210259212{K} tolerance 0.01{K};
+@id("66e02000000000000000000000000079") expect root.cell[1{s}].cold.outlet.T==312.97658156985966{K} tolerance 0.01{K};
+@id("66e0200000000000000000000000007a") expect root.cell[1{s}].hot.heat==-659.509563725274{W} tolerance 0.1{W};
+@id("66e0200000000000000000000000007b") expect root.cell[1{s}].cold.heat==659.509563725274{W} tolerance 0.1{W};
+@id("66e0200000000000000000000000007c") expect root.whole_energy==0{J} tolerance 0.001{J};
+}
+@id("66e0200000000000000000000000007d") test released_wall_stock_perturbation oracle wall_stock_perturbation fixture {dof 0;route simultaneous;procedure solve;policy {derivatives cells(10000);}} {
+@id("66e0200000000000000000000000007e") child root:ReleasedWallExchanger=ReleasedWallExchanger(equilibrium_initial=false);
+@id("66e0200000000000000000000000007f") expect root.cell[0{s}].wall_temperature==perturbed_wall_temperature tolerance 1e-6{K};
+@id("66e02000000000000000000000000080") annotation check root.cell[1{s}].wall_temperature(root.cell[1{s}].wall_temperature>319.53{K} and root.cell[1{s}].wall_temperature<320{K});
+@id("66e02000000000000000000000000081") annotation check root.cell[1{s}].wall_rate(root.cell[1{s}].wall_rate< -1{W} and root.cell[1{s}].wall_rate> -3{W});
+@id("66e02000000000000000000000000082") expect root.whole_energy==0{J} tolerance 0.001{J};
+}
+@id("66e04000000000000000000000000012") entity provenance.oracle_test released_linear_water_valve {title="Forward adiabatic linear Water valve, with the released rating calculated for the half-open 100 kPa pressure drop",release=references.idaes_2_13,locator="idaes/models/unit_models/tests/test_valve.py::TestLinearValveLegacyScaling"}
+@id("66e04000000000000000000000000013") constant valve_feed_temperature:Temperature=300{K} provenance(released_linear_water_valve,provenance.Role.published);
+@id("66e04000000000000000000000000014") constant valve_feed_pressure:Pressure=200000{Pa} provenance(released_linear_water_valve,provenance.Role.published);
+@id("66e04000000000000000000000000015") constant valve_feed_flow:Flow=1000{mol/s} provenance(released_linear_water_valve,provenance.Role.published);
+@id("66e04000000000000000000000000016") constant valve_rating_outlet:Pressure=100000{Pa} provenance(released_linear_water_valve,provenance.Role.published);
+@id("66e04000000000000000000000000017") constant valve_rating_opening:Scalar=0.5 provenance(released_linear_water_valve,provenance.Role.published);
+@id("66e0400000000000000000000000002f") entity provenance.source derived_linear_valve_rating {title="Equivalent unit-opening rating of the released valve: rated flow is 1000 mol/s divided by 0.5; rated pressure drop is 200000 Pa minus 100000 Pa"}
+@id("66e04000000000000000000000000018") constant valve_rated_flow:Flow=2000{mol/s} provenance(derived_linear_valve_rating,provenance.Role.derived,lineage(source released_linear_water_valve));
+@id("66e04000000000000000000000000019") constant valve_rated_drop:DeltaPressure=100000{Pa} provenance(derived_linear_valve_rating,provenance.Role.derived,lineage(source released_linear_water_valve));
+@id("66e0400000000000000000000000001a") entity provenance.source valve_off_design {title="Independent linear rating at opening 0.8 with the released flow and inlet pressure: pressure drop scales by (0.5/0.8)^2, giving 39062.5 Pa"}
+// The reference computes the inlet enthalpy from its specified temperature and
+// pressure. Fix those same physical coordinates, so no datum magnitude moves
+// between the reference implementation and this model.
+@id("66e0400000000000000000000000001b") test linear_water_valve_rated oracle released_linear_water_valve fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
+@id("66e0400000000000000000000000001c") child root:pressure_change.LinearRatedValve=pressure_change.LinearRatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=valve_rating_opening);
+@id("66e0400000000000000000000000001d") expect root.outlet.pressure==valve_rating_outlet tolerance 1{Pa};
+@id("66e0400000000000000000000000001e") expect root.outlet.flow==valve_feed_flow tolerance 1e-5{mol/s};
+@id("66e0400000000000000000000000001f") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("66e04000000000000000000000000020") expect root.outlet.h==root.inlet.h tolerance 0.001{J/mol};
+@id("66e04000000000000000000000000021") expect root.heat==0{W} tolerance 1e-6{W};
+@id("66e04000000000000000000000000022") expect root.work==0{W} tolerance 1e-6{W};
+}
+@id("66e04000000000000000000000000023") test linear_water_valve_off_design oracle valve_off_design fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
+@id("66e04000000000000000000000000024") child root:pressure_change.LinearRatedValve=pressure_change.LinearRatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=0.8);
+@id("66e04000000000000000000000000025") expect root.outlet.pressure==160937.5{Pa} tolerance 1{Pa};
+@id("66e04000000000000000000000000026") expect root.outlet.flow==valve_feed_flow tolerance 1e-5{mol/s};
+@id("66e04000000000000000000000000027") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("66e04000000000000000000000000028") expect root.outlet.h==root.inlet.h tolerance 0.001{J/mol};
+@id("66e04000000000000000000000000029") expect root.heat==0{W} tolerance 1e-6{W};
+@id("66e0400000000000000000000000002a") expect root.work==0{W} tolerance 1e-6{W};
+}
+@id("66e0400000000000000000000000002b") test linear_water_valve_zero_refuses oracle released_linear_water_valve fixture {dof 0;route steady;procedure check;failure trial_rejected validity(form) form(pressure_change.forward_valve_flow) variable(flow);} {
+@id("66e0400000000000000000000000002c") expect pressure_change.forward_valve_flow(0{mol/s})==0{mol/s} tolerance 0{mol/s};
+}
+@id("66e0400000000000000000000000002d") test linear_water_valve_reverse_refuses oracle released_linear_water_valve fixture {dof 0;route steady;procedure check;failure trial_rejected validity(form) form(pressure_change.forward_valve_flow) variable(flow);} {
+@id("66e0400000000000000000000000002e") expect pressure_change.forward_valve_flow(-1000{mol/s})==-1000{mol/s} tolerance 0{mol/s};
+}
 // The inlet molar density is the published 996.556 kg/m3 divided by the
 // IAPWS Water model's 0.018015268 kg/mol. Set F=0.001*rho mol/s, hence the
 // volume flow is exactly 0.001 m3/s. DeltaP=100000 Pa gives hydraulic work

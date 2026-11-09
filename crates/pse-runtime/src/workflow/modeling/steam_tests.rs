@@ -8,6 +8,9 @@ use pse_backend_native::coolprop::{self, WaterRegime};
 use pse_model::generated::enums::ModelingDeclarationKind as DeclarationKind;
 use std::collections::BTreeSet;
 
+#[path = "steam_reference.rs"]
+mod independent_reference;
+
 fn steam_infrastructure(
     operation: &'static str,
     source: impl std::error::Error + Send + Sync + 'static,
@@ -183,6 +186,96 @@ async fn steam_package(
 }
 
 async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), WorkflowError> {
+    conform_case(name, worker, false).await
+}
+
+fn assert_wall_inlet_ph_roots(package: &ModelingPackage, result: &ModelingResult) {
+    use crate::math::solves::Outcome;
+    use pse_backend_native::solve::Backend;
+    use pse_model::generated::enums::ModelingCheckKind;
+
+    // Two uncoupled PH states can use an original assessment of separately
+    // solved native components. An all-fixed evaluation has no such evidence.
+    let Outcome::Constant(original) = &result.outcome else {
+        panic!("two independent PH roots require original component assessment: {:?}", result.outcome.state());
+    };
+    assert!(result.accepted && result.validation_error.is_none() && original.quality.feasible());
+    let model = &result.prepared.model.model.compiled().model;
+    let instance = result.prepared.model.model.solved().instance();
+    let path = &model.instances[&instance].path;
+    let quantities = package.physical_context().quantities();
+    let coordinate = |side: &str, field: &str, quantity: &str| {
+        let full = format!("{path}.{side}.state.{field}");
+        let mut members = model.symbols.values().filter(|symbol| symbol.lineage.path == full);
+        let member = members.next().unwrap_or_else(|| panic!("original PH coordinate {full} absent"));
+        assert!(members.next().is_none(), "ambiguous original PH coordinate {full}");
+        let physical = member.ty.quantity_scheme().unwrap().resolve(quantities, &BTreeMap::new()).unwrap();
+        assert_eq!(quantities.quantity_type(physical).unwrap().name.as_deref(), Some(quantity));
+        let value = original.coordinates.iter().find(|(id, _)| *id == member.id)
+            .map(|(_, value)| *value)
+            .or_else(|| result.values.scalars.get(&member.id).copied())
+            .unwrap_or_else(|| panic!("original PH coordinate {full} has no value"));
+        assert!(value.is_finite(), "nonfinite original PH coordinate {full}");
+        (member.id, value)
+    };
+    let mut enthalpies = Vec::new();
+    for (side, expectation) in [
+        ("hot", "66e02000000000000000000000000019"),
+        ("cold", "66e0200000000000000000000000001a"),
+    ] {
+        let (temperature, _) = coordinate(side, "T", "Temperature");
+        let (density, molar_density) = coordinate(side, "rho", "Density");
+        assert!((50_000. .. 56_000.).contains(&molar_density));
+        assert!(original.component_reports().any(|component| {
+            component.backend == Backend::Ipopt
+                && component.candidate.is_some()
+                && component.variables.contains(&temperature)
+                && component.variables.contains(&density)
+        }), "{side} PH state must retain an actual coupled liquid temperature/density root");
+        let source = DeclarationId::from_id(SemanticId::parse_hex(expectation).unwrap());
+        let mut observed = result.checks.iter().filter(|check| {
+            check.source_id == source && check.kind == ModelingCheckKind::Expectation
+        });
+        let check = observed.next().expect("original independent PH temperature comparison");
+        assert!(observed.next().is_none());
+        assert_eq!(check.tolerance, Some(0.01));
+        assert!(check.satisfied && check.value <= 0.01);
+        assert!((coordinate(side, "pressure", "Pressure").1 - 101_325.).abs() <= 1.);
+        enthalpies.push(coordinate(side, "h", "MolarEnthalpy").1);
+    }
+    assert!((enthalpies[0] - enthalpies[1] - 1000.).abs() <= 0.01);
+}
+
+fn assert_linear_valve_liquid_root(result: &ModelingResult) {
+    use crate::math::solves::Outcome;
+    use pse_backend_native::solve::{Backend, SolveReport};
+
+    assert!(result.accepted && result.validation_error.is_none());
+    let model = &result.prepared.model.model.compiled().model;
+    let root = &model.instances[&result.prepared.model.model.solved().instance()];
+    let outlet = ["T", "rho"].map(|name| {
+        let path = format!("{}.root.outlet.{name}", root.path);
+        let mut members = model.symbols.values().filter(|member| member.lineage.path == path);
+        let id = members.next().unwrap_or_else(|| panic!("original valve state {path} absent")).id;
+        assert!(members.next().is_none(), "ambiguous valve state {path}");
+        id
+    });
+    let solves_outlet = |report: &SolveReport| {
+        report.backend == Backend::Ipopt && report.candidate.is_some()
+            && outlet.iter().all(|member| report.variables.contains(member))
+    };
+    assert!(match &result.outcome {
+        Outcome::Native(report) => solves_outlet(report),
+        Outcome::Constant(report) => report.quality.feasible() && report.component_reports().any(solves_outlet),
+        Outcome::Rejected(_) => false,
+    }, "selected valve must retain the actual coupled liquid outlet root");
+}
+
+async fn conform_case(
+    name: &str,
+    worker: Option<&std::path::Path>,
+    compare_reference: bool,
+) -> Result<(), WorkflowError> {
     use futures_util::FutureExt as _;
     use std::io::Write as _;
     let started = std::time::Instant::now();
@@ -262,7 +355,11 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), Wor
                 maximum_cells: 512,
             },
             maximum_fixtures: 1,
-            maximum_checks: 64,
+            maximum_checks: if name.starts_with("released_wall_stock_") {
+                256
+            } else {
+                64
+            },
             fixtures: ModelingFixtureSelection::Selected(BTreeSet::from([selected])),
             diagnostics: None,
         };
@@ -314,17 +411,29 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), Wor
                 report.checks,
                 report.failures
             );
-            assert!(
-                report.results.contains_key(&selected),
-                "an actual native result must be retained"
-            );
-            let crate::math::solves::Outcome::Native(native) = &report.results[&selected].outcome
-            else {
-                return Err(WorkflowError::Internal(
-                    "actual authored steam fixture did not produce a native solve".into(),
-                ));
-            };
-            assert_eq!(native.backend, pse_backend_native::solve::Backend::Ipopt);
+            if matches!(name, "linear_water_valve_zero_refuses" | "linear_water_valve_reverse_refuses") {
+                assert!(report.results.is_empty(), "unsupported flow must not publish a root");
+                assert_eq!(report.failures.len(), 1, "the declared forward-flow guard must refuse");
+            } else {
+                let result = report.results.get(&selected).expect("an actual authored result must be retained");
+                match name {
+                    "released_wall_inlet_ph" => assert_wall_inlet_ph_roots(&package, result),
+                    "linear_water_valve_rated" | "linear_water_valve_off_design" => assert_linear_valve_liquid_root(result),
+                    _ => {
+                        let crate::math::solves::Outcome::Native(native) = &result.outcome else {
+                            return Err(WorkflowError::Internal(format!(
+                                "actual authored steam fixture {name} did not produce a native solve: {:?}",
+                                result.outcome.state(),
+                            )));
+                        };
+                        assert_eq!(native.backend, pse_backend_native::solve::Backend::Ipopt);
+                    }
+                }
+                if compare_reference && conform_ns.len() == 1 {
+                    independent_reference::compare_wet(&package, result, selected, &services)
+                        .map_err(|error| WorkflowError::Infrastructure(format!("independent wet Water reference: {error}")))?;
+                }
+            }
             drop(report);
             phase_pool_high_water.push(runtime.shared.observation_peak_bytes());
             retained_after_conform.push(
@@ -440,6 +549,44 @@ async fn authored_wet_water_turbine_matches_released_reference() -> Result<(), W
     conform("wet_water_turbine", None).await
 }
 
+#[tokio::test]
+async fn authored_wet_water_turbine_matches_independent_iapws_binary() -> Result<(), WorkflowError> {
+    conform_case("wet_water_turbine", None, true).await
+}
+
+#[tokio::test]
+async fn authored_wall_inlet_ph_rebases_released_iapws95_liquid_states() -> Result<(), WorkflowError> {
+    conform("released_wall_inlet_ph", None).await
+}
+
+#[tokio::test]
+async fn authored_wall_stock_preserves_released_zero_rate_initialization()
+-> Result<(), WorkflowError> {
+    conform("released_wall_stock_equilibrium", None).await
+}
+
+#[tokio::test]
+async fn authored_wall_stock_perturbation_closes_both_fluid_energy_boundaries()
+-> Result<(), WorkflowError> {
+    conform("released_wall_stock_perturbation", None).await
+}
+
+#[tokio::test]
+async fn authored_linear_water_valve_preserves_released_rating_and_enthalpy() -> Result<(), WorkflowError> {
+    conform("linear_water_valve_rated", None).await
+}
+
+#[tokio::test]
+async fn authored_linear_water_valve_changes_pressure_off_design() -> Result<(), WorkflowError> {
+    conform("linear_water_valve_off_design", None).await
+}
+
+#[tokio::test]
+async fn authored_linear_water_valve_refuses_zero_and_reverse_flow() -> Result<(), WorkflowError> {
+    conform("linear_water_valve_zero_refuses", None).await?;
+    conform("linear_water_valve_reverse_refuses", None).await
+}
+
 fn scientific_worker_executable() -> Result<std::path::PathBuf, WorkflowError> {
     std::env::var_os("PSE_SCIENTIFIC_WORKER_BINARY")
         .map(std::path::PathBuf::from)
@@ -481,7 +628,7 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
         let physical = steam_physical(&runtime).await.unwrap();
         // Explicit native preparation consumes this captured physical registry.
         // Durable reconstruction receives these registrations, never EOS-name dispatch.
-        let providers = [WaterRegime::Liquid, WaterRegime::Vapor]
+        let mut providers = [WaterRegime::Liquid, WaterRegime::Vapor]
             .into_iter()
             .map(|regime| {
                 (
@@ -490,6 +637,13 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                 )
             })
             .collect::<BTreeMap<_, _>>();
+        let wet = name == "wet_water_turbine";
+        if wet {
+            providers.insert(
+                coolprop::WATER_SATURATION_IMPLEMENTATION.to_owned(),
+                coolprop::saturation_registration(physical.quantities()).unwrap(),
+            );
+        }
         let package = steam_package(&runtime, physical.clone(), providers.clone(), false)
             .await
             .unwrap();
@@ -584,17 +738,23 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                 .collect::<Vec<_>>();
             assert_eq!(symbols.len(), 1, "original Water scalar {original_path}");
             let id = symbols[0].id;
-            native
-                .variables
-                .iter()
-                .position(|member| *member == id)
-                .map_or_else(
-                    || result.values.scalars[&id],
-                    |column| candidate.primal[column],
-                )
+            if let Some(column) = native.variables.iter().position(|member| *member == id) {
+                return candidate.primal[column];
+            }
+            if let Some(value) = result.values.scalars.get(&id) {
+                return *value;
+            }
+            // A computed member has no independent primal or input value.
+            // Observe it through its original run's authored report.
+            let mut reports = result.reports.iter().filter(|row| row.target_id == id);
+            let report = reports
+                .next()
+                .unwrap_or_else(|| panic!("original Water value unavailable: {original_path}"));
+            assert!(reports.next().is_none(), "ambiguous Water report {original_path}");
+            report.value
         };
-        // Independent published expectations retain their original roles. These are
-        // neither a new executed IAPWS reference receipt nor wet-state qualification.
+        // These stored observations come from the published IAPWS/released-case
+        // sources; the receiver does not run the independent reference binary.
         let checks = match name {
             "liquid_pump" => {
                 assert!(
@@ -621,6 +781,38 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                 ("root.unit.outlet.pressure", 7000000., 10.),
                 ("root.unit.work", -1911550., 50.),
             ],
+            "wet_water_turbine" => {
+                let actual_quality = raw("root.unit.outlet.quality");
+                let isentropic_quality = raw("root.unit.reference.quality");
+                assert!(0. < isentropic_quality && isentropic_quality < actual_quality);
+                assert!(actual_quality < 1.);
+                // Entropy is a computed let without its own report. The
+                // original case already demands its isentropic residual.
+                let entropy_source = DeclarationId::from_id(
+                    SemanticId::parse_hex("64d03000000000000000000000000224").unwrap(),
+                );
+                let mut entropy = result.checks.iter().filter(|check| {
+                    check.source_id == entropy_source
+                        && check.kind == pse_model::generated::enums::ModelingCheckKind::Expectation
+                });
+                let check = entropy.next().expect("original isentropic entropy check");
+                assert!(entropy.next().is_none(), "ambiguous original entropy check");
+                assert_eq!(check.tolerance, Some(1e-6));
+                assert!(check.satisfied && check.value <= 1e-6);
+                assert!(
+                    (raw("root.unit.outlet.energy_flow") - raw("root.unit.inlet.energy_flow")
+                        - raw("root.unit.work"))
+                    .abs()
+                        <= 0.01
+                );
+                vec![
+                    ("root.unit.outlet.T", 382.442, 0.01),
+                    ("root.unit.reference.T", 382.442, 0.01),
+                    ("root.unit.outlet.pressure", 140000., 1.),
+                    ("root.unit.work", -1010640., 0.01 * 1010640.),
+                    ("root.unit.outlet.quality", 0.9886, 0.0001),
+                ]
+            }
             _ => panic!("unadmitted Water consumer case"),
         };
         for (path, expected, tolerance) in checks {
@@ -631,6 +823,26 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
             );
         }
         let expected = result.reports.clone();
+        let quality_source = DeclarationId::from_id(
+            SemanticId::parse_hex("64d030000000000000000000000000a6").unwrap(),
+        );
+        let quality_paths = expected
+            .iter()
+            .filter(|row| row.source_id == quality_source)
+            .map(|row| {
+                let path = row.path.strip_prefix(&format!("{}.", root.path)).unwrap();
+                assert_eq!(row.value.to_bits(), raw(path).to_bits());
+                path
+            })
+            .collect::<BTreeSet<_>>();
+        if wet {
+            assert_eq!(
+                quality_paths,
+                BTreeSet::from(["root.unit.outlet.quality", "root.unit.reference.quality"])
+            );
+        } else {
+            assert!(quality_paths.is_empty());
+        }
         let original_reports = model
             .annotations
             .iter()
@@ -866,7 +1078,7 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
         assert_eq!(
             seen.len(),
             expected.len(),
-            "independent portable reader consumes every original work output"
+            "independent portable reader consumes every original Water report"
         );
     })
     .catch_unwind()
@@ -908,6 +1120,12 @@ async fn authored_vapor_turbine_original_native_outcome_survives_protected_expor
 async fn authored_hot_vapor_turbine_original_native_outcome_survives_protected_export()
 -> Result<(), WorkflowError> {
     protected_steam_case("hot_vapor_turbine").await
+}
+
+#[tokio::test]
+async fn authored_wet_water_turbine_original_native_outcome_survives_protected_export()
+-> Result<(), WorkflowError> {
+    protected_steam_case("wet_water_turbine").await
 }
 
 #[tokio::test]

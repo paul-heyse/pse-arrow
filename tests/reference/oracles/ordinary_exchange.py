@@ -41,7 +41,7 @@ from .ordinary_thermo import (
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Mapping, Sequence
 
 CASE_NAMES = (
     "ordinary_delivery.exchanger_design",
@@ -649,25 +649,20 @@ def _reference_outputs(
     return None
 
 
-def produce_reference(
-    descriptors: bytes,
-    contract_payload: bytes,
-    *,
-    evidence: dict[str, str] | None = None,
-) -> bytes:
-    """Validate shared correspondence before independently constructing answers."""
-    if version("protobuf") != "7.36.2":
-        raise RuntimeError("ordinary binary reference requires protobuf7.36.2")
+def read_case_contract(
+    descriptors: bytes, contract_payload: bytes
+) -> tuple[type[Message], Message, Message]:
+    """Read the common case root in its original descriptor world."""
     if not contract_payload or len(contract_payload) > MAXIMUM_BYTES:
-        raise ValueError("ordinary contract exceeds the selected binary byte bound")
+        raise ValueError("reference contract exceeds the selected binary byte bound")
     envelope_type = reference_type(descriptors)
     pool = envelope_type.DESCRIPTOR.file.pool
     contract_type = message_factory.GetMessageClass(
         pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
     )
     contract = contract_type.FromString(contract_payload)
-    if _message(contract, "version").value != 1 or contract.case_name not in CASE_NAMES:
-        raise ValueError("unsupported ordinary case contract interpretation")
+    if _message(contract, "version").value != 1:
+        raise ValueError("unsupported reference case contract interpretation")
     meaning = _message(contract, "meaning")
     for field, extent in (
         ("case", 16),
@@ -679,9 +674,13 @@ def produce_reference(
         original = bytes(getattr(meaning, field))
         if len(original) != extent or original == bytes(extent):
             raise ValueError("original case meaning is incomplete")
-    keys = EXCHANGER_KEYS if contract.case_name in CASE_NAMES[:3] else RECYCLE_KEYS
+    return envelope_type, contract, meaning
+
+
+def ordered_observables(contract: Message, keys: Sequence[str]) -> list[Message]:
+    """Check the original ordered output roles and unique non-nil identities."""
     observables = list(contract.observables)
-    if tuple(item.key for item in observables) != keys:
+    if tuple(item.key for item in observables) != tuple(keys):
         raise ValueError("complete ordered scientific output roles differ")
     identities = [bytes(item.output) for item in observables]
     if len(set(identities)) != len(keys) or any(
@@ -690,6 +689,48 @@ def produce_reference(
         raise ValueError(
             "required original output identities are malformed or duplicated"
         )
+    return observables
+
+
+def complete_envelope(
+    envelope: Message, observables: Sequence[Message], values: Mapping[str, float]
+) -> None:
+    """Attach independently solved values to the admitted original output shape."""
+    if tuple(values) != tuple(item.key for item in observables) or not all(
+        math.isfinite(number) for number in values.values()
+    ):
+        raise RuntimeError(
+            "independent reference output population is incomplete or nonfinite"
+        )
+    for contract_output in observables:
+        physical = contract_output.physical
+        key = physical.quantity.key
+        output = envelope.outcome.completed.outputs.add(
+            id=contract_output.output,
+            quantity=_identity(physical.quantity),
+            unit=_identity(physical.representation_unit),
+            value=float_bits(values[contract_output.key]),
+        )
+        for field, source in (("basis", "basis"), ("datum", "reference_state")):
+            identity = _optional_identity(key, source)
+            if identity is not None:
+                setattr(output, field, identity)
+
+
+def produce_reference(
+    descriptors: bytes,
+    contract_payload: bytes,
+    *,
+    evidence: dict[str, str] | None = None,
+) -> bytes:
+    """Validate shared correspondence before independently constructing answers."""
+    if version("protobuf") != "7.36.2":
+        raise RuntimeError("ordinary binary reference requires protobuf7.36.2")
+    envelope_type, contract, meaning = read_case_contract(descriptors, contract_payload)
+    if contract.case_name not in CASE_NAMES:
+        raise ValueError("unsupported ordinary case contract interpretation")
+    keys = EXCHANGER_KEYS if contract.case_name in CASE_NAMES[:3] else RECYCLE_KEYS
+    observables = ordered_observables(contract, keys)
     inputs = parse_inputs(_validate_artifacts(contract, retain_properties=True))
     expected = _fixed_inputs(contract.case_name, inputs)
     original_inputs = list(contract.specification)
@@ -729,31 +770,12 @@ def produce_reference(
         evidence.update(environment.evidence)
     envelope = envelope_type(version=1)
     envelope.meaning.CopyFrom(meaning)
-    envelope.required.extend(identities)
+    envelope.required.extend(item.output for item in observables)
     if values is None:
         envelope.outcome.failed.code = "trial_rejected"
         envelope.outcome.failed.stage = "overheated_tear"
     else:
-        if tuple(values) != keys or not all(
-            math.isfinite(number) for number in values.values()
-        ):
-            message = (
-                "independent reference output population is incomplete or nonfinite"
-            )
-            raise RuntimeError(message)
-        for contract_output in observables:
-            physical = contract_output.physical
-            key = physical.quantity.key
-            output = envelope.outcome.completed.outputs.add(
-                id=contract_output.output,
-                quantity=_identity(physical.quantity),
-                unit=_identity(physical.representation_unit),
-                value=float_bits(values[contract_output.key]),
-            )
-            for field, source in (("basis", "basis"), ("datum", "reference_state")):
-                identity = _optional_identity(key, source)
-                if identity is not None:
-                    setattr(output, field, identity)
+        complete_envelope(envelope, observables, values)
     return encode_reference(envelope)
 
 

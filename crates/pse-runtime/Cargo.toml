@@ -383,6 +383,7 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
   "workflow::modeling::steam_tests::authored_liquid_pump_original_native_outcome_survives_protected_export",
+  "workflow::modeling::steam_tests::authored_wet_water_turbine_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_vapor_turbine_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_hot_vapor_turbine_original_native_outcome_survives_protected_export",
 ]
@@ -444,7 +445,6 @@ scope.tests = [
   "workflow::fitting::oracle::lm_inquiry::research_calibrated_fit_reopens_and_publishes_original_cells",
   "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
   "workflow::modeling::conformance::tests::conformance_parallel_sixteen_staged_initializers_keep_original_science_with_session_headroom",
-  "workflow::modeling::feed_flash_tests::nested_bt_two_phase_provider_selection_survives_canonical_protected_read",
   "workflow::study_tests::canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
   "workflow::study_tests::canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication",
   "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success",
@@ -501,6 +501,7 @@ required-features = ["solver-ipopt", "solver-kinsol", "solver-root-isolation"]
 ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
+  "workflow::modeling::feed_flash_tests::nested_bt_two_phase_provider_selection_survives_canonical_protected_read",
   "workflow::modeling::ordinary_delivery_tests::ordinary_delivery_scientific_intake_publishes_and_reopens_exact_source",
   "workflow::modeling::costed_exchanger_delivery_tests::ordinary_costed_exchanger_preserves_support_period_and_protected_view",
 ]
@@ -593,6 +594,17 @@ target = "reference_covariance_exchange"
 kind = "test"
 ownership = "preparation-only"
 inputs = ["covariance-reference-python"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "wet-water-reference-python"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["property-coolprop", "solver-ipopt"]
+ownership = "preparation-only"
+inputs = ["ordinary-reference-python"]
+scope.tests = [
+  "workflow::modeling::steam_tests::authored_wet_water_turbine_matches_independent_iapws_binary",
+]
 
 [[package.metadata.pse.test-fixtures]]
 id = "ordinary-reference-python"

@@ -20,6 +20,41 @@
   "conversion_rules": [],
   "quantity_kinds": [
     {
+      "quantity_kind_id": "66e02000000000000000000000000020",
+      "name": "thermal_capacity",
+      "dimension": [
+        {"num": 2, "den": 1},
+        {"num": 1, "den": 1},
+        {"num": -2, "den": 1},
+        {"num": -1, "den": 1},
+        {"num": 0, "den": 1},
+        {"num": 0, "den": 1},
+        {"num": 0, "den": 1},
+        {"num": 0, "den": 1}
+      ],
+      "extensive": true,
+      "addition_kind": "additive",
+      "doc": "Heat capacity of an entire thermal stock, independent of a material basis."
+    },
+    {
+      "quantity_kind_id": "66e02000000000000000000000000021",
+      "name": "thermal_conductance",
+      "extensive": true,
+      "addition_kind": "additive",
+      "definition": {
+        "monomial": [
+          {"quantity_kind_id": "46119e9ebe9b4158bbb2a508865fdc73", "num": 1, "den": 1},
+          {"quantity_kind_id": "e168de566c8043459da3902316952ae5", "num": 1, "den": 1}
+        ],
+        "canonical_unit_id": "9435fa10b6e91d1d4b029a3ff2a8ad0e",
+        "basis_id": null,
+        "reference_state_id": null,
+        "scale_kind": "point",
+        "subject_kind": null
+      },
+      "doc": "Overall or film thermal conductance, the product of area and an area-specific heat transfer coefficient."
+    },
+    {
       "quantity_kind_id": "64d03100000000000000000000000001",
       "name": "dynamic_viscosity",
       "dimension": [
@@ -2718,6 +2753,49 @@
     }
   ],
   "quantity_operations": [
+    {
+      "operation_id": "66e02000000000000000000000000026",
+      "opcode": "Mul",
+      "input_kind_ids": ["66e02000000000000000000000000020", "57a7ab92753b012231a543d3850b926c"],
+      "result_kind_id": "172d45499cbd4d8bbabc6c02c2a0f56b",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "subject_rule": "require_equal",
+      "result_reference_state_id": "ebfd9ee6148d4c6497d47099a39e0bfa",
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "66e02000000000000000000000000029",
+        "01a0e14d76e670a3ba993e475061035f"
+      ]
+    },
+    {
+      "operation_id": "66e02000000000000000000000000027",
+      "opcode": "Div",
+      "input_kind_ids": ["66e02000000000000000000000000021", "66e02000000000000000000000000021"],
+      "result_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "subject_rule": "require_equal",
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "66e02000000000000000000000000028",
+      "opcode": "Div",
+      "input_kind_ids": ["66e02000000000000000000000000021", "46119e9ebe9b4158bbb2a508865fdc73"],
+      "result_kind_id": "e168de566c8043459da3902316952ae5",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "subject_rule": "require_equal",
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
     {
       "operation_id": "f9ef55d0aa0e4b03b998da578ef7b41b",
       "opcode": "Div",
@@ -6288,6 +6366,32 @@
   ],
   "quantity_types": [
     {
+      "quantity_type_id": "66e02000000000000000000000000022",
+      "name": "ThermalCapacity",
+      "quantity_kind_id": "66e02000000000000000000000000020",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "f503ff2fd5ac0ce1bdcf7a89fa1f13b9",
+      "nominal_magnitude": null,
+      "doc": "Thermal stock capacity, J/K."
+    },
+    {
+      "quantity_type_id": "66e02000000000000000000000000023",
+      "name": "ThermalConductance",
+      "quantity_kind_id": "66e02000000000000000000000000021",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "9435fa10b6e91d1d4b029a3ff2a8ad0e",
+      "nominal_magnitude": null,
+      "doc": "Thermal conductance, W/K."
+    },
+    {
       "quantity_type_id": "64d03100000000000000000000000002",
       "name": "DynamicViscosity",
       "quantity_kind_id": "64d03100000000000000000000000001",
@@ -7572,6 +7676,32 @@
       "doc": "BTIdeal formation-inclusive oracle datum; no implicit conversion to the stock sensible reference."
     },
     {
+      "quantity_type_id": "66e02000000000000000000000000001",
+      "name": "Iapws95MolarEnthalpy",
+      "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": "66e02000000000000000000000000002",
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
+      "nominal_magnitude": null,
+      "doc": "IAPWS-95 water enthalpy with the published fluid datum. Explicit translation is required for the stock ideal-gas reference."
+    },
+    {
+      "quantity_type_id": "66e0200000000000000000000000001b",
+      "name": "Iapws95DeltaH",
+      "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
+      "basis_id": "04d4600b17cbfb717ec549e688ea3503",
+      "reference_state_id": "66e02000000000000000000000000002",
+      "scale_kind": "difference",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "b73f6834274def3690812937802e17da",
+      "nominal_magnitude": null,
+      "doc": "Named difference of IAPWS-95 molar enthalpy points on the published water datum."
+    },
+    {
       "quantity_type_id": "01a0e1a32b1e704d9e4dae253f015758",
       "name": "BtOracleDeltaH",
       "quantity_kind_id": "99263c30741ca81f1c4c3d4b987d4085",
@@ -8235,6 +8365,20 @@
       "include_enthalpy_of_formation": true,
       "subject_id": null,
       "doc": "BT_PR oracle formation enthalpy and entropy at 298.15 K, 101325 Pa; authored reference conversion is explicit."
+    },
+    {
+      "reference_state_id": "66e02000000000000000000000000002",
+      "name": "iapws95_water",
+      "kind": "custom",
+      "temperature": {
+        "value": 273.16,
+        "quantity_type_id": "c64b96975a4a59755f8711d3bf628bc9",
+        "unit_id": "92e0dd5b939210176bdc7dfc2e191d14"
+      },
+      "pressure": null,
+      "include_enthalpy_of_formation": false,
+      "subject_id": null,
+      "doc": "IAPWS R6-95(2018): saturated liquid internal energy and entropy are zero at the triple point; enthalpy there is p/rho. The saturation condition fixes the reference pressure."
     }
   ],
   "unit_sets": [
@@ -8252,6 +8396,30 @@
     }
   ],
   "units": [
+    {
+      "unit_id": "f503ff2fd5ac0ce1bdcf7a89fa1f13b9",
+      "symbol": "J/K",
+      "name": "joule per kelvin",
+      "reference_state_id": null,
+      "definition": [
+        {"unit_id": "94e71aed4ef8d26cd686cf578884d940", "num": 1, "den": 1},
+        {"unit_id": "92e0dd5b939210176bdc7dfc2e191d14", "num": -1, "den": 1}
+      ],
+      "system": "SI",
+      "doc": "Thermal capacity unit."
+    },
+    {
+      "unit_id": "9435fa10b6e91d1d4b029a3ff2a8ad0e",
+      "symbol": "W/K",
+      "name": "watt per kelvin",
+      "reference_state_id": null,
+      "definition": [
+        {"unit_id": "34207cdbb6fab2ee10002e057595c758", "num": 1, "den": 1},
+        {"unit_id": "92e0dd5b939210176bdc7dfc2e191d14", "num": -1, "den": 1}
+      ],
+      "system": "SI",
+      "doc": "Thermal conductance unit."
+    },
     {
       "unit_id": "f76e30020c523ccd912388f63f44758e",
       "symbol": "Pa*s",
@@ -9554,6 +9722,14 @@
     }
   ],
   "quantity_preconditions": [
+    {
+      "invariant_id": "66e02000000000000000000000000029",
+      "kind": "operand_quantity_contract",
+      "operand_positions": [0],
+      "required_basis_id": null,
+      "required_quantity_type_id": "66e02000000000000000000000000022",
+      "match_shape": false
+    },
     {
       "invariant_id": "5a318f61930c4fb624ef399cb2b87288",
       "kind": "equal_operand_bases",

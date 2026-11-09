@@ -4,6 +4,7 @@
 @id("64d03000000000000000000000000002") use chemistry @"1.0.0";
 @id("64d03000000000000000000000000004") use equilibrium @"1.0.0";
 @id("64d03000000000000000000000000005") use provenance @"1.0.0";
+@id("66e02000000000000000000000000003") use constants @"1.0.0";
 // Provider release: https://github.com/CoolProp/CoolProp/tree/ae81610e7d23efc57f9d051c8e70a4d66e87537f
 // Water source JSON SHA256: 85021d3803d2b02edb1d3e90bd60f4eee4a70380e06ed6b7b44e57716b4c2266.
 // Authored stock convention: ideal-only water h/s zero at stock T,p; no formation
@@ -14,6 +15,14 @@
 // The publication is provenance; only the catalogue species owns its chemical ID.
 @id("64d03000000000000000000000000006") entity provenance.source iapws_water {title="IAPWS95 water through exact CoolProp8 HEOS data and explicit ideal-gas stock reference translation; original formulation https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf; fixed release ae81610e7d23efc57f9d051c8e70a4d66e87537f"}
 @id("64d03000000000000000000000000076") constant water_cas:Id<chemistry.cas>=Id<chemistry.cas>("7732-18-5") provenance(iapws_water,provenance.Role.published);
+@id("66e02000000000000000000000000004") entity provenance.publication iapws95_datum {title="Revised Release on the IAPWS Formulation 1995 for the Thermodynamic Properties of Ordinary Water Substance for General and Scientific Use, IAPWS R6-95(2018), Eq. 6 and Table 1",year=2018,locator="https://iapws.org/relguide/IAPWS95-2018.pdf"}
+// At the common ideal-gas reference conditions the source enthalpy is
+// R*T*(1 + tau*d(phi0)/d(tau)), with tau=647.096 K/T. The released IDAES
+// h2o_parameters.json has zero extra datum offsets. The stock anchor is
+// the explicit ideal-gas zero; no equilibrium-vapor or liquid residual is included.
+@id("66e02000000000000000000000000005") fn iapws95_ideal_enthalpy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->Iapws95MolarEnthalpy valid(T==stock.temperature and p==stock.pressure and (if present(j.cas) then (if j.cas==water_cas then 0 else 1) else 1)==0)=45902.57030119776{J/mol};
+@id("66e02000000000000000000000000006") fn stock_water_enthalpy_anchor(T:Temperature,p:Pressure,j:chemistry.species)->MolarEnthalpy valid(T==stock.temperature and p==stock.pressure and (if present(j.cas) then (if j.cas==water_cas then 0 else 1) else 1)==0)=constants.standard_enthalpy_datum;
+@id("66e02000000000000000000000000007") reference translation iapws95_to_stock(value:Iapws95MolarEnthalpy,composition:MoleFraction[chemistry.species],members:Set<chemistry.species>)->MolarEnthalpy anchors(source=iapws95_ideal_enthalpy_anchor,target=stock_water_enthalpy_anchor) at(temperature=stock.temperature,pressure=stock.pressure) provenance(iapws95_datum,provenance.Role.published);
 @id("64d03000000000000000000000000007") fn liquid_pressure(T:Temperature,rho:Density)->Pressure external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 0 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000008") fn liquid_enthalpy(T:Temperature,rho:Density)->MolarEnthalpy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 1 derivatives 2 source analytic smoothness 2;
 @id("64d03000000000000000000000000009") fn liquid_entropy(T:Temperature,rho:Density)->MolarEntropy external "coolprop8-water-liquid" revision "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1b33b0e02" data "0893df81d6f6faddbf7366978c4ada9b0b691ce06959bb2bcd95e8362a0bd879" output 2 derivatives 2 source analytic smoothness 2;
@@ -63,15 +72,15 @@
 @id("64d03000000000000000000000000031") annotation start z(1{1});
 @id("64d03000000000000000000000000032") annotation bounds z(0{1},1{1});
 }
-@id("64d03000000000000000000000000033") def Liquid(water_component:chemistry.species,defined_state:Boolean=true):WaterState {
+@id("64d03000000000000000000000000033") def Liquid(water_component:chemistry.species,defined_state:Boolean=true,guess_temperature:Temperature=300{K},guess_density:Density=55320{mol/m^3}):WaterState {
 @id("64d03000000000000000000000000072") override param water:chemistry.species=water_component;
 @id("64d03000000000000000000000000034") override param defined:Boolean=defined_state;
 @id("64d03000000000000000000000000035") override param selected_phase:chemistry.phase=chemistry.liquid;
 @id("64d03000000000000000000000000036") override param pressure_law:Fn(T:Temperature,rho:Density)->Pressure=liquid_pressure;
 @id("64d03000000000000000000000000037") override param enthalpy_law:Fn(T:Temperature,rho:Density)->MolarEnthalpy=liquid_enthalpy;
 @id("64d03000000000000000000000000038") override param entropy_law:Fn(T:Temperature,rho:Density)->MolarEntropy=liquid_entropy;
-@id("64d03000000000000000000000000039") override param density_start:Density=55320{mol/m^3};
-@id("64d0300000000000000000000000003a") override param temperature_start:Temperature=300{K};
+@id("64d03000000000000000000000000039") override param density_start:Density=guess_density;
+@id("64d0300000000000000000000000003a") override param temperature_start:Temperature=guess_temperature;
 @id("64d0300000000000000000000000003b") override param enthalpy_start:MolarEnthalpy=-44000{J/mol};
 }
 @id("64d0300000000000000000000000003c") def Vapor(water_component:chemistry.species,defined_state:Boolean=true):WaterState {
@@ -111,6 +120,7 @@
 @id("64d03000000000000000000000000097") let volume_flow:VolumeFlow=phase_flow[chemistry.liquid]/saturation_liquid_density(pressure)+phase_flow[chemistry.vapor]/saturation_vapor_density(pressure);
 @id("64d03000000000000000000000000098") annotation start quality(0.99);
 @id("64d03000000000000000000000000099") annotation bounds quality(0,1);
+@id("64d030000000000000000000000000a6") annotation report quality("molar vapor quality");
 @id("64d0300000000000000000000000009a") annotation start T(382.442{K});
 @id("64d0300000000000000000000000009b") annotation nominal T(382.442{K});
 @id("64d0300000000000000000000000009c") annotation start pressure(140000{Pa});

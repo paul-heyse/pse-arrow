@@ -4,6 +4,8 @@
 @id("9004bbcc2b7f46f9b37c1ac4434b4cc0") use equilibrium @"1.0.0";
 @id("508f078c9c2f452686489eb14d5790d4") use units @"1.0.0";
 @id("9477962e352b4cec8b9d68da964a0827") use temperature_driving_force @"1.0.0";
+@id("66e02000000000000000000000000030") use constants @"1.0.0";
+@id("66e02000000000000000000000000031") use numerical_policy @"1.0.0";
 @id("836285c79d5449b79871fdfb37befd00") def HeatExchanger(hot_inlet_pkg:equilibrium.ThermoPackage,hot_outlet_pkg:equilibrium.ThermoPackage,cold_inlet_pkg:equilibrium.ThermoPackage,cold_outlet_pkg:equilibrium.ThermoPackage,driving_force:temperature_driving_force.DeltaT=temperature_driving_force.LMTD,cocurrent:Boolean=false) {
 @id("e64c89efe2f44fa1bb46da595a3ee179") child hot:units.Heater=units.Heater(inlet_pkg=hot_inlet_pkg,outlet_pkg=hot_outlet_pkg);
 @id("397196c2f23b4da9acd90dc75743c561") child cold:units.Heater=units.Heater(inlet_pkg=cold_inlet_pkg,outlet_pkg=cold_outlet_pkg);
@@ -25,5 +27,43 @@
 @id("04c8401bb36a4c72a7015b452da6ead8") eq first_difference:delta.first==hot.inlet.T-cold.outlet.T;
 @id("1a41c00a6b7c43e3852bd3e99419b43a") eq second_difference:delta.second==hot.outlet.T-cold.inlet.T;
 }
+}
+
+// One instant of wall storage with zero wall resistance, fouling and side
+// pressure drop. The selected rating law drives the cold duty with overall
+// countercurrent LMTD and the hot duty with the hot-side mean to the wall.
+// The separate transfers meet at the wall; neither fluid owns thermal stock.
+@id("66e02000000000000000000000000032") def WallStockInstant(hot_inlet:equilibrium.ThermoPackage,hot_outlet:equilibrium.ThermoPackage,cold_inlet:equilibrium.ThermoPackage,cold_outlet:equilibrium.ThermoPackage,area:Area,hot_film:ThermalConductance,cold_film:ThermalConductance,capacity:ThermalCapacity,temperature_guess:Temperature) {
+@id("66e02000000000000000000000000033") require area>0{m^2} and hot_film>0{W/K} and cold_film>0{W/K} and capacity>0{J/K} : "wall stock requires positive heat-transfer geometry, films and thermal capacity";
+@id("66e02000000000000000000000000034") child hot:units.Heater=units.Heater(inlet_pkg=hot_inlet,outlet_pkg=hot_outlet);
+@id("66e02000000000000000000000000035") child cold:units.Heater=units.Heater(inlet_pkg=cold_inlet,outlet_pkg=cold_outlet);
+@id("66e02000000000000000000000000036") child delta:temperature_driving_force.DeltaT=temperature_driving_force.LMTD;
+@id("66e02000000000000000000000000037") var wall_temperature:Temperature;
+@id("66e02000000000000000000000000038") var wall_energy:Energy;
+@id("66e02000000000000000000000000039") let coefficient:HeatTransferCoefficient=(hot_film/(1+hot_film/cold_film))/area;
+@id("66e0200000000000000000000000003a") let hot_mean:Temperature=hot.inlet.T+(hot.outlet.T-hot.inlet.T)/2;
+@id("66e0200000000000000000000000003b") eq hot_pressure:hot.delta_pressure==0{Pa};
+@id("66e0200000000000000000000000003c") eq cold_pressure:cold.delta_pressure==0{Pa};
+@id("66e0200000000000000000000000003d") eq first_difference:delta.first==hot.inlet.T-cold.outlet.T;
+@id("66e0200000000000000000000000003e") eq second_difference:delta.second==hot.outlet.T-cold.inlet.T;
+@id("66e0200000000000000000000000003f") eq cold_rating:cold.heat==transfer(area*coefficient*delta.mean,cold.energy_boundary,Into);
+@id("66e02000000000000000000000000040") eq hot_rating:hot.heat==transfer(hot_film*(wall_temperature-hot_mean),hot.energy_boundary,Into);
+// Only temperature increments carry wall energy. The chosen zero at the stock
+// reference temperature does not assign a wall material or formation energy.
+@id("66e0200000000000000000000000004f") let reference_wall_energy:Energy=0{J};
+@id("66e02000000000000000000000000041") eq thermal_storage:wall_energy==reference_wall_energy+capacity*(wall_temperature-constants.standard_temperature);
+@id("66e02000000000000000000000000042") boundary wall_boundary;
+@id("66e02000000000000000000000000043") exchange hot_exchange between hot.energy_boundary and wall_boundary;
+@id("66e02000000000000000000000000044") exchange cold_exchange between cold.energy_boundary and wall_boundary;
+@id("66e02000000000000000000000000045") accumulate wall_rate:Power boundary wall_boundary accounting tolerance numerical_policy.power;
+@id("66e02000000000000000000000000046") contribute wall_rate role directed=reflect(hot_exchange,hot.heat,Into);
+@id("66e02000000000000000000000000047") contribute wall_rate role directed=reflect(cold_exchange,cold.heat,Into);
+@id("66e02000000000000000000000000048") annotation start wall_temperature(temperature_guess);
+@id("66e02000000000000000000000000049") annotation nominal wall_temperature(temperature_guess);
+@id("66e0200000000000000000000000004a") annotation start wall_energy(reference_wall_energy+capacity*(temperature_guess-constants.standard_temperature));
+@id("66e0200000000000000000000000004b") annotation nominal wall_energy(10{J});
+@id("66e0200000000000000000000000004c") annotation report wall_temperature("wall temperature");
+@id("66e0200000000000000000000000004d") annotation report wall_energy("wall stored energy");
+@id("66e0200000000000000000000000004e") annotation report wall_rate("net heat into wall");
 }
 }
