@@ -7735,3 +7735,120 @@ id_column = 0
 id_pattern = '^(D[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
+
+# Plan72 owns SurrealDB improvement disposition and native package progress.
+[[scope_tables]]
+path = "docs/plans/72-surrealdb-functional-improvements.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Evidence or revisit trigger",
+]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/72a-native-contracts-and-schema-interpretation.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72b-schema-evolution-and-deployment.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72c-canonical-operations-and-policy.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72d-query-graph-and-ranked-discovery.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72e-observation-and-derived-state.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72f-persistence-and-protected-delivery.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72g-developer-and-operator-workflows.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72h-diagnostics-and-execution-fit.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(H[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/72i-integrated-acceptance-and-closeout.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(I[0-9]+)\b'
+status_profile = "packet"
+status_column = 1

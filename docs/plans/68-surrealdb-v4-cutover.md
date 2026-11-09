@@ -1,6 +1,6 @@
 ---
 title: "Plan68: SurrealDB v4 cutover"
-status: in-progress
+status: superseded
 date: 2026-11-07
 adrs: [ADR-0257]
 doc_role: plan
@@ -10,6 +10,11 @@ review_sources: [docs/functional_reviews/surrealdb-v4-cutover-2026-11-07.md]
 ---
 
 # SurrealDB v4 cutover
+
+> **Inactive legacy — superseded on 2026-11-09 by [Plan72](72-surrealdb-functional-improvements.md).**
+> Retained text, open packages and future-tense instructions are historical and authorize no
+> further work. No scope or acceptance obligations transfer to Plan72. Supersession is not
+> completion or a passing qualification result.
 
 ## Current status
 

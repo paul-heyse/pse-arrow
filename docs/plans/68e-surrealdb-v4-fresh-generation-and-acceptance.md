@@ -1,6 +1,6 @@
 ---
 title: "Plan68e: Fresh SurrealDB v4 generation and assembled acceptance"
-status: in-progress
+status: superseded
 date: 2026-11-07
 doc_role: plan
 doc_owner: docs/plans/68-surrealdb-v4-cutover.md
@@ -9,6 +9,11 @@ review_sources: [docs/functional_reviews/surrealdb-v4-cutover-2026-11-07.md]
 ---
 
 # Fresh SurrealDB v4 generation and assembled acceptance
+
+> **Inactive legacy — superseded on 2026-11-09 by [Plan72](72-surrealdb-functional-improvements.md).**
+> Retained text, open packages and future-tense instructions are historical and authorize no
+> further work. No scope or acceptance obligations transfer to Plan72. Supersession is not
+> completion or a passing qualification result.
 
 ## Target and ownership
 

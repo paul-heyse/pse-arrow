@@ -9,7 +9,7 @@ pagefind = "1.6.0"
 exclude = ["SUMMARY.md", "generated/rustdoc/**"]
 current_work = [
   "plans/66*.md",
-  "plans/68*.md",
+  "plans/72*.md",
   "plans/69*.md",
   "plans/70*.md",
   "plans/71*.md",

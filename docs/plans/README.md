@@ -49,10 +49,9 @@ complete. Its retained closeout records the incident cleanup, native executable 
 SurrealKit and Rust fixture cutover, compiler reuse and owner-issued retirement. Plan68
 consumes its decisions and evidence.
 
-[Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md#current-status) records the completed
-v4 cutover on `main` and the remaining qualification, benefit comparisons and historical custody.
-Its [Plan66 dependencies](68-surrealdb-v4-cutover.md#dependencies-on-plan-66) identify which
-follow-up evidence needs additional scientific or developer consumers.
+[Plan68: SurrealDB v4 cutover](68-surrealdb-v4-cutover.md) and its companions are inactive
+legacy, superseded by [Plan72](72-surrealdb-functional-improvements.md). Their historical
+open work authorizes no execution and no scope transfers automatically.
 
 - [68a · Supplier, runtime and extension](68a-surrealdb-v4-supplier-runtime-and-extension.md)
 - [68b · Schema, transport and authority](68b-surrealdb-v4-schema-transport-and-authority.md)
@@ -82,4 +81,10 @@ is a draft series for faster test feedback, CLI diagnostics and evidence lifecyc
 It does not supersede any plan or change Plan66 scientific acceptance.
 
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
+
+[Plan72: SurrealDB functional improvements](72-surrealdb-functional-improvements.md) is a
+draft series from the complete functional review. Its nine companions cover native contracts,
+schema evolution, canonical operations, graph/search, observation, persistence/delivery,
+developer workflows, diagnostics and integrated acceptance. Plans66 and 71 retain their own
+scope and status. Plan72 supersedes only Plan68, without importing its obligations.
 Local targeted checks precede assembled scope-end qualification.
