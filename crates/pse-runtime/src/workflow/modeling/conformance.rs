@@ -4159,6 +4159,195 @@ mod tests {
             diagnostics: None,
         }
     }
+
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn authored_closed_transfer_preserves_original_phase_and_element_stocks() {
+        use pse_admission::authoring_driver::document::{
+            OwnedDocumentSet, load_package_documents_owned,
+        };
+        use pse_backend_native::solve::{Backend, SolverSelection};
+        use pse_modeling::{
+            resolved::{Node, Reference},
+            specialize::{Value, finite::MemberKey},
+        };
+
+        let inputs = crate::scientific_inputs::family("inventory");
+        let runtime = crate::workflow::tests::runtime();
+        let cancel = crate::CancelSource::new();
+        let token = cancel.token();
+        let pool = runtime.shared.pool();
+        let validation = runtime.validation_context();
+        let load = |files: &BTreeMap<String, Vec<u8>>| {
+            load_package_documents_owned(
+                files,
+                runtime.registry(),
+                Default::default(),
+                &pool,
+                &token,
+                &validation,
+            )
+            .unwrap()
+        };
+        let physical = OwnedDocumentSet::try_from_bundles(
+            vec![load(
+                &inputs.package("packages/reference/physical").unwrap().files,
+            )],
+            &pool,
+            &token,
+        )
+        .unwrap();
+        let physical = runtime.physical_from_documents(&physical, &token).await.unwrap();
+        let documents = OwnedDocumentSet::try_from_bundles(
+            inputs.packages().map(|(_, package)| load(&package.files)).collect(),
+            &pool,
+            &token,
+        )
+        .unwrap();
+        let package = runtime
+            .modeling_from_documents(&documents, physical, &cancel)
+            .await
+            .unwrap();
+        let services = runtime.execution_services();
+        let declarations = package.declarations(services.preparation()).await.unwrap();
+        let declaration = |name: &str| {
+            declarations
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration_id
+        };
+        let selected = declaration("closed_transfer");
+        let oracle = declaration("analytic_transfer");
+        let mut policy = policy();
+        policy.solver.selection = SolverSelection::Explicit(Backend::Ipopt);
+        policy.fixtures = ModelingFixtureSelection::Selected(BTreeSet::from([selected]));
+        policy.maximum_fixtures = 1;
+        policy.maximum_checks = 128;
+        let report = package.conform(&services, policy, &cancel).await.unwrap();
+        assert!(report.complete && report.passed(), "{}", report_summary(&report));
+        assert_eq!(report.fixtures(), BTreeSet::from([selected]));
+        let result = &report.results[&selected];
+        assert!(result.accepted, "{:?}", result.diagnostic());
+        let model = &result.prepared.model.model.compiled().model;
+        assert_eq!(model.inventory_balances.len(), 4, "only actual phase stocks evolve");
+        let source = |id| DeclarationId::from_id(SemanticId::parse_hex(id).unwrap());
+        let phase_amount = source("64e02000000000000000000000000207");
+        let stock_target = |root| {
+            let Some(Node::Reference(Reference::Symbol(slot))) = model.resolved.nodes.get(root)
+            else {
+                panic!("expected a realized phase-stock scalar at {root:?}");
+            };
+            let symbol = model.symbols.at(*slot).unwrap();
+            assert_eq!(symbol.lineage.declaration, phase_amount);
+            symbol.id
+        };
+        // The conformance route did not request display paths. The authored initial
+        // equations and terminal conservation inventory roots own these coordinates.
+        let initial_allocation = source("64e02000000000000000000000000416");
+        let initial = model
+            .equations
+            .iter()
+            .filter(|row| row.lineage.declaration == initial_allocation)
+            .map(|row| stock_target(model.equation_roots[&row.id].lhs))
+            .collect::<BTreeSet<_>>();
+        let terminal = model
+            .inventory_balances
+            .values()
+            .map(|balance| stock_target(balance.inventory_root))
+            .collect::<BTreeSet<_>>();
+        assert!(initial.is_disjoint(&terminal));
+        let phase_kind = source("7d986668d824439f9b5828046038365d");
+        let species_kind = source("1c998211e5d74955863f377662f56526");
+        let entity = |id, kind| Value::Entity { id: source(id), kind };
+        let liquid = entity("c1ac28b6694144a890b9854d887fa26c", phase_kind);
+        let vapor = entity("c2e7b1a320d24eb482bfb7301782f55c", phase_kind);
+        let benzene = entity("01a0e1461e93764398a669ea78d82d27", species_kind);
+        let toluene = entity("01a0e1461e93764398a669eb046f4eaf", species_kind);
+        let read_stock = |targets: &BTreeSet<SemanticId>| {
+            assert_eq!(targets.len(), 4);
+            let instance = model
+                .symbols
+                .get(targets.first().unwrap())
+                .unwrap()
+                .lineage
+                .instance;
+            [
+                (&liquid, &benzene),
+                (&liquid, &toluene),
+                (&vapor, &benzene),
+                (&vapor, &toluene),
+            ]
+            .map(|(phase, species)| {
+                let target = model
+                    .finite_facts
+                    .require_member(&MemberKey {
+                        instance,
+                        declaration: phase_amount,
+                        tuple: vec![phase.clone(), species.clone()],
+                    })
+                    .unwrap();
+                assert!(targets.contains(&target));
+                *result
+                    .values
+                    .scalars
+                    .get(&target)
+                    .expect("accepted original phase stock")
+            })
+        };
+        let near = |actual: f64, expected: f64| {
+            assert!((actual - expected).abs() <= 1e-9, "{actual} vs {expected} mol");
+        };
+        // Independent 1 s transfer: a quarter mole of benzene and half a mole
+        // of toluene leave liquid and enter vapor. Keep the two inventories apart.
+        for (actual, expected) in [
+            (read_stock(&initial), [2., 3., 1., 4.]),
+            (read_stock(&terminal), [1.75, 2.5, 1.25, 4.5]),
+        ] {
+            for (actual, expected) in actual.into_iter().zip(expected) {
+                near(actual, expected);
+            }
+            let benzene = actual[0] + actual[2];
+            let toluene = actual[1] + actual[3];
+            near(benzene, 3.);
+            near(toluene, 7.);
+            near(benzene + toluene, 10.);
+            near(6. * benzene + 7. * toluene, 67.);
+            near(6. * benzene + 8. * toluene, 74.);
+        }
+        // The independent sums do not establish the runtime's authored projections.
+        // Require each original output check and each typed conservation observation too.
+        let expected = report.checks.iter().filter(|row| row.kind == Kind::Expectation);
+        assert_eq!(expected.clone().count(), 10);
+        for row in expected {
+            assert_eq!((row.fixture_id, row.oracle_source_id), (selected, Some(oracle)));
+            assert_eq!(row.status, Status::Passed);
+            near(row.deviation.unwrap(), 0.);
+        }
+        for (declaration, count) in [
+            (source("64e02000000000000000000000000417"), 2),
+            (source("64e0200000000000000000000000041b"), 2),
+            (source("64e0200000000000000000000000041f"), 1),
+        ] {
+            let selected = model
+                .closures
+                .values()
+                .filter(|closure| closure.lineage.declaration == declaration)
+                .collect::<Vec<_>>();
+            assert_eq!(selected.len(), count, "{declaration:?}");
+            for closure in selected {
+                let check = result
+                    .checks
+                    .iter()
+                    .find(|check| check.target_id == closure.id && check.kind == ModelingCheckKind::Closure)
+                    .unwrap();
+                assert!(check.satisfied);
+                assert_eq!(check.source_id, closure.lineage.declaration);
+                near(check.value, 0.);
+            }
+        }
+    }
+
     /// Every check of a fixture that names an oracle carries the oracle's source entity
     /// identity, and the published relation keeps it (ADR-0123 Outcome 5).
     #[tokio::test]
