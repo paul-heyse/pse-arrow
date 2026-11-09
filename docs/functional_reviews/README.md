@@ -1,5 +1,12 @@
 # Functional opportunity reviews
 
+The [SurrealDB-backed functional improvements review](surrealdb-functional-improvements-2026-11-09.md)
+assesses the complete v4 ecosystem discovery account across authoring, schema evolution,
+canonical progression, graph/search, observation, persistence, delivery and developer operations.
+Eighteen connected opportunities and seven supporting documents compare breaking alternatives
+and richer current workflows. Its candidate-level correspondence preserves conditional and
+lower-priority discovery leads; recommendations change no implementation or plan status.
+
 The [workflow and simulation test execution review](workflow-simulation-test-execution-and-diagnostics-2026-11-09.md)
 uses original workflow and conformance failures to recommend faster feedback and better
 diagnosis. It compares Nextest 0.9.151, existing Rust testing libraries and native owner
