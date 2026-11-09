@@ -1609,8 +1609,61 @@ async fn canonical_protected_permission_retains_original_refusal_despite_valid_d
         .unwrap(),
         Some(false)
     );
-    let selection = reader.pack_selection().await.unwrap();
+    let preflight = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let observed = preflight.start("complete result permission preflight");
+    let selection = pse_diagnostics::observation::scope(
+        Some(observed.context()),
+        reader.pack_selection(),
+    )
+    .await
+    .unwrap();
     assert_eq!(selection.usability, PackScientificState::Unusable);
+    assert_eq!(decode_count(&preflight), 1);
+    assert!(metric_count(&preflight, "canonical.result.hydrated_roots") < original.num_columns() as u64);
+
+    let scalar = pse_diagnostics::observation::ObservationHub::new(Default::default());
+    let observed = scalar.start("scalar result permission preflight");
+    let owner = pse_ids::SemanticId::from_bytes([0x33; 16]);
+    for (selected_owner, partition, minimum, expected) in [
+        (owner, "step:0", Some(-1.), PackScientificState::Unusable),
+        (owner, "step:2", Some(-1.), PackScientificState::Unknown),
+        (owner, "step:0", Some(1.), PackScientificState::Unknown),
+        (pse_ids::SemanticId::from_bytes([0x34; 16]), "step:0", Some(-1.), PackScientificState::Unknown),
+    ] {
+        let mut selected = runtime
+            .output_results(
+                "readable-fixture",
+                fence.attempt(),
+                "runtime.solve_variables",
+                selected_owner,
+                "value",
+                partition,
+                0,
+                3,
+                minimum,
+                None,
+                None,
+                CancellationToken::new(),
+            )
+            .await
+            .unwrap();
+        let recorded = if expected == PackScientificState::Unusable {
+            pse_diagnostics::observation::scope(Some(observed.context()), selected.pack_selection())
+                .await
+        } else {
+            selected.pack_selection().await
+        }
+        .unwrap();
+        assert_eq!(recorded.usability, expected);
+        if expected == PackScientificState::Unusable {
+            let emitted = selected.next_batch().await.unwrap().unwrap();
+            assert_eq!(emitted.num_rows(), 1);
+            assert_eq!(emitted.schema(), original.schema());
+        }
+    }
+    assert_eq!(decode_count(&scalar), 1);
+    assert!(metric_count(&scalar, "canonical.result.hydrated_roots") < original.num_columns() as u64);
+
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = hub.start("assessed selected root hydration");
     let inspected = pse_diagnostics::observation::scope(

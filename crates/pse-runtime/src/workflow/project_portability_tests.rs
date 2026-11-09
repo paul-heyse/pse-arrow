@@ -121,6 +121,8 @@ fn save(root: &Path, manifest: &ProjectManifest) {
 
 #[tokio::test]
 async fn project_portability_result_ipc_reuses_original_lineage_and_finalization_validation() {
+    use base64::Engine as _;
+    use buffa::Message as _;
     use datafusion::arrow::{
         datatypes::{Field, Schema},
         ipc::writer::StreamWriter,
@@ -174,6 +176,7 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         "version",
         "range",
         "terminal",
+        "usability",
         "field",
         "predicate",
         "problem",
@@ -190,6 +193,7 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
             "version" => result.schema_version = 2,
             "range" => result.row_end = 1,
             "terminal" => result.terminal_class = "failed".into(),
+            "usability" => result.usability = workflow::PackScientificState::Usable,
             "field" => result.field = Some("another-field".into()),
             "predicate" => {
                 result.predicate = Some(workflow::PackResultPredicate {
@@ -221,6 +225,48 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
         ProjectBundleReader::open(root.path(), 16 << 20).is_err(),
         "a result cannot bypass lineage checks by relabelling its codec"
     );
+    for qualifier in ["problem", "revision", "manifest", "interpretation"] {
+        let mut incomplete = original.clone();
+        let member = incomplete.members.last_mut().unwrap();
+        let result = member.result.as_mut().unwrap();
+        let context = result.context.as_mut().unwrap();
+        match qualifier {
+            "problem" => context.problem.clear(),
+            "revision" => context.revision.clear(),
+            "manifest" => context.manifest.clear(),
+            "interpretation" => context.interpretation.clear(),
+            _ => unreachable!(),
+        }
+        let mut export_metadata = std::collections::HashMap::new();
+        let error =
+            workflow::result_selection::publish_selection_metadata(&mut export_metadata, result)
+                .unwrap_err();
+        assert!(error.to_string().contains("requires complete original context"));
+        assert!(export_metadata.is_empty());
+
+        // Encode below the selected-result admission boundary: both the
+        // finalized IPC and manifest agree on the same incomplete context.
+        let wire = crate::recorded_result_projection::encode_recorded_result_selection(result)
+            .unwrap()
+            .encode_to_vec();
+        let incomplete_bytes = ipc(std::collections::HashMap::from([(
+            workflow::result_selection::SELECTION_METADATA_KEY.into(),
+            base64::engine::general_purpose::STANDARD.encode(wire),
+        )]));
+        std::fs::write(root.path().join(path), &incomplete_bytes).unwrap();
+        member.copied_bytes = incomplete_bytes.len() as u64;
+        member.digest = pse_ids::encoding_checksum(&incomplete_bytes)
+            .content_hash()
+            .to_hex();
+        save(root.path(), &incomplete);
+        let Err(error) = ProjectBundleReader::open(root.path(), 16 << 20) else {
+            panic!("matching bytes cannot replace the original {qualifier}");
+        };
+        assert!(
+            error.to_string().contains("requires complete original context"),
+            "unexpected admission failure for {qualifier}: {error}"
+        );
+    }
     let retired = std::collections::HashMap::from([
         ("pse.canonical.run".into(), "original-run".into()),
         ("pse.canonical.attempt".into(), "original-attempt".into()),

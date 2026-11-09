@@ -10,11 +10,13 @@ use super::{
     RetainedDataServices, Runtime, WorkflowError, contract,
     portable_payload::{IpcExportAcknowledgement, OwnedMemberStage},
     result_blocks,
+    result_snapshot::{DecodedResultBatch, ProjectedResultPredicate},
 };
 use datafusion::arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 use pse_columnar::{CancellationToken, MemoryConsumer, MemoryPool, MemoryReservation};
 use pse_model::generated::runtime::canonical_result_blocks::Row as BlockMetadata;
 use pse_operations::{canonical::MetadataResponse, canonical_results::ResultRead};
+use pse_relations::validate::PreparedInspectionProjection;
 use std::{
     collections::{BTreeMap, VecDeque},
     future::Future,
@@ -272,7 +274,7 @@ impl CanonicalResultReader {
     pub fn close(&mut self) {
         self.reader.close();
     }
-    /// Export all remaining selected rows atomically on success.
+    /// Export the complete original selection atomically before advancing the reader.
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
     }
@@ -280,7 +282,7 @@ impl CanonicalResultReader {
     pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection().await
     }
-    /// Export the unread protected selection with a finite output allowance and
+    /// Export the complete original selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
     pub async fn export_ipc_bounded(
         &mut self,
@@ -323,32 +325,12 @@ impl CanonicalResultReader {
     pub(super) fn inspection_projection(
         &self,
         requested: &[usize],
-    ) -> Result<Arc<pse_relations::validate::PreparedInspectionProjection>, WorkflowError> {
-        let mut requested = requested.to_vec();
-        // The existing permission algorithm also observes original coordinates,
-        // acceptance/method/product facts and every carried dual value. Retain
-        // those complete roots before its first read, even when not returned.
-        for name in PERMISSION_CONTEXT_ROOTS.iter().chain(DUAL_VALUE_ROOTS) {
-            if let Ok(index) = self.reader.schema.index_of(name) {
-                requested.push(index);
-            }
-        }
-        if self.reader.relation
-            == pse_relations::generated::runtime::simulation_samples::RELATION_ID
-        {
-            for name in trajectory_permission::SAMPLE_ROOTS {
-                requested.push(
-                    self.reader.schema.index_of(name).map_err(|_| {
-                        contract("original trajectory permission coordinate absent")
-                    })?,
-                );
-            }
-        }
-        self.reader.decode.inspection_projection(&requested)
+    ) -> Result<Arc<PreparedInspectionProjection>, WorkflowError> {
+        self.reader.permission_projection(requested)
     }
     pub(super) async fn inspection_pack_selection(
         &self,
-        projection: &Arc<pse_relations::validate::PreparedInspectionProjection>,
+        projection: &Arc<PreparedInspectionProjection>,
     ) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader
             .pack_selection_with_projection(Some(projection))
@@ -356,10 +338,10 @@ impl CanonicalResultReader {
     }
     pub(super) async fn next_inspection_batch(
         &mut self,
-        projection: &Arc<pse_relations::validate::PreparedInspectionProjection>,
+        projection: &Arc<PreparedInspectionProjection>,
     ) -> Result<Option<super::result_snapshot::InspectionBatch>, WorkflowError> {
-        match self.reader.next_native_batch(Some(projection)).await? {
-            Some(super::result_snapshot::DecodedResultBatch::Inspection(batch)) => Ok(Some(batch)),
+        match self.reader.next_native_batch(Some(ObservedProjection::roots_only(projection))).await? {
+            Some(DecodedResultBatch::Inspection(batch)) => Ok(Some(batch)),
             None => Ok(None),
             _ => Err(contract("unexpected full inspection batch")),
         }
@@ -423,7 +405,7 @@ impl SelectedResultReader {
                     let cancel = fresh.cancel.clone();
                     let next = prepaid_reader_future(
                         &fresh.services.pool(),
-                        fresh.next_checked_body(Some(&mut builder)),
+                        fresh.next_selected_body(Some(&mut builder), None),
                     )?;
                     let batch = cancel
                         .until_cancelled(next)
@@ -453,7 +435,7 @@ impl SelectedResultReader {
     pub fn close(&mut self) {
         self.reader.close();
     }
-    /// Export all remaining selected rows atomically on success.
+    /// Export the complete original selection atomically before advancing the reader.
     pub async fn export_ipc(&mut self, destination: &std::path::Path) -> Result<(), WorkflowError> {
         self.reader.export_ipc(destination).await
     }
@@ -461,7 +443,7 @@ impl SelectedResultReader {
     pub async fn pack_selection(&self) -> Result<super::PackResultSelection, WorkflowError> {
         self.reader.pack_selection().await
     }
-    /// Export the unread protected selection with a finite output allowance and
+    /// Export the complete original selection with a finite output allowance and
     /// an independent caller cancellation token. No final file on failure.
     pub async fn export_ipc_bounded(
         &mut self,
@@ -507,7 +489,7 @@ impl SelectedResultReader {
 struct SelectedBatch {
     block: BlockMetadata,
     descriptor: pse_model::generated::runtime::canonical_result_batches::Row,
-    batch: pse_relations::columnar::FieldCheckedBatch,
+    batch: DecodedResultBatch,
     _owner: MemoryReservation,
 }
 
@@ -577,19 +559,24 @@ enum SelectedScientificProduct {
     Interval,
 }
 
+#[derive(Clone, Copy)]
+struct ObservedProjection<'a> {
+    roots: &'a Arc<PreparedInspectionProjection>,
+    scalar: Option<&'a ProjectedResultPredicate>,
+}
+
+impl<'a> ObservedProjection<'a> {
+    fn roots_only(roots: &'a Arc<PreparedInspectionProjection>) -> Self {
+        Self { roots, scalar: None }
+    }
+}
+
 // Root dependencies and actual permission accesses share these owner-local names.
 const PERMISSION_STEP: &str = "step";
 const PERMISSION_ACCEPTED: &str = "accepted";
 const PERMISSION_METHOD: &str = "method";
 const PERMISSION_PRODUCT_USE: &str = "product_use";
 const PERMISSION_DUAL_QUALIFICATION: &str = "dual_qualification";
-const PERMISSION_CONTEXT_ROOTS: &[&str] = &[
-    PERMISSION_STEP,
-    PERMISSION_ACCEPTED,
-    PERMISSION_METHOD,
-    PERMISSION_PRODUCT_USE,
-    PERMISSION_DUAL_QUALIFICATION,
-];
 const DUAL_VALUE_ROOTS: &[&str] = &[
     "lower_dual",
     "upper_dual",
@@ -745,7 +732,7 @@ impl ResultReader {
     }
     async fn pack_selection_with_projection(
         &self,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        projection: Option<&Arc<PreparedInspectionProjection>>,
     ) -> Result<super::PackResultSelection, WorkflowError> {
         let activity = self.services.admit_activity()?;
         activity
@@ -760,7 +747,7 @@ impl ResultReader {
 
     async fn pack_selection_inner(
         &self,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        projection: Option<&Arc<PreparedInspectionProjection>>,
     ) -> Result<super::PackResultSelection, WorkflowError> {
         let spec = self
             .services
@@ -795,17 +782,25 @@ impl ResultReader {
     }
     async fn scientific_usability(
         &self,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        projection: Option<&Arc<PreparedInspectionProjection>>,
     ) -> Result<super::PackScientificState, WorkflowError> {
-        use pse_model::generated::enums::DerivedQuantity;
-        use pse_relations::generated::runtime::{
-            modeling_reports, parameter_covariances, parameter_intervals, parametric_sensitivities,
-            profile_points, propagated_covariances, reduced_hessians, simulation_samples,
-            solve_constraints, solve_variables,
-        };
+        use pse_relations::generated::runtime::simulation_samples;
         if self.relation == simulation_samples::RELATION_ID {
             return self.recorded_trajectory_usability(projection).await;
         }
+        let Some(product) = self.scientific_product() else {
+            return Ok(super::PackScientificState::Unknown);
+        };
+        self.selected_product_usability(product, projection).await
+    }
+
+    fn scientific_product(&self) -> Option<SelectedScientificProduct> {
+        use pse_model::generated::enums::DerivedQuantity;
+        use pse_relations::generated::runtime::{
+            modeling_reports, parameter_covariances, parameter_intervals, parametric_sensitivities,
+            profile_points, propagated_covariances, reduced_hessians, solve_constraints,
+            solve_variables,
+        };
         if [
             solve_variables::RELATION_ID,
             solve_constraints::RELATION_ID,
@@ -813,48 +808,75 @@ impl ResultReader {
         ]
         .contains(&self.relation)
         {
-            return self
-                .selected_product_usability(SelectedScientificProduct::Original, projection)
-                .await;
-        }
-        let model_quantity = if self.relation == parametric_sensitivities::RELATION_ID {
-            Some(DerivedQuantity::ParametricSensitivity)
+            Some(SelectedScientificProduct::Original)
+        } else if self.relation == parametric_sensitivities::RELATION_ID {
+            Some(SelectedScientificProduct::Derived(DerivedQuantity::ParametricSensitivity))
         } else if self.relation == reduced_hessians::RELATION_ID {
-            Some(DerivedQuantity::ReducedHessian)
-        } else {
-            None
-        };
-        if let Some(quantity) = model_quantity {
-            return self
-                .selected_product_usability(
-                    SelectedScientificProduct::Derived(quantity),
-                    projection,
-                )
-                .await;
-        }
-        if self.relation == parameter_intervals::RELATION_ID {
-            return self
-                .selected_product_usability(SelectedScientificProduct::Interval, projection)
-                .await;
-        }
-        if self.relation == propagated_covariances::RELATION_ID {
-            return self
-                .selected_product_usability(SelectedScientificProduct::Propagation, projection)
-                .await;
-        }
-        let quantity = if self.relation == parameter_covariances::RELATION_ID {
-            Some(DerivedQuantity::ParameterCovariance)
+            Some(SelectedScientificProduct::Derived(DerivedQuantity::ReducedHessian))
+        } else if self.relation == parameter_intervals::RELATION_ID {
+            Some(SelectedScientificProduct::Interval)
+        } else if self.relation == propagated_covariances::RELATION_ID {
+            Some(SelectedScientificProduct::Propagation)
+        } else if self.relation == parameter_covariances::RELATION_ID {
+            Some(SelectedScientificProduct::Task(DerivedQuantity::ParameterCovariance))
         } else if self.relation == profile_points::RELATION_ID {
-            Some(DerivedQuantity::ProfileInterval)
+            Some(SelectedScientificProduct::Task(DerivedQuantity::ProfileInterval))
         } else {
             None
-        };
-        if let Some(quantity) = quantity {
-            return self
-                .selected_product_usability(SelectedScientificProduct::Task(quantity), projection)
-                .await;
         }
-        Ok(super::PackScientificState::Unknown)
+    }
+
+    fn permission_projection(
+        &self,
+        requested: &[usize],
+    ) -> Result<Arc<PreparedInspectionProjection>, WorkflowError> {
+        use pse_model::generated::enums::DerivedQuantity;
+        use pse_relations::generated::runtime::simulation_samples;
+
+        let mut requested = requested.to_vec();
+        let product = self.scientific_product();
+        let required: &[&str] = if self.relation == simulation_samples::RELATION_ID {
+            trajectory_permission::SAMPLE_ROOTS
+        } else {
+            match product {
+                Some(SelectedScientificProduct::Original
+                    | SelectedScientificProduct::Derived(_)
+                    | SelectedScientificProduct::Propagation) => &[PERMISSION_STEP],
+                Some(SelectedScientificProduct::Interval) => &[PERMISSION_METHOD],
+                Some(SelectedScientificProduct::Task(DerivedQuantity::ProfileInterval)) => {
+                    &[PERMISSION_ACCEPTED]
+                }
+                _ => &[],
+            }
+        };
+        for name in required {
+            requested.push(self.schema.index_of(name)
+                .map_err(|_| contract(format!("original permission root {name} absent")))?);
+        }
+        match product {
+            Some(SelectedScientificProduct::Original) => {
+                let observes_dual = if let Some(output) = &self.output {
+                    DUAL_VALUE_ROOTS.contains(&output.field.as_str())
+                } else {
+                    let before = requested.len();
+                    requested.extend(DUAL_VALUE_ROOTS.iter().filter_map(|name| self.schema.index_of(name).ok()));
+                    requested.len() != before
+                };
+                if observes_dual && let Ok(index) = self.schema.index_of(PERMISSION_DUAL_QUALIFICATION) {
+                    requested.push(index);
+                }
+            }
+            Some(SelectedScientificProduct::Propagation) => {
+                if let Ok(index) = self.schema.index_of(PERMISSION_PRODUCT_USE) {
+                    requested.push(index);
+                }
+            }
+            _ => {}
+        }
+        if let Some(native) = &self.native_selection {
+            requested.extend(native.required_roots());
+        }
+        self.decode.inspection_projection(&requested)
     }
 
     /// Resolve actual selected step coordinates from protected rows. Caller labels or
@@ -862,7 +884,7 @@ impl ResultReader {
     async fn selected_product_usability(
         &self,
         product: SelectedScientificProduct,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        projection: Option<&Arc<PreparedInspectionProjection>>,
     ) -> Result<super::PackScientificState, WorkflowError> {
         use datafusion::arrow::array::{Array, BooleanArray, Int64Array, StringArray};
         let Some(stored) = super::durable::result_scientific_completion(
@@ -912,6 +934,19 @@ impl ResultReader {
                 super::PackScientificState::Usable
             });
         }
+        // Full IPC still admits the actual emitted rows separately. This independent
+        // observation needs only original permission, selector, key and CHECK roots.
+        let prepared = if projection.is_none() {
+            Some(self.permission_projection(&[])?)
+        } else {
+            None
+        };
+        let roots = projection.or(prepared.as_ref());
+        let scalar = roots.zip(self.native_selection.as_ref())
+            .map(|(roots, native)| native.project(&self.services, roots))
+            .transpose()
+            .map_err(pse_engine::EngineError::from)?;
+        let projection = roots.map(|roots| ObservedProjection { roots, scalar: scalar.as_ref() });
         let mut rows = self.fresh_selection("result:product-scope-read")?;
         let mut seen = false;
         let mut unknown = false;
@@ -919,10 +954,7 @@ impl ResultReader {
         while let Some(decoded) = rows.next_native_batch(projection).await? {
             // Retain the actual buffer owner while the unchanged permission
             // algorithm observes named roots. This observation grants no FCP.
-            let batch = match &decoded {
-                super::result_snapshot::DecodedResultBatch::Full(batch) => batch.batch(),
-                super::result_snapshot::DecodedResultBatch::Inspection(batch) => batch.batch(),
-            };
+            let batch = decoded.batch();
             selected_rows = selected_rows.saturating_add(batch.num_rows() as u64);
             if let SelectedScientificProduct::Task(quantity) = product {
                 if batch.num_rows() != 0 {
@@ -1162,7 +1194,7 @@ impl ResultReader {
         acknowledged: Option<&mut IpcExportAcknowledgement>,
         expected_selection: Option<&super::PackResultSelection>,
     ) -> Result<u64, WorkflowError> {
-        if self.consumed {
+        if self.consumed || self.snapshot_position != 0 {
             return Err(contract("export requires an unread complete selection"));
         }
         let selected = cancel
@@ -1271,15 +1303,15 @@ impl ResultReader {
         &mut self,
     ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
         match self.next_native_batch(None).await? {
-            Some(super::result_snapshot::DecodedResultBatch::Full(batch)) => Ok(Some(batch)),
+            Some(DecodedResultBatch::Full(batch)) => Ok(Some(batch)),
             None => Ok(None),
             _ => Err(contract("unexpected inspection relation batch")),
         }
     }
     async fn next_native_batch(
         &mut self,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
-    ) -> Result<Option<super::result_snapshot::DecodedResultBatch>, WorkflowError> {
+        projection: Option<ObservedProjection<'_>>,
+    ) -> Result<Option<DecodedResultBatch>, WorkflowError> {
         if let Err(error) = self.cancel.checkpoint() {
             if let Some(operation) = self.observation.take() {
                 operation.finish(pse_diagnostics::observation::Outcome::Cancelled);
@@ -1361,34 +1393,28 @@ impl ResultReader {
     #[inline(never)]
     fn next_native_checked<'a>(
         &'a mut self,
-        projection: Option<&'a Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        projection: Option<ObservedProjection<'a>>,
     ) -> Result<
         PrepaidReaderFuture<
             'a,
-            Result<Option<super::result_snapshot::DecodedResultBatch>, WorkflowError>,
+            Result<Option<DecodedResultBatch>, WorkflowError>,
         >,
         WorkflowError,
     > {
         let pool = self.services.pool();
         prepaid_reader_future(&pool, async move {
             if self.output.is_none() {
-                self.next_snapshot_body(projection).await
-            } else if projection.is_some() {
-                Err(contract(
-                    "inspection projection requires original full snapshot",
-                ))
+                self.next_snapshot_body(projection.map(|projection| projection.roots)).await
             } else {
-                self.next_checked_body(None)
-                    .await
-                    .map(|batch| batch.map(super::result_snapshot::DecodedResultBatch::Full))
+                self.next_selected_body(None, projection).await
             }
         })
     }
 
     async fn next_snapshot_body(
         &mut self,
-        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
-    ) -> Result<Option<super::result_snapshot::DecodedResultBatch>, WorkflowError> {
+        projection: Option<&Arc<PreparedInspectionProjection>>,
+    ) -> Result<Option<DecodedResultBatch>, WorkflowError> {
         loop {
             let snapshot = self
                 .snapshot
@@ -1404,12 +1430,12 @@ impl ResultReader {
             let lower = self.start.max(metadata.start);
             let upper = self.end.min(metadata.end);
             let batch = match projection {
-                Some(projection) => super::result_snapshot::DecodedResultBatch::Inspection(
+                Some(projection) => DecodedResultBatch::Inspection(
                     snapshot
                         .read_inspection_block(metadata, projection, &self.cancel)
                         .await?,
                 ),
-                None => super::result_snapshot::DecodedResultBatch::Full(
+                None => DecodedResultBatch::Full(
                     snapshot.read_block(metadata, &self.cancel).await?,
                 ),
             };
@@ -1423,13 +1449,13 @@ impl ResultReader {
             let length = usize::try_from(upper - lower)
                 .map_err(|_| contract("result coordinate exceeds platform"))?;
             return Ok(Some(match batch {
-                super::result_snapshot::DecodedResultBatch::Full(batch) => {
-                    super::result_snapshot::DecodedResultBatch::Full(
+                DecodedResultBatch::Full(batch) => {
+                    DecodedResultBatch::Full(
                         batch.slice(offset, length).map_err(super::relation)?,
                     )
                 }
-                super::result_snapshot::DecodedResultBatch::Inspection(batch) => {
-                    super::result_snapshot::DecodedResultBatch::Inspection(
+                DecodedResultBatch::Inspection(batch) => {
+                    DecodedResultBatch::Inspection(
                         batch.slice(offset, length)?,
                     )
                 }
@@ -1437,19 +1463,11 @@ impl ResultReader {
         }
     }
 
-    async fn next_checked_body(
+    async fn next_selected_body(
         &mut self,
         mut frozen: Option<&mut super::result_snapshot::SelectedSnapshotBuilder>,
-    ) -> Result<Option<pse_relations::columnar::FieldCheckedBatch>, WorkflowError> {
-        // Full reads consume the already admitted immutable inventory. Borrow its
-        // descriptors directly: aliases share metadata and its original charge.
-        if self.output.is_none() {
-            return match self.next_snapshot_body(None).await? {
-                Some(super::result_snapshot::DecodedResultBatch::Full(batch)) => Ok(Some(batch)),
-                None => Ok(None),
-                _ => Err(contract("unexpected inspection relation batch")),
-            };
-        }
+        projection: Option<ObservedProjection<'_>>,
+    ) -> Result<Option<DecodedResultBatch>, WorkflowError> {
         loop {
             if self.pending.is_empty() {
                 if !self.indexes.is_empty() || !self.descriptors.is_empty() {
@@ -1628,7 +1646,10 @@ impl ResultReader {
             let cached = self
                 .selected_batch
                 .as_ref()
-                .filter(|cached| cached.block == metadata && cached.descriptor == descriptor)
+                .filter(|cached| {
+                    cached.block == metadata && cached.descriptor == descriptor
+                        && matches!(&cached.batch, DecodedResultBatch::Inspection(_)) == projection.is_some()
+                })
                 .map(|cached| cached.batch.clone());
             let checked = if let Some(checked) = cached {
                 checked
@@ -1646,7 +1667,12 @@ impl ResultReader {
                     .map_err(pse_engine::EngineError::from)?;
                 let checked = self
                     .decode
-                    .read_block(&metadata, &descriptor, &self.cancel)
+                    .read_observed_block(
+                        &metadata,
+                        &descriptor,
+                        projection.map(|projection| projection.roots),
+                        &self.cancel,
+                    )
                     .await?;
                 self.selected_batch = Some(SelectedBatch {
                     block: metadata.clone(),
@@ -1656,40 +1682,37 @@ impl ResultReader {
                 });
                 checked
             };
-            let lower = self.start.max(metadata.start);
-            let upper = self.end.min(metadata.end);
-            if lower >= upper {
-                continue;
-            }
-            let checked = if let Some(filter) = &self.output {
-                let indexes = self
-                    .indexes
-                    .remove(&metadata.batch)
-                    .ok_or_else(|| contract("selected output block lacks index"))?;
-                let Some((selected, rows)) = select_original_rows(
-                    &self.services,
-                    OriginalRowSelection {
-                        relation: self.relation,
-                        filter,
-                        native: self.native_selection.as_deref(),
-                    },
-                    &metadata,
-                    indexes,
-                    checked,
-                    self.start..self.end,
-                    &self.cancel,
-                )?
-                else {
-                    continue;
-                };
-                if let Some(builder) = frozen.as_deref_mut() {
-                    builder.push(&metadata, &descriptor, rows)?;
-                }
-                selected
-            } else {
-                checked
+            let filter = self.output.as_deref().ok_or_else(|| contract("selected result filter absent"))?;
+            let indexes = self.indexes.remove(&metadata.batch)
+                .ok_or_else(|| contract("selected output block lacks index"))?;
+            let batch = match &checked {
+                DecodedResultBatch::Full(batch) => OriginalRowBatch::Native(batch),
+                DecodedResultBatch::Inspection(batch) => OriginalRowBatch::Projected {
+                    batch,
+                    predicate: projection.and_then(|projection| projection.scalar)
+                        .ok_or_else(|| contract("projected scalar selection plan absent"))?,
+                },
             };
-            return Ok(Some(checked));
+            let Some(rows) = select_original_row_offsets(
+                &self.services,
+                OriginalRowSelection {
+                    relation: self.relation,
+                    filter,
+                    native: self.native_selection.as_deref(),
+                },
+                &metadata,
+                indexes,
+                batch,
+                self.start..self.end,
+                &self.cancel,
+            )? else {
+                continue;
+            };
+            let selected = rows.apply_observation(&checked, &self.services.pool(), &self.cancel)?;
+            if let Some(builder) = frozen.as_deref_mut() {
+                builder.push(&metadata, &descriptor, rows)?;
+            }
+            return Ok(Some(selected));
         }
     }
 }
@@ -2403,6 +2426,14 @@ pub(super) struct OriginalRowSelection<'a> {
     pub native: Option<&'a super::result_snapshot::NativeResultSelection>,
 }
 
+enum OriginalRowBatch<'a> {
+    Native(&'a pse_relations::columnar::FieldCheckedBatch),
+    Projected {
+        batch: &'a super::result_snapshot::InspectionBatch,
+        predicate: &'a ProjectedResultPredicate,
+    },
+}
+
 pub(super) fn select_original_rows(
     services: &RetainedDataServices,
     selection: OriginalRowSelection<'_>,
@@ -2418,6 +2449,31 @@ pub(super) fn select_original_rows(
     )>,
     WorkflowError,
 > {
+    let Some(rows) = select_original_row_offsets(
+        services,
+        selection,
+        metadata,
+        indexes,
+        OriginalRowBatch::Native(&checked),
+        range,
+        cancel,
+    )? else {
+        return Ok(None);
+    };
+    let selected = rows.apply(&checked, &services.pool(), cancel)?;
+    Ok(Some((selected, rows)))
+}
+
+fn select_original_row_offsets(
+    services: &RetainedDataServices,
+    selection: OriginalRowSelection<'_>,
+    metadata: &BlockMetadata,
+    indexes: OutputRows,
+    checked: OriginalRowBatch<'_>,
+    range: std::ops::Range<u64>,
+    cancel: &CancellationToken,
+) -> Result<Option<super::result_snapshot::SelectedRows>, WorkflowError> {
+    cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
     let OriginalRowSelection {
         relation,
         filter,
@@ -2428,18 +2484,20 @@ pub(super) fn select_original_rows(
     if lower >= upper {
         return Ok(None);
     }
-    if relation != checked.relation_id() {
-        return Err(contract(
-            "original result relation differs from selected predicate",
-        ));
-    }
+    let batch = match &checked {
+        OriginalRowBatch::Native(checked) if relation == checked.relation_id() => checked.batch(),
+        OriginalRowBatch::Native(_) => {
+            return Err(contract("original result relation differs from selected predicate"));
+        }
+        OriginalRowBatch::Projected { batch, .. } => batch.batch(),
+    };
     let base = usize::try_from(lower - metadata.start)
         .map_err(|_| contract("selected coordinate extent"))?;
     let count =
         usize::try_from(upper - lower).map_err(|_| contract("selected coordinate extent"))?;
     if base
         .checked_add(count)
-        .is_none_or(|end| end > checked.batch().num_rows())
+        .is_none_or(|end| end > batch.num_rows())
     {
         return Err(contract(
             "selected coordinate window outside original batch",
@@ -2449,7 +2507,7 @@ pub(super) fn select_original_rows(
         MemoryConsumer::new("canonical:selected-source-offsets").register(&services.pool());
     let extent = super::result_selection::selection_window_extent(
         count,
-        checked.batch().num_columns(),
+        batch.num_columns(),
         matches!(&indexes, OutputRows::Scalar),
     )
     .ok_or_else(|| contract("selected offset allocation extent"))?;
@@ -2458,22 +2516,26 @@ pub(super) fn select_original_rows(
         .map_err(pse_engine::EngineError::from)?;
     let mask = match indexes {
         OutputRows::Scalar => {
-            let selection = native_selection
-                .ok_or_else(|| contract("original scalar selection plan absent"))?;
             // Coordinate slicing precedes expression evaluation: every row-shaped
             // native temporary is now proportional to the requested window.
-            let window = checked.slice(base, count).map_err(super::relation)?;
-            let mask = selection
-                .mask(window.batch())
-                .map_err(pse_engine::EngineError::from)?;
+            let mask = match checked {
+                OriginalRowBatch::Native(_) => native_selection
+                    .ok_or_else(|| contract("original scalar selection plan absent"))?
+                    .mask(&batch.slice(base, count)),
+                OriginalRowBatch::Projected { predicate, .. } => predicate
+                    .mask(&batch.slice(base, count)),
+            }.map_err(pse_engine::EngineError::from)?;
             use datafusion::arrow::array::Array;
             datafusion::arrow::buffer::BooleanBuffer::collect_bool(count, |offset| {
                 mask.is_valid(offset) && mask.value(offset)
             })
         }
         OutputRows::Dense(output) => {
+            let OriginalRowBatch::Native(checked) = checked else {
+                return Err(contract("dense trajectory selection requires all original roots"));
+            };
             let view =
-                pse_relations::generated::runtime::simulation_samples::View::from_checked(&checked)
+                pse_relations::generated::runtime::simulation_samples::View::from_checked(checked)
                     .map_err(super::relation)?;
             let first = output
                 .start
@@ -2518,12 +2580,7 @@ pub(super) fn select_original_rows(
             })
         }
     };
-    let Some(rows) = super::result_snapshot::SelectedRows::from_mask(mask, base, offsets_owner)?
-    else {
-        return Ok(None);
-    };
-    let selected = rows.apply(&checked, &services.pool(), cancel)?;
-    Ok(Some((selected, rows)))
+    super::result_snapshot::SelectedRows::from_mask(mask, base, offsets_owner)
 }
 
 fn write_output_identity(
@@ -3375,11 +3432,6 @@ mod canonical_connected_results_server_unit {
             )
             .await
             .unwrap();
-        continued.skip_recorded_prefix(63).unwrap();
-        assert_eq!(
-            continued.reader.snapshot_position, 63,
-            "continuation selects frozen block metadata before payload acquisition"
-        );
         let original_window = continued
             .pack_selection()
             .await
@@ -3399,6 +3451,28 @@ mod canonical_connected_results_server_unit {
         assert_eq!(acknowledged.bytes, 0);
         assert!(acknowledged.stage.is_none());
         assert!(!rejected.exists());
+        continued.skip_recorded_prefix(63).unwrap();
+        assert_eq!(
+            continued.reader.snapshot_position, 63,
+            "continuation selects frozen block metadata before payload acquisition"
+        );
+        let continued_selection = continued.pack_selection().await.unwrap();
+        assert!(same_pack_selection(&continued_selection, &original_window));
+        let error = continued
+            .export_ipc_acknowledged(
+                &rejected,
+                1 << 20,
+                &CancellationToken::new(),
+                &mut acknowledged,
+                &continued_selection,
+            )
+            .await
+            .unwrap_err();
+        assert!(error.to_string().contains("export requires an unread complete selection"));
+        assert_eq!(acknowledged.bytes, 0);
+        assert!(acknowledged.stage.is_none());
+        assert!(!rejected.exists());
+        assert!(!output.path().join("forged-window.arrow.incomplete").exists());
         for coordinate in [63, 64] {
             let batch = continued.next_batch().await.unwrap().unwrap();
             let values = batch

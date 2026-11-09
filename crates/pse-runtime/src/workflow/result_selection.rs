@@ -142,9 +142,14 @@ fn maximum_selection_text() -> std::io::Result<usize> {
 pub(super) fn selection_metadata(selection: &PackResultSelection) -> std::io::Result<String> {
     use base64::Engine as _;
     use buffa::Message as _;
-    if selection.context.is_none() {
+    if selection.context.as_ref().is_none_or(|context| {
+        context.problem.is_empty()
+            || context.revision.is_empty()
+            || context.manifest.is_empty()
+            || context.interpretation.is_empty()
+    }) {
         return Err(metadata_error(
-            "versioned selected-result metadata requires original context",
+            "versioned selected-result metadata requires complete original context",
         ));
     }
     let wire = crate::recorded_result_projection::encode_recorded_result_selection(selection)

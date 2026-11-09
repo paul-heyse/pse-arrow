@@ -3,9 +3,9 @@
 //! Recorded trajectory use from one original protected completion and its coordinates.
 //! This interprets original permission; it never restores a live scientific capability.
 
-use super::{ResultReader, WorkflowError, contract};
+use super::{ObservedProjection, ResultReader, WorkflowError, contract};
 use crate::workflow::{PackScientificState as State, ResultSnapshot};
-use datafusion::arrow::{array::Array, record_batch::RecordBatch};
+use datafusion::arrow::array::Array;
 use pse_columnar::MemoryConsumer;
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::generated::{
@@ -254,13 +254,9 @@ impl ResultReader {
         let mut rows = self.fresh_selection("result:trajectory-permission-read")?;
         let mut previous = None;
         let mut count = 0usize;
+        let projection = projection.map(ObservedProjection::roots_only);
         while let Some(decoded) = rows.next_native_batch(projection).await? {
-            let batch: &RecordBatch = match &decoded {
-                crate::workflow::result_snapshot::DecodedResultBatch::Full(batch) => batch.batch(),
-                crate::workflow::result_snapshot::DecodedResultBatch::Inspection(batch) => {
-                    batch.batch()
-                }
-            };
+            let batch = decoded.batch();
             let column = |name| {
                 batch
                     .column_by_name(name)

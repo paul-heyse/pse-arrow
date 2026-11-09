@@ -154,7 +154,7 @@ impl ProtectedResultDecode {
             .read_block(self.authority(), block, descriptor, cancel)
             .await
     }
-    async fn read_observed_block(
+    pub(super) async fn read_observed_block(
         &self,
         block: &Block,
         descriptor: &FileBatch,
@@ -302,6 +302,13 @@ pub(super) enum DecodedResultBatch {
     Inspection(InspectionBatch),
 }
 impl DecodedResultBatch {
+    pub(super) fn batch(&self) -> &datafusion::arrow::record_batch::RecordBatch {
+        match self {
+            Self::Full(batch) => batch.batch(),
+            Self::Inspection(batch) => batch.batch(),
+        }
+    }
+
     fn slice(&self, offset: usize, length: usize) -> Result<Self, WorkflowError> {
         match self {
             Self::Full(batch) => batch.slice(offset, length).map(Self::Full).map_err(super::relation),
@@ -916,7 +923,7 @@ impl SelectedRows {
         }
     }
 
-    fn apply_observation(
+    pub(super) fn apply_observation(
         &self,
         batch: &DecodedResultBatch,
         pool: &Arc<dyn pse_columnar::MemoryPool>,
@@ -1177,6 +1184,32 @@ pub(super) struct NativeResultSelection {
     pruning: Option<datafusion_pruning::PruningPredicate>,
     _owner: MemoryReservation,
 }
+
+pub(super) struct ProjectedResultPredicate {
+    physical: Arc<dyn datafusion::physical_expr::PhysicalExpr>,
+    _owner: MemoryReservation,
+}
+
+impl ProjectedResultPredicate {
+    pub(super) fn mask(
+        &self,
+        batch: &datafusion::arrow::record_batch::RecordBatch,
+    ) -> NativeResult<datafusion::arrow::array::BooleanArray> {
+        selection_mask(self.physical.as_ref(), batch)
+    }
+}
+
+fn selection_mask(
+    physical: &dyn datafusion::physical_expr::PhysicalExpr,
+    batch: &datafusion::arrow::record_batch::RecordBatch,
+) -> NativeResult<datafusion::arrow::array::BooleanArray> {
+    let mask = physical.evaluate(batch)?.into_array(batch.num_rows())?;
+    mask.as_any()
+        .downcast_ref::<datafusion::arrow::array::BooleanArray>()
+        .cloned()
+        .ok_or_else(|| DataFusionError::Execution("scientific predicate is not Boolean".into()))
+}
+
 impl NativeResultSelection {
     pub(super) fn new(
         services: &RetainedDataServices,
@@ -1226,14 +1259,30 @@ impl NativeResultSelection {
                 "selection native schema differs".into(),
             ));
         }
-        let mask = self
-            .physical
-            .evaluate(batch)?
-            .into_array(batch.num_rows())?;
-        mask.as_any()
-            .downcast_ref::<datafusion::arrow::array::BooleanArray>()
-            .cloned()
-            .ok_or_else(|| DataFusionError::Execution("scientific predicate is not Boolean".into()))
+        selection_mask(self.physical.as_ref(), batch)
+    }
+
+    pub(super) fn required_roots(&self) -> impl Iterator<Item = usize> {
+        datafusion::physical_expr::utils::collect_columns(&self.physical)
+            .into_iter()
+            .map(|column| column.index())
+    }
+
+    pub(super) fn project(
+        &self,
+        services: &RetainedDataServices,
+        projection: &pse_relations::validate::PreparedInspectionProjection,
+    ) -> NativeResult<ProjectedResultPredicate> {
+        let owner = MemoryConsumer::new("canonical:projected-result-predicate")
+            .register(&services.pool());
+        // Rebinding only clones the bounded native expression tree; schema and
+        // root checks remain owned by the prepared inspection projection.
+        owner.try_grow(64 * 1024)?;
+        let physical = datafusion::physical_expr::utils::reassign_expr_columns(
+            self.physical.clone(),
+            projection.schema().as_ref(),
+        )?;
+        Ok(ProjectedResultPredicate { physical, _owner: owner })
     }
 
     pub(super) fn prune_members<'a>(

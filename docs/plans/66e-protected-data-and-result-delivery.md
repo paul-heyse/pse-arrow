@@ -94,8 +94,11 @@ Complete the actual connected-result export → portable-reader migration under 
 Use the source-owned generated `RecordedResultSelection` adapter from the existing engineering
 descriptor world. The result-specific adapter must compile for ordinary default-feature export;
 keep service-only adapters/services gated and avoid duplicate native conversion implementations.
-The current observation requires the exact original context. An absent or empty context
-refuses at the current boundary.
+The current observation requires the exact original problem, revision, manifest and
+interpretation. The connected exporter and portable reader reject a missing context or an
+empty value for any of those four fields, even when the portable manifest and IPC agree.
+Finalized export also requires the complete original selection: an advanced inspection cursor
+can continue reading, but cannot publish a suffix under the original full-window metadata.
 
 The versioned Arrow key is `pse.canonical.selection.proto.v1`. Maintained Buffa 0.9.2
 [`Message::try_encode_bounded`](../../vendor/buffa/src/message.rs) checks size/cache and the
@@ -105,8 +108,8 @@ the padded string, bounded to 87,384 bytes. Compare input text against bounded s
 expected encoding. This local v1 agreement deliberately rejects alternate encoding, unknown or
 trailing bytes and altered predicate/context; it is not general Protobuf canonicalization,
 authenticity or scientific admission. No untrusted decode-to-permission path is introduced.
-Remove reserved obsolete lineage keys from exports and retain unrelated metadata. Require the
-current key and refuse absent, mixed and malformed metadata. Keep the raw IPC duplicate
+Reject inherited obsolete lineage keys before export and retain unrelated metadata. Require the
+current key on read and reject absent, mixed and malformed metadata. Keep the raw IPC duplicate
 preflight for both file and stream schemas and nested fields.
 
 Selection then reaches the physical reader under its actual assurance. DataFusion 55.1
@@ -121,6 +124,15 @@ result, not evidence that omitted roots passed full validation. Retain deploymen
 original row coordinates and continuation/extent meaning through `SnapshotProvider`, cohorts,
 connected results, review packs and project bundles. Delete redundant full-detail hydration and
 selection passes only after their actual consumers have equivalent guarantees.
+
+Original scientific-usability preflight for full and scalar result selections observes only
+the relevant permission roots, scalar keys and original relation checks. DataFusion 55.1
+[`collect_columns` and `reassign_expr_columns`](https://docs.rs/crate/datafusion-physical-expr/55.1.0/source/src/utils/mod.rs)
+retain every physical predicate dependency and bind the same expression to the protected
+projected schema. Observation and full reads share the original row offset selection. Dense
+trajectory permission needs every sample root, so it retains the full typed sample reader;
+unfiltered task covariance still needs only the closed row population and original task fact.
+Finalized IPC and full relation consumers independently admit all emitted fields.
 
 ### Original interpretation and coherent derived mappings — DRE03
 
@@ -296,8 +308,8 @@ selected. These three decisions discharge E09's bounded choice; E01–E08/E10 an
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | E01 | planned | Baseline native codecs/admission; 66b source declarations and generated structural products | Reconcile the remaining scientific/runtime/canonical request/result producer-reader population. Complete only missing generated native mappings; preserve exact numeric/identity/relationship policy and owned native predicates. Every selected converter has independent malformed/duplicate/extreme-value controls; remove its replaced field map and callers. |
-| E02 | in-progress | Existing selection/context and IPC duplicate preflight; 66b ordinary root-scoped adapter generation | The working tree removes the absent-v1 portable metadata reader. Verify current connected Arrow export and portable read under ordinary and service feature selections, including exact context and refusal of predecessor or invalid metadata. |
-| E03 | in-progress | Existing protected snapshot/cohort/inspection readers; E01 needed mappings; E02 metadata consumer | Protected snapshots now push retained query roots into the original Arrow decoder, including exact sparse row selection. The selected controls exercise predicate-only projection and residual-filter/limit order. Continue cohort, pack and bundle consumers under original pool and protection. |
+| E02 | in-progress | Existing selection/context and IPC duplicate preflight; 66b ordinary root-scoped adapter generation | Current-only portable metadata is integrated. Shared selection admission now rejects incomplete original context; the portable reader control passed on the service feature selection with matching incomplete IPC and manifest metadata. Ordinary-profile portable receiving remains separate. |
+| E03 | in-progress | Existing protected snapshot/cohort/inspection readers; E01 needed mappings; E02 metadata consumer | Protected snapshots push retained query roots into the original Arrow decoder, including exact sparse row selection. Prior controls exercise predicate-only projection and residual-filter/limit order. Finalized IPC refuses an advanced continuation before staging. Whole and scalar permission preflight share protected projected reads and original row offsets; the selected controls passed on the service feature selection. Continue cohort, pack and bundle consumers under original pool and protection. |
 | E04 | in-progress | Current interpretation contract and original family sources; E01 | The working tree binds physical lookup to the exact protected `ResultRead` and current relation locator. Verify present and unavailable source closure, then finish mapping activation and original-operation recovery. |
 | E05 | in-progress | Existing original opened-file/directory owners; shared contract agreed with 66f; 66c settlement outcomes where consumed | Developer sequential delivery/offline staged publication and project actual-transfer/archive/materialized consumers are integrated. Main's four project and thirteen selected semantic/developer controls pass with complete capture/settlement and zero failures/pending/build warnings. Remaining scientific/review-pack delivery population stays open; original commitments, provisional prefixes and independent publication/release outcomes remain distinct. |
 | E06 | planned | Source diagnostic/outcome owners; 66b directional adapters; working 66c/66f producer outcomes | Complete native diagnostic/result-description and CLI/local-service/sink population. Preserve coverage, qualifiers, original attempt, typed multi-cause and detail dispositions/redaction. Migrate OTLP/Perfetto correlations from common facts, removing string classification and duplicate semantic maps without replacing external protocols. |
