@@ -58,9 +58,16 @@ impl Cancellation {
 
     /// Publish stop before waking every currently registered waiter.
     pub fn cancel(&self) {
-        if !self.0.flag.swap(true, Ordering::AcqRel) {
+        self.request_stop();
+    }
+
+    /// Request stop, returning whether this caller first published it.
+    pub fn request_stop(&self) -> bool {
+        let first = !self.0.flag.swap(true, Ordering::AcqRel);
+        if first {
             self.0.changed.notify(usize::MAX);
         }
+        first
     }
 
     /// Await stop with registration before the state check; no timer or runtime task.

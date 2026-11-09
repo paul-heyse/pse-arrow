@@ -1099,12 +1099,8 @@ impl PreparedStudyOperation {
         cancel: &CancelSource,
         attempt: super::durable::DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        if cancel.token().is_cancelled() {
-            let error = Arc::new(WorkflowError::from(
-                crate::math::MathRuntimeError::Cancelled,
-            ));
-            let _ = attempt.abandon(&error).await;
-            return Err(WorkflowError::Shared(error));
+        if let Err(error) = super::run::RunSupervisor::check_claim(services, cancel) {
+            return Err(super::run::RunSupervisor::abandon_claim(attempt, error).await);
         }
         let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
             match self {
@@ -1132,14 +1128,13 @@ impl PreparedStudyOperation {
                     {
                         super::worker::boxed_worker_action(|| async move {
                             let _ = horizon;
-                            let error = Arc::new(refusal(
+                            let error = refusal(
                                 DiagnosticRule::StudyOperationUnsupported,
                                 BoundaryClass::Unsupported,
                                 [],
                                 "horizon owner is unavailable",
-                            ));
-                            let _ = attempt.abandon(&error).await;
-                            Err(WorkflowError::Shared(error))
+                            );
+                            Err(super::run::RunSupervisor::abandon_claim(attempt, error).await)
                         })
                     }
                 }
@@ -1157,9 +1152,7 @@ impl PreparedStudyOperation {
         services: &ExecutionServices,
         cancel: &CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        if cancel.token().is_cancelled() {
-            return Err(crate::math::MathRuntimeError::Cancelled.into());
-        }
+        super::run::RunSupervisor::check_launch_cancel(Some(cancel))?;
         match self {
             Self::DeclaredCase(case) => {
                 services

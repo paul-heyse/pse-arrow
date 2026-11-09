@@ -105,10 +105,7 @@ impl ExecutionServices {
         horizon: Horizon,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.preparation().admit_activity()?;
-        activity
-            .scope(async { self.start_horizon_owned(horizon, cancel, None).await })
-            .await
+        self.start_horizon_owned(horizon, cancel, None).await
     }
     pub(crate) async fn start_horizon_attempt(
         &self,
@@ -116,13 +113,7 @@ impl ExecutionServices {
         cancel: &crate::CancelSource,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.preparation().admit_activity()?;
-        activity
-            .scope(async {
-                self.start_horizon_owned(horizon, cancel, Some(attempt))
-                    .await
-            })
-            .await
+        self.start_horizon_owned(horizon, cancel, Some(attempt)).await
     }
     async fn start_horizon_owned(
         &self,
@@ -130,35 +121,36 @@ impl ExecutionServices {
         cancel: &crate::CancelSource,
         attempt: Option<DurableAttempt>,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.preparation().admit_activity()?;
+        let activity = match self.preparation().admit_activity() {
+            Ok(activity) => activity,
+            Err(error) => {
+                return Err(match attempt {
+                    Some(attempt) => RunSupervisor::abandon_claim(attempt, error).await,
+                    None => error,
+                });
+            }
+        };
         activity
             .scope(async {
-                let mut attempt = attempt;
-                if cancel.token().is_cancelled() {
-                    let error = Arc::new(WorkflowError::from(MathRuntimeError::Cancelled));
-                    if let Some(attempt) = attempt.take() {
-                        let _ = attempt.abandon(&error).await;
+                let attempt = match attempt {
+                    Some(claim) => {
+                        if let Err(error) = RunSupervisor::check_claim(self, cancel) {
+                            return Err(RunSupervisor::abandon_claim(claim, error).await);
+                        }
+                        Some(claim)
                     }
-                    return Err(WorkflowError::Shared(error));
-                }
-                if matches!(self.durability(), crate::workflow::Durability::Ephemeral)
-                    && attempt.is_some()
-                {
-                    let error =
-                        Arc::new(contract("a claimed horizon runs only on a durable runtime"));
-                    if let Some(attempt) = attempt.take() {
-                        let _ = attempt.abandon(&error).await;
+                    None => {
+                        RunSupervisor::check_launch_cancel(Some(cancel))?;
+                        None
                     }
-                    return Err(WorkflowError::Shared(error));
-                }
+                };
                 let admitted = match Admitted::new(self.preparation(), horizon, cancel).await {
                     Ok(admitted) => Arc::new(admitted),
                     Err(error) => {
-                        let error = Arc::new(error);
-                        if let Some(attempt) = attempt.take() {
-                            let _ = attempt.abandon(&error).await;
-                        }
-                        return Err(WorkflowError::Shared(error));
+                        return Err(match attempt {
+                            Some(attempt) => RunSupervisor::abandon_claim(attempt, error).await,
+                            None => error,
+                        });
                     }
                 };
                 let supervisor = match RunSupervisor::new(
@@ -170,16 +162,17 @@ impl ExecutionServices {
                 ) {
                     Ok(supervisor) => supervisor,
                     Err(error) => {
-                        admitted.close_sources().await?;
-                        return Err(error);
+                        return WorkflowError::settle(Err(error), admitted.close_sources().await);
                     }
                 };
                 let opened = match supervisor.durable {
                     None => match Staged::open(self, Some(supervisor.progress.clone())) {
                         Ok(staged) => Some(staged),
                         Err(error) => {
-                            admitted.close_sources().await?;
-                            return Err(error);
+                            return WorkflowError::settle(
+                                Err(error),
+                                admitted.close_sources().await,
+                            );
                         }
                     },
                     Some(_) => None,
@@ -304,7 +297,7 @@ impl ExecutionServices {
                                 let (mut result, renewal) =
                                     scope.joined(&preparation, phase, operation).await;
                                 if let Some(error) = renewal {
-                                    result.fail_report(Arc::new(error));
+                                    result.retain_finish_failure(error);
                                 }
                                 result
                             }
@@ -312,7 +305,7 @@ impl ExecutionServices {
                         }
                         let mut result = operation.await;
                         if let Err(error) = source_owner.close_sources().await {
-                            result.fail_report(Arc::new(error));
+                            result.retain_finish_failure(error);
                         }
                         if let Some(recorder) = &result.invocation {
                             recorder.ready();
@@ -655,20 +648,13 @@ fn bind_horizon_source(
     package
 }
 async fn close_horizon_sources(held: &[HorizonSourceEngagement]) -> Result<(), WorkflowError> {
-    let mut failure = None;
+    let mut result = Ok(());
     for source in held {
-        if source.owned
-            && let Err(error) = source.scope.close().await
-            && failure.is_none()
-        {
-            failure = Some(error);
+        if source.owned {
+            result = WorkflowError::settle(result, source.scope.close().await);
         }
     }
-    if let Some(error) = failure {
-        Err(error)
-    } else {
-        Ok(())
-    }
+    result
 }
 
 /// A horizon admitted before any effect.
@@ -763,10 +749,7 @@ impl Admitted {
                 admitted.held = held;
                 Ok(admitted)
             }
-            Err(error) => {
-                close_horizon_sources(&held).await?;
-                Err(error)
-            }
+            Err(error) => WorkflowError::settle(Err(error), close_horizon_sources(&held).await),
         }
     }
     pub(super) async fn close_sources(&self) -> Result<(), WorkflowError> {
