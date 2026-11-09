@@ -1,5 +1,11 @@
 # Functional opportunity reviews
 
+The [workflow and simulation test execution review](workflow-simulation-test-execution-and-diagnostics-2026-11-09.md)
+uses original workflow and conformance failures to recommend faster feedback and better
+diagnosis. It compares Nextest 0.9.151, existing Rust testing libraries and native owner
+changes for build reuse, fixture scheduling, partial conformance evidence and exact reruns.
+It changes no implementation, tool pins or qualification status.
+
 The [intent-first CLI and Codex operating workflows review](intent-first-cli-and-codex-workflows-2026-11-07.md)
 proposes a routine `pse` front door across development and production. It assesses ordinary
 test defaults, result identity and release, recurring model changes, production operator
