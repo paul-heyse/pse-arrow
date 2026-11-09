@@ -76,7 +76,7 @@ fn attach(context: &mut NativeContext, store: &CanonicalStore) -> Result<()> {
 
 fn measurement(context: &NativeContext) -> BoxFuture<'_, Result<ModelingPackage>> {
     Box::pin(async move {
-        let package = context.package(
+        let (package, _) = context.package(
             "package fitting { def Measurement { param length:Length=2{m};
             annotation check length(length>0{m}); }
             entity kind origin provenance {attribute title:Text;}

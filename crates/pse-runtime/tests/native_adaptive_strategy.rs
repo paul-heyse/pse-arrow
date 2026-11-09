@@ -85,7 +85,7 @@ impl FidelityEvaluator for ApproximateRoot {
 }
 
 async fn target(context: &NativeContext) -> Result<ModelingSolvePreparation> {
-    let package = context.package(SOURCE).await?;
+    let (package, _) = context.package(SOURCE).await?;
     let services = context.runtime.preparation_services();
     let root = package
         .declarations(&services)

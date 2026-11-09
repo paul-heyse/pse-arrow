@@ -130,7 +130,7 @@ fn regression<'a>(
     importance: f64,
 ) -> BoxFuture<'a, Result<(ModelingPackage, DeclarationId, [SemanticId; 3])>> {
     Box::pin(async move {
-        let package = context.package(&source(false)).await?;
+        let (package, _) = context.package(&source(false)).await?;
         let case = package
             .declarations(&context.runtime.preparation_services())
             .await?

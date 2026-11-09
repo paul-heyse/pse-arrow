@@ -62,7 +62,7 @@ fn setup(
     context: &NativeContext,
 ) -> BoxFuture<'_, Result<(ModelingPackage, DeclarationId, SolveSettings)>> {
     async move {
-        let package = context.package(SOURCE).await?;
+        let (package, _) = context.package(SOURCE).await?;
         assert!(package.canonical_revision().is_none());
         assert!(context.runtime.canonical_store().is_err());
         let services = context.runtime.execution_services();

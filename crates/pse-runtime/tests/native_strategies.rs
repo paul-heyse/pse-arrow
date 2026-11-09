@@ -86,7 +86,7 @@ fn close_to(actual: f64, expected: f64) {
 async fn native_initialization_restores_original_inputs_and_retains_partial_stages() -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package(
                 "package strategies {def Root {
                  param a:Scalar=4; var x:Scalar; var y:Scalar;
@@ -212,7 +212,7 @@ async fn native_explicit_and_conditional_recycles_conserve_and_refuse_unbroken_c
                  connect outlet -> inlet; annotation start x(1); annotation nominal x(5);
                  }}}}"
             );
-            let package = context.package(&source).await?;
+            let (package, _) = context.package(&source).await?;
             let services = context.runtime.preparation_services();
             let root = package
                 .declarations(&services)

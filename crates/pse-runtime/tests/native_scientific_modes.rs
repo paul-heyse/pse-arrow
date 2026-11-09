@@ -91,7 +91,7 @@ fn measurement_fit<'a>(
     fixed: bool,
 ) -> futures_util::future::BoxFuture<'a, Result<ModelingPackage>> {
     Box::pin(async move {
-        let package = context
+        let (package, _) = context
             .package(
                 "package fitting {def Measurement {param length:Length=2{m};
              annotation check length(length>0{m});}
@@ -397,7 +397,7 @@ async fn native_smooth_optimization_checks_objective_and_retains_stopped_candida
     let outcome = AssertUnwindSafe(async {
         // Nonlinear equality and quartic objective: the unique zero-cost feasible
         // point is x=2, y=4, independently of any native solver verdict.
-        let package = context
+        let (package, _) = context
             .package(
                 "package science { def Root { var x:Scalar; var y:Scalar;
              eq curve:y==x*x; let cost:Scalar=(x-2)*(x-2)+(y-4)*(y-4);
@@ -600,7 +600,7 @@ async fn native_sensitivity_checks_active_branch_and_refuses_unknown_parameter()
                 close_to(q.derivative[parameter], expected, q.allowance);
             }
         }
-        let package = context
+        let (package, _) = context
             .package(
                 "package science { def Root { param a:Scalar=1; var x:Scalar;
              let cost:Scalar=(x-a)*(x-a); annotation objective cost(minimize);
@@ -687,7 +687,7 @@ async fn native_degeneracy_checks_nullspace_and_retains_attempt_limited_evidence
                 close_to(residual, 0., 1e-6);
             }
         }
-        let package = context
+        let (package, _) = context
             .package(
                 "package science { def Root { var x:Scalar; var y:Scalar;
              eq first:x+y==1; eq second:2*x+2*y==2;

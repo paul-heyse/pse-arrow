@@ -163,7 +163,7 @@ async fn singular_diagnostics_preserve_missing_values_source_map_and_owned_modes
             test sample fixture { dof 0; value root.x=1; value root.y=-1; }
                 { child root:D=D(); expect root.x==1 tolerance 1e-6; }
             case unstarted { child root:D=D(); } }";
-        let package = context.package(source).await?;
+        let (package, _) = context.package(source).await?;
         let services = context.runtime.execution_services();
         let sample = declaration(&context, &package, "sample").await?;
         let unstarted = declaration(&context, &package, "unstarted").await?;
@@ -809,7 +809,7 @@ async fn diagnostic_samples_keep_converted_sparse_points_origin_and_bounded_part
 async fn affine_native_diagnostics_preserve_iis_relaxation_ranging_and_refusals() -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package(
                 "package linear {
             def Bad {var x:Scalar; eq lo:x>=2; eq hi:x<=1;}
@@ -977,7 +977,7 @@ async fn authored_fixed_fixture_shares_initialization_conformance_reports_and_cl
 -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package(
                 "package fixed { def D {var x:Scalar; eq e:x==2;
             annotation report x(\"value\"); annotation valid x(0,3); }
@@ -1079,7 +1079,7 @@ async fn nonlinear_explanation_retains_local_obstruction_original_candidates_and
 -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package(
                 "package nonlinear {def D {var x:Scalar;
             eq lo:x*x>=4; eq hi:x*x<=1; eq spare:x*x<=100; annotation start x(1.5);}
@@ -1206,7 +1206,7 @@ async fn knowledge_preserves_admitted_quantity_uncertainty_provenance_and_byte_r
 -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package(
                 "package knowledge {entity kind source provenance {attribute title:Text;}
             enum role {measured} entity source origin {title=\"synthetic inspection test\"}
