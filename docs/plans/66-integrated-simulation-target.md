@@ -154,7 +154,7 @@ below still owns current integration and receiving evidence.
 | --- | --- | --- | --- | --- |
 | F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | resolved | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item with 19 references. The selected registry and modeling tests preserve occurrence roles, ordinals and local grammar. |
 | F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | verification pending | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and the independent host and performing consumer compiles passed. Verify ordinary and inspection-only consumers on the final sources. |
-| F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | verification pending | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | Both current capabilities generate. C02 and F05 exercise both with exact restore and reconnect and refuse the retired methods. |
+| F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | resolved | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | Authenticated Submit and Recover used both current capabilities, refused the retired methods and restored the exact original preparation identities on the replacement frontend. |
 | F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | resolved | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | The current worker refused the retired route and stale and foreign sessions on the original connection. Transport tests preserved derivative products, output order, abandonment and original stop. |
 | F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | resolved | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Adapter, Krylov, fitting and shooting controls passed. The witness custody control passed for fresh, retained and refused work. |
 | F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | resolved | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Refused native launch and failed preparation preserve the original and independent finish causes after drain. The queued Study retains its original claim after frontend retirement. |
@@ -261,8 +261,18 @@ reflection. One witness test failed against the zero baseline because its pool w
 smaller than the admitted construction reservation. The corrected fixture passed
 the focused `pse test pse-runtime:pse_runtime` rerun with the same features, zero
 failures and complete settlement (`01a1bece-beec-70d1-9283-01b26d1f6a84`).
-The ordinary and inspection-only controls and the independently authenticated Study
-journey remain open. Full simulation qualification stays behind that cutover.
+
+**Tested, selected.** `pse qualify-study` used the captured original keeper, canonical
+service, frontend and worker and the declared functional worker allocation. Its
+default Nextest Submit and Recover phases used engineering-service, native-service,
+product-operators, Diffsol, Ipopt, KINSOL and force-validation. Each passed its
+single selected test with zero failures and verified original settlement
+(`01a1bed9-88d8-7582-8e3f-b289d56914c6`, `01a1bee0-78af-7191-a5ac-482f9b267765`).
+The independent client prepared, read and restored explicit points; the performing
+client did the same for source expansion. The actual endpoint refused the three
+retired methods and refused the wrong current capability. Both reconnect reads
+preserved the exact original preparation hashes. The ordinary and inspection-only
+controls and broader qualification remain separate.
 
 ### 66a–f checkpoint — November 8
 

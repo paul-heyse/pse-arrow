@@ -197,13 +197,14 @@ not a reason to rebuild all preparation for every plan package.
 
 ### C02 — Complete actual local operation/service consumers
 
-Register the versioned explicit-point and source-expansion Study RPCs from
+The local service registers the versioned explicit-point and source-expansion Study RPCs from
 [B01/B03](66b-contracts-generation-and-interpretation.md#shared-index-bindings-and-compiled-contract-ownership).
 Both dispatch the [A01 native Study operation](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
 under its existing authentication, aggregate ingress admission and exact source context.
-Check the callable route set separately from descriptor discovery. Migrate F05's actual
-clients in the same cutover and remove the combined procedure. Reconnect and restore
-must preserve original operation, variant and interpretation without restarting its effects.
+F05's clients now use the selected routes, and the combined procedure is removed.
+The [cutover evidence](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
+separates callable-route refusal from descriptor discovery and checks whether reconnect
+and restore preserve original operation, variant and interpretation without restarting effects.
 
 The common engineering RPC delivery now consumes source-generated ingress, edit, identifier,
 status/progress and outgoing mappings. Native source-parent, membership, provider, effect and

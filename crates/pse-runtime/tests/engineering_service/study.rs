@@ -4,6 +4,7 @@
 //! The retained native keeper and qualification coordinator own all process effects.
 
 use super::*;
+use pse_host::engineering_client::{DOCUMENT_RESPONSE_BYTES, ExplicitStudyClient, response_options};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
     document::Version,
@@ -94,6 +95,20 @@ fn key(submitted: &EngineeringSubmitStudy) -> EngineeringStudyKey {
         operation: submitted.operation.clone(),
         study: submitted.study,
     }
+}
+async fn read_explicit(client: &ExplicitStudyClient, operation: String) -> ExplicitStudyDefinition {
+    codec::decode_explicit_study_definition(
+        client
+            .preparation
+            .read_prepared_explicit_study_with_options(
+                pb::EngineeringOperationKey { operation, ..Default::default() },
+                response_options(DOCUMENT_RESPONSE_BYTES),
+            )
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap()
 }
 pub(super) async fn status(
     client: &EngineeringClient,
@@ -201,9 +216,7 @@ async fn phase_submit() {
     gate_is(false);
     let endpoint = endpoint();
     let frontend = endpoint.invocation.clone();
-    let independent = pse_host::engineering_client::ExplicitStudyClient::connect(endpoint.clone())
-        .await
-        .unwrap();
+    let independent = ExplicitStudyClient::connect(endpoint.clone()).await.unwrap();
     let (transport, config) = endpoint.clone().connect().await.unwrap();
     for retired in [
         "/pse.engineering.v1.EngineeringService/PrepareStudy",
@@ -369,17 +382,7 @@ async fn phase_submit() {
             .await
             .is_err()
     );
-    let definition = codec::decode_explicit_study_definition(
-        client
-            .read_prepared_explicit_study(pb::EngineeringOperationKey {
-                operation: prepared.operation.clone(),
-                ..Default::default()
-            })
-            .await
-            .unwrap()
-            .into_owned(),
-    )
-    .unwrap();
+    let definition = read_explicit(&independent, prepared.operation.clone()).await;
     assert_eq!(definition.points.len(), 2);
     assert_eq!(
         pse_ids::document::of(
@@ -542,7 +545,35 @@ async fn phase_recover() {
         endpoint.invocation, handoff.frontend,
         "recovery must use another authenticated frontend incarnation"
     );
+    let independent = ExplicitStudyClient::connect(endpoint.clone()).await.unwrap();
     let client = EngineeringClient::connect(endpoint).await.unwrap();
+    let explicit = codec::decode_engineering_prepared_study(
+        independent
+            .preparation
+            .restore_explicit_study(
+                codec::encode_engineering_restore_explicit_study(EngineeringRestoreExplicitStudy {
+                    operation: format!("{}-exact-restore", handoff.submitted.preparation_operation),
+                    expected_preparation: handoff.submitted.expected_preparation,
+                    definition: handoff.definition.clone(),
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert_eq!(explicit.preparation, handoff.submitted.expected_preparation);
+    assert_eq!(explicit.occurrences, u64::try_from(handoff.definition.points.len()).unwrap());
+    let explicit_definition = read_explicit(&independent, explicit.operation).await;
+    assert_eq!(
+        pse_ids::document::of(
+            pse_ids::Frame::DurableStudyRequestV5,
+            &StudyDefinition::from(explicit_definition),
+        )
+        .unwrap(),
+        explicit.preparation
+    );
     let restored = codec::decode_engineering_prepared_study(
         client
             .expanded_study()

@@ -284,11 +284,11 @@ that this query replaces; retain small domain folds and avoid a persistent analy
 
 ### F05 — Deliver complete independent clients
 
-Migrate the generated and independent Study clients with C02 to the versioned explicit-point
-and source-expansion procedures. The explicit client compiles its selected contract without
-the inline authoring closure. Verify both procedures against the actual authenticated endpoint
-and exercise original operation recovery, reconnect and protected result receiving. Replace
-combined-surface client mappings, route expectations and fixtures as the callers move.
+The generated and independent Study clients use the versioned explicit-point and source-expansion
+procedures with C02. The explicit client compiles its selected contract without the inline
+authoring closure. The combined-surface mappings and callers are removed. The
+[cutover evidence](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
+owns the authenticated prepare, read, restore and reconnect checks for both procedures.
 [Study input capabilities](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
 
 Migrate all current engineering discovery/edit/preparation/study/submission/status/cancel/progress/

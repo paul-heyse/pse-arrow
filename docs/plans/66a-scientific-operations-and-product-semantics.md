@@ -231,8 +231,10 @@ unrelated scalar providers. Family physics and full population acceptance belong
 errors/warnings. The same-feature assessment/profile/strategy selection passed18/18 with complete
 capture/settlement, including nested terminal causes, positive numerical continuation, actual LM
 chain/point/assessment pointer identity and FlatV3 serialization. Full generation passed15 targets.
-Independent follow-up found no residual material defects in those two repairs. Main integration
-includes the combined generated world. Its selected fitting/service/result/reader receiving,
+Independent follow-up found no residual material defects in those two repairs. That receiving
+run used the former combined generated world, since replaced by the
+[shared-contract cutover](66-integrated-simulation-target.md#shared-contract-cutover--november-8).
+Its selected fitting/service/result/reader receiving,
 also selecting `product-reader` and the product binary/public-reader targets, passed 70/70 with
 zero failures/build warnings, complete capture/settlement and no pending native lifetime.
 That original population did not include the member extension; the subsequent 23-control main
