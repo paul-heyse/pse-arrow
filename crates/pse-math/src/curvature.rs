@@ -870,7 +870,6 @@ impl<'a> Pass<'a> {
     }
     /// The outward-rounded enclosure of one node over the box, from its children's.
     fn interval(&self, n: NodeId) -> Interval {
-        let get = |c: &NodeId| self.get(*c).interval;
         match &self.program.nodes[n] {
             Node::Var(c) => self
                 .program
@@ -883,18 +882,7 @@ impl<'a> Pass<'a> {
                 .get(*k)
                 .map_or(Interval::ENTIRE, |a| Interval::new(a.lower, a.upper)),
             Node::Const(c) => constant_interval(c),
-            Node::Sum(children) => children
-                .iter()
-                .fold(Interval::point(0.0), |acc, c| acc.add(get(c))),
-            Node::Product(children) => children
-                .iter()
-                .fold(Interval::point(1.0), |acc, c| acc.mul(get(c))),
-            Node::Pow { base, exponent } => power_interval(get(base), exponent),
-            Node::Exp(a) => get(a).exp(),
-            Node::Log(a) => get(a).ln(),
-            Node::Abs(a) => get(a).abs(),
-            Node::Sin(a) => get(a).sin(),
-            Node::Cos(a) => get(a).cos(),
+            operation => operation_interval(operation, |c| self.get(*c).interval),
         }
     }
     /// The binary64 value of a node whose children are all constant, as the evaluator
@@ -1365,6 +1353,80 @@ fn power_interval(base: Interval, exponent: &Constant) -> Interval {
     } else {
         result
     }
+}
+
+fn operation_interval(node: &Node, get: impl Fn(&NodeId) -> Interval) -> Interval {
+    match node {
+        Node::Var(_) | Node::Aux(_) | Node::Const(_) => Interval::ENTIRE,
+        Node::Sum(children) => children
+            .iter()
+            .fold(Interval::point(0.0), |acc, c| acc.add(get(c))),
+        Node::Product(children) => children
+            .iter()
+            .fold(Interval::point(1.0), |acc, c| acc.mul(get(c))),
+        Node::Pow { base, exponent } => power_interval(get(base), exponent),
+        Node::Exp(a) => get(a).exp(),
+        Node::Log(a) => get(a).ln(),
+        Node::Abs(a) => get(a).abs(),
+        Node::Sin(a) => get(a).sin(),
+        Node::Cos(a) => get(a).cos(),
+    }
+}
+
+/// Per-node backing for a closed export domain check.
+pub const CLOSED_EXPORT_INTERVAL_BYTES: usize = size_of::<Interval>();
+
+/// Find the first reachable partial operator whose operand is not safe on the
+/// closed numerical export box. `zero_distance` is the native handler's enforced
+/// distance from a pole, not an extra constraint on the original problem.
+/// The caller admits one interval per original node and passes the export's boxes.
+#[must_use]
+pub fn unsafe_closed_export_node(
+    nodes: &[Node],
+    reachable: &[bool],
+    boxes: &[(f64, f64)],
+    columns: usize,
+    zero_distance: f64,
+) -> Option<NodeId> {
+    let mut intervals = vec![Interval::ENTIRE; nodes.len()];
+    let bounds = |index: usize| {
+        boxes
+            .get(index)
+            .map_or(Interval::ENTIRE, |&(lo, hi)| Interval::new(lo, hi))
+    };
+    let positive = |range: Interval| !range.is_empty() && range.lo >= zero_distance;
+    for (i, node) in nodes.iter().enumerate() {
+        if !reachable[i] {
+            continue;
+        }
+        let get = |index: &NodeId| intervals[*index];
+        match node {
+            Node::Log(a) if !positive(get(a)) => return Some(i),
+            Node::Pow { base, exponent } => {
+                let range = get(base);
+                let p = exponent.value();
+                let integer = p.fract() == 0.0;
+                let safe = !range.is_empty()
+                    && p.is_finite()
+                    && if p < 0.0 {
+                        positive(range) || (integer && range.hi <= -zero_distance)
+                    } else {
+                        integer || range.lo >= 0.0
+                    };
+                if !safe {
+                    return Some(i);
+                }
+            }
+            _ => {}
+        }
+        intervals[i] = match node {
+            Node::Var(c) => bounds(*c),
+            Node::Aux(a) => bounds(columns + a),
+            Node::Const(c) => Interval::point(c.value()),
+            operation => operation_interval(operation, get),
+        };
+    }
+    None
 }
 
 #[cfg(test)]

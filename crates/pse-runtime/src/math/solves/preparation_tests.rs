@@ -537,6 +537,7 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
             MathService::within_task(&scope, &driver, service.assemble(base.clone()))
                 .await
                 .unwrap();
+        let selected = original.solve.route_decision().unwrap();
         let conditional = service
             .prepare_conditional(
                 base.clone(),
@@ -545,7 +546,10 @@ async fn compiled_preconditioned_krylov_prepares_first_and_actions_for_main_and_
                 BTreeMap::new(),
                 profile,
                 original.solve.numerics.clone(),
-                Route::Native(Backend::Kinsol),
+                super::super::initialization::ConditionalSelection {
+                    route: selected.route().unwrap(),
+                    callbacks: selected.callback_demand().unwrap(),
+                },
                 original.solve.snapshot.clone(),
                 &scope,
                 &driver,

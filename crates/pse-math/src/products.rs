@@ -731,11 +731,11 @@ impl NumericFrame {
                     for (row, value) in scratch.iter_mut().enumerate() {
                         *value = trial.first(row, 0);
                     }
-                } else {
+                } else if self.template.product == ProductKind::WeightedHessian {
                     self.evaluate_seeded(
                         inputs,
                         DerivativeOrder::Second,
-                        direction,
+                        None,
                         providers,
                         cancel,
                         trial,
@@ -745,19 +745,15 @@ impl NumericFrame {
                     let weights =
                         weights.ok_or_else(|| MathError::Contract("weights missing".into()))?;
                     for (row, &weight) in weights.iter().enumerate() {
-                        if self.template.product == ProductKind::WeightedHessianAction {
-                            let axis = self.template.coordinate_offsets.len();
-                            for (i, out) in scratch.iter_mut().enumerate() {
-                                *out += weight * trial.second(row, i, axis);
-                            }
-                        } else {
-                            for (out, &(i, j)) in
-                                scratch.iter_mut().zip(self.template.product_pairs())
-                            {
-                                *out += weight * trial.second(row, i, j);
-                            }
+                        for (out, &(i, j)) in scratch.iter_mut().zip(self.template.product_pairs())
+                        {
+                            *out += weight * trial.second(row, i, j);
                         }
                     }
+                } else {
+                    return Err(MathError::Contract(
+                        "requested action program missing".into(),
+                    ));
                 }
             }
             if scratch.iter().any(|v| !v.is_finite()) {
@@ -1060,164 +1056,75 @@ mod tests {
     }
 
     #[test]
-    fn flat_action_construction_comparison_keeps_directional_work_and_exact_entries_distinct() {
+    fn shared_flat_actions_use_staged_products_in_requested_order() {
         crate::initialize().unwrap();
-        let n = 6;
-        let x = (0..n)
-            .map(|i| library::formal(i).unwrap())
-            .collect::<Vec<_>>();
-        let sum = x.iter().cloned().fold(Atom::num(0), |a, b| a + b);
-        let chain = (0..n - 1).fold(Atom::num(0), |a, i| a + x[i].pow(2) * &x[i + 1]);
-        let shared = (&sum * &sum + &x[0]).pow(2);
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let shared = library::formal(2).unwrap();
+        let body = PreparedBody::new(
+            2,
+            5,
+            vec![3, 4],
+            vec![
+                Stage::Block {
+                    expressions: vec![&x * &y],
+                    outputs: vec![2],
+                    source: SemanticId::NIL,
+                },
+                Stage::Block {
+                    expressions: vec![shared.pow(2), &shared + &x],
+                    outputs: vec![3, 4],
+                    source: SemanticId::NIL,
+                },
+            ],
+            DerivativeOrder::Second,
+        )
+        .unwrap();
         let cancel = pse_diagnostics::Cancellation::new(false);
         let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
-        let limits = EvaluationLimits::default();
-        let point = (0..n).map(|i| 0.2 + i as f64 * 0.1).collect::<Vec<_>>();
-        let direction = (0..n)
-            .map(|i| if i % 2 == 0 { 0.5 } else { -0.3 })
-            .collect::<Vec<_>>();
-        for (name, expression) in [("dense", sum.pow(3)), ("sparse", chain), ("shared", shared)] {
-            let body = PreparedBody::new(
-                n,
-                n + 1,
-                vec![n],
-                vec![Stage::Block {
-                    expressions: vec![expression.clone()],
-                    outputs: vec![n],
-                    source: SemanticId::NIL,
-                }],
+        // In coordinates [y, x], 2(xy+x) + 3(xy)^2 has gradient [76, 116]
+        // and Hessian [[24, 74], [74, 54]] at (x, y) = (2, 3).
+        for (order, binding, expected) in [
+            (
+                DerivativeOrder::First,
+                ProductValues::TransposeJacobianAction { weights: &[2., 3.] },
+                [76., 116.],
+            ),
+            (
                 DerivativeOrder::Second,
-            )
-            .unwrap();
-            let axes = (0..n).collect::<Vec<_>>();
-            let support = body
-                .prepare_support(&[0], &axes, DerivativeOrder::Second, &cancel)
-                .unwrap();
-            let start = std::time::Instant::now();
-            let matrix = support
+                ProductValues::WeightedHessianAction {
+                    weights: &[2., 3.],
+                    direction: &[5., 7.],
+                },
+                [638., 748.],
+            ),
+        ] {
+            let compiled = body
+                .prepare_support(&[1, 0], &[1, 0], order, &cancel)
+                .unwrap()
                 .compile_product(
-                    ProductKind::WeightedHessian,
+                    binding.kind(),
                     Optimization::default(),
-                    limits,
+                    EvaluationLimits::default(),
                     &scope,
                 )
                 .unwrap();
-            let matrix_prepare = start.elapsed();
-            let start = std::time::Instant::now();
-            let action = support
-                .compile_product(
-                    ProductKind::WeightedHessianAction,
-                    Optimization::default(),
-                    limits,
-                    &scope,
-                )
-                .unwrap();
-            let action_prepare = start.elapsed();
-            assert!(
-                action
-                    .template
-                    .direct_product
-                    .as_ref()
-                    .unwrap()
-                    .directional_gradient
-            );
-            assert!(action.product_pairs().is_empty());
-            assert_eq!(
-                action.template.census[DerivativeOrder::Second]
-                    .unwrap()
-                    .derivative_components,
-                2
-            );
-            let mut matrix_values = vec![f64::NAN; matrix.product_len()];
-            matrix
+            assert!(compiled.template.reverse_product.is_some());
+            assert!(compiled.template.direct_product.is_none());
+            assert!(compiled.template.programs[DerivativeOrder::Second].is_none());
+            assert!(compiled.product_pairs().is_empty());
+            let mut actual = [f64::NAN; 2];
+            compiled
                 .worker_scoped(scope.clone())
                 .evaluate_product_into(
-                    &point,
-                    ProductValues::WeightedHessian { weights: &[1.] },
+                    &[2., 3.],
+                    binding,
                     &mut ProviderBindings::default(),
                     &cancel,
-                    &mut matrix_values,
+                    &mut actual,
                 )
                 .unwrap();
-            let mut expected = vec![0.; n];
-            for (&(i, j), &value) in matrix.product_pairs().iter().zip(&matrix_values) {
-                expected[i] += value * direction[j];
-                if i != j {
-                    expected[j] += value * direction[i];
-                }
-            }
-            // Independent contracted symbolic candidate: gradient of directional scalar.
-            let seeds = (n..2 * n)
-                .map(|i| library::formal(i).unwrap())
-                .collect::<Vec<_>>();
-            let start = std::time::Instant::now();
-            let firsts = x
-                .iter()
-                .map(|atom| expression.derivative(Indeterminate::try_from(atom.clone()).unwrap()))
-                .collect::<Vec<_>>();
-            let contracted = firsts
-                .iter()
-                .zip(&seeds)
-                .fold(Atom::num(0), |a, (g, v)| a + g * v);
-            let scalar_gradient = x
-                .iter()
-                .map(|atom| contracted.derivative(Indeterminate::try_from(atom.clone()).unwrap()))
-                .collect::<Vec<_>>();
-            let parameters = x.iter().chain(&seeds).cloned().collect::<Vec<_>>();
-            let mut alternative = library::bounded_scalar_evaluator(
-                &scalar_gradient,
-                &parameters,
-                Optimization::default(),
-                &cancel,
-                limits,
-                &mut library::ScalarCache::default(),
-            )
-            .unwrap();
-            let alternative_prepare = start.elapsed();
-            let mut alternative_values = vec![f64::NAN; n];
-            alternative
-                .evaluator
-                .try_evaluate(
-                    &point.iter().chain(&direction).copied().collect::<Vec<_>>(),
-                    &mut alternative_values,
-                )
-                .unwrap();
-            let mut worker = action.worker_scoped(scope.clone());
-            let mut actual = vec![f64::NAN; n];
-            let start = std::time::Instant::now();
-            for _ in 0..16 {
-                worker
-                    .evaluate_product_into(
-                        &point,
-                        ProductValues::WeightedHessianAction {
-                            weights: &[1.],
-                            direction: &direction,
-                        },
-                        &mut ProviderBindings::default(),
-                        &cancel,
-                        &mut actual,
-                    )
-                    .unwrap();
-            }
-            let execute = start.elapsed();
-            for ((&actual, &alternative), &expected) in
-                actual.iter().zip(&alternative_values).zip(&expected)
-            {
-                assert!(
-                    (actual - expected).abs() <= 1e-10 * expected.abs().max(1.),
-                    "{name}: {actual} != {expected}"
-                );
-                assert!((alternative - expected).abs() <= 1e-10 * expected.abs().max(1.));
-            }
-            eprintln!(
-                "I02 {name}: pairs={} matrix_prepare={matrix_prepare:?} directional_prepare={action_prepare:?} scalar_gradient_prepare={alternative_prepare:?} directional_16_calls={execute:?} action_ops={} alternative_ops={} action_scratch={}",
-                matrix.product_len(),
-                action.template.census[DerivativeOrder::Second]
-                    .unwrap()
-                    .library_operations,
-                operation_count(alternative.facts.operations),
-                action.scratch_bytes()
-            );
+            assert_eq!(actual, expected);
         }
     }
 
@@ -1265,12 +1172,18 @@ mod tests {
                 .census()
                 .find(|entry| entry.order == DerivativeOrder::Second)
                 .unwrap();
-            assert!(census.direct_weighted);
-            assert_eq!(census.native_arithmetic_blocks, 1);
-            assert!(matches!(
-                compiled.template.direct_product.as_ref().unwrap().evaluator,
-                BlockEvaluator::Native(_)
-            ));
+            if kind == ProductKind::WeightedHessian {
+                assert!(census.direct_weighted);
+                assert_eq!(census.native_arithmetic_blocks, 1);
+                assert!(matches!(
+                    compiled.template.direct_product.as_ref().unwrap().evaluator,
+                    BlockEvaluator::Native(_)
+                ));
+            } else {
+                assert!(!census.direct_weighted);
+                assert!(census.native_arithmetic_blocks > 0);
+                assert!(compiled.template.reverse_product.is_some());
+            }
             assert!(compiled.template.programs[DerivativeOrder::Second].is_none());
             let mut first = compiled.worker();
             let weights = [2., 3.];

@@ -571,14 +571,14 @@ impl MathService {
             profile.presolve = native::presolve::Policy::Off;
             profile.intent = SolveIntent::Initialize;
             profile.controls.reuse = ReusePolicy::Fresh;
-            let route = super::super::initialization::conditional_route(
+            let selection = super::super::initialization::conditional_route(
                 &original.snapshot,
                 block,
                 &executable,
                 &profile,
                 &original.numerics,
             )?;
-            let Route::Native(actual_backend) = route else {
+            let Route::Native(actual_backend) = selection.route else {
                 return Err(ProblemError::Unsupported(
                     "block requires admitted native equations".into(),
                 )
@@ -608,7 +608,7 @@ impl MathService {
                     source.providers.clone(),
                     profile,
                     original.numerics.clone(),
-                    route,
+                    selection,
                     original.snapshot.clone(),
                     &scope,
                     driver,

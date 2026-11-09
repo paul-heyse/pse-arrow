@@ -64,7 +64,12 @@ impl PreparedInitializationStrategy {
     pub fn strategies(&self) -> Result<Vec<native::routing::Route>, WorkflowError> {
         self.prepared
             .validate_profile(&self.values, &self.profile)
-            .map(|(routes, _)| routes)
+            .map(|(selections, _)| {
+                selections
+                    .into_iter()
+                    .map(|selection| selection.route())
+                    .collect()
+            })
             .map_err(WorkflowError::from)
     }
     /// Execute with this revision's original values and provider bindings.

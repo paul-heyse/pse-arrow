@@ -15,12 +15,12 @@ impl MathService {
         original: CaseValues,
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: InitializationProfile,
-        strategies: Vec<native::routing::Route>,
+        strategies: Vec<ConditionalSelection>,
         numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     ) -> Result<SolveHandle<InitializationReport>, MathRuntimeError> {
         if strategies
             .iter()
-            .any(|route| matches!(route, native::routing::Route::Native(Backend::Pounce)))
+            .any(|selection| selection.route == native::routing::Route::Native(Backend::Pounce))
         {
             return Err(native::ProblemError::Unsupported(
                 "POUNCE block aggregate iteration coverage unavailable".into(),
@@ -31,14 +31,14 @@ impl MathService {
             .blocks
             .iter()
             .zip(&strategies)
-            .map(|(block, route)| {
-                let native::routing::Route::Native(backend) = route else {
+            .map(|(block, selection)| {
+                let native::routing::Route::Native(backend) = selection.route else {
                     return Err(native::ProblemError::Contract(
                         "ready block requires native team".into(),
                     ));
                 };
                 let controls = profile.solver.block_profile(block.boundary.id)?.controls;
-                BlockDemand::new(std::iter::once((*backend, controls.clone())), &self.policy)?
+                BlockDemand::new(std::iter::once((backend, controls.clone())), &self.policy)?
                     .admit(self.cores)
                     .map_err(MathRuntimeError::into_problem)?;
                 Ok(controls)
@@ -172,7 +172,7 @@ impl MathService {
                                 let _ = iterations.complete(index, Some(0));
                                 issued[index] = Some(BlockAttempt {
                                     stage,
-                                    strategy: strategies[index],
+                                    strategy: strategies[index].route,
                                     boundary: prepared.blocks[index].boundary.clone(),
                                     result: Err(Arc::new(error)),
                                     trace: None,
@@ -251,7 +251,7 @@ impl MathService {
                     completed &= committed_block;
                     issued[index] = Some(BlockAttempt {
                         stage,
-                        strategy: strategies[index],
+                        strategy: strategies[index].route,
                         boundary: prepared.blocks[index].boundary.clone(),
                         result,
                         trace,
@@ -331,7 +331,7 @@ impl MathService {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
         numerics: pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
-        route: native::routing::Route,
+        selection: ConditionalSelection,
         scope: pse_kernels::ExecutionScope,
         admission: Option<Arc<super::super::strategy::admission::TaskAdmission>>,
         cancel: crate::CancelSource,
@@ -348,7 +348,7 @@ impl MathService {
         let mut result = async {
             let (step, assessor, previous) = self
                 .prepare_ready_block(
-                    &prepared, index, values, &providers, &profile, &numerics, route, &scope,
+                    &prepared, index, values, &providers, &profile, &numerics, selection, &scope,
                     admission, &cancel, iterations, previous,
                 )
                 .await?;
@@ -414,7 +414,7 @@ impl MathService {
         providers: &BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         original_profile: &SolverProfile,
         numerics: &pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
-        route: native::routing::Route,
+        selection: ConditionalSelection,
         scope: &pse_kernels::ExecutionScope,
         admission: Option<Arc<super::super::strategy::admission::TaskAdmission>>,
         cancel: &crate::CancelSource,
@@ -462,18 +462,13 @@ impl MathService {
         profile.controls.iterations = profile.controls.iterations.min(iterations);
         profile.presolve = native::presolve::Policy::Off;
         profile.intent = SolveIntent::Initialize;
-        let native::routing::Route::Native(backend) = route else {
-            return Err(native::ProblemError::Unsupported(
-                "conditional native route required".into(),
-            )
-            .into());
-        };
+        // The iteration allowance changes the stopping budget, not the selected
+        // block's method or callback products.
         let (preparation, executable) = self
             .conditional_program(
                 preparation,
                 block.executable,
-                &profile,
-                backend,
+                selection.callbacks,
                 scope,
                 cancel,
             )
@@ -525,7 +520,7 @@ impl MathService {
             providers.clone(),
             profile,
             numerics.clone(),
-            route,
+            selection.route,
             prepared.snapshot.clone(),
         )?;
         let step = match admission {

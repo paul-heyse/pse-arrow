@@ -1250,6 +1250,7 @@ fn declared_lexicographic_capability_native_staged_and_no_fallback() {
                 class_dependencies: vec![],
                 evidence: vec![],
                 artifacts: vec![],
+                callbacks: None,
                 factorable_refusals: vec![],
                 structure: None,
                 state,

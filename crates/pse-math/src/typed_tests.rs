@@ -1412,6 +1412,70 @@ fn shared_aliases_reuse_slots_but_partial_arguments_remain_independent() {
 }
 
 #[test]
+fn shared_function_mixed_partial_keeps_diamond_bindings() {
+    let registry = standard_registry().unwrap();
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let quantity = ids::quantity("neutral");
+    let x = builder
+        .input(0, quantity, IndexSet::new(), source())
+        .unwrap();
+    let y = builder
+        .input(1, quantity, IndexSet::new(), source())
+        .unwrap();
+    let x = builder.independent(x).unwrap();
+    let y = builder.independent(y).unwrap();
+    let scope = builder.function_scope();
+    let shared = builder
+        .binary(Binary::Mul, x.clone(), y.clone(), None, source())
+        .unwrap();
+    let shared = builder.bind(shared).unwrap();
+    let square = builder
+        .binary(Binary::Mul, shared.clone(), shared.clone(), None, source())
+        .unwrap();
+    let square = builder.bind(square).unwrap();
+    let product = builder
+        .binary(Binary::Mul, shared, x.clone(), None, source())
+        .unwrap();
+    let product = builder.bind(product).unwrap();
+    let sum = builder
+        .binary(Binary::Add, square, product, None, source())
+        .unwrap();
+    let partial = builder.partial(scope, sum, &[x, y], source()).unwrap();
+    let body = builder.prepare(&[partial]).unwrap();
+    let control = pse_diagnostics::Cancellation::default();
+    let cancel = control.flag();
+    let compiled = body
+        .compile(
+            &[0],
+            &[1, 0],
+            DerivativeOrder::First,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(control, None),
+        )
+        .unwrap();
+    let result = compiled
+        .worker()
+        .evaluate(
+            &[2., 3.],
+            DerivativeOrder::First,
+            &mut pse_kernels::ProviderBindings::new(),
+            &cancel,
+        )
+        .unwrap();
+    // ∂²(x²y² + x²y)/∂y∂x = 4xy + 2x, with derivative axes [y, x].
+    assert_eq!(result.values, [28.]);
+    assert_eq!(result.jacobian, [8., 14.]);
+}
+
+#[test]
 fn retained_physical_admission_refuses_mismatched_operands_and_binders() {
     let registry = standard_registry().unwrap();
     let mut builder = BodyBuilder::new(

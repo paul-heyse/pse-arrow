@@ -1617,6 +1617,8 @@ fn coefficient_objective_projection_reuses_proved_rows_under_one_work_ledger() {
 #[test]
 fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
     use crate::presolve::{ClassEvidence, ClassRequest};
+    use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+    use std::time::Duration;
     let (assembly, values) = fixture(true, false);
     let registry = standard_registry().unwrap();
     let quantity = ids::quantity("neutral");
@@ -1680,6 +1682,9 @@ fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
     let base = plan
         .presolve_domain_facts(&values, 10_000, &cancel)
         .unwrap();
+    let hub = ObservationHub::new(Policy::default());
+    let operation = hub.start("shared-exact-objective");
+    let entered = operation.context().enter();
     let ClassEvidence::Established {
         facts,
         coefficients,
@@ -1689,6 +1694,14 @@ fn class_proof_and_coefficients_share_aggregate_objective_cancellation() {
     else {
         panic!("canceled cubic objective must admit linear coefficients");
     };
+    drop(entered);
+    let snapshot = operation.reader().snapshot(Duration::from_secs(60));
+    let examined = snapshot
+        .metrics
+        .iter()
+        .find(|metric| metric.name == "affine.contributions_examined")
+        .unwrap();
+    assert!(matches!(&examined.cumulative, Value::Count(3)));
     assert_eq!(facts.objective_degree, Some(1));
     assert_eq!(coefficients.objective, [2.0, 0.0]);
     assert!(coefficients.hessian.val().is_empty());

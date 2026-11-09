@@ -6,12 +6,14 @@ use crate::execution::{
     BackendExecution, BackendSettings, CallbackDemand, Input, Representation, Retained,
 };
 use crate::solve::{Controls, SolveReport};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 #[derive(Debug)]
 struct Candidate {
     backend: Backend,
     order: DerivativeCapability,
     rank: u8,
+    queries: Option<&'static AtomicUsize>,
 }
 impl BackendExecution for Candidate {
     fn backend(&self) -> Backend {
@@ -34,6 +36,9 @@ impl BackendExecution for Candidate {
         _: &BackendSettings,
         controls: &Controls,
     ) -> Result<CallbackDemand, ProblemError> {
+        if let Some(queries) = self.queries {
+            queries.fetch_add(1, Ordering::Relaxed);
+        }
         let mut capability = *self.capability();
         capability.derivatives = self.order;
         Ok(CallbackDemand {
@@ -49,11 +54,13 @@ static EXACT: Candidate = Candidate {
     backend: Backend::Ipopt,
     order: DerivativeCapability::ExactHessianOrLimitedMemory,
     rank: 0,
+    queries: None,
 };
 static FIRST: Candidate = Candidate {
     backend: Backend::Pounce,
     order: DerivativeCapability::JacobianOrProduct,
     rank: 1,
+    queries: None,
 };
 static TABLE: Table = Table::new(&[&EXACT, &FIRST]);
 fn contract() -> crate::OracleContract {
@@ -80,6 +87,50 @@ fn context(c: &crate::OracleContract) -> Context<'_> {
         oracle: Some(c),
         prepared: &[ArtifactDemand::Representation(Representation::Nlp)],
         ..test_context(&TABLE)
+    }
+}
+#[test]
+fn callback_demand_is_checked_once_for_each_effective_method() {
+    static QUERIES: AtomicUsize = AtomicUsize::new(0);
+    static ADAPTER: Candidate = Candidate {
+        backend: Backend::Ipopt,
+        order: DerivativeCapability::ExactHessianOrLimitedMemory,
+        rank: 0,
+        queries: Some(&QUERIES),
+    };
+    static TABLE: Table = Table::new(&[&ADAPTER]);
+    let c = contract();
+    let mut facts = oracle_facts(&c, true, true);
+    facts.derivatives = DerivativeOrder::Second;
+    for (index, (hessian, order)) in [
+        (HessianMode::Exact, DerivativeOrder::Second),
+        (HessianMode::LimitedMemory, DerivativeOrder::First),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let controls = Controls {
+            hessian,
+            ..Controls::default()
+        };
+        let requirements = Requirements {
+            table: &TABLE,
+            facts: &facts,
+            intent: SolveIntent::Optimize,
+            numerical_psd: false,
+            least_squares: false,
+            controls: &controls,
+            settings: &BackendSettings::Default,
+            sensitivity: false,
+            context: Context {
+                snapshot: test_context(&TABLE).snapshot,
+                ..context(&c)
+            },
+        };
+        let decision = requirements.decision(SolverSelection::Explicit(Backend::Ipopt));
+        let checked = decision.callback_demand().unwrap();
+        assert_eq!(checked.assembled_derivatives, Some(order));
+        assert_eq!(QUERIES.load(Ordering::Relaxed), index + 1);
     }
 }
 #[test]
@@ -118,6 +169,7 @@ fn contextual_unit_constant_keeps_point_admission_independent_of_native_evidence
         class_dependencies: vec![],
         evidence: vec![EvidenceDemand::Factorable],
         artifacts: vec![],
+        callbacks: None,
         factorable_refusals: vec![],
         structure: None,
         state: AssessmentState::PendingEvidence,
@@ -508,12 +560,12 @@ fn contextual_unit_original_structure_is_interpreted_for_each_candidate() {
         context,
     };
     let nlp = assess_static(
-        Backend::Ipopt,
+        crate::execution::adapter(Backend::Ipopt),
         crate::execution::adapter(Backend::Ipopt).capability(),
         &requirements,
     );
     let native = assess_static(
-        Backend::Highs,
+        crate::execution::adapter(Backend::Highs),
         crate::execution::adapter(Backend::Highs).capability(),
         &requirements,
     );
@@ -561,7 +613,7 @@ fn contextual_unit_performed_missing_symbolic_export_refuses_only_its_representa
         pse_math::presolve::ClassStatus::Pending(_)
     ));
     let adapter = crate::execution::adapter(Backend::Highs);
-    let mut assessment = assess_static(Backend::Highs, adapter.capability(), &requirements);
+    let mut assessment = assess_static(adapter, adapter.capability(), &requirements);
     crate::execution::assess_representation(adapter, &requirements, &mut assessment);
     assessment.finish();
     assert_eq!(assessment.state, AssessmentState::Refused);
@@ -604,7 +656,7 @@ fn contextual_unit_coefficient_pending_does_not_replace_factorable_evidence() {
         context,
     };
     let scip = crate::execution::adapter(Backend::Scip);
-    let mut factorable = assess_static(Backend::Scip, scip.capability(), &requirements);
+    let mut factorable = assess_static(scip, scip.capability(), &requirements);
     crate::execution::assess_representation(scip, &requirements, &mut factorable);
     factorable.finish();
     assert_eq!(factorable.state, AssessmentState::PendingEvidence);
@@ -624,13 +676,13 @@ fn contextual_unit_coefficient_pending_does_not_replace_factorable_evidence() {
         context: prepared,
         ..requirements
     };
-    let mut absent = assess_static(Backend::Scip, scip.capability(), &requirements);
+    let mut absent = assess_static(scip, scip.capability(), &requirements);
     crate::execution::assess_representation(scip, &requirements, &mut absent);
     absent.finish();
     assert_eq!(absent.state, AssessmentState::PendingEvidence);
     assert_eq!(absent.evidence, [EvidenceDemand::Factorable]);
     let highs = crate::execution::adapter(Backend::Highs);
-    let mut coefficients = assess_static(Backend::Highs, highs.capability(), &requirements);
+    let mut coefficients = assess_static(highs, highs.capability(), &requirements);
     crate::execution::assess_representation(highs, &requirements, &mut coefficients);
     coefficients.finish();
     assert_eq!(coefficients.state, AssessmentState::Refused);

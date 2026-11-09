@@ -35,7 +35,7 @@ use std::{
     },
 };
 use symbolica::{
-    atom::{Atom, AtomCore, Indeterminate, Symbol},
+    atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol},
     evaluate::ExpressionEvaluator,
     id::Replacement,
 };
@@ -116,12 +116,33 @@ impl PreparedSupport {
         if self.order() != kind.required_order(self.order()) {
             return Err(MathError::Contract("product support order mismatch".into()));
         }
-        let direct = matches!(
-            kind,
-            ProductKind::TransposeJacobianAction
-                | ProductKind::WeightedHessian
-                | ProductKind::WeightedHessianAction
-        ) && self.body().direct_product_shape(limits)?;
+        // A scalar composition can have a finite derivative when a nonpolynomial
+        // local derivative overflows (for example, squaring a small sqrt).
+        // Keep symbolic cancellation for bounded flat sources with that risk.
+        let cancellation_sensitive_action =
+            matches!(
+                kind,
+                ProductKind::TransposeJacobianAction | ProductKind::WeightedHessianAction
+            ) && self.body().stages.iter().any(|stage| match stage {
+                Stage::Require { .. } => true,
+                Stage::Block { expressions, .. } => expressions.iter().any(|expression| {
+                    let mut nonpolynomial = false;
+                    expression.as_view().visitor(&mut |node| {
+                    nonpolynomial |= match node {
+                        AtomView::Fun(_) => true,
+                        AtomView::Pow(power) => {
+                            !matches!(i64::try_from(power.get_exp()), Ok(exponent) if exponent >= 0)
+                        }
+                        _ => false,
+                    };
+                    !nonpolynomial
+                });
+                    nonpolynomial
+                }),
+                _ => false,
+            });
+        let direct = (kind == ProductKind::WeightedHessian || cancellation_sensitive_action)
+            && self.body().direct_product_shape(limits)?;
         let route = if direct {
             ProductRoute::Direct
         } else if matches!(
@@ -4197,7 +4218,10 @@ impl NumericFrame {
         }
         evaluated
     }
-    #[expect(clippy::too_many_arguments, reason = "the compiled evaluator borrows separately admitted trial buffers and optional selection custody")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the compiled evaluator borrows separately admitted trial buffers and optional selection custody"
+    )]
     fn evaluate_seeded(
         &mut self,
         inputs: &[f64],
@@ -7918,6 +7942,9 @@ fn applicability_extent(stages: &[Stage]) -> usize {
         })
     })
 }
+
+#[cfg(test)]
+mod sealed_restore_tests;
 
 #[cfg(test)]
 mod compact_tests {

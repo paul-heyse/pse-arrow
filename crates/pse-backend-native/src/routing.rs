@@ -5,7 +5,7 @@
 //! (F21); automatic preference only orders eligible adapters.
 use crate::{
     ProblemError,
-    execution::{Capability, Table},
+    execution::{BackendExecution, Capability, Table},
     solve::{
         Backend, DerivativeCapability, HessianMode, ProblemClass, SolveIntent, SolverSelection,
     },
@@ -213,6 +213,20 @@ impl Decision {
         self.selected
             .filter(|_| self.refusal.is_none() && self.state == AssessmentState::Ready)
             .ok_or_else(|| ProblemError::RouteRefused(Box::new(self.clone())))
+    }
+    /// Callback products checked for the selected candidate, including a candidate
+    /// whose native artifacts are still being prepared.
+    pub fn callback_demand(&self) -> Result<crate::execution::CallbackDemand, ProblemError> {
+        let Route::Native(backend) = self.candidate()? else {
+            return Err(ProblemError::Contract(
+                "constant evaluation has no native callback demand".into(),
+            ));
+        };
+        self.eligibility
+            .iter()
+            .find(|assessment| assessment.backend == backend)
+            .and_then(|assessment| assessment.callbacks)
+            .ok_or_else(|| ProblemError::Internal("selected native callback demand missing".into()))
     }
     /// Select the established candidate whose pending artifacts the caller must prepare.
     /// Missing decision evidence or a contextual refusal never selects a candidate.
@@ -503,6 +517,8 @@ pub struct Eligibility {
     pub evidence: Vec<EvidenceDemand>,
     /// Supported but unprepared execution products.
     pub artifacts: Vec<ArtifactDemand>,
+    /// Exact adapter demand under the controls of this assessment.
+    pub(crate) callbacks: Option<crate::execution::CallbackDemand>,
     /// Existing factorable owner refusals, retained without rendering away their types.
     pub factorable_refusals: Vec<crate::execution::Refusal>,
     /// This candidate's interpretation of the shared original witness.
@@ -799,11 +815,25 @@ pub fn problem_classes(
 }
 /// The one eligibility rule: a function of an adapter's capability record, its linkage and
 /// the request. Every adapter is assessed through it.
-pub fn admit(
+#[cfg(test)]
+pub(crate) fn admit(
     backend: Backend,
     capability: &Capability,
     linked: bool,
     r: &Requirements<'_>,
+) -> Vec<Ineligible> {
+    let callbacks = r
+        .table
+        .get(backend)
+        .and_then(|adapter| adapter.callback_demand(r.settings, r.controls).ok());
+    admit_with_callbacks(backend, capability, linked, r, callbacks)
+}
+fn admit_with_callbacks(
+    backend: Backend,
+    capability: &Capability,
+    linked: bool,
+    r: &Requirements<'_>,
+    callbacks: Option<crate::execution::CallbackDemand>,
 ) -> Vec<Ineligible> {
     let f = r.facts;
     let mut reasons = Vec::new();
@@ -843,10 +873,6 @@ pub fn admit(
     }
     // Every mode other than the library's quasi-Newton approximation is a supplied
     // Hessian: exact, or the Gauss–Newton Gram with constraint curvature.
-    let callbacks = r
-        .table
-        .get(backend)
-        .and_then(|adapter| adapter.callback_demand(r.settings, r.controls).ok());
     if let Some(required) = callbacks.and_then(crate::execution::CallbackDemand::required_order)
         && f.derivatives < required
     {
@@ -893,24 +919,23 @@ pub fn admit(
     reasons
 }
 /// Interpret shared original evidence separately for each candidate before suitability.
-pub fn assess_static(
-    backend: Backend,
+pub(crate) fn assess_static<A: BackendExecution + ?Sized>(
+    adapter: &A,
     capability: &Capability,
     requirements: &Requirements<'_>,
 ) -> Eligibility {
+    let backend = adapter.backend();
     let f = requirements.facts;
-    let callbacks = requirements.table.get(backend).and_then(|adapter| {
-        adapter
-            .callback_demand(requirements.settings, requirements.controls)
-            .ok()
-    });
+    let callbacks = adapter.callback_demand(requirements.settings, requirements.controls);
+    let checked = callbacks.as_ref().ok().copied();
     let mut assessment = Eligibility {
         backend,
-        reasons: admit(
+        reasons: admit_with_callbacks(
             backend,
             capability,
             requirements.context.snapshot.linked(backend),
             requirements,
+            checked,
         ),
         class_dependencies: if requirements.context.pending_classes.is_empty() {
             vec![]
@@ -929,6 +954,7 @@ pub fn assess_static(
             .map(EvidenceDemand::Class)
             .collect(),
         artifacts: vec![],
+        callbacks: checked,
         factorable_refusals: vec![],
         structure: None,
         state: AssessmentState::PendingEvidence,
@@ -957,7 +983,10 @@ pub fn assess_static(
     } else {
         assessment.evidence.push(EvidenceDemand::Structure);
     }
-    if let Some(demand) = callbacks
+    if let Err(cause) = callbacks {
+        assessment.refuse(cause);
+    }
+    if let Some(demand) = checked
         && demand
             .required_order()
             .is_some_and(|order| f.derivatives >= order)
@@ -1388,6 +1417,7 @@ impl Requirements<'_> {
                     class_dependencies: vec![],
                     evidence: vec![],
                     artifacts: vec![],
+                    callbacks: None,
                     factorable_refusals: vec![],
                     structure: None,
                     state,
@@ -1617,7 +1647,14 @@ mod tests {
             context: context.clone(),
         };
         let adapter = adapter(Backend::Kinsol);
-        let missing = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+        let missing = assess_static(adapter, adapter.capability(), &requirements);
+        assert_eq!(
+            missing.callbacks,
+            Some(crate::execution::CallbackDemand {
+                assembled_derivatives: None,
+                jacobian_product: true,
+            })
+        );
         assert!(missing.artifacts.contains(&ArtifactDemand::JacobianProduct));
         assert!(
             !missing
@@ -1627,7 +1664,7 @@ mod tests {
         context.prepared = &[ArtifactDemand::JacobianProduct];
         requirements.context = context;
         assert!(
-            assess_static(Backend::Kinsol, adapter.capability(), &requirements)
+            assess_static(adapter, adapter.capability(), &requirements)
                 .artifacts
                 .is_empty()
         );
@@ -1636,7 +1673,14 @@ mod tests {
             ..method
         });
         requirements.settings = &jacobi;
-        let assembled = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+        let assembled = assess_static(adapter, adapter.capability(), &requirements);
+        assert_eq!(
+            assembled.callbacks,
+            Some(crate::execution::CallbackDemand {
+                assembled_derivatives: Some(DerivativeOrder::First),
+                jacobian_product: true,
+            })
+        );
         assert!(
             assembled
                 .artifacts
@@ -1661,14 +1705,14 @@ mod tests {
         });
         for settings in &krylov_settings {
             requirements.settings = settings;
-            let missing = assess_static(Backend::Kinsol, adapter.capability(), &requirements);
+            let missing = assess_static(adapter, adapter.capability(), &requirements);
             assert_eq!(missing.artifacts, vec![ArtifactDemand::JacobianProduct]);
             requirements.context.prepared = &[
                 ArtifactDemand::Derivatives(DerivativeOrder::First),
                 ArtifactDemand::JacobianProduct,
             ];
             assert!(
-                assess_static(Backend::Kinsol, adapter.capability(), &requirements)
+                assess_static(adapter, adapter.capability(), &requirements)
                     .artifacts
                     .is_empty()
             );
@@ -1788,7 +1832,7 @@ mod tests {
                 .unwrap()
                 .required_order()
                 .unwrap();
-            let candidate = assess_static(backend, adapter.capability(), &requirements);
+            let candidate = assess_static(adapter, adapter.capability(), &requirements);
             assert!(
                 !candidate
                     .reasons

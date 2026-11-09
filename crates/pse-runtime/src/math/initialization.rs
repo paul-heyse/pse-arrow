@@ -94,11 +94,11 @@ impl PreparedInitialization {
     }
 
     /// Resolve every conditional block before worker acquisition. No fallback follows a failed attempt.
-    pub fn strategies(
+    fn strategies(
         &self,
         solver: &SolverProfile,
         numerics: &pse_model::numerics::ResolvedNumericalPolicy,
-    ) -> Result<Vec<native::routing::Route>, native::ProblemError> {
+    ) -> Result<Vec<ConditionalSelection>, native::ProblemError> {
         solver.validate_block_ids(self.boundaries().map(|block| block.id))?;
         self.blocks
             .iter()
@@ -119,13 +119,13 @@ impl PreparedInitialization {
     /// initialization purpose, it carries no explicit preprocessing or numerical convexity
     /// strategy (blocks run without either), and its typed backend settings must belong to
     /// every block's route, so another backend's settings never apply to a block.
-    pub fn validate_profile(
+    pub(crate) fn validate_profile(
         &self,
         values: &CaseValues,
         profile: &InitializationProfile,
     ) -> Result<
         (
-            Vec<native::routing::Route>,
+            Vec<ConditionalSelection>,
             pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
         ),
         MathRuntimeError,
@@ -280,13 +280,25 @@ impl BlockDemand {
         Ok(())
     }
 }
+/// An admitted block route and its callback products for this block's effective method.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct ConditionalSelection {
+    pub(super) route: native::routing::Route,
+    pub(super) callbacks: execution::CallbackDemand,
+}
+#[cfg(feature = "solver-kinsol")]
+impl ConditionalSelection {
+    pub(crate) const fn route(self) -> native::routing::Route {
+        self.route
+    }
+}
 pub(super) fn conditional_route(
     snapshot: &execution::Snapshot,
     view: &pse_compiler::workspace::PreparedBlock,
     executable: &ExecutableCase,
     solver: &SolverProfile,
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
-) -> Result<native::routing::Route, native::ProblemError> {
+) -> Result<ConditionalSelection, native::ProblemError> {
     let contract = native::assembled::contract(&executable.assembly);
     let structure = native::routing::Structure {
         variables: view.plan.columns().to_vec(),
@@ -321,12 +333,13 @@ pub(super) fn conditional_contract_route(
     structure: native::routing::Structure,
     solver: &SolverProfile,
     numerics: &pse_model::numerics::ResolvedNumericalPolicy,
-) -> Result<native::routing::Route, native::ProblemError> {
+) -> Result<ConditionalSelection, native::ProblemError> {
     // Permission checks use the caller's request controls before this
     // realization resolves Auto against this actual block capability.
     let mut effective = solver.clone();
     effective.resolve_curvature(available);
     let solver = &effective;
+    solver.controls.validate()?;
     let mut facts = native::routing::oracle_facts(contract, false, true);
     facts.derivatives = available;
     facts.prepared_derivatives = prepared_order;
@@ -345,7 +358,7 @@ pub(super) fn conditional_contract_route(
             ResolvedAccuracy::resolve(&numerics.policy, &tolerances, &normalization)?
         }
     };
-    native::routing::Requirements {
+    let decision = native::routing::Requirements {
         table: &execution::LINKED,
         facts: &facts,
         intent: SolveIntent::Initialize,
@@ -376,7 +389,11 @@ pub(super) fn conditional_contract_route(
             refusals: &BTreeMap::new(),
         },
     }
-    .select(solver.selection)
+    .decision(solver.selection);
+    Ok(ConditionalSelection {
+        route: decision.candidate()?,
+        callbacks: decision.callback_demand()?,
+    })
 }
 /// One source-attributed block attempt. A failed block never commits trial coordinates.
 #[derive(Clone, Debug)]
@@ -734,7 +751,7 @@ impl MathService {
         if adapter.representation() != execution::Representation::Roots {
             return Err(native::ProblemError::Unsupported("conditional unit requires a selected root representation; request an explicit simultaneous strategy".into()).into());
         }
-        let demand = adapter.callback_demand(&profile.backend, &profile.controls)?;
+        let demand = decision.callback_demand()?;
         if demand
             .assembled_derivatives
             .is_some_and(|order| executable.assembly.order() < order)
@@ -1640,7 +1657,7 @@ struct Blocks<'a, 'native> {
     prepared: &'a PreparedInitialization,
     providers: &'a BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
     profile: &'a InitializationProfile,
-    strategies: &'a [native::routing::Route],
+    strategies: &'a [ConditionalSelection],
     numerics: &'a pse_math::SharedAllocation<pse_model::numerics::ResolvedNumericalPolicy>,
     progress: &'a Arc<Progress>,
     owner: &'a Arc<pse_columnar::AllocationLease>,
@@ -1724,7 +1741,7 @@ impl Blocks<'_, '_> {
                 .is_ok();
                 self.attempts.push(BlockAttempt {
                     stage,
-                    strategy: self.strategies[index],
+                    strategy: self.strategies[index].route,
                     boundary: boundary.clone(),
                     result,
                     trace,
@@ -1925,12 +1942,7 @@ impl Blocks<'_, '_> {
             intent: SolveIntent::Initialize,
             ..self.profile.solver.block_profile(block.boundary.id)?
         };
-        let native::routing::Route::Native(selected) = self.strategies[index] else {
-            return Err(native::ProblemError::Contract(
-                "conditional block needs a native route".into(),
-            )
-            .into());
-        };
+        let selection = self.strategies[index];
         let executable = bound
             .executable
             .get()
@@ -1941,8 +1953,7 @@ impl Blocks<'_, '_> {
         let (bound, executable) = self.local.preparation(self.service.conditional_program(
             bound,
             executable,
-            &profile,
-            selected,
+            selection.callbacks,
             &self.scope,
             self.cancel,
         ))?;
@@ -2000,7 +2011,7 @@ impl Blocks<'_, '_> {
             self.providers.clone(),
             profile,
             self.numerics.clone(),
-            self.strategies[index],
+            selection.route,
             self.prepared.snapshot.clone(),
         )?;
         // The block starts from its staged values. Only a predecessor stage's committed

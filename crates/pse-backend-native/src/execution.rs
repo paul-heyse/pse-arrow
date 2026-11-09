@@ -985,7 +985,7 @@ pub trait BackendExecution: Any + Sync + std::fmt::Debug {
     fn assess(&self, requirements: &Requirements<'_>) -> crate::routing::Eligibility {
         let selected = self.capability_for(requirements.settings);
         let mut assessment = crate::routing::assess_static(
-            self.backend(),
+            self,
             selected.as_ref().unwrap_or(self.capability()),
             requirements,
         );
@@ -1852,13 +1852,11 @@ pub(crate) fn assess_representation<A: BackendExecution + ?Sized>(
                 let mut scientific = original.clone();
                 scientific.derivatives = requirements.facts.derivatives;
                 let contract = &scientific;
-                let order = adapter
-                    .callback_demand(requirements.settings, requirements.controls)
-                    .ok()
-                    .and_then(CallbackDemand::required_order)
-                    .unwrap_or(DerivativeOrder::Value);
-                if let Err(cause) = contract.validate(order) {
-                    assessment.refuse(cause);
+                if let Some(demand) = assessment.callbacks {
+                    let order = demand.required_order().unwrap_or(DerivativeOrder::Value);
+                    if let Err(cause) = contract.validate(order) {
+                        assessment.refuse(cause);
+                    }
                 }
                 if let Some(budgets) = context.budgets {
                     if let Err(cause) = adapter.admit_contract(

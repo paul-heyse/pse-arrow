@@ -386,7 +386,8 @@ impl CasePlan {
         match requested {
             ClassRequest::Coefficients => {}
         }
-        let mut facts = shape_facts(self, values, base, limit, cancel)?;
+        let (mut facts, objectives) =
+            shape_facts_with_objectives(self, values, base, limit, cancel, true)?;
         match facts.class_status.clone() {
             ClassStatus::RuledOut(witness) => {
                 return Ok(ClassEvidence::RuledOut { facts, witness });
@@ -407,11 +408,12 @@ impl CasePlan {
                 ));
             }
         }
-        let (coefficients, remaining) = match self.coefficient_projection(
+        let (coefficients, remaining) = match self.project_coefficients(
             values,
             &facts,
             facts.proof_remaining.min(limit),
             cancel,
+            objectives,
         ) {
             Ok(product) => product,
             Err(MathError::CoefficientRange) => {
@@ -435,6 +437,23 @@ pub(crate) fn shape_facts(
     limit: usize,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Facts, MathError> {
+    shape_facts_with_objectives(plan, values, base, limit, cancel, false).map(|(facts, _)| facts)
+}
+
+/// Exact objectives and ordered column formals live only through one coefficient request.
+pub(super) struct ExactObjectives {
+    pub(super) formals: Vec<Atom>,
+    pub(super) expressions: Vec<Atom>,
+}
+
+pub(super) fn shape_facts_with_objectives(
+    plan: &CasePlan,
+    values: &CaseValues,
+    base: &Facts,
+    limit: usize,
+    cancel: &Arc<AtomicBool>,
+    retain_objectives: bool,
+) -> Result<(Facts, Option<ExactObjectives>), MathError> {
     if !base.matches(plan, values) {
         return Err(MathError::Contract(
             "class proof requires current domain facts".into(),
@@ -453,7 +472,7 @@ pub(crate) fn shape_facts(
     let mut facts = base.clone();
     if !matches!(base.class_status, ClassStatus::Unassessed) {
         facts.proof_remaining = allowance.remaining;
-        return Ok(facts);
+        return Ok((facts, None));
     }
     let mut pending = vec![];
     for binding in plan.structure().instances() {
@@ -462,7 +481,7 @@ pub(crate) fn shape_facts(
                 facts.class_status = ClassStatus::RuledOut(ClassWitness::ViolatedObligation {
                     instance: binding.instance,
                 });
-                return Ok(facts);
+                return Ok((facts, None));
             }
             Some(ObligationStatus::Discharged) => {}
             Some(ObligationStatus::Unestablished) | None => {
@@ -488,9 +507,9 @@ pub(crate) fn shape_facts(
     if !pending.is_empty() {
         facts.proof_remaining = allowance.remaining;
         facts.class_status = ClassStatus::Pending(pending);
-        return Ok(facts);
+        return Ok((facts, None));
     }
-    let (formals, expressions, _) =
+    let (formals, mut expressions, _) =
         aggregate_expressions(plan, values, Aggregation::All, &mut allowance, cancel)?;
     allowance.charge(plan.structure().rows().len())?;
     facts.affine = vec![None; plan.structure().rows().len()];
@@ -510,7 +529,7 @@ pub(crate) fn shape_facts(
                 facts.proof_remaining = allowance.remaining;
                 facts.class_status =
                     ClassStatus::RepresentationLimited(ClassWitness::CoefficientRange);
-                return Ok(facts);
+                return Ok((facts, None));
             }
             Err(error) => return Err(error),
         }
@@ -519,7 +538,7 @@ pub(crate) fn shape_facts(
     if let Some(witness) = row_witness {
         facts.proof_remaining = allowance.remaining;
         facts.class_status = ClassStatus::RuledOut(witness);
-        return Ok(facts);
+        return Ok((facts, None));
     }
     facts.objective_degree = Some(0);
     facts.lexicographic_degree = Some(0);
@@ -530,15 +549,21 @@ pub(crate) fn shape_facts(
         .map(library::formal)
         .collect::<Result<Vec<_>, _>>()?;
     facts.objective_linear = vec![true; formals.len()];
-    for level in 0..plan.structure().objectives().len() {
+    let levels = plan.structure().objectives().len();
+    let mut objectives = if retain_objectives {
+        allowance.charge(levels)?;
+        Some(Vec::with_capacity(levels))
+    } else {
+        None
+    };
+    for level in 0..levels {
         allowance.charge(
             expressions
                 .get(&Target::Objective(level))
                 .map_or(0, |atom| atom.as_view().get_byte_size()),
         )?;
         let expression = expressions
-            .get(&Target::Objective(level))
-            .cloned()
+            .remove(&Target::Objective(level))
             .unwrap_or_else(|| Atom::num(0));
         let mut degree = 0;
         for (column, formal) in formals.iter().enumerate() {
@@ -554,7 +579,7 @@ pub(crate) fn shape_facts(
                 facts.class_status =
                     ClassStatus::RuledOut(ClassWitness::NonlinearLaterObjective { level });
                 facts.proof_remaining = allowance.remaining;
-                return Ok(facts);
+                return Ok((facts, None));
             }
             if level == 0 && !first.is_constant() {
                 for other in &formals[column..] {
@@ -564,7 +589,7 @@ pub(crate) fn shape_facts(
                         facts.class_status =
                             ClassStatus::RuledOut(ClassWitness::NonQuadraticObjective { level });
                         facts.proof_remaining = allowance.remaining;
-                        return Ok(facts);
+                        return Ok((facts, None));
                     }
                     if !second.is_zero() {
                         degree = 2;
@@ -579,11 +604,20 @@ pub(crate) fn shape_facts(
                 .lexicographic_degree
                 .map(|previous| previous.max(degree));
         }
+        if let Some(objectives) = &mut objectives {
+            objectives.push(expression);
+        }
     }
     facts.proof_remaining = allowance.remaining;
     facts.class_status = ClassStatus::Established;
     facts.curvature = None;
-    Ok(facts)
+    Ok((
+        facts,
+        objectives.map(|expressions| ExactObjectives {
+            formals,
+            expressions,
+        }),
+    ))
 }
 
 pub(crate) fn aggregate_objectives(
@@ -591,7 +625,7 @@ pub(crate) fn aggregate_objectives(
     values: &CaseValues,
     limit: usize,
     cancel: &Arc<AtomicBool>,
-) -> Result<(Vec<Atom>, Vec<Atom>, usize), MathError> {
+) -> Result<(ExactObjectives, usize), MathError> {
     let mut allowance = Allowance { remaining: limit };
     // Original rows have already been proved and retained as affine coefficients.
     // Rebuilding them here would spend the shared allowance on discarded products.
@@ -623,7 +657,13 @@ pub(crate) fn aggregate_objectives(
     let formals = (0..plan.columns().len())
         .map(library::formal)
         .collect::<Result<Vec<_>, _>>()?;
-    Ok((formals, objectives, allowance.remaining))
+    Ok((
+        ExactObjectives {
+            formals,
+            expressions: objectives,
+        },
+        allowance.remaining,
+    ))
 }
 #[derive(Clone, Copy)]
 enum Aggregation<'a> {

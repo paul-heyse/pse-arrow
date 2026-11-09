@@ -1092,8 +1092,7 @@ fn sparse_flat_weighted_actions_match_analytic_and_entry_products_in_selected_ax
             .census()
             .find(|c| c.order == DerivativeOrder::Second)
             .unwrap();
-        assert!(census.direct_weighted);
-        assert_eq!(census.derivative_components, 2);
+        assert!(!census.direct_weighted);
         assert_eq!(census.second_pairs, 0);
         let mut action = action.worker();
         let mut matrix = entries.worker();

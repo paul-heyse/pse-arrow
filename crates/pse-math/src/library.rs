@@ -75,6 +75,18 @@ impl Pool {
     fn len(&self) -> Result<usize, MathError> {
         Ok(self.read()?.formals.len())
     }
+    #[cfg(test)]
+    pub(crate) fn with_existing_formals<T>(
+        &self,
+        slots: usize,
+        use_formals: impl FnOnce(&[Atom]) -> Result<T, MathError>,
+    ) -> Result<T, MathError> {
+        let symbols = self.read()?;
+        let formals = symbols.formals.get(..slots).ok_or_else(|| {
+            MathError::Contract("formal pool has not admitted the sealed slots".into())
+        })?;
+        use_formals(formals)
+    }
     fn formal(&self, slot: usize) -> Result<Atom, MathError> {
         if let Some(atom) = self.read()?.formals.get(slot) {
             return Ok(atom.clone());

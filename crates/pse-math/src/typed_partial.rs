@@ -2,13 +2,76 @@
 // Copyright (c) 2026 Paul Heyse
 //! Symbolica partials over shared bindings. No arithmetic differentiation rules live here.
 use super::*;
-use symbolica::atom::Indeterminate;
+use std::collections::BTreeMap;
+use symbolica::atom::{AtomView, Indeterminate, Symbol};
 
-struct Binding {
-    value: Atom,
-    call: Atom,
-    partial: Atom,
-    derivative: Atom,
+#[derive(Default)]
+struct Bindings {
+    calls: BTreeMap<Symbol, Atom>,
+    materialized: BTreeMap<Symbol, (Atom, Atom)>,
+}
+impl Bindings {
+    fn insert(&mut self, value: Atom, call: Atom, derivative: Atom) -> Result<(), MathError> {
+        let formal = value
+            .get_symbol()
+            .ok_or_else(|| MathError::Contract("shared binding formal symbol".into()))?;
+        let function = call
+            .get_symbol()
+            .ok_or_else(|| MathError::Contract("shared binding function symbol".into()))?;
+        self.calls.insert(formal, call);
+        self.materialized.insert(function, (value, derivative));
+        Ok(())
+    }
+
+    fn derivative(&self, expression: &Atom, variable: &Indeterminate, argument: &Atom) -> Atom {
+        if self.calls.is_empty() {
+            return expression.derivative(variable.clone());
+        }
+        let lifted = expression.replace_map(|node, _, result| {
+            if let AtomView::Var(formal) = node
+                && let Some(call) = self.calls.get(&formal.get_symbol())
+            {
+                result.set_from_view(&call.as_view());
+            }
+        });
+        lifted
+            .derivative(variable.clone())
+            .replace_map(|node, _, result| {
+                let AtomView::Fun(call) = node else {
+                    return;
+                };
+                let mut args = call.iter();
+                // Symbolica's unary derivative is der(depth, function symbol, argument).
+                // The function identity and arguments are stable across nesting; the
+                // standalone atom's packed representation need not match a nested view.
+                let (symbol, arg, derivative) = if call.get_symbol() == Symbol::DERIVATIVE {
+                    let (Some(depth), Some(AtomView::Var(function)), Some(arg), None) =
+                        (args.next(), args.next(), args.next(), args.next())
+                    else {
+                        return;
+                    };
+                    if !matches!(i64::try_from(depth), Ok(1)) {
+                        return;
+                    }
+                    (function.get_symbol(), arg, true)
+                } else {
+                    let (Some(arg), None) = (args.next(), args.next()) else {
+                        return;
+                    };
+                    (call.get_symbol(), arg, false)
+                };
+                let same_argument = match (arg, argument.as_view()) {
+                    (AtomView::Var(left), AtomView::Var(right)) => {
+                        left.get_symbol() == right.get_symbol()
+                    }
+                    (left, right) => left == right,
+                };
+                if same_argument && let Some((value, partial)) = self.materialized.get(&symbol) {
+                    let replacement = if derivative { partial } else { value };
+                    result.set_from_view(&replacement.as_view());
+                }
+            })
+    }
 }
 
 impl BodyBuilder<'_> {
@@ -29,7 +92,7 @@ impl BodyBuilder<'_> {
             let variable =
                 Indeterminate::try_from(argument.atom.clone()).map_err(MathError::Library)?;
             let stages = self.stages[scope.0..].to_vec();
-            let mut bindings = Vec::new();
+            let mut bindings = Bindings::default();
             for stage in stages {
                 match stage {
                     Stage::Block {
@@ -40,19 +103,15 @@ impl BodyBuilder<'_> {
                         // A block's outputs become visible together, after its inputs.
                         let mut next = Vec::new();
                         for (expression, slot) in expressions.iter().zip(outputs) {
-                            let atom = shared_derivative(expression, &bindings, &variable);
+                            let atom = bindings.derivative(expression, &variable, &argument.atom);
                             let derivative = self.partial_binding(atom, source, &mut work)?;
                             let call =
                                 library::function(slot, std::slice::from_ref(&argument.atom))?;
-                            let partial = call.derivative(variable.clone());
-                            next.push(Binding {
-                                value: library::formal(slot)?,
-                                call,
-                                partial,
-                                derivative,
-                            });
+                            next.push((library::formal(slot)?, call, derivative));
                         }
-                        bindings.extend(next);
+                        for (value, call, derivative) in next {
+                            bindings.insert(value, call, derivative)?;
+                        }
                     }
                     Stage::Require { .. } | Stage::Domain { .. } | Stage::Applicability { .. } => {}
                     _ => {
@@ -62,7 +121,7 @@ impl BodyBuilder<'_> {
                     }
                 }
             }
-            let atom = shared_derivative(&value, &bindings, &variable);
+            let atom = bindings.derivative(&value, &variable, &argument.atom);
             value = self.partial_binding(atom, source, &mut work)?;
         }
         Ok(value)
@@ -89,27 +148,4 @@ impl BodyBuilder<'_> {
         self.tick()?;
         library::formal(self.materialize(atom, source)?)
     }
-}
-
-fn shared_derivative(expression: &Atom, bindings: &[Binding], variable: &Indeterminate) -> Atom {
-    let mut atom = expression.clone();
-    for binding in bindings {
-        if atom.contains(binding.value.as_view()) {
-            atom = atom
-                .replace(binding.value.clone())
-                .with(binding.call.clone());
-        }
-    }
-    atom = atom.derivative(variable.clone());
-    for binding in bindings {
-        atom = atom
-            .replace(binding.partial.clone())
-            .with(binding.derivative.clone());
-    }
-    for binding in bindings {
-        atom = atom
-            .replace(binding.call.clone())
-            .with(binding.value.clone());
-    }
-    atom
 }

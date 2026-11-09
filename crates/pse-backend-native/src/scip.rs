@@ -1319,6 +1319,7 @@ impl Instance {
 
 /// Reserved native options: set from typed settings and shared controls, never by
 /// free-form options. Concurrent and parallel solving need admitted permits (Plan 22 G7).
+const DOMAIN_POLE_OPTIONS: [&str; 2] = ["expr/log/minzerodistance", "expr/pow/minzerodistance"];
 const RESERVED: [&str; 12] = [
     "misc/catchctrlc",
     "limits/time",
@@ -1358,7 +1359,9 @@ pub(crate) fn configure(
 ) -> Result<Options, ProblemError> {
     settings.admit(controls.threads, snapshot)?;
     if let Some(key) = controls.options.keys().find(|k| {
-        RESERVED.contains(&k.as_str()) || RESERVED_PREFIXES.iter().any(|p| k.starts_with(p))
+        RESERVED.contains(&k.as_str())
+            || DOMAIN_POLE_OPTIONS.contains(&k.as_str())
+            || RESERVED_PREFIXES.iter().any(|p| k.starts_with(p))
     }) {
         return Err(ProblemError::Contract(format!(
             "native option {key} conflicts with typed controls"
@@ -1391,6 +1394,8 @@ pub(crate) fn configure(
             OptionValue::Text(settings.nlp_linear_solver.as_str().into()),
         ),
     ];
+    let pole_distance = crate::execution::factorable::POLE_DISTANCE;
+    reserved.extend(DOMAIN_POLE_OPTIONS.map(|key| (key, OptionValue::Real(pole_distance))));
     // Concurrent solving is deterministic, with the admitted permits as its threads. It
     // starts without central presolving: every concurrent solver presolves its own copy of
     // the unpresolved transformed problem, whose variables keep the export's names, so the
@@ -1437,7 +1442,15 @@ pub(crate) fn configure(
     );
     let mut effective = Options::new();
     for (key, kind) in &reserved {
-        effective.insert((*key).into(), instance.option(key, kind)?);
+        let actual = instance.option(key, kind)?;
+        if DOMAIN_POLE_OPTIONS.contains(key)
+            && !matches!(actual, OptionValue::Real(distance) if distance.to_bits() == pole_distance.to_bits())
+        {
+            return Err(ProblemError::Contract(format!(
+                "SCIP {key} differs from the admitted export domain"
+            )));
+        }
+        effective.insert((*key).into(), actual);
     }
     effective.insert(
         "limits/totalnodes".into(),

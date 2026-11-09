@@ -6,6 +6,7 @@ use crate::{
     MathError,
     assembly::CasePlan,
     binding::CaseValues,
+    class_evidence::{ExactObjectives, aggregate_objectives, shape_facts_with_objectives},
     index::{Addend, Entry, GlobalCol, GlobalRow},
     sparse::AssemblyMatrix,
 };
@@ -82,8 +83,11 @@ impl CasePlan {
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
     ) -> Result<Coefficients, MathError> {
-        let facts = self.presolve_facts(values, term_limit, cancel)?;
-        self.coefficients_with_facts(values, &facts, term_limit, cancel)
+        let base = self.presolve_domain_facts(values, term_limit, cancel)?;
+        let (facts, objectives) =
+            shape_facts_with_objectives(self, values, &base, term_limit, cancel, true)?;
+        self.project_coefficients(values, &facts, term_limit, cancel, objectives)
+            .map(|(coefficients, _)| coefficients)
     }
     /// Consume the current shared bound facts rather than reclassifying affine rows.
     pub fn coefficients_with_facts(
@@ -102,6 +106,17 @@ impl CasePlan {
         facts: &crate::presolve::Facts,
         term_limit: usize,
         cancel: &Arc<AtomicBool>,
+    ) -> Result<(Coefficients, usize), MathError> {
+        self.project_coefficients(values, facts, term_limit, cancel, None)
+    }
+
+    pub(super) fn project_coefficients(
+        &self,
+        values: &CaseValues,
+        facts: &crate::presolve::Facts,
+        term_limit: usize,
+        cancel: &Arc<AtomicBool>,
+        objectives: Option<ExactObjectives>,
     ) -> Result<(Coefficients, usize), MathError> {
         if !facts.matches(self, values) || !facts.coefficient_eligible() {
             return Err(MathError::Contract(
@@ -180,16 +195,26 @@ impl CasePlan {
                 }
             }
         }
-        let (formals, objectives, remaining) =
-            crate::class_evidence::aggregate_objectives(self, values, allowance.remaining, cancel)?;
-        allowance.remaining = remaining;
+        let ExactObjectives {
+            formals,
+            expressions,
+        } = if let Some(objectives) = objectives {
+            objectives
+        } else {
+            // A separately requested projection can consume retained facts, which
+            // deliberately carry no objective expressions across requests.
+            let (objectives, remaining) =
+                aggregate_objectives(self, values, allowance.remaining, cancel)?;
+            allowance.remaining = remaining;
+            objectives
+        };
         let width = formals.len();
         let capacity = width
             .checked_add(1)
             .and_then(|w| w.checked_mul(w + 1))
             .map(|v| v / 2)
             .ok_or(MathError::Limit("quadratic coefficient capacity"))?;
-        for (level, expression) in objectives.iter().enumerate() {
+        for (level, expression) in expressions.into_iter().enumerate() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }

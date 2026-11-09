@@ -2981,7 +2981,7 @@ pub(crate) fn admit_profile(
 /// The existing retained witness or the premises for creating one under admission.
 #[derive(Clone, Copy)]
 pub(crate) enum OracleWitness<'a> {
-    #[cfg(any(test, feature = "solver-diffsol"))]
+    #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-ipopt")))]
     Fresh {
         bounds: &'a [(f64, f64)],
         cancel: &'a std::sync::atomic::AtomicBool,
@@ -3011,7 +3011,7 @@ pub(crate) fn admit_oracle_route(
     let reservation = pse_columnar::MemoryConsumer::new("native:oracle-structure").register(pool);
     reservation.try_grow(extent)?;
     let structure = match request.witness {
-        #[cfg(any(test, feature = "solver-diffsol"))]
+        #[cfg(any(feature = "solver-diffsol", all(test, feature = "solver-ipopt")))]
         OracleWitness::Fresh { bounds, cancel } => {
             let mut structure = native::structural::oracle_structure_with_cancel(
                 request.contract,
@@ -4040,22 +4040,23 @@ impl MathService {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         profile: SolverProfile,
         numerics: pse_math::SharedAllocation<ResolvedNumericalPolicy>,
-        route: Route,
+        selection: super::initialization::ConditionalSelection,
         snapshot: execution::Snapshot,
         scope: &pse_kernels::ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<PreparedSolve, MathRuntimeError> {
-        let Route::Native(selected) = route else {
-            return Err(ProblemError::Contract(
-                "conditional block needs a selected native route".into(),
-            )
-            .into());
-        };
         let (prepared, executable) = self
-            .conditional_program(prepared, executable, &profile, selected, scope, driver)
+            .conditional_program(prepared, executable, selection.callbacks, scope, driver)
             .await?;
         self.prepare_conditional_bound(
-            prepared, executable, values, providers, profile, numerics, route, snapshot,
+            prepared,
+            executable,
+            values,
+            providers,
+            profile,
+            numerics,
+            selection.route,
+            snapshot,
         )
     }
     /// Prepare the selected block's derivative/JVP ceiling once, before execution.
@@ -4064,16 +4065,10 @@ impl MathService {
         self: &Arc<Self>,
         prepared: Preparation,
         executable: Arc<ExecutableCase>,
-        profile: &SolverProfile,
-        selected: Backend,
+        demand: execution::CallbackDemand,
         scope: &pse_kernels::ExecutionScope,
         driver: &crate::CancelSource,
     ) -> Result<(Preparation, Arc<ExecutableCase>), MathRuntimeError> {
-        let mut profile = profile.clone();
-        profile.resolve_curvature(prepared.prepared.plan.available_order());
-        profile.controls.validate()?;
-        let demand =
-            execution::adapter(selected).callback_demand(&profile.backend, &profile.controls)?;
         let mut changed = false;
         let prepared = if let Some(order) = demand.assembled_derivatives
             && prepared.prepared.plan.order() < order

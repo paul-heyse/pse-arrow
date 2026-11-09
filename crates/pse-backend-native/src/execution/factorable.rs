@@ -8,7 +8,7 @@
 //!
 //! Admission and the export plan are library-neutral and testable without a backend:
 //! - every exported function is a row with a projection, an unconditional obligation
-//!   (strict bounds closed by [`STRICT_MARGIN`]), or an implicit residual (`== 0`) or bound;
+//!   (strict bounds closed only as a sound relaxation), or an implicit residual (`== 0`) or bound;
 //! - rows without a projection are dropped, which keeps the export a sound relaxation;
 //! - a semi column is lowered by the named, exact `semi(indicator)` transformation
 //!   (ADR-0103 Outcome 7, ADR-0104): a binary indicator coordinate `z` and the links
@@ -42,9 +42,9 @@ use pse_math::{
 use pse_model::generated::enums::ModelingVariableDomain;
 use std::collections::BTreeMap;
 
-/// Relative margin that closes a strict obligation bound: `x > b` exports as
-/// `x >= b + STRICT_MARGIN * max(1, |b|)`, and `x < b` symmetrically.
-pub(crate) const STRICT_MARGIN: f64 = 1e-9;
+/// Pinned SCIP log and power handlers must use this pole distance. The export
+/// checks against it before native admission; free-form settings cannot raise it.
+pub(crate) const POLE_DISTANCE: f64 = 1e-9;
 /// Largest affine form tracked for one node; larger forms export as expressions.
 const AFFINE_TERMS: usize = 4096;
 
@@ -118,6 +118,7 @@ fn pricing_allocation_extent(
                 .checked_mul(size_of::<usize>())?,
         )?
         .checked_add(nodes.checked_mul(2 * size_of::<bool>())?)?
+        .checked_add(nodes.checked_mul(pse_math::curvature::CLOSED_EXPORT_INTERVAL_BYTES)?)?
         .checked_add(size_of::<Plan<'_>>())
 }
 /// Construction extent of callback-order selection, before its pure algebraic
@@ -200,6 +201,8 @@ pub enum Refusal {
     ObjectiveUnavailable,
     /// A backend closure relaxes the selected graph of an exact-only request.
     ExactRequired,
+    /// A reachable exported expression is not proved safe on the relaxed box.
+    UnsafeClosure(NodeId),
     /// A variable or auxiliary inside a nonlinear term has no finite box; spatial
     /// branch-and-bound needs one.
     UnboundedNonlinear(MissingBound),
@@ -238,6 +241,12 @@ impl Refusal {
         let kind = match self {
             Self::ObjectiveUnavailable => "objective_unavailable",
             Self::ExactRequired => "exact_required",
+            Self::UnsafeClosure(node) => {
+                diagnostic
+                    .observations
+                    .insert("node".into(), Observation::Text(node.to_string()));
+                "unsafe_closure"
+            }
             Self::UnboundedNonlinear(missing) => {
                 match missing.owner {
                     BoundOwner::Variable(id) => {
@@ -308,6 +317,10 @@ impl std::fmt::Display for Refusal {
             Self::ObjectiveUnavailable => {
                 f.write_str("the objective has no factorable projection, so no bound exists")
             }
+            Self::UnsafeClosure(node) => write!(
+                f,
+                "node {node} is not proved safe on the closed native export domain"
+            ),
             Self::UnboundedNonlinear(m) => {
                 match m.owner {
                     BoundOwner::Variable(id) => write!(f, "variable {id}")?,
@@ -582,20 +595,6 @@ fn selected_closure(c: &Constraint) -> (f64, f64, Fidelity) {
         },
     )
 }
-fn close(c: &Constraint) -> (f64, f64) {
-    let margin = |b: f64| STRICT_MARGIN * b.abs().max(1.0);
-    let lower = if c.strict && c.lower.is_finite() {
-        c.lower + margin(c.lower)
-    } else {
-        c.lower
-    };
-    let upper = if c.strict && c.upper.is_finite() {
-        c.upper - margin(c.upper)
-    } else {
-        c.upper
-    };
-    (lower, upper)
-}
 fn column_box(domain: ModelingVariableDomain, lower: f64, upper: f64) -> (f64, f64) {
     if domain == ModelingVariableDomain::Binary {
         (lower.max(0.0), upper.min(1.0))
@@ -822,13 +821,15 @@ pub(crate) fn plan(
     }
     for (o, obligation) in program.obligations.iter().enumerate() {
         if obligation.scope != pse_math::factorable::ObligationScope::Unconditional {
+            fidelity = fidelity.max(Fidelity::Relaxed);
             continue;
         }
         fidelity = fidelity.max(obligation.fidelity);
         for (k, predicate) in obligation.predicates.iter().enumerate() {
             match predicate {
                 Predicate::Range(c) => {
-                    let (lower, upper) = close(c);
+                    let (lower, upper, closure_fidelity) = selected_closure(c);
+                    fidelity = fidelity.max(closure_fidelity);
                     constraints.push(Function {
                         expression: Expression::Node(c.expression),
                         lower,
@@ -927,11 +928,22 @@ pub(crate) fn plan(
         reachable[root] = true;
     }
     let mut nonlinear = vec![false; nodes.len()];
+    let mut partial_operator = false;
     for i in (0..nodes.len()).rev() {
         if !reachable[i] {
             continue;
         }
         let node = &nodes[i];
+        // A guard discharged by the mathematical box can still be stricter in
+        // SCIP (log and negative powers enforce a nonzero pole distance).
+        partial_operator |= match node {
+            Node::Log(_) => true,
+            Node::Pow { exponent, .. } => {
+                let p = exponent.value();
+                p < 0.0 || p.fract() != 0.0
+            }
+            _ => false,
+        };
         if let Node::Const(c) = node
             && !c.value().is_finite()
         {
@@ -980,6 +992,18 @@ pub(crate) fn plan(
         }
     }
     refusals.extend(unbounded.into_values().map(Refusal::UnboundedNonlinear));
+    if partial_operator
+        && refusals.is_empty()
+        && let Some(node) = pse_math::curvature::unsafe_closed_export_node(
+            nodes,
+            &reachable,
+            &boxes,
+            columns,
+            POLE_DISTANCE,
+        )
+    {
+        refusals.push(Refusal::UnsafeClosure(node));
+    }
     if !refusals.is_empty() {
         return Err(refusals);
     }
@@ -1971,7 +1995,7 @@ mod selected_graph_tests {
     }
 
     #[test]
-    fn closed_export_preserves_mixed_predicate_order_and_existing_range_policy() {
+    fn closed_export_keeps_strict_endpoints_and_relaxes_fidelity() {
         let mut program = guarded_program(&[
             Condition::Positive,
             Condition::Nonzero,
@@ -1991,7 +2015,7 @@ mod selected_graph_tests {
         assert_eq!(exported.constraints.len(), 2);
         assert_eq!(exported.constraints[0].origin, Origin::Obligation(0, 0));
         assert_eq!(exported.constraints[1].origin, Origin::Obligation(0, 2));
-        assert_eq!(exported.constraints[0].lower, STRICT_MARGIN);
+        assert_eq!(exported.constraints[0].lower, 0.0);
         assert_eq!(exported.constraints[1].lower, 0.0);
         assert!(
             exported
@@ -1999,13 +2023,80 @@ mod selected_graph_tests {
                 .iter()
                 .all(|c| c.upper == f64::INFINITY)
         );
-        // Removing the exclusion removes the transport loss. The old strict-range
-        // policy remains independent of the newly representable exclusion.
+        // Even without the omitted exclusion, a closed strict range is relaxed.
         program.obligations[0].predicates.remove(1);
-        program.require_exact = true;
         assert_eq!(
             plan(&program, SolveIntent::Optimize).unwrap().fidelity,
+            Fidelity::Relaxed
+        );
+        program.require_exact = true;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Optimize),
+            vec![Refusal::ExactRequired]
+        );
+    }
+
+    #[test]
+    fn strict_export_refuses_unsafe_reachable_operator() {
+        let mut program = guarded_program(&[Condition::Positive]);
+        let operand = program.objective.as_ref().unwrap().expression.unwrap();
+        let logarithm = program.nodes.len();
+        program.nodes.push(Node::Log(operand));
+        program.rows.push(pse_math::factorable::ProjectedRow {
+            id: SemanticId::from_bytes([45; 16]),
+            expression: Some(logarithm),
+            lower: -10.0,
+            upper: 10.0,
+            fidelity: Fidelity::Exact,
+        });
+        program.variables[0].lower = 0.0;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Certify),
+            vec![Refusal::UnsafeClosure(logarithm)]
+        );
+        program.variables[0].lower = 0.25;
+        assert_eq!(
+            plan(&program, SolveIntent::Certify).unwrap().fidelity,
+            Fidelity::Relaxed
+        );
+        program.obligations.clear();
+        program.variables[0].lower = 1e-12;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Certify),
+            vec![Refusal::UnsafeClosure(logarithm)]
+        );
+        program.variables[0].lower = 0.25;
+        assert_eq!(
+            plan(&program, SolveIntent::Certify).unwrap().fidelity,
             Fidelity::Exact
+        );
+        program.nodes[logarithm] = Node::Pow {
+            base: operand,
+            exponent: pse_math::factorable::Constant::Float(-1.0),
+        };
+        program.variables[0].lower = -1.0;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Certify),
+            vec![Refusal::UnsafeClosure(logarithm)]
+        );
+        program.variables[0].upper = -0.25;
+        assert_eq!(
+            plan(&program, SolveIntent::Certify).unwrap().fidelity,
+            Fidelity::Exact
+        );
+    }
+
+    #[test]
+    fn unexported_conditional_guard_is_not_exact_or_hoisted() {
+        let mut program = guarded_program(&[Condition::Nonzero]);
+        program.obligations[0].scope = ObligationScope::Conditional;
+        let exported = plan(&program, SolveIntent::Optimize).unwrap();
+        assert!(exported.constraints.is_empty());
+        assert_eq!(exported.fidelity, Fidelity::Relaxed);
+        program.require_exact = true;
+        assert_eq!(
+            admit_program(&program, SolveIntent::Optimize),
+            vec![Refusal::ExactRequired]
         );
     }
 

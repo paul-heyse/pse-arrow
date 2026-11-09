@@ -1179,6 +1179,95 @@ fn relaxed_export_bound_only() {
 }
 
 #[test]
+fn strict_domain_certification_bounds_unattained_infimum() {
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let mut x = b.x[0].clone();
+    b.b.require(
+        &mut x,
+        pse_math::guarded::Condition::Positive,
+        DerivativeOrder::Value,
+        id(210),
+    )
+    .unwrap();
+    let body = b.b.prepare(&[x]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(0.0),
+            Some(1.0),
+            0.5,
+        )],
+        &[],
+        Some((0, ObjectiveSense::Minimize)),
+        DerivativeOrder::Value,
+    );
+    let mut original = Original(&case);
+    assert!(original.evaluate(&[0.0]).is_err());
+    assert_eq!(original.evaluate(&[1e-12]).unwrap().objective, Some(1e-12));
+    let program = case.program(&FactorableRequest::default());
+    let report = run(&case, &program, SolveIntent::Certify, false, false).unwrap();
+    let evidence = report.evidence.global.unwrap();
+    assert_eq!(evidence.fidelity, Fidelity::Relaxed);
+    assert_eq!(evidence.dual, BoundSource::RelaxedExport);
+    assert!(evidence.dual_bound.unwrap().abs() <= 1e-12);
+    assert_eq!(report.termination.assurance, Assurance::GlobalBound);
+    assert!(!matches!(
+        report.qualification,
+        Qualification::GapQualified | Qualification::OptimalWithinTolerance
+    ));
+}
+
+#[test]
+fn algebraically_equal_arms_do_not_certify_an_unprojected_guarded_value() {
+    use pse_math::guarded::Comparison;
+    let registry = standard_registry().unwrap();
+    let mut b = Body::new(&registry, 1);
+    let x = b.x[0].clone();
+    let zero = b.c(0.0);
+    let one = b.c(1.0);
+    let guard = b.b.compare(Comparison::Le, &zero, &x, id(211)).unwrap();
+    let out =
+        b.b.conditional(
+            guard,
+            |body| body.binary(Binary::Div, x.clone(), x, None, id(212)),
+            |_| Ok(one),
+            id(213),
+        )
+        .unwrap();
+    let body = b.b.prepare(&[out]).unwrap();
+    let case = case(
+        &registry,
+        body,
+        &[(
+            ModelingVariableDomain::Continuous,
+            Some(-1.0),
+            Some(1.0),
+            -0.5,
+        )],
+        &[],
+        Some((0, ObjectiveSense::Minimize)),
+        DerivativeOrder::Value,
+    );
+    let mut original = Original(&case);
+    assert_eq!(original.evaluate(&[-0.5]).unwrap().objective, Some(1.0));
+    assert_eq!(original.evaluate(&[0.5]).unwrap().objective, Some(1.0));
+    assert!(original.evaluate(&[0.0]).is_err());
+    let program = case.program(&FactorableRequest::default());
+    assert!(program.obligations.iter().any(|obligation| {
+        obligation.scope == pse_math::factorable::ObligationScope::Conditional
+    }));
+    // This actual branch has no independently established factorable value:
+    // the pre-normalization guard materializes a separate denominator slot.
+    assert!(matches!(
+        run(&case, &program, SolveIntent::Certify, false, false),
+        Err(ProblemError::Unsupported(message)) if message.contains("objective has no factorable projection")
+    ));
+}
+
+#[test]
 fn unbounded_variable_refused_for_spatial_branching() {
     let registry = standard_registry().unwrap();
     let case = quartic(&registry, (None, Some(2.0)));
