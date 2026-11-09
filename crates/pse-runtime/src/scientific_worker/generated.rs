@@ -13,5 +13,5 @@ mod validation;
 #[allow(unused_qualifications, elided_lifetimes_in_paths, trivial_numeric_casts, missing_debug_implementations, missing_docs, reason = "Pinned service generator surface")]
 #[allow(clippy::match_single_binding, reason = "Pinned unary service generator emits empty streaming branches")]
 pub mod services {
-    include!("../generated/scientific-worker/services/pse.scientific_worker.v1.mod.rs");
+    include!("../generated/scientific-worker/services/pse.scientific_worker.v2.mod.rs");
 }

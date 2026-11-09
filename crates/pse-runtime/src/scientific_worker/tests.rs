@@ -152,12 +152,25 @@ fn scope() -> ExecutionScope {
     ExecutionScope::new(pse_diagnostics::Cancellation::default(), None)
 }
 
+fn prepare_session(
+    handle: SessionHandle,
+    factory: &Factory,
+    expected: &ProviderSpec,
+    configuration: ContentHash,
+    request: ProviderRequest,
+    scope: ExecutionScope,
+    result_limit: usize,
+) -> Result<PreparedSession, WorkerError> {
+    let checked = PreparedProviderRequest::new(Arc::new(expected.clone()), request)?;
+    PreparedSession::prepare(handle, factory, configuration, checked, scope, result_limit)
+}
+
 #[test]
 fn failed_native_preparation_preserves_original_and_finish_causes() {
     let mut factory = factory();
     factory.linearization = true;
     factory.fail_finish = true;
-    let error = PreparedSession::prepare(
+    let error = prepare_session(
         handle(),
         &factory,
         factory.spec(),
@@ -189,7 +202,7 @@ fn failed_native_preparation_preserves_original_and_finish_causes() {
 fn failed_session_close_is_physically_finished_once() {
     let mut factory = factory();
     factory.fail_finish = true;
-    let mut session = PreparedSession::prepare(
+    let mut session = prepare_session(
         handle(),
         &factory,
         factory.spec(),
@@ -219,7 +232,7 @@ fn failed_session_close_is_physically_finished_once() {
 fn native_finish_panic_is_typed_and_does_not_escape_or_retry_the_finished_owner() {
     let mut factory = factory();
     factory.panic_finish = true;
-    let mut session = PreparedSession::prepare(
+    let mut session = prepare_session(
         handle(),
         &factory,
         factory.spec(),
@@ -249,7 +262,7 @@ fn recoverable_preparation_trial_with_failed_finish_has_nonrecoverable_aggregate
     let mut factory = factory();
     factory.prepare_trial = true;
     factory.fail_finish = true;
-    let error = PreparedSession::prepare(
+    let error = prepare_session(
         handle(),
         &factory,
         factory.spec(),
@@ -286,7 +299,7 @@ fn recoverable_preparation_trial_with_failed_finish_has_nonrecoverable_aggregate
 #[test]
 fn session_preserves_coherent_jets_and_refuses_stale_or_replayed_invocations() {
     let factory = factory();
-    let mut session = PreparedSession::prepare(
+    let mut session = prepare_session(
         handle(),
         &factory,
         &factory.spec,
@@ -334,7 +347,7 @@ fn stopping_one_prepared_handle_preserves_an_independent_session() {
     let mut second_handle = handle();
     second_handle.generation = SemanticId::from_bytes([4; 16]);
     let prepare = |handle, scope| {
-        PreparedSession::prepare(
+        prepare_session(
             handle,
             &factory,
             &factory.spec,
@@ -368,7 +381,7 @@ fn stopping_one_prepared_handle_preserves_an_independent_session() {
 #[test]
 fn session_partial_trial_refusal_does_not_publish_old_or_partial_completion() {
     let factory = factory();
-    let mut session = PreparedSession::prepare(
+    let mut session = prepare_session(
         handle(),
         &factory,
         &factory.spec,
@@ -404,7 +417,7 @@ fn session_admission_checks_actual_configuration_products_and_original_deadline(
     let factory = factory();
     let request = ProviderRequest::all(&factory.spec, DerivativeOrder::Second);
     assert!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &factory.spec,
@@ -419,7 +432,7 @@ fn session_admission_checks_actual_configuration_products_and_original_deadline(
     action.order = DerivativeOrder::First;
     action.demand = ProviderDemand::JacobianAction { directions: 1 };
     assert!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &factory.spec,
@@ -431,7 +444,7 @@ fn session_admission_checks_actual_configuration_products_and_original_deadline(
         .is_err()
     );
     assert!(matches!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &factory.spec,
@@ -446,7 +459,7 @@ fn session_admission_checks_actual_configuration_products_and_original_deadline(
         Err(WorkerError::Provider(ProviderError::Deadline))
     ));
     assert!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &factory.spec,
@@ -467,7 +480,7 @@ fn session_refuses_changed_data_physical_ports_and_unadmitted_linearization() {
     let mut changed = factory.spec.clone();
     changed.data = ContentHash::from_bytes([8; 32]);
     assert!(matches!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &changed,
@@ -481,7 +494,7 @@ fn session_refuses_changed_data_physical_ports_and_unadmitted_linearization() {
     let mut changed = factory.spec.clone();
     changed.inputs[0].unit = pse_quantity::UnitId::from_id(SemanticId::NIL);
     assert!(matches!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &changed,
@@ -494,7 +507,7 @@ fn session_refuses_changed_data_physical_ports_and_unadmitted_linearization() {
     ));
     factory.linearization = true;
     assert!(matches!(
-        PreparedSession::prepare(
+        prepare_session(
             handle(),
             &factory,
             &factory.spec,

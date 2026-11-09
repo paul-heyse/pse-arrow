@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Synchronous provider placement with original-scope process and I/O custody.
 use super::{
-    PreparedExecutable, ProcessCustody, SessionHandle, WorkerError, handler, infrastructure,
+    PreparedExecutable, ProcessCustody, WorkerError, handler, infrastructure,
     transport::{DECODE_LIMIT, FRAME_LIMIT, IoOwner, NATIVE_STACK},
 };
 use pse_backend_native::coolprop::{WaterFactory, WaterRegime};
@@ -212,7 +212,7 @@ struct Proxy {
     scope: ExecutionScope,
     attempt: SemanticId,
     remote: Option<Remote>,
-    prepared: Vec<(ProviderRequest, p::Handle, bool)>,
+    prepared: Vec<(ProviderRequest, p::SessionHandle, bool)>,
     invocation: u64,
     failed: bool,
 }
@@ -304,15 +304,11 @@ impl Proxy {
             None => error,
         }
     }
-    fn handle_for(&self, request: &PreparedProviderRequest) -> Option<p::Handle> {
+    fn handle_for(&self, request: &PreparedProviderRequest) -> Option<p::SessionHandle> {
         self.prepared
             .iter()
-            .find(|(actual, _, _)| {
-                actual.outputs == request.outputs
-                    && actual.order == request.order
-                    && actual.demand == request.demand
-            })
-            .map(|(_, handle, _)| handle.clone())
+            .find(|(actual, _, _)| actual == request.request())
+            .map(|(_, handle, _)| *handle)
     }
     fn prepare(&mut self, request: &PreparedProviderRequest) -> Result<(), WorkerError> {
         self.scope.check()?;
@@ -322,20 +318,23 @@ impl Proxy {
         if self.prepared.len() >= 64 {
             return Err(ProviderError::Limit("scientific worker prepared demand count").into());
         }
+        if request.outputs.len() > p::MAXIMUM_PREPARED_OUTPUTS {
+            return Err(ProviderError::Limit("scientific worker selected outputs").into());
+        }
         self.launch()?;
         let remote = self
             .remote
             .as_ref()
             .ok_or_else(|| infrastructure("scientific worker process absent"))?;
-        let handle = p::Handle::from(SessionHandle {
+        let handle = p::SessionHandle {
             attempt: self.attempt,
             session: remote.session,
             generation: pse_operations::mint_id(),
-        });
+        };
         let remaining_ns = scientific_remaining_ns(&self.scope, Instant::now())?;
         let prepare = p::Prepare {
-            version: 2,
-            handle: handle.clone(),
+            version: p::PREPARE_VERSION,
+            handle,
             spec: self.factory.descriptor.clone(),
             configuration: self.factory.water.configuration_key(),
             registry: self.factory.registry.as_ref().clone(),
@@ -346,9 +345,7 @@ impl Proxy {
                 WaterRegime::Supercritical => "supercritical",
             }
             .into(),
-            outputs: request.outputs.iter().map(|&n| n as u64).collect(),
-            order: request.order as u32,
-            demand: p::Demand::from(&request.demand),
+            request: request.request().clone(),
             remaining_ns,
             // Transient grouped numerical storage is admitted by the launch reservation's frame
             // allowance. Preparation still allocates only this demand's scalar scratch.
@@ -399,7 +396,7 @@ impl Provider for Proxy {
                 pse_diagnostics::Cancellation::default(),
                 Instant::now().checked_add(Duration::from_millis(100)),
             );
-            let result = remote.exchange(p::Request::Close(handle.clone()), &cleanup, None);
+            let result = remote.exchange(p::Request::Close(handle), &cleanup, None);
             match result {
                 Ok(p::Response::Closed(actual)) if actual == handle => {}
                 Ok(p::Response::Failure(value)) => failures.push(WorkerError::Lifecycle {
@@ -474,7 +471,7 @@ impl Provider for Proxy {
                 .ok_or_else(|| infrastructure("scientific worker binding is invalidated"))?;
             match remote.exchange(
                 p::Request::EvaluateBatch(p::EvaluateBatch {
-                    handle: handle.clone(),
+                    handle,
                     invocation: self.invocation,
                     points: points
                         .iter()
@@ -579,7 +576,7 @@ impl Provider for Proxy {
                 .ok_or_else(|| infrastructure("scientific worker binding is invalidated"))?;
             let response = remote.exchange(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: handle.clone(),
+                    handle,
                     invocation: self.invocation,
                     inputs: inputs.to_vec(),
                     directions: runtime.directions.to_vec(),

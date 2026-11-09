@@ -4,13 +4,13 @@ use super::{
     encode_root, decode_root, items, from_items, unique_pairs, wire_map,
 };
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
 > for pse_model::applicability::Claim {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
         AdapterError,
     > {
         layout(
@@ -49,7 +49,7 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim {
             id: field_0
                 .map(|value| -> Result<_, AdapterError> {
                     Ok(
@@ -104,14 +104,14 @@ impl NativeInto<
             layer: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
                 >(field_9, &child_path(path, "layer"))?,
             ),
             basis: field_10
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
@@ -126,10 +126,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
 > for pse_model::applicability::Claim {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -240,7 +240,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
             >(
                 required(wire.layer.into_option(), &child_path(path, "layer"))?,
                 &child_path(path, "layer"),
@@ -251,7 +251,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
@@ -269,13 +269,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
 > for pse_model::applicability::Input {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
         AdapterError,
     > {
         layout(
@@ -288,7 +288,7 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput {
             name: native_into::<_, String>(field_0, &child_path(path, "name"))?,
             value: native_into::<_, u64>(field_1, &child_path(path, "value"))?,
             quantity_type: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
@@ -299,10 +299,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
 > for pse_model::applicability::Input {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -328,13 +328,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
 > for pse_model::applicability::Observation {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
         AdapterError,
     > {
         layout(
@@ -367,11 +367,11 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation {
             claim: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
                 >(field_0, &child_path(path, "claim"))?,
             ),
             instance: field_1
@@ -390,7 +390,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -398,7 +398,7 @@ impl NativeInto<
             outcome: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
                 >(field_3, &child_path(path, "outcome"))?,
             ),
             required: native_into::<_, bool>(field_4, &child_path(path, "required"))?,
@@ -409,7 +409,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -428,10 +428,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
 > for pse_model::applicability::Observation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -455,7 +455,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityClaim,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityClaim,
             >(
                 required(wire.claim.into_option(), &child_path(path, "claim"))?,
                 &child_path(path, "claim"),
@@ -478,7 +478,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityInput,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityInput,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -486,7 +486,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
             >(
                 required(wire.outcome.into_option(), &child_path(path, "outcome"))?,
                 &child_path(path, "outcome"),
@@ -501,7 +501,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -524,13 +524,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
 > for pse_model::applicability::Permission {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
         AdapterError,
     > {
         layout(
@@ -550,7 +550,7 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission {
             id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
@@ -560,7 +560,7 @@ impl NativeInto<
             target_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
                 >(field_2, &child_path(path, "target_kind"))?,
             ),
             targets: items(field_3)
@@ -581,10 +581,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
 > for pse_model::applicability::Permission {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityPermission,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityPermission,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -613,7 +613,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
             >(
                 required(
                     wire.target_kind.into_option(),
@@ -652,13 +652,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
 > for [u8; 16] {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
         AdapterError,
     > {
         layout(
@@ -671,7 +671,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8 {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8 {
             values: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
@@ -680,10 +680,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
 > for [u8; 16] {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -707,13 +707,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
 > for [[u8; 16]; 3] {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
         AdapterError,
     > {
         layout(
@@ -726,7 +726,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8 {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8 {
             values: {
                 let current_path = &child_path(path, "values");
                 items(field_0)
@@ -734,7 +734,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -744,10 +744,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
 > for [[u8; 16]; 3] {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -768,7 +768,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -782,13 +782,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
 > for [Option<pse_quantity::ids::UnitId>; 8] {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
         AdapterError,
     > {
         layout(
@@ -805,18 +805,18 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId {
             values: {
                 let current_path = &child_path(path, "values");
                 items(field_0)
                     .enumerate()
                     .map(|(index, value)| -> Result<_, AdapterError> {
-                        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::array8optional_unit_id::Field1Value {
+                        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::array8optional_unit_id::Field1Value {
                             value: value
                                 .map(|value| -> Result<_, AdapterError> {
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                                     >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .transpose()?
@@ -831,10 +831,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
 > for [Option<pse_quantity::ids::UnitId>; 8] {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -869,7 +869,7 @@ impl NativeFrom<
                                 .map(|value| -> Result<_, AdapterError> {
                                     native_from::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                                     >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .transpose()
@@ -886,13 +886,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
 > for [pse_quantity::dimension::Ratio; 8] {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
         AdapterError,
     > {
         layout(
@@ -905,7 +905,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio {
             values: {
                 let current_path = &child_path(path, "values");
                 items(field_0)
@@ -913,7 +913,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -923,10 +923,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
 > for [pse_quantity::dimension::Ratio; 8] {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -947,7 +947,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -961,13 +961,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
 > for pse_quantity::ids::BasisId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
         AdapterError,
     > {
         layout(
@@ -980,7 +980,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -991,10 +991,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
 > for pse_quantity::ids::BasisId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1018,26 +1018,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
 > for pse_quantity::enums::BasisKind {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
 > for pse_quantity::enums::BasisKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1051,26 +1051,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
 > for pse_quantity::enums::BasisRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
 > for pse_quantity::enums::BasisRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1084,13 +1084,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
 > for pse_kernels::worker_protocol::Batch {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
         AdapterError,
     > {
         layout(
@@ -1103,11 +1103,11 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch {
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_0, &child_path(path, "handle"))?,
             ),
             invocation: native_into::<_, u64>(field_1, &child_path(path, "invocation"))?,
@@ -1118,7 +1118,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -1128,10 +1128,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
 > for pse_kernels::worker_protocol::Batch {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1145,7 +1145,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
@@ -1160,7 +1160,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -1174,13 +1174,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
 > for pse_kernels::worker_protocol::BatchOutcome {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
         AdapterError,
     > {
         layout(
@@ -1193,14 +1193,14 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome {
             id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
             result: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
                 >(field_1, &child_path(path, "result"))?,
             ),
             ..Default::default()
@@ -1208,10 +1208,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
 > for pse_kernels::worker_protocol::BatchOutcome {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchOutcome,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchOutcome,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1229,7 +1229,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
             >(
                 required(wire.result.into_option(), &child_path(path, "result"))?,
                 &child_path(path, "result"),
@@ -1242,13 +1242,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
 > for pse_kernels::worker_protocol::BatchPoint {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
         AdapterError,
     > {
         layout(
@@ -1267,7 +1267,7 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint {
             id: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
@@ -1324,10 +1324,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
 > for pse_kernels::worker_protocol::BatchPoint {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1417,13 +1417,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
 > for pse_kernels::worker_protocol::BatchProduct {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
         AdapterError,
     > {
         layout(
@@ -1436,7 +1436,7 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct {
             values: {
                 let current_path = &child_path(path, "values");
                 items(field_0)
@@ -1478,10 +1478,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
 > for pse_kernels::worker_protocol::BatchProduct {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1546,13 +1546,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
 > for pse_kernels::worker_protocol::BatchResult {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
         AdapterError,
     > {
         let value = self;
@@ -1573,14 +1573,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Product");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::batch_result::Kind::Product(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::batch_result::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::batch_result::Kind::Product(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::batch_result::Alternative1 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -1609,14 +1609,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Refused");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::batch_result::Kind::Refused(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::batch_result::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::batch_result::Kind::Refused(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::batch_result::Alternative2 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -1639,10 +1639,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
 > for pse_kernels::worker_protocol::BatchResult {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchResult,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchResult,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1654,7 +1654,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::batch_result::Kind::Product(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::batch_result::Kind::Product(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Product");
@@ -1675,7 +1675,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchProduct,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchProduct,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -1687,7 +1687,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::batch_result::Kind::Refused(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::batch_result::Kind::Refused(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Refused");
@@ -1708,7 +1708,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -1724,26 +1724,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
 > for pse_quantity::enums::CompositionBasis {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
 > for pse_quantity::enums::CompositionBasis {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1757,13 +1757,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
 > for pse_quantity::ids::ConversionId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
         AdapterError,
     > {
         layout(
@@ -1776,7 +1776,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -1787,10 +1787,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
 > for pse_quantity::ids::ConversionId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1814,26 +1814,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
 > for pse_quantity::enums::ConversionKind {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
 > for pse_quantity::enums::ConversionKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1847,13 +1847,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
 > for pse_quantity::DefinedUnit {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
         AdapterError,
     > {
         layout(
@@ -1866,11 +1866,11 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             symbol: native_into::<_, String>(field_1, &child_path(path, "symbol"))?,
@@ -1881,7 +1881,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -1891,10 +1891,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
 > for pse_quantity::DefinedUnit {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1908,7 +1908,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -1923,7 +1923,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -1937,13 +1937,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
 > for pse_quantity::DerivedKind {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
         AdapterError,
     > {
         layout(
@@ -1956,24 +1956,24 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             extensive: native_into::<_, bool>(field_1, &child_path(path, "extensive"))?,
             addition_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
                 >(field_2, &child_path(path, "addition_kind"))?,
             ),
             definition: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
                 >(field_3, &child_path(path, "definition"))?,
             ),
             ..Default::default()
@@ -1981,10 +1981,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
 > for pse_quantity::DerivedKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -1998,7 +1998,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -2006,7 +2006,7 @@ impl NativeFrom<
             native_from::<_, bool>(wire.extensive, &child_path(path, "extensive"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
             >(
                 required(
                     wire.addition_kind.into_option(),
@@ -2016,7 +2016,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
             >(
                 required(
                     wire.definition.into_option(),
@@ -2032,385 +2032,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-> for pse_kernels::worker_protocol::Demand {
-    fn into_wire(
-        self,
-        path: &str,
-    ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-        AdapterError,
-    > {
-        let value = self;
-        layout(
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                1,
-            >>::VERSION,
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                1,
-            >>::FIELD_LAYOUT,
-            1,
-            &[],
-            path,
-        )?;
-        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-            1,
-        >>::into_projection_alternative(value) {
-            Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand {
-                    kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::CompleteJets(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::demand::Alternative1 {
-                                ..Default::default()
-                            }),
-                        ),
-                    ),
-                    ..Default::default()
-                });
-            }
-            Err(value) => value,
-        };
-        layout(
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                2,
-            >>::VERSION,
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                2,
-            >>::FIELD_LAYOUT,
-            1,
-            &[(1, "value")],
-            path,
-        )?;
-        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-            2,
-        >>::into_projection_alternative(value) {
-            Ok((field_0,)) => {
-                let alternative_path = child_path(path, "SelectedColumns");
-                let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand {
-                    kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::SelectedColumns(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::demand::Alternative2 {
-                                value: {
-                                    let current_path = &child_path(path, "value");
-                                    items(field_0)
-                                        .enumerate()
-                                        .map(|(index, value)| -> Result<_, AdapterError> {
-                                            native_into::<
-                                                _,
-                                                u64,
-                                            >(value, &format!("{path}[{index}]", path = current_path))
-                                        })
-                                        .collect::<Result<Vec<_>, _>>()?
-                                },
-                                ..Default::default()
-                            }),
-                        ),
-                    ),
-                    ..Default::default()
-                });
-            }
-            Err(value) => value,
-        };
-        layout(
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                3,
-            >>::VERSION,
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                3,
-            >>::FIELD_LAYOUT,
-            1,
-            &[(1, "value")],
-            path,
-        )?;
-        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-            3,
-        >>::into_projection_alternative(value) {
-            Ok((field_0,)) => {
-                let alternative_path = child_path(path, "JacobianAction");
-                let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand {
-                    kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::JacobianAction(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::demand::Alternative3 {
-                                value: native_into::<
-                                    _,
-                                    u64,
-                                >(field_0, &child_path(path, "value"))?,
-                                ..Default::default()
-                            }),
-                        ),
-                    ),
-                    ..Default::default()
-                });
-            }
-            Err(value) => value,
-        };
-        layout(
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                4,
-            >>::VERSION,
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                4,
-            >>::FIELD_LAYOUT,
-            1,
-            &[(1, "value")],
-            path,
-        )?;
-        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-            4,
-        >>::into_projection_alternative(value) {
-            Ok((field_0,)) => {
-                let alternative_path = child_path(path, "TransposeAction");
-                let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand {
-                    kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::TransposeAction(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::demand::Alternative4 {
-                                value: native_into::<
-                                    _,
-                                    u64,
-                                >(field_0, &child_path(path, "value"))?,
-                                ..Default::default()
-                            }),
-                        ),
-                    ),
-                    ..Default::default()
-                });
-            }
-            Err(value) => value,
-        };
-        layout(
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                5,
-            >>::VERSION,
-            <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                5,
-            >>::FIELD_LAYOUT,
-            1,
-            &[(1, "value")],
-            path,
-        )?;
-        let value = match <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-            5,
-        >>::into_projection_alternative(value) {
-            Ok((field_0,)) => {
-                let alternative_path = child_path(path, "WeightedSecondAction");
-                let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand {
-                    kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::WeightedSecondAction(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::demand::Alternative5 {
-                                value: native_into::<
-                                    _,
-                                    u64,
-                                >(field_0, &child_path(path, "value"))?,
-                                ..Default::default()
-                            }),
-                        ),
-                    ),
-                    ..Default::default()
-                });
-            }
-            Err(value) => value,
-        };
-        let _ = value;
-        Err(
-            refused(
-                path,
-                AdapterFailure::UnknownAlternative,
-                "actual alternative is outside the generated source closure",
-            ),
-        )
-    }
-}
-impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-> for pse_kernels::worker_protocol::Demand {
-    fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-        path: &str,
-    ) -> Result<Self, AdapterError> {
-        unknown_fields(&wire.__buffa_unknown_fields, path)?;
-        match wire
-            .kind
-            .ok_or_else(|| refused(
-                path,
-                AdapterFailure::UnknownAlternative,
-                "required alternative is absent",
-            ))?
-        {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::CompleteJets(
-                wire,
-            ) => {
-                let alternative_path = child_path(path, "CompleteJets");
-                let path = alternative_path.as_str();
-                let wire = *wire;
-                unknown_fields(&wire.__buffa_unknown_fields, path)?;
-                layout(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        1,
-                    >>::VERSION,
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        1,
-                    >>::FIELD_LAYOUT,
-                    1,
-                    &[],
-                    path,
-                )?;
-                let fields = ();
-                Ok(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        1,
-                    >>::from_projection_alternative(fields),
-                )
-            }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::SelectedColumns(
-                wire,
-            ) => {
-                let alternative_path = child_path(path, "SelectedColumns");
-                let path = alternative_path.as_str();
-                let wire = *wire;
-                unknown_fields(&wire.__buffa_unknown_fields, path)?;
-                layout(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        2,
-                    >>::VERSION,
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        2,
-                    >>::FIELD_LAYOUT,
-                    1,
-                    &[(1, "value")],
-                    path,
-                )?;
-                let fields = (
-                    {
-                        let current_path = &child_path(path, "value");
-                        let values = wire
-                            .value
-                            .into_iter()
-                            .enumerate()
-                            .map(|(index, value)| -> Result<_, AdapterError> {
-                                native_from::<
-                                    _,
-                                    u64,
-                                >(value, &format!("{path}[{index}]", path = current_path))
-                            })
-                            .collect::<Result<Vec<_>, _>>()?;
-                        from_items(values, current_path)?
-                    },
-                );
-                Ok(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        2,
-                    >>::from_projection_alternative(fields),
-                )
-            }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::JacobianAction(
-                wire,
-            ) => {
-                let alternative_path = child_path(path, "JacobianAction");
-                let path = alternative_path.as_str();
-                let wire = *wire;
-                unknown_fields(&wire.__buffa_unknown_fields, path)?;
-                layout(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        3,
-                    >>::VERSION,
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        3,
-                    >>::FIELD_LAYOUT,
-                    1,
-                    &[(1, "value")],
-                    path,
-                )?;
-                let fields = (
-                    native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
-                );
-                Ok(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        3,
-                    >>::from_projection_alternative(fields),
-                )
-            }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::TransposeAction(
-                wire,
-            ) => {
-                let alternative_path = child_path(path, "TransposeAction");
-                let path = alternative_path.as_str();
-                let wire = *wire;
-                unknown_fields(&wire.__buffa_unknown_fields, path)?;
-                layout(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        4,
-                    >>::VERSION,
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        4,
-                    >>::FIELD_LAYOUT,
-                    1,
-                    &[(1, "value")],
-                    path,
-                )?;
-                let fields = (
-                    native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
-                );
-                Ok(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        4,
-                    >>::from_projection_alternative(fields),
-                )
-            }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::demand::Kind::WeightedSecondAction(
-                wire,
-            ) => {
-                let alternative_path = child_path(path, "WeightedSecondAction");
-                let path = alternative_path.as_str();
-                let wire = *wire;
-                unknown_fields(&wire.__buffa_unknown_fields, path)?;
-                layout(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        5,
-                    >>::VERSION,
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        5,
-                    >>::FIELD_LAYOUT,
-                    1,
-                    &[(1, "value")],
-                    path,
-                )?;
-                let fields = (
-                    native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
-                );
-                Ok(
-                    <pse_kernels::worker_protocol::Demand as pse_contract::boundary_projection::ProjectionAlternative<
-                        5,
-                    >>::from_projection_alternative(fields),
-                )
-            }
-        }
-    }
-}
-impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
 > for pse_diagnostics::DiagnosticCode {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
 > for pse_diagnostics::DiagnosticCode {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -2424,26 +2065,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
 > for pse_model::generated::enums::DiagnosticNonfiniteObservation {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
 > for pse_model::generated::enums::DiagnosticNonfiniteObservation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -2457,13 +2098,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
 > for pse_model::diagnostic::Observation {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
         AdapterError,
     > {
         let value = self;
@@ -2482,10 +2123,10 @@ impl NativeInto<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Missing(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Missing(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative1 {
                                 ..Default::default()
                             }),
                         ),
@@ -2512,10 +2153,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Real");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Real(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Real(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative2 {
                                 value: native_into::<
                                     _,
                                     u64,
@@ -2546,14 +2187,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Nonfinite");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative3 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative3 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -2582,14 +2223,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Physical");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Physical(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative4 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Physical(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative4 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -2618,10 +2259,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Integer");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Integer(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative5 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Integer(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative5 {
                                 value: native_into::<
                                     _,
                                     i64,
@@ -2652,10 +2293,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Boolean");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Boolean(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative6 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Boolean(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative6 {
                                 value: native_into::<
                                     _,
                                     bool,
@@ -2686,10 +2327,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Text");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Text(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative7 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Text(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative7 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -2720,10 +2361,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Contracts");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Contracts(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::diagnostic_observation::Alternative8 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Contracts(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::diagnostic_observation::Alternative8 {
                                 value: {
                                     let current_path = &child_path(path, "value");
                                     items(field_0)
@@ -2731,7 +2372,7 @@ impl NativeInto<
                                         .map(|(index, value)| -> Result<_, AdapterError> {
                                             native_into::<
                                                 _,
-                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
                                             >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
@@ -2756,10 +2397,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
 > for pse_model::diagnostic::Observation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -2771,7 +2412,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Missing(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Missing(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Missing");
@@ -2796,7 +2437,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Real(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Real(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Real");
@@ -2823,7 +2464,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Nonfinite(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Nonfinite");
@@ -2844,7 +2485,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticNonfiniteObservation,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticNonfiniteObservation,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -2856,7 +2497,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Physical(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Physical(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Physical");
@@ -2877,7 +2518,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -2889,7 +2530,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Integer(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Integer(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Integer");
@@ -2916,7 +2557,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Boolean(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Boolean(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Boolean");
@@ -2943,7 +2584,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Text(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Text(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Text");
@@ -2970,7 +2611,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::diagnostic_observation::Kind::Contracts(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::diagnostic_observation::Kind::Contracts(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Contracts");
@@ -2998,7 +2639,7 @@ impl NativeFrom<
                             .map(|(index, value)| -> Result<_, AdapterError> {
                                 native_from::<
                                     _,
-                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
                                 >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
@@ -3015,13 +2656,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
 > for pse_diagnostics::OperandContract {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
         AdapterError,
     > {
         layout(
@@ -3034,11 +2675,11 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract {
             quantity: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
                 >(field_0, &child_path(path, "quantity"))?,
             ),
             indices: {
@@ -3048,7 +2689,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -3058,10 +2699,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
 > for pse_diagnostics::OperandContract {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticOperandContract,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticOperandContract,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3075,7 +2716,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array16U8,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array16U8,
             >(
                 required(wire.quantity.into_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
@@ -3089,7 +2730,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array3Array16U8,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array3Array16U8,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -3103,13 +2744,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
 > for pse_model::diagnostic::PhysicalObservation {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
         AdapterError,
     > {
         layout(
@@ -3122,7 +2763,7 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation {
             magnitude: native_into::<_, u64>(field_0, &child_path(path, "magnitude"))?,
             quantity: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_1,
@@ -3138,10 +2779,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
 > for pse_model::diagnostic::PhysicalObservation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticPhysicalObservation,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticPhysicalObservation,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3174,26 +2815,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
 > for pse_diagnostics::DiagnosticRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
 > for pse_diagnostics::DiagnosticRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3207,26 +2848,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
 > for pse_model::generated::enums::DiagnosticSeverity {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
 > for pse_model::generated::enums::DiagnosticSeverity {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3240,26 +2881,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
 > for pse_diagnostics::DiagnosticStage {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
 > for pse_diagnostics::DiagnosticStage {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3273,13 +2914,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
 > for pse_quantity::ids::EntityKindId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
         AdapterError,
     > {
         layout(
@@ -3292,7 +2933,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -3303,10 +2944,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
 > for pse_quantity::ids::EntityKindId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3330,13 +2971,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
 > for pse_kernels::worker_protocol::Evaluate {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
         AdapterError,
     > {
         layout(
@@ -3356,11 +2997,11 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate {
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_0, &child_path(path, "handle"))?,
             ),
             invocation: native_into::<_, u64>(field_1, &child_path(path, "invocation"))?,
@@ -3417,10 +3058,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
 > for pse_kernels::worker_protocol::Evaluate {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3441,7 +3082,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
@@ -3515,13 +3156,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
 > for pse_kernels::worker_protocol::EvaluateBatch {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
         AdapterError,
     > {
         layout(
@@ -3534,11 +3175,11 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch {
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_0, &child_path(path, "handle"))?,
             ),
             invocation: native_into::<_, u64>(field_1, &child_path(path, "invocation"))?,
@@ -3549,7 +3190,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -3559,10 +3200,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
 > for pse_kernels::worker_protocol::EvaluateBatch {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3576,7 +3217,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
@@ -3591,7 +3232,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BatchPoint,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BatchPoint,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -3605,26 +3246,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
 > for pse_model::generated::enums::ExternalDerivativeSource {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
 > for pse_model::generated::enums::ExternalDerivativeSource {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -3638,13 +3279,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
 > for pse_kernels::worker_protocol::Failure {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
         AdapterError,
     > {
         let value = self;
@@ -3663,10 +3304,10 @@ impl NativeInto<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Cancelled(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Cancelled(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative1 {
                                 ..Default::default()
                             }),
                         ),
@@ -3691,10 +3332,10 @@ impl NativeInto<
             2,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Deadline(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Deadline(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative2 {
                                 ..Default::default()
                             }),
                         ),
@@ -3721,10 +3362,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Resource");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Resource(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative3 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Resource(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative3 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -3755,10 +3396,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Contract");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Contract(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative4 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Contract(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative4 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -3789,10 +3430,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Trial");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Trial(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative5 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Trial(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative5 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -3823,10 +3464,10 @@ impl NativeInto<
             Ok((field_0, field_1, field_2, field_3)) => {
                 let alternative_path = child_path(path, "OutsideEnvelope");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::OutsideEnvelope(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative6 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::OutsideEnvelope(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative6 {
                                 axis: native_into::<
                                     _,
                                     String,
@@ -3869,10 +3510,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Terminal");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Terminal(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative7 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Terminal(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative7 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -3903,10 +3544,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "UnknownCompletion");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::UnknownCompletion(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative8 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::UnknownCompletion(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative8 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -3937,10 +3578,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "ProviderRetirement");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirement(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative9 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderRetirement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative9 {
                                 failures: {
                                     let current_path = &child_path(path, "failures");
                                     items(field_0)
@@ -3948,7 +3589,7 @@ impl NativeInto<
                                         .map(|(index, value)| -> Result<_, AdapterError> {
                                             native_into::<
                                                 _,
-                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
                                             >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
@@ -3979,20 +3620,20 @@ impl NativeInto<
             Ok((field_0, field_1)) => {
                 let alternative_path = child_path(path, "ProviderSettlement");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderSettlement(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative10 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderSettlement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative10 {
                                 operation: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                     >(field_0, &child_path(path, "operation"))?,
                                 ),
                                 cleanup: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                     >(field_1, &child_path(path, "cleanup"))?,
                                 ),
                                 ..Default::default()
@@ -4021,10 +3662,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "ProviderRetirementPanic");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative11 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative11 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -4055,14 +3696,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Diagnostic");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Diagnostic(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative12 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Diagnostic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative12 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -4091,10 +3732,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Retirement");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Retirement(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative13 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Retirement(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative13 {
                                 causes: {
                                     let current_path = &child_path(path, "causes");
                                     items(field_0)
@@ -4102,7 +3743,7 @@ impl NativeInto<
                                         .map(|(index, value)| -> Result<_, AdapterError> {
                                             native_into::<
                                                 _,
-                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                             >(value, &format!("{path}[{index}]", path = current_path))
                                         })
                                         .collect::<Result<Vec<_>, _>>()?
@@ -4133,10 +3774,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "NativePanic");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::NativePanic(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative14 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::NativePanic(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative14 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -4167,10 +3808,10 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Singular");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Singular(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative15 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Singular(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative15 {
                                 value: native_into::<
                                     _,
                                     String,
@@ -4199,10 +3840,10 @@ impl NativeInto<
             16,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::LinearizationChanged(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative16 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::LinearizationChanged(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative16 {
                                 ..Default::default()
                             }),
                         ),
@@ -4227,10 +3868,10 @@ impl NativeInto<
             17,
         >>::into_projection_alternative(value) {
             Ok((field_0, field_1, field_2)) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::RegimeCrossing(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::failure::Alternative17 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::RegimeCrossing(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::failure::Alternative17 {
                                 selector: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                                     field_0,
                                 ),
@@ -4260,10 +3901,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
 > for pse_kernels::worker_protocol::Failure {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -4275,7 +3916,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Cancelled(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Cancelled(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Cancelled");
@@ -4300,7 +3941,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Deadline(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Deadline(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Deadline");
@@ -4325,7 +3966,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Resource(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Resource(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Resource");
@@ -4352,7 +3993,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Contract(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Contract(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Contract");
@@ -4379,7 +4020,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Trial(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Trial(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Trial");
@@ -4406,7 +4047,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::OutsideEnvelope(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::OutsideEnvelope(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "OutsideEnvelope");
@@ -4436,7 +4077,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Terminal(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Terminal(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Terminal");
@@ -4463,7 +4104,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::UnknownCompletion(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::UnknownCompletion(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "UnknownCompletion");
@@ -4490,7 +4131,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirement(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderRetirement(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "ProviderRetirement");
@@ -4518,7 +4159,7 @@ impl NativeFrom<
                             .map(|(index, value)| -> Result<_, AdapterError> {
                                 native_from::<
                                     _,
-                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
                                 >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
@@ -4531,7 +4172,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderSettlement(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderSettlement(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "ProviderSettlement");
@@ -4552,7 +4193,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                     >(
                         required(
                             wire.operation.into_option(),
@@ -4562,7 +4203,7 @@ impl NativeFrom<
                     )?,
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                     >(
                         required(
                             wire.cleanup.into_option(),
@@ -4577,7 +4218,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::ProviderRetirementPanic(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "ProviderRetirementPanic");
@@ -4604,7 +4245,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Diagnostic(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Diagnostic(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Diagnostic");
@@ -4625,7 +4266,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -4637,7 +4278,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Retirement(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Retirement(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Retirement");
@@ -4665,7 +4306,7 @@ impl NativeFrom<
                             .map(|(index, value)| -> Result<_, AdapterError> {
                                 native_from::<
                                     _,
-                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                 >(value, &format!("{path}[{index}]", path = current_path))
                             })
                             .collect::<Result<Vec<_>, _>>()?;
@@ -4678,7 +4319,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::NativePanic(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::NativePanic(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "NativePanic");
@@ -4705,7 +4346,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::Singular(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::Singular(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Singular");
@@ -4732,7 +4373,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::LinearizationChanged(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::LinearizationChanged(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "LinearizationChanged");
@@ -4757,7 +4398,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::failure::Kind::RegimeCrossing(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::failure::Kind::RegimeCrossing(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "RegimeCrossing");
@@ -4799,82 +4440,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-> for pse_kernels::worker_protocol::Handle {
-    fn into_wire(
-        self,
-        path: &str,
-    ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-        AdapterError,
-    > {
-        layout(
-            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[(1, "attempt"), (2, "session"), (3, "generation")],
-            path,
-        )?;
-        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
-            self,
-        );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle {
-            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_0,
-            ),
-            session: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_1,
-            ),
-            generation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_2,
-            ),
-            ..Default::default()
-        })
-    }
-}
-impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-> for pse_kernels::worker_protocol::Handle {
-    fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
-        path: &str,
-    ) -> Result<Self, AdapterError> {
-        unknown_fields(&wire.__buffa_unknown_fields, path)?;
-        layout(
-            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_kernels::worker_protocol::Handle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[(1, "attempt"), (2, "session"), (3, "generation")],
-            path,
-        )?;
-        let fields = (
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.attempt,
-                &child_path(path, "attempt"),
-            )?,
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.session,
-                &child_path(path, "session"),
-            )?,
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.generation,
-                &child_path(path, "generation"),
-            )?,
-        );
-        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
-                fields,
-            )
-            .map_err(|error| error.at(path))
-    }
-}
-impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
 > for pse_quantity::ids::InvariantId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
         AdapterError,
     > {
         layout(
@@ -4887,7 +4459,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -4898,10 +4470,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
 > for pse_quantity::ids::InvariantId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -4925,13 +4497,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
 > for pse_kernels::DerivativeOrder {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
         AdapterError,
     > {
         let value = self;
@@ -4950,10 +4522,10 @@ impl NativeInto<
             1,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::Value(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::kernel_derivative_order::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::Value(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::kernel_derivative_order::Alternative1 {
                                 ..Default::default()
                             }),
                         ),
@@ -4978,10 +4550,10 @@ impl NativeInto<
             2,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::First(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::kernel_derivative_order::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::First(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::kernel_derivative_order::Alternative2 {
                                 ..Default::default()
                             }),
                         ),
@@ -5006,10 +4578,10 @@ impl NativeInto<
             3,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::Second(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::kernel_derivative_order::Alternative3 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::Second(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::kernel_derivative_order::Alternative3 {
                                 ..Default::default()
                             }),
                         ),
@@ -5030,10 +4602,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
 > for pse_kernels::DerivativeOrder {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5045,7 +4617,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::Value(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::Value(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Value");
@@ -5070,7 +4642,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::First(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::First(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "First");
@@ -5095,7 +4667,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::kernel_derivative_order::Kind::Second(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::kernel_derivative_order::Kind::Second(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Second");
@@ -5124,13 +4696,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
 > for pse_kernels::Port {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
         AdapterError,
     > {
         layout(
@@ -5143,7 +4715,7 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -5152,13 +4724,13 @@ impl NativeInto<
             quantity: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                 >(field_1, &child_path(path, "quantity"))?,
             ),
             unit: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_2, &child_path(path, "unit"))?,
             ),
             ..Default::default()
@@ -5166,10 +4738,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
 > for pse_kernels::Port {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5187,14 +4759,14 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
             >(
                 required(wire.quantity.into_option(), &child_path(path, "quantity"))?,
                 &child_path(path, "quantity"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(wire.unit.into_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
@@ -5207,13 +4779,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
 > for pse_kernels::portable::ProviderRecord {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
         AdapterError,
     > {
         layout(
@@ -5226,7 +4798,7 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord {
             version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
             key: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
@@ -5236,7 +4808,7 @@ impl NativeInto<
             spec: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
                 >(field_2, &child_path(path, "spec"))?,
             ),
             ..Default::default()
@@ -5244,10 +4816,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
 > for pse_kernels::portable::ProviderRecord {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5266,7 +4838,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
             >(
                 required(wire.spec.into_option(), &child_path(path, "spec"))?,
                 &child_path(path, "spec"),
@@ -5279,13 +4851,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
 > for pse_kernels::ProviderShape {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
         AdapterError,
     > {
         layout(
@@ -5298,7 +4870,7 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -5311,7 +4883,7 @@ impl NativeInto<
                 .collect::<Vec<_>>(),
             coordinates: items(field_2)
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::kernel_provider_shape::Field3Value {
+                    Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::kernel_provider_shape::Field3Value {
                         value: items(value)
                             .map(
                                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes,
@@ -5331,10 +4903,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
 > for pse_kernels::ProviderShape {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5424,13 +4996,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
 > for pse_kernels::ProviderShapes {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
         AdapterError,
     > {
         layout(
@@ -5443,7 +5015,7 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes {
             inputs: {
                 let current_path = &child_path(path, "inputs");
                 items(field_0)
@@ -5451,7 +5023,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -5463,7 +5035,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -5473,10 +5045,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
 > for pse_kernels::ProviderShapes {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5497,7 +5069,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -5512,7 +5084,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShape,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShape,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -5526,13 +5098,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
 > for pse_kernels::ProviderSpec {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
         AdapterError,
     > {
         layout(
@@ -5565,17 +5137,17 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec {
             shapes: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
                 >(field_0, &child_path(path, "shapes"))?,
             ),
             derivative_source: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
                 >(field_1, &child_path(path, "derivative_source"))?,
             ),
             id: Some(
@@ -5600,7 +5172,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -5612,7 +5184,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -5620,13 +5192,13 @@ impl NativeInto<
             derivatives: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
                 >(field_7, &child_path(path, "derivatives"))?,
             ),
             smoothness: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
                 >(field_8, &child_path(path, "smoothness"))?,
             ),
             ..Default::default()
@@ -5634,10 +5206,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
 > for pse_kernels::ProviderSpec {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderSpec,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderSpec,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5661,14 +5233,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderShapes,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderShapes,
             >(
                 required(wire.shapes.into_option(), &child_path(path, "shapes"))?,
                 &child_path(path, "shapes"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ExternalDerivativeSource,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ExternalDerivativeSource,
             >(
                 required(
                     wire.derivative_source.into_option(),
@@ -5697,7 +5269,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -5712,7 +5284,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderPort,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderPort,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -5720,7 +5292,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
             >(
                 required(
                     wire.derivatives.into_option(),
@@ -5730,7 +5302,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelDerivativeOrder,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
             >(
                 required(
                     wire.smoothness.into_option(),
@@ -5746,13 +5318,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
 > for pse_kernels::worker_protocol::KeyedFailure {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
         AdapterError,
     > {
         layout(
@@ -5765,14 +5337,14 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure {
             key: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
             cause: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                 >(field_1, &child_path(path, "cause"))?,
             ),
             ..Default::default()
@@ -5780,10 +5352,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
 > for pse_kernels::worker_protocol::KeyedFailure {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KeyedFailure,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KeyedFailure,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5801,7 +5373,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
             >(
                 required(wire.cause.into_option(), &child_path(path, "cause"))?,
                 &child_path(path, "cause"),
@@ -5814,13 +5386,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
 > for pse_quantity::kind::KindDefinition {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
         AdapterError,
     > {
         layout(
@@ -5840,7 +5412,7 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition {
             monomial: {
                 let current_path = &child_path(path, "monomial");
                 items(field_0)
@@ -5848,7 +5420,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -5856,14 +5428,14 @@ impl NativeInto<
             canonical_unit: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_1, &child_path(path, "canonical_unit"))?,
             ),
             basis: field_2
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
@@ -5872,7 +5444,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
@@ -5880,14 +5452,14 @@ impl NativeInto<
             scale_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
                 >(field_4, &child_path(path, "scale_kind"))?,
             ),
             subject_kind: field_5
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?
@@ -5897,10 +5469,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
 > for pse_quantity::kind::KindDefinition {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -5928,7 +5500,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -5936,7 +5508,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(
                     wire.canonical_unit.into_option(),
@@ -5950,7 +5522,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
@@ -5960,13 +5532,13 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
             >(
                 required(
                     wire.scale_kind.into_option(),
@@ -5980,7 +5552,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?,
@@ -5992,13 +5564,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
 > for pse_quantity::kind::KindFactor {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
         AdapterError,
     > {
         layout(
@@ -6011,17 +5583,17 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor {
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                 >(field_0, &child_path(path, "kind"))?,
             ),
             exponent: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
                 >(field_1, &child_path(path, "exponent"))?,
             ),
             ..Default::default()
@@ -6029,10 +5601,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
 > for pse_quantity::kind::KindFactor {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindFactor,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindFactor,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6046,14 +5618,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
             >(
                 required(wire.kind.into_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
             >(
                 required(wire.exponent.into_option(), &child_path(path, "exponent"))?,
                 &child_path(path, "exponent"),
@@ -6066,13 +5638,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
 > for pse_model::diagnostic::BoundaryDiagnostic {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
         AdapterError,
     > {
         layout(
@@ -6109,11 +5681,11 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic {
             code: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
                 >(field_0, &child_path(path, "code"))?,
             ),
             causes: {
@@ -6123,7 +5695,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -6131,19 +5703,19 @@ impl NativeInto<
             class: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
                 >(field_2, &child_path(path, "class"))?,
             ),
             severity: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
                 >(field_3, &child_path(path, "severity"))?,
             ),
             stage: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
                 >(field_4, &child_path(path, "stage"))?,
             ),
             sources: items(field_5)
@@ -6154,7 +5726,7 @@ impl NativeInto<
             rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
                 >(field_6, &child_path(path, "rule"))?,
             ),
             observations: wire_map(
@@ -6168,7 +5740,7 @@ impl NativeInto<
                             >(key, &child_path(path, "observations"))?,
                             native_into::<
                                 _,
-                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
                             >(value, &child_path(path, "observations"))?,
                         ))
                     })
@@ -6182,7 +5754,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -6191,7 +5763,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
                     >(value, &child_path(path, "validity"))
                 })
                 .transpose()?
@@ -6203,7 +5775,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -6213,10 +5785,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
 > for pse_model::diagnostic::BoundaryDiagnostic {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6242,7 +5814,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticCode,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticCode,
             >(
                 required(wire.code.into_option(), &child_path(path, "code"))?,
                 &child_path(path, "code"),
@@ -6256,7 +5828,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelBoundaryDiagnostic,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelBoundaryDiagnostic,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -6264,21 +5836,21 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
             >(
                 required(wire.class.into_option(), &child_path(path, "class"))?,
                 &child_path(path, "class"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticSeverity,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticSeverity,
             >(
                 required(wire.severity.into_option(), &child_path(path, "severity"))?,
                 &child_path(path, "severity"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticStage,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticStage,
             >(
                 required(wire.stage.into_option(), &child_path(path, "stage"))?,
                 &child_path(path, "stage"),
@@ -6300,7 +5872,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticRule,
             >(
                 required(wire.rule.into_option(), &child_path(path, "rule"))?,
                 &child_path(path, "rule"),
@@ -6317,7 +5889,7 @@ impl NativeFrom<
                             >(key, &child_path(path, "observations"))?,
                             native_from::<
                                 _,
-                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DiagnosticObservation,
+                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DiagnosticObservation,
                             >(value, &child_path(path, "observations"))?,
                         ))
                     })
@@ -6333,7 +5905,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -6345,7 +5917,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
                     >(value, &child_path(path, "validity"))
                 })
                 .transpose()?,
@@ -6358,7 +5930,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ApplicabilityObservation,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ApplicabilityObservation,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -6372,13 +5944,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
 > for pse_model::diagnostic::SourceLocation {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
         AdapterError,
     > {
         layout(
@@ -6411,7 +5983,7 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation {
             source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_0,
             ),
@@ -6467,10 +6039,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
 > for pse_model::diagnostic::SourceLocation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelSourceLocation,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelSourceLocation,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6556,13 +6128,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
 > for pse_model::diagnostic::ValidityLineage {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
         AdapterError,
     > {
         layout(
@@ -6582,11 +6154,11 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage {
             layer: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
                 >(field_0, &child_path(path, "layer"))?,
             ),
             source: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
@@ -6628,10 +6200,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
 > for pse_model::diagnostic::ValidityLineage {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelValidityLineage,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelValidityLineage,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6652,7 +6224,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
             >(
                 required(wire.layer.into_option(), &child_path(path, "layer"))?,
                 &child_path(path, "layer"),
@@ -6723,26 +6295,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
 > for pse_model::generated::enums::ModelingApplicabilityBasis {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
 > for pse_model::generated::enums::ModelingApplicabilityBasis {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityBasis,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6756,26 +6328,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
 > for pse_model::generated::enums::ModelingApplicabilityOutcome {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
 > for pse_model::generated::enums::ModelingApplicabilityOutcome {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingApplicabilityOutcome,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingApplicabilityOutcome,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6789,26 +6361,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
 > for pse_model::generated::enums::ModelingPermissionTarget {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
 > for pse_model::generated::enums::ModelingPermissionTarget {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingPermissionTarget,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingPermissionTarget,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6822,26 +6394,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
 > for pse_model::generated::enums::ModelingValidityLayer {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
 > for pse_model::generated::enums::ModelingValidityLayer {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ModelingValidityLayer,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ModelingValidityLayer,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6855,26 +6427,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
 > for pse_model::generated::enums::NativeBoundaryClass {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
 > for pse_model::generated::enums::NativeBoundaryClass {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::NativeBoundaryClass,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::NativeBoundaryClass,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6888,26 +6460,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
 > for pse_quantity::enums::Opcode {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
 > for pse_quantity::enums::Opcode {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6921,13 +6493,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
 > for pse_quantity::ids::OperationId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
         AdapterError,
     > {
         layout(
@@ -6940,7 +6512,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -6951,10 +6523,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
 > for pse_quantity::ids::OperationId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -6978,13 +6550,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
 > for pse_quantity::basis::Basis {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
         AdapterError,
     > {
         layout(
@@ -7003,24 +6575,24 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
                 >(field_1, &child_path(path, "kind"))?,
             ),
             composition_basis: field_2
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
                     >(value, &child_path(path, "composition_basis"))
                 })
                 .transpose()?
@@ -7029,7 +6601,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
                     >(value, &child_path(path, "rate_basis"))
                 })
                 .transpose()?
@@ -7038,7 +6610,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_conditions"))
                 })
                 .transpose()?
@@ -7048,10 +6620,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
 > for pse_quantity::basis::Basis {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7071,14 +6643,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisKind,
             >(
                 required(wire.kind.into_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
@@ -7089,7 +6661,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::CompositionBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::CompositionBasis,
                     >(value, &child_path(path, "composition_basis"))
                 })
                 .transpose()?,
@@ -7099,7 +6671,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
                     >(value, &child_path(path, "rate_basis"))
                 })
                 .transpose()?,
@@ -7109,7 +6681,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_conditions"))
                 })
                 .transpose()?,
@@ -7121,13 +6693,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
 > for pse_quantity::ConversionRule {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
         AdapterError,
     > {
         layout(
@@ -7149,29 +6721,29 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             from: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                 >(field_1, &child_path(path, "from"))?,
             ),
             to: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                 >(field_2, &child_path(path, "to"))?,
             ),
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
                 >(field_3, &child_path(path, "kind"))?,
             ),
             kernel: field_4
@@ -7210,10 +6782,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
 > for pse_quantity::ConversionRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7236,28 +6808,28 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
             >(
                 required(wire.from.into_option(), &child_path(path, "from"))?,
                 &child_path(path, "from"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
             >(
                 required(wire.to.into_option(), &child_path(path, "to"))?,
                 &child_path(path, "to"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionKind,
             >(
                 required(wire.kind.into_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
@@ -7306,13 +6878,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
 > for pse_quantity::dimension::DimensionVector {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
         AdapterError,
     > {
         layout(
@@ -7325,11 +6897,11 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector {
             exponents: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
                 >(field_0, &child_path(path, "exponents"))?,
             ),
             ..Default::default()
@@ -7337,10 +6909,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
 > for pse_quantity::dimension::DimensionVector {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7354,7 +6926,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8PhysicalRatio,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8PhysicalRatio,
             >(
                 required(wire.exponents.into_option(), &child_path(path, "exponents"))?,
                 &child_path(path, "exponents"),
@@ -7367,13 +6939,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
 > for pse_quantity::entity_kind::EntityKind {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
         AdapterError,
     > {
         layout(
@@ -7386,11 +6958,11 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
@@ -7399,10 +6971,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
 > for pse_quantity::entity_kind::EntityKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7416,7 +6988,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -7430,13 +7002,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
 > for pse_quantity::InputConversion {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
         AdapterError,
     > {
         layout(
@@ -7449,12 +7021,12 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration {
             operand: native_into::<_, u32>(field_0, &child_path(path, "operand"))?,
             conversion: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
                 >(field_1, &child_path(path, "conversion"))?,
             ),
             ..Default::default()
@@ -7462,10 +7034,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
 > for pse_quantity::InputConversion {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7480,7 +7052,7 @@ impl NativeFrom<
             native_from::<_, u32>(wire.operand, &child_path(path, "operand"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ConversionId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ConversionId,
             >(
                 required(
                     wire.conversion.into_option(),
@@ -7496,13 +7068,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
 > for pse_quantity::QuantityOperation {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
         AdapterError,
     > {
         layout(
@@ -7555,17 +7127,17 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             opcode: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
                 >(field_1, &child_path(path, "opcode"))?,
             ),
             input_kinds: {
@@ -7575,7 +7147,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -7583,31 +7155,31 @@ impl NativeInto<
             result_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                 >(field_3, &child_path(path, "result_kind"))?,
             ),
             basis_rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
                 >(field_4, &child_path(path, "basis_rule"))?,
             ),
             reference_rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
                 >(field_5, &child_path(path, "reference_rule"))?,
             ),
             scale_rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
                 >(field_6, &child_path(path, "scale_rule"))?,
             ),
             shape_rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
                 >(field_7, &child_path(path, "shape_rule"))?,
             ),
             basis_source: field_8
@@ -7633,7 +7205,7 @@ impl NativeInto<
             subject_rule: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
                 >(field_12, &child_path(path, "subject_rule"))?,
             ),
             subject_source: field_13
@@ -7645,7 +7217,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "result_subject_kind"))
                 })
                 .transpose()?
@@ -7654,7 +7226,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "result_basis"))
                 })
                 .transpose()?
@@ -7663,7 +7235,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "result_reference_state"))
                 })
                 .transpose()?
@@ -7675,7 +7247,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -7687,7 +7259,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -7697,10 +7269,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
 > for pse_quantity::QuantityOperation {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -7734,14 +7306,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Opcode,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Opcode,
             >(
                 required(wire.opcode.into_option(), &child_path(path, "opcode"))?,
                 &child_path(path, "opcode"),
@@ -7755,7 +7327,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -7763,7 +7335,7 @@ impl NativeFrom<
             },
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
             >(
                 required(
                     wire.result_kind.into_option(),
@@ -7773,7 +7345,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisRule,
             >(
                 required(
                     wire.basis_rule.into_option(),
@@ -7783,7 +7355,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
             >(
                 required(
                     wire.reference_rule.into_option(),
@@ -7793,7 +7365,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
             >(
                 required(
                     wire.scale_rule.into_option(),
@@ -7803,7 +7375,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
             >(
                 required(
                     wire.shape_rule.into_option(),
@@ -7837,7 +7409,7 @@ impl NativeFrom<
                 .transpose()?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
             >(
                 required(
                     wire.subject_rule.into_option(),
@@ -7857,7 +7429,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "result_subject_kind"))
                 })
                 .transpose()?,
@@ -7867,7 +7439,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "result_basis"))
                 })
                 .transpose()?,
@@ -7877,7 +7449,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "result_reference_state"))
                 })
                 .transpose()?,
@@ -7890,7 +7462,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalInputConversionDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalInputConversionDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -7905,7 +7477,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::InvariantId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::InvariantId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -7919,13 +7491,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
 > for pse_quantity::kind::QuantityKind {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
         AdapterError,
     > {
         layout(
@@ -7945,31 +7517,31 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             dimension: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
                 >(field_1, &child_path(path, "dimension"))?,
             ),
             extensive: native_into::<_, bool>(field_2, &child_path(path, "extensive"))?,
             addition_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
                 >(field_3, &child_path(path, "addition_kind"))?,
             ),
             category: field_4
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
                     >(value, &child_path(path, "category"))
                 })
                 .transpose()?
@@ -7978,7 +7550,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
                     >(value, &child_path(path, "definition"))
                 })
                 .transpose()?
@@ -7988,10 +7560,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
 > for pse_quantity::kind::QuantityKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -8012,14 +7584,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
             >(
                 required(wire.dimension.into_option(), &child_path(path, "dimension"))?,
                 &child_path(path, "dimension"),
@@ -8027,7 +7599,7 @@ impl NativeFrom<
             native_from::<_, bool>(wire.extensive, &child_path(path, "extensive"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
             >(
                 required(
                     wire.addition_kind.into_option(),
@@ -8041,7 +7613,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
                     >(value, &child_path(path, "category"))
                 })
                 .transpose()?,
@@ -8051,7 +7623,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KindDefinition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KindDefinition,
                     >(value, &child_path(path, "definition"))
                 })
                 .transpose()?,
@@ -8063,13 +7635,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
 > for pse_quantity::dimension::Ratio {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
         AdapterError,
     > {
         layout(
@@ -8082,7 +7654,7 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio {
             num: native_into::<_, i32>(field_0, &child_path(path, "num"))?,
             den: native_into::<_, i32>(field_1, &child_path(path, "den"))?,
             ..Default::default()
@@ -8090,10 +7662,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
 > for pse_quantity::dimension::Ratio {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -8115,13 +7687,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
 > for pse_quantity::QuantityRegistryBuilder {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
         AdapterError,
     > {
         layout(
@@ -8162,7 +7734,7 @@ impl NativeInto<
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations {
             entity_kinds: {
                 let current_path = &child_path(path, "entity_kinds");
                 items(field_0)
@@ -8170,7 +7742,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8182,7 +7754,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8194,7 +7766,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8206,7 +7778,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8218,7 +7790,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8230,7 +7802,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8242,7 +7814,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8254,7 +7826,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8266,7 +7838,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8278,7 +7850,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8290,7 +7862,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8302,7 +7874,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8314,7 +7886,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -8324,10 +7896,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
 > for pse_quantity::QuantityRegistryBuilder {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -8362,7 +7934,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalEntityKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalEntityKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8377,7 +7949,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8392,7 +7964,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDefinedUnit,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDefinedUnit,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8407,7 +7979,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalQuantityKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalQuantityKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8422,7 +7994,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::DeclaredDerivedKind,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::DeclaredDerivedKind,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8437,7 +8009,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalBasis,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalBasis,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8452,7 +8024,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8467,7 +8039,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8482,7 +8054,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalConversionDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalConversionDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8497,7 +8069,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalOperationDeclaration,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalOperationDeclaration,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8512,7 +8084,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8527,7 +8099,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8542,7 +8114,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -8556,13 +8128,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
 > for pse_quantity::unit::Unit {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
         AdapterError,
     > {
         layout(
@@ -8584,18 +8156,18 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             symbol: native_into::<_, String>(field_1, &child_path(path, "symbol"))?,
             dimension: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
                 >(field_2, &child_path(path, "dimension"))?,
             ),
             scale_to_canonical: native_into::<
@@ -8611,14 +8183,14 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
                 .into(),
             definition: field_7
                 .map(|value| -> Result<_, AdapterError> {
-                    Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::physical_unit::Field8Value {
+                    Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::physical_unit::Field8Value {
                         value: {
                             let current_path = &child_path(path, "definition");
                             items(value)
@@ -8626,7 +8198,7 @@ impl NativeInto<
                                 .map(|(index, value)| -> Result<_, AdapterError> {
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
                                     >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?
@@ -8641,10 +8213,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
 > for pse_quantity::unit::Unit {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnit,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnit,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -8667,7 +8239,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -8675,7 +8247,7 @@ impl NativeFrom<
             native_from::<_, String>(wire.symbol, &child_path(path, "symbol"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalDimensionVector,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalDimensionVector,
             >(
                 required(wire.dimension.into_option(), &child_path(path, "dimension"))?,
                 &child_path(path, "dimension"),
@@ -8695,7 +8267,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
@@ -8718,7 +8290,7 @@ impl NativeFrom<
                                 .map(|(index, value)| -> Result<_, AdapterError> {
                                     native_from::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
                                     >(value, &format!("{path}[{index}]", path = current_path))
                                 })
                                 .collect::<Result<Vec<_>, _>>()?;
@@ -8735,13 +8307,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
 > for pse_quantity::UnitSet {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
         AdapterError,
     > {
         layout(
@@ -8754,17 +8326,17 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             base: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
                 >(field_1, &child_path(path, "base"))?,
             ),
             ..Default::default()
@@ -8772,10 +8344,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
 > for pse_quantity::UnitSet {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalUnitSet,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalUnitSet,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -8789,14 +8361,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Array8OptionalUnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Array8OptionalUnitId,
             >(
                 required(wire.base.into_option(), &child_path(path, "base"))?,
                 &child_path(path, "base"),
@@ -8809,32 +8381,30 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
 > for pse_kernels::worker_protocol::Prepare {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
         AdapterError,
     > {
         layout(
             <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            2,
+            3,
             &[
                 (1, "version"),
                 (2, "handle"),
                 (3, "spec"),
                 (4, "configuration"),
                 (6, "regime"),
-                (7, "outputs"),
-                (8, "order"),
-                (9, "demand"),
                 (10, "remaining_ns"),
                 (11, "result_limit"),
                 (12, "registry"),
                 (13, "physical"),
+                (14, "request"),
             ],
             path,
         )?;
@@ -8849,49 +8419,28 @@ impl NativeInto<
             field_7,
             field_8,
             field_9,
-            field_10,
-            field_11,
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare {
             version: native_into::<_, u32>(field_0, &child_path(path, "version"))?,
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_1, &child_path(path, "handle"))?,
             ),
             spec: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
                 >(field_2, &child_path(path, "spec"))?,
             ),
             configuration: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                 field_3,
             ),
             regime: native_into::<_, String>(field_4, &child_path(path, "regime"))?,
-            outputs: {
-                let current_path = &child_path(path, "outputs");
-                items(field_5)
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        native_into::<
-                            _,
-                            u64,
-                        >(value, &format!("{path}[{index}]", path = current_path))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?
-            },
-            order: native_into::<_, u32>(field_6, &child_path(path, "order"))?,
-            demand: buffa::MessageField::some(
-                native_into::<
-                    _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-                >(field_7, &child_path(path, "demand"))?,
-            ),
-            remaining_ns: field_8
+            remaining_ns: field_5
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<_, u64>(value, &child_path(path, "remaining_ns"))
                 })
@@ -8899,45 +8448,49 @@ impl NativeInto<
             result_limit: native_into::<
                 _,
                 u64,
-            >(field_9, &child_path(path, "result_limit"))?,
+            >(field_6, &child_path(path, "result_limit"))?,
             registry: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
-                >(field_10, &child_path(path, "registry"))?,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
+                >(field_7, &child_path(path, "registry"))?,
             ),
             physical: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_11,
+                field_8,
+            ),
+            request: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+                >(field_9, &child_path(path, "request"))?,
             ),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
 > for pse_kernels::worker_protocol::Prepare {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
             <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_kernels::worker_protocol::Prepare as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            2,
+            3,
             &[
                 (1, "version"),
                 (2, "handle"),
                 (3, "spec"),
                 (4, "configuration"),
                 (6, "regime"),
-                (7, "outputs"),
-                (8, "order"),
-                (9, "demand"),
                 (10, "remaining_ns"),
                 (11, "result_limit"),
                 (12, "registry"),
                 (13, "physical"),
+                (14, "request"),
             ],
             path,
         )?;
@@ -8945,14 +8498,14 @@ impl NativeFrom<
             native_from::<_, u32>(wire.version, &child_path(path, "version"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::KernelProviderRecord,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelProviderRecord,
             >(
                 required(wire.spec.into_option(), &child_path(path, "spec"))?,
                 &child_path(path, "spec"),
@@ -8962,29 +8515,6 @@ impl NativeFrom<
                 &child_path(path, "configuration"),
             )?,
             native_from::<_, String>(wire.regime, &child_path(path, "regime"))?,
-            {
-                let current_path = &child_path(path, "outputs");
-                let values = wire
-                    .outputs
-                    .into_iter()
-                    .enumerate()
-                    .map(|(index, value)| -> Result<_, AdapterError> {
-                        native_from::<
-                            _,
-                            u64,
-                        >(value, &format!("{path}[{index}]", path = current_path))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                from_items(values, current_path)?
-            },
-            native_from::<_, u32>(wire.order, &child_path(path, "order"))?,
-            native_from::<
-                _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Demand,
-            >(
-                required(wire.demand.into_option(), &child_path(path, "demand"))?,
-                &child_path(path, "demand"),
-            )?,
             wire
                 .remaining_ns
                 .map(|value| -> Result<_, AdapterError> {
@@ -8994,7 +8524,7 @@ impl NativeFrom<
             native_from::<_, u64>(wire.result_limit, &child_path(path, "result_limit"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRegistryDeclarations,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRegistryDeclarations,
             >(
                 required(wire.registry.into_option(), &child_path(path, "registry"))?,
                 &child_path(path, "registry"),
@@ -9002,6 +8532,13 @@ impl NativeFrom<
             pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 wire.physical,
                 &child_path(path, "physical"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+            >(
+                required(wire.request.into_option(), &child_path(path, "request"))?,
+                &child_path(path, "request"),
             )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
@@ -9011,13 +8548,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
 > for pse_kernels::worker_protocol::Prepared {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
         AdapterError,
     > {
         layout(
@@ -9030,11 +8567,11 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared {
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_0, &child_path(path, "handle"))?,
             ),
             batch_supported: native_into::<
@@ -9046,10 +8583,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
 > for pse_kernels::worker_protocol::Prepared {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9063,7 +8600,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
@@ -9080,26 +8617,495 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+> for pse_kernels::ProviderDemand {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+        AdapterError,
+    > {
+        let value = self;
+        layout(
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::VERSION,
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                1,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+            1,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::CompleteJets(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::provider_demand::Alternative1 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::VERSION,
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                2,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "columns")],
+            path,
+        )?;
+        let value = match <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+            2,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "SelectedColumns");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::SelectedColumns(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::provider_demand::Alternative2 {
+                                columns: {
+                                    let current_path = &child_path(path, "columns");
+                                    items(field_0)
+                                        .enumerate()
+                                        .map(|(index, value)| -> Result<_, AdapterError> {
+                                            native_into::<
+                                                _,
+                                                u64,
+                                            >(value, &format!("{path}[{index}]", path = current_path))
+                                        })
+                                        .collect::<Result<Vec<_>, _>>()?
+                                },
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "directions")],
+            path,
+        )?;
+        let value = match <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "JacobianAction");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::JacobianAction(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::provider_demand::Alternative3 {
+                                directions: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "directions"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::VERSION,
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                4,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "cotangents")],
+            path,
+        )?;
+        let value = match <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+            4,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "TransposeAction");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::TransposeAction(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::provider_demand::Alternative4 {
+                                cotangents: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "cotangents"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::VERSION,
+            <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                5,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "directions")],
+            path,
+        )?;
+        let value = match <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+            5,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "WeightedSecondAction");
+                let path = alternative_path.as_str();
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand {
+                    kind: Some(
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::WeightedSecondAction(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::provider_demand::Alternative5 {
+                                directions: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "directions"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        let _ = value;
+        Err(
+            refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "actual alternative is outside the generated source closure",
+            ),
+        )
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+> for pse_kernels::ProviderDemand {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        match wire
+            .kind
+            .ok_or_else(|| refused(
+                path,
+                AdapterFailure::UnknownAlternative,
+                "required alternative is absent",
+            ))?
+        {
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::CompleteJets(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "CompleteJets");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::VERSION,
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        1,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::SelectedColumns(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "SelectedColumns");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::VERSION,
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "columns")],
+                    path,
+                )?;
+                let fields = (
+                    {
+                        let current_path = &child_path(path, "columns");
+                        let values = wire
+                            .columns
+                            .into_iter()
+                            .enumerate()
+                            .map(|(index, value)| -> Result<_, AdapterError> {
+                                native_from::<
+                                    _,
+                                    u64,
+                                >(value, &format!("{path}[{index}]", path = current_path))
+                            })
+                            .collect::<Result<Vec<_>, _>>()?;
+                        from_items(values, current_path)?
+                    },
+                );
+                Ok(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::JacobianAction(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "JacobianAction");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "directions")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        u64,
+                    >(wire.directions, &child_path(path, "directions"))?,
+                );
+                Ok(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::TransposeAction(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "TransposeAction");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::VERSION,
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "cotangents")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        u64,
+                    >(wire.cotangents, &child_path(path, "cotangents"))?,
+                );
+                Ok(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        4,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::provider_demand::Kind::WeightedSecondAction(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "WeightedSecondAction");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::VERSION,
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "directions")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        u64,
+                    >(wire.directions, &child_path(path, "directions"))?,
+                );
+                Ok(
+                    <pse_kernels::ProviderDemand as pse_contract::boundary_projection::ProjectionAlternative<
+                        5,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+        }
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+> for pse_kernels::ProviderRequest {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+        AdapterError,
+    > {
+        layout(
+            <pse_kernels::ProviderRequest as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::ProviderRequest as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "outputs"), (2, "order"), (3, "demand")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest {
+            outputs: {
+                let current_path = &child_path(path, "outputs");
+                items(field_0)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
+            order: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
+                >(field_1, &child_path(path, "order"))?,
+            ),
+            demand: buffa::MessageField::some(
+                native_into::<
+                    _,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+                >(field_2, &child_path(path, "demand"))?,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+> for pse_kernels::ProviderRequest {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderRequest,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_kernels::ProviderRequest as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::ProviderRequest as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "outputs"), (2, "order"), (3, "demand")],
+            path,
+        )?;
+        let fields = (
+            {
+                let current_path = &child_path(path, "outputs");
+                let values = wire
+                    .outputs
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            u64,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::KernelDerivativeOrder,
+            >(
+                required(wire.order.into_option(), &child_path(path, "order"))?,
+                &child_path(path, "order"),
+            )?,
+            native_from::<
+                _,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ProviderDemand,
+            >(
+                required(wire.demand.into_option(), &child_path(path, "demand"))?,
+                &child_path(path, "demand"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
 > for pse_quantity::enums::QuantityAdditionKind {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
 > for pse_quantity::enums::QuantityAdditionKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityAdditionKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityAdditionKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9113,26 +9119,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
 > for pse_quantity::enums::QuantityKindCategory {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
 > for pse_quantity::enums::QuantityKindCategory {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindCategory,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindCategory,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9146,13 +9152,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
 > for pse_quantity::ids::QuantityKindId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
         AdapterError,
     > {
         layout(
@@ -9165,7 +9171,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -9176,10 +9182,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
 > for pse_quantity::ids::QuantityKindId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9203,26 +9209,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
 > for pse_quantity::enums::QuantityScaleRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
 > for pse_quantity::enums::QuantityScaleRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityScaleRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityScaleRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9236,26 +9242,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
 > for pse_quantity::enums::QuantityShapeRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
 > for pse_quantity::enums::QuantityShapeRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityShapeRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityShapeRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9269,13 +9275,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
 > for pse_quantity::quantity_type::QuantityType {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
         AdapterError,
     > {
         layout(
@@ -9294,11 +9300,11 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             name: field_1
@@ -9309,13 +9315,13 @@ impl NativeInto<
             key: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
                 >(field_2, &child_path(path, "key"))?,
             ),
             canonical_unit: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_3, &child_path(path, "canonical_unit"))?,
             ),
             nominal_magnitude: field_4
@@ -9328,10 +9334,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
 > for pse_quantity::quantity_type::QuantityType {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityType,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityType,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9351,7 +9357,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -9364,14 +9370,14 @@ impl NativeFrom<
                 .transpose()?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
             >(
                 required(wire.key.into_option(), &child_path(path, "key"))?,
                 &child_path(path, "key"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(
                     wire.canonical_unit.into_option(),
@@ -9393,13 +9399,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
 > for pse_quantity::ids::QuantityTypeId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
         AdapterError,
     > {
         layout(
@@ -9412,7 +9418,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -9423,10 +9429,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
 > for pse_quantity::ids::QuantityTypeId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9450,13 +9456,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
 > for pse_quantity::quantity_type::QuantityTypeKey {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
         AdapterError,
     > {
         layout(
@@ -9476,18 +9482,18 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey {
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
                 >(field_0, &child_path(path, "kind"))?,
             ),
             basis: field_1
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?
@@ -9496,7 +9502,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?
@@ -9504,7 +9510,7 @@ impl NativeInto<
             scale_kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
                 >(field_3, &child_path(path, "scale_kind"))?,
             ),
             shape: {
@@ -9514,7 +9520,7 @@ impl NativeInto<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_into::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?
@@ -9523,7 +9529,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?
@@ -9533,10 +9539,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
 > for pse_quantity::quantity_type::QuantityTypeKey {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeKey,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeKey,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9557,7 +9563,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityKindId,
             >(
                 required(wire.kind.into_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
@@ -9568,7 +9574,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::BasisId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::BasisId,
                     >(value, &child_path(path, "basis"))
                 })
                 .transpose()?,
@@ -9578,13 +9584,13 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                     >(value, &child_path(path, "reference_state"))
                 })
                 .transpose()?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
             >(
                 required(
                     wire.scale_kind.into_option(),
@@ -9601,7 +9607,7 @@ impl NativeFrom<
                     .map(|(index, value)| -> Result<_, AdapterError> {
                         native_from::<
                             _,
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
@@ -9613,7 +9619,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                     >(value, &child_path(path, "subject_kind"))
                 })
                 .transpose()?,
@@ -9625,26 +9631,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
 > for pse_quantity::enums::RateBasis {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
 > for pse_quantity::enums::RateBasis {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::RateBasis,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::RateBasis,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9658,13 +9664,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
 > for pse_quantity::reference_state::ReferenceCondition {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
         AdapterError,
     > {
         layout(
@@ -9677,18 +9683,18 @@ impl NativeInto<
         let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition {
             value: native_into::<_, u64>(field_0, &child_path(path, "value"))?,
             quantity_type: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
                 >(field_1, &child_path(path, "quantity_type"))?,
             ),
             unit: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_2, &child_path(path, "unit"))?,
             ),
             ..Default::default()
@@ -9696,10 +9702,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
 > for pse_quantity::reference_state::ReferenceCondition {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9714,7 +9720,7 @@ impl NativeFrom<
             native_from::<_, u64>(wire.value, &child_path(path, "value"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::QuantityTypeId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::QuantityTypeId,
             >(
                 required(
                     wire.quantity_type.into_option(),
@@ -9724,7 +9730,7 @@ impl NativeFrom<
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(wire.unit.into_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
@@ -9737,26 +9743,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
 > for pse_quantity::enums::ReferenceRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
 > for pse_quantity::enums::ReferenceRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9770,13 +9776,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
 > for pse_quantity::reference_state::ReferenceState {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
         AdapterError,
     > {
         layout(
@@ -9797,25 +9803,25 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4, field_5, field_6) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState {
             id: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
                 >(field_0, &child_path(path, "id"))?,
             ),
             name: native_into::<_, String>(field_1, &child_path(path, "name"))?,
             kind: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
                 >(field_2, &child_path(path, "kind"))?,
             ),
             temperature: field_3
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
                     >(value, &child_path(path, "temperature"))
                 })
                 .transpose()?
@@ -9824,7 +9830,7 @@ impl NativeInto<
                 .map(|value| -> Result<_, AdapterError> {
                     native_into::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
                     >(value, &child_path(path, "pressure"))
                 })
                 .transpose()?
@@ -9847,10 +9853,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
 > for pse_quantity::reference_state::ReferenceState {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceState,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceState,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9872,7 +9878,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
             >(
                 required(wire.id.into_option(), &child_path(path, "id"))?,
                 &child_path(path, "id"),
@@ -9880,7 +9886,7 @@ impl NativeFrom<
             native_from::<_, String>(wire.name, &child_path(path, "name"))?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
             >(
                 required(wire.kind.into_option(), &child_path(path, "kind"))?,
                 &child_path(path, "kind"),
@@ -9891,7 +9897,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
                     >(value, &child_path(path, "temperature"))
                 })
                 .transpose()?,
@@ -9901,7 +9907,7 @@ impl NativeFrom<
                 .map(|value| -> Result<_, AdapterError> {
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceCondition,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceCondition,
                     >(value, &child_path(path, "pressure"))
                 })
                 .transpose()?,
@@ -9929,13 +9935,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
 > for pse_quantity::ids::ReferenceStateId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
         AdapterError,
     > {
         layout(
@@ -9948,7 +9954,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -9959,10 +9965,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
 > for pse_quantity::ids::ReferenceStateId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -9986,26 +9992,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
 > for pse_quantity::enums::ReferenceStateKind {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
 > for pse_quantity::enums::ReferenceStateKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ReferenceStateKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ReferenceStateKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -10019,13 +10025,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
 > for pse_kernels::worker_protocol::Request {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
         AdapterError,
     > {
         let value = self;
@@ -10046,14 +10052,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Prepare");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Prepare(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Prepare(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative1 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10082,14 +10088,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Evaluate");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Evaluate(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Evaluate(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative2 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10118,14 +10124,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Stop");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Stop(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative3 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Stop(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative3 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10154,14 +10160,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Close");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Close(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative4 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Close(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative4 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10188,10 +10194,10 @@ impl NativeInto<
             5,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Shutdown(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative5 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Shutdown(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative5 {
                                 ..Default::default()
                             }),
                         ),
@@ -10218,14 +10224,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "EvaluateBatch");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::EvaluateBatch(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::request::Alternative6 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::EvaluateBatch(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::request::Alternative6 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10248,10 +10254,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
 > for pse_kernels::worker_protocol::Request {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -10263,7 +10269,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Prepare(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Prepare(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Prepare");
@@ -10284,7 +10290,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepare,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepare,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10296,7 +10302,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Evaluate(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Evaluate(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Evaluate");
@@ -10317,7 +10323,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Evaluate,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Evaluate,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10329,7 +10335,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Stop(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Stop(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Stop");
@@ -10350,7 +10356,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10362,7 +10368,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Close(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Close(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Close");
@@ -10383,7 +10389,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10395,7 +10401,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::Shutdown(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::Shutdown(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Shutdown");
@@ -10420,7 +10426,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::request::Kind::EvaluateBatch(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::request::Kind::EvaluateBatch(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "EvaluateBatch");
@@ -10441,7 +10447,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EvaluateBatch,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EvaluateBatch,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10457,13 +10463,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
 > for pse_kernels::worker_protocol::Response {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
         AdapterError,
     > {
         let value = self;
@@ -10484,14 +10490,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Prepared");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Prepared(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative1 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Prepared(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative1 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10520,14 +10526,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Values");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Values(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative2 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Values(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative2 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10556,14 +10562,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Failure");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Failure(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative3 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Failure(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative3 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10592,14 +10598,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Closed");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Closed(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative4 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Closed(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative4 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10626,10 +10632,10 @@ impl NativeInto<
             5,
         >>::into_projection_alternative(value) {
             Ok(()) => {
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Shutdown(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative5 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Shutdown(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative5 {
                                 ..Default::default()
                             }),
                         ),
@@ -10656,14 +10662,14 @@ impl NativeInto<
             Ok((field_0,)) => {
                 let alternative_path = child_path(path, "Batch");
                 let path = alternative_path.as_str();
-                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response {
+                return Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response {
                     kind: Some(
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Batch(
-                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::response::Alternative6 {
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Batch(
+                            Box::new(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::response::Alternative6 {
                                 value: buffa::MessageField::some(
                                     native_into::<
                                         _,
-                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+                                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
                                     >(field_0, &child_path(path, "value"))?,
                                 ),
                                 ..Default::default()
@@ -10686,10 +10692,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
 > for pse_kernels::worker_protocol::Response {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -10701,7 +10707,7 @@ impl NativeFrom<
                 "required alternative is absent",
             ))?
         {
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Prepared(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Prepared(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Prepared");
@@ -10722,7 +10728,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Prepared,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Prepared,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10734,7 +10740,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Values(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Values(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Values");
@@ -10755,7 +10761,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10767,7 +10773,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Failure(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Failure(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Failure");
@@ -10788,7 +10794,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Failure,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Failure,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10800,7 +10806,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Closed(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Closed(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Closed");
@@ -10821,7 +10827,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10833,7 +10839,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Shutdown(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Shutdown(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Shutdown");
@@ -10858,7 +10864,7 @@ impl NativeFrom<
                     >>::from_projection_alternative(fields),
                 )
             }
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::oneof::response::Kind::Batch(
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::oneof::response::Kind::Batch(
                 wire,
             ) => {
                 let alternative_path = child_path(path, "Batch");
@@ -10879,7 +10885,7 @@ impl NativeFrom<
                 let fields = (
                     native_from::<
                         _,
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Batch,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Batch,
                     >(
                         required(wire.value.into_option(), &child_path(path, "value"))?,
                         &child_path(path, "value"),
@@ -10895,26 +10901,26 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
 > for pse_quantity::enums::ScaleKind {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
 > for pse_quantity::enums::ScaleKind {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::ScaleKind,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::ScaleKind,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -10928,26 +10934,95 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
+> for pse_kernels::worker_protocol::SessionHandle {
+    fn into_wire(
+        self,
+        path: &str,
+    ) -> Result<
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
+        AdapterError,
+    > {
+        layout(
+            <pse_kernels::worker_protocol::SessionHandle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::SessionHandle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "attempt"), (2, "session"), (3, "generation")],
+            path,
+        )?;
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+            self,
+        );
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle {
+            attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_0,
+            ),
+            session: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_1,
+            ),
+            generation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_2,
+            ),
+            ..Default::default()
+        })
+    }
+}
+impl NativeFrom<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
+> for pse_kernels::worker_protocol::SessionHandle {
+    fn from_wire(
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
+        path: &str,
+    ) -> Result<Self, AdapterError> {
+        unknown_fields(&wire.__buffa_unknown_fields, path)?;
+        layout(
+            <pse_kernels::worker_protocol::SessionHandle as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_kernels::worker_protocol::SessionHandle as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            1,
+            &[(1, "attempt"), (2, "session"), (3, "generation")],
+            path,
+        )?;
+        let fields = (
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.attempt,
+                &child_path(path, "attempt"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.session,
+                &child_path(path, "session"),
+            )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.generation,
+                &child_path(path, "generation"),
+            )?,
+        );
+        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
+                fields,
+            )
+            .map_err(|error| error.at(path))
+    }
+}
+impl NativeInto<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
 > for pse_quantity::enums::SubjectRule {
     fn into_wire(
         self,
         _: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
         AdapterError,
     > {
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule {
             value: self.as_str().into(),
             ..Default::default()
         })
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
 > for pse_quantity::enums::SubjectRule {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::SubjectRule,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SubjectRule,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -10961,13 +11036,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
 > for (pse_quantity::ids::OperationId, pse_quantity::ids::EntityKindId) {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
         AdapterError,
     > {
         layout(
@@ -10986,17 +11061,17 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId {
             first: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
                 >(field_0, &child_path(path, "first"))?,
             ),
             second: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
                 >(field_1, &child_path(path, "second"))?,
             ),
             ..Default::default()
@@ -11004,10 +11079,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
 > for (pse_quantity::ids::OperationId, pse_quantity::ids::EntityKindId) {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Tuple2OfOperationIdAndEntityKindId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Tuple2OfOperationIdAndEntityKindId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -11027,14 +11102,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::OperationId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::OperationId,
             >(
                 required(wire.first.into_option(), &child_path(path, "first"))?,
                 &child_path(path, "first"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::EntityKindId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::EntityKindId,
             >(
                 required(wire.second.into_option(), &child_path(path, "second"))?,
                 &child_path(path, "second"),
@@ -11047,13 +11122,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
 > for pse_quantity::unit::UnitFactor {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
         AdapterError,
     > {
         layout(
@@ -11066,17 +11141,17 @@ impl NativeInto<
         let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor {
             unit: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
                 >(field_0, &child_path(path, "unit"))?,
             ),
             exponent: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
                 >(field_1, &child_path(path, "exponent"))?,
             ),
             ..Default::default()
@@ -11084,10 +11159,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
 > for pse_quantity::unit::UnitFactor {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitFactor,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitFactor,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -11101,14 +11176,14 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
             >(
                 required(wire.unit.into_option(), &child_path(path, "unit"))?,
                 &child_path(path, "unit"),
             )?,
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::PhysicalRatio,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::PhysicalRatio,
             >(
                 required(wire.exponent.into_option(), &child_path(path, "exponent"))?,
                 &child_path(path, "exponent"),
@@ -11121,13 +11196,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
 > for pse_quantity::ids::UnitId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
         AdapterError,
     > {
         layout(
@@ -11140,7 +11215,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -11151,10 +11226,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
 > for pse_quantity::ids::UnitId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -11178,13 +11253,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
 > for pse_quantity::ids::UnitSetId {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
         AdapterError,
     > {
         layout(
@@ -11197,7 +11272,7 @@ impl NativeInto<
         let (field_0,) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId {
             id: Some(
                 pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
                     field_0,
@@ -11208,10 +11283,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
 > for pse_quantity::ids::UnitSetId {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::UnitSetId,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::UnitSetId,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -11235,13 +11310,13 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
 > for pse_kernels::worker_protocol::Values {
     fn into_wire(
         self,
         path: &str,
     ) -> Result<
-        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
         AdapterError,
     > {
         layout(
@@ -11260,11 +11335,11 @@ impl NativeInto<
         let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
-        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values {
+        Ok(crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values {
             handle: buffa::MessageField::some(
                 native_into::<
                     _,
-                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
                 >(field_0, &child_path(path, "handle"))?,
             ),
             invocation: native_into::<_, u64>(field_1, &child_path(path, "invocation"))?,
@@ -11309,10 +11384,10 @@ impl NativeInto<
     }
 }
 impl NativeFrom<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
 > for pse_kernels::worker_protocol::Values {
     fn from_wire(
-        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Values,
+        wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Values,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
@@ -11332,7 +11407,7 @@ impl NativeFrom<
         let fields = (
             native_from::<
                 _,
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Handle,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::SessionHandle,
             >(
                 required(wire.handle.into_option(), &child_path(path, "handle"))?,
                 &child_path(path, "handle"),
@@ -11394,14 +11469,14 @@ impl NativeFrom<
 pub(super) fn encode_request(
     native: pse_kernels::worker_protocol::Request,
 ) -> Result<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
     BoundaryProjectionError,
 > {
     encode_root(native, "Request")
 }
 /// Adopt known `Request` meaning under this package's declared unknown-field policy.
 pub(super) fn decode_request(
-    wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+    wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
 ) -> Result<pse_kernels::worker_protocol::Request, BoundaryProjectionError> {
     decode_root(wire, "Request")
 }
@@ -11409,14 +11484,14 @@ pub(super) fn decode_request(
 pub(super) fn encode_response(
     native: pse_kernels::worker_protocol::Response,
 ) -> Result<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
     BoundaryProjectionError,
 > {
     encode_root(native, "Response")
 }
 /// Adopt known `Response` meaning under this package's declared unknown-field policy.
 pub(super) fn decode_response(
-    wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    wire: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
 ) -> Result<pse_kernels::worker_protocol::Response, BoundaryProjectionError> {
     decode_root(wire, "Response")
 }

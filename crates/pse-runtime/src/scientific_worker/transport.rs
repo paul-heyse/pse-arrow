@@ -3,7 +3,7 @@
 //! Authenticated local HTTP/2, independent I/O and a single mutable native lane.
 use super::{
     PreparedSession, WorkerError,
-    generated::{pb::pse::scientific_worker::v1 as pb, services},
+    generated::{pb::pse::scientific_worker::v2 as pb, services},
     handler, infrastructure,
     process::ParentGuard,
 };
@@ -556,8 +556,8 @@ impl NativeCompletion {
     fn finish(
         self,
         response: p::Response,
-        preparation: Option<p::Handle>,
-        retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
+        preparation: Option<p::SessionHandle>,
+        retire: impl FnOnce(p::SessionHandle) -> Result<(), WorkerError>,
     ) -> Result<bool, WorkerError> {
         settle_delivery(self.deliver(response), preparation, retire)
     }
@@ -596,8 +596,8 @@ impl Drop for Delivery {
 }
 fn settle_delivery(
     observation: std::sync::mpsc::Receiver<DeliveryDisposition>,
-    preparation: Option<p::Handle>,
-    retire: impl FnOnce(p::Handle) -> Result<(), WorkerError>,
+    preparation: Option<p::SessionHandle>,
+    retire: impl FnOnce(p::SessionHandle) -> Result<(), WorkerError>,
 ) -> Result<bool, WorkerError> {
     match observation.recv().map_err(infrastructure)? {
         DeliveryDisposition::Consumed => Ok(true),
@@ -623,7 +623,7 @@ enum SubmissionError {
 #[derive(Default)]
 struct HandleControls {
     closed: bool,
-    handles: BTreeMap<SemanticId, (p::Handle, pse_diagnostics::Cancellation)>,
+    handles: BTreeMap<SemanticId, (p::SessionHandle, pse_diagnostics::Cancellation)>,
 }
 impl HandleControls {
     fn signal(&self, request: &p::Request) -> Result<(), WorkerError> {
@@ -659,7 +659,7 @@ impl HandleControls {
                 }
                 self.handles.insert(
                     value.handle.generation,
-                    (value.handle.clone(), Default::default()),
+                    (value.handle, Default::default()),
                 );
             }
             p::Request::Evaluate(value) => {
@@ -681,7 +681,7 @@ impl HandleControls {
         }
         Ok(())
     }
-    fn control(&self, handle: &p::Handle) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
+    fn control(&self, handle: &p::SessionHandle) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
         self.handles
             .get(&handle.generation)
             .filter(|(actual, _)| actual == handle)
@@ -765,7 +765,7 @@ fn retire_sessions(
 ) -> Result<(), WorkerError> {
     let mut failures = Vec::new();
     for (_, mut owner) in std::mem::take(sessions) {
-        let handle = p::Handle::from(owner.handle());
+        let handle = owner.handle();
         if let Err(cause) = owner.stop() {
             failures.push(WorkerError::Lifecycle {
                 action: "Stop",
@@ -823,7 +823,7 @@ impl Server {
         let (response, received) = tokio::sync::oneshot::channel();
         #[cfg(test)]
         let closing = match &request {
-            p::Request::Close(handle) => Some(handle.clone()),
+            p::Request::Close(handle) => Some(*handle),
             _ => None,
         };
         permit.send(Job {
@@ -952,14 +952,14 @@ pub(super) fn serve_with_preparation(
             while let Some(job) = receiving.blocking_recv() {
                 let shutdown = matches!(&job.request, p::Request::Shutdown);
                 let preparation = match &job.request {
-                    p::Request::Prepare(value) => Some(value.handle.clone()),
+                    p::Request::Prepare(value) => Some(value.handle),
                     _ => None,
                 };
                 let handle = match &job.request {
-                    p::Request::Prepare(value) => Some(value.handle.clone()),
-                    p::Request::Evaluate(value) => Some(value.handle.clone()),
-                    p::Request::EvaluateBatch(value) => Some(value.handle.clone()),
-                    p::Request::Stop(handle) | p::Request::Close(handle) => Some(handle.clone()),
+                    p::Request::Prepare(value) => Some(value.handle),
+                    p::Request::Evaluate(value) => Some(value.handle),
+                    p::Request::EvaluateBatch(value) => Some(value.handle),
+                    p::Request::Stop(handle) | p::Request::Close(handle) => Some(*handle),
                     p::Request::Shutdown => None,
                 };
                 let mut retirement = None;
@@ -978,7 +978,7 @@ pub(super) fn serve_with_preparation(
                             .control(&value.handle)?
                             .clone();
                         let prepared = prepare(value, cancellation)?;
-                        let handle = p::Handle::from(prepared.handle());
+                        let handle = prepared.handle();
                         let batch_supported = prepared.supports_batch();
                         sessions.insert(handle.generation, prepared);
                         Ok(p::Response::Prepared(p::Prepared {
@@ -1010,13 +1010,13 @@ pub(super) fn serve_with_preparation(
                                 "scientific worker unknown closing generation".into(),
                             )
                         })?;
-                        if actual.handle() != handle.clone().into() {
+                        if actual.handle() != handle {
                             return Err(ProviderError::Contract(
                                 "scientific worker foreign closing context".into(),
                             )
                             .into());
                         }
-                        retirement = Some(("Stop", handle.clone()));
+                        retirement = Some(("Stop", handle));
                         let retired = actual.stop();
                         sessions.remove(&handle.generation);
                         let mut failures: Vec<_> = retired.err().into_iter().collect();
@@ -1035,13 +1035,13 @@ pub(super) fn serve_with_preparation(
                                 "scientific worker unknown closing generation".into(),
                             )
                         })?;
-                        if actual.handle() != handle.clone().into() {
+                        if actual.handle() != handle {
                             return Err(ProviderError::Contract(
                                 "scientific worker foreign closing context".into(),
                             )
                             .into());
                         }
-                        retirement = Some(("Close", handle.clone()));
+                        retirement = Some(("Close", handle));
                         let retired = actual.close();
                         sessions.remove(&handle.generation);
                         let mut failures: Vec<_> = retired.err().into_iter().collect();
@@ -1078,7 +1078,7 @@ pub(super) fn serve_with_preparation(
                         if owner.state() != super::SessionState::Ready
                             && let Err(cleanup) = owner.stop()
                         {
-                            retirement = Some(("Stop", handle.clone()));
+                            retirement = Some(("Stop", handle));
                             result = Err(match result {
                                 Err(cause) => WorkerError::Retirement {
                                     causes: vec![cause, cleanup],
@@ -1333,7 +1333,7 @@ fn observe_native_join_for_test() -> Result<(), WorkerError> {
 }
 
 #[cfg(test)]
-fn departing_preparation_marker_for_test(handle: &p::Handle) -> Option<PathBuf> {
+fn departing_preparation_marker_for_test(handle: &p::SessionHandle) -> Option<PathBuf> {
     if !std::env::var("PSE_SCIENCE_TEST_MODE")
         .is_ok_and(|mode| mode.starts_with("prepare-departure"))
     {
@@ -1396,7 +1396,7 @@ fn observe_shutdown_departure_for_test(completion: &NativeCompletion) -> Result<
 #[cfg(test)]
 fn observe_close_departure_for_test(
     completion: &NativeCompletion,
-    handle: &p::Handle,
+    handle: &p::SessionHandle,
 ) -> Result<(), WorkerError> {
     if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("close-departure-retire-faults") {
         return Ok(());
@@ -1434,7 +1434,7 @@ fn wait_for_method_departure_for_test(completion: &NativeCompletion) -> Result<(
 
 #[cfg(test)]
 fn observe_orphan_retirement_for_test(
-    handle: &p::Handle,
+    handle: &p::SessionHandle,
     sessions: &BTreeMap<SemanticId, PreparedSession>,
     controls: &SharedControls,
     successful: bool,
@@ -1550,7 +1550,7 @@ fn observe_native_retirement_failures_for_test(
     clippy::unwrap_used,
     reason = "assertions in the explicitly launched controlled test child"
 )]
-fn observe_close_handoff_for_test(closing: Option<p::Handle>) {
+fn observe_close_handoff_for_test(closing: Option<p::SessionHandle>) {
     if let Some(handle) = closing
         && std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() == Ok("close-pending")
     {
@@ -1671,7 +1671,7 @@ mod tests {
         let calls = Arc::new(AtomicUsize::new(0));
         let observed = calls.clone();
         let router = connectrpc::Router::new().route::<_, pb::Request, pb::Response>(
-            "pse.scientific_worker.v1.ScientificWorker",
+            "pse.scientific_worker.v2.ScientificWorker",
             "Exchange",
             connectrpc::handler::handler_fn(move |_, _: pb::Request| {
                 observed.fetch_add(1, Ordering::SeqCst);
@@ -1732,7 +1732,7 @@ mod tests {
             let mut request = http::Request::builder()
                 .method(method)
                 .version(version)
-                .uri("/pse.scientific_worker.v1.ScientificWorker/Exchange");
+                .uri("/pse.scientific_worker.v2.ScientificWorker/Exchange");
             if let Some(content_type) = content_type {
                 request = request.header(http::header::CONTENT_TYPE, content_type);
             }
@@ -1758,7 +1758,7 @@ mod tests {
             let request = http::Request::builder()
                 .method("POST")
                 .version(http::Version::HTTP_2)
-                .uri("/pse.scientific_worker.v1.ScientificWorker/Exchange")
+                .uri("/pse.scientific_worker.v2.ScientificWorker/Exchange")
                 .header(http::header::CONTENT_TYPE, content_type)
                 .body(ObservedIngress {
                     reads: reads.clone(),
@@ -1969,15 +1969,15 @@ mod tests {
         assert!(matches!(&failures[..], [WorkerError::IoTask(error)] if error.is_panic()));
     }
 
-    fn handle(generation: u8) -> p::Handle {
-        p::Handle {
+    fn handle(generation: u8) -> p::SessionHandle {
+        p::SessionHandle {
             attempt: SemanticId::from_bytes([1; 16]),
             session: SemanticId::from_bytes([2; 16]),
             generation: SemanticId::from_bytes([generation; 16]),
         }
     }
 
-    fn preparation(handle: p::Handle) -> p::Request {
+    fn preparation(handle: p::SessionHandle) -> p::Request {
         let registry = pse_quantity::standard::standard_registry().unwrap();
         let descriptor = pse_backend_native::coolprop::descriptor(
             &registry,
@@ -1985,14 +1985,16 @@ mod tests {
         )
         .unwrap();
         p::Request::Prepare(p::Prepare {
-            version: 2,
+            version: p::PREPARE_VERSION,
             handle,
             spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
             configuration: pse_ids::ContentHash::from_bytes([1; 32]),
             regime: "liquid".into(),
-            outputs: vec![0],
-            order: 0,
-            demand: p::Demand::CompleteJets,
+            request: pse_kernels::ProviderRequest {
+                outputs: vec![0],
+                order: pse_kernels::DerivativeOrder::Value,
+                demand: pse_kernels::ProviderDemand::CompleteJets,
+            },
             remaining_ns: None,
             result_limit: 4096,
             physical: handler::physical_identity(&registry).unwrap(),
@@ -2143,12 +2145,12 @@ mod tests {
         let cancellation = pse_diagnostics::Cancellation::default();
         controls_lock(&server.controls).unwrap().handles.insert(
             survivor.generation,
-            (survivor.clone(), cancellation.clone()),
+            (survivor, cancellation.clone()),
         );
         let orphan = handle(3);
         let work = server.work.clone().try_acquire_owned().unwrap();
         let observer = server
-            .submit(preparation(orphan.clone()), Some(work))
+            .submit(preparation(orphan), Some(work))
             .await
             .unwrap();
         let job = receiving.recv().await.unwrap();
@@ -2163,10 +2165,10 @@ mod tests {
         job.completion
             .finish(
                 p::Response::Prepared(p::Prepared {
-                    handle: orphan.clone(),
+                    handle: orphan,
                     batch_supported: false,
                 }),
-                Some(orphan.clone()),
+                Some(orphan),
                 |actual| {
                     assert_eq!(actual, orphan);
                     assert_eq!(server.work.available_permits(), 0);
@@ -2195,11 +2197,11 @@ mod tests {
             let cancellation = pse_diagnostics::Cancellation::default();
             controls_lock(&server.controls).unwrap().handles.insert(
                 survivor.generation,
-                (survivor.clone(), cancellation.clone()),
+                (survivor, cancellation.clone()),
             );
             let work = server.work.clone().try_acquire_owned().unwrap();
             let observer = server
-                .submit(preparation(orphan.clone()), Some(work))
+                .submit(preparation(orphan), Some(work))
                 .await
                 .unwrap();
             let job = receiving.recv().await.unwrap();
@@ -2207,7 +2209,7 @@ mod tests {
             // Neither the unpolled payload nor a polled-but-unconsumed payload
             // establishes local method consumption.
             let observation = job.completion.deliver(p::Response::Prepared(p::Prepared {
-                handle: orphan.clone(),
+                handle: orphan,
                 batch_supported: false,
             }));
             assert!(matches!(
@@ -2225,7 +2227,7 @@ mod tests {
             }
             assert_eq!(server.work.available_permits(), 0);
             let mut retired = false;
-            settle_delivery(observation, Some(orphan.clone()), |actual| {
+            settle_delivery(observation, Some(orphan), |actual| {
                 assert_eq!(actual, orphan);
                 assert_eq!(server.work.available_permits(), 0);
                 controls_lock(&server.controls)?
@@ -2250,12 +2252,12 @@ mod tests {
         let prepared = handle(3);
         let work = server.work.clone().try_acquire_owned().unwrap();
         let observer = server
-            .submit(preparation(prepared.clone()), Some(work))
+            .submit(preparation(prepared), Some(work))
             .await
             .unwrap();
         let job = receiving.recv().await.unwrap();
         let observation = job.completion.deliver(p::Response::Prepared(p::Prepared {
-            handle: prepared.clone(),
+            handle: prepared,
             batch_supported: false,
         }));
         let reply = observer.response.await.unwrap();
@@ -2265,7 +2267,7 @@ mod tests {
         // No network delivery is claimed. Losing these bytes cannot manufacture
         // a second native outcome or retire an already consumed preparation.
         drop(encoded);
-        settle_delivery(observation, Some(prepared.clone()), |_| {
+        settle_delivery(observation, Some(prepared), |_| {
             panic!("wire delivery uncertainty is not local method abandonment")
         })
         .unwrap();
@@ -2320,7 +2322,7 @@ mod tests {
                 let mut controls = controls_lock(&server.controls).unwrap();
                 controls
                     .handles
-                    .insert(first.generation, (first.clone(), a.clone()));
+                    .insert(first.generation, (first, a.clone()));
                 controls
                     .handles
                     .insert(second.generation, (second, b.clone()));
@@ -2353,13 +2355,13 @@ mod tests {
             controls_lock(&server.controls)
                 .unwrap()
                 .handles
-                .insert(handle.generation, (handle.clone(), Default::default()));
+                .insert(handle.generation, (*handle, Default::default()));
         }
         let work = server.work.clone().try_acquire_owned().unwrap();
         let observer = server
             .submit(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: first.clone(),
+                    handle: first,
                     invocation: 1,
                     inputs: vec![1.],
                     directions: vec![],
@@ -2381,13 +2383,13 @@ mod tests {
             .unwrap();
         assert_eq!(server.work.available_permits(), 1);
         let next = server
-            .submit(p::Request::Close(survivor.clone()), None)
+            .submit(p::Request::Close(survivor), None)
             .await
             .unwrap();
         let job = receiving.recv().await.unwrap();
         let observed = job
             .completion
-            .deliver(p::Response::Closed(survivor.clone()));
+            .deliver(p::Response::Closed(survivor));
         let reply = next.response.await.unwrap();
         assert!(matches!(reply.response, p::Response::Closed(actual) if actual == survivor));
         reply.delivery.consume();
@@ -2403,23 +2405,23 @@ mod tests {
 
     #[test]
     fn handle_controls_cancel_only_exact_context_and_shutdown_closes_admission() {
-        let first = p::Handle {
+        let first = p::SessionHandle {
             attempt: SemanticId::from_bytes([1; 16]),
             session: SemanticId::from_bytes([2; 16]),
             generation: SemanticId::from_bytes([3; 16]),
         };
-        let mut second = first.clone();
+        let mut second = first;
         second.generation = SemanticId::from_bytes([4; 16]);
         let a = pse_diagnostics::Cancellation::default();
         let b = pse_diagnostics::Cancellation::default();
         let mut controls = HandleControls::default();
         controls
             .handles
-            .insert(first.generation, (first.clone(), a.clone()));
+            .insert(first.generation, (first, a.clone()));
         controls
             .handles
-            .insert(second.generation, (second.clone(), b.clone()));
-        let mut foreign = first.clone();
+            .insert(second.generation, (second, b.clone()));
+        let mut foreign = first;
         foreign.attempt = SemanticId::NIL;
         assert!(controls.admit(&p::Request::Stop(foreign)).is_err());
         assert!(!a.is_cancelled());
@@ -2428,7 +2430,7 @@ mod tests {
         assert!(a.is_cancelled());
         assert!(!b.is_cancelled());
         assert!(!controls.closed);
-        controls.admit(&p::Request::Close(second.clone())).unwrap();
+        controls.admit(&p::Request::Close(second)).unwrap();
         assert!(!b.is_cancelled());
         controls.admit(&p::Request::Shutdown).unwrap();
         assert!(b.is_cancelled());

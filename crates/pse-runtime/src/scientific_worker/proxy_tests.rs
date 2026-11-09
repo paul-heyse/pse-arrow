@@ -398,19 +398,18 @@ fn controlled_child() {
             if pse_kernels::portable::ProviderRecord::capture(&admitted) != request.spec {
                 return Err(ProviderError::Contract("controlled native descriptor differs".into()).into());
             }
+            let checked = PreparedProviderRequest::new(Arc::new(spec.clone()), request.request)?;
             if mode.starts_with("water-batch") {
                 let regime = match request.regime.as_str() {
                     "liquid" => WaterRegime::Liquid,
                     "vapor" => WaterRegime::Vapor,
                     _ => return Err(ProviderError::Contract("controlled water regime".into()).into()),
                 };
-                let demand = ProviderRequest { outputs: request.outputs.iter().map(|&n| n as usize).collect(),
-                    order: handler::order(request.order)?, demand: (&request.demand).try_into()? };
                 let scope = handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?;
                 scope.check()?;
                 let factory = WaterFactory::prepare(&registry, regime)?;
-                return super::super::PreparedSession::prepare(request.handle.into(), &factory,
-                    &spec, request.configuration, demand, scope, request.result_limit as usize);
+                return super::super::PreparedSession::prepare(request.handle, &factory,
+                    request.configuration, checked, scope, request.result_limit as usize);
             }
             let factory = ControlledFactory {
                 spec: spec.clone(),
@@ -419,19 +418,13 @@ fn controlled_child() {
                 marker: marker.clone(),
                 generation: request.handle.generation,
             };
-            let demand = ProviderRequest {
-                outputs: request.outputs.iter().map(|&n| n as usize).collect(),
-                order: handler::order(request.order)?,
-                demand: (&request.demand).try_into()?,
-            };
-            let gated = mode.starts_with("prepare-departure") && demand.order == DerivativeOrder::Second;
+            let gated = mode.starts_with("prepare-departure") && checked.order == DerivativeOrder::Second;
             let generation = request.handle.generation;
             let prepared = super::super::PreparedSession::prepare(
-                request.handle.into(),
+                request.handle,
                 &factory,
-                &spec,
                 request.configuration,
-                demand,
+                checked,
                 handler::scientific_scope(cancellation, request.remaining_ns, Instant::now())?,
                 request.result_limit as usize,
             )?;
@@ -717,8 +710,8 @@ fn orphan_preparation(proxy: &Proxy) -> p::Prepare {
     let checked =
         PreparedProviderRequest::new(Arc::new(proxy.factory.spec().clone()), raw.clone()).unwrap();
     p::Prepare {
-        version: 2,
-        handle: p::Handle {
+        version: p::PREPARE_VERSION,
+        handle: p::SessionHandle {
             attempt: proxy.attempt,
             session: proxy.remote.as_ref().unwrap().session,
             generation: pse_operations::mint_id(),
@@ -728,9 +721,7 @@ fn orphan_preparation(proxy: &Proxy) -> p::Prepare {
         registry: (*proxy.factory.registry).clone(),
         physical: proxy.factory.physical,
         regime: "vapor".into(),
-        outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
-        order: DerivativeOrder::Second as u32,
-        demand: p::Demand::from(&raw.demand),
+        request: raw,
         remaining_ns: None,
         result_limit: checked.extents().bytes().unwrap() as u64,
     }
@@ -822,7 +813,7 @@ fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
     let admitted = pool.reserved();
     assert!(admitted > baseline);
     let preparation = orphan_preparation(&proxy);
-    let orphan = preparation.handle.clone();
+    let orphan = preparation.handle;
     let generation = orphan.generation.to_string();
     let io = remote.io.as_ref().unwrap();
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -856,7 +847,7 @@ fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
     // Controls must refuse the orphan, while numerical admission and both
     // independently prepared native owners remain usable.
     for request in [
-        p::Request::Close(orphan.clone()),
+        p::Request::Close(orphan),
         p::Request::Evaluate(p::Evaluate {
             handle: orphan,
             invocation: 1,
@@ -875,7 +866,7 @@ fn actual_abandoned_prepare_method_retires_only_orphan_and_keeps_survivors() {
         let p::Response::Values(values) = io
             .exchange(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: handle.clone(),
+                    handle: *handle,
                     invocation: 1,
                     inputs: vec![500., 20.],
                     directions: vec![],
@@ -1021,8 +1012,8 @@ fn actual_abandoned_close_preserves_original_native_retirement_failure() {
     let (service, pool, _native) = service();
     let baseline = pool.reserved();
     let proxy = finish_proxy("close-departure-retire-faults", &marker, &service);
-    let closing = proxy.prepared[0].1.clone();
-    let survivor = proxy.prepared[1].1.clone();
+    let closing = proxy.prepared[0].1;
+    let survivor = proxy.prepared[1].1;
     let remote = proxy.remote.as_ref().unwrap();
     let pid = remote.child.pid();
     let endpoint = remote._endpoint.path().to_path_buf();
@@ -1044,7 +1035,7 @@ fn actual_abandoned_close_preserves_original_native_retirement_failure() {
     drop(runtime);
     let observed = io.exchange(
         p::Request::Evaluate(p::Evaluate {
-            handle: survivor.clone(),
+            handle: survivor,
             invocation: 1,
             inputs: vec![500., 20.],
             directions: vec![],
@@ -1112,9 +1103,9 @@ fn receive_failed_retirement(immediate_parent_finish: bool) {
     let baseline = pool.reserved();
     let mut proxy = finish_proxy("prepare-departure-retire-faults", &marker, &service);
     let preparation = orphan_preparation(&proxy);
-    let orphan = preparation.handle.clone();
+    let orphan = preparation.handle;
     let generation = orphan.generation.to_string();
-    let survivor = proxy.prepared[0].1.clone();
+    let survivor = proxy.prepared[0].1;
     let request = PreparedProviderRequest::new(
         Arc::new(proxy.factory.spec().clone()),
         proxy.prepared[0].0.clone(),
@@ -1303,8 +1294,8 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
     let (service, pool, _native) = service();
     let baseline = pool.reserved();
     let mut proxy = finish_proxy("close-pending", &marker, &service);
-    let closing = proxy.prepared[0].1.clone();
-    let survivor = proxy.prepared[1].1.clone();
+    let closing = proxy.prepared[0].1;
+    let survivor = proxy.prepared[1].1;
     let remote = proxy.remote.as_ref().unwrap();
     let pid = remote.child.pid();
     let endpoint = remote._endpoint.path().to_path_buf();
@@ -1330,7 +1321,7 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
             )
         });
         observe_phase(&phases, b"active").unwrap();
-        let close_handle = closing.clone();
+        let close_handle = closing;
         let close =
             threads.spawn(move || io.exchange(p::Request::Close(close_handle), scope, None));
         observe_phase(&phases, format!("queued:{}", closing.generation).as_bytes()).unwrap();
@@ -1361,7 +1352,7 @@ fn actual_close_pending_drains_fill_and_preserves_an_independent_prepared_handle
         let p::Response::Values(values) = io
             .exchange(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: survivor.clone(),
+                    handle: survivor,
                     invocation: 1,
                     inputs: vec![500., 20.],
                     directions: vec![],
@@ -1615,7 +1606,7 @@ fn actual_water_group_transport_preserves_raw_point_admission_and_capability() {
         .unwrap()
         .exchange(
             p::Request::EvaluateBatch(p::EvaluateBatch {
-                handle: handle.clone(),
+                handle,
                 invocation: proxy.invocation,
                 points: vec![p::BatchPoint {
                     id: points[0].id,
@@ -1716,7 +1707,7 @@ fn stop_active_group_drains_native_work_and_preserves_control_admission() {
         let evaluating = threads.spawn(|| {
             io.exchange(
                 p::Request::EvaluateBatch(p::EvaluateBatch {
-                    handle: handle.clone(),
+                    handle,
                     invocation: 1,
                     points: [1, 2]
                         .map(|id| p::BatchPoint {
@@ -1739,7 +1730,7 @@ fn stop_active_group_drains_native_work_and_preserves_control_admission() {
         }
         assert!(pool.reserved() > 0);
         assert!(
-            matches!(io.exchange(p::Request::Stop(handle.clone()), &proxy.scope, None).unwrap(),
+            matches!(io.exchange(p::Request::Stop(handle), &proxy.scope, None).unwrap(),
             p::Response::Closed(actual) if actual == handle)
         );
         assert!(
@@ -2192,22 +2183,20 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         };
         let checked =
             PreparedProviderRequest::new(Arc::new(specification.clone()), raw.clone()).unwrap();
-        let handle = p::Handle {
+        let handle = p::SessionHandle {
             attempt: proxy.attempt,
             session,
             generation: pse_operations::mint_id(),
         };
         let request = p::Prepare {
-            version: 2,
-            handle: handle.clone(),
+            version: p::PREPARE_VERSION,
+            handle,
             spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
             configuration: specification.identity(),
             registry: registry.to_builder(),
             physical: handler::physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
-            outputs: raw.outputs.iter().map(|&ordinal| ordinal as u64).collect(),
-            order: order as u32,
-            demand: p::Demand::from(&raw.demand),
+            request: raw.clone(),
             remaining_ns: scientific_remaining_ns(&proxy.scope, Instant::now()).unwrap(),
             result_limit: checked.extents().bytes().unwrap() as u64,
         };
@@ -2220,7 +2209,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         assert!(
             matches!(response, p::Response::Prepared(actual) if actual.handle == handle && !actual.batch_supported)
         );
-        proxy.prepared.push((raw, handle.clone(), false));
+        proxy.prepared.push((raw, handle, false));
         let invocation = index as u64 + 1;
         let response = proxy
             .remote
@@ -2228,7 +2217,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
             .unwrap()
             .exchange(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: handle.clone(),
+                    handle,
                     invocation,
                     inputs: vec![3., 5.],
                     directions,
@@ -2256,20 +2245,20 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         10,
         "one coherent native invocation per product and output selection"
     );
-    let active = proxy.prepared[0].1.clone();
-    let first = proxy.prepared[2].1.clone();
-    let survivor = proxy.prepared[1].1.clone();
-    let stopped = proxy.prepared[3].1.clone();
+    let active = proxy.prepared[0].1;
+    let first = proxy.prepared[2].1;
+    let survivor = proxy.prepared[1].1;
+    let stopped = proxy.prepared[3].1;
     let remote = proxy.remote.as_ref().unwrap();
     assert!(matches!(
-        remote.exchange(p::Request::Close(first.clone()), &proxy.scope, None).unwrap(),
+        remote.exchange(p::Request::Close(first), &proxy.scope, None).unwrap(),
         p::Response::Closed(actual) if actual == first
     ));
     assert!(matches!(
-        remote.exchange(p::Request::Stop(stopped.clone()), &proxy.scope, None).unwrap(),
+        remote.exchange(p::Request::Stop(stopped), &proxy.scope, None).unwrap(),
         p::Response::Closed(actual) if actual == stopped
     ));
-    let mut foreign = survivor.clone();
+    let mut foreign = survivor;
     foreign.attempt = SemanticId::NIL;
     assert!(matches!(
         remote
@@ -2280,7 +2269,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
     let io = remote.io.as_ref().unwrap();
     let scope = &proxy.scope;
     std::thread::scope(|threads| {
-        let evaluate_handle = active.clone();
+        let evaluate_handle = active;
         let evaluating = threads.spawn(move || {
             io.exchange(
                 p::Request::Evaluate(p::Evaluate {
@@ -2317,7 +2306,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
     let response = remote
         .exchange(
             p::Request::Evaluate(p::Evaluate {
-                handle: survivor.clone(),
+                handle: survivor,
                 invocation: 10_000,
                 inputs: vec![3., 5.],
                 directions: vec![],
@@ -2334,7 +2323,7 @@ fn action_capable_native_owner_preserves_every_product_through_actual_transport(
         let response = remote
             .exchange(
                 p::Request::Evaluate(p::Evaluate {
-                    handle: survivor.clone(),
+                    handle: survivor,
                     invocation,
                     inputs: vec![3., 5.],
                     directions: vec![],
@@ -2395,22 +2384,20 @@ fn changed_actual_stock_datum_is_refused_by_the_selected_reference_binding() {
         local.water.configuration_key(),
         different.configuration_key()
     );
-    let handle = p::Handle {
+    let handle = p::SessionHandle {
         attempt: pse_operations::mint_id(),
         session: pse_operations::mint_id(),
         generation: pse_operations::mint_id(),
     };
     let request = p::Prepare {
-        version: 2,
-        handle: handle.clone(),
+        version: p::PREPARE_VERSION,
+        handle,
         spec: local.descriptor.clone(),
         configuration: original.configuration_key(),
         registry: changed.to_builder(),
         physical: handler::physical_identity(&changed).unwrap(),
         regime: "vapor".into(),
-        outputs: vec![0, 1, 2],
-        order: 2,
-        demand: p::Demand::CompleteJets,
+        request: ProviderRequest::all(local.spec(), DerivativeOrder::Second),
         remaining_ns: None,
         result_limit: 4096,
     };

@@ -35,32 +35,37 @@ pse_diagnostics::impl_diagnostic! {
     }
 }
 
+use pse_contract::boundary_projection::Direction;
+
+pse_contract::projection_enum! {
 /// Exact local derivative product; numeric seeds belong to each invocation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum ProviderDemand {
+    projection: { name: "ProviderDemand", rust_path: crate::ProviderDemand, version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Output-major complete partial arrays at the request's derivative order.
     #[default]
-    CompleteJets,
+    CompleteJets => 1;
     /// Ordered input columns; Second returns the selected column square.
     SelectedColumns {
         /// Ordered unique local input ordinals.
-        columns: Vec<usize>,
-    },
+        columns: Vec<usize> => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 2;
     /// Output-major forward actions for row-major input directions.
     JacobianAction {
         /// Number of row-major input directions.
-        directions: usize,
-    },
+        directions: usize => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 3;
     /// Cotangent-major transpose actions for row-major output cotangents.
     TransposeAction {
         /// Number of row-major selected-output cotangents.
-        cotangents: usize,
-    },
+        cotangents: usize => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 4;
     /// One weighted gradient and input-major weighted second actions.
     WeightedSecondAction {
         /// Number of row-major input directions.
-        directions: usize,
-    },
+        directions: usize => { tag: 1, direction: Direction::Both, rules: [] };
+    } => 5;
+}
 }
 
 /// Invocation-local numeric bindings, excluded from immutable prepared identity.
@@ -576,7 +581,14 @@ impl ProviderBinding {
         &mut self,
         request: ProviderRequest,
     ) -> Result<PreparedProviderRequest, ProviderError> {
-        let mut prepared = PreparedProviderRequest::new(self.spec.clone(), request)?;
+        let prepared = PreparedProviderRequest::new(self.spec.clone(), request)?;
+        self.prepare_checked(prepared)
+    }
+    /// Bind an admitted demand to this worker and prepare its supported native product.
+    pub fn prepare_checked(
+        &mut self,
+        mut prepared: PreparedProviderRequest,
+    ) -> Result<PreparedProviderRequest, ProviderError> {
         prepared.bind(self)?;
         self.prepare_demand(&prepared)?;
         Ok(prepared)

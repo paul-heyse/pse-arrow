@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Portable scientific worker operations and their source-owned boundary declarations.
-use crate::{ProviderDemand, ProviderError};
+use crate::ProviderRequest;
 use pse_contract::boundary_projection::{Direction, LocalRule};
 use pse_ids::{ContentHash, SemanticId};
 
@@ -17,11 +17,17 @@ pub const EXCHANGE_EFFECTS: pse_contract::operation_effects::EffectFacts =
         destructive: false,
     };
 
+/// Current private worker preparation interpretation.
+pub const PREPARE_VERSION: u32 = 3;
+
+/// Maximum selected outputs admitted across the prepared worker boundary.
+pub const MAXIMUM_PREPARED_OUTPUTS: usize = 64;
+
 pse_contract::projection_struct! {
-    #[derive(Clone, Debug, PartialEq, Eq)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
     /// Exact attempt and child generation; this carries no owner-sealed proof.
-    pub struct Handle {
-        projection: { name: "Handle", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+    pub struct SessionHandle {
+        projection: { name: "SessionHandle", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
         /// Original mutable scientific attempt.
         pub attempt: SemanticId => { tag: 1, direction: Direction::Both, rules: [] };
         /// Fresh explicitly launched child session.
@@ -30,92 +36,21 @@ pse_contract::projection_struct! {
         pub generation: SemanticId => { tag: 3, direction: Direction::Both, rules: [] };
     }
 }
-pse_contract::projection_enum! {
-    #[derive(Clone, Debug, PartialEq, Eq)]
-    /// All kernel product kinds; transport availability does not imply native support.
-    pub enum Demand {
-        projection: { name: "Demand", version: 1, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
-        /// Complete output-major values and partial arrays.
-        CompleteJets => 1;
-        /// Ordered input column subset and its second-order square.
-        SelectedColumns(Vec<u64>) => 2;
-        /// Number of direction-major forward seeds.
-        JacobianAction(u64) => 3;
-        /// Number of selected-output cotangents.
-        TransposeAction(u64) => 4;
-        /// Number of directions for one weighted second product.
-        WeightedSecondAction(u64) => 5;
-    }
-}
-impl From<&ProviderDemand> for Demand {
-    fn from(value: &ProviderDemand) -> Self {
-        match value {
-            ProviderDemand::CompleteJets => Self::CompleteJets,
-            ProviderDemand::SelectedColumns { columns } => {
-                Self::SelectedColumns(columns.iter().map(|&n| n as u64).collect())
-            }
-            ProviderDemand::JacobianAction { directions } => {
-                Self::JacobianAction(*directions as u64)
-            }
-            ProviderDemand::TransposeAction { cotangents } => {
-                Self::TransposeAction(*cotangents as u64)
-            }
-            ProviderDemand::WeightedSecondAction { directions } => {
-                Self::WeightedSecondAction(*directions as u64)
-            }
-        }
-    }
-}
-
-impl TryFrom<&Demand> for ProviderDemand {
-    type Error = ProviderError;
-
-    fn try_from(value: &Demand) -> Result<Self, Self::Error> {
-        let extent = |n: u64| {
-            usize::try_from(n).map_err(|_| ProviderError::Limit("scientific worker demand extent"))
-        };
-        Ok(match value {
-            Demand::CompleteJets => Self::CompleteJets,
-            Demand::SelectedColumns(columns) => Self::SelectedColumns {
-                columns: columns
-                    .iter()
-                    .map(|&n| extent(n))
-                    .collect::<Result<_, _>>()?,
-            },
-            Demand::JacobianAction(n) => Self::JacobianAction {
-                directions: extent(*n)?,
-            },
-            Demand::TransposeAction(n) => Self::TransposeAction {
-                cotangents: extent(*n)?,
-            },
-            Demand::WeightedSecondAction(n) => Self::WeightedSecondAction {
-                directions: extent(*n)?,
-            },
-        })
-    }
-}
-
 pse_contract::projection_struct! {
     #[derive(Clone, Debug)]
     /// One immutable preparation, carrying selected science and original remaining time.
     pub struct Prepare {
-        projection: { name: "Prepare", version: 2, direction: Direction::Input, reserved_tags: [5], reserved_names: ["physical_registry"] };
+        projection: { name: "Prepare", version: PREPARE_VERSION, direction: Direction::Input, reserved_tags: [5, 7, 8, 9], reserved_names: ["physical_registry", "outputs", "order", "demand"] };
         /// Selected major protocol contract.
-        pub version: u32 => { tag: 1, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 2, max: 2 }] };
+        pub version: u32 => { tag: 1, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: PREPARE_VERSION as u64, max: PREPARE_VERSION as u64 }] };
         /// Parent-issued fresh context reference.
-        pub handle: Handle => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub handle: SessionHandle => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Complete expected physical and algorithm descriptor.
         pub spec: crate::portable::ProviderRecord => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Expected native image, data, fitted constants and datum configuration.
         pub configuration: ContentHash => { tag: 4, direction: Direction::Input, rules: [] };
         /// Explicit homogeneous branch; normal native calls never impose phase.
         pub regime: String => { tag: 6, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 64 }] };
-        /// Ordered unique selected output ordinals.
-        pub outputs: Vec<u64> => { tag: 7, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 64 }] };
-        /// Requested derivative order.
-        pub order: u32 => { tag: 8, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 0, max: 2 }] };
-        /// Exact requested product; actions retain honest support/refusal.
-        pub demand: Demand => { tag: 9, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Remaining original scope lifetime; absent means no scientific deadline.
         pub remaining_ns: Option<u64> => { tag: 10, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
         /// Admitted complete numerical result storage, in bytes.
@@ -124,6 +59,8 @@ pse_contract::projection_struct! {
         pub registry: pse_quantity::QuantityRegistryBuilder => { tag: 12, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Expected interpretation of the actual declarations, checked after native reconstruction.
         pub physical: ContentHash => { tag: 13, direction: Direction::Input, rules: [] };
+        /// Exact native demand and ordered outputs; native admission checks support and extents.
+        pub request: ProviderRequest => { tag: 14, direction: Direction::Input, rules: [LocalRule::Required] };
     }
 }
 pse_contract::projection_struct! {
@@ -132,7 +69,7 @@ pse_contract::projection_struct! {
     pub struct Evaluate {
         projection: { name: "Evaluate", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
         /// Exact current prepared attempt/session/generation.
-        pub handle: Handle => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub handle: SessionHandle => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Monotonic nonzero invocation identity; repeated dispatch refuses.
         pub invocation: u64 => { tag: 2, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
         /// Ordered canonical physical input bits.
@@ -155,9 +92,9 @@ pse_contract::projection_enum! {
         /// Execute one coherent scientific invocation without automatic replay.
         Evaluate(Evaluate) => 2;
         /// Cancel only this prepared handle and retire its settled state.
-        Stop(Handle) => 3;
+        Stop(SessionHandle) => 3;
         /// Destroy only this handle's settled native state.
-        Close(Handle) => 4;
+        Close(SessionHandle) => 4;
         /// Close admission and cancel/drain every handle on this authenticated session.
         Shutdown => 5;
         /// Execute one native group; raw point cells undergo independent scientific admission.
@@ -170,7 +107,7 @@ pse_contract::projection_struct! {
     pub struct Prepared {
         projection: { name: "Prepared", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
         /// Exact admitted context.
-        pub handle: Handle => { tag: 1, direction: Direction::Output, rules: [] };
+        pub handle: SessionHandle => { tag: 1, direction: Direction::Output, rules: [] };
         /// Native owner supports a genuine group for this demand; scalar support grants nothing.
         pub batch_supported: bool => { tag: 2, direction: Direction::Output, rules: [] };
     }
@@ -198,7 +135,7 @@ pse_contract::projection_struct! {
     pub struct EvaluateBatch {
         projection: { name: "EvaluateBatch", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
         /// Exact prepared context.
-        pub handle: Handle => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub handle: SessionHandle => { tag: 1, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Shares the scalar invocation sequence; repeated/stale operations refuse.
         pub invocation: u64 => { tag: 2, direction: Direction::Input, rules: [LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
         /// Ordered identified points; framing bounds never grant scientific permission.
@@ -246,7 +183,7 @@ pse_contract::projection_struct! {
     pub struct Batch {
         projection: { name: "Batch", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
         /// Completing context.
-        pub handle: Handle => { tag: 1, direction: Direction::Output, rules: [] };
+        pub handle: SessionHandle => { tag: 1, direction: Direction::Output, rules: [] };
         /// Completing shared invocation sequence identity.
         pub invocation: u64 => { tag: 2, direction: Direction::Output, rules: [] };
         /// Original order with exactly one outcome per point.
@@ -259,7 +196,7 @@ pse_contract::projection_struct! {
     pub struct Values {
         projection: { name: "Values", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
         /// Exact completing attempt/session/generation.
-        pub handle: Handle => { tag: 1, direction: Direction::Output, rules: [] };
+        pub handle: SessionHandle => { tag: 1, direction: Direction::Output, rules: [] };
         /// Exact completing invocation.
         pub invocation: u64 => { tag: 2, direction: Direction::Output, rules: [] };
         /// Requested physical values in selected output order.
@@ -361,7 +298,7 @@ pse_contract::projection_enum! {
         /// A typed refusal, without a readable partial result.
         Failure(Failure) => 3;
         /// Native state was destroyed; process settlement remains the parent's duty.
-        Closed(Handle) => 4;
+        Closed(SessionHandle) => 4;
         /// All session-native state has joined; the parent still owns process/I/O settlement.
         Shutdown => 5;
         /// One complete attributable native group, including independent point refusals.

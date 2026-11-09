@@ -2,15 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! One child-native session; public wire claims never establish native meaning.
 use super::{
-    PreparedSession, SessionHandle, WorkerError,
+    PreparedSession, WorkerError,
     failure_budget::{FAILURE_DEPTH, FAILURE_NODES, FAILURE_RETAINED_TEXT, failure_within_limits},
 };
 use pse_diagnostics::{
     DiagnosticCode, DiagnosticFacts, DiagnosticObservation, DiagnosticStage, TypedDiagnostic,
 };
-use pse_kernels::{
-    DerivativeOrder, ProviderError, ProviderRequest, ProviderRuntime, worker_protocol as p,
-};
+use pse_kernels::{ProviderError, ProviderRuntime, worker_protocol as p};
 use pse_model::{
     HeapUsage as _,
     diagnostic::{BoundaryDiagnostic, DiagnosticProjection as _, Observation, project_facts},
@@ -18,34 +16,6 @@ use pse_model::{
 
 const FAILURE_STAGE: DiagnosticStage = DiagnosticStage::Evaluation;
 
-impl From<SessionHandle> for p::Handle {
-    fn from(value: SessionHandle) -> Self {
-        Self {
-            attempt: value.attempt,
-            session: value.session,
-            generation: value.generation,
-        }
-    }
-}
-impl From<p::Handle> for SessionHandle {
-    fn from(value: p::Handle) -> Self {
-        Self {
-            attempt: value.attempt,
-            session: value.session,
-            generation: value.generation,
-        }
-    }
-}
-pub(super) fn order(value: u32) -> Result<DerivativeOrder, ProviderError> {
-    match value {
-        0 => Ok(DerivativeOrder::Value),
-        1 => Ok(DerivativeOrder::First),
-        2 => Ok(DerivativeOrder::Second),
-        _ => Err(ProviderError::Contract(
-            "unknown scientific worker derivative order".into(),
-        )),
-    }
-}
 /// Typed selected-water failure, retaining envelope coordinates as exact bits.
 pub(super) fn failure(error: WorkerError) -> p::Failure {
     failure_observation(&error)
@@ -545,7 +515,7 @@ pub(super) fn prepare(
     cancellation: pse_diagnostics::Cancellation,
 ) -> Result<PreparedSession, WorkerError> {
     let received_at = std::time::Instant::now();
-    if request.version != 2
+    if request.version != p::PREPARE_VERSION
         || request.handle.session != expected_session
         || [
             request.handle.attempt,
@@ -556,6 +526,7 @@ pub(super) fn prepare(
         || request.remaining_ns == Some(0)
         || request.result_limit == 0
         || request.result_limit > 1_048_576
+        || request.request.outputs.len() > p::MAXIMUM_PREPARED_OUTPUTS
     {
         return Err(ProviderError::Contract(
             "scientific worker version/session/physical interpretation or bounds differ".into(),
@@ -583,18 +554,6 @@ pub(super) fn prepare(
         )
         .into());
     }
-    let demand = ProviderRequest {
-        outputs: request
-            .outputs
-            .iter()
-            .map(|&n| {
-                usize::try_from(n)
-                    .map_err(|_| ProviderError::Limit("scientific worker output ordinal"))
-            })
-            .collect::<Result<_, _>>()?,
-        order: order(request.order)?,
-        demand: (&request.demand).try_into()?,
-    };
     let admitted = pse_backend_native::coolprop::descriptor(&registry, regime)?;
     if pse_kernels::portable::ProviderRecord::capture(&admitted) != request.spec {
         return Err(ProviderError::Contract(
@@ -602,28 +561,28 @@ pub(super) fn prepare(
         )
         .into());
     }
-    let checked = pse_kernels::PreparedProviderRequest::new(
-        std::sync::Arc::new(admitted.spec().clone()),
-        demand.clone(),
-    )?;
-    let flag = cancellation.flag();
-    checked.check_context(&pse_kernels::EvaluationContext {
-        cancelled: &flag,
-        max_result_bytes: request.result_limit as usize,
-    })?;
     // Parent retains its original absolute clock across transfer. A child clock
     // exists only when that original scope has one; reuse never renews it.
     let scope = scientific_scope(cancellation, request.remaining_ns, received_at)?;
+    let result_limit = usize::try_from(request.result_limit)
+        .map_err(|_| ProviderError::Limit("scientific worker result extent"))?;
+    let checked = pse_kernels::PreparedProviderRequest::new(
+        std::sync::Arc::new(admitted.spec().clone()),
+        request.request,
+    )?;
+    checked.check_context(&pse_kernels::EvaluationContext {
+        cancelled: scope.cancellation(),
+        max_result_bytes: result_limit,
+    })?;
     scope.check()?;
     let factory = pse_backend_native::coolprop::WaterFactory::prepare(&registry, regime)?;
     PreparedSession::prepare(
-        request.handle.into(),
+        request.handle,
         &factory,
-        admitted.spec(),
         request.configuration,
-        demand,
+        checked,
         scope,
-        request.result_limit as usize,
+        result_limit,
     )
 }
 
@@ -650,7 +609,7 @@ pub(super) fn evaluate(
     value: p::Evaluate,
 ) -> Result<p::Values, WorkerError> {
     let completed = session.evaluate(
-        value.handle.clone().into(),
+        value.handle,
         value.invocation,
         &value.inputs,
         ProviderRuntime {
@@ -686,7 +645,7 @@ pub(super) fn evaluate_batch(
         })
         .collect();
     let completed =
-        session.evaluate_batch(value.handle.clone().into(), value.invocation, &points)?;
+        session.evaluate_batch(value.handle, value.invocation, &points)?;
     Ok(p::Batch {
         handle: value.handle,
         invocation: value.invocation,
@@ -714,7 +673,7 @@ mod tests {
 
     #[test]
     fn borrowed_lifecycle_40k_leaf_is_not_formatted_twice() {
-        let handle = p::Handle {
+        let handle = p::SessionHandle {
             attempt: pse_ids::SemanticId::from_bytes([1; 16]),
             session: pse_ids::SemanticId::from_bytes([2; 16]),
             generation: pse_ids::SemanticId::from_bytes([3; 16]),
@@ -722,7 +681,7 @@ mod tests {
         let key = pse_ids::ContentHash::from_bytes([4; 32]);
         let original = WorkerError::Lifecycle {
             action: "Stop",
-            handle: Some(handle.clone()),
+            handle: Some(handle),
             cause: Box::new(WorkerError::Provider(ProviderError::Retirement {
                 failures: vec![pse_kernels::ProviderRetirementFailure {
                     key: pse_kernels::ProviderKey(key),
@@ -879,14 +838,14 @@ mod tests {
             pse_backend_native::coolprop::WaterRegime::Vapor,
         )
         .unwrap();
-        let handle = p::Handle {
+        let handle = p::SessionHandle {
             attempt: pse_ids::SemanticId::from_bytes([1; 16]),
             session: pse_ids::SemanticId::from_bytes([2; 16]),
             generation: pse_ids::SemanticId::from_bytes([3; 16]),
         };
         let original = p::Prepare {
-            version: 2,
-            handle: handle.clone(),
+            version: p::PREPARE_VERSION,
+            handle,
             spec: pse_kernels::portable::ProviderRecord::capture(
                 &pse_backend_native::coolprop::descriptor(
                     &registry,
@@ -898,9 +857,10 @@ mod tests {
             registry: registry.to_builder(),
             physical: physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
-            outputs: vec![0, 1, 2],
-            order: 2,
-            demand: p::Demand::CompleteJets,
+            request: pse_kernels::ProviderRequest::all(
+                factory.spec(),
+                pse_kernels::DerivativeOrder::Second,
+            ),
             remaining_ns: Some(60_000_000_000),
             result_limit: 4096,
         };
@@ -923,7 +883,7 @@ mod tests {
         request.configuration = pse_ids::ContentHash::from_bytes([7; 32]);
         variants.push(request);
         let mut request = original.clone();
-        request.outputs = vec![0, 0];
+        request.request.outputs = vec![0, 0];
         variants.push(request);
         let mut request = original.clone();
         let first = registry.quantity_types().next().unwrap().clone();
@@ -950,7 +910,7 @@ mod tests {
         request.registry.clone().build().unwrap();
         variants.push(request);
         let mut request = original;
-        request.demand = p::Demand::WeightedSecondAction(1);
+        request.request.demand = pse_kernels::ProviderDemand::WeightedSecondAction { directions: 1 };
         variants.push(request);
         for request in variants {
             assert!(matches!(

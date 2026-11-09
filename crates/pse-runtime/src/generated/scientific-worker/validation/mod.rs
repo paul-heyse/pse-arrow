@@ -18,10 +18,10 @@ pub mod pse {
     use super::*;
     pub mod scientific_worker {
         use super::*;
-        pub mod v1 {
+        pub mod v2 {
             use super::*;
-            use crate::scientific_worker::generated::pb::pse::scientific_worker::v1::*;
-            include!("pse.scientific_worker.v1.mod.rs");
+            use crate::scientific_worker::generated::pb::pse::scientific_worker::v2::*;
+            include!("pse.scientific_worker.v2.mod.rs");
         }
     }
 }

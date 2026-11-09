@@ -15,7 +15,7 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
     let mut tree = projection(
         &graph,
         ProjectionTarget {
-            package: "pse.scientific_worker.v1",
+            package: "pse.scientific_worker.v2",
             file: "scientific_worker.proto",
             destination: "crates/pse-runtime/src/generated/scientific-worker",
             rust_module: "crate::scientific_worker::generated::pb",
@@ -29,7 +29,7 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
     let adapters = boundary_projection::native_adapters_scoped(
         &graph,
         &scientific_roots,
-        "crate::scientific_worker::generated::pb::pse::scientific_worker::v1",
+        "crate::scientific_worker::generated::pb::pse::scientific_worker::v2",
         "pse_runtime",
         boundary_projection::AdapterVisibility::Parent,
     )?;
@@ -61,7 +61,7 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
         });
     }
     tree.files.extend(
-        provenance::sidecar(&producer("pse.scientific_worker.v1"), &tree.relationships)?.files,
+        provenance::sidecar(&producer("pse.scientific_worker.v2"), &tree.relationships)?.files,
     );
     Ok(tree)
 }
@@ -98,7 +98,7 @@ mod tests {
         );
         assert!(
             tree.files
-                .contains_key(&destination.join("services/pse.scientific_worker.v1.mod.rs"))
+                .contains_key(&destination.join("services/pse.scientific_worker.v2.mod.rs"))
         );
     }
 }

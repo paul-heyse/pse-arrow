@@ -7,9 +7,9 @@ pub mod pse {
     pub mod scientific_worker {
         use super::*;
         #[allow(non_camel_case_types, dead_code, unused_imports, unused_qualifications, clippy::derivable_impls, clippy::match_single_binding, clippy::uninlined_format_args, clippy::doc_lazy_continuation, clippy::module_inception, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        pub mod v1 {
+        pub mod v2 {
             use super::*;
-            include!("pse.scientific_worker.v1.rs");
+            include!("pse.scientific_worker.v2.rs");
         }
     }
 }

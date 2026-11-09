@@ -6,7 +6,7 @@ use pse_ids::SemanticId;
 use pse_kernels::{
     EvaluationContext, ExecutionScope, PreparedProviderRequest, ProviderBatchOutcome,
     ProviderBatchPoint, ProviderBinding, ProviderBuffer, ProviderError, ProviderFactory,
-    ProviderRequest, ProviderRuntime, ProviderSpec, ProviderValues,
+    ProviderRuntime, ProviderValues, worker_protocol::SessionHandle,
 };
 fn finish_binding(binding: ProviderBinding) -> Result<(), WorkerError> {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -17,17 +17,6 @@ fn finish_binding(binding: ProviderBinding) -> Result<(), WorkerError> {
             pse_diagnostics::panic::settle_payload(payload, "non-text native panic payload"),
         ))
     })
-}
-
-/// Attempt-bound context reference, checked on every invocation; never a proof token.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SessionHandle {
-    /// Explicit enclosing attempt identity.
-    pub attempt: SemanticId,
-    /// Fresh launch identity owned by the parent.
-    pub session: SemanticId,
-    /// Fresh prepared context identity; replacement never retains it.
-    pub generation: SemanticId,
 }
 
 /// Original attempt state; failure cannot transition back to ready.
@@ -63,9 +52,8 @@ impl PreparedSession {
     pub fn prepare(
         handle: SessionHandle,
         factory: &dyn ProviderFactory,
-        expected: &ProviderSpec,
         configuration: pse_ids::ContentHash,
-        request: ProviderRequest,
+        checked: PreparedProviderRequest,
         scope: ExecutionScope,
         result_limit: usize,
     ) -> Result<Self, WorkerError> {
@@ -76,18 +64,17 @@ impl PreparedSession {
             )
             .into());
         }
-        if factory.spec() != expected || factory.configuration_key() != configuration {
+        if factory.spec() != checked.spec() || factory.configuration_key() != configuration {
             return Err(ProviderError::Contract(
                 "scientific worker reconstructed physical/data/datum contract differs".into(),
             )
             .into());
         }
-        let checked =
-            PreparedProviderRequest::new(std::sync::Arc::new(expected.clone()), request.clone())?;
-        checked.check_context(&EvaluationContext {
+        let context = EvaluationContext {
             cancelled: scope.cancellation(),
             max_result_bytes: result_limit,
-        })?;
+        };
+        checked.check_context(&context)?;
         let mut binding = factory.create_scoped(scope.nested())?;
         let prepared = (|| {
             if binding.supports_linearization() {
@@ -95,11 +82,7 @@ impl PreparedSession {
                     "scientific worker has no admitted transferable linearization context".into(),
                 ));
             }
-            let request = binding.prepare(request)?;
-            let context = EvaluationContext {
-                cancelled: scope.cancellation(),
-                max_result_bytes: result_limit,
-            };
+            let request = binding.prepare_checked(checked)?;
             request.check_context(&context)?;
             // The launcher admits request/result/decoder and opaque storage before
             // this constructor; this check bounds the exact numerical allocation.

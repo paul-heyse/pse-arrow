@@ -46,15 +46,18 @@ const OUTPUT_PORTS_RULE: pse_contract::boundary_projection::LocalRule =
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ProviderKey(pub ContentHash);
 
+pse_contract::projection_struct! {
 /// A callback's exact property and derivative demand, in returned output order.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProviderRequest {
+    projection: { name: "ProviderRequest", version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Unique output ordinals; a subset does not change provider identity.
-    pub outputs: Vec<usize>,
+    pub outputs: Vec<usize> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [OUTPUT_PORTS_RULE] };
     /// Required raw derivative order.
-    pub order: DerivativeOrder,
+    pub order: DerivativeOrder => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Exact local partial or contracted derivative representation.
-    pub demand: ProviderDemand,
+    pub demand: ProviderDemand => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
+}
 }
 impl ProviderRequest {
     /// Request all outputs in registration order.

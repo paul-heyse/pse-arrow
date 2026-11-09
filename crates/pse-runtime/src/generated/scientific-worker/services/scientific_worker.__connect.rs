@@ -1,19 +1,19 @@
 ///Shorthand for `OwnedView<RequestView<'static>>`.
 pub type OwnedRequestView = ::buffa::view::OwnedView<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::RequestView<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::RequestView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<ResponseView<'static>>`.
 pub type OwnedResponseView = ::buffa::view::OwnedView<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::ResponseView<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::ResponseView<
         'static,
     >,
 >;
 impl ::connectrpc::Encodable<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
 >
-for crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::ResponseView<
+for crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::ResponseView<
     '_,
 > {
     fn encode(
@@ -24,10 +24,10 @@ for crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa
     }
 }
 impl ::connectrpc::Encodable<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
 >
 for ::buffa::view::OwnedView<
-    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::ResponseView<
+    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::ResponseView<
         'static,
     >,
 > {
@@ -53,10 +53,10 @@ for ::buffa::view::OwnedView<
     }
 }
 /// Full service name for this service.
-pub const SCIENTIFIC_WORKER_SERVICE_NAME: &str = "pse.scientific_worker.v1.ScientificWorker";
+pub const SCIENTIFIC_WORKER_SERVICE_NAME: &str = "pse.scientific_worker.v2.ScientificWorker";
 /// Static [`Spec`](::connectrpc::Spec) for the `Exchange` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
 pub const SCIENTIFIC_WORKER_EXCHANGE_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.scientific_worker.v1.ScientificWorker/Exchange",
+        "/pse.scientific_worker.v2.ScientificWorker/Exchange",
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
@@ -125,12 +125,12 @@ pub trait ScientificWorker: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -174,7 +174,7 @@ impl<S: ScientificWorker> ScientificWorkerExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::RequestView<
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::RequestView<
                                 'static,
                             >,
                         >,
@@ -183,12 +183,12 @@ impl<S: ScientificWorker> ScientificWorkerExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+                                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.exchange(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+                                    crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
                                 >(format)
                         }
                     })
@@ -247,7 +247,7 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
         &self,
         path: &str,
     ) -> Option<::connectrpc::dispatcher::codegen::MethodDescriptor> {
-        let method = path.strip_prefix("pse.scientific_worker.v1.ScientificWorker/")?;
+        let method = path.strip_prefix("pse.scientific_worker.v2.ScientificWorker/")?;
         match method {
             "Exchange" => {
                 Some(
@@ -266,7 +266,7 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::UnaryResult {
         let Some(method) = path
-            .strip_prefix("pse.scientific_worker.v1.ScientificWorker/") else {
+            .strip_prefix("pse.scientific_worker.v2.ScientificWorker/") else {
             return ::connectrpc::dispatcher::codegen::unimplemented_unary(path);
         };
         let _ = (&ctx, &request, &format);
@@ -275,21 +275,21 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
                     >(request.encoded()?, format)?;
-                    let req: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::RequestView<
+                    let req: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::RequestView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+                        crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
                     >::from_parts(&req, &body);
                     svc.exchange(ctx, req)
                         .await?
                         .encode::<
-                            crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Response,
+                            crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Response,
                         >(format)
                 })
             }
@@ -304,7 +304,7 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::StreamingResult {
         let Some(method) = path
-            .strip_prefix("pse.scientific_worker.v1.ScientificWorker/") else {
+            .strip_prefix("pse.scientific_worker.v2.ScientificWorker/") else {
             return ::connectrpc::dispatcher::codegen::unimplemented_streaming(path);
         };
         let _ = (&ctx, &request, &format);
@@ -320,7 +320,7 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::UnaryResult {
         let Some(method) = path
-            .strip_prefix("pse.scientific_worker.v1.ScientificWorker/") else {
+            .strip_prefix("pse.scientific_worker.v2.ScientificWorker/") else {
             return ::connectrpc::dispatcher::codegen::unimplemented_unary(path);
         };
         let _ = (&ctx, &requests, &format);
@@ -336,7 +336,7 @@ impl<T: ScientificWorker> ::connectrpc::Dispatcher for ScientificWorkerServer<T>
         format: ::connectrpc::CodecFormat,
     ) -> ::connectrpc::dispatcher::codegen::StreamingResult {
         let Some(method) = path
-            .strip_prefix("pse.scientific_worker.v1.ScientificWorker/") else {
+            .strip_prefix("pse.scientific_worker.v2.ScientificWorker/") else {
             return ::connectrpc::dispatcher::codegen::unimplemented_streaming(path);
         };
         let _ = (&ctx, &requests, &format);
@@ -424,14 +424,14 @@ where
     pub fn config_mut(&mut self) -> &mut ::connectrpc::client::ClientConfig {
         &mut self.config
     }
-    /// Call the Exchange RPC. Sends a request to /pse.scientific_worker.v1.ScientificWorker/Exchange.
+    /// Call the Exchange RPC. Sends a request to /pse.scientific_worker.v2.ScientificWorker/Exchange.
     pub async fn exchange(
         &self,
-        request: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+        request: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::ResponseView<
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::ResponseView<
                     'static,
                 >,
             >,
@@ -444,12 +444,12 @@ where
     /// Call the Exchange RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn exchange_with_options(
         &self,
-        request: crate::scientific_worker::generated::pb::pse::scientific_worker::v1::Request,
+        request: crate::scientific_worker::generated::pb::pse::scientific_worker::v2::Request,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::scientific_worker::generated::pb::pse::scientific_worker::v1::__buffa::view::ResponseView<
+                crate::scientific_worker::generated::pb::pse::scientific_worker::v2::__buffa::view::ResponseView<
                     'static,
                 >,
             >,

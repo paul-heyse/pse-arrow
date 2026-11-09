@@ -3,7 +3,7 @@
 //! Source-generated structural correspondence; native preparation retains scientific admission.
 use super::{
     WorkerError, failure_budget::failure_within_limits,
-    generated::pb::pse::scientific_worker::v1 as pb,
+    generated::pb::pse::scientific_worker::v2 as pb,
 };
 use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
 use pse_contract_proto::support::*;
@@ -82,6 +82,7 @@ fn validate_failure_response(value: &p::Response) -> Result<(), WorkerError> {
 mod tests {
     use super::*;
     use buffa::Message as _;
+    use pse_kernels::{DerivativeOrder, ProviderDemand, ProviderRequest};
 
     fn round_trip_failure(error: WorkerError) -> WorkerError {
         let response = p::Response::Failure(super::super::handler::failure(error));
@@ -246,8 +247,8 @@ mod tests {
     }
     use protovalidate_buffa::Validate as _;
 
-    fn handle() -> p::Handle {
-        p::Handle {
+    fn handle() -> p::SessionHandle {
+        p::SessionHandle {
             attempt: pse_ids::SemanticId::from_bytes([1; 16]),
             session: pse_ids::SemanticId::from_bytes([2; 16]),
             generation: pse_ids::SemanticId::from_bytes([3; 16]),
@@ -298,16 +299,18 @@ mod tests {
         )
         .unwrap();
         p::Prepare {
-            version: 2,
+            version: p::PREPARE_VERSION,
             handle: handle(),
             spec: pse_kernels::portable::ProviderRecord::capture(&descriptor),
             configuration: pse_ids::ContentHash::from_bytes([0x11; 32]),
             registry: registry.to_builder(),
             physical: super::super::handler::physical_identity(&registry).unwrap(),
             regime: "vapor".into(),
-            outputs: vec![0],
-            order: 0,
-            demand: p::Demand::CompleteJets,
+            request: ProviderRequest {
+                outputs: vec![0],
+                order: DerivativeOrder::Value,
+                demand: ProviderDemand::CompleteJets,
+            },
             remaining_ns: None,
             result_limit: 4096,
         }
@@ -370,7 +373,8 @@ mod tests {
         wire.registry = Default::default();
         assert!(decode_root::<p::Prepare, _>(wire, "Prepare").is_err());
         let mut wire = encode_root::<_, pb::Prepare>(preparation(), "Prepare").unwrap();
-        wire.version = 1;
+        wire.version = 2;
+        assert!(wire.validate().is_err());
         assert!(decode_root::<p::Prepare, _>(wire, "Prepare").is_err());
     }
 
@@ -429,21 +433,40 @@ mod tests {
     #[test]
     fn all_demand_alternatives_roundtrip_without_claiming_water_support() {
         for expected in [
-            p::Demand::CompleteJets,
-            p::Demand::SelectedColumns(vec![1, 0]),
-            p::Demand::JacobianAction(3),
-            p::Demand::TransposeAction(2),
-            p::Demand::WeightedSecondAction(4),
+            ProviderDemand::CompleteJets,
+            ProviderDemand::SelectedColumns { columns: vec![1, 0] },
+            ProviderDemand::JacobianAction { directions: 3 },
+            ProviderDemand::TransposeAction { cotangents: 2 },
+            ProviderDemand::WeightedSecondAction { directions: 4 },
         ] {
-            let encoded = encode_root::<_, pb::Demand>(expected.clone(), "Demand")
+            let encoded = encode_root::<_, pb::ProviderDemand>(expected.clone(), "ProviderDemand")
                 .unwrap()
                 .encode_to_vec();
-            let generated: pb::Demand = decode(&encoded);
+            let generated: pb::ProviderDemand = decode(&encoded);
             generated.validate().unwrap();
             assert_eq!(
-                decode_root::<p::Demand, _>(generated, "Demand").unwrap(),
+                decode_root::<ProviderDemand, _>(generated, "ProviderDemand").unwrap(),
                 expected
             );
+        }
+    }
+
+    #[test]
+    fn preparation_uses_the_native_derivative_tags_and_keeps_selected_output_order() {
+        for (order, tag) in [
+            (DerivativeOrder::Value, 0x0a),
+            (DerivativeOrder::First, 0x12),
+            (DerivativeOrder::Second, 0x1a),
+        ] {
+            let mut native = preparation();
+            native.request.order = order;
+            native.request.outputs = vec![2, 0];
+            let generated = encode_root::<_, pb::Prepare>(native, "Prepare").unwrap();
+            generated.validate().unwrap();
+            let request = generated.request.as_option().unwrap();
+            assert_eq!(request.outputs, [2, 0]);
+            let order_bytes = request.order.as_option().unwrap().encode_to_vec();
+            assert_eq!(order_bytes, [tag, 0]);
         }
     }
 

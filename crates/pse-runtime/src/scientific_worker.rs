@@ -25,9 +25,9 @@ pub use proxy::LocalWaterFactory;
 pub use transport::serve;
 
 pub use process::{PreparedExecutable, ProcessCustody};
-pub use session::{PreparedSession, SessionHandle, SessionState};
+pub use session::{PreparedSession, SessionState};
 
-use pse_kernels::{ProviderError, worker_protocol::Handle};
+use pse_kernels::{ProviderError, worker_protocol::SessionHandle};
 
 /// Attributed placement failure; ambiguous dispatch is distinct from a refusal.
 #[derive(Debug, thiserror::Error)]
@@ -69,7 +69,7 @@ pub enum WorkerError {
         /// Requested handle or session operation.
         action: &'static str,
         /// Exact prepared handle, absent only for process-wide Shutdown.
-        handle: Option<Handle>,
+        handle: Option<SessionHandle>,
         /// Original typed refusal, dispatch or physical settlement failure.
         #[source]
         cause: Box<Self>,
@@ -80,7 +80,7 @@ pub enum WorkerError {
         /// Operation whose response did not acknowledge the requested identity.
         action: &'static str,
         /// Exact prepared handle, absent only for process-wide Shutdown.
-        handle: Option<Handle>,
+        handle: Option<SessionHandle>,
     },
     /// The explicitly owned Hyper connection completed with an error.
     #[cfg(feature = "property-coolprop")]
