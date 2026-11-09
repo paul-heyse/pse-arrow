@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "d807eb81e01c59d756d092147840d91644cbe6b7c2be1a022bbf0cf901df56b2",
+  "delta_sha256": "75c8a738de7d130b8d16ea1ad53909724cd7afa1981292f333df5ae69e775ce7",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -92,7 +92,7 @@
     },
     "build.rs": {
       "mode": "100644",
-      "sha256": "a98b2f963c4873f64e49b2333da43c991e5420cc2c0e515b189f9968a1b46a05"
+      "sha256": "e939351fb70a19358981b5deb9dea64112e81016aa8917186821635725da798f"
     },
     "examples/algebraic_factor_expression.rs": {
       "mode": "100644",
