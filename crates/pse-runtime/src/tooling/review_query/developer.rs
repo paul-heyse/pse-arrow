@@ -22,7 +22,7 @@ use pse_columnar::{AllocationLease, CancellationToken, MemoryConsumer, MemoryPoo
 use pse_host::{
     developer_evidence,
     envelope::CliInvocationId,
-    test_workflow::execute::{ContentIdentity, EvidenceScope},
+    test_workflow::execute::{ContentIdentity, EvidenceScope, GroupFailureAccount},
 };
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
@@ -94,8 +94,38 @@ pub struct Source {
     pub invocation: CliInvocationId,
     /// Terminal-bound exact original report commitment.
     pub report_sha256: String,
+    /// Source report's bounded per-group views; absent means unknown.
+    pub group_failure_views: Option<Vec<GroupFailureView>>,
     /// Original acquisition, coverage and authenticity limitations.
     pub limitations: Vec<String>,
+}
+/// Original failure-reference coverage for one group; never a new verdict.
+#[derive(Debug, Serialize, schemars::JsonSchema)]
+pub struct GroupFailureView {
+    /// Original admitted/listed group, distinct from the report array index.
+    pub group: usize,
+    /// Exact pointer to the original group's view.
+    pub pointer: String,
+    /// Compiler or runner view selected by the original owner.
+    pub kind: &'static str,
+    /// Number of actually supplied references.
+    pub references: usize,
+    /// Number of failure occurrences explicitly omitted from that view.
+    pub omitted: usize,
+}
+
+impl GroupFailureView {
+    fn original(index: usize, account: &GroupFailureAccount) -> Self {
+        let (group, kind, references, omitted) = match account {
+            GroupFailureAccount::Check { group, observation } => (
+                *group, "check", observation.failures.len(), observation.omitted_failure_records,
+            ),
+            GroupFailureAccount::Test { group, observation, omitted_failure_records } => (
+                *group, "test", observation.failures.len(), *omitted_failure_records,
+            ),
+        };
+        Self { group, pointer: format!("/observations/{index}"), kind, references, omitted }
+    }
 }
 /// One grouping of original facts, not a new verdict or present control observation.
 #[derive(Debug, Serialize, schemars::JsonSchema)]
@@ -330,6 +360,9 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             payload_sha256: ContentIdentity::of(&payload).sha256,
             invocation: original.report.invocation.clone(),
             report_sha256: original.readback.report_sha256.clone(),
+            group_failure_views: original.group_failures.as_ref().map(|groups| {
+                groups.iter().enumerate().map(|(index, account)| GroupFailureView::original(index, account)).collect()
+            }),
             limitations: original.readback.limitations.clone(),
         });
         facts.push(original);
@@ -384,8 +417,8 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             "This finite query summarizes supplied original observations; portable agreement does not authenticate producers or issue native verdicts or action permission.".into(),
             "These original portable roots do not record producer generation or source-clock coordinates. No duration, causal order or scientific run/attempt association is inferred.".into(),
             "Recorded manager settlement and pending state describe the original recorded-at-read observation, never present physical control or current readiness.".into(),
-            "Cause patterns use the original report's failure and dependency accounts. An empty cause group points to the original evidence account. Private runner and compiler outputs remain outside this observation.".into(),
-            "The independent prerequisite question reads only the original pending account. Missing is unknown; a present empty list is known empty, not current readiness. Recorded paths/argv are not followed. Per-group private test/compiler outcomes remain outside this observation.".into(),
+            "Cause patterns use the original report's operation, dependency and supplied per-group references. An empty cause group does not establish the absence of failures. Group views preserve their original omissions; raw runner and compiler outputs are not read.".into(),
+            "The independent prerequisite question reads only the original pending account. Missing is unknown; a present empty list is known empty, not current readiness. Recorded paths/argv are not followed.".into(),
         ],
     }, _owners: owners })
 }

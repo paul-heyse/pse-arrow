@@ -239,18 +239,6 @@ fn observed_pending<'de, D: serde::Deserializer<'de>>(
     deserializer.deserialize_seq(Entries)
 }
 
-/// Read only the source-owned optional prerequisite account. Callers independently
-/// authenticate these original bytes; this constructs no readiness or native verdict.
-pub(crate) fn original_prerequisites(
-    bytes: &[u8],
-) -> Result<Option<Vec<Pending>>, serde_json::Error> {
-    #[derive(Deserialize)]
-    struct Projection {
-        #[serde(default, deserialize_with = "observed_pending")]
-        pending: Option<Vec<Pending>>,
-    }
-    serde_json::from_slice::<Projection>(bytes).map(|projection| projection.pending)
-}
 /// Native phase, with no second process/native-budget owner.
 #[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -313,6 +301,106 @@ pub enum GroupObservation {
         /// Failure references omitted only from this view; native counts and raw output remain complete.
         omitted_failure_records: usize,
     },
+}
+
+/// Passive view of a committed group's bounded failure references.
+/// The performing summary and its verdict cannot be constructed from this view.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum GroupFailureAccount {
+    /// The compiler's original selected failure references.
+    Check {
+        /// Original admitted group ordinal.
+        group: usize,
+        /// Selected compiler diagnostic references, in original report order.
+        observation: CompilerFailureAccount,
+    },
+    /// The runner's original selected failure references.
+    Test {
+        /// Original listed group ordinal.
+        group: usize,
+        /// Selected runner failure references, in original report order.
+        observation: TestFailureAccount,
+        /// Failure occurrences omitted from this report view.
+        omitted_failure_records: usize,
+    },
+}
+
+/// Fields needed to attribute recorded compiler diagnostics to their group.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CompilerFailureAccount {
+    /// The bounded reference view in the original report.
+    pub failures: Vec<CompilerFailureFact>,
+    /// Failure occurrences omitted from this report view.
+    pub omitted_failure_records: usize,
+}
+
+/// Passive compiler diagnostic identity, independent of rendered text or file paths.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct CompilerFailureFact {
+    /// Original compiler code, when the diagnostic supplied it.
+    pub code: Option<String>,
+}
+
+/// Fields needed to attribute recorded runner failures to their group.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct TestFailureAccount {
+    /// The bounded reference view in the original report.
+    pub failures: Vec<TestFailureFact>,
+}
+
+/// Passive runner failure reference. Setup refusal and assertion evidence remain distinct.
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+pub struct TestFailureFact {
+    /// Exact original listed test identity.
+    pub identity: crate::discovery::TestIdentity,
+    /// Original typed setup refusal markers, if the target supplied them.
+    #[serde(default)]
+    pub target_setup_refusals: Vec<crate::extraction::TargetSetupRefusal>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct OriginalReportAccounts {
+    #[serde(default, deserialize_with = "observed_pending")]
+    pub(crate) pending: Option<Vec<Pending>>,
+    #[serde(default, deserialize_with = "observed_groups")]
+    pub(crate) observations: Option<Vec<GroupFailureAccount>>,
+}
+
+fn observed_groups<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Vec<GroupFailureAccount>>, D::Error> {
+    // Absence is unknown; a supplied null is not an original group account.
+    Vec::deserialize(deserializer).map(Some)
+}
+
+/// Read the passive accounts from the same authenticated original report bytes.
+/// Neither recorded prerequisites nor failure references can authorize a new action.
+pub(crate) fn original_report_accounts(
+    bytes: &[u8],
+    action: Action,
+) -> Result<OriginalReportAccounts, serde_json::Error> {
+    let projection = serde_json::from_slice::<OriginalReportAccounts>(bytes)?;
+    if let Some(groups) = &projection.observations {
+        use serde::de::Error as _;
+        let mut seen = std::collections::BTreeSet::new();
+        for account in groups {
+            let group = match (action, account) {
+                (Action::Check | Action::Rustdoc, GroupFailureAccount::Check { group, .. }) => *group,
+                (Action::Test, GroupFailureAccount::Test { group, observation, .. }) => {
+                    if observation.failures.iter().any(|failure| failure.identity.group != *group) {
+                        return Err(serde_json::Error::custom("test failure differs from its original group"));
+                    }
+                    *group
+                }
+                _ => return Err(serde_json::Error::custom("failure view differs from its original action")),
+            };
+            if !seen.insert(group) {
+                return Err(serde_json::Error::custom("duplicate original group failure view"));
+            }
+        }
+    }
+    Ok(projection)
 }
 /// Durable performing-helper report. Private native summaries are never decoded into passes.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -1040,6 +1128,7 @@ mod observation_tests {
 
     #[test]
     fn original_prerequisite_projection_preserves_absent_empty_and_refuses_invalid_presence() {
+        let original_prerequisites = |bytes: &[u8]| original_report_accounts(bytes, Action::Test).map(|account| account.pending);
         assert!(original_prerequisites(br#"{}"#).unwrap().is_none());
         assert!(
             original_prerequisites(br#"{"pending":[]}"#)

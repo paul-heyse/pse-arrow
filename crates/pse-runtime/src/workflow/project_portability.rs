@@ -419,12 +419,12 @@ impl ProjectBundleReader {
         drop(bytes);
         validate_manifest(&manifest)?;
         for member in &manifest.members {
-            let file =
+            let mut file =
                 portable_payload::open_contained(&directory, &member.relative_path).map_err(io)?;
             if file.metadata().map_err(io)?.len() != member.copied_bytes {
                 return Err(contract("project member extent differs"));
             }
-            let (bytes, digest) = checksum(file, member.copied_bytes)?;
+            let (bytes, digest) = checksum(&mut file, member.copied_bytes)?;
             if bytes != member.copied_bytes || digest != member.digest {
                 return Err(contract("project member digest differs"));
             }
@@ -434,8 +434,7 @@ impl ProjectBundleReader {
                     .as_ref()
                     .ok_or_else(|| contract("result member lacks original scientific selection"))?;
                 portable_payload::validate_scientific_ipc(
-                    portable_payload::open_contained(&directory, &member.relative_path)
-                        .map_err(io)?,
+                    &mut file,
                     member.copied_bytes,
                     maximum_document_bytes,
                     result,
@@ -443,15 +442,11 @@ impl ProjectBundleReader {
                 .map_err(|e| contract(e.to_string()))?;
             }
             if let Some(metadata) = &member.artifact_metadata {
+                file.rewind().map_err(io)?;
                 let mut hash = pse_ids::FramedHasher::new(pse_ids::Frame::CanonicalPayloadV1);
                 hash.str("pse.execution.result-payload.v1");
-                hash.part_reader(
-                    member.copied_bytes,
-                    &mut portable_payload::open_contained(&directory, &member.relative_path)
-                        .map_err(io)?,
-                    &|| Ok(()),
-                )
-                .map_err(io)?;
+                hash.part_reader(member.copied_bytes, &mut file, &|| Ok(()))
+                    .map_err(io)?;
                 if hash.finish_hash().to_hex() != metadata.payload_digest {
                     return Err(contract("original artifact payload digest differs"));
                 }

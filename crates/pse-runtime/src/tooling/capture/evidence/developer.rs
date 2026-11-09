@@ -3,6 +3,8 @@
 //! Typed derived views over host-verified original observations, never native verdicts.
 use super::*;
 use pse_host::{developer_evidence::InvocationFacts, envelope::ErrorRecord};
+use pse_host::test_workflow::execute::GroupFailureAccount;
+use std::borrow::Cow;
 mod prerequisites;
 pub use prerequisites::project as prerequisites;
 
@@ -100,7 +102,7 @@ struct Cause<'a> {
     pointer: String,
     kind: &'static str,
     code: Option<&'a str>,
-    class: Option<&'a str>,
+    class: Option<Cow<'a, str>>,
 }
 
 #[derive(Clone, Copy)]
@@ -140,7 +142,7 @@ fn diagnostic<'a>(
             pointer: pointer.clone(),
             kind,
             code: error.code.as_deref(),
-            class: error.class.as_deref(),
+            class: error.class.as_deref().map(Cow::Borrowed),
         },
     )?;
     for (index, _) in error.causes.iter().enumerate() {
@@ -227,6 +229,45 @@ pub fn causes(
                 )?;
             }
         }
+        for (index, group) in facts.group_failures.iter().flatten().enumerate() {
+            cancel.checkpoint()?;
+            let mut record = |failure, kind, code, setup: Option<(usize, &pse_host::extraction::TargetSetupRefusal)>| {
+                cancel.checkpoint()?;
+                let mut pointer = format!("/observations/{index}/observation/failures/{failure}");
+                let class = if let Some((marker, refusal)) = setup {
+                    use std::fmt::Write as _;
+                    write!(pointer, "/target_setup_refusals/{marker}").map_err(invalid)?;
+                    Some(Cow::Owned(name(refusal)?))
+                } else {
+                    None
+                };
+                add(&mut rows, Cause {
+                    member: member as u64,
+                    facts,
+                    pointer,
+                    kind,
+                    code,
+                    class,
+                })
+            };
+            match group {
+                GroupFailureAccount::Check { observation, .. } => {
+                    for (failure, diagnostic) in observation.failures.iter().enumerate() {
+                        record(failure, "compiler_group_failure", diagnostic.code.as_deref(), None)?;
+                    }
+                }
+                GroupFailureAccount::Test { observation, .. } => {
+                    for (failure, test) in observation.failures.iter().enumerate() {
+                        if test.target_setup_refusals.is_empty() {
+                            record(failure, "test_group_failure", None, None)?;
+                        }
+                        for (marker, refusal) in test.target_setup_refusals.iter().enumerate() {
+                            record(failure, "test_group_setup_refusal", None, Some((marker, refusal)))?;
+                        }
+                    }
+                }
+            }
+        }
     }
     let ids = rows
         .iter()
@@ -247,7 +288,7 @@ pub fn causes(
             strings(rows.iter().map(|r| Some(r.pointer.as_str()))),
             strings(rows.iter().map(|r| Some(r.kind))),
             strings(rows.iter().map(|r| r.code)),
-            strings(rows.iter().map(|r| r.class)),
+            strings(rows.iter().map(|r| r.class.as_deref())),
         ],
         owner,
         cancel,

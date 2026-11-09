@@ -225,6 +225,9 @@ pub struct InvocationFacts {
     /// Exact original passive prerequisite account. An omitted account is
     /// unobserved, while a present empty list records no pending prerequisites.
     pub prerequisites: Option<Vec<crate::test_workflow::execute::Pending>>,
+    /// Original per-group failure-reference view. An absent account is unknown;
+    /// a present view may explicitly omit failures and never grants rerun authority.
+    pub group_failures: Option<Vec<crate::test_workflow::execute::GroupFailureAccount>>,
 }
 
 /// The existing captured-evidence family's maximum binary decode allowances.
@@ -257,11 +260,15 @@ pub fn inspect_facts(
     requested: &buffa::DecodeOptions,
 ) -> Result<InvocationFacts, EvidenceError> {
     let verified = inspect_original(descriptors, message, bytes, requested)?;
-    let prerequisites = crate::test_workflow::execute::original_prerequisites(&verified.original)?;
+    let accounts = crate::test_workflow::execute::original_report_accounts(
+        &verified.original,
+        verified.observation.action,
+    )?;
     Ok(InvocationFacts {
         report: verified.observation,
         readback: verified.readback,
-        prerequisites,
+        prerequisites: accounts.pending,
+        group_failures: accounts.observations,
     })
 }
 

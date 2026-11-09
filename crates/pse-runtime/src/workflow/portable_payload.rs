@@ -273,7 +273,7 @@ fn invalid(reason: impl Into<String>) -> std::io::Error {
 /// Validate every bounded message's schema/layout/framing and exact original lineage.
 /// Metadata validation never materializes record arrays.
 pub(crate) fn validate_scientific_ipc(
-    file: File,
+    file: impl Read + Seek,
     readable_bytes: u64,
     maximum_document_bytes: usize,
     result: &PackResultSelection,
@@ -282,7 +282,7 @@ pub(crate) fn validate_scientific_ipc(
     validate_scientific_lineage(schema.as_ref(), result)
 }
 pub(crate) fn finalized_ipc_schema(
-    mut file: File,
+    mut file: impl Read + Seek,
     readable_bytes: u64,
     maximum_document_bytes: usize,
 ) -> std::io::Result<pse_columnar::Leased<datafusion::arrow::datatypes::Schema>> {

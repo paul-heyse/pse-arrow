@@ -63,12 +63,21 @@ fn committed_member(
     settled: bool,
     pending: Option<&str>,
 ) -> Member {
+    let extra = pending.map(|value| ("pending", value));
+    committed_member_with(root, report, settled, extra)
+}
+
+fn committed_member_with(
+    root: &std::path::Path,
+    report: ReportObservation,
+    settled: bool,
+    extra: Option<(&str, &str)>,
+) -> Member {
     let id = report.invocation.clone();
     let mut bytes = serde_json::to_vec(&report).unwrap();
-    if let Some(pending) = pending {
+    if let Some((name, value)) = extra {
         assert_eq!(bytes.pop(), Some(b'}'));
-        bytes.extend_from_slice(b",\"pending\":");
-        bytes.extend_from_slice(pending.as_bytes());
+        bytes.extend_from_slice(format!(",\"{name}\":{value}").as_bytes());
         bytes.push(b'}');
     }
     let identity = ContentIdentity::of(&bytes);
@@ -105,6 +114,66 @@ fn committed_member(
         descriptors,
         payload,
     }
+}
+
+#[tokio::test]
+async fn original_group_failure_views_preserve_setup_compiler_and_omitted_references() {
+    let root = tempfile::tempdir().unwrap();
+    let report = |action| ReportObservation {
+        version: 3,
+        invocation: CliInvocationId::new(),
+        action,
+        outcome: Outcome::Failed,
+        inventory: None,
+        selected_tests: None,
+        required_capture_complete: true,
+        failures: vec![],
+        inventory_content: None,
+        evidence: Some(vec![input_omission()]),
+    };
+    let check = committed_member_with(root.path(), report(Action::Check), true, Some(("observations", r#"[
+        {"kind":"check","group":2,"observation":{"failures":[{"code":"E0382"}],"omitted_failure_records":3}}
+    ]"#)));
+    let run = committed_member_with(root.path(), report(Action::Test), true, Some(("observations", r#"[
+        {"kind":"test","group":0,"observation":{"failures":[]},"omitted_failure_records":2},
+        {"kind":"test","group":4,"observation":{"failures":[
+            {"identity":{"group":4,"package_id":"package","binary_id":"unit","test_name":"setup"},
+             "target_setup_refusals":["native_service_inputs"]},
+            {"identity":{"group":4,"package_id":"package","binary_id":"unit","test_name":"construction"},
+             "target_setup_refusals":["native_service_construction"]},
+            {"identity":{"group":4,"package_id":"package","binary_id":"unit","test_name":"assertion"}}
+        ]},"omitted_failure_records":0}
+    ]"#)));
+    let absent = committed_member(root.path(), report(Action::Test), false, None);
+    let answer = analyze(request(vec![check, run, absent]), &CancellationToken::new()).await.unwrap();
+    let document = answer.document();
+    let sources = &document.sources;
+    let check = &sources[0].group_failure_views.as_ref().unwrap()[0];
+    assert_eq!((check.group, check.references, check.omitted), (2, 1, 3));
+    let groups = sources[1].group_failure_views.as_ref().unwrap();
+    assert_eq!((groups[0].references, groups[0].omitted), (0, 2));
+    assert_eq!((groups[1].group, groups[1].pointer.as_str()), (4, "/observations/1"));
+    assert!(sources[2].group_failure_views.is_none());
+    for (kind, code, class, member, pointer) in [
+        ("compiler_group_failure", Some("E0382"), None, 0, "/observations/0/observation/failures/0"),
+        ("test_group_setup_refusal", None, Some("native_service_inputs"), 1, "/observations/1/observation/failures/0/target_setup_refusals/0"),
+        ("test_group_setup_refusal", None, Some("native_service_construction"), 1, "/observations/1/observation/failures/1/target_setup_refusals/0"),
+        ("test_group_failure", None, None, 1, "/observations/1/observation/failures/2"),
+    ] {
+        let pattern = document.patterns.iter().find(|row| {
+            row.diagnostic_kind.as_deref() == Some(kind) && row.class.as_deref() == class
+        }).unwrap();
+        assert_eq!(pattern.code.as_deref(), code);
+        assert_eq!(pattern.class.as_deref(), class);
+        assert_eq!(pattern.references, [Reference { member, pointer: Some(pointer.into()) }]);
+    }
+    let foreign_action = committed_member_with(root.path(), report(Action::List), false, Some((
+        "observations", r#"[{"kind":"check","group":0,"observation":{"failures":[],"omitted_failure_records":0}}]"#,
+    )));
+    assert!(matches!(
+        analyze(request(vec![foreign_action]), &CancellationToken::new()).await,
+        Err(Error::Evidence(_))
+    ));
 }
 fn request(members: Vec<Member>) -> Request {
     Request {
