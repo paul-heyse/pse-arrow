@@ -47,6 +47,17 @@ const ACCUMULATION: &str = r#"package accumulation {
     integrate samples(0{s},0.5{s},1{s}) relative(global)
       normalized_absolute(global) step(1e-4{s});
   } { child root:Experiment=Experiment(); }
+  def WindowEstimate {
+    param sample_start:Time=0{s}; param sample_end:Time=0{s};
+    var estimated_rate:Scalar;
+    eq observed_change:estimated_rate*0.5{s}==sample_end-sample_start;
+    annotation start estimated_rate(1{1});
+    annotation engineering_scale estimated_rate(kind=magnitude,value=3{1});
+  }
+  test estimate_window fixture {
+    dof 0; route steady; procedure solve; intent root;
+    value root.sample_start=0{s}; value root.sample_end=0{s};
+  } { child root:WindowEstimate=WindowEstimate(); }
 }"#;
 
 // Actual Measurement fixture from native_scientific_modes, retaining the original
@@ -228,6 +239,36 @@ fn point(operation: OperationRequest, key: u32) -> StudyPoint {
     }
 }
 
+async fn inspect_model(
+    client: &EngineeringClient,
+    source_operation: &str,
+    case: DeclarationId,
+) -> ModelingInspection {
+    let result = codec::decode_modeling_inspection(
+        client
+            .generated()
+            .inspect_modeling(
+                codec::encode_engineering_inspect_modeling(EngineeringInspectModeling {
+                    source_operation: source_operation.into(),
+                    request: ModelingInspectionRequest {
+                        case,
+                        preparation: PreparationSettings::default(),
+                        settings: Default::default(),
+                        offset: 0,
+                        limit: 128,
+                    },
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert!(result.next_offset.is_none());
+    result
+}
+
 async fn members(
     client: &EngineeringClient,
     capture: &str,
@@ -360,56 +401,28 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
         .await
         .unwrap()
         .into_owned();
-    let case = DeclarationId::from_id(SemanticId::from_bytes(
-        source_headers
-            .declarations
-            .iter()
-            .find(|row| row.name == "experiment_integrated")
-            .unwrap()
-            .declaration
-            .as_slice()
-            .try_into()
-            .unwrap(),
-    ));
-    let inspection = codec::decode_modeling_inspection(
-        client
-            .generated()
-            .inspect_modeling(
-                codec::encode_engineering_inspect_modeling(EngineeringInspectModeling {
-                    source_operation: source_operation.clone(),
-                    request: ModelingInspectionRequest {
-                        case,
-                        preparation: PreparationSettings::default(),
-                        settings: Default::default(),
-                        offset: 0,
-                        limit: 128,
-                    },
-                })
+    let declaration = |name: &str| {
+        DeclarationId::from_id(SemanticId::from_bytes(
+            source_headers
+                .declarations
+                .iter()
+                .find(|row| row.name == name)
+                .unwrap()
+                .declaration
+                .as_slice()
+                .try_into()
                 .unwrap(),
-            )
-            .await
-            .unwrap()
-            .into_owned(),
-    )
-    .unwrap();
-    assert!(inspection.next_offset.is_none());
+        ))
+    };
+    let case = declaration("experiment_integrated");
+    let inspection = inspect_model(&client, &source_operation, case).await;
     let rate = inspection
         .members
         .iter()
         .find(|member| member.lineage.path.ends_with(".rate"))
         .unwrap()
         .id;
-    let state_declaration = DeclarationId::from_id(SemanticId::from_bytes(
-        source_headers
-            .declarations
-            .iter()
-            .find(|row| row.name == "total")
-            .unwrap()
-            .declaration
-            .as_slice()
-            .try_into()
-            .unwrap(),
-    ));
+    let state_declaration = declaration("total");
     // The integrated derivative has its own generated Variable coordinate.
     // The physical state is the coordinate of the original authored variable.
     let states = inspection
@@ -426,6 +439,29 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
         "the original integrated fixture owns one differential state"
     );
     let state = states[0].id;
+    let observed_declaration = declaration("observed");
+    let observed = inspection
+        .members
+        .iter()
+        .find(|member| {
+            member.role == ModelingDeclarationKind::Let
+                && member.lineage.declaration == observed_declaration
+        })
+        .unwrap()
+        .id;
+    let measured_output = pse_compiler::workspace::ModelingOutput::Member(observed).row_id();
+    let estimator_case = declaration("estimate_window");
+    let estimated_rate_declaration = declaration("estimated_rate");
+    let estimated_rate = inspect_model(&client, &source_operation, estimator_case)
+        .await
+        .members
+        .into_iter()
+        .find(|member| {
+            member.role == ModelingDeclarationKind::Variable
+                && member.lineage.declaration == estimated_rate_declaration
+        })
+        .unwrap()
+        .id;
     let time = quantity(&client, &source_operation, "Time").await;
     let scalar = quantity(&client, &source_operation, "Scalar").await;
     let length = quantity(&client, &source_operation, "Length").await;
@@ -462,7 +498,26 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
                 unit: scalar.canonical_unit.id,
             },
         }],
-        estimator: None,
+        // The observed plant stays open loop. Once both original samples exist,
+        // the estimator independently recovers the held rate from their change.
+        estimator: Some(EstimatorOperation {
+            case: CaseOperation {
+                case: estimator_case,
+                route: ModelingAnalysisRoute::Steady,
+                settings: pse_runtime::math::settings::SolveSettings {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    backend: Some(pse_backend_native::solve::Backend::Kinsol),
+                    ..Default::default()
+                },
+            },
+            window: 1,
+            measurements: vec![EstimatorMeasurement {
+                output: measured_output,
+                paths: vec!["root.sample_start".into(), "root.sample_end".into()],
+            }],
+            inputs: vec![],
+            arrival: vec![],
+        }),
         controller: None,
     };
     let mut fit_solver = pse_runtime::math::settings::SolveSettings {
@@ -712,6 +767,7 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     );
     assert_eq!(sampled_symbols.len(), 2);
     assert!(sampled_symbols.contains(&state));
+    assert!(sampled_symbols.contains(&observed));
     let fit_numerics = read_result(&client, input(2, "runtime.resolved_numerics")).await;
     let fit_budget = output_budget(&fit_numerics, identity(153), &length, 2.0);
     let estimates = read_result(&client, input(2, "runtime.fit_parameters")).await;
@@ -735,6 +791,12 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
         2,
         "both original open-loop horizon steps retain native observations"
     );
+    assert!(!horizon_events[0].values.contains_key("estimator"));
+    let Some(ProgressMetricDocument::Integer(estimator_step)) =
+        horizon_events[1].values.get("estimator")
+    else {
+        panic!("the first complete measurement window must retain its estimator step");
+    };
     let real = |metric: &ProgressMetricDocument| match metric {
         ProgressMetricDocument::Real(pse_model::diagnostic::Observation::Real(value)) => *value,
         other => panic!("original finite horizon magnitude required: {other:?}"),
@@ -746,13 +808,50 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
             matches!(&event.values["decision"], ProgressMetricDocument::Text(value) if value == "open_loop")
         );
         assert_eq!(real(&event.values["input.0"]).to_bits(), 3.0_f64.to_bits());
+        assert!(!event.values.contains_key("controller"));
         // Source Time coordinate and original two-second characteristic remain
         // fixed before either route. This is an independent linear-response check.
         assert!((real(&event.values["output.0"]) - (2.0 + 3.0 * at)).abs() <= state_budget);
+        assert!((real(&event.values["output.1"]) - (2.0 + 3.0 * at)).abs() <= state_budget);
     }
+    let horizon_numerics = read_result(&client, input(3, "runtime.resolved_numerics")).await;
+    let estimate_budget = output_budget(&horizon_numerics, estimated_rate, &scalar, 3.0);
+    let horizon_variables = read_result(&client, input(3, "runtime.solve_variables")).await;
+    let mut estimate = None;
+    for batch in batches(&horizon_variables) {
+        for row in 0..batch.num_rows() {
+            let field = |name| batch.column_by_name(name).unwrap().as_ref();
+            if SemanticId::read(field("symbol_id"), row).unwrap() != estimated_rate {
+                continue;
+            }
+            assert!(estimate.is_none(), "one original estimator step owns the rate");
+            assert_eq!(i64::read(field("step"), row).unwrap(), *estimator_step);
+            assert_eq!(
+                Option::<SemanticId>::read(field("quantity_id"), row).unwrap(),
+                Some(scalar.quantity.id.as_id())
+            );
+            assert_eq!(
+                Option::<SemanticId>::read(field("unit_id"), row).unwrap(),
+                Some(scalar.canonical_unit.id.as_id())
+            );
+            estimate = Option::<f64>::read(field("value"), row).unwrap();
+        }
+    }
+    let estimate = estimate.expect("the original rolling-window rate estimate must be retained");
+    let measured_rate = (real(&horizon_events[1].values["output.1"])
+        - real(&horizon_events[0].values["output.1"]))
+        / 0.5;
+    assert!(estimate.is_finite() && (estimate - measured_rate).abs() <= estimate_budget);
     for member in &members {
         assert!(member.value.attempt.is_some() && member.value.manifest.is_some());
-        for product in [&sim_numerics, &samples, &fit_numerics, &estimates] {
+        for product in [
+            &sim_numerics,
+            &samples,
+            &fit_numerics,
+            &estimates,
+            &horizon_numerics,
+            &horizon_variables,
+        ] {
             if product.position as u64 == member.position {
                 assert_eq!(product.capture, receipt.capture);
                 assert_eq!(product.run, member.value.run);

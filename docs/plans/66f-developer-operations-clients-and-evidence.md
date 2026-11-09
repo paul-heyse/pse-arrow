@@ -349,9 +349,10 @@ The [shared-contract cutover](66-integrated-simulation-target.md#shared-contract
 passed Submit, Recover and Complete through the current Study services. Its focused negative
 Horizon request preserved the exact code, rule and source. The positive three-point request
 exposed fit policy inheritance: a fit-owned engineering scale entered the nested experiment's
-coordinate selection. Keep that scale at the joint fit, retain the original experiment demands
-at their source, and rerun the positive request. Endpoint refusal and edit/run/reconnect remain
-unexercised by the live coordinator.
+coordinate selection. The [native correction](66a-scientific-operations-and-product-semantics.md#packages)
+keeps that scale at the joint fit and has focused evidence. The fixed coordinator still needs
+the positive mixed request and both follow-up phases under the same keeper. The separately
+launched authored-case controls already passed their endpoint and edit/run/reconnect scope.
 
 The coordinator now gives every phase the same solver-enabled Cargo feature set as the
 prepared frontend and worker. Exact test identities and separate original results still
@@ -361,6 +362,39 @@ and ran for 5.0s. The unchanged Recover and Complete target builds reused their 
 in under half a second each. Cargo also built six enabled `pse-runtime` executables for
 the integration target. [Cargo integration-test target selection](https://doc.rust-lang.org/cargo/commands/cargo-test.html#target-selection)
 The maintainer stopped this execution before a live run of the consolidated test selection.
+
+The subsequent fixed `scripts/pse qualify-study` used freshly captured runtime and canonical
+images and the same original keeper. Submit, Recover and Complete passed their one selected
+test each, with complete settlement. Routes had one failure against zero
+(`01a1c154-6080-7579-92e9-e583eeb2f5ae`): a protected attempt-history page escaped its
+transaction read conflict. That original test settled. Endpoint Identity and Edit/Run/Reconnect
+were not reached. The keeper drain acknowledgement timed out; the later original worker
+terminal records `native_joined: true` and a separate refusal of the roleless Horizon request.
+The positive fixture needs a real estimator for the supported OpenLoop decision. The native
+role requirement and the separate typed physical binding refusal stay in force.
+
+The subsequent correction keeps the original attempt-page generation and clock across the
+existing protected-read conflict retry. The positive fixture now submits an authored estimator;
+no production default or roleless fallback was added. The keeper's focused native control
+passed: a joined scientific failure permits drain acknowledgement but keeps the original
+failure and fixture; an unestablished join withholds acknowledgement.
+
+With those corrections, Submit, Recover and Complete passed again with physical settlement.
+Routes did not report the earlier history-read conflict; it timed out waiting for its final observation
+(`01a1c16c-e734-72d8-8ff5-b8229533540c`, one selected failure against zero). The original
+worker terminal identified the remaining fixture error: the estimator measurement named the
+plant's underlying differential state instead of its authored output member. The worker joined;
+the keeper published its drain acknowledgement, accepted Preserve and retained the failed fixture.
+Endpoint Identity and Edit/Run/Reconnect were not reached in that sequence.
+The corrected output member reached estimator preparation in the next fixed sequence. The
+original worker then refused the missing start for the free estimate; the client timed out
+waiting for a final observation (`01a1c179-8ffd-729b-9628-c056732d4a2b`). The fixture now
+supplies an authored non-fixing start, while the output comparison remains independent of that start.
+The corrected Routes phase passed 1/1 with complete settlement
+(`01a1c196-b716-7765-9819-e388c6f5df5f`, local force-validated `pse test` through the fixed
+coordinator). The mixed request receives simulation, fit and estimator-only held-input Horizon
+products. It checks the separately rejected wrong-quantity binding and the protected estimate,
+joined to the original step identity supplied by the Horizon event.
 
 ### F06 — Close the selected population and teach extension
 
