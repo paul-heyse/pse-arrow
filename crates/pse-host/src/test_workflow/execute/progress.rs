@@ -73,6 +73,14 @@ pub struct LiveProgress {
     omitted_groups: bool,
 }
 
+impl LiveProgress {
+    pub(crate) fn entered_groups(&self) -> impl Iterator<Item = usize> + '_ {
+        self.groups.iter().filter_map(|(&group, progress)| {
+            matches!(progress, LiveGroup::EnteredCommand | LiveGroup::CommandReturned).then_some(group)
+        })
+    }
+}
+
 fn invalid(message: &'static str) -> HostError {
     HostError::Ownership(message.into())
 }

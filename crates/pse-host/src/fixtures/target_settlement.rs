@@ -142,51 +142,81 @@ fn read_effect(path: &Path) -> io::Result<Effect> {
     serde_json::from_slice(&bytes).map_err(io::Error::other)
 }
 
-pub(crate) fn settled(
+/// The physical owner's observation for one exact attempt, separate from native test outcome.
+#[derive(Clone, Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct EffectObservation {
+    #[schemars(with = "String")]
+    run: Uuid,
+    binary: String,
+    test: String,
+    attempt: usize,
+    #[schemars(with = "String")]
+    owner: Uuid,
+    drained: bool,
+}
+
+/// Bounded projection of original effects. Omitted rows remain part of settlement accounting.
+#[derive(Clone, Debug, Deserialize, Serialize, schemars::JsonSchema)]
+pub struct EffectObservations {
+    records: Vec<EffectObservation>,
+    omitted: usize,
+}
+
+pub(crate) fn observe(
     directory: &Path,
-    run: &str,
-    attempts: &BTreeSet<(String, String, usize)>,
-) -> io::Result<bool> {
+    original: Option<(Uuid, &BTreeSet<(String, String, usize)>)>,
+) -> io::Result<(bool, EffectObservations)> {
+    const MAX_VIEW_ROWS: usize = 8;
     private_directory(directory)?;
-    let run: Uuid = run.parse().map_err(io::Error::other)?;
     let mut covered = BTreeSet::new();
     let mut starts = 0;
     let mut finishes = 0;
+    let mut drained = 0;
+    let mut records = Vec::new();
+    let mut omitted = 0;
     for (index, entry) in fs::read_dir(directory)?.enumerate() {
         if index >= MAX_RECORDS {
-            return Ok(false);
+            return Err(io::Error::other("original target effect account exceeds its record bound"));
         }
         let path = entry?.path();
         let Some(stage) = path.extension().and_then(|stage| stage.to_str()) else {
-            return Ok(false);
+            return Err(io::Error::other("invalid target effect file address"));
         };
         if stage == "settled" {
             finishes += 1;
             continue;
         }
         if stage != "started" {
-            return Ok(false);
+            return Err(io::Error::other("invalid target effect stage"));
+        }
+        let started = read_effect(&path)?;
+        let attempt = (started.binary.clone(), started.test.clone(), started.attempt);
+        if started.version != 1 || started.attempt == 0
+            || path.file_stem().and_then(|stem| stem.to_str())
+                .and_then(|stem| stem.parse::<Uuid>().ok()) != Some(started.owner)
+            || original.is_some_and(|(run, attempts)| started.run != run || !attempts.contains(&attempt))
+        {
+            return Err(io::Error::other("target effect differs from its original address or attempt"));
         }
         starts += 1;
-        let started = read_effect(&path)?;
-        if started.version != 1
-            || started.run != run
-            || path
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .and_then(|stem| stem.parse::<Uuid>().ok())
-                != Some(started.owner)
-            || read_effect(&path.with_extension("settled"))? != started
-        {
-            return Ok(false);
-        }
-        let attempt = (started.binary, started.test, started.attempt);
-        if !attempts.contains(&attempt) {
-            return Ok(false);
-        }
-        covered.insert(attempt);
+        let is_drained = match read_effect(&path.with_extension("settled")) {
+            Ok(terminal) if terminal == started => true,
+            Ok(_) => return Err(io::Error::other("target effect terminal differs from its original intent")),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => false,
+            Err(error) => return Err(error),
+        };
+        if is_drained { drained += 1; }
+        if original.is_some() { covered.insert(attempt); }
+        if records.len() < MAX_VIEW_ROWS {
+            records.push(EffectObservation {
+                run: started.run, binary: started.binary, test: started.test,
+                attempt: started.attempt, owner: started.owner, drained: is_drained,
+            });
+        } else { omitted += 1; }
     }
-    Ok(starts == finishes && !attempts.is_empty() && &covered == attempts)
+    let settled = original.is_some_and(|(_, attempts)| !attempts.is_empty() && &covered == attempts)
+        && starts == finishes && starts == drained;
+    Ok((settled, EffectObservations { records, omitted }))
 }
 
 #[cfg(test)]
@@ -217,8 +247,7 @@ mod tests {
         };
         let selected = |attempt| ("pkg::target".into(), "selected::case".into(), attempt);
         let attempts = BTreeSet::from([selected(1), selected(2)]);
-        let run_id = run.to_string();
-        let check = || settled(root.path(), &run_id, &attempts).unwrap_or(false);
+        let check = || observe(root.path(), Some((run, &attempts))).is_ok_and(|(settled, _)| settled);
 
         assert!(!check(), "missing owner");
         effect(1).settle().unwrap();
@@ -229,10 +258,16 @@ mod tests {
             !check(),
             "one unsettled effect keeps its attempt in custody"
         );
+        let (settled, live) = observe(root.path(), None).unwrap();
+        assert!(!settled, "live physical facts cannot establish runner settlement");
+        assert!(live.records.iter().any(|row| row.owner == sibling.effect.owner && !row.drained));
         sibling.settle().unwrap();
-        assert!(check());
-        assert!(!settled(root.path(), &Uuid::now_v7().to_string(), &attempts).unwrap());
-        assert!(!settled(root.path(), &run_id, &BTreeSet::from([selected(1)])).unwrap());
+        let (settled, exact) = observe(root.path(), Some((run, &attempts))).unwrap();
+        assert!(settled);
+        assert_eq!(exact.records.len(), 3);
+        assert!(exact.records.iter().all(|row| row.drained));
+        assert!(observe(root.path(), Some((Uuid::now_v7(), &attempts))).is_err());
+        assert!(observe(root.path(), Some((run, &BTreeSet::from([selected(1)])))).is_err());
         effect(3).settle().unwrap();
         assert!(!check(), "foreign attempts never establish settlement");
     }

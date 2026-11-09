@@ -505,6 +505,8 @@ pub struct NextestSummary {
     fixture_settled: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     target_fixture_settled: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    target_fixture_effects: Option<crate::fixtures::target_settlement::EffectObservations>,
     child_class: NextestExitClass,
     outcome: NextestOutcome,
     setup: NextestSetup,

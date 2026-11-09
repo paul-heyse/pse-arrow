@@ -285,17 +285,15 @@ impl CompletedReport {
                 }
             }
         }
-        let target_fixture_settled = self.target_settlement.as_ref().map(|directory| {
+        let target_effect_account = self.target_settlement.as_ref().and_then(|directory| {
             if !capture_complete || error.is_some() {
-                return false;
+                return None;
             }
-            let Some(run) = run else {
-                return false;
-            };
+            let run = run?.to_string().parse().ok()?;
             let mut attempts = BTreeSet::new();
             for identity in &self.target_owned {
                 if !completed.contains(&(identity.binary_id.clone(), identity.test_name.clone())) {
-                    return false;
+                    return None;
                 }
                 let count = retries
                     .iter()
@@ -309,9 +307,12 @@ impl CompletedReport {
                     )
                 }));
             }
-            crate::fixtures::target_settlement::settled(directory, &run.to_string(), &attempts)
-                .unwrap_or(false)
+            crate::fixtures::target_settlement::observe(directory, Some((run, &attempts))).ok()
         });
+        let target_fixture_settled = self.target_settlement.as_ref().map(|_| {
+            target_effect_account.as_ref().is_some_and(|(settled, _)| *settled)
+        });
+        let target_fixture_effects = target_effect_account.map(|(_, effects)| effects);
         let (native_child_exit, fixture_settled) = match self.fixture_outcome {
             None => (Some(child_exit), None),
             Some(path) => match std::fs::read(&path)
@@ -369,6 +370,7 @@ impl CompletedReport {
                 native_child_exit,
                 fixture_settled,
                 target_fixture_settled,
+                target_fixture_effects,
                 child_class,
                 outcome,
                 setup,

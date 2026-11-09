@@ -236,6 +236,14 @@ impl<T: Serialize> DetailPage<T> {
     }
 }
 
+/// Owner-observed target effects tied to an original compiler group.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct GroupFixtureEffects {
+    group: usize,
+    provisional: bool,
+    effects: crate::fixtures::target_settlement::EffectObservations,
+}
+
 /// One typed subset of the original evidence.
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -272,6 +280,8 @@ pub enum InspectionDetail {
     WorkflowPhases {
         /// Bounded original timing, capture and process facts.
         phases: DetailPage<crate::test_workflow::execute::Phase>,
+        /// Owner-observed effects verified against completed runner attempt identities.
+        fixture_effects: DetailPage<GroupFixtureEffects>,
         /// Original phase offset for the next page.
         next_offset: Option<usize>,
     },
@@ -311,6 +321,9 @@ pub struct InvocationInspection {
     /// Last published nonterminal workflow observation, if one remains available.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub live_workflow: Option<crate::test_workflow::execute::progress::LiveProgress>,
+    /// Reported target effects before the runner has confirmed the exact attempts.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live_fixture_effects: Option<DetailPage<GroupFixtureEffects>>,
 }
 
 /// Observe only the selected invocation's compact summary or bounded owner detail.
@@ -360,6 +373,7 @@ pub(crate) fn inspect_at(
             .as_ref()
             .map(|terminal| ResultSummary::from_terminal(terminal, policy)),
     };
+    let read_fixture_effects = matches!(detail, Some(ResultDetail::WorkflowPhases));
     let detail = match (detail, terminal, original_invocation.as_ref()) {
         (Some(ResultDetail::Failures), Some(terminal), _) => Some(InspectionDetail::Failures {
             failures: DetailPage::from_original(terminal.failures)?,
@@ -410,6 +424,21 @@ pub(crate) fn inspect_at(
             #[derive(serde::Deserialize)]
             struct RecordedPhases {
                 phases: Vec<crate::test_workflow::execute::Phase>,
+                #[serde(default)]
+                observations: Vec<RecordedGroup>,
+            }
+            #[derive(serde::Deserialize)]
+            struct RecordedGroup {
+                group: usize,
+                observation: RecordedObservation,
+            }
+            #[derive(serde::Deserialize)]
+            struct RecordedObservation {
+                summary: Option<RecordedSummary>,
+            }
+            #[derive(serde::Deserialize)]
+            struct RecordedSummary {
+                target_fixture_effects: Option<crate::fixtures::target_settlement::EffectObservations>,
             }
             let original = workflow_report(store, id.as_str(), session)?;
             let recorded: RecordedPhases = serde_json::from_slice(&original.report)
@@ -420,7 +449,14 @@ pub(crate) fn inspect_at(
             let phases = DetailPage::from_original(recorded.phases.into_iter().skip(file_offset).collect())?;
             let next_offset = (!phases.records.is_empty() && phases.omitted != 0)
                 .then_some(file_offset + phases.records.len());
-            Some(InspectionDetail::WorkflowPhases { phases, next_offset })
+            let fixture_effects = DetailPage::from_original(recorded.observations.into_iter().filter_map(|row| {
+                Some(GroupFixtureEffects {
+                    group: row.group,
+                    provisional: false,
+                    effects: row.observation.summary?.target_fixture_effects?,
+                })
+            }).collect())?;
+            Some(InspectionDetail::WorkflowPhases { phases, fixture_effects, next_offset })
         }
         (Some(ResultDetail::Conformance), terminal, Some(id)) => {
             let directory = store.directory(id)?;
@@ -457,6 +493,7 @@ pub(crate) fn inspect_at(
             detail,
             build_activity: None,
             live_workflow: None,
+            live_fixture_effects: None,
         },
     );
     observed.subject_state = state;
@@ -467,7 +504,26 @@ pub(crate) fn inspect_at(
         && let Some(action) = directory.workflow_action()
     {
         match crate::test_workflow::execute::progress::read(&directory, action) {
-            Ok(progress) => observed.payload.live_workflow = progress,
+            Ok(progress) => {
+                if read_fixture_effects && let Some(live) = &progress {
+                    let mut records = Vec::new();
+                    for group in live.entered_groups() {
+                        let path = directory.path().join("workflow").join(format!("target-settlement-{group}"));
+                        match crate::fixtures::target_settlement::observe(&path, None) {
+                            Ok((_, effects)) => records.push(GroupFixtureEffects { group, provisional: true, effects }),
+                            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                            Err(error) => {
+                                observed.observation.completeness = Completeness::Partial;
+                                observed.observation.limitations.push(policy.redact(&error.to_string()));
+                            }
+                        }
+                    }
+                    if !records.is_empty() {
+                        observed.payload.live_fixture_effects = Some(DetailPage::from_original(records)?);
+                    }
+                }
+                observed.payload.live_workflow = progress;
+            },
             Err(error) => {
                 observed.observation.completeness = Completeness::Partial;
                 observed.observation.limitations.push(policy.redact(&error.to_string()));
