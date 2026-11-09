@@ -794,7 +794,7 @@ async fn assert_integrated(
     stock: &str,
     initial_tracer: f64,
     counterexamples: bool,
-) {
+) -> ModelingConformanceReport {
     let report = conform(name).await;
     assert!(
         report.complete && report.passed(),
@@ -922,6 +922,7 @@ async fn assert_integrated(
             .iter()
             .all(|check| check.time == times.last().copied() && check.satisfied)
     );
+    report
 }
 
 #[cfg(feature = "solver-diffsol")]
@@ -952,6 +953,155 @@ async fn aqueous_integrated_four_cells_use_one_nonzero_physical_clock() {
         true,
     )
     .await;
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn aqueous_integrated_four_cells_preserve_site_initial_profile() {
+    let report = assert_integrated(
+        "aqueous_four_cell_integrated_initial_profile",
+        4,
+        &[5., 5.25, 6., 7., 10.],
+        "66e030000000000000000000000002a2",
+        "66e030000000000000000000000002a3",
+        0.0125,
+        false,
+    )
+    .await;
+    let trajectory = report.trajectories.values().next().unwrap();
+    let reads = component_reads(trajectory, 0.0125);
+    let initial = [5., 10., 15., 20.];
+    for sample in &trajectory.report().samples {
+        let (_, physical, _) = trajectory.sample_context(sample).unwrap();
+        let mut actual = reads[1]
+            .stocks
+            .iter()
+            .map(|(member, _)| physical.scalars[member])
+            .collect::<Vec<_>>();
+        // Matrix exponential of the equal-volume upwind cascade, shifted by the inlet
+        // concentration. The subdiagonal series terminates at the current cell.
+        let z = 4. * (sample.time - 5.);
+        let mut expected = (0..initial.len())
+            .map(|cell| {
+                let mut power_over_factorial = 1.;
+                let mut deviation = initial[cell] - 100.;
+                for (order, concentration) in (1_u32..).zip(initial[..cell].iter().rev()) {
+                    power_over_factorial *= z / f64::from(order);
+                    deviation += power_over_factorial * (concentration - 100.);
+                }
+                0.00025 * (100. + (-z).exp() * deviation)
+            })
+            .collect::<Vec<_>>();
+        // Native state identity order is not spatial order. The fixture separately
+        // observes the last cell at its authored outlet and distinguishes reversal.
+        actual.sort_by(f64::total_cmp);
+        expected.sort_by(f64::total_cmp);
+        assert_eq!(actual.len(), expected.len());
+        for (actual, expected) in actual.into_iter().zip(expected) {
+            assert!(
+                (actual - expected).abs() < 1e-7,
+                "at {}s: expected cell stock {expected}mol, observed {actual}mol",
+                sample.time
+            );
+        }
+    }
+}
+
+#[cfg(feature = "solver-diffsol")]
+#[tokio::test]
+async fn aqueous_integrated_feed_wash_feed_carries_stock_through_authored_holds() {
+    let report = assert_integrated(
+        "aqueous_single_cell_integrated_feed_wash_feed",
+        1,
+        &[5., 5.5, 6., 6.5, 8., 9., 10.],
+        "66e030000000000000000000000002b2",
+        "66e030000000000000000000000002b3",
+        0.01,
+        false,
+    )
+    .await;
+    let trajectory = report.trajectories.values().next().unwrap();
+    let prepared = trajectory.prepared();
+    let model = &prepared.model().compiled().model;
+    let reads = component_reads(trajectory, 0.01);
+    let [schedule] = prepared.profile().schedule.as_slice() else {
+        panic!("expected one authored inlet schedule")
+    };
+    assert_eq!(schedule.times, [6., 8.]);
+    let scheduled = prepared.contract().parameters[schedule.parameter];
+    let inlet = SemanticId::parse_hex("66e03000000000000000000000000159")
+        .unwrap()
+        .into();
+    let cascade = model.symbols[&scheduled].lineage.instance;
+    let tuple = finite_family(model, cascade, inlet)
+        .iter()
+        .find(|tuple| {
+            matches!(tuple.as_slice(), [Value::Entity { id, .. }] if *id == reads[1].component)
+        })
+        .unwrap();
+    assert_eq!(
+        model
+            .finite_facts
+            .require_member(&MemberKey {
+                instance: cascade,
+                declaration: inlet,
+                tuple: tuple.clone(),
+            })
+            .unwrap(),
+        scheduled
+    );
+
+    let native = trajectory.report();
+    assert_eq!(native.events.len(), 2);
+    for (transition, time) in native.events.iter().zip([6., 8.]) {
+        assert_eq!(transition.time, time);
+        assert!(transition.event.is_none(), "a hold change is not a root event");
+        let after = transition.after.as_ref().expect("hold must settle");
+        for read in &reads {
+            let [(_, index)] = read.stocks.as_slice() else {
+                panic!("one physical stock per species in a single cell")
+            };
+            assert!(
+                (transition.before[*index] - after[*index]).abs() < 1e-7,
+                "stock jumped across the hold change at {time}s"
+            );
+        }
+    }
+
+    // Q/V = 1/s. Propagate concentration and independently integrate each
+    // exact hold before adding its contribution to the cumulative prefix.
+    let holds = [(5., 6., 100.), (6., 8., 0.), (8., 10., 100.)];
+    for sample in &native.samples {
+        let (_, physical, _) = trajectory.sample_context(sample).unwrap();
+        let mut concentration = 10.;
+        let mut supplied = 0.;
+        let mut discharged = 0.;
+        let mut active_inlet = 100.;
+        for (start, end, inlet) in holds {
+            if sample.time < start {
+                break;
+            }
+            active_inlet = inlet;
+            let elapsed = sample.time.min(end) - start;
+            let decay = (-elapsed).exp();
+            supplied += 0.001 * inlet * elapsed;
+            discharged += 0.001 * (inlet * elapsed + (concentration - inlet) * (1. - decay));
+            concentration = inlet + (concentration - inlet) * decay;
+        }
+        let read = &reads[1];
+        assert!((physical.scalars[&scheduled] - active_inlet).abs() < 1e-9);
+        for (label, actual, expected) in [
+            ("stock", physical.scalars[&read.stocks[0].0], 0.001 * concentration),
+            ("supplied", sample.integrals[read.incoming], supplied),
+            ("discharged", sample.integrals[read.outgoing], discharged),
+        ] {
+            assert!(
+                (actual - expected).abs() < 1e-7,
+                "at {}s: {label} expected {expected}mol, observed {actual}mol",
+                sample.time
+            );
+        }
+    }
 }
 
 #[cfg(feature = "solver-diffsol")]
@@ -1036,7 +1186,7 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
     .await
     .unwrap_err();
     let WorkflowError::Boundary(wrong_route) = wrong_route else {
-        panic!("the Case operation must attribute the unsupported authored procedure");
+        panic!("the Case operation must attribute the unsupported authored procedure: {wrong_route:?}");
     };
     assert_eq!(wrong_route.sources, vec![case.as_id()]);
     assert!(matches!(

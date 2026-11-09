@@ -6,9 +6,12 @@
 @id("66e03000000000000000000000000103") use distributed_volumes @"1.0.0";
 @id("66e03000000000000000000000000104") use numerical_policy @"1.0.0";
 
+@id("66e0300000000000000000000000015a") entity kind inlet_profile {}
+@id("66e0300000000000000000000000015b") table inlet_concentrations[profile:inlet_profile,j:chemistry.species]:MolarDensity complete_over(profile,j);
+
 // One well-mixed, fixed-volume cell. There is no reaction or caloric closure:
 // the consuming experiment imposes isothermal dilute-liquid transport.
-@id("66e03000000000000000000000000110") def Cell(selected:Set<chemistry.species>,guess_volume:Volume,guess_flow:VolumeFlow,initial_guess:Fn(j:chemistry.species)->MolarDensity,inlet_guess:Fn(j:chemistry.species)->MolarDensity,times:Set<Time>={}):control_volumes.PhaseInventory {
+@id("66e03000000000000000000000000110") def Cell(selected:Set<chemistry.species>,site:Scalar,at_boundary:Boolean,guess_volume:Volume,guess_flow:VolumeFlow,initial_guess:Fn(x:Scalar,j:chemistry.species)->MolarDensity,inlet_guess:inlet_profile,times:Set<Time>={}):control_volumes.PhaseInventory {
 @id("66e03000000000000000000000000111") override param components:Set<chemistry.species>=selected;
 @id("66e03000000000000000000000000112") override param phases:Set<chemistry.phase>={chemistry.liquid};
 @id("66e03000000000000000000000000113") var cell_volume:Volume;
@@ -22,7 +25,7 @@
 @id("66e0300000000000000000000000011a") override let phase_flux[p in phases,j in components]:ComponentFlow=net_component_flow[j];
 @id("66e0300000000000000000000000011b") conserve material[i in times,j in components]:Amount on times inventory phase_amount[chemistry.liquid,j] flux net_component_flow[j] tolerance numerical_policy.amount;
 @id("66e0300000000000000000000000011c") annotation bounds concentration(0{mol/m^3},1000000{mol/m^3});
-@id("66e0300000000000000000000000011d") annotation start concentration(initial_guess(j));
+@id("66e0300000000000000000000000011d") annotation start concentration(initial_guess(site,j));
 @id("66e0300000000000000000000000011e") annotation nominal concentration(1{mol/m^3});
 // Numerical guesses and scales only; original inventory initial conditions are
 // the parent's initial_stock equations, independently of these values.
@@ -30,7 +33,7 @@
 @id("66e03000000000000000000000000143") annotation nominal cell_volume(guess_volume);
 @id("66e03000000000000000000000000144") annotation start volume_flow(guess_flow);
 @id("66e03000000000000000000000000145") annotation nominal volume_flow(0.001{m^3/s});
-@id("66e03000000000000000000000000146") annotation start inlet_concentration(inlet_guess(j));
+@id("66e03000000000000000000000000146") annotation start inlet_concentration(if at_boundary then inlet_concentrations[inlet_guess,j] else initial_guess(site,j));
 @id("66e03000000000000000000000000147") annotation nominal inlet_concentration(1{mol/m^3});
 @id("66e03000000000000000000000000148") annotation start net_component_flow(0{mol/s});
 @id("66e03000000000000000000000000149") annotation nominal net_component_flow(1{mol/s});
@@ -39,12 +42,15 @@
 }
 
 // Backward finite-volume/cell cascade, with a distinct actual V/N stock at
-// each interior site. x is normalized geometry; it is not physical volume.
+// each interior site. The initial profile takes normalized site and species.
 // The inlet is a boundary condition and never contributes to stored material.
-@id("66e03000000000000000000000000120") def Cascade(selected:Set<chemistry.species>,volume:Volume,volume_flow:VolumeFlow,initial:Fn(j:chemistry.species)->MolarDensity,inlet:Fn(j:chemistry.species)->MolarDensity,finite_elements:Integer=4,time_elements:Integer=20,first:Time=0{s},last:Time=5{s},temperature:Temperature=300{K}) {
+@id("66e03000000000000000000000000120") def Cascade(selected:Set<chemistry.species>,volume:Volume,volume_flow:VolumeFlow,initial:Fn(x:Scalar,j:chemistry.species)->MolarDensity,inlet:inlet_profile,finite_elements:Integer=4,time_elements:Integer=20,first:Time=0{s},last:Time=5{s},temperature:Temperature=300{K}) {
 @id("66e03000000000000000000000000121") require analysis.route==analysis.simultaneous or analysis.route==analysis.integrated : "aqueous inventory requires its simultaneous or integrated physical-time formulation";
 @id("66e03000000000000000000000000122") require finite_elements>0 and time_elements>0 and last>first and volume>0{m^3} and volume_flow>=0{m^3/s} : "aqueous cascade requires positive mesh counts and volume, a forward physical interval, and forward or zero flow";
 @id("66e03000000000000000000000000123") param components:Set<chemistry.species>=selected;
+// Each independent inlet concentration has a default and can receive an authored hold.
+// The same physical input drives the boundary and its cumulative molar supply.
+@id("66e03000000000000000000000000159") param inlet_boundary[j in components]:MolarDensity=inlet_concentrations[inlet,j];
 @id("66e03000000000000000000000000124") domain x:Scalar from 0 to 1;
 @id("66e03000000000000000000000000125") discretize mesh on x using distributed_volumes.backward(elements=finite_elements,order=1);
 @id("66e03000000000000000000000000126") set sites:Set<Scalar>={i for i in x where i!=0};
@@ -61,17 +67,17 @@
 @id("66e03000000000000000000000000152") when analysis.route==analysis.simultaneous {
 @id("66e03000000000000000000000000129") discretize timeline on t using distributed_volumes.radau(elements=time_elements,order=3);
 }
-@id("66e0300000000000000000000000012a") child cell[i in sites]:Cell=Cell(selected=components,guess_volume=volume*fold(acc,value; p in first_site | p; acc),guess_flow=volume_flow,initial_guess=initial,inlet_guess=if i in first_site then inlet else initial);
+@id("66e0300000000000000000000000012a") child cell[i in sites]:Cell=Cell(selected=components,site=i,at_boundary=if i in first_site then true else false,guess_volume=volume*fold(acc,value; p in first_site | p; acc),guess_flow=volume_flow,initial_guess=initial,inlet_guess=inlet);
 @id("66e0300000000000000000000000012b") evolve temporal_cells on cell using t bind times;
 @id("66e0300000000000000000000000013c") eq cell_geometry[k in t,i in sites]:cell[k,i].cell_volume==cell_volume;
 @id("66e0300000000000000000000000013d") eq cell_throughput[k in t,i in sites]:cell[k,i].volume_flow==volume_flow;
-@id("66e0300000000000000000000000012c") eq boundary[k in t,i in sites,j in components]:cell[k,i].inlet_concentration[j]==if i in first_site then inlet(j) else cell[k,fold(acc,value; p in sites where p<i | p; if acc>value then acc else value)].concentration[j];
-@id("66e0300000000000000000000000012d") eq initial_stock[i in sites,j in components]:cell[first,i].phase_amount[chemistry.liquid,j]==cell_volume*initial(j);
+@id("66e0300000000000000000000000012c") eq boundary[k in t,i in sites,j in components]:cell[k,i].inlet_concentration[j]==if i in first_site then inlet_boundary[j] else cell[k,fold(acc,value; p in sites where p<i | p; if acc>value then acc else value)].concentration[j];
+@id("66e0300000000000000000000000012d") eq initial_stock[i in sites,j in components]:cell[first,i].phase_amount[chemistry.liquid,j]==cell_volume*initial(i,j);
 @id("66e0300000000000000000000000012e") let outlet_concentration[k in t,j in components]:MolarDensity=cell[k,1].concentration[j];
 @id("66e0300000000000000000000000012f") let total_component_amount[k in t,j in components]:Amount=sum(i in sites | cell[k,i].phase_amount[chemistry.liquid,j]);
 // Independent boundary quadratures and the original physical stock sum expose
 // an omitted or duplicated cell-volume weight without summing local residuals.
-@id("66e03000000000000000000000000130") let supplied[j in components]:Amount=integral(k in t | volume_flow*inlet(j));
+@id("66e03000000000000000000000000130") let supplied[j in components]:Amount=integral(k in t | volume_flow*inlet_boundary[j]);
 @id("66e03000000000000000000000000131") let discharged[j in components]:Amount=integral(k in t | volume_flow*outlet_concentration[k,j]);
 @id("66e03000000000000000000000000153") when analysis.route==analysis.simultaneous {
 @id("66e03000000000000000000000000132") let global_material_closure[j in components]:Delta<Amount>=(total_component_amount[last,j]-total_component_amount[first,j])-(supplied[j]-discharged[j]);
@@ -81,7 +87,7 @@
 @id("66e03000000000000000000000000154") when analysis.route==analysis.integrated {
 // The initial stock comes from the original physical specification, not a
 // sampled state. Authored definite-integral observations remain terminal.
-@id("66e03000000000000000000000000155") let original_component_stock[j in components]:Amount=volume*initial(j);
+@id("66e03000000000000000000000000155") let original_component_stock[j in components]:Amount=sum(i in sites | cell_volume*initial(i,j));
 @id("66e03000000000000000000000000156") let terminal_material_closure[k in t,j in components]:Delta<Amount>=(total_component_amount[k,j]-original_component_stock[j])-(supplied[j]-discharged[j]);
 @id("66e03000000000000000000000000157") annotation check terminal_material_closure(abs(terminal_material_closure[k,j])<=numerical_policy.amount);
 @id("66e03000000000000000000000000158") annotation report terminal_material_closure("aqueous cascade global material closure");

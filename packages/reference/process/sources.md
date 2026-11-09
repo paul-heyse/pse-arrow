@@ -110,15 +110,16 @@ analysis-owned physical-time specialization. Its spatial scheme is fixed to the 
 first-order backward grid on normalized `[0,1]`; each interior site owns actual material
 `N[j] = V dx c[j]`, where `dx` is the realized uniform cell width. The inlet is a
 boundary, with no stored material. Each cell receives `q cin[j] - q c[j]`, with volume
-flow in m³/s and concentration in mol/m³. The sum of actual cell stocks is separately
-compared with integrated inlet minus outlet molar transport. This comparison does not
-sum local residuals and can expose omitted or duplicated volume weights.
+flow in m³/s and concentration in mol/m³. The original initial profile supplies
+`c_initial(x,j)` on the normalized cell site and species. The sum of actual cell stocks
+is separately compared with integrated inlet minus outlet molar transport. This
+comparison does not sum local residuals and can expose omitted or duplicated volume weights.
 
 Both temporal realizations use one owning physical clock. The simultaneous route
 uses the authored Radau grid and mathematical time replicas. The integrated route
 uses the existing native integrated axis, retaining the physical cell families while
 the integration fixture requests output times. Its terminal closure compares final
-stock with the original `V initial[j]` specification and whole-interval boundary
+stock with the original sum of `V dx c_initial(x,j)` and whole-interval boundary
 quadratures; the simultaneous closure compares its final and initial stocks with
 whole-interval quadratures. Independent integrated response checks retain their
 actual sample time and original authored source. Numerical field starts and nominal
@@ -126,16 +127,20 @@ scales are guesses, distinct from the original inventory initial equations.
 The native samples' cumulative physical quadratures and original phase stocks supply
 independent prefix accounting. Authored definite-integral checks and report rows retain
 their existing terminal whole-domain meaning; their permission is not granted at a prefix.
+The authored integrated feed/wash/feed case changes only the independent tracer inlet
+concentration at fixed physical times. The same input drives boundary transport and the
+supply quadrature; stock carries continuously through each change without a reset.
 
 The seed cases impose a constant-volume-flow dilute aqueous design, with water carrier
-55000 mol/m³, an ethanol step from 0 to 100 mol/m³, and temperature fixed at 300 K.
+55000 mol/m³, an ethanol inlet of 100 mol/m³, and temperature fixed at 300 K.
 These are explicitly synthetic operating inputs, not measured mixture properties or
 an EOS. No energy storage or heat duty is calculated; maintaining temperature is an
-imposed condition. The reference step response is the exact finite-volume/cell-cascade
+imposed condition. The zero-initial reference step response is the exact cell-cascade
 formula `cout/cin = 1 - exp(-z) sum(k=0..N-1, z^k/k!)`, with
-`z = N q (t-first)/V`. It is not a continuum pipe reference. Separate cases retain a
-nonzero physical initial clock and zero-flow nonzero original stocks. Reaction,
-diffusion, compressibility, reverse flow, irregular spatial meshes and non-isothermal
+`z = N q (t-first)/V`. The nonuniform case uses the finite cascade matrix exponential
+to propagate its distinct original cell stocks. These are finite-cell references.
+Separate cases retain a nonzero physical initial clock and zero-flow nonzero original
+stocks. Reaction, diffusion, compressibility, reverse flow, irregular spatial meshes and non-isothermal
 closures are outside this definition; the general spatial control-volume dynamics
 refusal remains in place. Native numerical receiving is owned by the selected aqueous
 inventory runtime controls; these laws alone do not qualify a specialized family.

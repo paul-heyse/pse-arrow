@@ -96,8 +96,8 @@ native lifetime. Exact maintained source links and limits are in
 |---|---|---|---|
 | H01 | planned | 66l selected case/input roles; existing stock/temporal source | Each required physical cohort has a concrete existing/missing allocation, law, time/boundary, route or qualification disposition and independent expected products |
 | H02 | planned | Selected H01 lumped inputs; relevant 66g property/reaction slice | Missing lumped/multiphase/wall allocation and initialization delivered; existing projection/formulation source receives missing native trajectory and closure evidence |
-| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly; interior-cohort refinement and strict zero-initial scheme/domain refusal pass two targeted controls. Original whole-member native and protected trajectory use now passes main receiving. Broader physical families, point products and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
-| H04 | planned | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs | Physical stage carryover/transfers and supported scheduled/event/periodic behavior operate through existing time owners with attributable unsupported products |
+| H03 | in-progress | H01 distributed case; selected native stock/spatial/temporal owners and 66d route | Finite one/four-cell integrated and simultaneous aqueous trajectories plus original protected export are integrated with independent boundary/stock/identity controls. Eight selected native controls pass cleanly; interior-cohort refinement and strict zero-initial scheme/domain refusal pass two targeted controls. The new site-varying initial stock passed targeted native receiving against the independent per-site solution. Original whole-member native and protected trajectory use passed main receiving. Broader physical families, point products and specialized consumers remain open. No general spatial-control-volume dynamics refusal is removed by this slice. |
+| H04 | in-progress | Working H02/H03 storage law; selected ordinary operating program and 66i constitutive inputs where the case requires them | The first authored aqueous feed/wash/feed hold program passed targeted native receiving through the existing scheduler and stock owner. Physical stage transfers, state-triggered/periodic behavior and required adsorption-law consumers remain open. |
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
 
@@ -153,6 +153,28 @@ owns the independent faer stage-equation check, production Symbolica stencil mec
 precise evidence limits. This is a selected temporal comparison, not general positivity or
 convergence-order qualification.
 
+**Implemented — spatially varying initial stock:** The same authored cascade now accepts an
+initial concentration profile on the realized normalized site and species. Every actual
+cell's original initial equation applies its physical `V/N` weight to that profile; integrated
+terminal closure independently sums the original site stock specifications. Existing uniform
+inputs use the same profile contract. A new four-cell integrated fixture at an original `5 s`
+start supplies distinct initial tracer concentrations and independently specified outlet,
+cell-stock response and boundary quadrature balance controls. Targeted native receiving for
+the new case is pending. The profile does not widen the spatial scheme, flow, chemistry or
+thermal admission.
+
+**Implemented — H04 scheduled stock carryover:** The aqueous cascade now uses one independent
+concentration input per original species for both the boundary and cumulative supply. The
+authored single-cell feed/wash/feed fixture schedules only the tracer over `[5,6)`, `[6,8)` and
+`[8,10] s` through the existing integration fixture schedule (ADR-0119 Outcome 2). The test
+checks that both species retain their original stocks at the two settled changes. It checks the
+named physical input, exact hold values, no reset and the analytical mixed-cell stock and
+independent cumulative inlet and outlet fluxes at every original sample. **Tested, selected:**
+the hold-program and original protected aqueous export controls passed on the default-profile,
+force-validated runtime selection in the [November 9 checkpoint](66-integrated-simulation-target.md#66ah-execution-checkpoint--november-9).
+This exercises a prescribed operating program; state-triggered
+transfers, periodic closure and TSA constitutive inputs remain open.
+
 The integrated protected-delivery consumer submits the original typed Study `SimulationOperation`,
 retains its actual integrated fixture and checks the accepted native result at the nonzero clock.
 Expected values come from original native samples plus admitted output/member/quantity/unit
@@ -173,6 +195,21 @@ retention charging of actual shared source/snapshot owners. All distinct support
 consumer-attribution costs remain. Semantic identities, configured retention guards and physical
 allowances were not changed to clear that refusal. These are owned-allocation accounting
 corrections, separate from native allocation/RSS measurement.
+
+**Next distinct H02 candidate:** The inherited E02/D04 `TestHXLCGeneric` selection owns a
+wall-only thermal stock with two no-holdup water sides at `100 mol/s` and `101325 Pa`, source
+inlet enthalpies `4000/3000 J/mol`, `100 W/K` film conductances, `1000 m²` area and actual
+`1 J/K` wall capacity. The existing steady exchanger owns an isolated pair of fluid duties;
+wall storage needs separate side-to-wall exchanges and an independently initialized stock.
+The released case selects the IAPWS95 PH/MIX input. The current homogeneous Water owner uses
+temperature and molar density and emits enthalpy in the stock ideal-gas datum; the Wet owner
+requires saturation. The exact case still needs a typed source-to-stock datum translation and a
+qualified PH liquid admission. The source initializes the wall with zero initial temperature
+rate and its actual two-film equilibrium. Transfer that initialized stock into the existing
+integrated route, or preserve the exact initial zero-flux condition in simultaneous preparation.
+The constant-feed equilibrium case cannot distinguish the heat capacity; add a distinct forced
+or initially perturbed control that independently balances wall stock against both fluid
+energy-flow changes. This remains open.
 
 For each increment retain immutable original initial/profile/schedule specifications
 separately from mutable preparation overlays and actual applied inputs. The existing
