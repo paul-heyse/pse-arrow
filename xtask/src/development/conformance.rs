@@ -28,6 +28,9 @@ use std::{
     time::Duration,
 };
 
+mod progress;
+pub use progress::{CampaignProgress, ProcessInterrupt};
+
 /// Explicit application capability selection; declarations alone load no native library.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
 pub enum NativeProviders {
@@ -113,6 +116,45 @@ impl Campaign {
         self.runs.iter().map(|index| &self.manifest.runs[*index])
     }
 
+    fn roots(&self, run: &ConformanceRun) -> Result<NativeSourceSelection> {
+        NativeSourceSelection::resolve(&self.parent, run)
+    }
+
+    /// Refuse missing source roots or unavailable providers before any runtime effects.
+    pub fn preflight(&self, providers: NativeProviders) -> Result<()> {
+        providers.validate()?;
+        for run in self.runs() {
+            self.roots(run)?;
+        }
+        Ok(())
+    }
+
+    /// Check authored source roots before preparing the executor or creating output.
+    /// Fixture binding and provider registration remain execution-time decisions.
+    pub fn readiness(&self, providers: NativeProviders) -> Result<serde_json::Value> {
+        providers.validate()?;
+        let runs = self.runs().map(|run| {
+            let roots = self.roots(run)?;
+            Ok(serde_json::json!({
+                "run": run.name,
+                "execution": run.execution,
+                "physical": roots.physical,
+                "modeling": roots.modeling,
+            }))
+        }).collect::<Result<Vec<_>>>()?;
+        Ok(serde_json::json!({
+            "version": 1,
+            "runs": runs,
+            "requested_fixtures": self.fixtures,
+            "provider": match providers {
+                NativeProviders::None => "none",
+                NativeProviders::CoolpropWater => "coolprop8-water",
+            },
+            "fixture_admission": "requires_runtime",
+            "provider_registration": "requires_runtime",
+        }))
+    }
+
     /// Execute one selected native run using the application's existing runtime owner.
     /// The application constructs that runtime using the campaign budget and settles it
     /// after all successes or failures. No canonical store is opened implicitly.
@@ -125,16 +167,19 @@ impl Campaign {
     ) -> Result<RunReport> {
         self.require_selected(run, ConformanceExecution::Native)?;
         providers.validate()?;
-        let selection = NativeSourceSelection::resolve(&self.parent, run)?;
+        cancel.checkpoint()?;
+        let selection = self.roots(run)?;
+        cancel.checkpoint()?;
         let original = selection.capture_physical(runtime.registry())?;
+        cancel.checkpoint()?;
         ensure!(
-            selection == NativeSourceSelection::resolve(&self.parent, run)?,
+            selection == self.roots(run)?,
             "conformance package roots changed during capture"
         );
         let source = runtime.source_services();
         let pool = source.preparation().pool();
         let validation = runtime.validation_context();
-        let token = pse_columnar::CancellationToken::new();
+        let token = cancel.token();
         let load = |documents: &BTreeMap<String, Vec<u8>>| -> Result<_> {
             Ok(load_package_documents_owned(
                 documents,
@@ -150,6 +195,7 @@ impl Campaign {
         let physical =
             OwnedDocumentSet::try_from_bundles(vec![physical_bundle.clone()], &pool, &token)?;
         let physical = runtime.physical_from_documents(&physical, &token).await?;
+        cancel.checkpoint()?;
         let registrations = match providers {
             NativeProviders::None => BTreeMap::new(),
             NativeProviders::CoolpropWater => {
@@ -163,6 +209,7 @@ impl Campaign {
                     ]
                     .into_iter()
                     .map(|regime| {
+                        cancel.checkpoint()?;
                         Ok((
                             regime.implementation().to_owned(),
                             coolprop::registration(physical.quantities(), regime)?,
@@ -174,6 +221,7 @@ impl Campaign {
                 anyhow::bail!("selected coolprop8-water capability is unprepared in this build")
             }
         };
+        cancel.checkpoint()?;
         let bundles = selection.modeling_bundles(&physical_bundle, runtime.registry(), load)?;
         let documents = OwnedDocumentSet::try_from_bundles(bundles, &pool, &token)?;
         let package = runtime
@@ -233,8 +281,12 @@ impl Campaign {
         self.require_selected(run, ConformanceExecution::Pure)?;
         let documents = std::iter::once(&run.package)
             .chain(&run.dependencies)
-            .map(|path| documents(&self.parent.join(path)))
+            .map(|path| {
+                cancel.checkpoint()?;
+                documents(&self.parent.join(path))
+            })
             .collect::<Result<Vec<_>>>()?;
+        cancel.checkpoint()?;
         let settings = &self.manifest.settings;
         let report = conform_pure_request(
             documents,
@@ -283,9 +335,15 @@ impl NativeSourceSelection {
     fn resolve(parent: &Path, run: &ConformanceRun) -> Result<Self> {
         let resolve = |path: &str| {
             let source = parent.join(path);
-            source
+            let resolved = source
                 .canonicalize()
-                .with_context(|| format!("conformance package root {}", source.display()))
+                .with_context(|| format!("conformance package root {}", source.display()))?;
+            ensure!(
+                resolved.is_dir() && resolved.join("package.toml").is_file(),
+                "conformance package root {} has no package.toml",
+                resolved.display()
+            );
+            Ok(resolved)
         };
         let physical = resolve(&run.physical)?;
         let modeling = std::iter::once(&run.package)
@@ -340,6 +398,15 @@ impl RunReport {
     /// Each file is published only after its IPC footer completes. An error does not
     /// claim the entire report set was published; earlier complete files remain explicit.
     pub fn export(&self, path: &Path) -> Result<Vec<PathBuf>> {
+        self.export_observed(path, |_| {})
+    }
+
+    /// Publish the same reports and notify the owner after each successful file publication.
+    pub fn export_observed(
+        &self,
+        path: &Path,
+        mut published_file: impl FnMut(&Path),
+    ) -> Result<Vec<PathBuf>> {
         let mut tables = vec![
             (path.to_owned(), self.report.table()?),
             (
@@ -387,6 +454,7 @@ impl RunReport {
                 writer.finish()?;
             }
             staged.persist_noclobber(&destination)?;
+            published_file(&destination);
             published.push(destination);
         }
         Ok(published)

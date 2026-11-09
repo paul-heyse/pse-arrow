@@ -85,9 +85,15 @@ pub(super) fn dispatch(
                 .get("detached")
                 .and_then(serde_json::Value::as_bool)
                 == Some(false)
-                && crate::test_workflow::execute::Action::from_command(&metadata.selection.command)
-                    .is_some()
+                && (directory.is_conformance()
+                    || crate::test_workflow::execute::Action::from_command(&metadata.selection.command)
+                        .is_some())
         };
+    if foreground && cancel && directory.is_conformance() {
+        return Err(HostError::Ownership(
+            "interrupt the original foreground command, or use --detach for cancellation by invocation ID".into(),
+        ));
+    }
     let mut result = store.result::<serde::de::IgnoredAny, Box<RawValue>>(&id)?;
     if foreground && !cancel && result.is_none() {
         let (observed, interrupted) = runtime()?.block_on(async {
@@ -128,6 +134,23 @@ pub(super) fn dispatch(
             }
             return Ok(output.emit(response)?);
         }
+    }
+    if foreground && directory.is_conformance() {
+        let result = result.ok_or_else(|| HostError::Ownership("foreground campaign result is unavailable".into()))?;
+        let mut response = Envelope::response(
+            "wait",
+            "original foreground campaign result observed",
+            ControlView { original_invocation: id, service: None, service_gone: false, result: Some(result) },
+        );
+        if let Some(original) = &response.payload.result {
+            response.settlement = original.settlement;
+            response.observation = original.observation.clone();
+            response.failures.clone_from(&original.failures);
+            response.outcome = original.outcome;
+            response.subject_state = original.subject_state;
+            response.child_exit = original.child_exit;
+        }
+        return Ok(output.emit(response)?);
     }
     if foreground
         && let Some(result) = result

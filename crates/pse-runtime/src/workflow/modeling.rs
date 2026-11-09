@@ -73,8 +73,8 @@ pub use source_impact::{
 };
 mod pure;
 pub use conformance::{
-    ModelingConformanceCheck, ModelingConformancePolicy, ModelingConformanceReport,
-    ModelingFixtureSelection,
+    ConformanceObservation, ModelingConformanceCheck, ModelingConformancePolicy,
+    ModelingConformanceReport, ModelingFixtureSelection, with_conformance_observer,
 };
 pub use knowledge::ModelingKnowledge;
 pub use pure::conform_pure_documents;

@@ -36,6 +36,7 @@ mod source_change;
 mod terminal;
 mod testing;
 mod tools;
+pub(crate) mod conformance;
 mod worktree;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
@@ -82,6 +83,11 @@ pub(crate) struct Cli {
 }
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Inspect, prepare, or execute the original conformance campaign.
+    Conformance {
+        #[command(subcommand)]
+        action: conformance::Action,
+    },
     /// Explicitly prepare the independent native host.
     #[command(add(crate::catalog::description::CommandEffect::Prepare))]
     Prepare(prepare::PrepareArgs),
@@ -296,6 +302,7 @@ impl Command {
     fn generation_intent(&self) -> GenerationIntent {
         match self {
             Self::Tools { action } => action.intent(),
+            Self::Conformance { action } => action.intent(),
             Self::Compiler { action } => action.intent(),
             Self::Worktree { action } => action.intent(),
             Self::Wait(_) | Self::Cancel(_) => GenerationIntent::ExistingControl,
@@ -797,13 +804,21 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "inspect tests failures" => {
             envelope::schema::<crate::test_inventory::FailurePage>(command, view)
         }
+        "inspect tests attempts" => {
+            envelope::schema::<crate::test_inventory::AttemptPage>(command, view)
+        }
+        "inspect tests compare" => {
+            envelope::schema::<crate::test_inventory::CaseComparison>(command, view)
+        }
         "inspect settings" => envelope::schema::<product::context::View>(command, view),
         "inspect invocation" => {
             envelope::schema::<crate::invocation_view::InvocationInspection>(command, view)
         }
         "inspect log" => envelope::schema::<crate::invocation_view::LogView>(command, view),
+        "conformance readiness" => envelope::schema::<conformance::ReadinessView>(command, view),
+        "conformance prepare" => envelope::schema::<conformance::SelectionView>(command, view),
         "propose" => envelope::schema::<investigation::Preview>(command, view),
-        "run" | "run-all" | "tools run" | "test" | "tests" | "check" => {
+        "run" | "run-all" | "tools run" | "test" | "tests" | "check" | "conformance run" => {
             envelope::schema::<ManagedReply>(command, view)
         }
         "tools prepare" => envelope::schema::<tools::PreparedTool>(command, view),
@@ -813,6 +828,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         }
         "tools retire-result" => {
             envelope::schema::<crate::invocation::CompactRetirement>(command, view)
+        }
+        "tools retire-result conformance" => {
+            envelope::schema::<crate::invocation::ConformanceRetirement>(command, view)
         }
         "tools export-result" => {
             envelope::schema::<crate::invocation_view::ResultExport>(command, view)
@@ -1114,6 +1132,7 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             presentation,
         ),
         Command::Tools { action } => tools::dispatch(action, selected, presentation, entry),
+        Command::Conformance { action } => conformance::dispatch(action, selected, presentation, entry),
         Command::Wait(args) => control::dispatch(args, false, selected, presentation),
         Command::Cancel(args) => control::dispatch(args, true, selected, presentation),
         Command::Observe { action } => product::dispatch(action, selected, presentation),
@@ -1497,7 +1516,7 @@ fn launch_managed_finalize(
         parent,
         root,
         cwd,
-        environment,
+        mut environment,
         command,
         detach,
         session,
@@ -1506,6 +1525,11 @@ fn launch_managed_finalize(
         tool,
         workflow,
     } = request;
+    let cooperative = verb == "conformance run"
+        && tool.as_ref().is_some_and(|tool| {
+            matches!(tool.kind, "conformance" | "conformance-coolprop")
+        });
+    environment.remove(std::ffi::OsStr::new("PSE_CONFORMANCE_PROGRESS"));
     let session = crate::invocation::select_session(session, &environment)?;
     let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
     let selection =
@@ -1531,7 +1555,20 @@ fn launch_managed_finalize(
         environment_digest,
         scientific: Vec::new(),
     })?);
+    if cooperative {
+        store.reserve_conformance(&directory)?;
+        environment.insert(
+            "PSE_CONFORMANCE_PROGRESS".into(),
+            directory.path().join(crate::invocation::CONFORMANCE_SNAPSHOT).into_os_string(),
+        );
+        if !detach {
+            writeln!(io::stderr(), "pse: managed conformance invocation {}", directory.id())?;
+        }
+    }
     if let Some((_, input)) = workflow {
+        if directory.workflow_action() == Some(crate::test_workflow::execute::Action::Test) {
+            directory.admit_workflow_retention()?;
+        }
         directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowInput, &input)?;
         if !detach {
             writeln!(
@@ -1590,7 +1627,7 @@ fn launch_managed_finalize(
             child_exit,
             required,
         ));
-        let finalization_errors =
+        let mut finalization_errors =
             if child_exit == Some(0) && report.operation.is_ok() && report.capture.is_ok() {
                 match finalize() {
                     Ok(published) => {
@@ -1602,6 +1639,12 @@ fn launch_managed_finalize(
             } else {
                 Vec::new()
             };
+        if cooperative && child_exit.is_some() {
+            match directory.conformance_artifacts() {
+                Ok(checkpoints) => artifacts.extend(checkpoints),
+                Err(error) => finalization_errors.push(error),
+            }
+        }
         let mut terminal = crate::managed::result::TerminalResult::from_foreground(
             directory.id(),
             verb,

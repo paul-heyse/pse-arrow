@@ -137,7 +137,7 @@ pub enum CargoRecord {
 // cargo_metadata's Message enum does not represent it.
 #[derive(Deserialize)]
 #[serde(tag = "reason", rename_all = "kebab-case")]
-enum CargoTimingMarker {
+pub(crate) enum CargoTimingMarker {
     BuildStarted { run_id: String },
 }
 

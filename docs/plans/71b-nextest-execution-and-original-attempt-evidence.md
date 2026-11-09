@@ -1,6 +1,6 @@
 ---
 title: "Plan71b: Nextest execution and original attempt evidence"
-status: draft
+status: in-progress
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -19,13 +19,17 @@ helper identity, then lists and runs with native binary and Cargo metadata. The
 inventory, JUnit, native exit and settlement. Preserve those responsibilities. Add
 original-attempt access and visibility into work that still occurs on a warm invocation.
 
+## Current status
+
+The worktree uses the isolated 0.9.151 executable and updates the native report gate. The selected native list/run and exact failure rerun controls passed. Exact JUnit attempt paging and comparison are implemented. Repeated listings and verification remain where their protected evidence differs. The CLI verified a retained timing file from a real opt-in test run. Weighted wakeup and the remaining profile/fixture combinations still need qualification.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [B01](#b01) | Planned | Current native discovery and correctness adapter | Qualified 0.9.151 pin and all selected entry points use it. |
-| [B02](#b02) | Planned | B01; A01 | Original attempts, comparison and exact failure rerun preserve identity, coverage and private custody. |
-| [B03](#b03) | Planned | A02 for new phase view; existing timings for inquiry | Named build/capture/list costs are distinguishable; any reduction has a verified invariant and no parallel path. |
+| [B01](#b01) | Open | Current native discovery and correctness adapter | Qualified 0.9.151 pin and all selected entry points use it. |
+| [B02](#b02) | Open | B01; A01 | Original attempts, comparison and exact failure rerun preserve identity, coverage and private custody. |
+| [B03](#b03) | Open | A02 for new phase view; existing timings for inquiry | Named build/capture/list costs are distinguishable; any reduction has a verified invariant and no parallel path. |
 
 <a id="b01"></a>
 ## B01 — Qualify and cut over the native runner
@@ -107,6 +111,16 @@ for a named build investigation and [sccache 0.19.0 Rust coverage](https://githu
 for eligibility and cache behavior. Cargo freshness can eliminate a compiler command;
 sccache only applies to eligible commands Cargo actually issues. Neither replaces
 binary custody. Expose retained timing evidence through A01 artifact selection.
+
+The build permit protects capture from the Cargo writer selected by
+`nightly-2026-09-29` (Cargo `3d7cf6e93`). Cargo's
+[`Logger` run ID](https://doc.rust-lang.org/nightly/nightly-rustc/src/cargo/util/logger.rs.html)
+in the structured build stream also names the
+[per-run timing report](https://doc.rust-lang.org/nightly/nightly-rustc/src/cargo/compiler/timings/mod.rs.html).
+The owner copies that exact file from the private target while it holds the permit,
+with a cumulative 8 MiB limit. It records a capture or an omission on the sealed
+workflow report. `pse inspect invocation ID --detail workflow-files` shows both;
+`pse inspect artifact ORDINAL --from-result ID` reads the committed file.
 
 | Question | Evidence and default |
 | --- | --- |

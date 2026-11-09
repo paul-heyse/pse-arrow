@@ -13,7 +13,7 @@ Arguments:
 Options:
   -C <checkout>
       --session <SESSION>
-      --detail <DETAIL>    Include this bounded detail from the original owner [possible values: failures, provenance, outputs]
+      --detail <DETAIL>    Include this bounded detail from the original owner [possible values: failures, provenance, outputs, workflow-files, workflow-phases, conformance]
       --format <FORMAT>    Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --fields <FIELDS>    Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
       --output <OUTPUT>    Fresh destination file, relative to the selected checkout if not absolute
@@ -39,9 +39,12 @@ Options:
           Include this bounded detail from the original owner
 
           Possible values:
-          - failures:   Bounded original diagnostic trees
-          - provenance: Originally captured environment and provider provenance
-          - outputs:    References to owner-managed artifacts and scientific outputs
+          - failures:        Bounded original diagnostic trees
+          - provenance:      Originally captured environment and provider provenance
+          - outputs:         References to owner-managed artifacts and scientific outputs
+          - workflow-files:  Original workflow dependency ordinals for phase streams and other captured files
+          - workflow-phases: Original discovery and execution phases, including elapsed and capture facts
+          - conformance:     Bounded original campaign progress and case outcomes
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations

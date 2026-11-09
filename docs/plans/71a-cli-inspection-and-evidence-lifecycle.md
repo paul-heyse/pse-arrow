@@ -1,6 +1,6 @@
 ---
 title: "Plan71a: CLI inspection and evidence lifecycle"
-status: draft
+status: in-progress
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -21,13 +21,17 @@ uses a 64 KiB envelope, seven-day expiry and guarded release; neither that envel
 nor its timer owns arbitrary linked reports. The new design makes those boundaries visible
 and adds lifecycle coverage where the new workflow depends on it.
 
+## Current status
+
+Exact phase-stream, phase, attempt and campaign read routes are integrated. The live helper publishes bounded owner phases. Workflow member and campaign retirement have separate exact custody checks. Ordinary aggregate reservations, outer raw streams, and per-attempt fixture/solver joins remain open.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [A01](#a01) | Planned | Existing invocation and observation owners | Exact, bounded CLI references and evidence-class contracts work in first producer and reader. |
-| [A02](#a02) | Planned | A01 reference contract | Host phases and owner joins are readable live and after completion. |
-| [A03](#a03) | Planned | A01; each receiving producer as introduced | Each managed class has a working limit and release path; supported commands and retention are documented. |
+| [A01](#a01) | Open | Existing invocation and observation owners | Exact, bounded CLI references and evidence-class contracts work in first producer and reader. |
+| [A02](#a02) | Open | A01 reference contract | Host phases and owner joins are readable live and after completion. |
+| [A03](#a03) | Open | A01; each receiving producer as introduced | Each managed class has a working limit and release path; supported commands and retention are documented. |
 
 <a id="a01"></a>
 ## A01 — Use the original owner as the retrieval boundary

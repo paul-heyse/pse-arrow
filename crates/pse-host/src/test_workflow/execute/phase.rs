@@ -62,13 +62,14 @@ pub(crate) async fn run<O: ChunkObserver>(
         .stderr
         .take()
         .ok_or_else(|| WorkflowError::Invalid("phase stderr pipe missing".into()))?;
-    let tee = streams::start(
+    let tee = streams::start_with_limit(
         stdout,
         stderr,
         (stdout_sink, stderr_sink),
         observer,
         None,
         policy.write,
+        Some(streams::WORKFLOW_PIPE_BYTES),
     );
     let mut failures = Vec::new();
     let status = match child.wait().await {

@@ -315,6 +315,7 @@ fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_g
     let root = tempfile::tempdir().unwrap();
     let mut report = Report::new(&input(Action::Test));
     let phase = Phase {
+        predecessor_wait: None,
         native_stage: Some("build".into()),
         elapsed_seconds: Some(0.25),
         kind: PhaseKind::Discovery,

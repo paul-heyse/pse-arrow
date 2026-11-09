@@ -9,7 +9,7 @@ Usage: pse tools owner-schema [OPTIONS] --selection <SELECTION>
 
 Options:
   -C <checkout>
-      --tool <TOOL>            [default: xtask] [possible values: xtask, native-analysis, compiler-analysis]
+      --tool <TOOL>            [default: xtask] [possible values: xtask, conformance, conformance-coolprop, native-analysis, compiler-analysis]
       --format <FORMAT>        Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --selection <SELECTION>
       --fields <FIELDS>        Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
@@ -26,9 +26,11 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 

@@ -4,7 +4,7 @@
 
 use super::{
     InvocationDirectory, InvocationEvidence, InvocationStore, META_LIMIT, directory, evidence_file,
-    invalid, publish, synchronize_publication_parent, unix_millis,
+    invalid, publish, synchronize_publication_parent, unix_millis, workflow_evidence,
 };
 use crate::{
     HostError,
@@ -113,6 +113,10 @@ pub struct CompactRetirement {
     holds: BTreeMap<String, String>,
     /// Pass this token with the exact ID to release the reviewed compact record.
     pub release: Option<String>,
+    /// Apparent bytes of the enrolled original report and dependencies before release.
+    pub workflow_bytes: u64,
+    /// Apparent bytes actually unlinked by this release.
+    pub released_workflow_bytes: u64,
 }
 
 /// Result of one bounded checkout-local automatic release pass.
@@ -124,6 +128,12 @@ pub struct CompactSweep {
     busy: usize,
     checkouts: usize,
     unavailable: usize,
+    /// Apparent workflow bytes actually unlinked by this sweep.
+    pub released_workflow_bytes: u64,
+    /// Original campaign checkpoint reservations retired during this sweep.
+    pub released_conformance: usize,
+    /// Campaign records this sweep could not release or independently validate.
+    pub blocked_conformance: usize,
 }
 
 /// Sweep only accessible, registered checkouts of the selected Git repository.
@@ -156,6 +166,10 @@ pub fn sweep_registered_compact_results(
         result.forgotten += sweep.forgotten;
         result.limited |= sweep.limited;
         result.busy += sweep.busy;
+        result.released_conformance += sweep.released_conformance;
+        result.blocked_conformance += sweep.blocked_conformance;
+        result.released_workflow_bytes = result.released_workflow_bytes
+            .saturating_add(sweep.released_workflow_bytes);
     }
     Ok(result)
 }
@@ -376,7 +390,8 @@ impl InvocationStore {
             report.clone(),
             unix_millis(SystemTime::now())?,
             None,
-        )
+        )?;
+        workflow_evidence::enroll(self, original, report)
     }
 
     /// Record the original owner's exact deferred drain and release after both have succeeded.
@@ -407,7 +422,8 @@ impl InvocationStore {
             released_pair_sha256,
             policy,
             unix_millis(SystemTime::now())?,
-        )
+        )?;
+        workflow_evidence::enroll(self, original, report)
     }
 
     fn publish_deferred_test(
@@ -596,6 +612,8 @@ impl InvocationStore {
             eligible_after_unix_ms: None,
             holds: BTreeMap::new(),
             release: None,
+            workflow_bytes: 0,
+            released_workflow_bytes: 0,
         };
         if let RecordState::Active {
             settled_unix_ms,
@@ -608,6 +626,10 @@ impl InvocationStore {
             let eligible = settled_unix_ms.saturating_add(WEEK_MS);
             result.eligible_after_unix_ms = Some(eligible);
             result.holds = holds.clone();
+            let original = self.require_compact_class(&record.invocation)?;
+            let (workflow_bytes, workflow_identity) =
+                workflow_evidence::pending_extent(self, &original, original_report)?;
+            result.workflow_bytes = workflow_bytes;
             if now < eligible {
                 result.disposition = "retained";
             } else if RetentionClass::DisposablePresentation.eligible(RetentionEvidence {
@@ -616,7 +638,6 @@ impl InvocationStore {
                 generation_in_use: false,
                 owner_retains: !holds.is_empty(),
             }) {
-                let original = self.require_compact_class(&record.invocation)?;
                 Self::require_original_report(
                     &original,
                     original_report,
@@ -625,9 +646,14 @@ impl InvocationStore {
                 )?;
                 let encoded = serde_json::to_vec(record)
                     .map_err(|error| invalid(format!("compact record encoding failed: {error}")))?;
+                let mut digest = Sha256::new();
+                digest.update(encoded);
+                if let Some(identity) = workflow_identity {
+                    digest.update(identity);
+                }
                 result.disposition = "eligible";
                 result.release = Some(
-                    Sha256::digest(encoded)
+                    digest.finalize()
                         .iter()
                         .map(|byte| format!("{byte:02x}"))
                         .collect(),
@@ -666,20 +692,25 @@ impl InvocationStore {
                     "compact release token no longer matches eligible evidence",
                 ));
             }
-            self.release_record(&mut record, now)?;
+            preview.released_workflow_bytes = self.release_record(&mut record, now)?;
             preview.disposition = "retired";
             preview.release = None;
         }
         Ok(preview)
     }
 
-    fn release_record(&self, record: &mut Record, now: u64) -> Result<(), HostError> {
-        // One atomic replacement discards the compact bytes and publishes the witness.
-        // No other member or generation is unlinked by this operation.
+    fn release_record(&self, record: &mut Record, now: u64) -> Result<u64, HostError> {
+        let RecordState::Active { original_report, .. } = &record.state else {
+            return Err(invalid("compact retirement requires an active record"));
+        };
+        let original = self.require_compact_class(&record.invocation)?;
+        let released = workflow_evidence::release(self, &original, original_report)?;
+        // After separately owned workflow release, retain the minimal presentation witness.
         record.state = RecordState::Retired {
             released_unix_ms: now,
         };
-        replace(&self.compact_path(&record.invocation), record)
+        replace(&self.compact_path(&record.invocation), record)?;
+        Ok(released)
     }
 
     /// Set a named consumer's hold condition, or remove that consumer's hold.
@@ -723,22 +754,27 @@ impl InvocationStore {
     }
 
     fn sweep_at(&self, now: u64) -> Result<CompactSweep, HostError> {
+        let (released_conformance, blocked_conformance) = self.sweep_conformance(now)?;
         let root = self.compact_root();
         let lock = match lock_root(&root, FlockOperation::NonBlockingLockExclusive, false) {
             Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
                 return Ok(CompactSweep {
                     busy: 1,
                     checkouts: 1,
+                    released_conformance,
+                    blocked_conformance,
                     ..CompactSweep::default()
                 });
             }
             result => result?,
         };
         let Some(_guard) = lock else {
-            return Ok(CompactSweep::default());
+            return Ok(CompactSweep { released_conformance, blocked_conformance, ..CompactSweep::default() });
         };
         let mut result = CompactSweep {
             checkouts: 1,
+            released_conformance,
+            blocked_conformance,
             ..CompactSweep::default()
         };
         for entry in fs::read_dir(&root)? {
@@ -762,7 +798,8 @@ impl InvocationStore {
                 RecordState::Retired { released_unix_ms }
                     if now >= released_unix_ms.saturating_add(WEEK_MS) =>
                 {
-                    self.require_compact_class(&id)?;
+                    let original = self.require_compact_class(&id)?;
+                    workflow_evidence::forget(&original)?;
                     fs::remove_file(&path)?;
                     synchronize_publication_parent(&root, &path)?;
                     result.forgotten += 1;
@@ -770,8 +807,16 @@ impl InvocationStore {
                 RecordState::Active { .. }
                     if self.preview_record(&record, now)?.release.is_some() =>
                 {
-                    self.release_record(&mut record, now)?;
-                    result.released += 1;
+                    match self.release_record(&mut record, now) {
+                        Ok(bytes) => {
+                            result.released_workflow_bytes = result.released_workflow_bytes.saturating_add(bytes);
+                            result.released += 1;
+                        }
+                        Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            result.busy += 1;
+                        }
+                        Err(error) => return Err(error),
+                    }
                 }
                 _ => {}
             }

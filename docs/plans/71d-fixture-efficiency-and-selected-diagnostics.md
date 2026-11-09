@@ -1,6 +1,6 @@
 ---
 title: "Plan71d: Fixture efficiency and selected diagnostics"
-status: draft
+status: in-progress
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -16,13 +16,17 @@ owns O04, O06 and O07 disposition. Reduce repeated work only where case identity
 scientific independence and settlement remain exact. Use existing fixture, authored
 source and runtime owners. No general cache, scheduler or diagnostic platform.
 
+## Current status
+
+The selected fixture loads immutable physical inputs before borrowing its database and reuses the same authored document bundle. The four independently selectable DSL cases passed focused validation. Typed diagnostics and an independent borrower control were added. The selected exchanger and fixture journeys remain to be verified; no optional diagnostic tool was needed by these changes.
+
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | Planned | B01 runner; A02 owner-attributed evidence | Retain necessary exclusion and move demonstrated independent work outside it. |
-| [D02](#d02) | Planned | A01 references; current selected science and fixture owners | Account for reusable work in two representative workflows; exact case pilot preserves evidence. |
-| [D03](#d03) | Planned | A01/A03; named gap for any optional escalation | Existing diagnostic consumers cover selected cases; deeper tools have explicit triggers, CLI retrieval and release. |
+| [D01](#d01) | Open | B01 runner; A02 owner-attributed evidence | Retain necessary exclusion and move demonstrated independent work outside it. |
+| [D02](#d02) | Open | A01 references; current selected science and fixture owners | Account for reusable work in two representative workflows; exact case pilot preserves evidence. |
+| [D03](#d03) | Open | A01/A03; named gap for any optional escalation | Existing diagnostic consumers cover selected cases; deeper tools have explicit triggers, CLI retrieval and release. |
 
 <a id="d01"></a>
 ## D01 — Limit exclusion to the effect it protects

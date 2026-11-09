@@ -21,9 +21,13 @@ const VERSION: u32 = 1;
 const META_LIMIT: u64 = 4 * 1024 * 1024;
 
 mod compact;
+mod conformance_evidence;
 mod session;
+mod workflow_evidence;
 pub(crate) use compact::{CompactObservation, DeferredTestDrain};
 pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
+pub use conformance_evidence::ConformanceRetirement;
+pub(crate) use conformance_evidence::SNAPSHOT as CONFORMANCE_SNAPSHOT;
 mod compact_timer;
 pub use compact_timer::{CompactTimer, prepare_compact_timer};
 pub use session::select_session;
@@ -754,6 +758,17 @@ fn validate_result<T>(
 }
 
 impl InvocationDirectory {
+    pub(crate) fn workflow_action(&self) -> Option<crate::test_workflow::execute::Action> {
+        crate::test_workflow::execute::Action::from_command(&self.command)
+    }
+    pub(crate) fn is_conformance(&self) -> bool {
+        self.command == "conformance run"
+    }
+
+    pub(crate) fn has_bounded_workflow_streams(&self) -> bool {
+        self.is_conformance() || crate::test_workflow::execute::Action::from_command(&self.command).is_some()
+    }
+
     /// Original ledger identity.
     pub fn id(&self) -> &CliInvocationId {
         &self.invocation_id
@@ -881,7 +896,16 @@ impl InvocationDirectory {
         let result = terminal.evidence();
         validate_result(&self.invocation_id, &self.command, result)?;
         directory(&self.path, false)?;
-        publish(&self.path, "result.json", result, None)
+        publish(&self.path, "result.json", result, None)?;
+        if let Some(action) = self.workflow_action()
+            && result.artifacts.iter().any(|artifact| artifact.kind == "workflow_report")
+        {
+            // Only the published outer report can replace this diagnostic snapshot.
+            let _cleanup = crate::test_workflow::execute::progress::clear(
+                &self.path.join("workflow"), self.id(), action,
+            );
+        }
+        Ok(())
     }
 }
 

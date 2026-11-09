@@ -258,8 +258,21 @@ A fixture's execution policy is authored with it: `policy { backend …; presolv
 derivatives …; limits …; }` in the fixture header (blueprint §6.10). The run supplies the
 defaults, which the policy overrides for that fixture only. Invalid policies refuse before
 execution. No policy changes scientific declarations or expected outcomes.
-`just seed-conformance` runs every reference fixture once, from
-`packages/reference/conformance.toml`, and writes Arrow reports to `build/seed-conformance`.
+Use `pse conformance readiness --manifest packages/reference/conformance.toml`
+to inspect the selected campaign without starting its runtime. Explicitly prepare its
+image with `pse conformance prepare`, adding `--provider coolprop8-water` only for the
+corresponding prepared capability. Use `pse conformance run --manifest MANIFEST`
+and optionally select `--run NAME` and exact `--fixture ID` values.
+`just seed-conformance` selects the reference manifest. Arrow export is explicit:
+pass `--report-dir FRESH_DIRECTORY` to the run. A partial publication reports
+which relations landed; nothing overwrites an earlier export.
+Inspect the original run with `pse inspect invocation ID --detail conformance`.
+Follow the returned offset with `--file-offset`; while the run is live, compare the
+checkpoint timestamp across pages. The checkpoint is last observed progress, not
+a terminal, scientific-coverage or drain claim.
+Use `pse wait ID` to observe the original verdict. Interrupt a foreground campaign
+in its original terminal. For cancellation by invocation ID, start with `--detach`
+and use `pse cancel ID`.
 `python -m pse.conformance --manifest <toml> --report-dir <dir>` remains a retiring developer
 adapter for generic manifest execution; Plan58f F05 owns its cutover independently of the
 callable native scientific operations.

@@ -3,6 +3,7 @@
 //! The fixed helper's native operations; placement and descendant settlement remain outside.
 use super::{
     Action, EvidenceRole, Input, Outcome, Pending, Phase, PhaseKind, Report, phase,
+    progress::{LiveGroup, LivePhase, Writer as ProgressWriter},
     report::GroupObservation,
 };
 use crate::{
@@ -24,6 +25,7 @@ use std::{
     os::unix::fs::DirBuilderExt as _,
     path::{Path, PathBuf},
     process::Command,
+    sync::Arc,
 };
 
 fn directory(path: &Path) -> Result<(), WorkflowError> {
@@ -55,6 +57,7 @@ fn record_phase<O: ChunkObserver>(
 ) {
     report.required_capture_complete &= capture.capture_complete;
     report.phases.push(Phase {
+        predecessor_wait: None,
         native_stage: None,
         elapsed_seconds: Some(capture.elapsed_seconds),
         kind,
@@ -189,6 +192,10 @@ async fn run_inner(
     }
     directory(destination)?;
     let mut report = Report::new(input);
+    let progress = coordinated
+        .then(|| ProgressWriter::new(destination, input.invocation.clone(), input.action).ok())
+        .flatten()
+        .map(Arc::new);
     let result = perform(
         input,
         checkout,
@@ -196,10 +203,14 @@ async fn run_inner(
         environment,
         &mut report,
         coordinated,
+        progress.as_ref(),
     )
     .await;
     if let Err(error) = result {
         failed(&mut report, error, destination);
+    }
+    if let Some(progress) = progress {
+        progress.phase(LivePhase::PublishingReport);
     }
     Ok(report)
 }
@@ -230,6 +241,7 @@ async fn perform(
     environment: Environment,
     report: &mut Report,
     coordinated: bool,
+    progress: Option<&Arc<ProgressWriter>>,
 ) -> Result<(), WorkflowError> {
     use crate::build_admission::{CALLBACK, Outputs, Stage};
     if input.version != 1 || input.profile.is_empty() {
@@ -265,6 +277,9 @@ async fn perform(
         .current_dir(&checkout)
         .env_clear()
         .envs(&environment);
+    if let Some(progress) = progress {
+        progress.phase(LivePhase::ReadingMetadata);
+    }
     report.expect_file("metadata.stdout".into(), EvidenceRole::Stdout, None, false);
     report.expect_file("metadata.stderr".into(), EvidenceRole::Stderr, None, false);
     let mut captured = phase::run(
@@ -297,6 +312,9 @@ async fn perform(
         return Err(WorkflowError::Invalid(
             "captured Cargo workspace differs from selected checkout".into(),
         ));
+    }
+    if let Some(progress) = progress {
+        progress.phase(LivePhase::ResolvingSelection);
     }
     let outputs = if coordinated {
         let build_directory = metadata.build_directory.as_ref().ok_or_else(|| {
@@ -369,9 +387,9 @@ async fn perform(
             let serialized = (0..report.admission.len())
                 .map(|group| (group, BTreeSet::from(["cargo output".to_owned()])))
                 .collect();
-            execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
+            execute_groups_observed(input, destination, groups, report, &serialized, progress).await?;
         } else {
-            execute_groups(input, destination, groups, report).await?;
+            execute_groups_observed(input, destination, groups, report, &BTreeMap::new(), progress).await?;
         }
         // Check's original callback publishes its exact compiler-unit context too. Admission
         // alone cannot claim that later compilation used the same capability/feature closure.
@@ -410,6 +428,9 @@ async fn perform(
         }
         let nextest = nextest(&admitted.context.environment)?;
         let mut permit = acquire_build(&checkout, outputs, input).await?;
+        if let Some(progress) = progress {
+            progress.phase(LivePhase::DiscoveringTests);
+        }
         let listed = match admitted
             .list_with_permit(
                 &nextest,
@@ -450,10 +471,16 @@ async fn perform(
             report.outcome = Outcome::Listed;
             return Ok(());
         }
+        if let Some(progress) = progress {
+            progress.phase(LivePhase::ResolvingFixtureInputs);
+        }
         let FixtureSelection {
             requirements,
             mut target_owned,
         } = fixture_requirements(input, destination, &listed, report).await?;
+        if let Some(progress) = progress.filter(|_| !requirements.is_empty()) {
+            progress.phase(LivePhase::PreparingFixtureInputs);
+        }
         let Some(fixtures) = prepare_fixtures(
             report,
             &checkout,
@@ -467,6 +494,9 @@ async fn perform(
         };
         if let Some(permit) = &permit {
             permit.stage(Stage::Listing)?;
+        }
+        if let Some(progress) = progress {
+            progress.phase(LivePhase::ResolvingGroupPolicy);
         }
         let serialized = group_policy(input, destination, &listed, report).await?;
         let mut groups = Vec::new();
@@ -537,7 +567,7 @@ async fn perform(
             // compiler, capture and listing stages; preserve the original runtime boundary.
             permit.release_to_runner()?;
         }
-        execute_groups_with_policy(input, destination, groups, report, &serialized).await?;
+        execute_groups_observed(input, destination, groups, report, &serialized, progress).await?;
     }
     Ok(())
 }
@@ -571,12 +601,24 @@ fn check_capture(destination: &Path, group: usize, report: &Report) -> Result<()
     Ok(())
 }
 fn discovery_phases(report: &mut Report, inventory: &discovery::Inventory) {
+    for timing in &inventory.cargo_timings {
+        if let Some(path) = &timing.file {
+            report.expect_file(
+                path.clone(),
+                EvidenceRole::DiscoveryContext,
+                Some(timing.group),
+                true,
+            );
+        }
+    }
+    report.cargo_timings.clone_from(&inventory.cargo_timings);
     for captured in &inventory.capture {
         let prefix = match captured.group {
             Some(group) => format!("inventory/group-{group}/{}", captured.stage),
             None => format!("inventory/{}", captured.stage),
         };
         report.phases.push(Phase {
+            predecessor_wait: None,
             native_stage: Some(captured.stage.clone()),
             elapsed_seconds: captured.elapsed_seconds,
             kind: PhaseKind::Discovery,
@@ -1094,6 +1136,7 @@ impl GroupObserver {
         }
     }
 }
+#[cfg(test)]
 async fn execute_groups(
     input: &Input,
     destination: &Path,
@@ -1102,12 +1145,23 @@ async fn execute_groups(
 ) -> Result<(), WorkflowError> {
     execute_groups_with_policy(input, destination, groups, report, &BTreeMap::new()).await
 }
+#[cfg(test)]
 async fn execute_groups_with_policy(
     input: &Input,
     destination: &Path,
     groups: Vec<(GroupCommand, GroupObserver)>,
     report: &mut Report,
     serialized: &BTreeMap<usize, BTreeSet<String>>,
+) -> Result<(), WorkflowError> {
+    execute_groups_observed(input, destination, groups, report, serialized, None).await
+}
+async fn execute_groups_observed(
+    input: &Input,
+    destination: &Path,
+    groups: Vec<(GroupCommand, GroupObserver)>,
+    report: &mut Report,
+    serialized: &BTreeMap<usize, BTreeSet<String>>,
+    progress: Option<&Arc<ProgressWriter>>,
 ) -> Result<(), WorkflowError> {
     if groups.is_empty() {
         report.outcome = Outcome::Incomplete;
@@ -1118,6 +1172,9 @@ async fn execute_groups_with_policy(
     } else {
         PhaseKind::Test
     };
+    if let Some(progress) = progress {
+        progress.phase(LivePhase::ExecutingGroups);
+    }
     let mut tasks = tokio::task::JoinSet::new();
     let mut predecessors = BTreeMap::new();
     for (request, observer) in groups {
@@ -1144,18 +1201,38 @@ async fn execute_groups_with_policy(
         let mut done = Vec::new();
         for name in serialized.get(&group).into_iter().flatten() {
             let (sender, next) = tokio::sync::oneshot::channel::<()>();
-            if let Some(previous) = predecessors.insert(name.clone(), next) {
-                wait.push(previous);
+            if let Some((previous_group, previous)) = predecessors.insert(name.clone(), (group, next)) {
+                wait.push((name.clone(), previous_group, previous));
             }
             done.push(sender);
         }
+        let progress = progress.cloned();
         tasks.spawn(async move {
-            for previous in wait {
-                let _ = previous.await;
+            let started = std::time::Instant::now();
+            let mut groups = BTreeMap::new();
+            for (name, previous_group, mut previous) in wait {
+                if matches!(previous.try_recv(), Err(tokio::sync::oneshot::error::TryRecvError::Empty)) {
+                    if let Some(progress) = &progress {
+                        progress.group(group, LiveGroup::WaitingForPredecessor {
+                            native_group: name.clone(), predecessor: previous_group,
+                        });
+                    }
+                    let _ = previous.await;
+                }
+                groups.insert(name, previous_group);
+            }
+            let predecessor_wait = (!groups.is_empty()).then(|| super::report::PredecessorWait {
+                elapsed_seconds: started.elapsed().as_secs_f64(), groups,
+            });
+            if let Some(progress) = &progress {
+                progress.group(group, LiveGroup::EnteredCommand);
             }
             let result = phase::run(command(request), &stdout, &stderr, observer, policy).await;
             drop(done);
-            (group, prefix, result)
+            if let Some(progress) = &progress {
+                progress.group(group, LiveGroup::CommandReturned);
+            }
+            (group, prefix, predecessor_wait, result)
         });
     }
     let mut success = true;
@@ -1169,8 +1246,9 @@ async fn execute_groups_with_policy(
                 complete = false;
                 report.required_capture_complete = false;
             }
-            Ok((group, prefix, Err(error))) => {
+            Ok((group, prefix, predecessor_wait, Err(error))) => {
                 report.phases.push(Phase {
+                    predecessor_wait,
                     native_stage: None,
                     elapsed_seconds: None,
                     kind,
@@ -1187,8 +1265,11 @@ async fn execute_groups_with_policy(
                 complete = false;
                 report.required_capture_complete = false;
             }
-            Ok((group, prefix, Ok(mut captured))) => {
+            Ok((group, prefix, predecessor_wait, Ok(mut captured))) => {
                 record_phase(report, kind, Some(group), &prefix, &mut captured);
+                if let Some(phase) = report.phases.last_mut() {
+                    phase.predecessor_wait = predecessor_wait;
+                }
                 if let Some(exit) = captured.child_exit.filter(|exit| *exit != 0) {
                     report.failure(WorkflowError::PhaseExit {
                         phase: input.action.command(),

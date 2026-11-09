@@ -817,7 +817,7 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<i32, HostEr
     context
         .directory
         .publish_evidence(InvocationEvidence::Controller, &controller)?;
-    let terminal = match supervise_owned(&context, root, &id).await {
+    let mut terminal = match supervise_owned(&context, root, &id).await {
         Ok(terminal) => terminal,
         Err(error) => {
             // This is the authenticated original main, so preserve its actual initialization
@@ -830,6 +830,12 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<i32, HostEr
             )
         }
     };
+    if context.directory.is_conformance() && terminal.response().child_exit.is_some() {
+        match context.directory.conformance_artifacts() {
+            Ok(artifacts) => terminal = terminal.with_artifacts(artifacts),
+            Err(error) => terminal = terminal.with_owner_failures(vec![error], &RedactionPolicy::from_environment()),
+        }
+    }
     if let Err(error) = context
         .directory
         .publish_evidence(InvocationEvidence::Settlement, terminal.response())
@@ -882,6 +888,7 @@ async fn supervise_owned(
         trampoline,
         policy,
         cancellation,
+        cooperative: context.record.command == "conformance run",
         observer,
     })
     .await;

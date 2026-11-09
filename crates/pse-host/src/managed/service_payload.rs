@@ -31,6 +31,7 @@ pub(super) async fn run<O: ChunkObserver>(
         trampoline,
         policy,
         cancellation,
+        cooperative,
         observer,
     } = request;
     let startup = Instant::now()
@@ -131,10 +132,21 @@ pub(super) async fn run<O: ChunkObserver>(
         gate.write_all(&[1])?;
         Ok::<_, HostError>(())
     };
+    let mut cancellation_started = None;
     let execution = match tokio::time::timeout_at(startup.into(), setup).await {
         Ok(Ok(())) => tokio::select! {
             result = child.wait() => result.map(Some).map_err(HostError::from),
-            () = cancellation.cancelled() => { cancelled = true; Ok(None) },
+            () = cancellation.cancelled() => {
+                cancelled = true;
+                if cooperative {
+                    cancellation_started = Some(Instant::now());
+                    crate::foreground::cooperative_child_exit(
+                        &mut child, rustix::process::Signal::TERM, policy.drain,
+                    ).await
+                } else {
+                    Ok(None)
+                }
+            },
         },
         Ok(Err(error)) => Err(error),
         Err(_) => Err(HostError::Deadline(
@@ -142,7 +154,7 @@ pub(super) async fn run<O: ChunkObserver>(
         )),
     };
     drop(gate);
-    let deadline = Instant::now()
+    let deadline = cancellation_started.unwrap_or_else(Instant::now)
         .checked_add(policy.drain)
         .ok_or_else(|| HostError::Ownership("managed drain horizon overflow".into()))?;
     let kill = if matches!(execution, Ok(Some(_))) {

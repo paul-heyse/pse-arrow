@@ -13,14 +13,15 @@ Arguments:
 Options:
   -C <checkout>
       --session <SESSION>
-      --format <FORMAT>    Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
+      --format <FORMAT>          Human output on terminals, JSON on pipes, or compact NDJSON observations [env: PSE_FORMAT] [default: auto] [possible values: auto, human, json, ndjson]
       --stderr
-      --fields <FIELDS>    Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
-      --offset <OFFSET>    [default: 0]
-      --budget <BUDGET>    Limit whole payload records; producer pages retain their omission and continuation facts
-      --length <LENGTH>    Select at most 262144 original bytes in this window [default: 4096]
+      --fields <FIELDS>          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+      --phase-file <PHASE_FILE>  Exact original phase-stream ordinal from inspect invocation --detail workflow-files
+      --budget <BUDGET>          Limit whole payload records; producer pages retain their omission and continuation facts
+      --offset <OFFSET>          [default: 0]
+      --length <LENGTH>          Select at most 262144 original bytes in this window [default: 4096]
       --tail
-  -h, --help               Print help (see more with '--help')
+  -h, --help                     Print help (see more with '--help')
 --help
 Read original retained stdout/stderr byte ranges
 
@@ -55,11 +56,14 @@ Options:
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --offset <OFFSET>
-          [default: 0]
+      --phase-file <PHASE_FILE>
+          Exact original phase-stream ordinal from inspect invocation --detail workflow-files
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --offset <OFFSET>
+          [default: 0]
 
       --length <LENGTH>
           Select at most 262144 original bytes in this window

@@ -11,7 +11,7 @@ use crate::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 pub(super) const PROTOCOL: &str = "pse.test-workflow";
 const REPORT: &str = "report.json";
 const INVENTORY: &str = "inventory/inventory.json";
@@ -240,7 +240,7 @@ fn observed_pending<'de, D: serde::Deserializer<'de>>(
 }
 
 /// Native phase, with no second process/native-budget owner.
-#[derive(Clone, Copy, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PhaseKind {
     /// Captured metadata input.
@@ -255,13 +255,16 @@ pub enum PhaseKind {
     Test,
 }
 /// Independent raw-custody and original child facts for a phase.
-#[derive(Clone, Debug, Serialize, JsonSchema)]
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Phase {
     /// Exact original native discovery subphase, such as version/build/list, when applicable.
     pub native_stage: Option<String>,
     /// Inclusive wall time from phase entry through child wait and required stream drain.
     /// Absent when the original producer did not capture a duration; never CPU time.
     pub elapsed_seconds: Option<f64>,
+    /// Host exclusion wait before this runner phase; not time in Nextest's scheduler.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub predecessor_wait: Option<PredecessorWait>,
     /// Phase identity.
     pub kind: PhaseKind,
     /// Compiler group when applicable.
@@ -278,6 +281,15 @@ pub struct Phase {
     pub stdout_capture: Option<crate::managed::result::StreamSummary>,
     /// Original required stderr custody and byte counts.
     pub stderr_capture: Option<crate::managed::result::StreamSummary>,
+}
+
+/// Original named groups for which this compiler context awaited a predecessor.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+pub struct PredecessorWait {
+    /// Inclusive host wait before starting the runner.
+    pub elapsed_seconds: f64,
+    /// Native group name and its previous compiler context.
+    pub groups: BTreeMap<String, usize>,
 }
 /// Native private-summary projection; Deserialize deliberately remains absent.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -450,6 +462,9 @@ pub struct Report {
     pub pending: Vec<Pending>,
     /// Original child/raw phase facts.
     pub phases: Vec<Phase>,
+    /// Opt-in Cargo timing capture and omission observations.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cargo_timings: Vec<crate::discovery::CargoTimingCapture>,
     /// Owner-constructed native observations.
     pub observations: Vec<GroupObservation>,
     /// All required inner raw custody completed.
@@ -489,6 +504,7 @@ impl Report {
             fixture_requirements: Vec::new(),
             pending: Vec::new(),
             phases: Vec::new(),
+            cargo_timings: Vec::new(),
             observations: Vec::new(),
             required_capture_complete: true,
             failures: Vec::new(),
@@ -649,7 +665,6 @@ impl Report {
         Ok(())
     }
     fn original_sources(&self) -> Vec<SourceFile> {
-        use std::collections::BTreeMap;
         let mut sources = BTreeMap::new();
         let mut add = |source: SourceFile| {
             sources.insert((source.root, source.path.clone()), source);
@@ -1197,6 +1212,7 @@ mod observation_tests {
             fixture_requirements: vec![],
             pending: vec![],
             phases: vec![],
+            cargo_timings: vec![],
             observations: vec![],
             required_capture_complete: false,
             failures: vec![],
@@ -1299,6 +1315,7 @@ mod observation_tests {
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
         let mut report = current_report();
         report.phases.push(Phase {
+            predecessor_wait: None,
             native_stage: None,
             elapsed_seconds: None,
             kind: PhaseKind::Test,

@@ -134,7 +134,7 @@ pub(super) struct SourceFile {
 fn invalid(message: impl Into<String>) -> HostError {
     HostError::Ownership(format!("original workflow evidence: {}", message.into()))
 }
-pub(super) fn relative_file(path: &str) -> bool {
+pub(crate) fn relative_file(path: &str) -> bool {
     !path.is_empty()
         && !path.as_bytes().contains(&0)
         && path
@@ -422,6 +422,43 @@ pub(crate) fn capture(
     }
     Ok(captured)
 }
+
+/// Read one committed phase stream without acquiring or copying unrelated members.
+pub(crate) fn phase_window(
+    workflow: &Path,
+    files: &[EvidenceFile],
+    ordinal: usize,
+    role: EvidenceRole,
+    offset: u64,
+    length: std::num::NonZeroU64,
+    tail: bool,
+) -> Result<crate::artifacts::DescriptorRead, HostError> {
+    file_window(workflow, files, ordinal, Some(role), offset, length, tail)
+}
+
+/// Read one committed workflow-owned file without including inputs or other members.
+pub(crate) fn file_window(
+    workflow: &Path,
+    files: &[EvidenceFile],
+    ordinal: usize,
+    role: Option<EvidenceRole>,
+    offset: u64,
+    length: std::num::NonZeroU64,
+    tail: bool,
+) -> Result<crate::artifacts::DescriptorRead, HostError> {
+    let commitment = files
+        .get(ordinal)
+        .filter(|file| file.root == EvidenceRoot::Workflow && file.role != EvidenceRole::Input
+            && role.is_none_or(|role| file.role == role))
+        .ok_or_else(|| invalid("selector does not name an original workflow member of the requested kind"))?;
+    let mut member = opened::open_member(workflow, ordinal, commitment)?
+        .ok_or_else(|| invalid("selected member was not captured by the original owner"))?;
+    let observed = commitment.content.as_ref()
+        .ok_or_else(|| invalid("selected member has no original extent"))?
+        .byte_length;
+    let start = if tail { observed.saturating_sub(length.get()) } else { offset };
+    member.read_range(start, length)
+}
 /// One original ordinal/content account for inline bytes and physically opened members.
 pub(crate) fn validate_members(
     files: &[EvidenceFile],
@@ -470,6 +507,24 @@ mod tests {
             group: Some(0),
             settled,
         }
+    }
+    #[test]
+    fn exact_phase_window_refuses_wrong_stream_and_changed_bytes() {
+        let root = private_root();
+        let path = root.path().join("run-0.stdout");
+        fs::write(&path, b"original").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        let (files, causes) = seal(root.path(), vec![source("run-0.stdout", true)]);
+        assert!(causes.is_empty());
+        let length = std::num::NonZeroU64::new(3).unwrap();
+        let read = phase_window(root.path(), &files, 0, EvidenceRole::Stdout, 0, length, true).unwrap();
+        assert_eq!(read.byte_range, 5..8);
+        assert!(matches!(read.content, crate::artifacts::Content::Utf8(value) if value == "nal"));
+        assert!(phase_window(root.path(), &files, 0, EvidenceRole::Stderr, 0, length, false).is_err());
+        fs::remove_file(&path).unwrap();
+        fs::write(&path, b"replaced").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(phase_window(root.path(), &files, 0, EvidenceRole::Stdout, 0, length, false).is_err());
     }
     #[test]
     fn sealed_original_dependencies_refuse_same_shape_mutation_missing_and_truncated_portable_closure()

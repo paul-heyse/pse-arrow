@@ -168,6 +168,12 @@ pub enum ResultDetail {
     Provenance,
     /// References to owner-managed artifacts and scientific outputs.
     Outputs,
+    /// Original workflow dependency ordinals for phase streams and other captured files.
+    WorkflowFiles,
+    /// Original discovery and execution phases, including elapsed and capture facts.
+    WorkflowPhases,
+    /// Bounded original campaign progress and case outcomes.
+    Conformance,
 }
 
 /// Original outcome and settlement, without the owner's opaque payload.
@@ -253,11 +259,39 @@ pub enum InspectionDetail {
         /// Original scientific references.
         scientific: DetailPage<ScientificReference>,
     },
+    /// A bounded index of original workflow file commitments.
+    WorkflowFiles {
+        /// Exact ordinals are preserved even when this index is bounded.
+        files: DetailPage<WorkflowFile>,
+        /// Original optional Cargo report capture and omission observations.
+        cargo_timings: DetailPage<crate::discovery::CargoTimingCapture>,
+        /// Start the next read at this original commitment ordinal.
+        next_offset: Option<usize>,
+    },
+    /// Original recorded phases, not reconstructed from raw output.
+    WorkflowPhases {
+        /// Bounded original timing, capture and process facts.
+        phases: DetailPage<crate::test_workflow::execute::Phase>,
+        /// Original phase offset for the next page.
+        next_offset: Option<usize>,
+    },
+    /// Last published conformance observation; not a process or settlement verdict.
+    Conformance {
+        /// Original published case page.
+        page: crate::cli::conformance::ConformancePage,
+    },
     /// Required original evidence is absent for the selected detail.
     Unavailable {
         /// Detail requested by the caller.
         detail: ResultDetail,
     },
+}
+
+/// An ordinal and its original content or omission commitment.
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct WorkflowFile {
+    ordinal: usize,
+    commitment: crate::test_workflow::execute::EvidenceFile,
 }
 
 /// Compact public inspection, retaining the original identity and verdict separately.
@@ -274,6 +308,9 @@ pub struct InvocationInspection {
     /// Current build admission and phase, independent of the original terminal evidence.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) build_activity: Option<crate::build_admission::Activity>,
+    /// Last published nonterminal workflow observation, if one remains available.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub live_workflow: Option<crate::test_workflow::execute::progress::LiveProgress>,
 }
 
 /// Observe only the selected invocation's compact summary or bounded owner detail.
@@ -284,6 +321,20 @@ pub fn inspect(
     detail: Option<ResultDetail>,
     policy: &RedactionPolicy,
 ) -> Result<Envelope<InvocationInspection>, HostError> {
+    inspect_at(store, selector, session, detail, policy, 0)
+}
+
+pub(crate) fn inspect_at(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+    detail: Option<ResultDetail>,
+    policy: &RedactionPolicy,
+    file_offset: usize,
+) -> Result<Envelope<InvocationInspection>, HostError> {
+    if file_offset != 0 && !matches!(detail, Some(ResultDetail::WorkflowFiles | ResultDetail::WorkflowPhases | ResultDetail::Conformance)) {
+        return Err(HostError::Ownership("--file-offset requires workflow-files, workflow-phases, or conformance detail".into()));
+    }
     let mut original_invocation = store.resolve(selector, session)?;
     let (compact, _borrower) = match &original_invocation {
         Some(id) => store.observe_compact(id)?,
@@ -326,6 +377,61 @@ pub fn inspect(
             artifacts: DetailPage::from_original(terminal.artifacts)?,
             scientific: DetailPage::from_original(terminal.scientific)?,
         }),
+        (Some(ResultDetail::WorkflowFiles), Some(terminal), Some(id))
+            if terminal.artifacts.iter().any(|artifact| artifact.kind == "workflow_report") =>
+        {
+            #[derive(serde::Deserialize)]
+            struct RecordedTimings {
+                #[serde(default)]
+                cargo_timings: Vec<crate::discovery::CargoTimingCapture>,
+            }
+            let original = workflow_report(store, id.as_str(), session)?;
+            let timings: RecordedTimings = serde_json::from_slice(&original.report)
+                .map_err(std::io::Error::other)?;
+            let commitments = original.observation.evidence()
+                .map_err(|error| HostError::Workflow(Box::new(error)))?;
+            if file_offset > commitments.len() {
+                return Err(HostError::Ownership("file offset exceeds original commitments".into()));
+            }
+            let files = DetailPage::from_original(commitments.iter().enumerate().skip(file_offset)
+                .map(|(ordinal, commitment)| WorkflowFile { ordinal, commitment: commitment.clone() })
+                .collect())?;
+            let next_offset = (!files.records.is_empty() && files.omitted != 0)
+                .then_some(file_offset + files.records.len());
+            Some(InspectionDetail::WorkflowFiles {
+                files,
+                cargo_timings: DetailPage::from_original(timings.cargo_timings)?,
+                next_offset,
+            })
+        }
+        (Some(ResultDetail::WorkflowPhases), Some(terminal), Some(id))
+            if terminal.artifacts.iter().any(|artifact| artifact.kind == "workflow_report") =>
+        {
+            #[derive(serde::Deserialize)]
+            struct RecordedPhases {
+                phases: Vec<crate::test_workflow::execute::Phase>,
+            }
+            let original = workflow_report(store, id.as_str(), session)?;
+            let recorded: RecordedPhases = serde_json::from_slice(&original.report)
+                .map_err(std::io::Error::other)?;
+            if file_offset > recorded.phases.len() {
+                return Err(HostError::Ownership("phase offset exceeds original report".into()));
+            }
+            let phases = DetailPage::from_original(recorded.phases.into_iter().skip(file_offset).collect())?;
+            let next_offset = (!phases.records.is_empty() && phases.omitted != 0)
+                .then_some(file_offset + phases.records.len());
+            Some(InspectionDetail::WorkflowPhases { phases, next_offset })
+        }
+        (Some(ResultDetail::Conformance), terminal, Some(id)) => {
+            let directory = store.directory(id)?;
+            let page = crate::cli::conformance::read_progress(
+                &directory, terminal.as_ref().map(|record| record.artifacts.as_slice()), file_offset,
+            )?;
+            match page {
+                Some(page) => Some(InspectionDetail::Conformance { page }),
+                None => Some(InspectionDetail::Unavailable { detail: ResultDetail::Conformance }),
+            }
+        }
         (Some(detail), _, _) => Some(InspectionDetail::Unavailable { detail }),
         (None, _, _) => None,
     };
@@ -350,10 +456,24 @@ pub fn inspect(
             retired,
             detail,
             build_activity: None,
+            live_workflow: None,
         },
     );
     observed.subject_state = state;
     observed.observation.scope = "original_invocation_terminal_evidence".into();
+    if observed.payload.response.is_none()
+        && let Some(id) = &observed.payload.original_invocation
+        && let Ok(directory) = store.directory(id)
+        && let Some(action) = directory.workflow_action()
+    {
+        match crate::test_workflow::execute::progress::read(&directory, action) {
+            Ok(progress) => observed.payload.live_workflow = progress,
+            Err(error) => {
+                observed.observation.completeness = Completeness::Partial;
+                observed.observation.limitations.push(policy.redact(&error.to_string()));
+            }
+        }
+    }
     Ok(observed)
 }
 
@@ -444,6 +564,9 @@ pub struct LogView {
     pub original_invocation: CliInvocationId,
     /// Exact stream; there is no inferred cross-stream producer ordering.
     pub stream: OutputStream,
+    /// Original workflow dependency ordinal; absent for the outer invocation stream.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phase_file: Option<usize>,
     /// Original mutable file size at this observation.
     pub observed_bytes: u64,
     /// Actual half-open selected range.
@@ -455,23 +578,82 @@ pub struct LogView {
     /// A live ledger stream is not an immutable object or snapshot.
     pub atomic_snapshot: bool,
 }
+
+fn workflow_report(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+) -> Result<crate::test_inventory::CapturedReport, HostError> {
+    crate::test_inventory::captured_report_at_limit(
+        store, selector, session, Some(crate::developer_evidence::MAX_INPUT_BYTES),
+    )
+}
+
+/// Select a bounded range of one authenticated file from the original workflow.
+pub(crate) fn workflow_member(
+    store: &InvocationStore,
+    invocation: &str,
+    ordinal: usize,
+    offset: u64,
+    length: NonZeroU64,
+) -> Result<crate::artifacts::DescriptorRead, HostError> {
+    if length.get() > 256 * 1024 {
+        return Err(HostError::Ownership("workflow member reads support at most 262144 bytes per range".into()));
+    }
+    let report = workflow_report(store, invocation, None)?;
+    let commitments = report.observation.evidence()
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+    crate::test_workflow::execute::evidence::file_window(
+        &report.parent, commitments, ordinal, None, offset, length, false,
+    )
+}
+/// Select a bounded range in one original stream.
+pub(crate) struct LogWindow {
+    pub(crate) phase_file: Option<usize>,
+    pub(crate) offset: u64,
+    pub(crate) length: NonZeroU64,
+    pub(crate) tail: bool,
+}
+
 /// Read a protected local raw stream directly. Generic object-store paths cannot establish
 /// the local ledger's no-follow/ownership contract.
-pub fn log(
+pub(crate) fn log(
     store: &InvocationStore,
     selector: &str,
     session: Option<&str>,
     stream: OutputStream,
-    offset: u64,
-    length: NonZeroU64,
-    tail: bool,
+    window: LogWindow,
 ) -> Result<Envelope<LogView>, HostError> {
+    let LogWindow { phase_file, offset, length, tail } = window;
     if length.get() > 256 * 1024 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             "log length exceeds 262144 bytes; use the returned offset for another window",
         )
         .into());
+    }
+    if let Some(ordinal) = phase_file {
+        use crate::test_workflow::execute::{EvidenceRole, evidence};
+        let report = workflow_report(store, selector, session)?;
+        let commitments = report.observation.evidence()
+            .map_err(|error| HostError::Workflow(Box::new(error)))?;
+        let role = match stream {
+            OutputStream::Stdout => EvidenceRole::Stdout,
+            OutputStream::Stderr => EvidenceRole::Stderr,
+        };
+        let observed = evidence::phase_window(&report.parent, commitments, ordinal, role, offset, length, tail)?;
+        let mut response = Envelope::response("inspect log", "original committed phase stream observed", LogView {
+            original_invocation: report.id,
+            stream,
+            phase_file,
+            observed_bytes: observed.identity.bytes,
+            byte_range: observed.byte_range,
+            content: observed.content,
+            next_offset: observed.next_offset,
+            atomic_snapshot: observed.atomic_snapshot,
+        });
+        response.observation.scope = "original_committed_workflow_stream".into();
+        return Ok(response);
     }
     let id = store
         .resolve(selector, session)?
@@ -506,6 +688,7 @@ pub fn log(
         LogView {
             original_invocation: id,
             stream,
+            phase_file: None,
             observed_bytes,
             byte_range: start..actual_end,
             content,

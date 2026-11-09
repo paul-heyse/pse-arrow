@@ -438,7 +438,19 @@ settled ordinary test summaries can expire after seven days. The retirement witn
 expires seven days after release. The original report and protected evidence keep
 their own custody rules.
 
-Use `pse inspect log ID` for a bounded original stream window. To deliver one compact
+Use `pse inspect invocation ID --detail workflow-phases` for original phase facts
+and `--detail workflow-files` for committed dependency ordinals. Continue with the
+returned `--file-offset`. Use `pse inspect log ID --phase-file ORDINAL` for the
+selected original stdout, or add `--stderr` for stderr. Without an ordinal,
+`pse inspect log ID` reads the outer invocation stream.
+`pse inspect tests ID --case ADDRESS` uses the exact address from the original test
+population; add `--compare OTHER_ID` to compare that case with another original run.
+For a build investigation, select `pse test --timings`. The `workflow-files` detail
+shows which original Cargo reports were captured and which were omitted. Read one
+file with `pse inspect artifact ORDINAL --from-result ID`; the response includes
+the next offset if needed. Capture is bounded, and an omission does not change
+the test outcome.
+To deliver one compact
 inspection as JSON, use `pse tools export-result ID --output FILE` with an optional
 `--detail` selector. The destination must be fresh. The receipt identifies the exact
 selected result and export digest. The command keeps raw logs and product payloads
@@ -449,6 +461,12 @@ Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
 `--consumer NAME --condition CONDITION` to record a hold. Omit the condition to clear
 that consumer's hold. `pse tools prepare-result-expiry --enable` installs and enables
 the repository's user timer for eligible records in its authenticated registered worktrees.
+Newly enrolled ordinary workflows can release committed workflow files with the
+summary after settlement and hold/reader checks. Outer invocation streams and
+reusable build objects have separate custody. For managed campaign checkpoints use
+`pse tools retire-result ID --conformance` and `pse tools hold-result ID --conformance`.
+Campaign checkpoints have bounded reservations and can expire seven days after
+verified settlement; explicit Arrow exports remain caller-owned.
 
 ## Focused CLI output
 

@@ -3,7 +3,9 @@
 //! Explicit source-build/list discovery over admitted selections and captured binary bytes.
 //! Listing establishes a population, never setup success or a reconciled test pass.
 pub(crate) mod capture;
+mod timing;
 pub use capture::{BuildCapture, BuiltArtifact, Executable};
+pub use timing::{CargoTimingCapture, CargoTimingStatus};
 
 use crate::{
     HostError,
@@ -201,6 +203,9 @@ pub struct Inventory {
     pub runner_profile: String,
     /// Actual admitted groups, preserving incompatible feature contexts.
     pub groups: Vec<ListedGroup>,
+    /// Opt-in native Cargo timing reports, never a prerequisite for test selection.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub cargo_timings: Vec<CargoTimingCapture>,
     /// Setup scripts are not executed by listing. This never asserts setup success.
     pub setup: SetupObservation,
     /// Scope limit of captured bytes; inventory alone is not an execution-readiness grant.
@@ -407,6 +412,7 @@ async fn output(
         None => stage.into(),
     };
     phases.push(Phase {
+        predecessor_wait: None,
         native_stage: Some(stage.into()),
         elapsed_seconds: capture.as_ref().ok().map(|capture| capture.elapsed_seconds),
         kind: PhaseKind::Discovery,
@@ -586,6 +592,7 @@ pub(crate) async fn list_with_permit(
         let configuration = destination.join("nextest.toml");
         crate::invocation::publish_bytes(&configuration, &nextest_configuration, None, 0o400)?;
         let mut groups = Vec::new();
+        let mut timings = timing::Pending::default();
         for (index, group) in resolved.plan().groups().iter().enumerate() {
             let group_directory = destination.join(format!("group-{index}"));
             directory(&group_directory)?;
@@ -621,6 +628,7 @@ pub(crate) async fn list_with_permit(
                 permit.stage(Stage::Building)?;
                 build.env(CALLBACK, permit.callback());
             }
+            let started = options.timings.then(std::time::SystemTime::now);
             let binary_output = output(
                 build,
                 &group_directory,
@@ -656,9 +664,12 @@ pub(crate) async fn list_with_permit(
             let binaries_path = group_directory.join("binaries.json");
             capture::write_json(&binaries_path, &binaries)?;
             let cargo_metadata_bytes = fs::read(&cargo_metadata)?;
-            let _: cargo_metadata::Metadata = serde_json::from_slice(&cargo_metadata_bytes)?;
+            let metadata: cargo_metadata::Metadata = serde_json::from_slice(&cargo_metadata_bytes)?;
             let cargo_metadata_digest = Sha256::digest(&cargo_metadata_bytes).into();
             drop(cargo_metadata_bytes);
+            if let Some(started) = started {
+                timings.observe(index, permit.is_some(), started, &build_directory, &metadata);
+            }
             let mut enumerate = Command::new(&nextest.captured);
             enumerate
                 .current_dir(&checkout)
@@ -690,6 +701,7 @@ pub(crate) async fn list_with_permit(
                 cargo_metadata_digest: Some(cargo_metadata_digest),
             });
         }
+        let cargo_timings = timings.publish(destination);
         let inventory = Inventory {
             version: 2,
             required_capture_complete: true,
@@ -702,6 +714,7 @@ pub(crate) async fn list_with_permit(
             nextest_configuration,
             runner_profile: runner_profile.into(),
             groups,
+            cargo_timings,
             setup: SetupObservation::NotRunByListing,
             runtime_inputs: RuntimeInputObservation::NotCapturedByDiscovery,
             physical_scope: PhysicalScopeObservation::NotEstablishedByDiscovery,

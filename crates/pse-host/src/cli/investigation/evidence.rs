@@ -137,7 +137,11 @@ pub(super) enum Action {
     },
     /// Read exact artifact ranges with native validators; this does not decode a protocol.
     Artifact {
+        /// Filesystem path, or an original workflow file ordinal with --from-result.
         file: PathBuf,
+        /// Original invocation owning the selected workflow file commitment.
+        #[arg(long, value_parser = super::super::parse_invocation_id, conflicts_with_all = ["all", "if_match"])]
+        from_result: Option<crate::envelope::CliInvocationId>,
         #[arg(long, default_value = "0")]
         offset: u64,
         #[arg(long)]
@@ -190,8 +194,14 @@ pub(super) enum Action {
         invocation: String,
         #[arg(long)]
         session: Option<String>,
-        #[arg(long)]
+        #[arg(long, conflicts_with = "case")]
         failures: bool,
+        /// Exact case address from the original test population.
+        #[arg(long)]
+        case: Option<String>,
+        /// Compare the selected case with a second original invocation.
+        #[arg(long, requires = "case", conflicts_with = "cursor")]
+        compare: Option<String>,
         #[arg(long)]
         cursor: Option<String>,
         #[arg(long, default_value = "20")]
@@ -242,6 +252,9 @@ pub(super) enum Action {
         /// Inspect a bounded detail retained by the original owner.
         #[arg(long, value_enum)]
         detail: Option<crate::invocation_view::ResultDetail>,
+        /// Original commitment ordinal for the next workflow-files page.
+        #[arg(long, requires = "detail")]
+        file_offset: Option<usize>,
     },
     /// Read original retained stdout/stderr byte ranges.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
@@ -252,6 +265,9 @@ pub(super) enum Action {
         session: Option<String>,
         #[arg(long)]
         stderr: bool,
+        /// Exact original phase-stream ordinal from inspect invocation --detail workflow-files.
+        #[arg(long)]
+        phase_file: Option<usize>,
         #[arg(long, default_value = "0", conflicts_with = "tail")]
         offset: u64,
         /// Select at most 262144 original bytes in this window.
@@ -304,6 +320,8 @@ pub(super) fn inspect(
     let schema = match &action {
         Action::Dependency { .. } => Some("inspect dependency"),
         Action::Owner { .. } => Some("inspect owner"),
+        Action::Tests { compare: Some(_), .. } => Some("inspect tests compare"),
+        Action::Tests { case: Some(_), .. } => Some("inspect tests attempts"),
         Action::Tests { failures: true, .. } => Some("inspect tests failures"),
         Action::Tests { .. } => Some("inspect tests"),
         Action::TestSelection { full: true, .. } => Some("inspect test-selection full"),
@@ -608,11 +626,31 @@ pub(super) fn inspect(
         }
         Action::Artifact {
             file,
+            from_result,
             offset,
             length,
             all,
             if_match,
         } => {
+            if let Some(id) = from_result {
+                let ordinal = file.to_str().and_then(|value| value.parse::<usize>().ok())
+                    .ok_or_else(|| HostError::Ownership("--from-result requires a workflow file ordinal".into()))?;
+                let store = super::super::invocation_store(selected)?;
+                let length = length.unwrap_or(NonZeroU64::new(4096).expect("nonzero default range"));
+                let payload = crate::invocation_view::workflow_member(&store, id.as_str(), ordinal, offset, length)?;
+                let mut response = Envelope::response("inspect artifact", "original workflow file range observed", payload);
+                response.observation.scope = "original_committed_workflow_member".into();
+                response.observation.reference = Some(id.to_string());
+                if let Some(next_offset) = response.payload.next_offset {
+                    response.next.push(crate::envelope::NextAction::Command {
+                        argv: vec!["pse".into(), "inspect".into(), "artifact".into(), ordinal.to_string(),
+                            "--from-result".into(), id.to_string(), "--offset".into(), next_offset.to_string(),
+                            "--length".into(), length.to_string()],
+                        reason: "continue the same original workflow file".into(),
+                    });
+                }
+                return Ok(output.emit_observation(response)?);
+            }
             let file = super::super::source_path(selected, file)?;
             let request = crate::artifacts::ReadRequest {
                 offset,
@@ -767,6 +805,8 @@ pub(super) fn inspect(
             invocation,
             session,
             failures,
+            case,
+            compare,
             cursor,
             limit,
             page_bytes,
@@ -774,7 +814,22 @@ pub(super) fn inspect(
             let store = super::super::invocation_store(selected)?;
             let session =
                 crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            if failures {
+            if let Some(case) = case {
+                if let Some(against) = compare {
+                    let mut response = crate::test_inventory::compare_case(
+                        &store, &invocation, session.as_deref(), &case, &against,
+                    )?;
+                    response.command = "inspect tests compare".into();
+                    return Ok(output.emit_observation(response)?);
+                }
+                let cursor = cursor.as_deref().map(serde_json::from_str).transpose()
+                    .map_err(std::io::Error::other)?;
+                let mut response = crate::test_inventory::attempts(
+                    &store, &invocation, session.as_deref(), &case, cursor.as_ref(), limit, page_bytes,
+                )?;
+                response.command = "inspect tests attempts".into();
+                Ok(output.emit_observation(response)?)
+            } else if failures {
                 let cursor = cursor
                     .as_deref()
                     .map(serde_json::from_str)
@@ -954,16 +1009,18 @@ pub(super) fn inspect(
             invocation,
             session,
             detail,
+            file_offset,
         } => {
             let store = super::super::invocation_store(selected)?;
             let session =
                 crate::invocation::select_session(session, &std::env::vars_os().collect())?;
-            let mut response = crate::invocation_view::inspect(
+            let mut response = crate::invocation_view::inspect_at(
                 &store,
                 &invocation,
                 session.as_deref(),
                 detail,
                 &RedactionPolicy::from_environment(),
+                file_offset.unwrap_or(0),
             )?;
             if response.payload.response.is_none()
                 && let Some(id) = &response.payload.original_invocation
@@ -991,6 +1048,7 @@ pub(super) fn inspect(
             invocation,
             session,
             stderr,
+            phase_file,
             offset,
             length,
             tail,
@@ -1008,9 +1066,7 @@ pub(super) fn inspect(
                 &invocation,
                 session.as_deref(),
                 stream,
-                offset,
-                length,
-                tail,
+                crate::invocation_view::LogWindow { phase_file, offset, length, tail },
             )?;
             response.command = "inspect log".into();
             Ok(output.emit_observation(response)?)
@@ -1199,6 +1255,8 @@ pub(super) fn inspect_locator(
             invocation: invocation.clone(),
             session: None,
             failures: false,
+            case: None,
+            compare: None,
             cursor: selector.clone(),
             limit: NonZeroUsize::new(20)
                 .ok_or_else(|| HostError::Ownership("invalid page allowance".into()))?,
@@ -1216,6 +1274,7 @@ pub(super) fn inspect_locator(
                 invocation: invocation.clone(),
                 session: None,
                 stderr: stream == "stderr",
+                phase_file: None,
                 offset: 0,
                 length: NonZeroU64::new(4096)
                     .ok_or_else(|| HostError::Ownership("invalid range allowance".into()))?,
