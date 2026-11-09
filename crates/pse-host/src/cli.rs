@@ -1592,7 +1592,7 @@ fn launch_managed_finalize(
             &command[1..],
         )?;
         let required = crate::test_workflow::execute::Action::from_command(verb).is_some();
-        let release_route = if required {
+        let release_route = if required || cooperative {
             let base = crate::paths::HostPaths::new(&environment)
                 .base(crate::paths::UserDirectory::State)?;
             Some(crate::managed::workflow::borrowed::Route::new(&root, &base))

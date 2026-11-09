@@ -138,7 +138,6 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
         }
     }
     if context.directory.is_conformance()
-        && prior.as_ref().is_some_and(|result| result.child_exit.is_some())
         && let Err(error) = async {
             require_worker_drain(&context, controller.as_ref(), &process).await?;
             context.directory.record_conformance_worker_drain()

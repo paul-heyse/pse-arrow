@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Handoff of private executable release to an enclosing native workload owner.
+//! Handoff of managed workflow and campaign custody to an enclosing native workload owner.
 use super::{
     complete_capture, digest, host, invalid, release_interrupted_listing, release_original_images,
 };
@@ -111,7 +111,13 @@ fn release_recorded(
 ) -> Result<(), HostError> {
     let result = store
         .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
-        .ok_or_else(|| host(invalid("original foreground workflow result is absent")))?;
+        .ok_or_else(|| host(invalid("original foreground result is absent")))?;
+    if directory.is_conformance() {
+        if !borrowed || !result.payload.borrowed_reservation {
+            return Err(host(invalid("original campaign did not borrow this enclosing workload")));
+        }
+        return directory.record_conformance_enclosing_drain();
+    }
     if result.payload.borrowed_reservation == borrowed
         && release_interrupted_listing(directory, &result)?
     {
@@ -260,7 +266,7 @@ pub(crate) fn reconcile_enclosing(
     first_error.map_or(Ok(()), Err)
 }
 
-/// Explicit retry for one original foreground workflow. An inactive name alone
+/// Explicit retry for one original foreground workflow or campaign. An inactive name alone
 /// never grants release, and the enclosing workload is independently owned.
 pub(crate) async fn reconcile_foreground(
     store: &InvocationStore,

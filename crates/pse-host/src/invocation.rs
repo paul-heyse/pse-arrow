@@ -791,10 +791,12 @@ impl InvocationDirectory {
         };
         let path = self.path.join(name);
         let campaign = self.is_conformance().then(|| self.borrow_conformance()).transpose()?;
+        let mut identity = None;
         let file = if let Some(owner) = &campaign {
             if self.conformance_raw_retired(owner, stream)? {
                 return Err(invalid("original campaign raw stream has been retired"));
             }
+            identity = self.conformance_raw_identity(owner, stream)?;
             workflow_evidence::open_child(owner, Path::new(name))?
         } else {
             match evidence_file(&path) {
@@ -816,21 +818,18 @@ impl InvocationDirectory {
             if (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
                 return Err(invalid("original raw stream changed during access"));
             }
-            let streams = if let Some(owner) = &campaign {
-                self.conformance_raw_streams(owner)?
-            } else {
-                workflow_evidence::streams(self)?
-            };
-            if let Some(streams) = streams {
-                let identity = match stream {
+            if campaign.is_none()
+                && let Some(streams) = workflow_evidence::streams(self)?
+            {
+                identity = match stream {
                     crate::extraction::OutputStream::Stdout => streams.stdout,
                     crate::extraction::OutputStream::Stderr => streams.stderr,
                 };
-                if let Some(identity) = identity
-                    && crate::artifacts::descriptor_identity(&file)? != identity
-                {
-                    return Err(invalid("bounded raw stream differs from the original writer identity"));
-                }
+            }
+            if let Some(identity) = identity
+                && crate::artifacts::descriptor_identity(&file)? != identity
+            {
+                return Err(invalid("bounded raw stream differs from the original writer identity"));
             }
         }
         Ok(file)
