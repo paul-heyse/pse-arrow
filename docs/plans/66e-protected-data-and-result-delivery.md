@@ -326,6 +326,16 @@ using its own complete descriptor and verify exact context, presence and protect
 Put the comparison to the full engineering world at the independent interop boundary.
 The ordinary reader build must exclude the broad engineering messages and validators.
 
+E02/E03 receive the same protected original-result contract after any
+[canonical reconstruction cutover](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
+or [wire retirement](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement).
+Exercise the independent reader after the producer retires: preserve exact original attempt,
+source, selection and permission, and refuse foreign or incomplete context. Prepared math, a
+decoded program, and a `Relaxed` solver export supply neither protected read authority nor a
+stronger scientific-use decision. E06 retains the original refusal and independent settlement
+causes if an operation boundary moves. E10 checks that the migrated readers do not recreate
+math or use a predecessor route to recover unavailable evidence.
+
 For E06, consume [C03's joined original causes](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions)
 in diagnostic and retained evidence delivery. Check that admission refusal and an independent
 finish error each retain their typed stage, attempt and attribution through the real reader.

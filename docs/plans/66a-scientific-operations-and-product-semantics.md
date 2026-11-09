@@ -215,6 +215,14 @@ failures recorded in the coordinator; it did not exercise the live Study route.
 Packages consume narrow working prerequisites rather than entire companions. In particular,
 ordinary steady analysis does not wait for distributed or specialized physics.
 
+A02/A04 supply the exact requested product, ordered original axes, selected experiment or
+member, and governing permission to [D's shared preparation and derivative products](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products).
+One prepared operation may serve multiple demands only where their contracts match; an action,
+an ordered derivative entry and a value do not authorize one another. Exercise reordered axes,
+foreign members, and an unavailable derivative while retaining the original fit or Study result.
+If the [wire boundary changes](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement),
+A05 checks that this authority survives the migrated consumers; A01's two Study inputs remain distinct.
+
 ## Verification and outcome
 
 The working tree also checks the admitted route and procedure kind before preparation.

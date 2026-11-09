@@ -136,6 +136,17 @@ and [66e](66e-protected-data-and-result-delivery.md)/[66f](66f-developer-operati
 for protected/read/export/client delivery. Retire duplicate loops and old mappings only
 after complete selected callers migrate, not merely after a library proposal compiles.
 
+For J02/J06, compare [D's shared derivatives and exact demand](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products)
+through [`fit_binds_exact_authored_schedule_intervals_across_original_experiments`](../../crates/pse-runtime/src/workflow/fitting/p09_tests.rs):
+one steady and two differently scheduled transient experiments at nonzero physical time, with
+independently expected Jacobian rows. Preserve original interval/axis admission and IDAS/Diffsol
+execution; keep a fit gradient distinct from a response Jacobian, rank or covariance evidence.
+The selected controller product must still distinguish active-set and hold changes and preserve
+the independently qualified KKT response where demanded. J04 consumes
+[D's strict-domain export rule](66d-mathematical-representation-and-numerical-execution.md#strict-domain-fidelity)
+only on affected factorable paths; a candidate-only inward margin supplies no global evidence.
+J07 migrates the actual readers for changed products with their original experiment and attempt.
+
 **Planned verification:** force-validating native controls challenge deliberately wrong
 experiment/member associations; reordered observations; changed initial/schedule targets;
 steady plus two different transient experiments; confounding, rank loss and withheld

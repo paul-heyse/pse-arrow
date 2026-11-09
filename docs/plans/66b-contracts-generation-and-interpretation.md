@@ -348,6 +348,20 @@ session binding and coordinated image activation.
 [Native provider declaration](../../crates/pse-kernels/src/provider.rs) ·
 [Current worker protocol](../../crates/pse-kernels/src/worker_protocol.rs)
 
+For [C's wire decisions](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement),
+generate only the selected operation and consumer closure. Retain distinct Study roots,
+admission, observation/cancellation and protected read contracts. If C02/F05 qualify whole-case
+submission, move the actual roots and callers and delete superseded intermediate projections
+and fixtures together; do not expose a Symbolica step as a new public RPC. Apply the same
+boundary to an actual isolated worker change. Compare admitted generated reach, exact tags,
+ordered outputs, per-point refusals and independent consumer compilation against the current
+root. Retire a private protocol only with the owning placement decision and callers.
+
+For [D02/C04 canonical receiving](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts),
+change the source projection only when the selected reconstruction requires it. Keep mechanical
+packing and framing distinct from typed receipt and body admission. The test-only binary recipe
+is not production activation; do not generate two live interpretations for the cutover.
+
 The migration population is the current selected engineering requests/responses/edits/progress,
 modeling inspection and prepared studies; preparation/evaluate/stop/close worker crossings;
 reference request/result/diagnostics; developer selection/prerequisites/reports/evidence;

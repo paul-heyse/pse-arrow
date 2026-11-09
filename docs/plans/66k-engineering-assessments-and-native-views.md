@@ -144,6 +144,13 @@ fixture features. Main reported zero failures/compiler warnings and complete cap
 (`01a1b384-e25f-724f-9ea6-2797dbf9084c`). This is one costing consumer, not the environmental,
 utility, rendered/client, assessment-only recomputation or wider selected K population.
 
+K01–K05 consume [D's selected products](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products)
+only where a named assessment needs them. Use the costed exchanger to discriminate a real
+read/view/export after producer retirement from a hidden rerun: retain unknown area support,
+pressure extrapolation, the cost-index period and original permission in the protected result.
+A view must neither recalculate the physical model nor strengthen permission when preparation,
+precision or receiving changes upstream.
+
 Each delivery includes operation admission, exact selected source/physical context,
 native assessment or observation, scoped diagnostics, protected retained reading,
 typed client/view and independent export. [66b](66b-contracts-generation-and-interpretation.md)

@@ -11,8 +11,10 @@ doc_topics: [design, numerical-execution, performance, validation]
 
 ## Remaining target and existing strengths
 
-This companion actions review I03/I06 and S02–S04/S07 under the
-[Plan66 coordinator](66-integrated-simulation-target.md). Blueprint §7/§14–§18 and
+This companion owns I03/I06 and S02–S04/S07 from the
+[November 6 combined review](../plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md)
+and its supporting analysis. The [November 9 Symbolica dispositions](66-integrated-simulation-target.md#symbolica-improvement-dispositions)
+identify the new work by source. Blueprint §7/§14–§18 and
 PS-05–PS-10 supply mathematical context. Main `66341514d` already contains sparse
 symbolic/numeric separation, implicit response actions, shared multi-output evaluators,
 selective accuracy arithmetic, SVD fitting covariance and class-specific native runners.
@@ -28,17 +30,16 @@ the requested product and mathematical class; choose symbolic/coefficient/factor
 or action-based realization before introducing caches or pools. A bounded/constrained solve
 cannot become plain Newton iteration merely because the latter is easy to call.
 
-Maintained Symbolica3.0.1
-[`export_instructions`](../../vendor/symbolica/src/evaluate/instruction.rs) permits
-library-owned evaluation programs to cross an admitted mathematical boundary;
-[`map_coeff_with_prec`](../../vendor/symbolica/src/evaluate/evaluator.rs) changes coefficient
-representation with explicit precision. Use these with existing multi-output preparation
-to avoid repeated expression conversion and to retain high-precision constants where demanded.
-Compare selective affine/rational elimination against retained numerical blocks on actual
-consumers. Carry pivot/nonzero assumptions and recovered original variables; do not expand
-exact algebra globally or discard guards. The
-[Symbolica overview](../libraries/scientific_calcs/symbolica.md) supplies broader leads;
-maintained source defines the consumed contract.
+Use maintained Symbolica 3.0.1 with workspace defaults off and `integer-gmp`/`float-mpfr`
+selected. Keep `pse-math/compiled-evaluator` an explicit native code-generation profile.
+Reuse one guarded arithmetic region across [selected products](#symbolica-shared-products)
+without widening the demand. The
+[`export_instructions`](../../vendor/symbolica/src/evaluate/instruction.rs) API exposes
+an evaluator's numerical program for selected downstream uses; it neither imports a
+symbolic body nor admits a receiver. [Precision selection](#symbolica-precision) and
+[exact coefficient work](#symbolica-exact-objectives) retain their own contracts. The
+[Symbolica overview](../libraries/scientific_calcs/symbolica.md) supplies orientation;
+the maintained sources linked at the owners define the consumed behavior.
 
 Keep precision/error claims explicit: repeated high precision, backward error, conditioning,
 validated enclosure and independent physical agreement answer different questions. Basic ball
@@ -82,8 +83,9 @@ registration. A bounded decoder, post-construction node/slot limit, payload mult
 owned child process does not establish that bound. D02 supplies the mathematical construction
 contract and C04 the receiving admission/receipt/custody contract. Retain current JSON v3
 receiving until bounded reconstruction or a qualified alternative satisfies those obligations,
-or a specifically approved revised contract replaces them. The already implemented provider-free
-compiled f64 Value/First live-child handoff is distinct and cannot close canonical reconstruction.
+or a specifically approved revised contract replaces them. The existing provider-free
+Value/First handoff restores a prepared stage's interpreted f64 evaluator, not a symbolic
+body or native/JIT code. It cannot close canonical reconstruction.
 This is an operation admission contract, not a new host-wide memory cap.
 
 Source investigation of maintained Symbolica3.0.1 confirms a useful narrower mechanism:
@@ -123,8 +125,46 @@ uses Symbolica normalization during body construction and shared partials. The
 while resolving a slot. Restricting a recipe to already registered slots would
 leave coefficient, normalization and derivative construction without enforceable
 preconstruction admission. No current canonical consumer can use an atom-only restriction
-or the compiled Value/First product in place of its admitted symbolic body. Keep
-canonical binary activation open and retain JSON v3.
+or the Value/First numerical product in place of its admitted symbolic body.
+
+**D02 decision work (Symbolica review [I01](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01)).**
+Qualify restoration of one producer-sealed, already-normalized guarded body first. The
+maintained [`inspect_packing`](../../vendor/symbolica/src/atom/packing.rs) walks bytes with
+caller-owned `PackingFrame` scratch and reports symbol occurrences and coefficient extents
+without creating atoms, parsing native coefficients or registering symbols. It supports a
+restricted packed profile with a declared receiving Float environment and rejects attributed
+symbols and unsupported flags or coefficient forms. Layout inspection does not establish
+canonical order, producer authority or destination compatibility. Do not turn a normalized
+flag or equal digest into that proof. Use the actual registered pool and noncreating
+[`Symbol::get_symbol`](../../vendor/symbolica/src/atom.rs) to check names and roles; require
+the original identities, attributes and order for a copy-only slice. Refuse incompatibility
+before growth; do not enter general `Atom::import_with_map` remapping and normalization.
+
+Use a supplier-owned checked restore patterned on `F64ProgramView::inspect`/`restore_with`:
+inspect sizes, work and depth using admitted frames, then reserve stage backing, scratch and
+coefficient materialization before allocation. Admission callbacks must not publish or register
+while inspecting. Keep authored recipe and proof meanings with their existing owners. Bind the
+restored stage and slot order, dependencies, provider bindings, guards and source tokens to the
+original qualified request. Establish equivalent membership and full receipt consumption without
+ordinary reconstruction or a second authority. Keep scope cancellation and custody with C04;
+budget new partials and proofs separately from restoration. A later profile that needs
+registration or renormalization needs its own pre-allocation bound.
+
+Start with `canonical_portable_body_large_scientific_recipe_persists_and_reconnects` at the
+[canonical receiver](../../crates/pse-runtime/src/math/portable.rs) after producer retirement,
+then a guarded body that actually serves a symbolic partial or class consumer. Check exact
+coefficients and correspondence plus an independent original result. Include one-unit-short
+allowance, truncated nested data, reordered or foreign symbols, large exact coefficients,
+unsupported flags, missing/extra/changed receipts and a crossed domain guard. Refuse before
+allocation or registration where the failed premise is knowable and return no partial body.
+The [supplier packing controls](../../vendor/symbolica/tests/packing.rs) complement these
+owner-level tests; they do not replace them.
+
+If the sealed-body route cannot preserve proof custody or costs more across the supported
+operation, compare bounded typed replay with supplier admission before normalization, coefficient
+and partial growth, and any pool expansion. This is a design alternative, not a runtime
+fallback. If neither route qualifies, keep binary activation closed and JSON v3 current.
+If one qualifies, C04 owns a single cutover and B03 owns any changed projection; no dual reader.
 
 ### D03 response selection for current consumers
 
@@ -248,11 +288,12 @@ native quality check was weakened. The source controls are
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. The active recipe checks cancellation before decoding and before symbolic construction. The preallocation gate remains open for normalization, coefficients, partials and process-wide symbol registration. Continue the other demanded evaluator, batch and layout consumers. |
+| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 separates row floors, numerical requirements and the scheme/domain conflict. Deliver remaining family demands, request-local exact objective reuse and the selected strict-domain export correction after its decision route. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. The active recipe checks cancellation before decoding and symbolic construction. Qualify bounded guarded restore or replay before C04 activation; complete shared derivative construction, exact demand reuse and the actual precision/evaluator consumers. |
 | D03 | complete | Current direct factor and SVD routes and their selected consumers | Retain factors and SVD for the traced workloads. Reopen for a named large repeated-response workload with an admitted operator and preconditioner candidate. |
-| D04 | in-progress | Changed maintained arithmetic/provider consumers | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. The actual BT control passed for liquid, two-phase and vapor invocations with original ordered provider ports and typed component membership. The canonical two-phase read passed after producer retirement with the exact original attempt. Other affected providers and solver populations remain open. |
-| D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
+| D04 | in-progress | Changed maintained arithmetic/provider consumers; confirmed strict-domain rule through the decision route for that slice | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. BT passed for liquid, two-phase and vapor with original ports and member identity; the canonical two-phase read retained the original attempt. Other provider and solver populations remain open, including strict-domain proof-path and affected demand/precision controls. |
+| D05 | planned | Selected changed D02/D04 deliveries; actual family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. Candidate composition is not required. |
+| D06 | planned | Verified published 3.0.1 archive and current tracked supplier tree | Refresh the complete Symbolica delta and source receipt together. Independently reconstruct the tracked paths, bytes and modes, preserving the build-provenance fix. No dependency change or prerequisite for unrelated science. |
 
 The canonical two-phase BT control reached the original protected read and found
 that persisted visit rows omitted the actual attempt ID. The writer projected before
@@ -276,10 +317,12 @@ witness ownership and the admitted resource context. Reuse the existing
 solver profiles. The router selects the eligible class adapter. The adapter's
 `callback_demand` supplies exact preparation and evaluation requirements, including the
 first missing product, from the same capability decision. Carry that decision and the reconciled
-witness reservation to C instead of independently recomputing them in conditional
-artifact preparation, fitting and shooting. Reuse `OracleContract` for shared structural
-facts and ordered identities. Formulation, derivative source and resource context stay
-with their native owners.
+witness reservation to [C02/C04](66c-preparation-execution-and-service-lifecycles.md#c02--complete-actual-local-operationservice-consumers)
+instead of independently recomputing them in conditional artifact preparation,
+initialization, fitting and shooting. Reuse `OracleContract` for shared structural facts
+and ordered identities. Bind reuse to the same selected adapter, route, profile, controls,
+support and witness; changed provider or initialization settings can require new demand.
+Formulation, derivative source and resource context stay with their native owners.
 [Native router](../../crates/pse-backend-native/src/routing.rs) ·
 [Adapter contract](../../crates/pse-backend-native/src/execution.rs) ·
 [Oracle contract](../../crates/pse-backend-native/src/lib.rs)
@@ -289,13 +332,159 @@ optimization curvature and bounds, residual fitting eligibility, and dynamic eve
 partial trajectory semantics. Reuse preparation only across unchanged consumed premises.
 Keep backend termination, independent original-coordinate screening and scientific-use
 permission distinct. Exercise fresh and retained witnesses, changed value and structural
-premises, and unsupported artifact or derivative demand before dispatch.
+premises, and unsupported artifact or derivative demand before dispatch. Reuse
+`preparation_and_arclength_suitability_are_adapter_facts`; distinguish JVP-only SPGMR
+from preconditioned/assembled work, exact Hessian from limited-memory or gradient-only
+work, and equal-width reordered layouts from a First-only provider asked for Second.
 [KINSOL demand selection](../../crates/pse-backend-native/src/execution/kinsol.rs)
 
-D04 receives the revised B03/C03 worker crossing with independently specified output order
-and derivative expectations. Confirm supported demand against the native provider and
-refuse an unsupported action without substituting another derivative product. Keep that
-evidence separate from matching wire structure or protocol readiness.
+D04 receives the revised B03/C03 worker crossing where isolated placement is selected,
+with independently specified output order and derivative expectations. Confirm supported
+demand against the native provider and refuse an unsupported action without substituting
+another derivative product. Keep that evidence separate from wire structure or readiness.
+
+<a id="symbolica-shared-products"></a>
+### D01/D02 — Preserve shared definitions in demanded derivatives
+
+Compare the current direct [`flat_expressions`](../../crates/pse-math/src/products.rs)
+substitutions and weighted differentiation against existing staged forward/reverse products
+for one real provider-free weighted action. Prefer the staged route when it retains the
+original product and avoids expansion. Weights, directions and cotangents remain ordered
+runtime inputs. A directional product must not materialize a dense Hessian; actual entry
+consumers retain the original support and ordering. For an actual symbolic partial, compare
+scoped definitions and Symbolica differentiation against the current
+[shared-partial path](../../crates/pse-math/src/typed_partial.rs). Keep native provider
+partials and branch-local regularity at their existing guarded owners.
+
+The maintained [evaluator builder](../../crates/pse-math/src/library.rs) already uses
+`FunctionMap::add_aliases`, `Atom::evaluator_multiple` and `direct_translation(true)` to carry
+shared definitions to one instruction DAG. Preserve that sharing before compilation rather
+than expanding and finding it again. [`AliasedAtom`](../../vendor/symbolica/src/atom/alias.rs)
+is a candidate for compact pure definitions; opaque aliases do not establish their derivatives.
+Joint multi-output preparation is the default when demand is known together. Consider
+[`ExpressionEvaluator::merge`](../../vendor/symbolica/src/evaluate/optimize.rs) only for
+already-built exact products that would otherwise be rebuilt: it checks parameter count,
+not ordered identity, and its `Eq + Hash` contract excludes primitive `f64`. The application
+owns layout, coefficients, output order and guard/effect membership.
+[`Dualizer` and `Vectorize`](../../vendor/symbolica/src/evaluate/dual.rs) are candidates for
+selected Taylor axes/lanes; retained sub-evaluators can make vectorization unavailable.
+[`optimize_stack`](../../vendor/symbolica/src/evaluate/optimize.rs) and optimizer limits manage
+optimization and temporary work, not the pre-allocation envelope.
+
+Use repeated intermediate chains/diamonds, reordered outputs and independent analytic `Jv`,
+`Jᵀw` or `Hv` alongside the [guarded square-root controls](../../crates/pse-math/src/product_guard_tests.rs)
+and one actual repeated fit or solver callback. Retain unsupported-order and provider/guard
+refusals. D05 deletes flattening only for migrated products with a proven replacement;
+do not add a second DAG/cache, write application differentiation rules or fall back after a
+selected arithmetic route refuses construction.
+
+<a id="symbolica-exact-objectives"></a>
+### D01/D02 — Carry exact objective analysis into coefficient extraction
+
+Reuse one bounded, request-local exact objective between
+[`shape_facts` / `aggregate_objectives`](../../crates/pse-math/src/class_evidence.rs) and
+[`coefficient_projection`](../../crates/pse-math/src/coefficients.rs). Class-only demand keeps
+the needed degree evidence without expanding a polynomial for classification. For an actual
+LP/QP coefficient consumer, use Symbolica [`to_polynomial_in_vars`](../../vendor/symbolica/src/atom/core.rs)
+with the original selected variables, exact domain and coefficient lookup. Compare a single
+coefficient-domain extraction supplying both products where the request needs both; carry
+degree facts, allocations and the actual fixed-value premises through one work owner.
+Keep existing selected-affine-row reuse, independent product admission and the
+[factorable projection](../../crates/pse-math/src/factorable.rs) with its own fidelity.
+Do not retain arbitrary objective atoms in durable facts or add a parallel cache.
+
+Selective exact elimination remains a candidate for a named small block. Compare
+[`Atom::system_to_matrix`](../../vendor/symbolica/src/atom/core.rs) and
+[`SolveBuilder`/`SolutionSet`](../../vendor/symbolica/src/solve/solution_set.rs)
+with the retained native formulation, preserving pivot/nonzero conditions, free coordinates,
+solution coverage and recovered original variables. Test `a·x=b` at `a=b=0` and a cancelled
+rational factor at its excluded input. Numerical `zero_test` does not prove exact identity;
+even exact nonidentity does not discharge a pointwise nonzero guard. Do not expand exact
+algebra globally or replace the bounded cubic route with generic enumeration.
+
+Start from `coefficient_objective_projection_reuses_proved_rows_under_one_work_ledger` and
+the [selected-row controls](../../crates/pse-math/src/assembly_tests.rs). Compare independent
+coefficients and original residuals for changed fixed inputs, weights, ordered columns/pairs,
+and singular or out-of-domain cases. D05 removes repeat aggregation only after the actual
+class and coefficient consumers use the qualified request-local result.
+
+<a id="symbolica-precision"></a>
+### D02/D04 — Apply precision only to the demanded claim
+
+Use [`map_coeff_with_prec`](../../vendor/symbolica/src/evaluate/evaluator.rs) only for an
+admitted product that needs a different numerical domain. In maintained 3.0.1 the caller maps
+literal stack values; the binary precision applies to registered constants, whose evaluation
+is unwrapped by the supplier. Require an eligible domain and constants; this API neither
+corrects Numerica literal rounding nor certifies enclosure or provider behavior. Keep routine
+binary64 and the existing [bounded cubic/directed MPFR proof](../../vendor/symbolica-bounded-roots.md).
+Separate exact identity, rounding, conditioning/backward error, validated enclosure and physical
+agreement. Inherited ball transcendentals do not establish a general enclosure contract.
+
+Before changing a realization, choose a real G–K consumer and a revealing original-coordinate
+check, a precision-sensitive literal and the exact guard control
+`exact_nonzero_comparison_preserves_rationals_beyond_binary64_extent`. Consolidate duplicated
+rounding/escalation policy at the math owner only if actual consumers share it. Do not reopen
+D03 for this work: direct factors and weighted-response SVD remain selected, and an adjoint
+objective gradient does not supply response Jacobian or covariance evidence.
+
+<a id="strict-domain-fidelity"></a>
+### D01/D04 — Preserve strict-domain fidelity at native export
+
+Implement the [confirmed export direction](66-integrated-simulation-target.md#confirmed-strict-domain-export-direction)
+after its decision and blueprint revision. The [SCIP export owner](../../crates/pse-backend-native/src/execution/factorable.rs)
+currently passes unconditional strict ranges through `close`, narrows them by a relative
+margin, and can still issue `ExactExport`. Reuse the existing `selected_closure` pattern to
+export a sound closed superset at the original endpoint as `Relaxed` where the native expression
+can be evaluated safely. Withhold certification where it cannot, and refuse exact-only demand
+if no exact encoding exists. A margin may serve explicitly candidate-only search; it supplies
+no global proof, dual bound or infeasibility claim. Retain original-point checks, bounds and
+existing `Nonzero` semantics. Relaxed export does not itself grant original-domain permission.
+
+Replace the exact-margin assertion with a projection/quality control for a valid point below
+the margin and `min x` on `0 < x ≤ 1` (infimum zero, unattained), and exercise refusal at an
+unsafe closure endpoint. Separately investigate whether a branch-local guard is lost when
+equal arithmetic arms fold (`if x ≥ 0 then x/x else 1` still excludes zero); classify a safe
+relaxation separately from an inward restriction. Require the selected native proof-path
+control before handing J04 and L an accepted export. This work does not depend on I01.
+
+<a id="symbolica-composition-candidates"></a>
+### D02/D05 — Candidates for complete mathematical operations
+
+A named, independently reusable provider-free chain triggers a comparison of current joint
+preparation, separate stages and released Symbolica 3.0.2 (`afbf7aa4…`, Numerica `^3.0.2`)
+[`EvaluatorComposer`](https://github.com/symbolica-dev/symbolica/blob/v3.0.2/src/evaluate/compose.rs).
+It binds earlier results/constants to later inputs, prunes unused work and reoptimizes without
+symbolic Horner search; `finish` requires `Eq + Hash` and reoptimization may change binary64
+realization. Compare actual input/order/invalidation and original output evidence, with no
+elision of a fallible provider. [`from_instructions`](https://github.com/symbolica-dev/symbolica/blob/v3.0.2/src/evaluate/instruction/import.rs)
+checks structured numerical control flow but allocates validation and recursive state and
+builds a fresh layout. [Atom Serde](https://github.com/symbolica-dev/symbolica/blob/v3.0.2/tests/serde_atoms.rs)
+allocates and remaps global state. [Native equality tests](https://github.com/symbolica-dev/symbolica/blob/v3.0.2/src/atom/zero_test.rs)
+can run exact fallback beyond sample limits and do not prove pointwise nonzero. None supplies
+bounded symbolic restore. A release change would require equivalent maintained packed
+inspection, f64 transfer, bounded real roots and build provenance, or a scoped rebase with
+the actual selected feature closure and consumer checks. No pin change is selected.
+
+Keep the guide's other candidates tied to actual gaps. A large additive workload with measured
+expression growth can justify comparing [`TermStreamer`](../../vendor/symbolica/src/streaming.rs)
+with coefficient-domain or in-memory work; `max_mem_bytes` sets a spill threshold, not a
+per-term or global-merge bound. A named exact block can justify specialized polynomial/modular
+work; a proved structural symmetry or physical tensor contract can justify an ecosystem
+comparison. A real long-lived or vector workload can justify JIT, SIMD or native codegen
+against the prepared interpreter under the same precision and platform contract. No candidate
+adds a family-wide requirement, an alternate production path or a qualification campaign.
+
+<a id="symbolica-supplier-provenance"></a>
+### D06 — Refresh the maintained Symbolica source evidence
+
+The tracked `build.rs` change in `f903f0b05` is absent from the recorded complete delta and
+source receipt. Follow the [supplier archive procedure](../../vendor/deltas/readme.md) for
+published 3.0.1 (`e9a0d354…`): verify the archive checksum, derive the complete binary delta
+from the tracked tree in isolated scratch, independently reapply it to a fresh extraction,
+and compare all paths, bytes and executable modes. Derive the receipt from that verified
+population and publish both artifacts together. Preserve the build-provenance fix and the
+pin; exclude untracked build/cache files. This is independent of the 3.0.2 candidate and
+does not reopen unrelated science or claim new mathematical qualification.
 
 ## Verification and outcome
 

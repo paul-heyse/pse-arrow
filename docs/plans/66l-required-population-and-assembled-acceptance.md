@@ -101,6 +101,27 @@ and receiving controls as prerequisites. L04 owns any numerical build claim and 
 matched roots, features, profiles, toolchains, edit stimuli and cache state. Structural
 compilation isolation has its own B01 evidence.
 
+For the [Symbolica dispositions](66-integrated-simulation-target.md#symbolica-improvement-dispositions),
+L02 receives only the selected working routes. If C04 qualifies a reconstruction cutover,
+exercise cold receiving after producer retirement, complete original receipt and scope
+correspondence, and refusal without publishing a partial result. If C changes a wire operation,
+verify the actual client and protected reader through original attempt recovery, unsupported
+demand, cancellation and independent finish outcomes. Local packing or derivative controls
+are prerequisites for their respective claims, not substitutes for these journeys.
+
+L03 exercises the real SCIP proof path for [D's strict-domain rule](66d-mathematical-representation-and-numerical-execution.md#strict-domain-fidelity)
+on the exact configured population: distinguish a valid point below the old inward margin from
+the unattained infimum at the original endpoint. Accept a safely evaluated sound closed superset
+only as `Relaxed`; refuse certification at an unsafe endpoint. Verify that a candidate-only
+inward margin carries no bound or infeasibility claim, and test the equal-arm conditional guard
+separately. Record withheld evidence and held inputs at their original scope.
+
+L04 measures only a claimed material benefit of a selected mechanism on matched demand,
+data, preparation lifetime and scientific/receiving guarantees. L05 verifies the single
+cutover and removal of replaced code, generated surfaces, callers and fixtures alongside
+the enduring decision handoff. No optional composition or supplier upgrade is a prerequisite
+for unrelated scientific qualification.
+
 **Proposed verification:** preserve valid zero-member structural Analyze and withheld point
 products; reorder species or members, alter datum, remove a required output and use wrong
 numeric answers to challenge comparators. Test foreign/ambiguous governing context, incomplete

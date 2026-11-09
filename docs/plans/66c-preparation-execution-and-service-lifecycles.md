@@ -116,8 +116,10 @@ these missing obligations have explicit existing owners; retain JoinSet where si
 
 Keep three permissions separate: live execution of an already admitted body; independent receiving
 of a complete passive recipe under original qualified membership; and historical observation.
-The current provider-free compiled f64 Value/First child path must remain an actual prepared-body
-path, without reintroducing source replay. Complete other selected operation/context populations
+The current provider-free Value/First child restores an interpreted f64 evaluator. Any retained
+placement for that work must use actual prepared execution without reintroducing source replay;
+the [wire decision](#scientific-wire-retirement) checks whether it still needs a separate lane.
+Complete other selected operation/context populations
 only with their native owner and D's explicit support. A successful recipe decode, body allocation
 or historical proof record does not authorize arbitrary provider/session restoration. Preserve
 canonical receiving's existing interpretation until its actual replacement and receiving controls
@@ -179,9 +181,9 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
-| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
-| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. The bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Remaining session, batch and departure populations stay open. |
-| C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
+| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and identity consumers. Decide whole-case submission against actual client demand before moving or retiring any preparation call. |
+| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. Bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Complete selected session/batch/departure paths and qualify any combined crossing only for actual isolated placement. |
+| C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D02's bounded symbolic restore or replay decision | Remaining selected live/receiving/reference contexts use exact native permission and original memberships. Qualify cold canonical receiving and perform a single cutover only once D02's route works; independently disposition the private root lane from its actual consumers. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token, nonblocking I/O and native error retention are integrated. `ObserveRun` bounds its passive wait by the request deadline and preserves settlement of an already admitted protected read. Verify the real UDS progress frame and terminal trailer control. Study observation still needs its effect-bearing capture and original failure to settle under its own deadline contract. |
 
 Typed engineering `AdmitSource` now takes an explicit registration set authorized by
@@ -220,6 +222,8 @@ The local service registers the versioned explicit-point and source-expansion St
 [B01/B03](66b-contracts-generation-and-interpretation.md#shared-index-bindings-and-compiled-contract-ownership).
 Both dispatch the [A01 native Study operation](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
 under its existing authentication, aggregate ingress admission and exact source context.
+Compare whole-case submission for run-only clients under the
+[wire retirement decision](#scientific-wire-retirement); distinct Study input capabilities stay separate.
 F05's clients now use the selected routes, and the combined procedure is removed.
 The [cutover evidence](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
 separates callable-route refusal from descriptor discovery and checks whether reconnect
@@ -267,8 +271,9 @@ binding. Still check fresh provider capability, context, generation and attempt 
 binding and invocation boundaries. Replace both managed images in the private protocol
 cutover and refuse mismatched revisions, stale handles and unsupported derivative demand.
 Preserve original deadline, native linearization lifetime and independent child and I/O
-settlement. The persistent provider and private root child retain their different execution
-contracts. [Provider session](../../crates/pse-runtime/src/scientific_worker/session.rs)
+settlement. The persistent provider and private root child have different execution contracts;
+the [wire retirement decision](#scientific-wire-retirement) determines their actual future reach.
+[Provider session](../../crates/pse-runtime/src/scientific_worker/session.rs)
 
 The authenticated proxy sends preparations serially and mints each generation through
 `Uuid::now_v7`, which guarantees creation order within one process. The child checks
@@ -338,21 +343,20 @@ abandoning the server's Prepare method; that real RPC-departure contract remains
 
 ### C04 — Finish selected reconstruction and execution contexts
 
-Resolve the canonical binary Recipe activation gate with D before switching receiving away from
-current JSON interpretation3. Native normalization, coefficient/partial growth and Symbolica global
-registration need an enforceable preallocation envelope at their actual owner. Decoder budgets,
-postconstructed node/slot limits, payload-size multipliers and process custody do not discharge
-that obligation. D supplies bounded canonical reconstruction, a qualified alternative or an
-explicitly approved revised contract before C activates its receiver. Retain the current JSONv3
-production path until that gate and its actual receiving controls are satisfied; do not retain it
-after a qualified replacement has moved every caller. This local reconstruction bound does not
-change the unbounded host policy. The already implemented provider-free compiled f64 Value/First
-live child is a separate admitted-body path and supplies no canonical receiving qualification.
-The [mathematical owner's source investigation](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
-identifies maintained Symbolica's inspected/pre-admitted f64 program transfer as a narrower
-receiving seam. It does not restore the symbolic `AdmittedBody` returned by canonical replay.
-Preserve that distinction when choosing real worker/reference consumers and their demanded
-orders, original layouts and receipts; no newly serialized program grants native adoption.
+Use [D02's bounded reconstruction decision](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
+before changing canonical receiving. D02 first tests a producer-sealed guarded body, then
+bounded recipe replay if the first route fails proof custody or execution fit. C04 owns
+qualification of the original producer, request, interpretation and membership; retain the
+outer backing, original cancellation/deadline and receiving owner until the work settles.
+The supplier pre-allocation contract must cover the actual restore or replay, not just decoder
+scratch. Use a cold receiving control after producer retirement, with an actual downstream
+symbolic consumer, exact correspondence and refusal without partial publication. A corrupt
+qualified hit is an error, not permission to try live source admission or another decoder.
+Keep JSON v3 as the sole current production route until one qualified replacement moves its
+producers and consumers, then remove the old interpretation, callers and old-wire fixtures
+in the same change. B03 adopts the selected projection only if it changes. The current
+provider-free Value/First handoff restores an interpreted numerical evaluator and cannot
+serve symbolic `AdmittedBody` consumers. No change to unbounded host policy follows.
 
 Complete original qualified recipe membership across the canonical receiving population and the
 actual prepared worker/reference consumers. Extend live prepared-body execution where D supplies
@@ -362,6 +366,36 @@ arithmetic/derivative path before execution. Verify original physics and demande
 the consuming scientific companion; transport round trips alone cannot establish them. Remove
 source-recompile, duplicate receiving or obsolete JSON paths only after exact replacement readers
 and native receiving acceptance exist. Historical readable records can retain unavailable use.
+
+<a id="scientific-wire-retirement"></a>
+#### C02/C03/C04 — Keep only crossings needed by a complete operation
+
+For [Symbolica review I07](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I07),
+trace deployed and supported Rust callers and explicit placement requirements before changing
+the wire. The private [root lane](../../crates/pse-runtime/src/math/native_child.rs) has an
+executable and acceptance callers but no traced first-party production caller. If the inventory
+confirms no supported caller or placement obligation, retire the launcher, root wire and its
+mechanics-only fixtures together. Keep useful supplier-transfer and settlement controls with
+their actual owners. If an isolated consumer exists, compare one complete operation on its
+existing performing owner against keeping the lane. Do not extend it just because the f64
+transfer accepts a closed provider-free profile.
+
+For run-only engineering clients, compare submitting the complete authored case and preparing
+internally under the same native owner against `PrepareCase` then `SubmitRun`. Retain independent
+Prepare only for a supported consumer of its inspection, reuse or authorization meaning. Do
+not change the current public shape until the comparison establishes equivalent original source,
+immutable preparation identity, changed-repeat refusal, lost-ACK recovery and independent
+settlement. F05 moves actual clients; B03 removes superseded roots and projections with them.
+
+The [scientific worker](../../crates/pse-runtime/src/scientific_worker/proxy.rs) is conditional
+on actual isolated placement; ordinary engineering's in-process provider route does not need
+it. A selected worker may perform a complete independent cohort or solve locally with pure
+neighboring arithmetic to remove crossings. Compare with existing `Evaluate`/`EvaluateBatch`,
+not just a different envelope around the same scalar calls. Preserve explicit batch eligibility,
+ordered point IDs, per-point refusal, stale sessions, attempt identity, original stop and finish.
+Verify original-connection, abandoned Prepare and failed retirement behavior before retiring any
+crossing. Study input selection, admission, observation/cancel and protected reads retain their
+distinct authorities and lifetimes.
 
 ### C05 — Verify actual shutdown and transport composition
 
@@ -476,8 +510,9 @@ under its original guards before skipping displaced-interval work for that fresh
 The actual aqueous receiving run and prepared live Study client journey remain open.
 
 For canonical recipe receiving, JSON v3 is the active implementation. C04 activates the
-binary reader only after D02 establishes bounded reconstruction for its consumers. The
-cutover removes the replaced reader in the same slice.
+binary reader only after D02 qualifies bounded guarded restore or replay for actual consumers
+and cold receiving establishes the original custody. The cutover removes the replaced reader
+in the same slice.
 
 C01's targeted evidence and the remaining launcher/service work are
 bounded above; neither establishes broader lifecycle qualification. Implementation uses

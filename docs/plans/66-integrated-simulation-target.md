@@ -8,6 +8,7 @@ doc_topics: [current-work, design, numerical-execution, validation]
 review_sources:
   - docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md
   - docs/design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md
+  - docs/plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md
 ---
 
 # Integrated simulation target
@@ -159,6 +160,27 @@ below still owns current integration and receiving evidence.
 | F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | resolved | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Adapter, Krylov, fitting and shooting controls passed. The witness custody control passed for fresh, retained and refused work. |
 | F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | resolved | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Refused native launch and failed preparation preserve the original and independent finish causes after drain. The queued Study retains its original claim after frontend retirement. |
 
+### Symbolica improvement dispositions
+
+The [November 9 Symbolica review](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md)
+examined `b4aa4a8a8` and is recorded at `93bf6891e`. Its IDs below are distinct from the
+earlier review's I01–I11. Use Symbolica for complete arithmetic within admitted regions:
+carry shared definitions into the requested symbolic or numerical product, and keep
+physical meaning, guarded execution, provider effects and independent acceptance at their
+existing owners. `scheduled` includes a bounded investigation where specified; it does not
+select every candidate in that investigation or change delivered evidence.
+
+| ID | Review finding | Disposition | Work owner | Required evidence or decision |
+| --- | --- | --- | --- | --- |
+| I01 | [Bounded symbolic restore](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01) | scheduled | [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation), [C04](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts) | Try a producer-sealed guarded body first; compare bounded replay if that fails proof custody or execution fit. Exact cold receiving and refusal before growth precede any single-format cutover. |
+| I02 | [Shared derivative construction](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I02) | scheduled | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products) | A real demanded action and symbolic partial where consumed retain shared inputs, original axes, guards and unsupported-order refusal. Remove expansion only where the selected replacement serves all affected callers. |
+| I03 | [Exact objective and coefficient reuse](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I03) | scheduled | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-exact-objectives) | One bounded request-local objective serves the actual degree and coefficient consumers. Class-only demand does not expand a polynomial to classify it. Exact elimination needs a named block and original-coordinate checks. |
+| I04 | [Exact adapter demand](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I04) | scheduled | [D01/D02/D04](66d-mathematical-representation-and-numerical-execution.md#d01d02--shared-admission-and-exact-native-demand), C02/C04 | Reuse the checked demand and witness on matching premises; refuse foreign layouts and unsupported products, and preserve distinct native callback modes. |
+| I05 | [Precision by demanded claim](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I05) | scheduled | [D02/D04](66d-mathematical-representation-and-numerical-execution.md#symbolica-precision) | Identify the actual product and prove its required precision or enclosure contract before changing its realization. Routine binary64 and the bounded cubic proof remain in force. |
+| I06 | [Strict-domain fidelity](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I06) | scheduled | [D01/D04](66d-mathematical-representation-and-numerical-execution.md#strict-domain-fidelity), J04 and L03/L05 | Record the selected rule through the decision route; distinguish safe relaxed closure, candidate-only restriction and unsupported certification. Check the conditional guard separately. |
+| I07 | [Wire retirement and complete operations](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I07) | scheduled | [C02/C03/C04](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement), B03/F05 | Trace supported callers and placement first. Remove only replaced operations and generated reach after actual migration and original effect/settlement controls. |
+| I08 | [Released composition and supplier provenance](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I08) | deferred | [D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-composition-candidates); [D06](66d-mathematical-representation-and-numerical-execution.md#symbolica-supplier-provenance) | A named independently reusable provider-free chain triggers the optional composition comparison. No upgrade selected. The independent D06 provenance repair is scheduled now; it does not wait for a candidate or block unrelated science. |
+
 ## Dependency order and useful intermediate deliveries
 
 First resolve the smallest A semantic and B generation agreements needed for selected result
@@ -182,6 +204,13 @@ worker cutover once native demand and handle contracts are fixed. D01/D02 can de
 routed preparation to C independently of Study generation. C03's supervisor correction can
 advance on the current owner and supply E06's diagnostic facts. L02/L03 receive the actual
 scientific and developer journeys.
+
+The I06 decision and native fidelity correction can advance independently of D02
+reconstruction. D06 can refresh the pinned supplier evidence independently. Qualify D02's
+selected symbolic route before freezing the binary receiving interpretation in C04/B03.
+Shared derivative, coefficient and demand work can proceed on existing consumers in parallel.
+Start the private root caller inventory immediately; a changed live wire follows the actual
+B03/C/F consumer migration, not a blanket replacement of existing service operations.
 
 On implementation resumption, use isolated worktrees only for genuinely concurrent changes,
 integrating coherent declarations, generators, callers, tests and deletions on main. Preserve
@@ -215,6 +244,18 @@ routes before dependent implementation.
 | [RC01](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc01) | Separate explicit-point and source-expansion Study RPCs over one native operation. Version and replace the combined surface with its callers. | [ADR-0239](../adr/0239-owner-derived-engineering-boundaries.md), blueprint §4.7 and §21.8. |
 | [RC02](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc02) | Prefer a suitable existing compiled owner. Allow a new crate if B01's focused control shows it is required for the one-way boundary. | B01 records ownership evidence. A new crate requires the crate ADR and design-review route before addition. |
 | [RC03](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc03) | Adopt the native projection's derivative-order tags in a revised private protocol and replace both managed images together. | [ADR-0240](../adr/0240-prepared-local-scientific-workers.md), blueprint §9.11. |
+
+### Confirmed strict-domain export direction
+
+On 2026-11-09 the maintainer selected [Symbolica review I06](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I06):
+use a sound closed superset at the original endpoint with `Relaxed` fidelity where it can be
+evaluated safely, otherwise refuse certified export. An inward margin is candidate-only and
+confers no global proof, bound or infeasibility claim. Before dependent implementation,
+route this change through a scoped decision and revision of blueprint §18.10.1; trace
+[ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md), whose proposed predicate
+contract leaves backend closure policy unchanged. This is target selection, not formal ADR
+acceptance or evidence that the export is corrected. D01/D04 own the correction and L its
+assembled proof-path evidence.
 
 ## Verification, current outcome and cleanup handoff
 

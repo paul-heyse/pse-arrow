@@ -21,6 +21,23 @@ tracks the subsequent engineering and solver contract changes. The preceding
 [November 8 checkpoint](66-integrated-simulation-target.md#66af-checkpoint--november-8)
 records the workspace Clippy results, interrupted runtime rerun and remaining receiving gates.
 The companion package tables own the remaining scope.
+The [Symbolica improvement dispositions](66-integrated-simulation-target.md#symbolica-improvement-dispositions)
+route the symbolic reconstruction, shared mathematical products, wire retirement and
+strict-domain export work to their owning packages.
+
+- [66a · Scientific operations and product semantics](66a-scientific-operations-and-product-semantics.md)
+- [66b · Contracts, generation and interpretation](66b-contracts-generation-and-interpretation.md)
+- [66c · Preparation, execution and service lifecycles](66c-preparation-execution-and-service-lifecycles.md)
+- [66d · Mathematical representation and numerical execution](66d-mathematical-representation-and-numerical-execution.md)
+- [66e · Protected data and result delivery](66e-protected-data-and-result-delivery.md)
+- [66f · Developer operations, clients and evidence](66f-developer-operations-clients-and-evidence.md)
+- [66g · Properties, equipment and steady workflows](66g-properties-equipment-and-steady-workflows.md)
+- [66h · Inventory, distributed and cyclic physics](66h-inventory-distributed-and-cyclic-physics.md)
+- [66i · Specialized process families](66i-specialized-process-families.md)
+- [66j · Inference, uncertainty, design and control](66j-inference-uncertainty-design-and-control.md)
+- [66k · Engineering assessments and native views](66k-engineering-assessments-and-native-views.md)
+- [66l · Required population and assembled acceptance](66l-required-population-and-assembled-acceptance.md)
+
 Plans64/65 and their old native
 bindings remain only for separately assigned final-state reconciliation and cleanup; they
 assign no go-forward work. Retired plans likewise supply no obligations.

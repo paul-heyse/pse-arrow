@@ -229,6 +229,16 @@ Remove a dynamics guard only for its now-supported configuration. Delete replace
 flattened interpretation, duplicated allocation and obsolete fixture routes after
 selected callers move; retain scientific negative controls at the surviving owner.
 
+For H03–H06, use [D's shared derivative products](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products)
+only for the selected cascade stencil and its demanded derivatives. Preserve independent initial
+stocks, conservation, original-clock trajectories, and exact carryover at each feed/wash/feed
+hold. Keep the strict-zero Radau refusal and the positive-cohort refinement independent:
+higher arithmetic precision does not repair a stage-domain conflict. Fixed-time holds do not
+qualify state-triggered or periodic transitions. If a selected event derivative changes,
+use an independent moving-event control: from `x=0`, evolve `x'=p>0` until `x=1`, reset to zero,
+then evolve `x'=2`; at fixed `T>1/p` the sensitivity is `2/p²`. A local post-event derivative
+alone misses it. Keep transition and consistency ownership and typed refusal in the native route.
+
 **Planned verification:** native force-validating controls cover nonzero initial clock,
 initial algebraic consistency, reordered species/mesh identity, zero/reverse flow,
 wrong units/datum, local and independently summed global conservation, reaction-free

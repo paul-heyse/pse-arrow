@@ -80,8 +80,13 @@ square nonlinear, constrained optimization, residual/differential and mixed-disc
 structure rather than lowering every family to an opaque objective. Family laws and
 discretization do not become solver-selection policy in generated adapters.
 
-Use existing Symbolica 3.0.1 multi-output evaluator/instruction preparation for repeated
-constitutive evaluation and retain exact elimination guards. High-precision remapping
+For this companion's family and receiving packages (I02–I07), consume
+[D's shared products](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products)
+for repeated constitutive evaluation only on an actual compatible region. Beds, capture and
+separation, electrochemistry, power and networks share preparation where domains, ordered
+layouts and requested products agree. Preserve transport direction, ragged membership and
+constitutive limits; exercise a reordered region or a differing validity premise before
+qualifying reuse. Retain exact elimination guards. [Precision](66d-mathematical-representation-and-numerical-execution.md#symbolica-precision)
 is demand-specific; precision agreement alone is no certified physical error bound.
 faer 0.24.4 symbolic/numeric factor reuse and `MatRef`/`MatMut` support compact native
 blocks; `LinOp`/`BiLinOp` and `lsmr` are bounded large-response alternatives when an

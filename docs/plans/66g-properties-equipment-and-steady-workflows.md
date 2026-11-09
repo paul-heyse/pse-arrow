@@ -220,6 +220,15 @@ fallback or fixture only after all its selected callers move and revealing contr
 
 ## Verification and completion boundary
 
+When G02/G04 consume [D's selected products or precision](66d-mathematical-representation-and-numerical-execution.md#symbolica-precision),
+keep Water saturation endpoint jets on the pressure axis at fixed quality endpoints, separate
+from homogeneous Water's temperature and molar-density coordinates. Test the composed wet
+result against independent endpoint/Clapeyron, component, energy and entropy expectations;
+finish the protected wet receiver. Ordinary BT keeps the selected charts, ordered provider
+ports, regime-crossing refusal and original attempt. A protected BT read proves provenance,
+not resolution of the historical derivative discrepancies. Use G03 pure-ethane viscosity as
+a contrasting provider-free law; do not infer a native provider or broaden its validity.
+
 **Planned verification:** use owner-local native correctness controls with explicit
 Arrow force-validation and matching explicitly prepared provider profiles. Check state
 round trips and original units/datum; physical component/element/energy closure; zero
