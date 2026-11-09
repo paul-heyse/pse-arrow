@@ -5,8 +5,10 @@
 @id("64d03000000000000000000000000202") use steam_equipment @"1.0.0";
 @id("64d03000000000000000000000000203") use chem @"1.0.0";
 @id("64d03000000000000000000000000204") use provenance @"1.0.0";
+@id("64d0300000000000000000000000021c") use chemistry @"1.0.0";
+@id("64d03000000000000000000000000232") use numerical_policy @"1.0.0";
 @id("64d03000000000000000000000000205") entity provenance.source iapws_table {title="IAPWS R6-95(2018), Table7: T300 K, density996.556 kg/m3, pressure0.0992418352 MPa; https://iapws.org/public/documents/k3PSK/IAPWS95-2018.pdf"}
-@id("64d03000000000000000000000000206") entity provenance.source released_turbines {title="IDAES2.13.0 pressure-changer tests TestIAPWS.test_verify, first two single-phase turbine cases; core84532d7f99a9f976b05170948147afdd69cfa5f6/idaes/models/unit_models/tests/test_pressure_changer.py; rounded source outputs, not an executed reference receipt"}
+@id("64d03000000000000000000000000206") entity provenance.source released_turbines {title="IDAES2.13.0 pressure-changer tests TestIAPWS.test_verify, two single-phase cases and one wet case; core84532d7f99a9f976b05170948147afdd69cfa5f6/idaes/models/unit_models/tests/test_pressure_changer.py; rounded source outputs, not an executed reference receipt"}
 // The inlet molar density is the published 996.556 kg/m3 divided by the
 // IAPWS Water model's 0.018015268 kg/mol. Set F=0.001*rho mol/s, hence the
 // volume flow is exactly 0.001 m3/s. DeltaP=100000 Pa gives hydraulic work
@@ -35,7 +37,32 @@
 @id("64d0300000000000000000000000021a") expect root.unit.outlet.pressure==7000000{Pa} tolerance 10{Pa};
 @id("64d0300000000000000000000000021b") expect root.unit.work==-1911550{W} tolerance 50{W};
 }
-// The released wet turbine case (400 K,200 kPa→140 kPa) remains a separate
-// required reference obligation. These homogeneous providers refuse its wet
-// states; this fixture set does not claim phase-mixture or saturation delivery.
+@id("64d0300000000000000000000000021d") test wet_water_turbine oracle released_turbines fixture {dof 0;route steady;procedure solve;fix root.unit.inlet.T=400{K};fix root.unit.inlet.pressure=200000{Pa};fix root.unit.inlet.flow=1000{mol/s};fix root.unit.inlet.z[chem.water]=1{1};fix root.unit.delta_pressure=-60000{Pa};fix root.unit.efficiency=0.9;value root.unit.inlet.density_start=62{mol/m^3};value root.unit.inlet.temperature_start=400{K};} {
+@id("64d0300000000000000000000000021e") child root:steam_equipment.Turbine=steam_equipment.Turbine(inlet_pkg=steam.Vapor(water_component=chem.water),outlet_pkg=steam.Wet(water_component=chem.water,defined_state=false),reference_pkg=steam.Wet(water_component=chem.water));
+@id("64d0300000000000000000000000021f") expect root.unit.outlet.T==382.442{K} tolerance 0.01{K};
+@id("64d03000000000000000000000000220") expect root.unit.reference.T==382.442{K} tolerance 0.01{K};
+@id("64d03000000000000000000000000221") expect root.unit.outlet.pressure==140000{Pa} tolerance 1{Pa};
+// The released IDAES test checks the rounded shaft work at one percent.
+// The separate original-coordinate energy balance below still checks 0.01 W.
+@id("64d03000000000000000000000000222") expect root.unit.work==-1010640{W} tolerance 0{W} relative 0.01;
+// Compare vapor quality through the material boundary: 0.1 mol/s at the
+// specified 1000 mol/s total flow is a quality tolerance of 0.0001.
+@id("64d03000000000000000000000000223") expect root.unit.outlet.phase_flow[chemistry.vapor]==0.9886*root.unit.outlet.flow tolerance 0.1{mol/s};
+@id("64d03000000000000000000000000224") expect root.unit.reference.s==root.unit.inlet.s tolerance 1e-6{J/(mol*K)};
+// Observe the opposite side of the shaft boundary. Reflection gives -work
+// there; the accounting sum tests outlet enthalpy flow minus inlet and work.
+@id("64d0300000000000000000000000022c") boundary shaft_observation_boundary;
+@id("64d0300000000000000000000000022d") exchange shaft_observation between root.unit.energy_boundary and shaft_observation_boundary;
+@id("64d0300000000000000000000000022e") accumulate observed_energy:Power boundary shaft_observation_boundary accounting tolerance 0.01{W};
+@id("64d0300000000000000000000000022f") contribute observed_energy role inflow=root.unit.outlet.energy_flow;
+@id("64d03000000000000000000000000230") contribute observed_energy role outflow=root.unit.inlet.energy_flow;
+@id("64d03000000000000000000000000231") contribute observed_energy role directed=reflect(shaft_observation,root.unit.work,Into);
+@id("64d03000000000000000000000000225") expect observed_energy==0{W} tolerance 0.01{W};
+@id("64d03000000000000000000000000226") expect root.unit.outlet.phase_flow[chemistry.liquid]+root.unit.outlet.phase_flow[chemistry.vapor]==root.unit.inlet.flow tolerance 1e-5{mol/s};
+@id("64d03000000000000000000000000227") expect root.unit.reference.phase_flow[chemistry.liquid]+root.unit.reference.phase_flow[chemistry.vapor]==root.unit.inlet.flow tolerance 1e-5{mol/s};
+@id("64d03000000000000000000000000228") expect root.unit.outlet.phase_component_flow[chemistry.liquid,chem.water]+root.unit.outlet.phase_component_flow[chemistry.vapor,chem.water]==root.unit.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("64d03000000000000000000000000229") expect root.unit.reference.phase_component_flow[chemistry.liquid,chem.water]+root.unit.reference.phase_component_flow[chemistry.vapor,chem.water]==root.unit.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("64d0300000000000000000000000022a") expect root.unit.reference.phase_energy_flow[chemistry.liquid]+root.unit.reference.phase_energy_flow[chemistry.vapor]==root.unit.reference.energy_flow tolerance numerical_policy.power;
+@id("64d0300000000000000000000000022b") expect root.unit.outlet.phase_energy_flow[chemistry.liquid]+root.unit.outlet.phase_energy_flow[chemistry.vapor]==root.unit.outlet.energy_flow tolerance numerical_policy.power;
+}
 }

@@ -25,7 +25,7 @@ recreate. The third released turbine remains required: 400 K and 200 kPa inlet, 
 1000 mol/s and isentropic efficiency 0.9. Its reference and actual outlet are wet; current
 homogeneous temperature/density providers correctly refuse them.
 
-CoolProp's C++ pressure-based saturation derivatives reach second order, but the selected
+CoolProp's C++ pressure-based saturation derivatives reach second order, but the unpatched
 8.0.0 C ABI/Rust binding lacks `AbstractState_second_saturation_deriv`. The specialized
 two-phase density cross derivative does not provide a complete caloric Hessian. This is a
 binding/artifact obligation, not permission to reinterpret homogeneous derivatives.

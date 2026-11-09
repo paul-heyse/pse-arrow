@@ -102,7 +102,7 @@ fn contextual_unit_constant_keeps_point_admission_independent_of_native_evidence
         numerical_psd: false,
         least_squares: true,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: Context {
             oracle: Some(&c),
@@ -194,7 +194,7 @@ fn contextual_unit_available_second_order_does_not_fall_through_to_prepared_firs
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: context(&c),
     };
@@ -245,7 +245,7 @@ fn contextual_unit_callback_class_dependencies_preserve_actual_artifact_demands(
             numerical_psd: false,
             least_squares: false,
             controls: &controls,
-            settings: &crate::execution::BackendSettings::Default,
+            settings: &BackendSettings::Default,
             sensitivity: false,
             context: callback_context,
         };
@@ -325,7 +325,7 @@ fn contextual_unit_admissible_coefficient_pending_keeps_priority_over_ready_call
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: ctx,
     };
@@ -378,7 +378,7 @@ fn contextual_unit_callback_class_independence_preserves_contract_and_derivative
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: ctx,
     };
@@ -453,7 +453,7 @@ fn contextual_unit_representation_limit_preserves_coefficient_science() {
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: test_context(&crate::execution::LINKED),
     };
@@ -503,7 +503,7 @@ fn contextual_unit_original_structure_is_interpreted_for_each_candidate() {
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context,
     };
@@ -547,7 +547,7 @@ fn contextual_unit_performed_missing_symbolic_export_refuses_only_its_representa
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context,
     };
@@ -599,7 +599,7 @@ fn contextual_unit_coefficient_pending_does_not_replace_factorable_evidence() {
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context,
     };
@@ -661,7 +661,7 @@ fn contextual_unit_factorable_route_refusal_preserves_typed_member_and_bound_evi
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context: context(&c),
     }
@@ -742,7 +742,7 @@ fn contextual_unit_highs_conditional_method_and_scaling_are_assessed_before_effe
         },
     );
     let controls = Controls::default();
-    let settings = crate::execution::BackendSettings::Highs(Settings {
+    let settings = BackendSettings::Highs(Settings {
         method: Method::Simplex,
         ..Settings::default()
     });
@@ -759,7 +759,7 @@ fn contextual_unit_highs_conditional_method_and_scaling_are_assessed_before_effe
     };
     let adapter = crate::execution::adapter(Backend::Highs);
     assert_eq!(adapter.assess(&requirements).state, AssessmentState::Ready);
-    let choose = crate::execution::BackendSettings::Highs(Settings::default());
+    let choose = BackendSettings::Highs(Settings::default());
     let choosing = Requirements {
         settings: &choose,
         context: requirements.context.clone(),
@@ -869,7 +869,7 @@ fn contextual_unit_pounce_threshold_uses_original_keyed_bounds_and_selected_coor
         numerical_psd: false,
         least_squares: false,
         controls: &controls,
-        settings: &crate::execution::BackendSettings::Default,
+        settings: &BackendSettings::Default,
         sensitivity: false,
         context,
     };

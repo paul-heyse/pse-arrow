@@ -19,7 +19,7 @@
 @id("64d0300000000000000000000000010d") def Pump(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState) {
 @id("64d0300000000000000000000000010e") child unit:HydraulicWaterAssumption=HydraulicWaterAssumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,compression=true);
 }
-@id("64d0300000000000000000000000010f") def Turbine(inlet_pkg:steam.WaterState,outlet_pkg:steam.WaterState,reference_pkg:steam.WaterState) {
+@id("64d0300000000000000000000000010f") def Turbine(inlet_pkg:equilibrium.EntropyThermoPackage,outlet_pkg:equilibrium.EntropyThermoPackage,reference_pkg:equilibrium.EntropyThermoPackage) {
 @id("64d03000000000000000000000000110") child unit:pressure_change.IsentropicAssumption=pressure_change.IsentropicAssumption(inlet_pkg=inlet_pkg,outlet_pkg=outlet_pkg,reference_pkg=reference_pkg,compression=false);
 }
 }

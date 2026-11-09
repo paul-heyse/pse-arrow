@@ -6,50 +6,20 @@ use pse_kernels::{ProviderBuffer, ProviderRequest, ProviderValues};
 use pse_quantity::PhysicalName;
 use std::sync::atomic::AtomicBool;
 
-fn saturation_partial(
-    api: &CoolProp,
-    state: &NativeState,
-    of: c_long,
-    pressure: c_long,
-    second: bool,
-) -> Result<f64, ProviderError> {
-    let mut error = ErrorBuffer::default();
-    // SAFETY: the original live handle and selected keys are retained; destinations are bounded.
-    let value = unsafe {
-        if second {
-            api.AbstractState_second_saturation_deriv(
-                state.handle,
-                of,
-                pressure,
-                pressure,
-                &raw mut error.code,
-                error.message.as_mut_ptr().cast(),
-                ERROR_CAPACITY as c_long,
-            )
-        } else {
-            api.AbstractState_first_saturation_deriv(
-                state.handle,
-                of,
-                pressure,
-                &raw mut error.code,
-                error.message.as_mut_ptr().cast(),
-                ERROR_CAPACITY as c_long,
-            )
-        }
-    };
-    error.check("saturation derivative", true)?;
-    finite(value)
-}
-
 #[test]
 fn prepared_water_saturation_c_abi_preserves_both_endpoint_values_first_and_second() {
     ensure_library().unwrap();
+    // Declaration order releases the API guard before the handle's destructor,
+    // including on assertion unwinding when another test is waiting to write.
+    let mut state = {
+        let api = COOLPROP.shared_access();
+        authenticate(&api).unwrap();
+        NativeState::new(&api).unwrap()
+    };
     let api = COOLPROP.shared_access();
-    authenticate(&api).unwrap();
     let keys = Keys::new(&api).unwrap();
     let pair = unsafe { api.get_input_pair_index(c"PQ_INPUTS".as_ptr()) };
     assert!(pair >= 0);
-    let mut state = NativeState::new(&api).unwrap();
     let fields = [keys.temperature, keys.density, keys.h, keys.s, keys.u];
     let mut endpoints = Vec::new();
     for quality in [0.0, 1.0] {
@@ -63,20 +33,32 @@ fn prepared_water_saturation_c_abi_preserves_both_endpoint_values_first_and_seco
         );
         let values = fields.map(|key| state.output(&api, key).unwrap());
         near(values[2] - values[4], 140_000.0 / values[1], 1e-6, 1e-10);
-        let first =
-            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
-        let second =
-            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, true).unwrap());
+        let first = fields.map(|key| {
+            state
+                .saturation_partial(&api, key, keys.pressure, false)
+                .unwrap()
+        });
+        let second = fields.map(|key| {
+            state
+                .saturation_partial(&api, key, keys.pressure, true)
+                .unwrap()
+        });
         // Independent numerical comparisons are test-only, not a production derivative path.
         let step = 10.0;
         state.update(&api, pair, 140_000.0 + step, quality).unwrap();
         let plus = fields.map(|key| state.output(&api, key).unwrap());
-        let dplus =
-            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
+        let dplus = fields.map(|key| {
+            state
+                .saturation_partial(&api, key, keys.pressure, false)
+                .unwrap()
+        });
         state.update(&api, pair, 140_000.0 - step, quality).unwrap();
         let minus = fields.map(|key| state.output(&api, key).unwrap());
-        let dminus =
-            fields.map(|key| saturation_partial(&api, &state, key, keys.pressure, false).unwrap());
+        let dminus = fields.map(|key| {
+            state
+                .saturation_partial(&api, key, keys.pressure, false)
+                .unwrap()
+        });
         for index in 0..fields.len() {
             near(
                 first[index],
@@ -101,7 +83,9 @@ fn prepared_water_saturation_c_abi_preserves_both_endpoint_values_first_and_seco
     state.update(&api, pair, 140_000.0, 0.0).unwrap();
     // Clapeyron correspondence independently composes original endpoint values.
     near(
-        saturation_partial(&api, &state, keys.temperature, keys.pressure, false).unwrap(),
+        state
+            .saturation_partial(&api, keys.temperature, keys.pressure, false)
+            .unwrap(),
         liquid[0] * (1.0 / vapor[1] - 1.0 / liquid[1]) / (vapor[2] - liquid[2]),
         1e-12,
         1e-9,
@@ -109,11 +93,79 @@ fn prepared_water_saturation_c_abi_preserves_both_endpoint_values_first_and_seco
 }
 
 #[test]
+fn prepared_water_saturation_registration_supplies_guarded_endpoint_jets() {
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let factory = SaturationFactory::prepare(&registry).unwrap();
+    let at = |pressure| evaluate(&factory, [pressure], DerivativeOrder::Second);
+    let center = at(140_000.0).unwrap();
+    let plus = at(140_010.0).unwrap();
+    let minus = at(139_990.0).unwrap();
+    let &[temperature, rho_l, h_l, s_l, rho_v, h_v, s_v] = center.values.as_slice() else {
+        panic!("all typed saturation endpoint outputs")
+    };
+    near(temperature, 382.442, 0.01, 0.0);
+    assert!(rho_l > rho_v && rho_v > 0.0 && h_v > h_l && s_v > s_l);
+    near(
+        center.jacobian[0],
+        temperature * (1.0 / rho_v - 1.0 / rho_l) / (h_v - h_l),
+        1e-12,
+        1e-9,
+    );
+    for index in 0..center.values.len() {
+        near(
+            center.jacobian[index],
+            (plus.values[index] - minus.values[index]) / 20.0,
+            1e-10,
+            5e-6,
+        );
+        near(
+            center.hessians[index],
+            (plus.jacobian[index] - minus.jacobian[index]) / 20.0,
+            1e-12,
+            3e-5,
+        );
+    }
+    for pressure in [9_999.0, 10_000_001.0] {
+        assert!(matches!(
+            at(pressure),
+            Err(ProviderError::OutsideEnvelope { .. })
+        ));
+    }
+    let registration = saturation_registration(&registry).unwrap();
+    let mut binding = registration.worker().unwrap();
+    let request = binding
+        .prepare(ProviderRequest {
+            outputs: vec![6, 1],
+            order: DerivativeOrder::Second,
+            demand: ProviderDemand::SelectedColumns { columns: vec![0] },
+        })
+        .unwrap();
+    let mut buffer = ProviderBuffer::new(&request);
+    let cancelled = AtomicBool::new(false);
+    let context = EvaluationContext {
+        cancelled: &cancelled,
+        max_result_bytes: 4096,
+    };
+    let selected = buffer
+        .fill(
+            &mut binding,
+            &[140_000.0],
+            &request,
+            ProviderRuntime::default(),
+            &context,
+        )
+        .unwrap();
+    assert_eq!(selected.values, [center.values[6], center.values[1]]);
+    assert_eq!(selected.jacobian, [center.jacobian[6], center.jacobian[1]]);
+    assert_eq!(selected.hessians, [center.hessians[6], center.hessians[1]]);
+}
+
+#[test]
 fn prepared_saturation_c_abi_preserves_native_handle_key_and_bounded_error_refusals() {
     ensure_library().unwrap();
+    let mut state = NativeState::new(&COOLPROP.shared_access()).unwrap();
     let api = COOLPROP.shared_access();
     let keys = Keys::new(&api).unwrap();
-    let mut state = NativeState::new(&api).unwrap();
     let pair = unsafe { api.get_input_pair_index(c"PQ_INPUTS".as_ptr()) };
     state.update(&api, pair, 140_000.0, 1.0).unwrap();
     for (handle, of, wrt) in [
@@ -149,9 +201,9 @@ fn factory(regime: WaterRegime) -> WaterFactory {
     )
     .unwrap()
 }
-fn evaluate(
-    factory: &WaterFactory,
-    point: [f64; 2],
+fn evaluate<const N: usize>(
+    factory: &impl ProviderFactory,
+    point: [f64; N],
     order: DerivativeOrder,
 ) -> Result<ProviderValues, ProviderError> {
     let mut binding = factory.create()?;

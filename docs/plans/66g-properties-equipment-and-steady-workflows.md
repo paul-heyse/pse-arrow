@@ -98,12 +98,29 @@ physical identity. Specific mechanisms and limits are in
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | G01 | planned | 66l's selected scientific/configuration/input identity; existing source admission | Every required property/equipment row has a concrete existing/missing science, ordinary-data, numerical-product or qualification disposition and a consuming case |
-| G02 | in-progress | G01 selected state/property closure; 66a coordinate/product and 66d provider slice where changed | The prepared CoolProp ABI has passed both selected endpoint and bounded-refusal controls on main. Missing state/caloric/phase and pure-fluid outputs still need their actual equipment consumers. |
-| G03 | planned | G01 selected chemistry/transport inputs; native physical membership and basis | Required transport, reaction and electrolyte/speciation increments operate with conserved quantities, validity, derivatives and independent consuming expectations |
-| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Original readback now explicitly verifies separate unknown-Cp/Perry permissions and all four actual-flow exposure contexts, including an isolated original over-capacity refusal. Three homogeneous HEOS Water cases reach protected/portable consumers. Other equipment/configurations, independent reference-binary and typed-client acceptance remain open. |
+| G02 | in-progress | G01 selected state/property closure; 66a coordinate/product and 66d provider slice where changed | The prepared CoolProp ABI passed selected endpoint and bounded-refusal controls on main. The pure-Water saturation registration adds bounded pressure endpoint values and analytic first/second pressure derivatives through the same image and datum; receiving evidence and other state/phase scope remain open. |
+| G03 | in-progress | G01 selected chemistry/transport inputs; native physical membership and basis | The pure ethane Chapman–Enskog producer passed its authored compiler control. Required mixture transport, reaction and electrolyte/speciation increments still need conserved quantities, validity, derivatives and independent consuming expectations. |
+| G04 | in-progress | Relevant G02/G03 slices; generated/adopted operations from 66b | Bounded FeedFlash source, complete-data reference fixtures and two published ordinary-BT consumers are integrated. Original readback verifies separate unknown-Cp/Perry permissions and all four actual-flow exposure contexts, including an isolated original over-capacity refusal. Three homogeneous HEOS Water cases reach protected/portable consumers. The authored wet turbine selects the saturation registration for its actual and isentropic outlets; native receiving, wet delivery, other equipment, independent reference-binary and typed-client acceptance remain open. |
 | G05 | planned | Working selected equipment/recycle/initialization closure | HDA, methanol and custom extension consumers deliver their distinct simulation/design outcomes with original scientific inputs and complete linked outputs |
 | G06 | planned | Changed producers and 66b/66e/66f receiving consumers | Selected declarations, native clients, diagnostics, retained/exported readers and source/reference mappings migrate together; replaced adapters and fixtures are deleted |
 | G07 | planned | Selected G02–G06 deliveries and 66l independent expectations | Configuration-specific missing acceptance is complete, required failures remain attributable, scope claims reconcile with 66l and enduring contracts are published |
+
+### Selected pure ethane transport
+
+The first G03 transport producer adds the nominal dynamic-viscosity quantity and
+pascal-second unit at their existing physical owner. The authored Chapman–Enskog
+method uses the existing component/phase property selection and `phased_parameter`
+records, the independently retained species molar mass, and the selected positive
+reduced-temperature law. The selected dilute-vapor permission is record-scoped;
+unknown applicability does not imply general gas or dense-fluid validity.
+The [authored control](../../packages/reference/seed-data/models/transport-fixtures.pse)
+checks three handbook observations cited by the pinned IDAES ethane test and independently
+compares first and second symbolic jets with temperature differences. **Tested, selected:**
+default-profile, force-validated `scripts/pse test pse-compiler --lib -F force-validate`
+passed this one authored control with zero failures and complete settlement
+(`01a1bf6f-3bc9-7738-b192-3ade693c8d9d`). An independently executed reference, negative
+receiving, typed result and actual equipment consumers remain separate. No Wilke, Chung,
+Eucken or WMS claim follows.
 
 G01 produces usable per-consumer closure decisions, not a serial barrier over the
 entire table. Start with ready steady equipment and the HEOS Water equipment consumer
@@ -135,14 +152,46 @@ pending lifetimes and compiler warnings, with complete capture/settlement. This 
 main receiving, not assembled G acceptance. Static IAPWS/released-case expectations are independent stored
 expectations, not fresh reference execution. The pump is the selected hydraulic approximation;
 the existing homogeneous phase/datum/derivative limits remain. Wet, saturated, critical and
-mixed-phase equipment are not qualified by these three cases. The next required wet turbine
-uses the library's saturation endpoint values and analytic pressure derivatives through second
-order. Proposed [ADR-0238](../adr/0238-native-water-property-provider.md) is being revised around
-one explicitly prepared, authenticated CoolProp image and its matched minimal C/Rust binding;
-the selected C ABI's missing export does not establish a permanent first-order target.
-The typed engineering admission
-path currently has no explicit prepared scientific-registration input; C/A own that remaining
-custody seam before a client can consume these configurations without name-based restoration.
+mixed-phase equipment are outside those three controls.
+
+**Implemented, receiving pending:** the authored wet turbine explicitly selects a vapor inlet
+and wet actual and reference outlets. The wet state uses pressure and molar quality, exposes
+both Water phases, mixes enthalpy and entropy from endpoint differences on the common datum,
+and computes volume flow from both endpoint densities. The existing turbine and pump equations
+remain authoritative. The added fixture checks the released 400 K, 200 kPa inlet to 140 kPa case
+against stored temperature, shaft work and wet quality, plus original entropy and phase,
+component and caloric balances. The quality check distinguishes the wet outlet from quality one.
+The rounded shaft-work observation uses the pinned reference test's stated one-percent
+acceptance. The original-coordinate whole-turbine energy balance has its separate 0.01 W
+allowance, and per-state phase energy projection uses the repository's nominal Power
+resolution (1 W). The reference comparison and the local conservation checks answer
+different questions.
+
+[ADR-0238](../adr/0238-native-water-property-provider.md) supplies the binding decision.
+The [CoolProp 8 adapter](../../crates/pse-backend-native/src/coolprop.rs) uses
+`AbstractState_update` with `PQ_INPUTS` at quality zero and one, then
+`AbstractState_first_saturation_deriv` and the selected patched
+`AbstractState_second_saturation_deriv` on requested endpoint fields with pressure as the
+coordinate. The [pinned HEOS source](https://github.com/CoolProp/CoolProp/tree/ae81610e7d23efc57f9d051c8e70a4d66e87537f)
+and [maintained C ABI patch](../../vendor/coolprop-sys/pse-patch.md) identify the selected contract.
+The adapter checks the 10 kPa–10 MPa interval, ordered densities, positive latent heat and
+the common stock translation before releasing values or jets. The same authenticated image
+and ideal-only stock reference serve homogeneous and saturated calls. The focused native and
+authored controls do not establish wet protected/native-view/portable receiving or independent
+reference execution.
+
+**Tested, selected:** The three native ABI/registration controls and three authored dry
+Water cases passed in the default-profile force-validated
+[November 9 runtime selection](66-integrated-simulation-target.md#66ah-execution-checkpoint--november-9).
+The wet fixture observes the original vapor fraction through the common outlet flow
+contract. Its selected native comparison passed with zero failures and build warnings
+and complete settlement (`01a1bf8c-3aa3-741b-ac71-14785594a48f`); this does not qualify
+the separate protected or portable wet result.
+
+The [typed engineering admission](66c-preparation-execution-and-service-lifecycles.md#packages)
+now accepts explicit startup-authorized native registrations. The launched engineering client
+still needs receiving evidence for an actual selected Water configuration, independently of
+the authored fixture and native provider controls.
 
 The ordinary FeedFlash consumer now also checks the existing source-owned applicability policy
 explicitly: unknown-Cp family permission remains distinct from Perry record-scoped extrapolation,

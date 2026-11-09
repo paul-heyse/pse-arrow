@@ -28,6 +28,7 @@ use pse_quantity::{QuantityRegistry, ReferenceStateKind};
 use sha2::{Digest, Sha256};
 use std::{
     ffi::{CStr, c_long},
+    io::Read as _,
     path::Path,
     sync::Arc,
 };
@@ -41,6 +42,16 @@ const REVISION: &str = "daab2516d788ff809465a5c8243eafc687077e938908973b87b93fb1
 const FITTED_GAS_CONSTANT: f64 = 8.314_371_357_587;
 const MOLAR_MASS: f64 = 0.018_015_268;
 const ERROR_CAPACITY: usize = 1024;
+/// Authored implementation key for the bounded pressure-only saturation contract.
+pub const WATER_SATURATION_IMPLEMENTATION: &str = "coolprop8-water-saturation";
+
+/// Conservative Rust construction extent for one fixed Water registration. Its
+/// descriptors contain at most seven scalar output ports and one constant-size
+/// datum; image hashing uses fixed stack scratch. The existing native job owns
+/// the separate stack and foreign-library allowances.
+pub const WATER_REGISTRATION_BYTES: usize = 64 << 10;
+const SATURATION_DATA: &str = "45c450e1449e738a7b4c115f4b36592a52bbe70ba2e39ddaa043938ac6f51edc";
+const SATURATION_PRESSURE: std::ops::RangeInclusive<f64> = 10_000.0..=10_000_000.0;
 
 /// The admitted homogeneous branch; normal evaluations never impose a phase.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -98,21 +109,74 @@ const WATER_STOCK_DATUM: pse_quantity::ReferenceStateId =
         0xebfd9ee6148d4c6497d47099a39e0bfa_u128.to_be_bytes(),
     );
 
-fn specification(
+#[derive(Clone, Copy)]
+enum WaterPort {
+    Temperature,
+    Density,
+    Pressure,
+    Enthalpy,
+    Entropy,
+}
+
+impl WaterPort {
+    const fn roles(self) -> (u128, u128, [i32; 8], bool, bool) {
+        match self {
+            Self::Temperature => (
+                0xc64b96975a4a59755f8711d3bf628bc9,
+                0x57a7ab92753b012231a543d3850b926c,
+                [0, 0, 0, 1, 0, 0, 0, 0],
+                false,
+                false,
+            ),
+            Self::Density => (
+                0xb6edcb08fc072d81a9f99b45f7f9c90a,
+                0x89a563673835109d4c3a68d4603bab31,
+                [-3, 0, 0, 0, 1, 0, 0, 0],
+                true,
+                false,
+            ),
+            Self::Pressure => (
+                0xa0fa145fd8b2ecec448c39666960debc,
+                0xf789180fbded8b11fd73e2436d33fc9e,
+                [-1, 1, -2, 0, 0, 0, 0, 0],
+                false,
+                false,
+            ),
+            Self::Enthalpy => (
+                0x1831d0d72dc74b299ba8ecb6d4da6f53,
+                0x99263c30741ca81f1c4c3d4b987d4085,
+                [2, 1, -2, 0, -1, 0, 0, 0],
+                true,
+                true,
+            ),
+            Self::Entropy => (
+                0x571c90b8909e43c0ae859554cc2e3479,
+                0xfaa6f95459144650ac414fd389e16e27,
+                [2, 1, -2, -1, -1, 0, 0, 0],
+                true,
+                true,
+            ),
+        }
+    }
+
+    const fn quantity(self) -> pse_quantity::QuantityTypeId {
+        pse_quantity::QuantityTypeId::from_bytes(self.roles().0.to_be_bytes())
+    }
+}
+
+fn water_spec(
     registry: &QuantityRegistry,
-    regime: WaterRegime,
+    implementation: &str,
+    data: &str,
+    inputs: &[(&str, WaterPort)],
+    outputs: &[(&str, WaterPort)],
 ) -> Result<ProviderSpec, ProviderError> {
-    let id = pse_ids::named_id(SemanticId::from_bytes([0xc8; 16]), regime.implementation());
+    let id = pse_ids::named_id(SemanticId::from_bytes([0xc8; 16]), implementation);
     // The C ABI consumes SI Kelvin, mol/m³, Pa, J/mol and J/(mol K).
     // A named canonical unit need not have unit SI scale in an admitted registry.
-    let port = |name: &str,
-                quantity: u128,
-                nominal_kind: u128,
-                dimensions: [i32; 8],
-                molar: bool,
-                caloric: bool|
-     -> Result<Port, ProviderError> {
-        let quantity = pse_quantity::QuantityTypeId::from_bytes(quantity.to_be_bytes());
+    let port = |&(name, role): &(&str, WaterPort)| -> Result<Port, ProviderError> {
+        let (_, nominal_kind, dimensions, molar, caloric) = role.roles();
+        let quantity = role.quantity();
         let nominal_kind = pse_quantity::QuantityKindId::from_bytes(nominal_kind.to_be_bytes());
         let ty = registry
             .quantity_type(quantity)
@@ -181,54 +245,30 @@ fn specification(
         derivative_source: DerivativeSource::Analytic,
         id,
         revision: ContentHash::parse_hex(REVISION).map_err(|error| contract(error.to_string()))?,
-        data: ContentHash::parse_hex(regime.data()).map_err(|error| contract(error.to_string()))?,
-        inputs: vec![
-            port(
-                "temperature",
-                0xc64b96975a4a59755f8711d3bf628bc9,
-                0x57a7ab92753b012231a543d3850b926c,
-                [0, 0, 0, 1, 0, 0, 0, 0],
-                false,
-                false,
-            )?,
-            port(
-                "density",
-                0xb6edcb08fc072d81a9f99b45f7f9c90a,
-                0x89a563673835109d4c3a68d4603bab31,
-                [-3, 0, 0, 0, 1, 0, 0, 0],
-                true,
-                false,
-            )?,
-        ],
-        outputs: vec![
-            port(
-                "pressure",
-                0xa0fa145fd8b2ecec448c39666960debc,
-                0xf789180fbded8b11fd73e2436d33fc9e,
-                [-1, 1, -2, 0, 0, 0, 0, 0],
-                false,
-                false,
-            )?,
-            port(
-                "enthalpy",
-                0x1831d0d72dc74b299ba8ecb6d4da6f53,
-                0x99263c30741ca81f1c4c3d4b987d4085,
-                [2, 1, -2, 0, -1, 0, 0, 0],
-                true,
-                true,
-            )?,
-            port(
-                "entropy",
-                0x571c90b8909e43c0ae859554cc2e3479,
-                0xfaa6f95459144650ac414fd389e16e27,
-                [2, 1, -2, -1, -1, 0, 0, 0],
-                true,
-                true,
-            )?,
-        ],
+        data: ContentHash::parse_hex(data).map_err(|error| contract(error.to_string()))?,
+        inputs: inputs.iter().map(port).collect::<Result<_, _>>()?,
+        outputs: outputs.iter().map(port).collect::<Result<_, _>>()?,
         derivatives: DerivativeOrder::Second,
         smoothness: DerivativeOrder::Second,
     })
+}
+
+fn specification(
+    registry: &QuantityRegistry,
+    regime: WaterRegime,
+) -> Result<ProviderSpec, ProviderError> {
+    use WaterPort::{Density, Enthalpy, Entropy, Pressure, Temperature};
+    water_spec(
+        registry,
+        regime.implementation(),
+        regime.data(),
+        &[("temperature", Temperature), ("density", Density)],
+        &[
+            ("pressure", Pressure),
+            ("enthalpy", Enthalpy),
+            ("entropy", Entropy),
+        ],
+    )
 }
 
 /// Construct a physical descriptor without loading or preparing the native library.
@@ -279,130 +319,121 @@ impl WaterFactory {
         regime: WaterRegime,
     ) -> Result<Self, ProviderError> {
         let spec = specification(registry, regime)?;
-        let stock = registry
-            .reference_state(WATER_STOCK_DATUM)
-            .map_err(|error| contract(error.to_string()))?;
-        if stock.kind != ReferenceStateKind::IdealGasAtConditions
-            || stock.include_enthalpy_of_formation
-            || stock.subject.is_some()
-        {
-            return Err(contract(
-                "water provider requires a sensible ideal-gas stock reference",
-            ));
-        }
-        for output in &spec.outputs[1..] {
-            if registry
-                .quantity_type(output.quantity)
-                .map_err(|error| contract(error.to_string()))?
-                .key
-                .reference_state
-                != Some(stock.id)
-            {
-                return Err(contract(
-                    "water caloric outputs must use the selected stock reference",
-                ));
-            }
-        }
-        let condition = |value: Option<pse_quantity::ReferenceCondition>,
-                         expected: pse_quantity::QuantityTypeId|
-         -> Result<f64, ProviderError> {
-            let value = value.ok_or_else(|| contract("stock reference condition is absent"))?;
-            if value.quantity_type != expected {
-                return Err(contract(
-                    "stock condition differs from the selected nominal water role",
-                ));
-            }
-            registry
-                .reference_condition(&value)
-                .map_err(|error| contract(error.to_string()))
-        };
-        let temperature = condition(stock.temperature, spec.inputs[0].quantity)?;
-        let pressure = condition(stock.pressure, spec.outputs[0].quantity)?;
-        if !temperature.is_finite()
-            || temperature <= 0.0
-            || !pressure.is_finite()
-            || pressure <= 0.0
-        {
-            return Err(contract(
-                "stock reference conditions must be finite and positive",
-            ));
-        }
-        ensure_library()?;
-        let api = COOLPROP.shared_access();
-        authenticate(&api)?;
-        let keys = Keys::new(&api)?;
-        let mut state = NativeState::new(&api)?;
-        let reference = (|| -> Result<Reference, ProviderError> {
-            let gas_constant = state.output(&api, keys.gas_constant)?;
-            let molar_mass = state.output(&api, keys.molar_mass)?;
-            if gas_constant.to_bits() != FITTED_GAS_CONSTANT.to_bits()
-                || molar_mass.to_bits() != MOLAR_MASS.to_bits()
-            {
-                return Err(terminal(
-                    "loaded HEOS Water constants differ from the selected released data",
-                ));
-            }
-            // This is an ideal-gas reference construction, not an equilibrium liquid
-            // or vapor state. Only ideal-only h/s outputs are read from this state.
-            let mut error = ErrorBuffer::default();
-            // SAFETY: the handle is live; literal phase and bounded error destinations outlive the call.
-            unsafe {
-                api.AbstractState_specify_phase(
-                    state.handle,
-                    c"phase_gas".as_ptr(),
-                    &raw mut error.code,
-                    error.message.as_mut_ptr().cast(),
-                    ERROR_CAPACITY as c_long,
-                );
-            }
-            error.check("ideal reference phase", false)?;
-            state.update(
-                &api,
-                keys.density_temperature,
-                pressure / (gas_constant * temperature),
-                temperature,
-            )?;
-            Ok(Reference {
-                temperature,
-                pressure,
-                gas_constant,
-                molar_mass,
-                h_offset: -state.output(&api, keys.ideal_h)?,
-                s_offset: -state.output(&api, keys.ideal_s)?,
-            })
-        })();
-        // Release the read guard before destruction, including the error path.
-        drop(api);
-        drop(state);
-        let reference = reference?;
-        let mut identity = FramedHasher::new(Frame::ProviderConfigurationV1);
-        identity
-            .hash(&spec.identity())
-            .str(COOLPROP_REVISION)
-            .str(WATER_JSON_SHA256)
-            .str(coolprop_sys::COOLPROP_IMAGE_SHA256)
-            .str(include_str!(concat!(
-                env!("OUT_DIR"),
-                "/coolprop-profile.json"
-            )));
-        for value in [
-            reference.temperature,
-            reference.pressure,
-            reference.gas_constant,
-            reference.molar_mass,
-            reference.h_offset,
-            reference.s_offset,
-        ] {
-            identity.u64(value.to_bits());
-        }
+        let (keys, reference, configuration) = prepare_water(registry, &spec)?;
         Ok(Self {
             spec,
             regime,
             keys,
             reference,
-            configuration: identity.finish_hash(),
+            configuration,
         })
     }
+}
+
+fn prepare_water(
+    registry: &QuantityRegistry,
+    spec: &ProviderSpec,
+) -> Result<(Keys, Reference, ContentHash), ProviderError> {
+    let stock = registry
+        .reference_state(WATER_STOCK_DATUM)
+        .map_err(|error| contract(error.to_string()))?;
+    if stock.kind != ReferenceStateKind::IdealGasAtConditions
+        || stock.include_enthalpy_of_formation
+        || stock.subject.is_some()
+    {
+        return Err(contract(
+            "water provider requires a sensible ideal-gas stock reference",
+        ));
+    }
+    let condition = |value: Option<pse_quantity::ReferenceCondition>,
+                     expected: pse_quantity::QuantityTypeId|
+     -> Result<f64, ProviderError> {
+        let value = value.ok_or_else(|| contract("stock reference condition is absent"))?;
+        if value.quantity_type != expected {
+            return Err(contract(
+                "stock condition differs from the selected nominal water role",
+            ));
+        }
+        registry
+            .reference_condition(&value)
+            .map_err(|error| contract(error.to_string()))
+    };
+    let temperature = condition(stock.temperature, WaterPort::Temperature.quantity())?;
+    let pressure = condition(stock.pressure, WaterPort::Pressure.quantity())?;
+    if !temperature.is_finite() || temperature <= 0.0 || !pressure.is_finite() || pressure <= 0.0 {
+        return Err(contract(
+            "stock reference conditions must be finite and positive",
+        ));
+    }
+    ensure_library()?;
+    let api = COOLPROP.shared_access();
+    authenticate(&api)?;
+    let keys = Keys::new(&api)?;
+    let mut state = NativeState::new(&api)?;
+    let reference = (|| -> Result<Reference, ProviderError> {
+        let gas_constant = state.output(&api, keys.gas_constant)?;
+        let molar_mass = state.output(&api, keys.molar_mass)?;
+        if gas_constant.to_bits() != FITTED_GAS_CONSTANT.to_bits()
+            || molar_mass.to_bits() != MOLAR_MASS.to_bits()
+        {
+            return Err(terminal(
+                "loaded HEOS Water constants differ from the selected released data",
+            ));
+        }
+        // This is an ideal-gas reference construction, not an equilibrium liquid
+        // or vapor state. Only ideal-only h/s outputs are read from this state.
+        let mut error = ErrorBuffer::default();
+        // SAFETY: the handle is live; literal phase and bounded error destinations outlive the call.
+        unsafe {
+            api.AbstractState_specify_phase(
+                state.handle,
+                c"phase_gas".as_ptr(),
+                &raw mut error.code,
+                error.message.as_mut_ptr().cast(),
+                ERROR_CAPACITY as c_long,
+            );
+        }
+        error.check("ideal reference phase", false)?;
+        state.update(
+            &api,
+            keys.density_temperature,
+            pressure / (gas_constant * temperature),
+            temperature,
+        )?;
+        Ok(Reference {
+            temperature,
+            pressure,
+            gas_constant,
+            molar_mass,
+            h_offset: -state.output(&api, keys.ideal_h)?,
+            s_offset: -state.output(&api, keys.ideal_s)?,
+        })
+    })();
+    // Release the read guard before destruction, including the error path.
+    drop(api);
+    drop(state);
+    let reference = reference?;
+    let mut identity = FramedHasher::new(Frame::ProviderConfigurationV1);
+    identity
+        .hash(&spec.identity())
+        .str(COOLPROP_REVISION)
+        .str(WATER_JSON_SHA256)
+        .str(coolprop_sys::COOLPROP_IMAGE_SHA256)
+        .str(include_str!(concat!(
+            env!("OUT_DIR"),
+            "/coolprop-profile.json"
+        )));
+    for value in [
+        reference.temperature,
+        reference.pressure,
+        reference.gas_constant,
+        reference.molar_mass,
+        reference.h_offset,
+        reference.s_offset,
+    ] {
+        identity.u64(value.to_bits());
+    }
+    Ok((keys, reference, identity.finish_hash()))
 }
 impl ProviderFactory for WaterFactory {
     fn spec(&self) -> &ProviderSpec {
@@ -442,6 +473,96 @@ pub fn registration(
     )
 }
 
+fn saturation_specification(registry: &QuantityRegistry) -> Result<ProviderSpec, ProviderError> {
+    use WaterPort::{Density, Enthalpy, Entropy, Pressure, Temperature};
+    water_spec(
+        registry,
+        WATER_SATURATION_IMPLEMENTATION,
+        SATURATION_DATA,
+        &[("pressure", Pressure)],
+        &[
+            ("temperature", Temperature),
+            ("liquid_density", Density),
+            ("liquid_enthalpy", Enthalpy),
+            ("liquid_entropy", Entropy),
+            ("vapor_density", Density),
+            ("vapor_enthalpy", Enthalpy),
+            ("vapor_entropy", Entropy),
+        ],
+    )
+}
+
+/// Admit the pure Water pressure-only endpoint descriptor without loading the library.
+///
+/// # Errors
+/// Refuses missing or inconsistent physical quantity declarations.
+pub fn saturation_descriptor(
+    registry: &QuantityRegistry,
+) -> Result<AdmittedProvider, ProviderError> {
+    AdmittedProvider::new(saturation_specification(registry)?, registry)
+}
+
+/// Prepare the production saturation registration using the same image and datum as Water.
+///
+/// # Errors
+/// Refuses unavailable native preparation, changed release/data or descriptor mismatch.
+pub fn saturation_registration(registry: &QuantityRegistry) -> Result<Registration, ProviderError> {
+    let descriptor = saturation_descriptor(registry)?;
+    Registration::bind(descriptor, Arc::new(SaturationFactory::prepare(registry)?))
+}
+
+#[derive(Clone, Debug)]
+struct SaturationFactory {
+    spec: ProviderSpec,
+    configuration: ContentHash,
+    keys: Keys,
+    reference: Reference,
+    pressure_quality: c_long,
+}
+
+impl SaturationFactory {
+    fn prepare(registry: &QuantityRegistry) -> Result<Self, ProviderError> {
+        let spec = saturation_specification(registry)?;
+        let (keys, reference, configuration) = prepare_water(registry, &spec)?;
+        let api = COOLPROP.shared_access();
+        // SAFETY: the library reads an immutable nul-terminated name.
+        let pressure_quality = unsafe { api.get_input_pair_index(c"PQ_INPUTS".as_ptr()) };
+        if pressure_quality < 0 {
+            return Err(terminal(
+                "CoolProp pressure/quality input pair is unavailable",
+            ));
+        }
+        Ok(Self {
+            spec,
+            configuration,
+            keys,
+            reference,
+            pressure_quality,
+        })
+    }
+}
+
+impl ProviderFactory for SaturationFactory {
+    fn spec(&self) -> &ProviderSpec {
+        &self.spec
+    }
+    fn configuration_key(&self) -> ContentHash {
+        self.configuration
+    }
+    fn create(&self) -> Result<ProviderBinding, ProviderError> {
+        let api = COOLPROP.shared_access();
+        let state = NativeState::new(&api)?;
+        drop(api);
+        Ok(ProviderBinding::new(
+            self.spec.clone(),
+            Box::new(SaturationWorker {
+                state,
+                factory: self.clone(),
+            }),
+        ))
+    }
+}
+
 fn ensure_library() -> Result<(), ProviderError> {
     if !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
         return Err(terminal(
@@ -453,9 +574,25 @@ fn ensure_library() -> Result<(), ProviderError> {
             "CoolProp capability is unprepared: selected native library is absent",
         ));
     }
-    let image = std::fs::read(coolprop_sys::COOLPROP_PATH)
+    let mut image = std::fs::File::open(coolprop_sys::COOLPROP_PATH)
         .map_err(|error| terminal(format!("CoolProp prepared artifact is unreadable: {error}")))?;
-    let digest = Sha256::digest(&image)
+    let mut hash = Sha256::new();
+    let mut chunk = [0u8; 16 << 10];
+    loop {
+        let read = match image.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => read,
+            Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(error) => {
+                return Err(terminal(format!(
+                    "CoolProp prepared artifact is unreadable: {error}"
+                )));
+            }
+        };
+        hash.update(&chunk[..read]);
+    }
+    let digest = hash
+        .finalize()
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect::<String>();
@@ -716,6 +853,42 @@ impl NativeState {
         error.check("second homogeneous partial", true)?;
         finite(value)
     }
+
+    fn saturation_partial(
+        &self,
+        api: &CoolProp,
+        output: c_long,
+        pressure: c_long,
+        second: bool,
+    ) -> Result<f64, ProviderError> {
+        let mut error = ErrorBuffer::default();
+        // SAFETY: the live state is at a selected saturation endpoint; keys and bounded
+        // error destinations remain valid for the call.
+        let value = unsafe {
+            if second {
+                api.AbstractState_second_saturation_deriv(
+                    self.handle,
+                    output,
+                    pressure,
+                    pressure,
+                    &raw mut error.code,
+                    error.message.as_mut_ptr().cast(),
+                    ERROR_CAPACITY as c_long,
+                )
+            } else {
+                api.AbstractState_first_saturation_deriv(
+                    self.handle,
+                    output,
+                    pressure,
+                    &raw mut error.code,
+                    error.message.as_mut_ptr().cast(),
+                    ERROR_CAPACITY as c_long,
+                )
+            }
+        };
+        error.check("saturation derivative", true)?;
+        finite(value)
+    }
 }
 impl Drop for NativeState {
     fn drop(&mut self) {
@@ -792,14 +965,32 @@ fn qualified_water_values(
             "water state lacks positive isothermal mechanical response".into(),
         ));
     }
-    let h = finite(observe(WaterField::Enthalpy)?)? + factory.reference.h_offset;
-    let s = finite(observe(WaterField::Entropy)?)? + factory.reference.s_offset;
-    let u = finite(observe(WaterField::InternalEnergy)?)? + factory.reference.h_offset;
-    let mismatch = h - u - pressure / density;
-    if mismatch.abs() > 1e-9 * (1.0 + h.abs() + u.abs() + (pressure / density).abs()) {
+    let [h, s] = water_caloric(
+        factory.reference,
+        pressure / density,
+        observe(WaterField::Enthalpy)?,
+        observe(WaterField::Entropy)?,
+        observe(WaterField::InternalEnergy)?,
+    )?;
+    Ok([pressure, h, s])
+}
+
+fn water_caloric(
+    reference: Reference,
+    pressure_volume: f64,
+    native_h: f64,
+    native_s: f64,
+    native_u: f64,
+) -> Result<[f64; 2], ProviderError> {
+    let h = finite(native_h + reference.h_offset)?;
+    let s = finite(native_s + reference.s_offset)?;
+    let u = finite(native_u + reference.h_offset)?;
+    let pressure_volume = finite(pressure_volume)?;
+    let mismatch = h - u - pressure_volume;
+    if mismatch.abs() > 1e-9 * (1.0 + h.abs() + u.abs() + pressure_volume.abs()) {
         return Err(terminal("water h/u datum translation violates h=u+p/rho"));
     }
-    Ok([pressure, h, s])
+    Ok([h, s])
 }
 /// Reject every missing slot, including private physical guards, before admitting any row.
 fn qualified_water_row(
@@ -995,6 +1186,134 @@ impl Provider for WaterWorker {
                 }
             }
             context.check()?;
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct SaturationWorker {
+    state: NativeState,
+    factory: SaturationFactory,
+}
+
+impl SaturationWorker {
+    fn endpoint(
+        &mut self,
+        api: &CoolProp,
+        pressure: f64,
+        quality: f64,
+    ) -> Result<[f64; 4], ProviderError> {
+        let keys = self.factory.keys;
+        self.state
+            .update(api, self.factory.pressure_quality, pressure, quality)?;
+        let temperature = self.state.output(api, keys.temperature)?;
+        let density = self.state.output(api, keys.density)?;
+        if temperature <= 0.0 || density <= 0.0 {
+            return Err(ProviderError::Trial(
+                "invalid CoolProp saturation endpoint".into(),
+            ));
+        }
+        let [h, s] = water_caloric(
+            self.factory.reference,
+            pressure / density,
+            self.state.output(api, keys.h)?,
+            self.state.output(api, keys.s)?,
+            self.state.output(api, keys.u)?,
+        )?;
+        Ok([temperature, density, h, s])
+    }
+}
+
+impl Provider for SaturationWorker {
+    fn supports(&self, demand: &ProviderDemand) -> bool {
+        matches!(
+            demand,
+            ProviderDemand::CompleteJets | ProviderDemand::SelectedColumns { .. }
+        )
+    }
+
+    fn fill(
+        &mut self,
+        inputs: &[f64],
+        request: &PreparedProviderRequest,
+        _runtime: ProviderRuntime<'_>,
+        output: ProviderOutput<'_>,
+        context: &EvaluationContext<'_>,
+    ) -> Result<(), ProviderError> {
+        context.check()?;
+        let [pressure] = *inputs else {
+            return Err(contract("water saturation requires one pressure input"));
+        };
+        if !SATURATION_PRESSURE.contains(&pressure) {
+            return Err(ProviderError::OutsideEnvelope {
+                axis: "pressure".into(),
+                value: pressure,
+                lower: *SATURATION_PRESSURE.start(),
+                upper: *SATURATION_PRESSURE.end(),
+            });
+        }
+        let active = match &request.demand {
+            ProviderDemand::CompleteJets => true,
+            ProviderDemand::SelectedColumns { columns } => !columns.is_empty(),
+            _ => return Err(contract("water saturation scalar product unavailable")),
+        };
+        let keys = self.factory.keys;
+        let native_keys = [
+            keys.temperature,
+            keys.density,
+            keys.h,
+            keys.s,
+            keys.density,
+            keys.h,
+            keys.s,
+        ];
+        let mut first = [0.0; 7];
+        let mut second = [0.0; 7];
+        let mut endpoints = [[0.0; 4]; 2];
+        // One coherent pressure point. The same state owns both original endpoint updates;
+        // request derivatives before moving the handle to the other endpoint.
+        let api = COOLPROP.shared_access();
+        for (phase, (quality, endpoint)) in [0.0, 1.0].into_iter().zip(&mut endpoints).enumerate() {
+            context.check()?;
+            *endpoint = self.endpoint(&api, pressure, quality)?;
+            if active && request.order >= DerivativeOrder::First {
+                for &ordinal in &request.outputs {
+                    if (ordinal >= 4) == (phase == 1) {
+                        first[ordinal] = self.state.saturation_partial(
+                            &api,
+                            native_keys[ordinal],
+                            keys.pressure,
+                            false,
+                        )?;
+                        if request.order == DerivativeOrder::Second {
+                            second[ordinal] = self.state.saturation_partial(
+                                &api,
+                                native_keys[ordinal],
+                                keys.pressure,
+                                true,
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+        let [[t, rho_l, h_l, s_l], [t_v, rho_v, h_v, s_v]] = endpoints;
+        if (t - t_v).abs() > 1e-8 || rho_l <= rho_v || h_l >= h_v || s_l >= s_v {
+            return Err(ProviderError::Trial(
+                "inconsistent CoolProp saturation endpoints".into(),
+            ));
+        }
+        context.check()?;
+        let values = [t, rho_l, h_l, s_l, rho_v, h_v, s_v];
+        for (position, &ordinal) in request.outputs.iter().enumerate() {
+            output.values[position] = values[ordinal];
+            if active && request.order >= DerivativeOrder::First {
+                output.jacobian[position] = first[ordinal];
+            }
+            if active && request.order == DerivativeOrder::Second {
+                output.hessians[position] = second[ordinal];
+            }
         }
         Ok(())
     }

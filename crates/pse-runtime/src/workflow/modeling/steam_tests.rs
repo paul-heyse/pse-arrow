@@ -191,7 +191,7 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), Wor
     let services = runtime.execution_services();
     let outcome = std::panic::AssertUnwindSafe(async {
         let physical = steam_physical(&runtime).await?;
-        let registrations: BTreeMap<_, _> = [WaterRegime::Liquid, WaterRegime::Vapor]
+        let mut registrations: BTreeMap<_, _> = [WaterRegime::Liquid, WaterRegime::Vapor]
             .into_iter()
             .map(|regime| -> Result<_, WorkflowError> {
                 Ok((
@@ -223,6 +223,14 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), Wor
                 ))
             })
             .collect::<Result<_, _>>()?;
+        if name == "wet_water_turbine" {
+            registrations.insert(
+                coolprop::WATER_SATURATION_IMPLEMENTATION.to_owned(),
+                coolprop::saturation_registration(&physical.quantities).map_err(|error| {
+                    WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(error))
+                })?,
+            );
+        }
         let source = crate::scientific_inputs::family_sources("steam");
         let rows = crate::scientific_inputs::parse_sources(
             &source,
@@ -299,10 +307,10 @@ async fn conform(name: &str, worker: Option<&std::path::Path>) -> Result<(), Wor
                 .conform(&services, policy.clone(), &crate::CancelSource::new())
                 .await?;
             conform_ns.push(solve_started.elapsed().as_nanos());
-            assert!(report.complete, "{:?}", report.checks);
             assert!(
-                report.passed(),
-                "{:?}; failures={:?}",
+                report.complete && report.passed(),
+                "steam fixture {name}: complete={}; checks={:?}; failures={:?}",
+                report.complete,
                 report.checks,
                 report.failures
             );
@@ -425,6 +433,11 @@ async fn authored_steam_turbine_matches_released_single_phase_reference()
 async fn authored_hot_steam_turbine_matches_second_released_single_phase_reference()
 -> Result<(), WorkflowError> {
     conform("hot_vapor_turbine", None).await
+}
+
+#[tokio::test]
+async fn authored_wet_water_turbine_matches_released_reference() -> Result<(), WorkflowError> {
+    conform("wet_water_turbine", None).await
 }
 
 fn scientific_worker_executable() -> Result<std::path::PathBuf, WorkflowError> {
