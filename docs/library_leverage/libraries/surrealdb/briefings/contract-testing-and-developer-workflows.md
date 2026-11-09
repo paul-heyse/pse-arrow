@@ -7,19 +7,19 @@ tool preparation, database attachment or MCP configuration were executed.
 
 ## Existing deployment and test consumers
 
-[The native integration fixture](../../../../../crates/pse-operations/tests/native_service/surrealkit.rs)
+[The native integration fixture](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/tests/native_service/surrealkit.rs)
 already runs SurrealKit against a Rust-owned server, stages generated schema,
 seeds and frozen rollout inputs, checks structured reports, and verifies disposal.
 It exercises direct Sync, authored rollout replay/parity and a drift control.
 This is additional-leverage discovery, not a proposal for first SurrealKit use.
 
-[The declarative suite](../../../../../scripts/tests/fixtures/surrealkit/canonical.toml)
+[The declarative suite](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/scripts/tests/fixtures/surrealkit/canonical.toml)
 includes exact Decimal/bytes, deadline functions, endpoint enforcement, API
 commit/refusal/rollback and an inspection actor. It explicitly follows an empty
 Viewer create response with privileged readback. That concrete distinction is
 more useful than a generic claim that the suite tests permissions.
 
-[Tool preparation](../../../../../crates/pse-host/src/surrealkit.rs) selects a
+[Tool preparation](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-host/src/surrealkit.rs) selects a
 standalone rc.1 CLI with SDK4/gRPC. The build omits `mcp` and embedded backends.
 Blueprint §20/§24 and [Plan68d](../../../../plans/68d-surrealdb-v4-developer-and-test-receiving.md)
 own current lifecycle and receiving evidence.

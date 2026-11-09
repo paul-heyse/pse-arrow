@@ -6,10 +6,10 @@ compositions and benefits below are **Proposed**. No migration or deployment ran
 
 ## Existing responsibility and useful supplier mechanisms
 
-[FrozenRollout](../../../../../crates/pse-operations/src/canonical_maintenance/frozen_rollout.rs)
+[FrozenRollout](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_maintenance/frozen_rollout.rs)
 reads bounded, hashed schema copies and explicit removals. It deliberately excludes
 arbitrary SQL, variables, rename hints and data migrations. Field/table removals
-require an independent data witness. [The owned preview](../../../../../crates/pse-operations/src/native_service/rollout_preview.rs)
+require an independent data witness. [The owned preview](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/native_service/rollout_preview.rs)
 binds the manifest to the original listener, authenticated catalog, installed study
 extension and verified tool. A retained preview cannot authorize a later effect.
 

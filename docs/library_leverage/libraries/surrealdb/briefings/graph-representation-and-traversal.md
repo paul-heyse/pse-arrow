@@ -6,19 +6,19 @@ reads. Local improvements are **Proposed**; no graph comparison or benchmark ran
 
 ## Existing graph responsibilities
 
-The [schema lowering](../../../../../crates/pse-codegen/src/codegen/surreal.rs) already
+The [schema lowering](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-codegen/src/codegen/surreal.rs) already
 emits conventional relation tables, optional enforced endpoints, and selected vertex caches
 (`INLINE EDGES 64`, `INLINE REFERENCES 32`). Its disposable generation-scoped family
 also uses tracked record references with `ON DELETE REJECT` and same-generation assertions.
 These are deployed uses of earlier capabilities, not first-adoption opportunities.
 
-The [canonical explanation reader](../../../../../crates/pse-operations/src/canonical_explanations.rs)
+The [canonical explanation reader](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_explanations.rs)
 uses explicitly indexed relation-table queries for study dependencies, run sources,
 analysis inputs and analysis edges. It binds identities and cursors, orders by a stable
 key, requests an extra row and retains source/evidence fields. A native graph label does
 not imply that this reader currently traverses cached adjacency.
 
-The [private knowledge reader](../../../../../xtask/src/development/knowledge.rs) does
+The [private knowledge reader](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/xtask/src/development/knowledge.rs) does
 traverse `$root->(knowledge_subject_edges WHERE ...)` within a selected imported generation.
 Its production lookup also follows typed reference fields. These two readers provide
 different useful comparison workloads. Blueprint §20 owns authority and retention;

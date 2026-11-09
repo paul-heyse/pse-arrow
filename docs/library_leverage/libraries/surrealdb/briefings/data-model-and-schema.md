@@ -7,14 +7,14 @@ database probe or product qualification was performed. See [coverage](../coverag
 
 ## Current responsibility and representation
 
-The [Surreal lowering](../../../../../crates/pse-codegen/src/codegen/surreal.rs)
+The [Surreal lowering](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-codegen/src/codegen/surreal.rs)
 derives schemafull tables, relation endpoints, field assertions, codecs and indexes from
 registry declarations. It emits repeated literal unions for enums. `UInt64` lowers to
 Decimal with an integral range assertion; a finite `Float64` lowers to an object with
 authoritative eight-byte bits and a queryable floating projection. Nullable fields use
 `option<...>`. Endpoint links are checked against declared scalar keys.
 
-The [canonical codec](../../../../../crates/pse-operations/src/canonical_codec.rs)
+The [canonical codec](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_codec.rs)
 checks actual native value kinds and preserves the distinction between string keys,
 record IDs, semantic bytes, diagnostic bits and scientific finite values. These are
 existing deliberate representations. A v4 scalar type is useful only if the complete

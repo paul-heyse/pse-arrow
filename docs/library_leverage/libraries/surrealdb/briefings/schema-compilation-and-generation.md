@@ -7,13 +7,13 @@ interfaces are **Interface-checked**; all suggested changes and benefits are
 
 ## Current responsibility
 
-[The native generator](../../../../../crates/pse-codegen/src/codegen/surreal.rs)
+[The native generator](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-codegen/src/codegen/surreal.rs)
 derives schema declarations and exact native codecs from authoritative declarations.
 Its compatibility digest includes generated DDL, codec description and refusal
 classification. This already supplies a substantial shared contract; counting
 generated lines does not demonstrate duplication.
 
-[The prepared SurrealKit owner](../../../../../crates/pse-host/src/surrealkit.rs)
+[The prepared SurrealKit owner](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-host/src/surrealkit.rs)
 selects rc.1 and builds with `--no-default-features --features cli`, using the
 locked SDK4 gRPC integration. It does not select the embedded engine needed by
 offline compilation. Installed-definition observation and generated-contract

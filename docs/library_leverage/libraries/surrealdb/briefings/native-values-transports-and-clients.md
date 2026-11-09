@@ -8,15 +8,15 @@ Breaking representation and client changes are eligible where they improve exist
 ## Current responsibilities
 
 The production boundary already uses generated gRPC protocol 0.14.1 and native types 4.0.0,
-not an SDK query wrapper. [Client](../../../../../crates/pse-operations/src/canonical_client.rs)
+not an SDK query wrapper. [Client](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_client.rs)
 owns connection/session setup, dispatch and disconnect. Its
-[borrowed wire preflight](../../../../../crates/pse-operations/src/canonical_client/wire.rs)
+[borrowed wire preflight](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_client/wire.rs)
 admits aggregate bytes, nodes, depth and container/string/blob occurrences before Prost
-allocation. [Result assembly](../../../../../crates/pse-operations/src/canonical_client/results.rs)
+allocation. [Result assembly](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_client/results.rs)
 holds ordered statement results until `QueryEnd` and trailers settle; extraction also retains
 cardinality and substantive-error rules.
 
-[Canonical codecs](../../../../../crates/pse-operations/src/canonical_codec.rs) encode unsigned
+[Canonical codecs](https://github.com/paul-heyse/pse-arrow/blob/053ac1c93c84056456f60557dca73256ccb5b283/crates/pse-operations/src/canonical_codec.rs) encode unsigned
 values through exact Decimal, preserve diagnostic IEEE bits and signed-zero-bearing scientific
 values separately from query projections, and distinguish IDs, strings and record links.
 The local `protocol_v4_sized_numbers_preserve_supported_widths` test exists in source; it was

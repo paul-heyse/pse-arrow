@@ -6,6 +6,12 @@ the inspected SurrealDB integration owners were unchanged at entry. Source obser
 representative reads, not a repository-wide semantic reference census. Follow the
 [integrated briefing](briefing.md) for priorities and the thematic briefs for exact sources.
 
+During publication another session committed the concurrent implementation and some
+in-progress discovery documents in `408cba4df`. That commit does not change the inspected
+source conditions or imply completion of this discovery. The final integrated document set
+is the deliverable; source permalinks retain the original baseline where those files were
+unchanged, and current plan links retain their owning status.
+
 ## Selected realizations
 
 | Realization | Baseline and distinction |
