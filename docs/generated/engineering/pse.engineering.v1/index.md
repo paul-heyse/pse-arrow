@@ -2612,7 +2612,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `physical` | 2 | `Repeated(Named("EngineeringPackage"))` | `Input` | `[Length { min: 1, max: 16 }]` | `{}` |
-| `modeling` | 3 | `Repeated(Named("EngineeringPackage"))` | `Input` | `[Length { min: 1, max: 16 }]` | `{}` |
+| `modeling` | 3 | `Repeated(Named("EngineeringPackage"))` | `Input` | `[Length { min: 1, max: 32 }]` | `{}` |
 | `provider_registrations` | 4 | `Repeated(Scalar(String))` | `Input` | `[Length { min: 0, max: 16 }]` | `{}` |
 
 ## `EngineeringCohortRelease`

@@ -38814,7 +38814,7 @@ impl ::protovalidate_buffa::Validate for EngineeringAdmitSource {
                     for_key: false,
                 });
         }
-        if self.modeling.len() > 16usize {
+        if self.modeling.len() > 32usize {
             violations
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
@@ -38853,7 +38853,7 @@ impl ::protovalidate_buffa::Validate for EngineeringAdmitSource {
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
                             "list must contain at most {} items (got {})",
-                            16usize,
+                            32usize,
                             self.modeling.len(),
                         ),
                     ),
@@ -39220,7 +39220,7 @@ impl ::protovalidate_buffa::Validate for __buffa::view::EngineeringAdmitSourceVi
                     for_key: false,
                 });
         }
-        if self.modeling.len() > 16usize {
+        if self.modeling.len() > 32usize {
             violations
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
@@ -39259,7 +39259,7 @@ impl ::protovalidate_buffa::Validate for __buffa::view::EngineeringAdmitSourceVi
                     message: ::std::borrow::Cow::Owned(
                         ::std::format!(
                             "list must contain at most {} items (got {})",
-                            16usize,
+                            32usize,
                             self.modeling.len(),
                         ),
                     ),

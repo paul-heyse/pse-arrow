@@ -194,7 +194,8 @@ child root:Overheated=Overheated;
 case ordinary_exchanger fixture {dof 0;route steady;procedure solve;
 fix root.exchanger.hot.inlet.flow=5{mol/s};fix root.exchanger.hot.inlet.T=365{K};fix root.exchanger.hot.inlet.pressure=101325{Pa};fix root.exchanger.hot.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.hot.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.hot.delta_pressure=0{Pa};
 fix root.exchanger.cold.inlet.flow=1{mol/s};fix root.exchanger.cold.inlet.T=300{K};fix root.exchanger.cold.inlet.pressure=101325{Pa};fix root.exchanger.cold.inlet.z[chem.benzene]=0.5{1};fix root.exchanger.cold.inlet.z[chem.toluene]=0.5{1};fix root.exchanger.cold.delta_pressure=0{Pa};fix root.exchanger.cold.outlet.T=331.6111111111111{K};fix root.exchanger.coefficient=100{W/(m^2*K)};
-policy {backend ipopt;limits body_occurrences(1000000);} } {
+// The coupled exchanger and costing case uses the finite specialization allowance exercised by ordinary conformance.
+policy {backend ipopt;limits items(1000000) body_occurrences(1000000);} } {
 permission unknown_cp families(ordinary_bt.feos_poling_cp) allow_unknown true allow_extrapolation false;
 permission selected_unknown_fit families(cubic.critical_point,properties.predictive_rule) allow_unknown true allow_extrapolation false;
 permission area_use families(costing.base_amount,costing.material_amount) allow_unknown true allow_extrapolation false;

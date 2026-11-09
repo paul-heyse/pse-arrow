@@ -83,8 +83,9 @@ projection_struct! {
         pub operation: String => { tag: 1, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
         /// Complete explicit physical package closure.
         pub physical: Vec<EngineeringPackage> => { tag: 2, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 16 }] };
-        /// Complete explicit modeling package closure.
-        pub modeling: Vec<EngineeringPackage> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 16 }] };
+        /// Complete explicit modeling package closure, including transitive packages
+        /// for authored flowsheets. Ingress separately bounds the aggregate bytes.
+        pub modeling: Vec<EngineeringPackage> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 32 }] };
         /// Exact package-local names selected from the service's authorized registrations.
         pub provider_registrations: Vec<String> => { tag: 4, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 16 }] };
     }

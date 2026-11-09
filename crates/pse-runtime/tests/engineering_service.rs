@@ -19,6 +19,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+#[path = "engineering_service/ordinary_exchanger.rs"]
+mod ordinary_exchanger;
 #[cfg(all(feature = "solver-diffsol", feature = "solver-ipopt"))]
 #[path = "engineering_service/routes.rs"]
 mod routes;
@@ -567,6 +569,17 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         attempt: submit.attempt.clone(),
         ..Default::default()
     };
+    // Missing required identity and a present but empty backend are distinct wire
+    // refusals. Neither may issue the exact key later used by the valid submission.
+    let mut missing = submit.clone();
+    missing.case.clear();
+    let mut present_default = submit.clone();
+    present_default.backend = pb::NativeBackend::default().into();
+    for malformed in [missing, present_default] {
+        let refused = client.generated().submit_run(malformed).await.unwrap_err();
+        assert_eq!(refused.code, connectrpc::ErrorCode::InvalidArgument);
+        let _typed = failure(refused);
+    }
     // The application deliberately loses the submit acknowledgement. A separate
     // connection observes the original issued coordinates before that waiter is joined/dropped.
     let submit_copy = submit.clone();
