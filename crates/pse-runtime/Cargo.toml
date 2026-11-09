@@ -444,6 +444,7 @@ scope.tests = [
   "workflow::fitting::oracle::lm_inquiry::research_calibrated_fit_reopens_and_publishes_original_cells",
   "workflow::fitting::oracle::tests::persisted_original_fit_failure_withholds_exact_covariance_despite_retained_cells",
   "workflow::modeling::conformance::tests::conformance_parallel_sixteen_staged_initializers_keep_original_science_with_session_headroom",
+  "workflow::modeling::feed_flash_tests::nested_bt_two_phase_provider_selection_survives_canonical_protected_read",
   "workflow::study_tests::canonical_lazy_study_explicit_retained_input_survives_producer_retirement_and_worker_replacement",
   "workflow::study_tests::canonical_same_runtime_concurrent_claims_preserve_distinct_native_publication",
   "workflow::study_tests::canonical_study_cancellation_after_summary_close_fences_success",

@@ -333,6 +333,8 @@ pub struct RunResult {
     pub(super) encodings: super::result_export::EncodingState,
     pub(super) result_validation: Arc<pse_relations::validate::ValidationContext>,
     pub(super) projection_owner: Option<super::result_export::ProjectionOwner>,
+    /// Original issued attempt used to project rows before its publication receipt exists.
+    pub(super) issued_attempt: Option<AttemptId>,
     /// What the run recorded durably; ephemeral runs record nothing.
     pub(crate) durability: RunDurability,
     /// What a rolling horizon did at each sample (Plan 22 Y5c); `None` for any other run.
@@ -379,6 +381,7 @@ impl RunResult {
             assessments: vec![],
             completion: Err(Arc::new(contract("completion has not been captured"))),
             encodings: super::result_export::EncodingState::default(),
+            issued_attempt: None,
             durability: RunDurability::Ephemeral,
             horizon: None,
         }
@@ -444,7 +447,12 @@ impl RunResult {
             .flatten()
     }
     pub(super) fn completed(mut self, attempt: Option<AttemptId>) -> Self {
+        let changed_attempt = self.issued_attempt != attempt;
+        self.issued_attempt = attempt;
         if self.original_completion_captured || self.horizon_unmerged.is_some() {
+            if changed_attempt {
+                self.reset_result_projection();
+            }
             return self;
         }
         if let RunOutcome::Fit { result: Ok(r), .. } = &mut self.outcome

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original-space authored solves use the same retained result and publication boundary.
-use super::{RunDurability, RunRequest, RunResult, WorkflowError, contract, relation};
+use super::{RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
 #[cfg(test)]
 use pse_ids::SemanticId;
@@ -174,12 +174,8 @@ impl RunResult {
             if projection.wants(provider_selections::RELATION_ID)
                 && let Some(result) = result
             {
-                let attempt = match self.durability() {
-                    RunDurability::Ephemeral => None,
-                    RunDurability::Durable(record) => Some(record.attempt_id),
-                };
                 result
-                    .project_provider_selections(self.run_id, attempt, step, &mut collection)
+                    .project_provider_selections(self.run_id, self.issued_attempt, step, &mut collection)
                     .await?;
             }
             let trace = result

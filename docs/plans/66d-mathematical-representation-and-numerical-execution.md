@@ -251,8 +251,18 @@ native quality check was weakened. The source controls are
 | D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
 | D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. The active recipe checks cancellation before decoding and before symbolic construction. The preallocation gate remains open for normalization, coefficients, partials and process-wide symbol registration. Continue the other demanded evaluator, batch and layout consumers. |
 | D03 | complete | Current direct factor and SVD routes and their selected consumers | Retain factors and SVD for the traced workloads. Reopen for a named large repeated-response workload with an admitted operator and preconditioner candidate. |
-| D04 | in-progress | Changed maintained arithmetic/provider consumers | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. Run the actual BT liquid, two-phase and vapor control with original ordered provider ports and typed component membership. Complete the persisted independent read, other affected providers and solver populations. |
+| D04 | in-progress | Changed maintained arithmetic/provider consumers | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. The actual BT control passed for liquid, two-phase and vapor invocations with original ordered provider ports and typed component membership. The canonical two-phase read passed after producer retirement with the exact original attempt. Other affected providers and solver populations remain open. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
+
+The canonical two-phase BT control reached the original protected read and found
+that persisted visit rows omitted the actual attempt ID. The writer projected before
+receiving its durable receipt. The run now retains the issued attempt at completion
+and uses that same identity for both early publication and later local projection;
+an ephemeral run still has no durable attempt. **Tested, selected:** the corrected
+canonical two-phase control passed in the default-profile, force-validated runtime
+invocation `01a1bf81-177a-7550-9526-7aeffd6cfb4b`. The protected reader retained the
+exact issued attempt and all original visit rows after producer retirement. Its
+regime observation remains distinct from scientific permission.
 
 D03 is a decision obligation, not a mandatory second backend. Likewise expression streaming,
 new tensor machinery or another property/DAE library requires a demonstrated remaining consumer;
