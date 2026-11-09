@@ -839,6 +839,15 @@ impl ModelingPackage {
                 identity.hash(&self.revision.identity().as_id());
                 let mut execution_identity =
                     FramedHasher::new(pse_ids::Frame::ModelingFitExecutionV1);
+                // Each steady experiment resolves its own authored targets. The fit
+                // profile's coordinate records belong to the assembled fit inventory;
+                // only controls and quantity-wide rules can be shared before resolution.
+                let mut experiment_solver = profile.solver.clone();
+                experiment_solver.intent = SolveIntent::FeasiblePoint;
+                experiment_solver.numerics.requirements = Vec::new();
+                experiment_solver.numerics.goals = Vec::new();
+                experiment_solver.numerics.engineering_scales = Vec::new();
+                experiment_solver.numerics.caloric_requirements = Vec::new();
                 for (ei, (e, (bindings, case, model, local))) in
                     d.experiments.iter().zip(sources).enumerate()
                 {
@@ -1072,10 +1081,6 @@ impl ModelingPackage {
                         if profile.simulations.contains_key(&e.experiment_id) {
                             return Err(contract("algebraic experiment has a dynamic profile"));
                         }
-                        // The experiment supplies objective-free feasibility callbacks. The
-                        // outer fit owns the least-squares objective and its optimization intent.
-                        let mut experiment_solver = profile.solver.clone();
-                        experiment_solver.intent = SolveIntent::FeasiblePoint;
                         let resolved = self
                             .resolve_case(
                                 services,
@@ -1086,7 +1091,7 @@ impl ModelingPackage {
                                 case,
                                 order,
                                 compiler,
-                                experiment_solver,
+                                experiment_solver.clone(),
                                 Default::default(),
                                 Default::default(),
                                 false,

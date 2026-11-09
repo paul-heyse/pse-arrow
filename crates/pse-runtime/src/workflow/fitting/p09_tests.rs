@@ -1478,6 +1478,60 @@ async fn authored_integration_controls_bind_to_the_experiment_instance() {
     assert!(result.usable(), "{report:?}");
 }
 
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn mixed_fit_resolves_fit_owned_scale_without_exposing_it_to_experiments() {
+    use pse_model::generated::enums::{EngineeringScaleKind, NumericalSource};
+    use pse_model::numerics::EngineeringScale;
+
+    let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);
+    let services = runtime.execution_services();
+    let (package, mut profile) = source(&runtime, true, 73.).await;
+    let fit = FitId::from(id(73));
+    let registry = pse_quantity::standard::standard_registry().unwrap();
+    let pse_quantity::PhysicalName::QuantityType(quantity) = registry.physical_name("Scalar").unwrap() else {
+        panic!("fixture requires the authored Scalar quantity");
+    };
+    let unit = registry.quantity_type(quantity).unwrap().canonical_unit;
+    profile.solver.numerics.engineering_scales.push(EngineeringScale {
+        scale_id: id(90).into(),
+        model_id: None,
+        case_id: None,
+        instance_id: None,
+        fit_id: Some(fit),
+        target_id: id(3),
+        target_kind: NumericalTarget::Variable,
+        quantity_id: quantity.as_id(),
+        unit_id: unit.as_id(),
+        kind: EngineeringScaleKind::Magnitude,
+        value: 12.0,
+        source: NumericalSource::Analysis,
+        priority: 100,
+        provenance: "joint fit parameter characteristic".into(),
+    });
+    let cancel = crate::CancelSource::new();
+    let prepare = |profile| {
+        package.prepare_fit_problem(
+            services.preparation(), fit, profile, compiler_profile(), Default::default(),
+            &cancel,
+        )
+    };
+    let (problem, assessments) = prepare(profile.clone()).await.unwrap();
+    let target = crate::workflow::tests::engineering_target(&problem.numerics, NumericalTarget::Variable, id(3));
+    assert_eq!(target.unit, unit.as_id());
+    assert_eq!(target.engineering.as_ref().unwrap().characteristic, Some(12.0));
+    let modeling::Assessment::Steady { numerics, .. } = &assessments[1] else {
+        panic!("original steady experiment required");
+    };
+    assert!(numerics.policy.engineering_scales.iter().all(|scale| scale.scale_id.as_id() != id(90)));
+
+    profile.solver.numerics.engineering_scales[0].target_id = id(91);
+    let Err(error) = prepare(profile).await else {
+        panic!("a foreign fit coordinate must refuse at joint numerical admission");
+    };
+    assert!(error.to_string().contains(&id(91).to_string()), "{error}");
+}
+
 #[tokio::test]
 async fn contextual_closure_fit_factory_controls_preserve_explicit_experiment_profiles() {
     let runtime = crate::workflow::tests::runtime_with_workspace(32 << 20);

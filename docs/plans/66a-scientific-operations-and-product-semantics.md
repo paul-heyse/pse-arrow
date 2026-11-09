@@ -200,6 +200,18 @@ combined runtime rerun described in the [Plan 66 checkpoint](66-integrated-simul
 | A04 | in-progress | A01/A03; J mixed experiments | The mixed steady/transient control checks that the current portable inputs reconstruct the exact authored later interval and forward axes. An absent selection still uses the initial interval. Run the native and replay controls, including refusal of a caller-only schedule. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
 
+The joint fit numerical policy now keeps its coordinate-scoped requirements, goals,
+engineering scales and caloric requirements at the assembled fit. Nested steady
+experiments keep their original authored target inventory and shared general controls;
+integrated experiments keep their explicit simulation profiles. The targeted mixed
+control challenges both a valid joint-only scale and a foreign joint target. The
+assembled Study receiving gate remains with [F05](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients).
+**Tested, selected:** default-profile force-validated `scripts/pse test pse-runtime
+pse-backend-native --lib` invocation `01a1bf59-4a25-70ea-83c2-825d4ea8fd90`
+passed the three selected mixed-fit, original experiment policy and exact interval
+controls, zero failures for those controls. The same invocation had unrelated fixture
+failures recorded in the coordinator; it did not exercise the live Study route.
+
 Packages consume narrow working prerequisites rather than entire companions. In particular,
 ordinary steady analysis does not wait for distributed or specialized physics.
 
