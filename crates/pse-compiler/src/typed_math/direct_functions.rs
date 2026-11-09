@@ -50,6 +50,9 @@ impl<'a> Lower<'a> {
         if arguments.len() != product.formals.len() {
             return Err(contract("selected function scalar argument arity differs"));
         }
+        self.charge(product.syntax.nodes.len()
+            .saturating_add(product.syntax.predicates.len())
+            .saturating_add(arguments.len()))?;
         let layout = product.syntax.canonical_layout().map_err(contract)?;
         let mut path = self.path.clone();
         path.push(
@@ -96,6 +99,7 @@ impl<'a> Lower<'a> {
                 .collect(),
             depth: self.depth,
             limit: self.limit,
+            remaining: self.remaining,
             witness: self.witness.clone(),
         })
     }
@@ -226,14 +230,14 @@ impl<'a> Lower<'a> {
                 variables: reads.variables.clone(),
                 members: vec![],
             });
-            let mut guard = local.fork();
+            let mut guard = local.fork()?;
             let assumption =
                 builder.domain(lineage, |builder| guard.indicator(predicate, builder))?;
             local.occurrences.extend(guard.occurrences);
             assumptions.push(assumption);
         }
         for usage in &product.applicability {
-            let mut capture = local.fork();
+            let mut capture = local.fork()?;
             let assumption = builder.applicability(Arc::new(usage.node.clone()), |builder| {
                 let predicates = usage
                     .predicates
@@ -389,7 +393,7 @@ impl<'a> Lower<'a> {
         let receipt = pse_math::typed::receipts::proof(hash.finish_hash(), || {
             let mut shadow = builder.scientific_pass()?;
             let witness = Rc::new(RefCell::new(pse_math::typed::ScientificWitness::default()));
-            let mut lower = self.fork();
+            let mut lower = self.fork()?;
             lower.witness = Some(WitnessPass::Potential {
                 root: product.identity,
                 selected: *potential,
@@ -439,7 +443,7 @@ impl<'a> Lower<'a> {
         if matches!(self.witness, Some(WitnessPass::Potential { .. })) {
             let mut shadow = builder.scientific_pass()?;
             let witness = Rc::new(RefCell::new(pse_math::typed::ScientificWitness::default()));
-            let mut lower = self.fork();
+            let mut lower = self.fork()?;
             lower.witness = Some(WitnessPass::Reconstruction {
                 root: product.identity,
                 witness: witness.clone(),

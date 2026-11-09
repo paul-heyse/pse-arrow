@@ -21,7 +21,7 @@ use pse_quantity::{
     standard::{StandardInvariantChecker, ids, standard_registry},
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     sync::{Arc, atomic::AtomicBool},
 };
 use symbolica::atom::{Atom, AtomCore};
@@ -56,18 +56,16 @@ fn builder(registry: &QuantityRegistry, inputs: usize) -> BodyBuilder<'_> {
     .unwrap()
 }
 fn number(value: Atom) -> TypedValue {
-    TypedValue {
-        effects: BTreeSet::new(),
-        atom: value,
-        quantity: pse_quantity::ResolvedPhysicalContract::named(
+    TypedValue::symbolic_fixture(
+        value,
+        pse_quantity::ResolvedPhysicalContract::named(
             neutral(),
             IndexSet::new(),
             &standard_registry().unwrap(),
         )
         .unwrap(),
-        indices: IndexSet::new(),
-        source: id(200),
-    }
+        id(200),
+    )
 }
 fn inputs(b: &mut BodyBuilder<'_>, n: usize) -> Vec<TypedValue> {
     (0..n)
@@ -1089,6 +1087,69 @@ fn select(
     let otherwise = otherwise.clone();
     b.conditional(guard, |b| then(b), move |_| Ok(otherwise), id(221))
 }
+
+#[test]
+fn equal_arithmetic_arms_keep_the_reached_nonzero_guard_at_the_closed_endpoint() {
+    let registry = standard_registry().unwrap();
+    let mut b = builder(&registry, 1);
+    let x = inputs(&mut b, 1).remove(0);
+    let zero = number(Atom::num(0));
+    let one = number(Atom::num(1));
+    let result = select(
+        &mut b,
+        Comparison::Le,
+        &zero,
+        &x,
+        &|branch| Ok(op(branch, Binary::Div, &x, &x)),
+        &one,
+    )
+    .unwrap();
+    let body = b.prepare(&[result]).unwrap();
+    let control = pse_diagnostics::Cancellation::new(false);
+    let cancel = control.flag();
+    let mut original = body
+        .compile(
+            &[0],
+            &[],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(control, None),
+        )
+        .unwrap()
+        .worker();
+    let mut providers = pse_kernels::ProviderBindings::new();
+    for point in [-1.0, 1e-12] {
+        assert_eq!(
+            original.evaluate(&[point], DerivativeOrder::Value, &mut providers, &cancel)
+                .unwrap().values,
+            [1.0]
+        );
+    }
+    assert!(matches!(
+        original.evaluate(&[0.0], DerivativeOrder::Value, &mut providers, &cancel),
+        Err(MathError::Domain { source_id, .. }) if source_id == id(201)
+    ));
+    let assembly = case(&registry, body, &[(-1.0, 1.0)], &[0]);
+    let projected = project(&assembly, &FactorableRequest::default());
+    // The real-valued branch still contains a division by the guarded alias.
+    // Do not turn this unsupported projection into an admitted closed graph.
+    assert_eq!(projected.fidelity(), Fidelity::Unavailable);
+    assert!(projected.obligations.iter().any(|guard| {
+        guard.scope == ObligationScope::Conditional
+            && guard.kind == ObligationKind::Require(crate::guarded::Condition::Nonzero)
+    }));
+    assert!(matches!(
+        assembly.factorable_program(
+            &CaseValues::default(),
+            &FactorableRequest { require_exact: true, ..Default::default() },
+            100_000,
+            &cancel,
+        ),
+        Err(FactorableError::ExactRequired { fidelity: Fidelity::Unavailable })
+    ));
+}
+
 fn disjunctive_predicate(b: &mut BodyBuilder<'_>, x: &TypedValue) -> Result<TypedValue, MathError> {
     let zero = number(Atom::num(0));
     let one = number(Atom::num(1));

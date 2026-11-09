@@ -1130,7 +1130,7 @@ pub struct PreparedBodyData {
     formal_slots: Vec<usize>,
     symbols: HashMap<Symbol, usize>,
     pub(crate) outputs: Vec<usize>,
-    output_effects: Option<Vec<BTreeSet<usize>>>,
+    pub(crate) output_effects: Option<Vec<BTreeSet<usize>>>,
     pub(crate) stages: Vec<Stage>,
     /// Unspent authored construction allowance, continued by each demand.
     remaining_occurrences: usize,

@@ -78,6 +78,56 @@ impl Request<'_> {
         cancelled: &Arc<AtomicBool>,
     ) -> Result<AdmittedBody, MathError> {
         let _phase = pse_diagnostics::observation::phase("compiler.typed_body_lowering");
+        self.validate_layout(cancelled)?;
+        let mut builder = BodyBuilder::new(
+            pse_math::context()?,
+            registry,
+            checker,
+            self.inputs.len(),
+            self.limits,
+        )?;
+        let (values, occurrences) = self.lower_values(&mut builder, cancelled.as_ref(), None)?;
+        let quantities = values.iter().map(TypedValue::quantity).collect::<Result<Vec<_>, _>>()?;
+        let definition = self.definition_identity(&builder)?;
+        let admissions = builder.admission_identity();
+        let ranges = self.support.checked_ranges(self.syntax).map_err(contract)?;
+        let members = ranges.iter().map(|range| range.member).collect();
+        let sources = ranges.iter().map(|range| range.source).collect();
+        let math = Arc::new(
+            builder
+                .prepare(&values)?
+                .with_checked_members(members)?
+                .with_checked_sources(sources)?
+                .with_occurrence_tokens(
+                    self.syntax.occurrence_tokens(self.limits.occurrences).map_err(contract)?,
+                )?,
+        );
+        let spec = BodySpec {
+            definition,
+            structure: self.structure,
+            physical: self.physical,
+            admissions,
+            providers: math
+                .providers()
+                .iter()
+                .map(pse_kernels::ProviderSpec::identity)
+                .collect(),
+            policy: pse_math::binding::guarded_real_policy(),
+        };
+        Ok(AdmittedBody {
+            semantic_identity: None,
+            portable: None,
+            spec,
+            quantities,
+            occurrences,
+            math,
+        })
+    }
+
+    fn validate_layout(&self, cancelled: &AtomicBool) -> Result<(), MathError> {
+        if cancelled.load(Ordering::Relaxed) {
+            return Err(MathError::Cancelled);
+        }
         if self.syntax.outputs.is_empty() {
             return Err(MathError::Contract("empty resolved output group".into()));
         }
@@ -102,21 +152,55 @@ impl Request<'_> {
                 "resolved formal layout differs from its exact prepared input contracts",
             ));
         }
-        let mut builder = BodyBuilder::new(
-            pse_math::context()?,
-            registry,
-            checker,
-            self.inputs.len(),
-            self.limits,
-        )?;
-        let mut lower = Lower::root(self, cancelled.as_ref())?;
+        Ok(())
+    }
+
+    #[cfg(test)]
+    pub(super) fn verify_construction_plan(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &AtomicBool,
+        producer: &AdmittedBody,
+    ) -> Result<(), MathError> {
+        self.validate_layout(cancelled)?;
+        let mut builder = BodyBuilder::planning(registry, checker, self.inputs.len(), self.limits)?;
+        let remaining = std::cell::Cell::new(self.limits.occurrences);
+        let (values, occurrences) = self.lower_values(&mut builder, cancelled, Some(&remaining))?;
+        let ranges = self.support.checked_ranges(self.syntax).map_err(contract)?;
+        if self.definition_identity(&builder)? != producer.spec.definition
+            || builder.admission_identity() != producer.spec.admissions
+            || self.structure != producer.spec.structure
+            || self.physical != producer.spec.physical
+            || !producer.spec.providers.is_empty()
+            || producer.spec.policy != pse_math::binding::guarded_real_policy()
+            || occurrences != producer.occurrences
+            || &self.syntax.occurrence_tokens(self.limits.occurrences).map_err(contract)?
+                != producer.math.occurrence_tokens()
+            || &ranges.iter().map(|range| range.member).collect::<BTreeSet<_>>()
+                != producer.math.checked_members()
+            || &ranges.iter().map(|range| range.source).collect::<BTreeSet<_>>()
+                != producer.math.checked_sources()
+        {
+            return Err(contract("planned source differs from original typed body correspondence"));
+        }
+        builder.finish_plan(&values)?.verify_producer(&producer.math)
+    }
+
+    fn lower_values(
+        &self,
+        builder: &mut BodyBuilder<'_>,
+        cancelled: &AtomicBool,
+        remaining: Option<&std::cell::Cell<usize>>,
+    ) -> Result<(Vec<TypedValue>, Vec<Occurrence>), MathError> {
+        let mut lower = Lower::root(self, cancelled, remaining)?;
         // Explicit generic root assertions have a source occurrence, without inventing
         // a scientific form/data/closure lineage. Function/range owners issue those.
         let mut prerequisites = Vec::with_capacity(self.syntax.validity.len());
         for guard in &self.syntax.validity {
             let source = lower.source(true, guard.position())?;
-            let mut local = lower.fork();
-            let mut predicate = local.indicator(*guard, &mut builder)?;
+            let mut local = lower.fork()?;
+            let mut predicate = local.indicator(*guard, builder)?;
             builder.require(
                 &mut predicate,
                 pse_math::guarded::Condition::Positive,
@@ -128,7 +212,7 @@ impl Request<'_> {
         }
         let mut values = Vec::with_capacity(self.syntax.outputs.len());
         for (ordinal, root) in self.syntax.outputs.iter().enumerate() {
-            let value = lower.node(*root, &mut builder)?;
+            let value = lower.node(*root, builder)?;
             let mut value = builder.contract_boundary_admitted(
                 value,
                 self.support.output(ordinal).map_err(contract)?,
@@ -138,10 +222,10 @@ impl Request<'_> {
             }
             values.push(value);
         }
-        let quantities = values
-            .iter()
-            .map(TypedValue::quantity)
-            .collect::<Result<Vec<_>, _>>()?;
+        Ok((values, lower.occurrences))
+    }
+
+    fn definition_identity(&self, builder: &BodyBuilder<'_>) -> Result<ContentHash, MathError> {
         let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV10);
         hash.str("direct-resolved-construction")
             .hash(&self.support.syntax());
@@ -151,41 +235,7 @@ impl Request<'_> {
             .frame_input_layout(self.inputs, &mut hash)
             .map_err(contract)?;
         builder.frame_admissions(&mut hash);
-        let admissions = builder.admission_identity();
-        let ranges = self.support.checked_ranges(self.syntax).map_err(contract)?;
-        let members = ranges.iter().map(|range| range.member).collect();
-        let sources = ranges.iter().map(|range| range.source).collect();
-        let math = Arc::new(
-            builder
-                .prepare(&values)?
-                .with_checked_members(members)?
-                .with_checked_sources(sources)?
-                .with_occurrence_tokens(
-                    self.syntax
-                        .occurrence_tokens(self.limits.occurrences)
-                        .map_err(contract)?,
-                )?,
-        );
-        let spec = BodySpec {
-            definition: hash.finish_hash(),
-            structure: self.structure,
-            physical: self.physical,
-            admissions,
-            providers: math
-                .providers()
-                .iter()
-                .map(pse_kernels::ProviderSpec::identity)
-                .collect(),
-            policy: pse_math::binding::guarded_real_policy(),
-        };
-        Ok(AdmittedBody {
-            semantic_identity: None,
-            portable: None,
-            spec,
-            quantities,
-            occurrences: lower.occurrences,
-            math,
-        })
+        Ok(hash.finish_hash())
     }
 }
 /// Caches are local to an actual lazy region; branch forks cannot publish branch-local slots outward.
@@ -207,10 +257,15 @@ pub(super) struct Lower<'a> {
     pub(super) ranges: BTreeMap<SymbolIx, pse_modeling::resolved::CheckedRange>,
     pub(super) depth: usize,
     pub(super) limit: usize,
+    remaining: Option<&'a std::cell::Cell<usize>>,
     witness: Option<WitnessPass>,
 }
 impl<'a> Lower<'a> {
-    fn root(request: &'a Request<'a>, cancelled: &'a AtomicBool) -> Result<Self, MathError> {
+    fn root(
+        request: &'a Request<'a>,
+        cancelled: &'a AtomicBool,
+        remaining: Option<&'a std::cell::Cell<usize>>,
+    ) -> Result<Self, MathError> {
         let layout = request.syntax.canonical_layout().map_err(contract)?;
         Ok(Self {
             syntax: request.syntax,
@@ -250,13 +305,29 @@ impl<'a> Lower<'a> {
                 .collect(),
             depth: 0,
             limit: request.limits.occurrences,
+            remaining,
             witness: None,
         })
     }
-    pub(super) fn fork(&self) -> Self {
+    fn charge(&self, amount: usize) -> Result<(), MathError> {
+        if let Some(remaining) = self.remaining {
+            if self.cancelled.load(Ordering::Relaxed) {
+                return Err(MathError::Cancelled);
+            }
+            remaining.set(remaining.get().checked_sub(amount)
+                .ok_or(MathError::Limit("source plan traversal work"))?);
+        }
+        Ok(())
+    }
+    pub(super) fn fork(&self) -> Result<Self, MathError> {
+        self.charge([
+            self.inputs.len(), self.arguments.len(), self.nodes.len(), self.lexical.len(),
+            self.active.len(), self.path.len(), self.node_ordinals.len(), self.predicate_ordinals.len(),
+            self.occurrences.len(), self.ranges.len(),
+        ].into_iter().fold(1usize, usize::saturating_add))?;
         let mut fork = self.clone();
         fork.occurrences.clear();
-        fork
+        Ok(fork)
     }
     pub(super) fn source(
         &mut self,
@@ -266,6 +337,7 @@ impl<'a> Lower<'a> {
         if self.cancelled.load(Ordering::Relaxed) {
             return Err(MathError::Cancelled);
         }
+        self.charge(1)?;
         if self.occurrences.len() >= self.limit || self.depth >= 128 {
             return Err(MathError::Limit(
                 "resolved construction occurrences or depth",
@@ -292,6 +364,7 @@ impl<'a> Lower<'a> {
         builder: &mut BodyBuilder<'_>,
     ) -> Result<TypedValue, MathError> {
         if let Some(value) = self.nodes.get(&root) {
+            self.charge(1)?;
             return Ok(value.clone());
         }
         if !self.active.insert(root) {
@@ -454,8 +527,8 @@ impl<'a> Lower<'a> {
                 otherwise,
             } => {
                 let guard = self.guard(guard, builder)?;
-                let mut yes = self.fork();
-                let mut no = self.fork();
+                let mut yes = self.fork()?;
+                let mut no = self.fork()?;
                 let value = builder.conditional_admitted(
                     guard,
                     |builder| yes.node(then, builder),
@@ -490,7 +563,7 @@ impl<'a> Lower<'a> {
                     .get(evidence)
                     .ok_or_else(|| contract("scientific evidence is outside its exact owner"))?
                     .clone();
-                let mut local = self.fork();
+                let mut local = self.fork()?;
                 let assumption = builder.applicability(Arc::new(usage.node), |builder| {
                     let predicates = usage
                         .predicates
@@ -571,6 +644,18 @@ impl<'a> Lower<'a> {
         root: PredicateIx,
         builder: &mut BodyBuilder<'_>,
     ) -> Result<Guard, MathError> {
+        let depth = usize::from(self.remaining.is_some());
+        self.depth += depth;
+        let result = self.guard_inner(root, builder);
+        self.depth -= depth;
+        result
+    }
+
+    fn guard_inner(
+        &mut self,
+        root: PredicateIx,
+        builder: &mut BodyBuilder<'_>,
+    ) -> Result<Guard, MathError> {
         let source = self.source(true, root.position())?;
         match self
             .syntax
@@ -605,6 +690,18 @@ impl<'a> Lower<'a> {
         root: PredicateIx,
         builder: &mut BodyBuilder<'_>,
     ) -> Result<TypedValue, MathError> {
+        let depth = usize::from(self.remaining.is_some());
+        self.depth += depth;
+        let result = self.indicator_inner(root, builder);
+        self.depth -= depth;
+        result
+    }
+
+    fn indicator_inner(
+        &mut self,
+        root: PredicateIx,
+        builder: &mut BodyBuilder<'_>,
+    ) -> Result<TypedValue, MathError> {
         let source = self.source(true, root.position())?;
         let admission = self
             .support
@@ -623,8 +720,8 @@ impl<'a> Lower<'a> {
             ResolvedPredicate::Bool(value) => self.boolean(value, builder, source),
             ResolvedPredicate::Compare { .. } => {
                 let guard = self.guard(root, builder)?;
-                let yes = self.fork();
-                let no = self.fork();
+                let yes = self.fork()?;
+                let no = self.fork()?;
                 builder.conditional_admitted(
                     guard,
                     |builder| yes.boolean(true, builder, source),
@@ -635,8 +732,8 @@ impl<'a> Lower<'a> {
             }
             ResolvedPredicate::And(lhs, rhs) | ResolvedPredicate::Or(lhs, rhs) => {
                 let guard = self.guard(lhs, builder)?;
-                let mut yes = self.fork();
-                let mut no = self.fork();
+                let mut yes = self.fork()?;
+                let mut no = self.fork()?;
                 let value = builder.conditional_admitted(
                     guard,
                     |builder| {
@@ -662,8 +759,8 @@ impl<'a> Lower<'a> {
             }
             ResolvedPredicate::Not(inner) => {
                 let guard = self.guard(inner, builder)?;
-                let yes = self.fork();
-                let no = self.fork();
+                let yes = self.fork()?;
+                let no = self.fork()?;
                 builder.conditional_admitted(
                     guard,
                     |builder| yes.boolean(false, builder, source),

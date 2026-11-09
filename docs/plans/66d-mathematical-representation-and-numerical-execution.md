@@ -172,10 +172,16 @@ and ordered physical and piecewise proof requests together in `Request::admit_in
 `RecordAuthority` establishes membership, not that correspondence; the compiler's physical-only
 pass suppresses proof requests. Bounded typed replay is also unqualified: arithmetic normalizes
 before the occurrence tick, shared partials differentiate before their count check, and resolving
-a new slot can allocate/register an entire formal chunk. Keep JSON v3 current. The next sealed
-route step is to extract a bounded semantic lowering and proof-request plan from the existing
-typed traversal and verify it against actual canonical producers and consumers. The experiment
-does not introduce a new receiver or a supplier feature.
+a new slot can allocate/register an entire formal chunk. Keep JSON v3 current.
+
+The [selected compiler control](../../crates/pse-compiler/src/typed_math_portable.rs) now
+drives the same typed traversal in an atom-free mode. It matches the original guarded producer's
+ordered stages, slots, effects and physical/math receipt requests, including an exact integral
+power. Missing, extra, changed or reordered receipts and cancellation refuse. Shapes whose
+schedule depends on normalization, provider equality or authored partials remain unavailable
+in this profile. This proves correspondence for the selected producer only: expression/dependency
+custody, bounded source framing, and the large cold canonical symbolic consumer remain open.
+There is no new production receiver or supplier feature.
 
 ### D03 response selection for current consumers
 
@@ -482,9 +488,17 @@ pass cannot establish as safe refuses. The original point checks still own eligi
 Replace the exact-margin assertion with a projection/quality control for a valid point below
 the margin and `min x` on `0 < x ≤ 1` (infimum zero, unattained), and exercise refusal at an
 unsafe closure endpoint. Separately investigate whether a branch-local guard is lost when
-equal arithmetic arms fold (`if x ≥ 0 then x/x else 1` still excludes zero); classify a safe
-relaxation separately from an inward restriction. Require the selected native proof-path
-control before handing J04 and L an accepted export. This work does not depend on I01.
+equal arithmetic arms fold (`if x ≥ 0 then x/x else 1` still excludes zero). The authored
+control now verifies the reached guard and original zero refusal. The current projection of
+that guarded division is unavailable and exact-only admission refuses it. This is separate
+from the tested relaxed closure of a representable strict endpoint. Require the selected native
+proof-path control before handing J04 and L an accepted export. This work does not depend on I01.
+
+**Tested, selected.** `scripts/pse test pse-compiler pse-math pse-backend-native --lib`
+with the focused guarded-receipt, strict-export, shared-partial and ethane filters passed nine
+controls in default mode, with force validation in the Arrow closure, zero failures/warnings
+and complete settlement (`01a1c12d-b299-73f5-82d6-b881a7f8a58f`). This is not a native SCIP
+proof-path or binary receiving qualification.
 
 <a id="symbolica-composition-candidates"></a>
 ### D02/D05 — Candidates for complete mathematical operations

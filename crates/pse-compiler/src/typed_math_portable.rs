@@ -123,6 +123,90 @@ mod proof_reconstruction_tests {
     use pse_kernels::DerivativeOrder;
 
     #[test]
+    #[allow(
+        unsafe_code,
+        reason = "the compiler fixture qualifies the original producer and separately exercises corrupt streams"
+    )]
+    fn scientific_recipe_atom_free_plan_matches_original_guarded_producer() {
+        let owner = direct_tests::fixture(
+            crate::authored_transfer_tests::context(),
+            "package direct { fn left(x:Scalar)->Scalar piecewise 2 = if x<0 then 0 else x*x*x; fn right(x:Scalar)->Scalar piecewise 2 = if x<1 then 0 else (x-1)*(x-1)*(x-1); def Root { var x:Scalar; let out:Scalar=if x<3 then left(x)+right(x)+abs(x)+x^2 else x; } }",
+            &["out"],
+        ).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let original = owner.admit(&cancel).unwrap();
+        let payload = original.portable_payload().unwrap();
+        let recipe = Recipe::decode(&payload).unwrap();
+        let registry = &owner.context.quantities;
+        let verify = |recipe: Recipe| {
+            let payload = recipe.encode().unwrap();
+            let digest = portable_payload_hash(&payload);
+            // SAFETY: the fixture owns the immutable record population and the
+            // actual producer; mutated receipts deliberately test correspondence
+            // beyond simple membership in the containing payload.
+            let permit = unsafe {
+                pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_record_fixture(
+                    payload.to_vec(), digest, ContentHash::from_bytes([1; 32]),
+                    ContentHash::from_bytes([2; 32]),
+                )
+            }.unwrap();
+            let limits = BodyLimits { slots: recipe.slots, occurrences: recipe.occurrences };
+            pse_quantity::resolved::receipts::replay(recipe.receipts, permit.records(), || {
+                let syntax = recipe.syntax.restore(limits.occurrences).map_err(reconstruction_model_error)?;
+                let support = recipe.support.restore(&syntax).map_err(reconstruction_model_error)?;
+                let providers = recipe.providers.restore(&syntax, &support)?;
+                let request = Request {
+                    definition: SemanticId::NIL,
+                    syntax: &syntax,
+                    inputs: &recipe.inputs,
+                    support: &support,
+                    providers: &providers,
+                    physical: recipe.physical,
+                    structure: recipe.structure,
+                    limits,
+                };
+                pse_math::typed::receipts::replay(recipe.proofs, permit.records(), || {
+                    request.verify_construction_plan(
+                        registry, &pse_quantity::infer::NoInvariantFacts, &cancel, &original,
+                    )
+                })
+            })
+        };
+        verify(recipe.clone()).unwrap();
+
+        let (version, entries) = recipe.proofs.clone().into_projection_fields();
+        assert_eq!(entries.len(), 2);
+        let (key, _) = entries[0].clone().into_projection_fields();
+        let wrong_order = pse_math::typed::receipts::Proof::from_projection_fields((key, vec![1])).unwrap();
+        for (changed, expected) in [
+            (vec![entries[1].clone(), entries[0].clone()], "mathematical proof request differs"),
+            (vec![entries[0].clone()], "missing mathematical proof receipt"),
+            (vec![entries[0].clone(), entries[1].clone(), entries[1].clone()], "unconsumed mathematical proof receipts"),
+            (vec![wrong_order, entries[1].clone()], "piecewise receipt branches differ"),
+        ] {
+            let mut mutated = recipe.clone();
+            mutated.proofs = pse_math::typed::receipts::ProofStream::from_projection_fields((version, changed)).unwrap();
+            let error = verify(mutated).unwrap_err();
+            assert!(error.to_string().contains(expected), "{error:?}");
+        }
+
+        let (version, operations, boundaries) = recipe.receipts.clone().into_projection_fields();
+        assert_eq!(operations.len(), 2, "abs creates negation and conditional requests");
+        for (changed, expected) in [
+            (vec![operations[1].clone(), operations[0].clone()], "physical request differs"),
+            (vec![operations[0].clone()], "missing concrete physical receipt"),
+            (vec![operations[0].clone(), operations[1].clone(), operations[1].clone()], "unconsumed physical receipts"),
+        ] {
+            let mut mutated = recipe.clone();
+            mutated.receipts = pse_quantity::resolved::receipts::ReceiptStream::from_projection_fields((version, changed, boundaries.clone())).unwrap();
+            let error = verify(mutated).unwrap_err();
+            assert!(error.to_string().contains(expected), "{error:?}");
+        }
+        cancel.store(true, Ordering::Relaxed);
+        assert!(matches!(verify(recipe), Err(MathError::Cancelled)));
+    }
+
+    #[test]
     fn scientific_recipe_native_authored_proofs_owned_replay_preserves_execution() {
         let owner = direct_tests::fixture(
             crate::authored_transfer_tests::context(),

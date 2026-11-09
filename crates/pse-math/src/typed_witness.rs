@@ -21,7 +21,7 @@ impl BodyBuilder<'_> {
     /// Invalid existing construction limits.
     pub fn scientific_pass(&self) -> Result<BodyBuilder<'_>, MathError> {
         let mut pass = BodyBuilder::new(
-            self.context,
+            self.symbolic_context()?,
             self.registry,
             self.checker,
             self.inputs,
@@ -39,7 +39,8 @@ impl BodyBuilder<'_> {
     /// The bounded shadow pass has no remaining formal slot.
     pub fn scientific_argument(&mut self, mut value: TypedValue) -> Result<TypedValue, MathError> {
         self.tick()?;
-        value.atom = library::formal(self.slot()?)?;
+        self.symbolic_context()?;
+        value.atom = Some(library::formal(self.slot()?)?);
         value.effects.clear();
         Ok(value)
     }
@@ -107,6 +108,7 @@ impl BodyBuilder<'_> {
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
         let (partial, admission) = derivative;
+        let context = self.symbolic_context()?;
         self.tick()?;
         if partial.len() > 8 || partial.iter().any(|index| *index >= arguments.len()) {
             return Err(MathError::Contract(
@@ -122,7 +124,7 @@ impl BodyBuilder<'_> {
         } else {
             let slot = self.slot()?;
             witness.functions.insert(key, slot);
-            witness.symbols.push(self.context.pool.function(slot)?);
+            witness.symbols.push(context.pool.function(slot)?);
             slot
         };
         let quantity = match (partial.is_empty(), admission) {
@@ -132,7 +134,8 @@ impl BodyBuilder<'_> {
                 let nominal = TypedValue {
                     quantity: result,
                     indices,
-                    atom: Atom::num(0),
+                    atom: Some(Atom::num(0)),
+                    shape: plan::Shape::Unknown,
                     effects: BTreeSet::new(),
                     source,
                 };
@@ -148,13 +151,14 @@ impl BodyBuilder<'_> {
             }
         };
         Ok(TypedValue {
-            atom: library::function(
+            atom: Some(library::function(
                 slot,
                 &arguments
                     .iter()
-                    .map(|value| value.atom.clone())
-                    .collect::<Vec<_>>(),
-            )?,
+                    .map(|value| value.atom().cloned())
+                    .collect::<Result<Vec<_>, _>>()?,
+            )?),
+            shape: plan::Shape::Unknown,
             indices: quantity.indices().clone(),
             quantity,
             effects: BTreeSet::new(),
@@ -175,7 +179,7 @@ impl BodyBuilder<'_> {
         receipts::require_admission()?;
         let mut bindings = BTreeMap::new();
         witness_bindings(&self.stages, &mut bindings, self.limits.occurrences, 0)?;
-        let atom = witness_resolve(&value.atom, &bindings, self.limits.occurrences)?;
+        let atom = witness_resolve(value.atom()?, &bindings, self.limits.occurrences)?;
         witness_expansion_budget(atom.as_view(), self.limits.occurrences, 0)?;
         let atom = atom.expand().together().expand();
         witness_bound(&atom, self.limits.occurrences)?;
@@ -392,28 +396,29 @@ mod tests {
             .unwrap();
         assert!(builder.retains_scientific_witness(&call, &witness).unwrap());
         let mut zero = call.clone();
-        zero.atom *= Atom::num(0);
+        *zero.atom.as_mut().unwrap() *= Atom::num(0);
         assert!(!builder.retains_scientific_witness(&zero, &witness).unwrap());
         let bound = builder.independent(call.clone()).unwrap();
         let mut cancelled = call.clone();
-        cancelled.atom = bound.atom - call.atom.clone();
+        cancelled.atom = Some(bound.atom.unwrap() - call.atom().unwrap());
         assert!(
             !builder
                 .retains_scientific_witness(&cancelled, &witness)
                 .unwrap()
         );
         let mut distributed = call.clone();
-        distributed.atom =
-            &call.atom * (&input.atom + Atom::num(1)) - &call.atom * &input.atom - &call.atom;
+        let call_atom = call.atom().unwrap();
+        let input_atom = input.atom().unwrap();
+        distributed.atom = Some(call_atom * (input_atom + Atom::num(1)) - call_atom * input_atom - call_atom);
         assert!(
             !builder
                 .retains_scientific_witness(&distributed, &witness)
                 .unwrap()
         );
         let mut quotient = call.clone();
-        quotient.atom = &call.atom / (&input.atom + Atom::num(1))
-            + &call.atom * &input.atom / (&input.atom + Atom::num(1))
-            - &call.atom;
+        quotient.atom = Some(call_atom / (input_atom + Atom::num(1))
+            + call_atom * input_atom / (input_atom + Atom::num(1))
+            - call_atom);
         assert!(
             !builder
                 .retains_scientific_witness(&quotient, &witness)
@@ -464,7 +469,7 @@ mod tests {
                 .unwrap()
         );
         let mut cancelled = first.clone();
-        cancelled.atom -= same.atom;
+        *cancelled.atom.as_mut().unwrap() -= same.atom.unwrap();
         assert!(
             !builder
                 .retains_scientific_witness(&cancelled, &witness)
@@ -481,7 +486,7 @@ mod tests {
             )
             .unwrap();
         let mut distinct = first;
-        distinct.atom -= second.atom;
+        *distinct.atom.as_mut().unwrap() -= second.atom.unwrap();
         assert!(
             builder
                 .retains_scientific_witness(&distinct, &witness)

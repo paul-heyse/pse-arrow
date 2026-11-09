@@ -276,9 +276,15 @@ impl BodyBuilder<'_> {
         }
         proof_topology(&self.stages[scope.0..], &mut key);
         let branches = receipts::proof(key.finish_hash(), || {
+            if self.planning {
+                return Err(plan::unsupported());
+            }
             receipts::require_admission()?;
             let mut stages = self.stages[scope.0..].to_vec();
-            let arguments = arguments.iter().map(|a| a.atom.clone()).collect::<Vec<_>>();
+            let arguments = arguments
+                .iter()
+                .map(|a| a.atom().cloned())
+                .collect::<Result<Vec<_>, _>>()?;
             let count = prove(
                 &mut stages,
                 &mut BTreeMap::new(),
@@ -297,6 +303,17 @@ impl BodyBuilder<'_> {
             proof_orders(&self.stages[scope.0..], &mut branches);
             Ok(branches)
         })?;
+        if self.planning {
+            let mut expected = branches.iter();
+            if branches.is_empty()
+                || !proof_requests_match(&self.stages[scope.0..], order, &mut expected)
+                || expected.next().is_some()
+            {
+                return Err(MathError::Contract(
+                    "piecewise receipt branches differ from the exact requested topology and order".into(),
+                ));
+            }
+        }
         let mut branches = branches.as_slice();
         restore_proof_orders(&mut self.stages[scope.0..], &mut branches)?;
         if !branches.is_empty() {
@@ -306,6 +323,20 @@ impl BodyBuilder<'_> {
         }
         Ok(())
     }
+}
+fn proof_requests_match<'a>(
+    stages: &[Stage],
+    order: DerivativeOrder,
+    receipts: &mut impl Iterator<Item = &'a u8>,
+) -> bool {
+    stages.iter().all(|stage| match stage {
+        Stage::Branch { then, otherwise, .. } => {
+            receipts.next() == Some(&(order as u8))
+                && proof_requests_match(then, order, receipts)
+                && proof_requests_match(otherwise, order, receipts)
+        }
+        _ => true,
+    })
 }
 fn proof_topology(stages: &[Stage], key: &mut pse_ids::FramedHasher) {
     key.u64(stages.len() as u64);
@@ -519,7 +550,7 @@ pub(super) fn partial_paths(
     let mut atom = expand(value, &values, limit)?;
     for argument in arguments {
         atom = atom.derivative(
-            Indeterminate::try_from(argument.atom.clone()).map_err(MathError::Library)?,
+            Indeterminate::try_from(argument.atom()?.clone()).map_err(MathError::Library)?,
         );
         bounded(&atom, limit)?;
     }

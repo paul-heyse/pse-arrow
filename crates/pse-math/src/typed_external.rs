@@ -108,7 +108,7 @@ impl BodyBuilder<'_> {
         let mut atom = expand(value.clone(), &values, self.limits.occurrences)?;
         for arg in arguments {
             atom = atom
-                .derivative(Indeterminate::try_from(arg.atom.clone()).map_err(MathError::Library)?);
+                .derivative(Indeterminate::try_from(arg.atom()?.clone()).map_err(MathError::Library)?);
             bounded(&atom, self.limits.occurrences)?;
         }
         // Generic local coordinates must not alias any expression already in this scope.
@@ -196,7 +196,7 @@ impl BodyBuilder<'_> {
         }
         let mut remaining_calls = false;
         for (_, _, _, _, _, output, _, _) in &calls {
-            remaining_calls |= atom.contains_symbol(self.context.pool.function(*output)?);
+            remaining_calls |= atom.contains_symbol(self.symbolic_context()?.pool.function(*output)?);
         }
         if remaining_calls {
             return Err(MathError::Contract(

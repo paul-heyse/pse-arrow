@@ -304,6 +304,10 @@ impl BodyBuilder<'_> {
         inputs: &[TypedValue],
         source: SemanticId,
     ) -> Result<Vec<TypedValue>, MathError> {
+        if self.planning {
+            // Provider reuse depends on equality of the normalized argument atoms.
+            return Err(plan::unsupported());
+        }
         self.tick()?;
         let spec = prepared.registration.spec();
         let partial = &prepared.partial;
@@ -331,7 +335,10 @@ impl BodyBuilder<'_> {
         };
         let cache_key = (
             spec.key(),
-            inputs.iter().map(|value| value.atom.clone()).collect(),
+            inputs
+                .iter()
+                .map(|value| value.atom().cloned())
+                .collect::<Result<Vec<_>, _>>()?,
             partial.clone(),
         );
         if !self.physical_only
@@ -357,7 +364,7 @@ impl BodyBuilder<'_> {
         let mut input_slots = Vec::with_capacity(inputs.len());
         for (value, conversion) in inputs.iter().zip(&prepared.input_conversions) {
             input_slots.push(self.materialize(
-                &value.atom * Atom::num(conversion.scale()) + Atom::num(conversion.offset()),
+                Some(value.atom()? * Atom::num(conversion.scale()) + Atom::num(conversion.offset())),
                 source,
             )?);
         }
@@ -378,7 +385,7 @@ impl BodyBuilder<'_> {
                     .flat_map(|value| value.effects.iter().copied())
                     .chain([slot])
                     .collect(),
-                atom: if self.physical_only {
+                atom: Some(if self.physical_only {
                     Atom::num(0)
                 } else {
                     library::formal(slot)? * Atom::num(scale)
@@ -387,7 +394,8 @@ impl BodyBuilder<'_> {
                         } else {
                             0.
                         })
-                },
+                }),
+                shape: plan::Shape::Unknown,
                 quantity: quantity.clone(),
                 indices: inputs
                     .first()

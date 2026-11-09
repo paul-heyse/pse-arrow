@@ -90,7 +90,7 @@ impl BodyBuilder<'_> {
         let mut work = 0usize;
         for argument in arguments {
             let variable =
-                Indeterminate::try_from(argument.atom.clone()).map_err(MathError::Library)?;
+                Indeterminate::try_from(argument.atom()?.clone()).map_err(MathError::Library)?;
             let stages = self.stages[scope.0..].to_vec();
             let mut bindings = Bindings::default();
             for stage in stages {
@@ -103,10 +103,10 @@ impl BodyBuilder<'_> {
                         // A block's outputs become visible together, after its inputs.
                         let mut next = Vec::new();
                         for (expression, slot) in expressions.iter().zip(outputs) {
-                            let atom = bindings.derivative(expression, &variable, &argument.atom);
+                            let atom = bindings.derivative(expression, &variable, argument.atom()?);
                             let derivative = self.partial_binding(atom, source, &mut work)?;
                             let call =
-                                library::function(slot, std::slice::from_ref(&argument.atom))?;
+                                library::function(slot, std::slice::from_ref(argument.atom()?))?;
                             next.push((library::formal(slot)?, call, derivative));
                         }
                         for (value, call, derivative) in next {
@@ -121,7 +121,7 @@ impl BodyBuilder<'_> {
                     }
                 }
             }
-            let atom = bindings.derivative(&value, &variable, &argument.atom);
+            let atom = bindings.derivative(&value, &variable, argument.atom()?);
             value = self.partial_binding(atom, source, &mut work)?;
         }
         Ok(value)
@@ -146,6 +146,6 @@ impl BodyBuilder<'_> {
             return Ok(atom);
         }
         self.tick()?;
-        library::formal(self.materialize(atom, source)?)
+        library::formal(self.materialize(Some(atom), source)?)
     }
 }

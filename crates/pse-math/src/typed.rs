@@ -11,6 +11,9 @@ mod external;
 mod partial;
 #[path = "typed_piecewise.rs"]
 mod piecewise;
+#[path = "typed_plan.rs"]
+mod plan;
+pub use plan::ConstructionPlan;
 #[path = "typed_provider.rs"]
 mod provider;
 #[path = "typed_receipts.rs"]
@@ -38,7 +41,8 @@ use symbolica::atom::{Atom, AtomCore};
 #[derive(Clone, Debug)]
 pub struct TypedValue {
     pub(crate) effects: BTreeSet<usize>,
-    pub(crate) atom: Atom,
+    pub(crate) atom: Option<Atom>,
+    shape: plan::Shape,
     /// Full physical result contract.
     pub(crate) quantity: ResolvedPhysicalContract,
     /// Actual lexical indices, separate from library arithmetic.
@@ -47,6 +51,28 @@ pub struct TypedValue {
     pub(crate) source: SemanticId,
 }
 impl TypedValue {
+    #[cfg(test)]
+    pub(crate) fn symbolic_fixture(atom: Atom, quantity: ResolvedPhysicalContract, source: SemanticId) -> Self {
+        Self {
+            effects: BTreeSet::new(),
+            atom: Some(atom),
+            shape: plan::Shape::Unknown,
+            indices: quantity.indices().clone(),
+            quantity,
+            source,
+        }
+    }
+    fn atom(&self) -> Result<&Atom, MathError> {
+        self.atom.as_ref().ok_or_else(plan::unsupported)
+    }
+    fn scale(&mut self, scale: f64) {
+        if scale != 1.0 {
+            if let Some(atom) = &mut self.atom {
+                *atom *= Atom::num(scale);
+            }
+            self.shape = self.shape.scaled(scale);
+        }
+    }
     /// Physical type established by admission; callers cannot retag an existing value.
     pub fn quantity(&self) -> Result<QuantityTypeId, MathError> {
         Ok(self.quantity.require_named()?)
@@ -128,7 +154,7 @@ pub struct DomainAssumption(Option<usize>);
 /// A single specialization's typed construction context, never a model-wide graph.
 #[derive(Clone)]
 pub struct BodyBuilder<'a> {
-    context: &'a crate::SymbolicContext,
+    context: Option<&'a crate::SymbolicContext>,
     registry: &'a QuantityRegistry,
     checker: &'a dyn InvariantChecker,
     limits: BodyLimits,
@@ -139,6 +165,7 @@ pub struct BodyBuilder<'a> {
     stages: Vec<Stage>,
     provider_order: DerivativeOrder,
     physical_only: bool,
+    planning: bool,
     admissions: Vec<ResolvedInference>,
     output_authorizations: Vec<pse_quantity::AdmittedOutputBoundary>,
     formula_authority: Option<pse_quantity::PhysicalFormulaAuthority>,
@@ -161,6 +188,15 @@ impl<'a> BodyBuilder<'a> {
     /// Zero limits, or more inputs than the slot allowance.
     pub fn new(
         context: &'a crate::SymbolicContext,
+        registry: &'a QuantityRegistry,
+        checker: &'a dyn InvariantChecker,
+        inputs: usize,
+        limits: BodyLimits,
+    ) -> Result<Self, MathError> {
+        Self::new_inner(Some(context), registry, checker, inputs, limits)
+    }
+    fn new_inner(
+        context: Option<&'a crate::SymbolicContext>,
         registry: &'a QuantityRegistry,
         checker: &'a dyn InvariantChecker,
         inputs: usize,
@@ -190,6 +226,7 @@ impl<'a> BodyBuilder<'a> {
             stages: vec![],
             provider_order: DerivativeOrder::Second,
             physical_only: false,
+            planning: false,
             provider_cache: std::collections::HashMap::new(),
         })
     }
@@ -297,9 +334,7 @@ impl<'a> BodyBuilder<'a> {
         expected: QuantityTypeId,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = value.quantity.at_boundary(expected, self.registry)?;
-        if scale != 1.0 {
-            value.atom *= Atom::num(scale);
-        }
+        value.scale(scale);
         value.quantity = contract;
         Ok(value)
     }
@@ -312,9 +347,7 @@ impl<'a> BodyBuilder<'a> {
         let (contract, scale) = value
             .quantity
             .at_contract_boundary(expected, self.registry)?;
-        if scale != 1.0 {
-            value.atom *= Atom::num(scale);
-        }
+        value.scale(scale);
         value.quantity = contract;
         Ok(value)
     }
@@ -325,9 +358,7 @@ impl<'a> BodyBuilder<'a> {
         boundary: &pse_quantity::AdmittedContractBoundary,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = boundary.apply_contract(&value.quantity)?;
-        if scale != 1.0 {
-            value.atom *= Atom::num(scale);
-        }
+        value.scale(scale);
         value.quantity = contract;
         Ok(value)
     }
@@ -338,9 +369,7 @@ impl<'a> BodyBuilder<'a> {
         authorization: &pse_quantity::AdmittedOutputBoundary,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = authorization.apply_contract(&value.quantity)?;
-        if scale != 1.0 {
-            value.atom *= Atom::num(scale);
-        }
+        value.scale(scale);
         value.quantity = contract;
         self.output_authorizations.push(authorization.clone());
         Ok(value)
@@ -407,11 +436,12 @@ impl<'a> BodyBuilder<'a> {
         }
         Ok(TypedValue {
             effects: BTreeSet::new(),
-            atom: if self.physical_only {
+            atom: self.atom_with(|| Ok(if self.physical_only {
                 Atom::num(0)
             } else {
                 library::formal(slot)?
-            },
+            }))?,
+            shape: plan::Shape::Formal,
             quantity: ResolvedPhysicalContract::named(
                 inferred.result,
                 indices.clone(),
@@ -449,11 +479,12 @@ impl<'a> BodyBuilder<'a> {
         }
         Ok(TypedValue {
             effects: BTreeSet::new(),
-            atom: if self.physical_only {
+            atom: self.atom_with(|| Ok(if self.physical_only {
                 Atom::num(0)
             } else {
                 library::formal(slot)?
-            },
+            }))?,
+            shape: plan::Shape::Formal,
             indices: quantity.indices().clone(),
             quantity,
             source,
@@ -474,17 +505,18 @@ impl<'a> BodyBuilder<'a> {
         }
         let admission = self.consume_admission(admission, &[])?;
         let canonical = conversion.apply(value)?.value();
-        let atom = if canonical.fract() == 0.0
+        let atom = self.atom_with(|| Ok(if canonical.fract() == 0.0
             && canonical >= f64::from(i16::MIN)
             && canonical <= f64::from(i16::MAX)
         {
             Atom::num(canonical as i32)
         } else {
             Atom::num(canonical)
-        };
+        }))?;
         Ok(TypedValue {
             effects: BTreeSet::new(),
             atom,
+            shape: plan::Shape::Number(canonical),
             indices: admission.result.indices().clone(),
             quantity: admission.result,
             source,
@@ -514,14 +546,15 @@ impl<'a> BodyBuilder<'a> {
             // Preserve integral authored facts in the same exact coefficient domain
             // used by physical rational exponents. Other literals stay binary64;
             // approximate decimals are never guessed to be rational numbers.
-            atom: if canonical.fract() == 0.0
+            atom: self.atom_with(|| Ok(if canonical.fract() == 0.0
                 && canonical >= f64::from(i16::MIN)
                 && canonical <= f64::from(i16::MAX)
             {
                 Atom::num(canonical as i32)
             } else {
                 Atom::num(canonical)
-            },
+            }))?,
+            shape: plan::Shape::Number(canonical),
             quantity,
             indices,
             source,
@@ -559,7 +592,8 @@ impl<'a> BodyBuilder<'a> {
             lineage,
         });
         value.effects.insert(slot);
-        value.atom = library::formal(slot)?;
+        value.atom = self.atom_with(|| library::formal(slot))?;
+        value.shape = plan::Shape::Formal;
         Ok(())
     }
     /// Keep an already checked domain barrier even when the returned expression simplifies away.
@@ -740,8 +774,14 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// The bounded body has no remaining value slot.
     pub fn bind(&mut self, value: TypedValue) -> Result<TypedValue, MathError> {
+        if self.planning {
+            return match value.shape {
+                plan::Shape::Formal | plan::Shape::Number(_) => Ok(value),
+                plan::Shape::Unknown => Err(plan::unsupported()),
+            };
+        }
         if matches!(
-            value.atom.as_view(),
+            value.atom()?.as_view(),
             symbolica::atom::AtomView::Num(_) | symbolica::atom::AtomView::Var(_)
         ) {
             // Constants and existing slots already have bounded representations.
@@ -755,7 +795,8 @@ impl<'a> BodyBuilder<'a> {
     pub fn independent(&mut self, mut value: TypedValue) -> Result<TypedValue, MathError> {
         if !self.physical_only {
             let slot = self.materialize(value.atom, value.source)?;
-            value.atom = library::formal(slot)?;
+            value.atom = self.atom_with(|| library::formal(slot))?;
+            value.shape = plan::Shape::Formal;
         }
         Ok(value)
     }
@@ -813,6 +854,9 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        if self.planning {
+            return Err(plan::unsupported());
+        }
         if arguments.is_empty() || arguments.len() > 8 || scope.0 > self.stages.len() {
             return Err(MathError::Limit("function partial order or scope"));
         }
@@ -823,13 +867,14 @@ impl<'a> BodyBuilder<'a> {
                 .iter()
                 .any(|s| matches!(s, Stage::Provider { .. }))
         {
-            let atom = self.external_partial(scope, &value.atom, arguments, source)?;
+            let atom = self.external_partial(scope, value.atom()?, arguments, source)?;
             return Ok(TypedValue {
-                atom: if scale == 1.0 {
+                atom: Some(if scale == 1.0 {
                     atom
                 } else {
                     atom * Atom::num(scale)
-                },
+                }),
+                shape: plan::Shape::Unknown,
                 quantity,
                 indices: value.indices,
                 effects: value.effects,
@@ -845,7 +890,7 @@ impl<'a> BodyBuilder<'a> {
             let stages = piecewise::partial_paths(
                 &self.stages[scope.0..],
                 std::collections::BTreeMap::new(),
-                &value.atom,
+                value.atom()?,
                 arguments,
                 output,
                 source,
@@ -857,7 +902,8 @@ impl<'a> BodyBuilder<'a> {
             piecewise::strengthen_guards(&mut self.stages[scope.0..], arguments.len());
             self.stages.extend(stages);
             return Ok(TypedValue {
-                atom: library::formal(output)? * Atom::num(scale),
+                atom: Some(library::formal(output)? * Atom::num(scale)),
+                shape: plan::Shape::Unknown,
                 quantity,
                 indices: value.indices,
                 effects: value.effects,
@@ -865,9 +911,9 @@ impl<'a> BodyBuilder<'a> {
             });
         }
         let atom = if self.physical_only {
-            value.atom.clone()
+            value.atom()?.clone()
         } else {
-            self.shared_partial(scope, &value.atom, arguments, source)?
+            self.shared_partial(scope, value.atom()?, arguments, source)?
         };
         // A partial evaluates derivatives even when its caller asks only for values.
         // Keep every original guard and strengthen the local derivative-order guards.
@@ -880,24 +926,25 @@ impl<'a> BodyBuilder<'a> {
             }
         }
         Ok(TypedValue {
-            atom: if scale == 1.0 {
+            atom: Some(if scale == 1.0 {
                 atom
             } else {
                 atom * Atom::num(scale)
-            },
+            }),
+            shape: plan::Shape::Unknown,
             quantity,
             indices: value.indices,
             effects: value.effects,
             source,
         })
     }
-    fn materialize(&mut self, atom: Atom, source: SemanticId) -> Result<usize, MathError> {
+    fn materialize(&mut self, atom: Option<Atom>, source: SemanticId) -> Result<usize, MathError> {
         if self.physical_only {
             return Ok(0);
         }
         let slot = self.slot()?;
         self.stages.push(Stage::Block {
-            expressions: vec![atom],
+            expressions: atom.into_iter().collect(),
             outputs: vec![slot],
             source,
         });
@@ -960,40 +1007,54 @@ impl<'a> BodyBuilder<'a> {
             .into_iter()
             .zip(&admission.operand_scales)
         {
-            if *scale != 1.0 {
-                value.atom = &value.atom * Atom::num(*scale);
-            }
+            value.scale(*scale);
         }
         if !self.physical_only
             && op == Binary::Pow
             && let Some(ratio) = exponent
         {
-            let expected = Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
-            if right.atom != expected {
-                return Err(MathError::Contract(
-                    "power literal fact disagrees with its value".into(),
-                ));
+            if self.planning {
+                // Only a directly known integral literal in this profile uses
+                // the exact integer coefficient path. Do not infer an exact
+                // fraction from a float or a normalized subexpression.
+                if ratio.den() != 1
+                    || !matches!(right.shape, plan::Shape::Number(value) if value == f64::from(ratio.num()))
+                {
+                    return Err(plan::unsupported());
+                }
+            } else {
+                let expected = Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
+                if right.atom()? != &expected {
+                    return Err(MathError::Contract(
+                        "power literal fact disagrees with its value".into(),
+                    ));
+                }
             }
         }
         if self.physical_only {
             return Ok(TypedValue {
                 effects: left.effects.union(&right.effects).copied().collect(),
-                atom: Atom::num(0),
+                atom: Some(Atom::num(0)),
+                shape: plan::Shape::Unknown,
                 quantity,
                 indices,
                 source,
             });
         }
-        if op == Binary::Div
-            && !(matches!(right.atom.as_view(), symbolica::atom::AtomView::Num(_))
-                && !right.atom.is_zero())
-        {
-            self.require(
-                &mut right,
-                Condition::Nonzero,
-                DerivativeOrder::Value,
-                source,
-            )?;
+        if op == Binary::Div {
+            let nonzero_number = if self.planning {
+                match right.shape {
+                    plan::Shape::Formal => false,
+                    plan::Shape::Number(value) => value != 0.0,
+                    plan::Shape::Unknown => return Err(plan::unsupported()),
+                }
+            } else {
+                let atom = right.atom()?;
+                matches!(atom.as_view(), symbolica::atom::AtomView::Num(_)) && !atom.is_zero()
+            };
+            if !nonzero_number {
+                self.require(&mut right, Condition::Nonzero, DerivativeOrder::Value, source)?;
+            }
         }
         if op == Binary::Pow {
             match exponent {
@@ -1008,7 +1069,8 @@ impl<'a> BodyBuilder<'a> {
                     } else {
                         // Do not construct arbitrarily large exact constants during CAS admission.
                         let slot = self.materialize(left.atom.clone(), source)?;
-                        left.atom = library::formal(slot)?;
+                        left.atom = self.atom_with(|| library::formal(slot))?;
+                        left.shape = plan::Shape::Formal;
                     }
                 }
                 // The initial general real-power profile is strictly positive.
@@ -1020,25 +1082,27 @@ impl<'a> BodyBuilder<'a> {
                 )?,
             }
         }
-        let atom = match op {
-            Binary::Add => &left.atom + &right.atom,
-            Binary::Sub => &left.atom - &right.atom,
-            Binary::Mul => &left.atom * &right.atom,
-            Binary::Div => &left.atom / &right.atom,
-            Binary::Pow => left.atom.pow(&right.atom),
-        };
-        let atom = if admission.result_scale == 1.0 {
-            atom
-        } else {
-            atom * Atom::num(admission.result_scale)
-        };
-        Ok(TypedValue {
+        let atom = self.atom_with(|| {
+            let lhs = left.atom()?;
+            let rhs = right.atom()?;
+            Ok(match op {
+                Binary::Add => lhs + rhs,
+                Binary::Sub => lhs - rhs,
+                Binary::Mul => lhs * rhs,
+                Binary::Div => lhs / rhs,
+                Binary::Pow => lhs.pow(rhs),
+            })
+        })?;
+        let mut value = TypedValue {
             effects: left.effects.union(&right.effects).copied().collect(),
             atom,
+            shape: plan::Shape::Unknown,
             quantity,
             indices,
             source,
-        })
+        };
+        value.scale(admission.result_scale);
+        Ok(value)
     }
     /// Physically admitted unary negation.
     /// # Errors
@@ -1071,11 +1135,12 @@ impl<'a> BodyBuilder<'a> {
         let indices = quantity.indices().clone();
         Ok(TypedValue {
             effects: value.effects.clone(),
-            atom: if self.physical_only {
+            atom: self.atom_with(|| Ok(if self.physical_only {
                 Atom::num(0)
             } else {
-                -value.atom * Atom::num(admission.operand_scales[0] * admission.result_scale)
-            },
+                -value.atom()?.clone() * Atom::num(admission.operand_scales[0] * admission.result_scale)
+            }))?,
+            shape: plan::Shape::Unknown,
             quantity,
             indices,
             source,
@@ -1133,14 +1198,13 @@ impl<'a> BodyBuilder<'a> {
         use crate::UnaryFunction as Unary;
         let quantity = admission.result;
         let indices = quantity.indices().clone();
-        if admission.operand_scales[0] != 1.0 {
-            value.atom = &value.atom * Atom::num(admission.operand_scales[0]);
-        }
+        value.scale(admission.operand_scales[0]);
 
         if self.physical_only {
             return Ok(TypedValue {
                 effects: value.effects.clone(),
-                atom: Atom::num(0),
+                atom: Some(Atom::num(0)),
+                shape: plan::Shape::Unknown,
                 quantity,
                 indices,
                 source,
@@ -1152,7 +1216,8 @@ impl<'a> BodyBuilder<'a> {
                 // whose logarithmic factors do not simplify. Keep the exponent as
                 // an evaluated dependency; Numerica still owns exp and its jets.
                 let slot = self.materialize(value.atom.clone(), source)?;
-                value.atom = library::formal(slot)?;
+                value.atom = self.atom_with(|| library::formal(slot))?;
+                value.shape = plan::Shape::Formal;
             }
             Unary::Log => self.require(
                 &mut value,
@@ -1177,7 +1242,8 @@ impl<'a> BodyBuilder<'a> {
             Unary::Abs => {
                 let zero = TypedValue {
                     effects: value.effects.clone(),
-                    atom: Atom::num(0),
+                    atom: self.atom_with(|| Ok(Atom::num(0)))?,
+                    shape: plan::Shape::Number(0.0),
                     quantity: value.quantity.clone(),
                     indices: value.indices.clone(),
                     source,
@@ -1193,30 +1259,29 @@ impl<'a> BodyBuilder<'a> {
             }
             _ => {}
         }
-        let atom = match function {
-            Unary::Exp => value.atom.exp(),
-            Unary::Log => value.atom.log(),
-            Unary::Sqrt => value.atom.sqrt(),
-            Unary::Abs => {
-                return Err(MathError::Contract(
+        let atom = self.atom_with(|| {
+            let atom = value.atom()?;
+            Ok(match function {
+                Unary::Exp => atom.exp(),
+                Unary::Log => atom.log(),
+                Unary::Sqrt => atom.sqrt(),
+                Unary::Abs => return Err(MathError::Contract(
                     "absolute value must use its admitted branch".into(),
-                ));
-            }
-            Unary::Sin => value.atom.sin(),
-            Unary::Cos => value.atom.cos(),
-        };
-        let atom = if admission.result_scale == 1.0 {
-            atom
-        } else {
-            atom * Atom::num(admission.result_scale)
-        };
-        Ok(TypedValue {
+                )),
+                Unary::Sin => atom.sin(),
+                Unary::Cos => atom.cos(),
+            })
+        })?;
+        let mut result = TypedValue {
             effects: value.effects.clone(),
             atom,
+            shape: plan::Shape::Unknown,
             quantity,
             indices,
             source,
-        })
+        };
+        result.scale(admission.result_scale);
+        Ok(result)
     }
     /// Admit and materialize a scalar comparison.
     /// # Errors
@@ -1248,8 +1313,8 @@ impl<'a> BodyBuilder<'a> {
     pub fn fixed_guard(&mut self, selected: bool, source: SemanticId) -> Result<Guard, MathError> {
         Ok(Guard {
             effects: BTreeSet::new(),
-            left: self.materialize(Atom::num(i32::from(selected)), source)?,
-            right: self.materialize(Atom::num(1), source)?,
+            left: self.materialize(self.atom_with(|| Ok(Atom::num(i32::from(selected))))?, source)?,
+            right: self.materialize(self.atom_with(|| Ok(Atom::num(1)))?, source)?,
             comparison: Comparison::Eq,
             variable: false,
         })
@@ -1339,7 +1404,8 @@ impl<'a> BodyBuilder<'a> {
             let indices = quantity.indices().clone();
             return Ok(TypedValue {
                 effects: BTreeSet::new(),
-                atom: Atom::num(0),
+                atom: Some(Atom::num(0)),
+                shape: plan::Shape::Unknown,
                 quantity,
                 indices,
                 source,
@@ -1350,7 +1416,7 @@ impl<'a> BodyBuilder<'a> {
         let then_value = then(self)?;
         let result_slot = self.slot()?;
         self.stages.push(Stage::Block {
-            expressions: vec![then_value.atom.clone()],
+            expressions: then_value.atom.iter().cloned().collect(),
             outputs: vec![result_slot],
             source,
         });
@@ -1371,7 +1437,7 @@ impl<'a> BodyBuilder<'a> {
                 "conditional admission has wrong operand scales".into(),
             ));
         }
-        if scales[0] != 1.0 {
+        if scales[0] != 1.0 && !self.planning {
             let Some(Stage::Block { expressions, .. }) = then_stages.last_mut() else {
                 return Err(MathError::Contract(
                     "conditional result stage is absent".into(),
@@ -1381,12 +1447,10 @@ impl<'a> BodyBuilder<'a> {
         }
         let quantity = admission.result;
         let indices = quantity.indices().clone();
+        let mut else_value = else_value;
+        else_value.scale(scales[1]);
         self.stages.push(Stage::Block {
-            expressions: vec![if scales[1] == 1.0 {
-                else_value.atom
-            } else {
-                else_value.atom * Atom::num(scales[1])
-            }],
+            expressions: else_value.atom.into_iter().collect(),
             outputs: vec![result_slot],
             source,
         });
@@ -1413,7 +1477,8 @@ impl<'a> BodyBuilder<'a> {
         });
         Ok(TypedValue {
             effects,
-            atom: library::formal(result_slot)?,
+            atom: self.atom_with(|| library::formal(result_slot))?,
+            shape: plan::Shape::Formal,
             quantity,
             indices,
             source,
@@ -1423,7 +1488,7 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// Invalid analysis resource bounds.
     pub fn physical_pass(&self) -> Result<BodyBuilder<'a>, MathError> {
-        Self::type_checking(self.context, self.registry, self.checker, self.limits)
+        Self::type_checking(self.symbolic_context()?, self.registry, self.checker, self.limits)
     }
 
     /// Validate smoothness and available provider derivatives independently of value execution.
@@ -1475,10 +1540,14 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        if self.planning && !matches!(kind, pse_quantity::ReductionKind::Sum | pse_quantity::ReductionKind::Prod) {
+            return Err(plan::unsupported());
+        }
         let prototype_value = TypedValue {
             quantity: prototype.clone(),
             indices: IndexSet::new(),
-            atom: Atom::num(0),
+            atom: self.atom_with(|| Ok(Atom::num(0)))?,
+            shape: plan::Shape::Number(0.0),
             effects: BTreeSet::new(),
             source,
         };
@@ -1504,17 +1573,17 @@ impl<'a> BodyBuilder<'a> {
                 Ok(term.clone())
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let atom = if self.physical_only {
+        let atom = self.atom_with(|| Ok(if self.physical_only {
             Atom::num(0)
         } else {
             match kind {
-                pse_quantity::ReductionKind::Sum => terms.iter().fold(Atom::num(0), |sum, term| {
-                    sum + &term.atom * Atom::num(admission.operand_scales[0])
-                }),
+                pse_quantity::ReductionKind::Sum => terms.iter().try_fold(Atom::num(0), |sum, term| {
+                    Ok::<_, MathError>(sum + term.atom()? * Atom::num(admission.operand_scales[0]))
+                })?,
                 pse_quantity::ReductionKind::Prod => {
-                    terms.iter().fold(Atom::num(1), |product, term| {
-                        product * &term.atom * Atom::num(admission.operand_scales[0])
-                    })
+                    terms.iter().try_fold(Atom::num(1), |product, term| {
+                        Ok::<_, MathError>(product * term.atom()? * Atom::num(admission.operand_scales[0]))
+                    })?
                 }
                 _ => {
                     return Err(MathError::Contract(
@@ -1522,9 +1591,10 @@ impl<'a> BodyBuilder<'a> {
                     ));
                 }
             }
-        };
+        } * Atom::num(admission.result_scale)))?;
         Ok(TypedValue {
-            atom: atom * Atom::num(admission.result_scale),
+            atom,
+            shape: plan::Shape::Unknown,
             indices: admission.result.indices().clone(),
             quantity: admission.result,
             source,
@@ -1569,6 +1639,9 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
+        if self.planning {
+            return Err(plan::unsupported());
+        }
         let quantity = admission.result;
         let indices = quantity.indices().clone();
         for term in terms {
@@ -1593,10 +1666,10 @@ impl<'a> BodyBuilder<'a> {
             match kind {
                 pse_quantity::ReductionKind::Sum => terms
                     .iter()
-                    .fold(Atom::num(0), |sum, term| sum + &term.atom),
+                    .try_fold(Atom::num(0), |sum, term| Ok::<_, MathError>(sum + term.atom()?))?,
                 pse_quantity::ReductionKind::Prod => terms
                     .iter()
-                    .fold(Atom::num(1), |product, term| product * &term.atom),
+                    .try_fold(Atom::num(1), |product, term| Ok::<_, MathError>(product * term.atom()?))?,
                 pse_quantity::ReductionKind::Min | pse_quantity::ReductionKind::Max => {
                     let mut terms = terms.iter();
                     let mut value = terms
@@ -1612,13 +1685,14 @@ impl<'a> BodyBuilder<'a> {
                         )?;
                     }
                     effects.extend(value.effects);
-                    value.atom
+                    value.atom.ok_or_else(plan::unsupported)?
                 }
             }
         };
         Ok(TypedValue {
             effects,
-            atom,
+            atom: Some(atom),
+            shape: plan::Shape::Unknown,
             quantity,
             indices,
             source,
@@ -1659,7 +1733,7 @@ impl<'a> BodyBuilder<'a> {
     }
     /// Produce an immutable, physically admitted symbolic specification.
     pub fn prepare(mut self, outputs: &[TypedValue]) -> Result<PreparedBody, MathError> {
-        if self.physical_only {
+        if self.physical_only || self.planning {
             return Err(MathError::Contract(
                 "physical-only analysis is not executable".into(),
             ));
