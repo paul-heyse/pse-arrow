@@ -79,6 +79,88 @@ fn ready(solve: &PreparedSolve) -> &AlgebraicCase {
     case
 }
 
+#[cfg(feature = "solver-ipopt")]
+#[test]
+fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
+    use pse_columnar::{AllocationLease, GreedyMemoryPool, MemoryConsumer, MemoryPool};
+    use std::sync::atomic::AtomicBool;
+
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+    let contract = native::OracleContract {
+        identity: pse_ids::ContentHash::from_bytes([3; 32]),
+        variables: vec![native::Variable {
+            id: SemanticId::from_bytes([1; 16]),
+            lower: -1.,
+            upper: 1.,
+        }],
+        rows: vec![SemanticId::from_bytes([2; 16])],
+        derivatives: DerivativeOrder::First,
+        smoothness: DerivativeOrder::Second,
+    };
+    let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(1, 1, &[(0, 0)])
+        .unwrap()
+        .0;
+    let bounds = [(0., 0.)];
+    let cancel = AtomicBool::new(false);
+    let profile = SolverProfile {
+        selection: SolverSelection::Explicit(Backend::Ipopt),
+        controls: Controls {
+            hessian: HessianMode::LimitedMemory,
+            ..Controls::default()
+        },
+        ..SolverProfile::default()
+    };
+    let snapshot = execution::Snapshot::observe(&execution::LINKED);
+    let tolerances = Tolerances {
+        variables: vec![1e-5],
+        rows: vec![1e-5],
+        integrality: 1e-5,
+    };
+    let normalization = Normalization::identity(1, 1);
+    let accuracy = execution::adapter(Backend::Ipopt)
+        .resolve_accuracy(&profile.numerics, &tolerances, &normalization, &contract)
+        .unwrap();
+    let request = OracleRouteRequest {
+        contract: &contract,
+        pattern: pattern.as_ref(),
+        witness: OracleWitness::Fresh { bounds: &bounds, cancel: &cancel },
+        equalities: true,
+        least_squares: false,
+        profile: &profile,
+        snapshot: &snapshot,
+        budgets: execution::Budgets { tolerances: &tolerances, normalization: &normalization, accuracy: &accuracy },
+    };
+    let (route, fresh) = admit_oracle_route(&pool, request).unwrap();
+    assert!(matches!(route, Route::Native(Backend::Ipopt)));
+    let fresh = fresh.unwrap();
+    assert_eq!(pool.reserved(), fresh.retained_bytes());
+    drop(fresh);
+    assert_eq!(pool.reserved(), 0);
+
+    let mut existing = native::structural::oracle_structure(
+        &contract, pattern.as_ref(), &bounds, true,
+    )
+    .unwrap();
+    let existing_bytes = existing.witness.retained_bytes();
+    let owner = MemoryConsumer::new("original structural witness").register(&pool);
+    owner.try_grow(existing_bytes).unwrap();
+    existing.witness = existing.witness.with_owner(AllocationLease::new(owner));
+    let (_, retained) = admit_oracle_route(
+        &pool,
+        OracleRouteRequest {
+            witness: OracleWitness::Retained(&existing),
+            ..request
+        },
+    )
+    .unwrap();
+    let retained = retained.unwrap();
+    assert_eq!(pool.reserved(), retained.retained_bytes());
+    drop(retained);
+    assert_eq!(pool.reserved(), existing_bytes);
+    drop(existing);
+    assert_eq!(pool.reserved(), 0);
+}
+
 #[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn capped_original_kinsol_root_uses_actual_evaluation_hooks_and_refuses_opaque_counters() {

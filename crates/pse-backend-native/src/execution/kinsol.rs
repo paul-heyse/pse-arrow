@@ -9,7 +9,8 @@ use super::{
 use crate::{
     OracleContract, ProblemError,
     solve::{
-        Backend, DerivativeCapability, ProblemClass, SolveReport, WarmCapability, WarmPayload,
+        Backend, Controls, DerivativeCapability, ProblemClass, SolveReport, WarmCapability,
+        WarmPayload,
     },
 };
 use pse_ids::SemanticId;
@@ -189,15 +190,25 @@ impl BackendExecution for Kinsol {
         }
         Ok(capability)
     }
-    fn callback_demand(&self, settings: &BackendSettings) -> super::CallbackDemand {
+    fn callback_demand(
+        &self,
+        settings: &BackendSettings,
+        controls: &Controls,
+    ) -> Result<super::CallbackDemand, ProblemError> {
+        let capability = self.capability_for(settings)?;
         let method = match settings {
             BackendSettings::Kinsol(method) => *method,
             _ => crate::settings::kinsol::Method::default(),
         };
-        super::CallbackDemand {
+        let assembled_derivatives = if method.consumes_directional_only() {
+            None
+        } else {
+            crate::routing::derivative_demand(&capability, controls)
+        };
+        Ok(super::CallbackDemand {
+            assembled_derivatives,
             jacobian_product: method.consumes_jvp(),
-            directional_only: method.consumes_directional_only(),
-        }
+        })
     }
     fn representation(&self) -> Representation {
         Representation::Roots
@@ -246,29 +257,6 @@ impl BackendExecution for Kinsol {
             Err(super::unlinked(Backend::Kinsol))
         }
     }
-    fn required_artifact(
-        &self,
-        r: &crate::routing::Requirements<'_>,
-    ) -> Option<crate::routing::ArtifactDemand> {
-        let method = match r.settings {
-            BackendSettings::Kinsol(method) => *method,
-            _ => crate::settings::kinsol::Method::default(),
-        };
-        if method.consumes_jvp() {
-            // An assembled preconditioner consumes both programs. Establish its
-            // ordinary derivative order first, then the independent residual action.
-            if !method.consumes_directional_only()
-                && let Some(order) = self.required_order(r)
-                && r.facts.prepared_derivatives < order
-            {
-                return Some(crate::routing::ArtifactDemand::Derivatives(order));
-            }
-            Some(crate::routing::ArtifactDemand::JacobianProduct)
-        } else {
-            self.required_order(r)
-                .map(crate::routing::ArtifactDemand::Derivatives)
-        }
-    }
     fn linked(&self) -> bool {
         cfg!(feature = "kinsol")
     }
@@ -298,7 +286,7 @@ impl BackendExecution for Kinsol {
     fn admit_settings(
         &self,
         settings: &BackendSettings,
-        controls: &crate::solve::Controls,
+        controls: &Controls,
         _: &super::Snapshot,
     ) -> Result<(), ProblemError> {
         if !matches!(

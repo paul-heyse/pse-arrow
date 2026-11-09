@@ -1579,10 +1579,9 @@ impl MathService {
             return Err(ProblemError::Contract("derived intent must match its actual root, feasibility or reduced-objective operation".into()).into());
         }
         if !complete_reconstruction
-            && routing::derivative_demand(
-                execution::adapter(backend).capability(),
-                &profile.controls,
-            )
+            && execution::adapter(backend)
+            .callback_demand(&profile.backend, &profile.controls)?
+            .required_order()
             .is_some_and(|order| {
                 order
                     > if matches!(request, DerivedRequest::LeastDeviation { .. }) {

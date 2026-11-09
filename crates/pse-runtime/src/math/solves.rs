@@ -2977,6 +2977,92 @@ pub(crate) fn admit_profile(
     }
     adapter.admit_settings(&profile.backend, &profile.controls, snapshot)
 }
+
+/// The existing retained witness or the premises for creating one under admission.
+#[derive(Clone, Copy)]
+pub(crate) enum OracleWitness<'a> {
+    #[cfg(any(test, feature = "solver-diffsol"))]
+    Fresh {
+        bounds: &'a [(f64, f64)],
+        cancel: &'a std::sync::atomic::AtomicBool,
+    },
+    Retained(&'a routing::Structure),
+}
+
+/// Facts of a native objective oracle, before structural assessment and route selection.
+#[derive(Clone, Copy)]
+pub(crate) struct OracleRouteRequest<'a> {
+    pub(crate) contract: &'a native::OracleContract,
+    pub(crate) pattern: faer::sparse::SymbolicSparseColMatRef<'a, usize>,
+    pub(crate) witness: OracleWitness<'a>,
+    pub(crate) equalities: bool,
+    pub(crate) least_squares: bool,
+    pub(crate) profile: &'a SolverProfile,
+    pub(crate) snapshot: &'a execution::Snapshot,
+    pub(crate) budgets: execution::Budgets<'a>,
+}
+
+/// Admit the existing NLP oracle and attach only the structural charge it acquires here.
+pub(crate) fn admit_oracle_route(
+    pool: &Arc<dyn pse_columnar::MemoryPool>,
+    request: OracleRouteRequest<'_>,
+) -> Result<(Route, Option<native::structural::Assessment>), MathRuntimeError> {
+    let extent = native::structural::construction_bytes(request.contract, request.pattern)?;
+    let reservation = pse_columnar::MemoryConsumer::new("native:oracle-structure").register(pool);
+    reservation.try_grow(extent)?;
+    let (structure, retained_witness_bytes) = match request.witness {
+        #[cfg(any(test, feature = "solver-diffsol"))]
+        OracleWitness::Fresh { bounds, cancel } => (
+            native::structural::oracle_structure_with_cancel(
+                request.contract, request.pattern, bounds, true, cancel,
+            )?,
+            0,
+        ),
+        OracleWitness::Retained(structure) => (structure.clone(), structure.witness.retained_bytes()),
+    };
+    let profile = request.profile;
+    let facts = routing::oracle_facts(request.contract, true, request.equalities);
+    let mut decision = routing::Requirements {
+        table: &execution::LINKED,
+        facts: &facts,
+        intent: profile.intent,
+        numerical_psd: false,
+        least_squares: request.least_squares,
+        controls: &profile.controls,
+        settings: &profile.backend,
+        sensitivity: false,
+        context: routing::Context {
+            snapshot: request.snapshot.clone(),
+            pending_classes: &[],
+            structure: Some(structure),
+            oracle: Some(request.contract),
+            guards: &BTreeMap::new(),
+            budgets: Some(request.budgets),
+            coefficients: None,
+            cone: None,
+            factorable: None,
+            certificate: None,
+            prepared: &[routing::ArtifactDemand::Representation(execution::Representation::Nlp)],
+            refusals: &BTreeMap::new(),
+        },
+    }
+    .decision(profile.selection);
+    let route = decision.route()?;
+    if let Some(assessment) = &mut decision.structure {
+        let retained = assessment
+            .retained_bytes()
+            .checked_sub(retained_witness_bytes)
+            .filter(|bytes| *bytes <= reservation.size())
+            .ok_or(MathRuntimeError::Limit("native oracle structural assessment retained extent"))?;
+        reservation.shrink(reservation.size() - retained);
+        assessment.witness = assessment
+            .witness
+            .clone()
+            .with_owner(pse_columnar::AllocationLease::new(reservation));
+    }
+    admit_profile(profile, route, request.snapshot)?;
+    Ok((route, decision.structure))
+}
 /// The native session profile: every control and setting a retained native session
 /// depends on. Controls and backend settings are identified through serde (F09); only the
 /// per-attempt budgets and the sequencing policies, which every attempt re-applies, are
@@ -3967,16 +4053,12 @@ impl MathService {
         let mut profile = profile.clone();
         profile.resolve_curvature(prepared.prepared.plan.available_order());
         profile.controls.validate()?;
-        let order = routing::derivative_demand(
-            &execution::adapter(selected).capability_for(&profile.backend)?,
-            &profile.controls,
-        )
-        .unwrap_or(pse_kernels::DerivativeOrder::Value);
-        let demand = execution::adapter(selected).callback_demand(&profile.backend);
-        let directional_only = demand.directional_only;
-        let consumes_jvp = demand.jacobian_product;
+        let demand =
+            execution::adapter(selected).callback_demand(&profile.backend, &profile.controls)?;
         let mut changed = false;
-        let prepared = if !directional_only && prepared.prepared.plan.order() < order {
+        let prepared = if let Some(order) = demand.assembled_derivatives
+            && prepared.prepared.plan.order() < order
+        {
             changed = true;
             Self::within_task(
                 scope,
@@ -3987,7 +4069,8 @@ impl MathService {
         } else {
             prepared
         };
-        let prepared = if consumes_jvp && !prepared.prepared.plan.has_directional_actions() {
+        let prepared = if demand.jacobian_product && !prepared.prepared.plan.has_directional_actions()
+        {
             changed = true;
             Self::within_task(scope, driver, self.prepare_directional_actions(prepared)).await?
         } else {

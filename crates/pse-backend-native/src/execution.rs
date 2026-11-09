@@ -17,6 +17,7 @@ use crate::{
     },
 };
 use pse_ids::{ContentHash, SemanticId};
+use pse_kernels::DerivativeOrder;
 use pse_math::{
     binding::ObjectiveSense, convexity::QuadraticEvidence, factorable::FactorableProgram,
     normalization::Normalization, presolve::GuardSign,
@@ -783,10 +784,33 @@ pub struct RecoveryProfile {
 /// Callback products consumed by a selected native method.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct CallbackDemand {
+    /// Order of the assembled derivative program, including any preconditioner.
+    pub assembled_derivatives: Option<DerivativeOrder>,
     /// The original residual directional action is evaluated.
     pub jacobian_product: bool,
-    /// No assembled Jacobian is consumed, including by preconditioning.
-    pub directional_only: bool,
+}
+impl CallbackDemand {
+    /// Mathematical order the original model must be able to supply.
+    pub fn required_order(self) -> Option<DerivativeOrder> {
+        self.assembled_derivatives
+            .max(self.jacobian_product.then_some(DerivativeOrder::First))
+    }
+
+    /// First missing callback product, preparing assembled derivatives before actions.
+    pub(crate) fn missing(
+        self,
+        assembled: DerivativeOrder,
+        has_jacobian_product: bool,
+    ) -> Option<crate::routing::ArtifactDemand> {
+        use crate::routing::ArtifactDemand;
+        self.assembled_derivatives
+            .filter(|order| *order > assembled)
+            .map(ArtifactDemand::Derivatives)
+            .or_else(|| {
+                (self.jacobian_product && !has_jacobian_product)
+                    .then_some(ArtifactDemand::JacobianProduct)
+            })
+    }
 }
 
 /// The backend-execution adapter. Implementations are unit values in the static table.
@@ -853,9 +877,21 @@ pub trait BackendExecution: Any + Sync + std::fmt::Debug {
             "adapter has no replacement-start producer".into(),
         ))
     }
-    /// Preparation facts consumed by the selected method, independent of backend spelling.
-    fn callback_demand(&self, _settings: &BackendSettings) -> CallbackDemand {
-        CallbackDemand::default()
+    /// Callback products consumed by the selected method and controls.
+    /// # Errors
+    /// The selected settings do not describe a supported method of this adapter.
+    fn callback_demand(
+        &self,
+        settings: &BackendSettings,
+        controls: &Controls,
+    ) -> Result<CallbackDemand, ProblemError> {
+        Ok(CallbackDemand {
+            assembled_derivatives: crate::routing::derivative_demand(
+                &self.capability_for(settings)?,
+                controls,
+            ),
+            jacobian_product: false,
+        })
     }
     /// Whether this adapter consumes the compiler's original-coordinate separator.
     fn consumes_separator(&self, _settings: &BackendSettings) -> bool {
@@ -943,25 +979,6 @@ pub trait BackendExecution: Any + Sync + std::fmt::Debug {
         snapshot: &Snapshot,
     ) -> Result<(), ProblemError> {
         snapshot.validate_for(self)
-    }
-    /// Exact mathematical order required by this adapter's selected method.
-    fn required_order(
-        &self,
-        requirements: &Requirements<'_>,
-    ) -> Option<pse_kernels::DerivativeOrder> {
-        self.capability_for(requirements.settings)
-            .ok()
-            .and_then(|capability| {
-                crate::routing::derivative_demand(&capability, requirements.controls)
-            })
-    }
-    /// Exact executable operation product for the admitted method.
-    fn required_artifact(
-        &self,
-        requirements: &Requirements<'_>,
-    ) -> Option<crate::routing::ArtifactDemand> {
-        self.required_order(requirements)
-            .map(crate::routing::ArtifactDemand::Derivatives)
     }
     /// Compose static class/intent rules with existing contextual owners. This operation
     /// reads no ambient environment and starts no native service or worker.
@@ -1836,8 +1853,10 @@ pub(crate) fn assess_representation<A: BackendExecution + ?Sized>(
                 scientific.derivatives = requirements.facts.derivatives;
                 let contract = &scientific;
                 let order = adapter
-                    .required_order(requirements)
-                    .unwrap_or(pse_kernels::DerivativeOrder::Value);
+                    .callback_demand(requirements.settings, requirements.controls)
+                    .ok()
+                    .and_then(CallbackDemand::required_order)
+                    .unwrap_or(DerivativeOrder::Value);
                 if let Err(cause) = contract.validate(order) {
                     assessment.refuse(cause);
                 }

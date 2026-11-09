@@ -734,12 +734,11 @@ impl MathService {
         if adapter.representation() != execution::Representation::Roots {
             return Err(native::ProblemError::Unsupported("conditional unit requires a selected root representation; request an explicit simultaneous strategy".into()).into());
         }
-        let demand = native::routing::derivative_demand(
-            &adapter.capability_for(&profile.backend)?,
-            &profile.controls,
-        )
-        .unwrap_or(pse_kernels::DerivativeOrder::Value);
-        if executable.assembly.order() < demand {
+        let demand = adapter.callback_demand(&profile.backend, &profile.controls)?;
+        if demand
+            .assembled_derivatives
+            .is_some_and(|order| executable.assembly.order() < order)
+        {
             return Err(native::ProblemError::Unsupported(
                 "conditional residual compilation does not meet selected root derivative demand"
                     .into(),

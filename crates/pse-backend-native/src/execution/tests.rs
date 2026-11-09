@@ -1851,12 +1851,12 @@ fn preparation_and_arclength_suitability_are_adapter_facts() {
         ..Default::default()
     };
     let selected = BackendSettings::Kinsol(method);
-    let demand = adapter(Backend::Kinsol).callback_demand(&selected);
-    assert!(demand.jacobian_product && demand.directional_only);
-    assert_eq!(
-        adapter(Backend::Ipopt).callback_demand(&selected),
-        CallbackDemand::default()
-    );
+    let controls = Controls::default();
+    let demand = adapter(Backend::Kinsol).callback_demand(&selected, &controls).unwrap();
+    assert!(demand.jacobian_product);
+    assert_eq!(demand.assembled_derivatives, None);
+    assert_eq!(demand.required_order(), Some(pse_kernels::DerivativeOrder::First));
+    assert!(adapter(Backend::Ipopt).callback_demand(&selected, &controls).is_err());
     assert!(adapter(Backend::Pounce).consumes_separator(&BackendSettings::Default));
     assert!(!adapter(Backend::Kinsol).consumes_separator(&BackendSettings::Default));
     let controls = Controls {

@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Pure contextual policy controls; no native session or evaluator is acquired.
 use super::*;
-use crate::execution::{BackendExecution, Input, Representation, Retained};
+use crate::execution::{
+    BackendExecution, BackendSettings, CallbackDemand, Input, Representation, Retained,
+};
 use crate::solve::{Controls, SolveReport};
 
 #[derive(Debug)]
@@ -27,12 +29,17 @@ impl BackendExecution for Candidate {
     fn automatic(&self) -> Option<u8> {
         Some(self.rank)
     }
-    fn required_order(&self, r: &Requirements<'_>) -> Option<DerivativeOrder> {
-        if self.order == DerivativeCapability::JacobianOrProduct {
-            Some(DerivativeOrder::First)
-        } else {
-            derivative_demand(self.capability(), r.controls)
-        }
+    fn callback_demand(
+        &self,
+        _: &BackendSettings,
+        controls: &Controls,
+    ) -> Result<CallbackDemand, ProblemError> {
+        let mut capability = *self.capability();
+        capability.derivatives = self.order;
+        Ok(CallbackDemand {
+            assembled_derivatives: derivative_demand(&capability, controls),
+            jacobian_product: false,
+        })
     }
     fn execute(&self, _: &mut Retained, _: Input<'_>) -> Result<SolveReport, ProblemError> {
         Err(ProblemError::internal("pure policy test must not execute"))

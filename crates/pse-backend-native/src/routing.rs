@@ -730,7 +730,7 @@ pub(crate) fn root_intent(facts: &ProblemFacts, intent: SolveIntent) -> bool {
 }
 /// Conservative compilation demand of one adapter's declared derivative capability.
 /// Numerical callers and eligibility consume this same operation.
-pub fn derivative_demand(
+pub(crate) fn derivative_demand(
     capability: &Capability,
     controls: &crate::solve::Controls,
 ) -> Option<DerivativeOrder> {
@@ -843,11 +843,11 @@ pub fn admit(
     }
     // Every mode other than the library's quasi-Newton approximation is a supplied
     // Hessian: exact, or the Gauss–Newton Gram with constraint curvature.
-    let required = r
+    let callbacks = r
         .table
         .get(backend)
-        .and_then(|adapter| adapter.required_order(r));
-    if let Some(required) = required
+        .and_then(|adapter| adapter.callback_demand(r.settings, r.controls).ok());
+    if let Some(required) = callbacks.and_then(crate::execution::CallbackDemand::required_order)
         && f.derivatives < required
     {
         reasons.push(Ineligible::Derivatives { required });
@@ -898,6 +898,11 @@ pub fn assess_static(
     capability: &Capability,
     requirements: &Requirements<'_>,
 ) -> Eligibility {
+    let f = requirements.facts;
+    let callbacks = requirements
+        .table
+        .get(backend)
+        .and_then(|adapter| adapter.callback_demand(requirements.settings, requirements.controls).ok());
     let mut assessment = Eligibility {
         backend,
         reasons: admit(
@@ -951,25 +956,14 @@ pub fn assess_static(
     } else {
         assessment.evidence.push(EvidenceDemand::Structure);
     }
-    if let Some(required) = requirements
-        .table
-        .get(backend)
-        .and_then(|adapter| adapter.required_artifact(requirements))
+    if let Some(demand) = callbacks
+        && demand.required_order().is_some_and(|order| f.derivatives >= order)
+        && let Some(missing) = demand.missing(
+            f.prepared_derivatives,
+            requirements.context.prepared.contains(&ArtifactDemand::JacobianProduct),
+        )
     {
-        let missing = match required {
-            ArtifactDemand::Derivatives(order) => {
-                requirements.facts.derivatives >= order
-                    && requirements.facts.prepared_derivatives < order
-            }
-            ArtifactDemand::JacobianProduct => {
-                requirements.facts.derivatives >= DerivativeOrder::First
-                    && !requirements.context.prepared.contains(&required)
-            }
-            ArtifactDemand::Representation(_) => !requirements.context.prepared.contains(&required),
-        };
-        if missing {
-            assessment.artifacts.push(required);
-        }
+        assessment.artifacts.push(missing);
     }
     assessment
 }
@@ -1783,7 +1777,11 @@ mod tests {
         };
         for backend in [Backend::Ipopt, Backend::Pounce, Backend::Kinsol] {
             let adapter = adapter(backend);
-            let required = adapter.required_order(&requirements).unwrap();
+            let required = adapter
+                .callback_demand(requirements.settings, requirements.controls)
+                .unwrap()
+                .required_order()
+                .unwrap();
             let candidate = assess_static(backend, adapter.capability(), &requirements);
             assert!(
                 !candidate

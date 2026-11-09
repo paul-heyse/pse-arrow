@@ -2,7 +2,10 @@
 // Copyright (c) 2026 Paul Heyse
 //! Authored source interpretation feeds the common sparse fitting engine.
 use super::*;
-use crate::math::modeling::ModelingPreparation;
+use crate::math::{
+    modeling::ModelingPreparation,
+    solves::{OracleRouteRequest, OracleWitness, admit_oracle_route},
+};
 use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use crate::workflow::modeling::dynamics::IntegrationInputTarget;
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingOutput, Profile};
@@ -469,77 +472,26 @@ impl ModelingPackage {
                         return Err(contract("residual LM requires unboxed unconstrained exact response fitting with supported settings and finite matrix extent"));
                     }
                 }
-                let facts = native::routing::oracle_facts(
-                    &problem.contract,
-                    true,
-                    problem.bounds.iter().all(|(a, b)| a.is_finite() && a == b),
-                );
                 // Contextual interpretations may clone complete inventories, but share the
                 // matching witness already owned by the immutable preparation.
-                let extent = native::structural::construction_bytes(
-                    &problem.contract,
-                    problem.layout.constraints.matrix().symbolic(),
-                )
-                .map_err(crate::math::MathRuntimeError::from)?;
-                let reservation =
-                    datafusion::execution::memory_pool::MemoryConsumer::new("fit:route-structure")
-                        .register(&services.pool());
-                reservation
-                    .try_grow(extent)
-                    .map_err(crate::math::MathRuntimeError::from)?;
-                let decision = native::routing::Requirements {
-                    table: &native::execution::LINKED,
-                    facts: &facts,
-                    intent: problem.profile.solver.intent,
-                    numerical_psd: false,
-                    least_squares: true,
-                    controls: &problem.profile.solver.controls,
-                    settings: &problem.profile.solver.backend,
-                    sensitivity: false,
-                    context: native::routing::Context {
-                        snapshot: problem.snapshot.clone(),
-                        pending_classes: &[],
-                        structure: Some(problem.structure.clone()),
-                        oracle: Some(&problem.contract),
-                        guards: &BTreeMap::new(),
-                        budgets: Some(native::execution::Budgets {
+                let (route, structural_assessment) = admit_oracle_route(
+                    &services.pool(),
+                    OracleRouteRequest {
+                        contract: &problem.contract,
+                        pattern: problem.layout.constraints.matrix().symbolic(),
+                        witness: OracleWitness::Retained(&problem.structure),
+                        equalities: problem.bounds.iter().all(|(a, b)| a.is_finite() && a == b),
+                        least_squares: true,
+                        profile: &problem.profile.solver,
+                        snapshot: &problem.snapshot,
+                        budgets: native::execution::Budgets {
                             tolerances: &problem.tolerances,
                             normalization: &problem.normalization,
                             accuracy: &problem.accuracy,
-                        }),
-                        coefficients: None,
-                        cone: None,
-                        factorable: None,
-                        certificate: None,
-                        prepared: &[native::routing::ArtifactDemand::Representation(
-                            native::execution::Representation::Nlp,
-                        )],
-                        refusals: &BTreeMap::new(),
+                        },
                     },
-                }
-                .decision(problem.profile.solver.selection);
-                let route = decision
-                    .route()
-                    .map_err(crate::math::MathRuntimeError::from)?;
-                problem.structural_assessment = decision.structure;
-                if let Some(assessment) = &mut problem.structural_assessment {
-                    let retained = assessment
-                        .retained_bytes()
-                        .checked_sub(assessment.witness.retained_bytes())
-                        .filter(|bytes| *bytes <= reservation.size())
-                        .ok_or_else(|| contract("fit structural assessment retained allowance"))?;
-                    reservation.shrink(reservation.size() - retained);
-                    assessment.witness = assessment
-                        .witness
-                        .clone()
-                        .with_owner(pse_columnar::AllocationLease::new(reservation));
-                }
-                crate::math::solves::admit_profile(
-                    &problem.profile.solver,
-                    route,
-                    &problem.snapshot,
-                )
-                .map_err(crate::math::MathRuntimeError::from)?;
+                )?;
+                problem.structural_assessment = structural_assessment;
                 Ok(PreparedFit {
                     original_inputs,
                     source: self.clone(),
