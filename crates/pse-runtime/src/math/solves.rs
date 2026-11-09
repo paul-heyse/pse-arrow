@@ -3010,16 +3010,25 @@ pub(crate) fn admit_oracle_route(
     let extent = native::structural::construction_bytes(request.contract, request.pattern)?;
     let reservation = pse_columnar::MemoryConsumer::new("native:oracle-structure").register(pool);
     reservation.try_grow(extent)?;
-    let (structure, retained_witness_bytes) = match request.witness {
+    let structure = match request.witness {
         #[cfg(any(test, feature = "solver-diffsol"))]
-        OracleWitness::Fresh { bounds, cancel } => (
-            native::structural::oracle_structure_with_cancel(
+        OracleWitness::Fresh { bounds, cancel } => {
+            let mut structure = native::structural::oracle_structure_with_cancel(
                 request.contract, request.pattern, bounds, true, cancel,
-            )?,
-            0,
-        ),
-        OracleWitness::Retained(structure) => (structure.clone(), structure.witness.retained_bytes()),
+            )?;
+            let bytes = structure.witness.retained_bytes();
+            if bytes > reservation.size() {
+                return Err(MathRuntimeError::Limit("native oracle structural witness retained extent"));
+            }
+            // A typed route refusal can carry the same original witness as a successful route.
+            structure.witness = structure
+                .witness
+                .with_owner(pse_columnar::AllocationLease::new(reservation.split(bytes)));
+            structure
+        }
+        OracleWitness::Retained(structure) => structure.clone(),
     };
+    let witness_bytes = structure.witness.retained_bytes();
     let profile = request.profile;
     let facts = routing::oracle_facts(request.contract, true, request.equalities);
     let mut decision = routing::Requirements {
@@ -3051,7 +3060,7 @@ pub(crate) fn admit_oracle_route(
     if let Some(assessment) = &mut decision.structure {
         let retained = assessment
             .retained_bytes()
-            .checked_sub(retained_witness_bytes)
+            .checked_sub(witness_bytes)
             .filter(|bytes| *bytes <= reservation.size())
             .ok_or(MathRuntimeError::Limit("native oracle structural assessment retained extent"))?;
         reservation.shrink(reservation.size() - retained);

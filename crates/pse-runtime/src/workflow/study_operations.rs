@@ -1099,9 +1099,6 @@ impl PreparedStudyOperation {
         cancel: &CancelSource,
         attempt: super::durable::DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        if let Err(error) = super::run::RunSupervisor::check_claim(services, cancel) {
-            return Err(super::run::RunSupervisor::abandon_claim(attempt, error).await);
-        }
         let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
             match self {
                 Self::DeclaredCase(case) => super::worker::boxed_worker_action(|| {
@@ -1128,12 +1125,14 @@ impl PreparedStudyOperation {
                     {
                         super::worker::boxed_worker_action(|| async move {
                             let _ = horizon;
-                            let error = refusal(
-                                DiagnosticRule::StudyOperationUnsupported,
-                                BoundaryClass::Unsupported,
-                                [],
-                                "horizon owner is unavailable",
-                            );
+                            let error = super::run::RunSupervisor::check_claim(services, cancel)
+                                .err()
+                                .unwrap_or_else(|| refusal(
+                                    DiagnosticRule::StudyOperationUnsupported,
+                                    BoundaryClass::Unsupported,
+                                    [],
+                                    "horizon owner is unavailable",
+                                ));
                             Err(super::run::RunSupervisor::abandon_claim(attempt, error).await)
                         })
                     }

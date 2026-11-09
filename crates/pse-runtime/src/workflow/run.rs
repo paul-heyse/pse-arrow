@@ -1213,7 +1213,7 @@ impl RunSupervisor {
             None
         };
         Ok(self.spawn(move |mut supervisor| async move {
-            let registered = async {
+            let started = async {
                 if let Some(attempt) = supervisor.durable.as_mut() {
                     attempt
                         .register(
@@ -1225,33 +1225,16 @@ impl RunSupervisor {
                     let checks = supervisor.checks.clone();
                     attempt.start(Arc::new(move || checks.cancel())).await?;
                 }
-                Ok::<(), WorkflowError>(())
-            }
-            .await;
-            let handle = match registered {
-                Err(error) => {
-                    let error = match immediate {
-                        Some(handle) => drain_refused_native(handle, error).await,
-                        None => error,
-                    };
-                    return RunResult::joined(
-                        supervisor.run_id,
-                        supervisor.services,
-                        operation.finish(Err(Arc::new(error))),
-                        None,
-                    )
-                    .refused(supervisor.durable)
-                    .await;
-                }
-                Ok(()) => match immediate {
+                match immediate {
                     Some(handle) => Ok(handle),
                     None => dispatch
                         .take()
                         .ok_or_else(|| contract("native dispatch absent"))
                         .and_then(|dispatch| dispatch()),
-                },
-            };
-            let handle = match handle {
+                }
+            }
+            .await;
+            let handle = match started {
                 Ok(handle) => handle,
                 Err(error) => {
                     return RunResult::joined(
@@ -1580,7 +1563,12 @@ impl super::ShootingProblem {
             services,
             self.solver.controls.time_limit,
             parent,
-            || self.simulation.source.check_service_bindings(services.preparation()),
+            || {
+                self.simulation
+                    .source
+                    .check_service_bindings(services.preparation())
+                    .map_err(WorkflowError::from)
+            },
             |supervisor| {
             let run_id = supervisor.run_id;
             let deadline = supervisor

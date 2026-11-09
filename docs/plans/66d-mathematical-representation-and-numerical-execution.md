@@ -264,8 +264,8 @@ Compose preparation once from immutable formulation facts, explicit fresh or ret
 witness ownership and the admitted resource context. Reuse the existing
 `routing::Requirements::decision` and `execution::Capability` under the pinned native
 solver profiles. The router selects the eligible class adapter. The adapter's
-`required_artifact` and `callback_demand` supply the exact preparation and evaluation
-requirements from the same capability decision. Carry that decision and the reconciled
+`callback_demand` supplies exact preparation and evaluation requirements, including the
+first missing product, from the same capability decision. Carry that decision and the reconciled
 witness reservation to C instead of independently recomputing them in conditional
 artifact preparation, fitting and shooting. Reuse `OracleContract` for shared structural
 facts and ordered identities. Formulation, derivative source and resource context stay

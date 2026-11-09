@@ -97,9 +97,13 @@ fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
         derivatives: DerivativeOrder::First,
         smoothness: DerivativeOrder::Second,
     };
-    let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(1, 1, &[(0, 0)])
-        .unwrap()
-        .0;
+    let pattern = faer::sparse::SymbolicSparseColMat::try_new_from_indices(
+        1,
+        1,
+        &[faer::sparse::Pair::new(0, 0)],
+    )
+    .unwrap()
+    .0;
     let bounds = [(0., 0.)];
     let cancel = AtomicBool::new(false);
     let profile = SolverProfile {
@@ -158,6 +162,28 @@ fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
     drop(retained);
     assert_eq!(pool.reserved(), existing_bytes);
     drop(existing);
+    assert_eq!(pool.reserved(), 0);
+
+    let mut refused_profile = profile.clone();
+    refused_profile.controls.threads = 0;
+    let error = admit_oracle_route(
+        &pool,
+        OracleRouteRequest {
+            profile: &refused_profile,
+            ..request
+        },
+    )
+    .unwrap_err();
+    let MathRuntimeError::Solve(ProblemError::RouteRefused(decision)) = error else {
+        panic!("expected original route refusal");
+    };
+    let retained = decision
+        .eligibility
+        .iter()
+        .find_map(|candidate| candidate.structure.as_ref())
+        .expect("refusal must preserve the original witness");
+    assert_eq!(pool.reserved(), retained.witness.retained_bytes());
+    drop(decision);
     assert_eq!(pool.reserved(), 0);
 }
 
