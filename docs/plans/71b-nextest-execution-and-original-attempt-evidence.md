@@ -21,7 +21,7 @@ original-attempt access and visibility into work that still occurs on a warm inv
 
 ## Current status
 
-The worktree uses the isolated 0.9.151 executable and updates the native report gate. The selected native list/run and exact failure rerun controls passed. Exact JUnit attempt paging and comparison are implemented. Repeated listings and verification remain where their protected evidence differs. The CLI verified a retained timing file from a real opt-in test run. Weighted wakeup and the remaining profile/fixture combinations still need qualification.
+The normal executable on `main` matches the 0.9.151 pin and native report gate. The selected native list/run and exact failure rerun controls passed. Exact JUnit attempt paging and comparison are implemented. Repeated listings and verification remain where their protected evidence differs. The CLI verified a retained timing file from a real opt-in test run. The controlled weighted wakeup passed on `main`; the remaining profile and fixture combinations still need qualification.
 
 ## Packages
 

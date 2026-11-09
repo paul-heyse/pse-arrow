@@ -141,13 +141,32 @@ cooperative child stop and CLI help (`01a1c24a-a10a-728b-b1d9-83e1d256d074`);
 `pse test pse-authoring:dsl_examples -E …` passed the four renamed power grammar
 cases (`01a1c24c-13f5-74df-90ef-a3bb7c976297`). Both had zero failures against a
 zero baseline in the local managed context.
-These controls do not qualify weighted runner admission or native scientific journeys.
+The original worktree controls did not qualify weighted runner admission or native
+scientific journeys. On `main`, a four-test managed host selection
+(`01a1c26f-9109-72df-afe6-38c6db389b7a`) passed and an exact CLI export of its
+recorded Nextest 0.9.151 version file matched the committed digest. A second
+managed host selection (`01a1c275-1e3e-7457-886c-fc26a6d29cdf`) passed five
+tests covering original fixture effect attribution, JUnit overflow, the real
+weighted Nextest wakeup, native selection, and original failure rerun across a
+listing change. Both settled with zero failures against the zero baseline.
+The JUnit overflow control covered an interim relay that was later removed at
+the maintainer's direction; it is not part of the target acceptance.
 
-Remaining qualification includes weighted admission, the managed campaign
-signal/export journey, the selected fixture and exchanger journey, and scope-end
+On `main`, `pse test xtask --lib --features package-fixtures -E …` passed four
+campaign controls (`01a1c279-3970-7458-b55c-b1f85affd5d9`), including a small
+native caller and abrupt exit before/after checkpoint publication. The
+`xtask:conformance_cli` selection passed six cases
+(`01a1c27d-ae87-7766-a398-09cac33fabf0`), and
+`pse test pse-authoring:dsl_examples -E 'test(/^power_/)'` passed all five
+named cases (`01a1c27e-9e62-74d9-a47f-c99a61de7dc7`); zero failures against
+the zero baseline in each case.
+
+Remaining qualification includes the managed campaign signal/export journey, the selected fixture and exchanger journey, and scope-end
 checks. The ordinary capture path has bounded stream prefixes and
 release of newly enrolled, authenticated workflow members. Aggregate pre-admission
-accounting for all ordinary outputs and lifecycle of outer raw streams remain open;
-the campaign checkpoint reservation does not cover those objects. The live owner
+accounting is deferred for ordinary uncapped writers pending a review of observed
+sizes. The temporary JUnit byte cap and related admission proposal were withdrawn.
+The campaign checkpoint reservation is a separate existing bound. Ordinary raw
+stream retirement has been integrated; campaign raw streams retain separate custody. The live owner
 projection is not yet complete across all test, fixture and scientific phases.
 No plan closure or measured speedup is claimed.

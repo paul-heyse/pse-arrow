@@ -463,9 +463,12 @@ Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
 `--consumer NAME --condition CONDITION` to record a hold. Omit the condition to clear
 that consumer's hold. `pse tools prepare-result-expiry --enable` installs and enables
 the repository's user timer for eligible records in its authenticated registered worktrees.
-Newly enrolled ordinary workflows can release committed workflow files with the
-summary after settlement and hold/reader checks. Outer invocation streams and
-reusable build objects have separate custody. For managed campaign checkpoints use
+Newly enrolled ordinary tests can release committed workflow files and enrolled
+outer streams with the summary after settlement and hold/reader checks. Preview
+their actual logical and allocated sizes with `pse tools retire-result ID`; the
+`observed_workflow_extent` field separates available from missing or replaced
+members. The preview neither reserves space nor extends expiry. Reusable build
+objects and campaign outer streams have separate custody. For campaign checkpoints use
 `pse tools retire-result ID --conformance` and `pse tools hold-result ID --conformance`.
 Campaign checkpoints have bounded reservations and can expire seven days after
 verified settlement; explicit Arrow exports remain caller-owned.

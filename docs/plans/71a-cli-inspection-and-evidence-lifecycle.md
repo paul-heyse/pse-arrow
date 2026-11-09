@@ -23,7 +23,7 @@ and adds lifecycle coverage where the new workflow depends on it.
 
 ## Current status
 
-Exact phase-stream, phase, attempt and campaign read routes are integrated. The live helper publishes bounded owner phases. Workflow member and campaign retirement have separate exact custody checks. Ordinary aggregate reservations, outer raw streams, and per-attempt fixture/solver joins remain open.
+Exact phase-stream, phase, attempt and campaign read routes are integrated. The live helper publishes bounded owner phases. Workflow member and campaign retirement have separate exact custody checks. Ordinary outer streams now use exact original-writer custody and expiry. The retirement preview reports actual enrolled bytes. Original target effects appear provisionally live and with authenticated attempt identities in completed reports. Campaign outer-stream release and selected native owner qualification remain open; new ordinary writer limits are deferred.
 
 ## Packages
 
@@ -105,18 +105,19 @@ when identity changed, evidence is under active use or hold, ownership is foreig
 settlement is unresolved. A named hold carries a date or resolvable condition; conditions
 without an owner witness require explicit clear. Expose held or unresolved allocated
 bytes, release blockers and the appropriate recovery path through the CLI. Do not
-refresh retention on reads. Bound the newly enrolled routine result store to 4 GiB
-per checkout, including outstanding capture reservations, separately from optional
-attachments and the existing build and product stores. At admission, release only
-already eligible bytes under owner rules; if required capture still cannot be reserved,
-report a capacity refusal and its release or recovery route before performing the
-affected run. A full optional quota refuses only optional capture. Surface inactive
+refresh retention on reads. Report the actual logical and allocated extents of
+owned ordinary evidence and explicitly identify unavailable members. Keep
+retirement based on verified settlement and owner eligibility. The maintainer
+deferred new byte caps for ordinary JUnit and Cargo evidence pending a review of
+the observed sizes. The proposed 4 GiB checkout admission rule is therefore
+deferred for those uncapped writers; a report of actual usage is not a capacity
+guarantee. Preserve existing campaign and diagnostic bounds. Surface inactive
 cleanup through the CLI; do not silently shorten retention or delete protected data.
 Release and remove replaced retention paths with
 their migrated producer, never as a second cleanup schedule.
 
-Use controlled clocks, small budgets and real files to demonstrate truncation,
-expiry and byte release, hold/reader refusal, replaced paths, unsettled outcomes and
+Use controlled clocks and real files to demonstrate actual extents, expiry and byte
+release, hold/reader refusal, replaced paths, unsettled outcomes and
 unavailable detail after release. The tests must show both the original verdict and
 the release outcome; a pruned index entry alone is insufficient. Document the setup,
 diagnostic retrieval and routine closeout in the existing operator guide.

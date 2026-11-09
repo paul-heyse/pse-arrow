@@ -18,7 +18,7 @@ source and runtime owners. No general cache, scheduler or diagnostic platform.
 
 ## Current status
 
-The selected fixture loads immutable physical inputs before borrowing its database and reuses the same authored document bundle. The four independently selectable DSL cases passed focused validation. Typed diagnostics and an independent borrower control were added. The selected exchanger and fixture journeys remain to be verified; no optional diagnostic tool was needed by these changes.
+The selected fixture loads immutable physical inputs before borrowing its database and reuses the same authored document bundle. Five independently selectable DSL cases passed on main after inserting the new negative-exponent case. Typed diagnostics and an independent borrower control were added. The selected exchanger and fixture journeys remain to be verified; no optional diagnostic tool was needed by these changes.
 
 ## Packages
 

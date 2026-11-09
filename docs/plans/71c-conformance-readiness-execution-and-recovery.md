@@ -22,7 +22,7 @@ cancellation. Extend those owners rather than introducing a new campaign runner.
 
 ## Current status
 
-Readiness, prepared profiles, case observations and cooperative stop are implemented on the integration branch. The five focused conformance CLI tests passed, including missing-root refusal before output, scientific failure, and export collision. Passive host readiness also returned an explicit preparation action without constructing a campaign. Current-image reuse, managed signal and settlement, and the selected native journey still need verification.
+Readiness, prepared profiles, case observations and cooperative stop are implemented on the integration branch. The five focused conformance CLI tests passed, including missing-root refusal before output, scientific failure, and export collision. Passive host readiness also returned an explicit preparation action without constructing a campaign. The focused campaign unit batch on `main` passed source retarget refusal, abrupt exit before and after checkpoint publication, bounded owner observations, and a small native caller's settlement and export. Managed prepared-image reuse, foreground and detached signal handling, and the selected integrated journey still need verification.
 
 ## Packages
 
