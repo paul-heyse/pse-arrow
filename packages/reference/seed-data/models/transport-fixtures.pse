@@ -36,4 +36,11 @@
 @id("64d03100000000000000000000000057") expect partial(reduced_ethane_viscosity,T)(390.15{K})*derivative_step==(reduced_ethane_viscosity(390.15{K}+derivative_step)-reduced_ethane_viscosity(390.15{K}-derivative_step))/2 tolerance 1e-7;
 @id("64d03100000000000000000000000058") expect partial(reduced_ethane_viscosity,T,T)(390.15{K})*derivative_step^2==reduced_ethane_viscosity(390.15{K}+derivative_step)-2*reduced_ethane_viscosity(390.15{K})+reduced_ethane_viscosity(390.15{K}-derivative_step) tolerance 1e-7;
 }
+@id("64d03100000000000000000000000060") entity provenance.computation idaes_ethane_expression {title="Executed pinned IDAES Chapman–Enskog/Neufeld ethane vapor expression in Pa s at the three released gas temperatures; expression agreement separate from handbook observations",tools={references.idaes_2_13},locator="tests/reference/ethane-viscosity-reference.py"}
+@id("64d03100000000000000000000000061") test ethane_vapor_viscosity_idaes_expression oracle idaes_ethane_expression fixture {dof 0;route steady;procedure check;} {
+@id("64d03100000000000000000000000062") permission selected_dilute_fit records(chapman_enskog.neufeld[chem.ethane,properties.dynamic_viscosity,compatibility.PhaseType.vaporPhase,ethane_appendix_b]) allow_unknown true allow_extrapolation false;
+@id("64d03100000000000000000000000063") expect ethane_viscosity(320.15{K})==1.0051686124795986e-5{Pa*s} tolerance 0{Pa*s} relative 1e-11;
+@id("64d03100000000000000000000000064") expect ethane_viscosity(390.15{K})==1.2010080957639218e-5{Pa*s} tolerance 0{Pa*s} relative 1e-11;
+@id("64d03100000000000000000000000065") expect ethane_viscosity(520.15{K})==1.5284488622175115e-5{Pa*s} tolerance 0{Pa*s} relative 1e-11;
+}
 }

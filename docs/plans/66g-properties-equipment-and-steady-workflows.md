@@ -118,9 +118,13 @@ checks three handbook observations cited by the pinned IDAES ethane test and ind
 compares first and second symbolic jets with temperature differences. **Tested, selected:**
 default-profile, force-validated `scripts/pse test pse-compiler --lib -F force-validate`
 passed this one authored control with zero failures and complete settlement
-(`01a1bf6f-3bc9-7738-b192-3ade693c8d9d`). An independently executed reference, negative
-receiving, typed result and actual equipment consumers remain separate. No Wilke, Chung,
-Eucken or WMS claim follows.
+(`01a1bf6f-3bc9-7738-b192-3ade693c8d9d`). The [independent ethane driver](../../tests/reference/ethane-viscosity-reference.py)
+evaluated the pinned IDAES 2.13.0 Chapman–Enskog/Neufeld expression at 320.15, 390.15 and
+520.15 K. The separate native authored comparator passed under the default force-validated
+`scripts/pse test pse-compiler pse-math pse-backend-native --lib` selection of the ethane and
+math controls, with zero failures/warnings and complete settlement
+(`01a1c12d-b299-73f5-82d6-b881a7f8a58f`). Negative receiving, typed result and actual
+equipment consumers remain separate. No Wilke, Chung, Eucken or WMS claim follows.
 
 G01 produces usable per-consumer closure decisions, not a serial barrier over the
 entire table. Start with ready steady equipment and the HEOS Water equipment consumer

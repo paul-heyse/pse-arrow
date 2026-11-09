@@ -110,15 +110,10 @@ fn check(name: &str) {
     );
 }
 
-#[test]
-fn authored_ethane_vapor_viscosity_matches_released_observations_and_jets() {
+fn check_authored_ethane_viscosity(name: &str, expected_count: usize) {
     let source = crate::scientific_inputs::family_sources("pure-transport");
     let (mut workspace, declarations) = fresh_workspace(&source);
-    let selected = root(
-        &declarations,
-        "transport_fixtures",
-        "ethane_vapor_viscosity",
-    );
+    let selected = root(&declarations, "transport_fixtures", name);
     let result = workspace
         .check_modeling_point(
             selected,
@@ -131,12 +126,22 @@ fn authored_ethane_vapor_viscosity_matches_released_observations_and_jets() {
             Profile::default(),
             pse_diagnostics::Cancellation::default(),
         )
-        .unwrap_or_else(|error| panic!("authored ethane vapor viscosity: {error}"));
-    assert_eq!(result.expectations.len(), 6);
+        .unwrap_or_else(|error| panic!("authored ethane vapor viscosity {name}: {error}"));
+    assert_eq!(result.expectations.len(), expected_count);
     assert!(
         result.expectations.iter().all(|value| value.passed),
         "{result:?}"
     );
+}
+
+#[test]
+fn authored_ethane_vapor_viscosity_matches_released_observations_and_jets() {
+    check_authored_ethane_viscosity("ethane_vapor_viscosity", 6);
+}
+
+#[test]
+fn authored_ethane_vapor_viscosity_matches_executed_idaes_expression() {
+    check_authored_ethane_viscosity("ethane_vapor_viscosity_idaes_expression", 3);
 }
 
 #[test]
