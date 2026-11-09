@@ -376,6 +376,7 @@ fn controlled_child() {
         .unwrap();
     super::super::transport::serve_with_preparation(
         endpoint,
+        session,
         parent,
         move |request, cancellation| {
             if request.handle.session != session {
@@ -725,6 +726,79 @@ fn orphan_preparation(proxy: &Proxy) -> p::Prepare {
         remaining_ns: None,
         result_limit: checked.extents().bytes().unwrap() as u64,
     }
+}
+
+#[test]
+fn current_worker_refuses_retired_service_and_preparation_on_original_connection() {
+    let directory = tempfile::tempdir().unwrap();
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let proxy = finish_proxy("ordinary", &directory.path().join("native"), &service);
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let io = remote.io.as_ref().unwrap();
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    // Shutdown has the same wire tag in both revisions. The retired method must
+    // refuse that operation at routing, before it can close the current child.
+    let error = runtime
+        .block_on(io.exchange_at_path(
+            "/pse.scientific_worker.v1.ScientificWorker/Exchange",
+            p::Request::Shutdown,
+        ))
+        .unwrap_err();
+    assert!(matches!(
+        error,
+        WorkerError::Exchange(error)
+            if error.code == connectrpc::ErrorCode::Unimplemented
+                && error.message.as_deref() == Some(
+                    "method not found: pse.scientific_worker.v1.ScientificWorker/Exchange"
+                )
+    ));
+
+    let original = orphan_preparation(&proxy);
+    let handle = original.handle;
+    let exchange = |request| remote.exchange(request, &proxy.scope, None).unwrap();
+    let mut foreign = original.clone();
+    foreign.handle.session = pse_operations::mint_id();
+    foreign.handle.generation = SemanticId::from_bytes([u8::MAX; 16]);
+    assert!(matches!(
+        exchange(p::Request::Prepare(foreign)),
+        p::Response::Failure(p::Failure::Contract(detail))
+            if detail == "scientific worker foreign preparation context"
+    ));
+    assert!(matches!(
+        exchange(p::Request::Prepare(original.clone())),
+        p::Response::Prepared(value) if value.handle == handle
+    ));
+    assert!(matches!(
+        exchange(p::Request::Close(handle)),
+        p::Response::Closed(value) if value == handle
+    ));
+    assert!(matches!(
+        exchange(p::Request::Prepare(original)),
+        p::Response::Failure(p::Failure::Contract(detail))
+            if detail == "scientific worker stale preparation generation"
+    ));
+
+    let fresh = orphan_preparation(&proxy);
+    let handle = fresh.handle;
+    assert!(matches!(
+        exchange(p::Request::Prepare(fresh)),
+        p::Response::Prepared(value) if value.handle == handle
+    ));
+    assert!(matches!(
+        exchange(p::Request::Close(handle)),
+        p::Response::Closed(value) if value == handle
+    ));
+    drop(runtime);
+    Box::new(proxy).finish().unwrap();
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
 }
 
 async fn preparation_witness(path: std::path::PathBuf, expected: &str) {

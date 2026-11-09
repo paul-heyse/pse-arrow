@@ -223,7 +223,10 @@ fn call_options(timeout: Option<Duration>) -> connectrpc::client::CallOptions {
 type CleanupGate =
     Arc<std::sync::Mutex<Option<(std::sync::mpsc::Sender<()>, std::sync::mpsc::Receiver<()>)>>>;
 #[cfg(test)]
-type TestClient = services::ScientificWorkerClient<OwnedTransport>;
+struct TestClient {
+    generated: services::ScientificWorkerClient<OwnedTransport>,
+    transport: OwnedTransport,
+}
 #[cfg(test)]
 type TestClientObserver = Arc<std::sync::Mutex<std::sync::Weak<TestClient>>>;
 /// An independent async driver; the native caller never drives Tokio itself.
@@ -294,13 +297,22 @@ impl IoOwner {
                     Err(error) => { let _ = ready.send(Err(infrastructure(error))); return Ok(()); }
                 };
                 let driver = tokio::spawn(connection);
-                let client = services::ScientificWorkerClient::new(OwnedTransport(sender), config);
+                let transport = OwnedTransport(sender);
+                #[cfg(not(test))]
+                let client = services::ScientificWorkerClient::new(transport, config);
                 #[cfg(test)]
                 let client = {
-                    let client = Arc::new(client);
+                    let client = Arc::new(TestClient {
+                        generated: services::ScientificWorkerClient::new(transport.clone(), config),
+                        transport,
+                    });
                     *thread_client_observer.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Arc::downgrade(&client);
                     client
                 };
+                #[cfg(not(test))]
+                let generated_client = &client;
+                #[cfg(test)]
+                let generated_client = &client.generated;
                 let active = ready.send(Ok(())).is_ok();
                 use futures_util::{stream::FuturesUnordered, StreamExt as _};
                 let mut pending = FuturesUnordered::new();
@@ -318,7 +330,7 @@ impl IoOwner {
                             },
                             result = receiver.recv(), if pending.len() < 2 => {
                                 let Some(outgoing) = result else { break; };
-                                let client = &client;
+                                let client = generated_client;
                                 let shutdown_acknowledged = &shutdown_acknowledged;
                                 pending.push(async move {
                                     let response = client.exchange_with_options(
@@ -420,19 +432,43 @@ impl IoOwner {
     ) -> Result<impl Future<Output = Result<p::Response, WorkerError>> + Send + 'static, WorkerError>
     {
         let request = pb::Request::try_from(request)?;
-        let client = self
-            .client_observer
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .upgrade()
-            .ok_or_else(|| infrastructure("scientific worker test client already departed"))?;
+        let client = self.observed_client()?;
         Ok(async move {
             client
+                .generated
                 .exchange_with_options(request, call_options(None))
                 .await
                 .map_err(WorkerError::Exchange)
                 .and_then(|response| p::Response::try_from(response.into_owned()))
         })
+    }
+    /// Test only: probe a procedure on the same authenticated connection.
+    #[cfg(test)]
+    pub(super) async fn exchange_at_path(
+        &self,
+        path: &'static str,
+        request: p::Request,
+    ) -> Result<p::Response, WorkerError> {
+        let client = self.observed_client()?;
+        let request = pb::Request::try_from(request)?;
+        let response = connectrpc::client::call_unary::<_, _, pb::__buffa::view::ResponseView<'static>>(
+            &client.transport,
+            client.generated.config(),
+            connectrpc::Spec::client(path, connectrpc::StreamType::Unary),
+            request,
+            call_options(Some(Duration::from_secs(5))),
+        )
+        .await
+        .map_err(WorkerError::Exchange)?;
+        p::Response::try_from(response.into_owned())
+    }
+    #[cfg(test)]
+    fn observed_client(&self) -> Result<Arc<TestClient>, WorkerError> {
+        self.client_observer
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .upgrade()
+            .ok_or_else(|| infrastructure("scientific worker test client already departed"))
     }
     #[cfg(test)]
     pub(super) fn delay_cleanup(
@@ -620,12 +656,22 @@ enum SubmissionError {
     Admission(WorkerError),
     Departed,
 }
-#[derive(Default)]
 struct HandleControls {
+    session: SemanticId,
+    last_prepared_generation: SemanticId,
     closed: bool,
     handles: BTreeMap<SemanticId, (p::SessionHandle, pse_diagnostics::Cancellation)>,
 }
 impl HandleControls {
+    fn new(session: SemanticId) -> Self {
+        Self {
+            session,
+            last_prepared_generation: SemanticId::NIL,
+            closed: false,
+            handles: BTreeMap::new(),
+        }
+    }
+
     fn signal(&self, request: &p::Request) -> Result<(), WorkerError> {
         if self.closed {
             return Err(
@@ -651,16 +697,30 @@ impl HandleControls {
         }
         match request {
             p::Request::Prepare(value) => {
-                if self.handles.len() >= 64 || self.handles.contains_key(&value.handle.generation) {
+                let handle = value.handle;
+                if handle.session != self.session || handle.attempt == SemanticId::NIL {
                     return Err(ProviderError::Contract(
-                        "scientific worker duplicate/excess preparation".into(),
+                        "scientific worker foreign preparation context".into(),
                     )
                     .into());
                 }
-                self.handles.insert(
-                    value.handle.generation,
-                    (value.handle, Default::default()),
-                );
+                // The authenticated parent sends Prepare serially, minting each
+                // generation with UUIDv7's same-process creation order. Keep the
+                // order after retirement so a closed generation cannot reopen.
+                if handle.generation <= self.last_prepared_generation {
+                    return Err(ProviderError::Contract(
+                        "scientific worker stale preparation generation".into(),
+                    )
+                    .into());
+                }
+                if self.handles.len() >= 64 {
+                    return Err(ProviderError::Contract(
+                        "scientific worker excess preparation".into(),
+                    )
+                    .into());
+                }
+                self.handles.insert(handle.generation, (handle, Default::default()));
+                self.last_prepared_generation = handle.generation;
             }
             p::Request::Evaluate(value) => {
                 self.control(&value.handle)?;
@@ -904,13 +964,14 @@ impl services::ScientificWorker for Server {
 /// Private worker composition root; verifies actual parent and accepted kernel peer.
 /// The executable owns this process and uses parent-loss termination to contain FFI.
 pub fn serve(endpoint: PathBuf, session: SemanticId, parent: u32) -> Result<(), WorkerError> {
-    serve_with_preparation(endpoint, parent, move |request, cancellation| {
+    serve_with_preparation(endpoint, session, parent, move |request, cancellation| {
         handler::prepare(request, session, cancellation)
     })
 }
 
 pub(super) fn serve_with_preparation(
     endpoint: PathBuf,
+    session: SemanticId,
     parent: u32,
     prepare: impl Fn(p::Prepare, pse_diagnostics::Cancellation) -> Result<PreparedSession, WorkerError>
     + Send
@@ -926,7 +987,7 @@ pub(super) fn serve_with_preparation(
     )
     .map_err(infrastructure)?;
     listener.set_nonblocking(true).map_err(infrastructure)?;
-    let controls = SharedControls::default();
+    let controls = SharedControls::new(std::sync::Mutex::new(HandleControls::new(session)));
     let native_controls = controls.clone();
     let closed = pse_diagnostics::Cancellation::default();
     let drained = closed.clone();
@@ -2020,7 +2081,7 @@ mod tests {
         (
             Server {
                 jobs,
-                controls: SharedControls::default(),
+                controls: SharedControls::new(std::sync::Mutex::new(HandleControls::new(handle(0).session))),
                 work: Arc::new(tokio::sync::Semaphore::new(1)),
                 terminal: tokio::sync::watch::channel(None).1,
             },
@@ -2414,7 +2475,7 @@ mod tests {
         second.generation = SemanticId::from_bytes([4; 16]);
         let a = pse_diagnostics::Cancellation::default();
         let b = pse_diagnostics::Cancellation::default();
-        let mut controls = HandleControls::default();
+        let mut controls = HandleControls::new(first.session);
         controls
             .handles
             .insert(first.generation, (first, a.clone()));

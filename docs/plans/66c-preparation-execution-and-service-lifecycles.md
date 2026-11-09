@@ -250,6 +250,12 @@ Preserve original deadline, native linearization lifetime and independent child 
 settlement. The persistent provider and private root child retain their different execution
 contracts. [Provider session](../../crates/pse-runtime/src/scientific_worker/session.rs)
 
+The authenticated proxy sends preparations serially and mints each generation through
+`Uuid::now_v7`, which guarantees creation order within one process. The child checks
+the session before recording the highest admitted generation. This single value survives
+retirement and prevents a replay from rebuilding the same handle.
+[UUID 1.28 generation contract](https://docs.rs/uuid/1.28.0/uuid/struct.Uuid.html#method.now_v7)
+
 Consume D01/D02's admitted route, witness and exact artifact/callback demands in fitting
 and shooting. Their window, residual and continuation decisions stay local. Retire
 their duplicate common admission and witness reservation composition as callers move.
