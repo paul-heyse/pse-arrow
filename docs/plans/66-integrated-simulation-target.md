@@ -153,11 +153,11 @@ below still owns current integration and receiving evidence.
 | ID | Finding and scenario | Disposition | Work owner | Required evidence |
 | --- | --- | --- | --- | --- |
 | F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | resolved | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item with 19 references. The selected registry and modeling tests preserve occurrence roles, ordinals and local grammar. |
-| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | verification pending | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and the independent host compile passed. Verify the ordinary, inspection-only and performing consumers on the final sources. |
+| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | verification pending | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and the independent host and performing consumer compiles passed. Verify ordinary and inspection-only consumers on the final sources. |
 | F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | verification pending | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | Both current capabilities generate. C02 and F05 exercise both with exact restore and reconnect and refuse the retired methods. |
-| F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | verification pending | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | The native-derived worker replaces the retired wire. Verify stale and incompatible session refusal and supported derivative actions. |
-| F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | verification pending | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Selected adapter controls passed. Verify the shared witness lifetime and the fitting and shooting consumers. |
-| F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | verification pending | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Verify that refusal and independent finish failure survive actual drain through the current supervisor. |
+| F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | resolved | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | The current worker refused the retired route and stale and foreign sessions on the original connection. Transport tests preserved derivative products, output order, abandonment and original stop. |
+| F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | resolved | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Adapter, Krylov, fitting and shooting controls passed. The witness custody control passed for fresh, retained and refused work. |
+| F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | resolved | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Refused native launch and failed preparation preserve the original and independent finish causes after drain. The queued Study retains its original claim after frontend retirement. |
 
 ## Dependency order and useful intermediate deliveries
 
@@ -245,11 +245,24 @@ The generated worlds have distinct descriptor and Rust emission sets. The indepe
 `pse check pse-host --lib -F engineering-client` completed with zero failures. The
 generator selects one runtime-owned conversion scope for adapters between externally
 owned native and wire types. The combined Study request and RPCs, their JSON schemas,
-the unused Study legacy enum, and the predecessor worker wire are removed. The final
-consumer compile, targeted functional controls, and authenticated Study and worker
-journeys remain open.
-Full simulation qualification stays behind that cutover. The source-review finding
-rows retain the required evidence and their owning packages.
+the unused Study legacy enum, and the predecessor worker wire are removed. Final
+`just codegen` completed all 17 schema targets. The runtime all-target check with
+engineering, CoolProp, Diffsol, Ipopt, KINSOL, native service, product operators and
+force-validation completed with zero compiler errors or warnings
+(`01a1beba-e178-7197-9ae2-707d018fee1a`).
+
+**Tested, selected.** `pse test pse-runtime:pse_runtime pse-runtime:scientific_worker
+pse-runtime:native_dynamic_workflows` in default mode with the same features as the
+runtime check selected 17 controls and completed settlement
+(`01a1bebe-23c2-74e3-9568-b6cafcf2cc50`). Sixteen passed, including the actual
+worker route refusal and product tests, queued Study ownership, refused-launch drain,
+Krylov derivative preparation, analytic fitting and shooting, and imported result
+reflection. One witness test failed against the zero baseline because its pool was
+smaller than the admitted construction reservation. The corrected fixture passed
+the focused `pse test pse-runtime:pse_runtime` rerun with the same features, zero
+failures and complete settlement (`01a1bece-beec-70d1-9283-01b26d1f6a84`).
+The ordinary and inspection-only controls and the independently authenticated Study
+journey remain open. Full simulation qualification stays behind that cutover.
 
 ### 66a–f checkpoint — November 8
 

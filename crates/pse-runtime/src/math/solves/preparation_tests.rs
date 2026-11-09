@@ -85,7 +85,8 @@ fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
     use pse_columnar::{AllocationLease, GreedyMemoryPool, MemoryConsumer, MemoryPool};
     use std::sync::atomic::AtomicBool;
 
-    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(1 << 20));
+    // Leave room for the matching scratch reservation as well as the retained witness.
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(64 << 20));
     let contract = native::OracleContract {
         identity: pse_ids::ContentHash::from_bytes([3; 32]),
         variables: vec![native::Variable {
