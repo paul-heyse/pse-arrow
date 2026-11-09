@@ -369,6 +369,13 @@ pub fn compact_timer_status(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn private_root() -> tempfile::TempDir {
+        let root = tempfile::tempdir().unwrap();
+        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
+        root
+    }
 
     fn fixture(directory: PathBuf) -> Selection {
         let name = "pse-test";
@@ -397,13 +404,16 @@ mod tests {
 
     #[test]
     fn status_observes_only_prepared_units_and_never_creates_them() {
-        let root = tempfile::tempdir().unwrap();
+        let root = private_root();
         let selection = fixture(root.path().join("absent"));
         let state = || observe_selection(&selection, |_| panic!("manager must not be queried")).0;
         assert_eq!(state(), ExpiryState::Unprepared);
         assert!(!selection.directory.exists());
 
-        fs::create_dir(&selection.directory).unwrap();
+        DirBuilder::new()
+            .mode(0o700)
+            .create(&selection.directory)
+            .unwrap();
         assert_eq!(state(), ExpiryState::Unprepared);
         assert_eq!(fs::read_dir(&selection.directory).unwrap().count(), 0);
 
@@ -416,7 +426,7 @@ mod tests {
 
     #[test]
     fn status_distinguishes_exact_activity_from_unverified_manager_evidence() {
-        let root = tempfile::tempdir().unwrap();
+        let root = private_root();
         let selection = fixture(root.path().to_owned());
         installed(&selection);
         let timer = properties(&selection.timer, "active");
@@ -460,7 +470,7 @@ mod tests {
 
     #[test]
     fn status_rechecks_unit_files_after_reading_manager_ownership() {
-        let root = tempfile::tempdir().unwrap();
+        let root = private_root();
         let selection = fixture(root.path().to_owned());
         installed(&selection);
         let observed = observe_selection(&selection, |name| {
@@ -473,6 +483,10 @@ mod tests {
             }
         });
         assert_eq!(observed.0, ExpiryState::Unverified);
+        assert_eq!(
+            fs::read(&selection.service.path).unwrap(),
+            b"replaced after initial check"
+        );
     }
 
     #[test]
