@@ -117,6 +117,18 @@ impl WorkflowStreams {
         parent: &File,
         missing_ok: bool,
     ) -> Result<Vec<RawRelease>, HostError> {
+        let selected = self.observe_release(parent, missing_ok)?;
+        for member in &selected {
+            member.fence(parent)?;
+        }
+        Ok(selected)
+    }
+
+    pub(super) fn observe_release(
+        &self,
+        parent: &File,
+        missing_ok: bool,
+    ) -> Result<Vec<RawRelease>, HostError> {
         let mut selected = Vec::new();
         for (name, expected) in self.members() {
             let file = match open_child(parent, Path::new(name)) {
@@ -126,7 +138,6 @@ impl WorkflowStreams {
                 }
                 Err(error) => return Err(error),
             };
-            flock(&file, FlockOperation::NonBlockingLockExclusive).map_err(io::Error::from)?;
             if descriptor_identity(&file)? != *expected
                 || descriptor_identity(&open_child(parent, Path::new(name))?)? != *expected
             {
@@ -149,14 +160,24 @@ impl RawRelease {
         Ok(self.original.metadata()?.blocks().saturating_mul(512))
     }
 
-    pub(super) fn unlink(self, parent: &File) -> Result<u64, HostError> {
+    pub(super) fn fence(&self, parent: &File) -> Result<(), HostError> {
+        flock(&self.original, FlockOperation::NonBlockingLockExclusive).map_err(io::Error::from)?;
+        self.check(parent)
+    }
+
+    fn check(&self, parent: &File) -> Result<(), HostError> {
         let name = Path::new(self.name);
         if descriptor_identity(&self.original)? != self.identity
             || descriptor_identity(&open_child(parent, name)?)? != self.identity
         {
             return Err(invalid("bounded raw stream changed during release"));
         }
-        unlinkat(parent, name, AtFlags::empty()).map_err(io::Error::from)?;
+        Ok(())
+    }
+
+    pub(super) fn unlink(self, parent: &File) -> Result<u64, HostError> {
+        self.check(parent)?;
+        unlinkat(parent, self.name, AtFlags::empty()).map_err(io::Error::from)?;
         parent.sync_all()?;
         Ok(self.identity.bytes)
     }

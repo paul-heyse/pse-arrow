@@ -117,12 +117,12 @@ impl CampaignRelease {
         Ok(digest(&serde_json::to_vec(self).map_err(io::Error::other)?))
     }
 
-    fn prepare_raw(
+    fn observe_raw(
         &self,
         owner: &File,
         original: &InvocationDirectory,
         replay: bool,
-    ) -> Result<(Vec<RawRelease>, bool), HostError> {
+    ) -> Result<(Vec<RawRelease>, Option<u64>), HostError> {
         for (name, identity) in [
             ("stdout.raw", self.raw.as_ref().and_then(|raw| raw.streams.stdout.as_ref())),
             ("stderr.raw", self.raw.as_ref().and_then(|raw| raw.streams.stderr.as_ref())),
@@ -135,17 +135,26 @@ impl CampaignRelease {
             if optional_member(owner, InvocationEvidence::WorkflowStreams.filename())?.is_some() {
                 return Err(invalid("uncommitted campaign raw stream receipt remains"));
             }
-            return Ok((Vec::new(), false));
+            return Ok((Vec::new(), None));
         };
         let current = RawCommitment::read(original)?;
         if current.as_ref().is_some_and(|current| current != raw) || current.is_none() && !replay {
             return Err(invalid("original campaign raw stream receipt is missing or replaced"));
         }
-        let selected = raw.streams.prepare_release(owner, replay)?;
+        let selected = raw.streams.observe_release(owner, replay)?;
         if current.is_none() && !selected.is_empty() {
             return Err(invalid("campaign raw stream receipt disappeared before its original members"));
         }
-        Ok((selected, current.is_some()))
+        let receipt_bytes = if current.is_some() {
+            let file = open_child(owner, Path::new(InvocationEvidence::WorkflowStreams.filename()))?;
+            if descriptor_identity(&file)? != raw.receipt {
+                return Err(invalid("campaign raw stream receipt changed while observing extent"));
+            }
+            Some(file.metadata()?.blocks().saturating_mul(512))
+        } else {
+            None
+        };
+        Ok((selected, receipt_bytes))
     }
 }
 
@@ -185,7 +194,8 @@ fn unlink_exact(parent: &File, name: &str, expected: &DescriptorIdentity) -> Res
 pub struct ConformanceRetirement {
     invocation: CliInvocationId,
     disposition: &'static str,
-    /// Verified bytes, or null when the owner's members have not been accounted for.
+    /// Verified allocated bytes of checkpoints, raw streams and their writer receipt.
+    /// Null means that their original custody or extent could not be verified.
     allocated_bytes: Option<u64>,
     eligible_after_unix_ms: Option<u64>,
     holds: BTreeMap<String, String>,
@@ -388,12 +398,77 @@ impl InvocationDirectory {
             return Err(invalid("original borrowed campaign custody changed after drain authentication"));
         }
         match read_member::<EnclosingDrain>(&owner, ENCLOSING_DRAIN)? {
-            Some((original, _)) if original == drain => Ok(()),
+            Some((original, _)) if original == drain => Ok(owner.sync_all()?),
             Some(_) => Err(invalid("enclosing drain witness differs from original borrowed campaign custody")),
             None => publish(self.path(), ENCLOSING_DRAIN, &drain, Some(META_LIMIT)),
         }
     }
 
+}
+
+struct ReleaseSelection {
+    release: CampaignRelease,
+    checkpoints: Vec<(&'static str, DescriptorIdentity)>,
+    raw: Vec<RawRelease>,
+    remove_receipt: bool,
+    intent_identity: Option<DescriptorIdentity>,
+    allocated_bytes: u64,
+}
+
+fn observe_release(
+    owner: &File,
+    original: &InvocationDirectory,
+    artifacts: &[ArtifactReference],
+    reservation_identity: DescriptorIdentity,
+) -> Result<ReleaseSelection, HostError> {
+    let current_checkpoints = [SNAPSHOT, STAGING].into_iter()
+        .filter_map(|name| selected_file(owner, name).transpose().map(|result| result.map(|member| (name, member))))
+        .collect::<Result<BTreeMap<_, _>, _>>()?;
+    let intent = read_member::<CampaignRelease>(owner, RELEASE_INTENT)?;
+    let intent_identity = intent.as_ref().map(|(_, identity)| identity.clone());
+    let replay = intent.is_some();
+    let release = match intent {
+        Some((intent, _)) => intent,
+        None => CampaignRelease {
+            invocation: original.id().clone(),
+            reservation: reservation_identity.clone(),
+            checkpoints: current_checkpoints.iter().map(|(&name, member)| (name.into(), CheckpointCommitment {
+                identity: member.identity.clone(),
+                fingerprint: member.fingerprint.clone(),
+            })).collect(),
+            raw: if raw_commitment(artifacts)?.is_some() {
+                RawCommitment::read(original)?
+            } else {
+                None
+            },
+        },
+    };
+    release.authenticate(original.id(), artifacts)?;
+    if release.reservation != reservation_identity {
+        return Err(invalid("campaign release does not match the original reservation"));
+    }
+    let mut allocated_bytes = 0_u64;
+    for (&name, member) in &current_checkpoints {
+        if !release.checkpoints.get(name).is_some_and(|expected| {
+            expected.identity == member.identity && expected.fingerprint == member.fingerprint
+        }) {
+            return Err(invalid("original campaign checkpoint was replaced before release"));
+        }
+        allocated_bytes = allocated_bytes.saturating_add(member.allocated);
+    }
+    let (raw, receipt_bytes) = release.observe_raw(owner, original, replay)?;
+    allocated_bytes = allocated_bytes.saturating_add(receipt_bytes.unwrap_or_default());
+    for member in &raw {
+        allocated_bytes = allocated_bytes.saturating_add(member.allocated_bytes()?);
+    }
+    Ok(ReleaseSelection {
+        release,
+        checkpoints: current_checkpoints.into_iter().map(|(name, member)| (name, member.identity)).collect(),
+        raw,
+        remove_receipt: receipt_bytes.is_some(),
+        intent_identity,
+        allocated_bytes,
+    })
 }
 
 impl InvocationStore {
@@ -512,8 +587,9 @@ impl InvocationStore {
             return Err(invalid("release requires an original managed campaign"));
         }
         let root = self.conformance_root();
-        let index = lock(&root, FlockOperation::LockExclusive)?;
-        let owner = lock(original.path(), FlockOperation::NonBlockingLockExclusive)?;
+        let changing = sweep || token.is_some();
+        let index = lock(&root, if changing { FlockOperation::LockExclusive } else { FlockOperation::LockShared })?;
+        let owner = lock(original.path(), if changing { FlockOperation::NonBlockingLockExclusive } else { FlockOperation::LockShared })?;
         let mut preview = ConformanceRetirement {
             invocation: id.clone(),
             disposition: "unsettled",
@@ -535,6 +611,7 @@ impl InvocationStore {
                 }
             }
             preview.disposition = "retired";
+            preview.allocated_bytes = Some(0);
             return Ok(preview);
         }
         let reservation = open_child(&index, Path::new(id.as_str()))?;
@@ -548,77 +625,41 @@ impl InvocationStore {
             && terminal.payload.native_lifetime_pending == Some(false)
             && !terminal.payload.borrowed_reservation;
         let clock = if native_drained {
-            "result.json"
+            Some("result.json")
         } else if terminal.payload.borrowed_reservation {
-            let Some((witness, _)) = read_member::<EnclosingDrain>(&owner, ENCLOSING_DRAIN)? else {
-                return Ok(preview);
-            };
-            if witness != original.enclosing_drain()? {
-                return Err(invalid("enclosing drain witness differs from original borrowed campaign custody"));
+            match read_member::<EnclosingDrain>(&owner, ENCLOSING_DRAIN)? {
+                Some((witness, _)) if witness == original.enclosing_drain()? => Some(ENCLOSING_DRAIN),
+                Some(_) => return Err(invalid("enclosing drain witness differs from original borrowed campaign custody")),
+                None => None,
             }
-            ENCLOSING_DRAIN
         } else {
-            let Some((witness, _)) = read_member::<CliInvocationId>(&owner, SEAL)? else {
-                return Ok(preview);
-            };
-            if &witness != id {
-                return Err(invalid("campaign drain witness names another invocation"));
+            match read_member::<CliInvocationId>(&owner, SEAL)? {
+                Some((witness, _)) if &witness == id => Some(SEAL),
+                Some(_) => return Err(invalid("campaign drain witness names another invocation")),
+                None => None,
             }
-            SEAL
         };
-        let settled = unix_millis(open_child(&owner, Path::new(clock))?.metadata()?.modified()?)?;
-        let expiry = settled.saturating_add(WEEK_MS);
-        preview.eligible_after_unix_ms = Some(expiry);
-        if sweep && now < expiry {
+        if let Some(clock) = clock {
+            let settled = unix_millis(open_child(&owner, Path::new(clock))?.metadata()?.modified()?)?;
+            preview.eligible_after_unix_ms = Some(settled.saturating_add(WEEK_MS));
+        }
+        if sweep && (preview.eligible_after_unix_ms.is_none_or(|expiry| now < expiry) || !preview.holds.is_empty()) {
             return Ok(preview);
         }
-        if !preview.holds.is_empty() {
-            preview.disposition = "held";
-            if token.is_some() {
-                return Err(invalid("original conformance evidence is held"));
+        let selected = observe_release(&owner, &original, &terminal.artifacts, reservation_identity);
+        if clock.is_none() || !preview.holds.is_empty() {
+            if !preview.holds.is_empty() {
+                preview.disposition = "held";
+                if token.is_some() {
+                    return Err(invalid("original conformance evidence is held"));
+                }
             }
+            preview.allocated_bytes = selected.ok().map(|selected| selected.allocated_bytes);
             return Ok(preview);
         }
-        let current_checkpoints = [SNAPSHOT, STAGING].into_iter()
-            .filter_map(|name| selected_file(&owner, name).transpose().map(|result| result.map(|member| (name, member))))
-            .collect::<Result<BTreeMap<_, _>, _>>()?;
-        let intent = read_member::<CampaignRelease>(&owner, RELEASE_INTENT)?;
-        let intent_identity = intent.as_ref().map(|(_, identity)| identity.clone());
-        let replay = intent.is_some();
-        let release = match intent {
-            Some((intent, _)) => intent,
-            None => CampaignRelease {
-                invocation: id.clone(),
-                reservation: reservation_identity.clone(),
-                checkpoints: current_checkpoints.iter().map(|(&name, member)| (name.into(), CheckpointCommitment {
-                    identity: member.identity.clone(),
-                    fingerprint: member.fingerprint.clone(),
-                })).collect(),
-                raw: if raw_commitment(&terminal.artifacts)?.is_some() {
-                    RawCommitment::read(&original)?
-                } else {
-                    None
-                },
-            },
-        };
-        release.authenticate(id, &terminal.artifacts)?;
-        if release.reservation != reservation_identity {
-            return Err(invalid("campaign release does not match the original reservation"));
-        }
-        let mut allocated_bytes = 0_u64;
-        for (&name, member) in &current_checkpoints {
-            if !release.checkpoints.get(name).is_some_and(|expected| {
-                expected.identity == member.identity && expected.fingerprint == member.fingerprint
-            }) {
-                return Err(invalid("original campaign checkpoint was replaced before release"));
-            }
-            allocated_bytes = allocated_bytes.saturating_add(member.allocated);
-        }
-        let (raw, remove_receipt) = release.prepare_raw(&owner, &original, replay)?;
-        for member in &raw {
-            allocated_bytes = allocated_bytes.saturating_add(member.allocated_bytes()?);
-        }
+        let ReleaseSelection { release, checkpoints, raw, remove_receipt, intent_identity, allocated_bytes } = selected?;
         preview.allocated_bytes = Some(allocated_bytes);
+        let replay = intent_identity.is_some();
         let release_token = release.token()?;
         preview.disposition = if replay { "release_pending" } else { "settled" };
         preview.release = Some(release_token.clone());
@@ -627,6 +668,9 @@ impl InvocationStore {
         }
         if !sweep && token != Some(release_token.as_str()) {
             return Err(invalid("conformance release token no longer matches the original evidence"));
+        }
+        for member in &raw {
+            member.fence(&owner)?;
         }
         let intent_identity = if let Some(identity) = intent_identity {
             identity
@@ -641,8 +685,8 @@ impl InvocationStore {
         };
         // A prior publisher may have failed after rename and before synchronizing the intent.
         owner.sync_all()?;
-        for (name, member) in current_checkpoints {
-            unlink_exact(&owner, name, &member.identity)?;
+        for (name, identity) in checkpoints {
+            unlink_exact(&owner, name, &identity)?;
         }
         for member in raw {
             member.unlink(&owner)?;
@@ -782,18 +826,28 @@ mod tests {
     fn campaign_release_requires_drain_hold_clear_and_exact_member() {
         let fixture = Fixture::new();
         let id = fixture.original.id();
-        assert_eq!(fixture.retire(None).unwrap().disposition, "unsettled");
+        let expected_bytes = [SNAPSHOT, "stdout.raw", "stderr.raw", InvocationEvidence::WorkflowStreams.filename()]
+            .into_iter()
+            .map(|name| fs::metadata(fixture.path(name)).unwrap().blocks() * 512)
+            .sum::<u64>();
+        let live = fixture.retire(None).unwrap();
+        assert_eq!(live.disposition, "unsettled");
+        assert_eq!(live.allocated_bytes, None);
         let artifacts = fixture.finish(false);
-        assert_eq!(fixture.retire(None).unwrap().disposition, "unsettled");
+        let undrained = fixture.retire(None).unwrap();
+        assert_eq!(undrained.disposition, "unsettled");
+        assert_eq!(undrained.allocated_bytes, Some(expected_bytes));
+        assert!(undrained.release.is_none());
         fixture.original.record_conformance_worker_drain().unwrap();
 
         let lease = fixture.original.borrow_conformance().unwrap();
-        assert!(fixture.retire(None).is_err());
-        drop(lease);
         let preview = fixture.retire(None).unwrap();
         let token = preview.release.unwrap();
-        assert!(preview.allocated_bytes.unwrap() > 0);
+        assert_eq!(preview.allocated_bytes, Some(expected_bytes));
+        assert!(fixture.retire(Some(&token)).is_err());
+        drop(lease);
         let raw_reader = fixture.original.stream(OutputStream::Stdout).unwrap();
+        assert_eq!(fixture.retire(None).unwrap().allocated_bytes, Some(expected_bytes));
         assert!(fixture.retire(Some(&token)).is_err());
         assert!(!fixture.path(RELEASE_INTENT).exists());
         drop(raw_reader);
@@ -801,7 +855,8 @@ mod tests {
         fixture.store.hold_conformance(id, "review", Some("until reviewed")).unwrap();
         let held = fixture.retire(None).unwrap();
         assert_eq!(held.disposition, "held");
-        assert_eq!(held.allocated_bytes, None);
+        assert_eq!(held.allocated_bytes, Some(expected_bytes));
+        assert!(held.release.is_none());
         assert!(fixture.retire(Some(&token)).is_err());
         fixture.store.hold_conformance(id, "review", None).unwrap();
         let unowned = fixture.path("other");
@@ -862,8 +917,6 @@ mod tests {
                 receipt: fixture.raw.receipt.clone(),
             }),
         };
-        let token = fixture.retire(None);
-        assert!(token.is_err());
         drop(owner);
         let token = fixture.retire(None).unwrap().release.unwrap();
         assert_eq!(token, release.token().unwrap());
