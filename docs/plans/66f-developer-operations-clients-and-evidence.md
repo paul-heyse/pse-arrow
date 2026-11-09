@@ -307,14 +307,18 @@ authoring closure. The combined-surface mappings and callers are removed. The
 owns the authenticated prepare, read, restore and reconnect checks for both procedures.
 [Study input capabilities](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
 
-Provide the actual client inventory for [C's wire decisions](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement).
-Identify run-only callers separately from callers consuming independent preparation inspection,
-reuse or authorization. If whole-case submission is selected, move the real run-only clients to
-that operation through B03 and remove their mandatory intermediate Prepare leg and obsolete
-fixtures. Verify the separately launched endpoint preserves stale-parent refusal, exact original
+The caller inventory for [C's wire decisions](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement)
+found only run-only engineering clients. Their generated request now submits the exact
+authored case without intermediate Prepare. Verify the separately launched endpoint
+preserves stale-parent refusal, exact original
 preparation/attempt, changed-repeat refusal, lost-ACK recovery, cancellation and protected read
-after disconnect. Retain Study variants and original diagnostic/evidence custody. A test-only
-caller of a private root or provider lane does not establish a supported deployment consumer.
+after disconnect. Retain Study variants and original diagnostic/evidence custody.
+
+The two authored-case client controls now pass against a separately launched managed
+engineering frontend and disposable canonical keeper. They verify endpoint identity,
+changed and stale requests, the original run and preparation, and protected readback
+after reconnect. The [Symbolica execution checkpoint](66-integrated-simulation-target.md#symbolica-execution--november-9)
+owns the exact native invocation and settlement evidence.
 
 Migrate all current engineering discovery/edit/preparation/study/submission/status/cancel/progress/
 readback client calls, prepared scientific worker/reference callers and separately driven

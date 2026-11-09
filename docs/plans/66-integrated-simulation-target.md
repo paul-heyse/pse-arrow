@@ -172,14 +172,14 @@ select every candidate in that investigation or change delivered evidence.
 
 | ID | Review finding | Disposition | Work owner | Required evidence or decision |
 | --- | --- | --- | --- | --- |
-| I01 | [Bounded symbolic restore](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01) | scheduled | [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation), [C04](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts) | Try a producer-sealed guarded body first; compare bounded replay if that fails proof custody or execution fit. Exact cold receiving and refusal before growth precede any single-format cutover. |
-| I02 | [Shared derivative construction](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I02) | scheduled | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products) | A real demanded action and symbolic partial where consumed retain shared inputs, original axes, guards and unsupported-order refusal. Remove expansion only where the selected replacement serves all affected callers. |
-| I03 | [Exact objective and coefficient reuse](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I03) | scheduled | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-exact-objectives) | One bounded request-local objective serves the actual degree and coefficient consumers. Class-only demand does not expand a polynomial to classify it. Exact elimination needs a named block and original-coordinate checks. |
-| I04 | [Exact adapter demand](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I04) | scheduled | [D01/D02/D04](66d-mathematical-representation-and-numerical-execution.md#d01d02--shared-admission-and-exact-native-demand), C02/C04 | Reuse the checked demand and witness on matching premises; refuse foreign layouts and unsupported products, and preserve distinct native callback modes. |
-| I05 | [Precision by demanded claim](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I05) | scheduled | [D02/D04](66d-mathematical-representation-and-numerical-execution.md#symbolica-precision) | Identify the actual product and prove its required precision or enclosure contract before changing its realization. Routine binary64 and the bounded cubic proof remain in force. |
-| I06 | [Strict-domain fidelity](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I06) | scheduled | [D01/D04](66d-mathematical-representation-and-numerical-execution.md#strict-domain-fidelity), J04 and L03/L05 | Record the selected rule through the decision route; distinguish safe relaxed closure, candidate-only restriction and unsupported certification. Check the conditional guard separately. |
-| I07 | [Wire retirement and complete operations](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I07) | scheduled | [C02/C03/C04](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement), B03/F05 | Trace supported callers and placement first. Remove only replaced operations and generated reach after actual migration and original effect/settlement controls. |
-| I08 | [Released composition and supplier provenance](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I08) | deferred | [D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-composition-candidates); [D06](66d-mathematical-representation-and-numerical-execution.md#symbolica-supplier-provenance) | A named independently reusable provider-free chain triggers the optional composition comparison. No upgrade selected. The independent D06 provenance repair is scheduled now; it does not wait for a candidate or block unrelated science. |
+| I01 | [Bounded symbolic restore](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I01) | open | [D02](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation), [C04](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts) | Fixed-shape cold copy is tested. Neither alternative qualifies for activation; keep JSON v3 as the sole current route. The sealed route needs independent typed source-to-stage and receipt correspondence; replay needs admission before supplier growth. |
+| I02 | [Shared derivative construction](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I02) | open | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-shared-products) | Staged polynomial actions and shared Symbolica partial bindings use original ordered axes. Keep the bounded direct guarded or entry products where staged intermediates cannot serve the original demand. |
+| I03 | [Exact objective and coefficient reuse](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I03) | complete | [D01/D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-exact-objectives) | Joint degree and coefficient consumers reuse the bounded request-local objective. Exact elimination still needs a named block with original-coordinate checks. |
+| I04 | [Exact adapter demand](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I04) | open | [D01/D02/D04](66d-mathematical-representation-and-numerical-execution.md#d01d02--shared-admission-and-exact-native-demand), C02/C04 | Selected adapter and conditional preparation use the checked callback demand. Keep reassessment for a changed layout or request. |
+| I05 | [Precision by demanded claim](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I05) | deferred | [D02/D04](66d-mathematical-representation-and-numerical-execution.md#symbolica-precision) | No traced A–F consumer needs a changed domain. Revisit for a named precision-sensitive product and an original-coordinate discriminator. |
+| I06 | [Strict-domain fidelity](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I06) | open | [D01/D04](66d-mathematical-representation-and-numerical-execution.md#strict-domain-fidelity), J04 and L03/L05 | ADR-0258 implements safe relaxed closure or refusal; no inward margin. L still owns assembled evidence. |
+| I07 | [Wire retirement and complete operations](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I07) | complete | [C02/C03/C04](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement), B03/F05 | The private root path is retired and one authored-case submission owns preparation through settlement. The separately launched client controls passed; the independent Study and provider worker scopes stay with their owners. |
+| I08 | [Released composition and supplier provenance](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I08) | deferred | [D02/D05](66d-mathematical-representation-and-numerical-execution.md#symbolica-composition-candidates); [D06](66d-mathematical-representation-and-numerical-execution.md#symbolica-supplier-provenance) | D06 independently reproduced all tracked files from the pinned archive. An actual reusable provider-free chain is still the trigger for any release/composition comparison. |
 
 ## Dependency order and useful intermediate deliveries
 
@@ -250,14 +250,56 @@ routes before dependent implementation.
 On 2026-11-09 the maintainer selected [Symbolica review I06](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I06):
 use a sound closed superset at the original endpoint with `Relaxed` fidelity where it can be
 evaluated safely, otherwise refuse certified export. An inward margin is candidate-only and
-confers no global proof, bound or infeasibility claim. Before dependent implementation,
-route this change through a scoped decision and revision of blueprint §18.10.1; trace
-[ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md), whose proposed predicate
-contract leaves backend closure policy unchanged. This is target selection, not formal ADR
-acceptance or evidence that the export is corrected. D01/D04 own the correction and L its
+confers no global proof, bound or infeasibility claim. Proposed
+[ADR-0258](../adr/0258-preserve-strict-domain-export-fidelity.md) and blueprint §18.10.1 own
+the backend correction; [ADR-0249](../adr/0249-exact-conjunctive-domain-predicates.md) still
+owns native predicate meaning. D01/D04 retain the selected native controls and L owns
 assembled proof-path evidence.
 
 ## Verification, current outcome and cleanup handoff
+
+### Symbolica execution — November 9
+
+**Implemented.** Joint derivative products preserve shared arithmetic and ordered runtime
+weights and directions. Joint class and coefficient requests reuse the exact aggregate
+objective; conditional preparation uses the selected adapter's callback demand. The former
+private root launcher, protocol, fixtures and deadline mode are deleted. Engineering run
+submission now owns the authored case from preparation through settlement.
+`just codegen` published all 16 current targets, including the new engineering descriptor
+and the generated ownership map without the retired root protocol.
+
+**Tested, selected.** Default-profile `scripts/pse test pse-math pse-backend-native --lib
+-F pse-backend-native/scip` exercised 26 reconstruction, derivative, exact coefficient,
+routing and native export controls (`01a1c059-26d3-701f-a675-c0dc40a6eaa2`). Twenty-five
+passed; the new guarded-branch test expected an exported objective where the actual guarded
+denominator has no supported factorable projection. The corrected control now requires the
+original guard and explicit refusal. The final `scripts/pse test pse-backend-native --lib
+-F scip` selected export rerun passed 12/12 against zero failures, with complete settlement
+(`01a1c067-0869-7696-a0b4-3d5e2a31af2d`). The actual strict linear case keeps a valid
+point below the former margin and reports the zero infimum as a relaxed bound.
+
+**Tested, selected.** Local-profile, force-validated `scripts/pse test
+pse-runtime:pse_runtime pse-runtime:engineering_service -F
+engineering-service,solver-kinsol,native-service,product-reader` passed all 14 selected
+controls with zero failures/build warnings and complete original settlement
+(`01a1c073-7e39-71ca-9d47-2527f7127426`). The selection covered original KINSOL
+callback preparation, bounded deadline and cancellation, diagnostic publication, canonical
+JSON v3 receiving, and the retained authored-case run including lost acknowledgement,
+unchanged preparation identity and protected readback. Two independent client controls
+used the same separately launched frontend and disposable canonical keeper; original
+frontend drain was observed and the keeper exited successfully after disposing of its
+owned fixture. This run did not include Study or simulation qualification.
+
+The selected `scripts/pse test pse-host:pse_host pse-host:cli_output` fixture and CLI
+checks passed 15/16; the help tree exposed a stale expectation for already exposed schema
+policy options. The corrected help check passed on its own with zero failures
+(`01a1c06b-b520-7679-a1d4-740c7e44ef1c`). All other selected host checks retained their
+original pass and settlement (`01a1c067-5fcc-72c9-bd58-9ecbfed3097a`).
+
+The guarded cold-copy experiment establishes only fixed-shape packed backing and an actual
+downstream value/derivative check. [D02/C04](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)
+retain typed receipt correspondence and pre-allocation as the activation boundary; JSON v3
+remains the sole production reader. No new Symbolica release or precision domain is selected.
 
 ### 66a–h execution checkpoint — November 9
 

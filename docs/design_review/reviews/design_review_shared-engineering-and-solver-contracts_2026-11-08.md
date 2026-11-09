@@ -301,7 +301,7 @@ maintained placement uses both with equivalent exit/unknown-wait guarantees. A p
 child's best-effort drop is insufficient as the only settlement evidence for any new live
 placement. Canonical reconstruction retains its separate C04 decision.
 [Provider custody](../../../crates/pse-runtime/src/scientific_worker/process.rs) ·
-[Private root child](../../../crates/pse-runtime/src/math/native_child.rs)
+[Private root child](https://github.com/paul-heyse/pse-arrow/blob/9de6d7d94e22890bf2c8ba73c2d0b47e0d700562/crates/pse-runtime/src/math/native_child.rs)
 
 ## Pivotal mechanisms and alternatives
 

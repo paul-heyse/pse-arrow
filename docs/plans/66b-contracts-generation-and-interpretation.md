@@ -349,13 +349,14 @@ session binding and coordinated image activation.
 [Current worker protocol](../../crates/pse-kernels/src/worker_protocol.rs)
 
 For [C's wire decisions](66c-preparation-execution-and-service-lifecycles.md#scientific-wire-retirement),
-generate only the selected operation and consumer closure. Retain distinct Study roots,
-admission, observation/cancellation and protected read contracts. If C02/F05 qualify whole-case
-submission, move the actual roots and callers and delete superseded intermediate projections
-and fixtures together; do not expose a Symbolica step as a new public RPC. Apply the same
+generate only the selected operation and consumer closure. The authored-case run now has
+version 2 request and status projections; the retired intermediate preparation root and
+adapters are removed, and its former request fields are reserved. Retain distinct Study roots,
+admission, observation/cancellation and protected read contracts. Apply the same
 boundary to an actual isolated worker change. Compare admitted generated reach, exact tags,
 ordered outputs, per-point refusals and independent consumer compilation against the current
-root. Retire a private protocol only with the owning placement decision and callers.
+root. The private root protocol has no selected performing caller and is retired under
+[ADR-0259](../adr/0259-retire-private-root-lane.md).
 
 For [D02/C04 canonical receiving](66c-preparation-execution-and-service-lifecycles.md#c04--finish-selected-reconstruction-and-execution-contexts),
 change the source projection only when the selected reconstruction requires it. Keep mechanical

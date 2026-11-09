@@ -183,7 +183,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and identity consumers. Decide whole-case submission against actual client demand before moving or retiring any preparation call. |
 | C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. Bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Complete selected session/batch/departure paths and qualify any combined crossing only for actual isolated placement. |
-| C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D02's bounded symbolic restore or replay decision | Remaining selected live/receiving/reference contexts use exact native permission and original memberships. Qualify cold canonical receiving and perform a single cutover only once D02's route works; independently disposition the private root lane from its actual consumers. |
+| C04 | in-progress | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D02's bounded symbolic restore or replay decision | Remaining selected live/receiving/reference contexts use exact native permission and original memberships. The unconsumed private root lane is retired. Production receiving still uses JSON v3; the replacement needs independent stage/receipt correspondence and cold canonical qualification. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token, nonblocking I/O and native error retention are integrated. `ObserveRun` bounds its passive wait by the request deadline and preserves settlement of an already admitted protected read. Verify the real UDS progress frame and terminal trailer control. Study observation still needs its effect-bearing capture and original failure to settle under its own deadline contract. |
 
 Typed engineering `AdmitSource` now takes an explicit registration set authorized by
@@ -271,8 +271,8 @@ binding. Still check fresh provider capability, context, generation and attempt 
 binding and invocation boundaries. Replace both managed images in the private protocol
 cutover and refuse mismatched revisions, stale handles and unsupported derivative demand.
 Preserve original deadline, native linearization lifetime and independent child and I/O
-settlement. The persistent provider and private root child have different execution contracts;
-the [wire retirement decision](#scientific-wire-retirement) determines their actual future reach.
+settlement. The persistent provider remains the performing owner for selected isolated work;
+the [private root process was retired separately](#scientific-wire-retirement).
 [Provider session](../../crates/pse-runtime/src/scientific_worker/session.rs)
 
 The authenticated proxy sends preparations serially and mints each generation through
@@ -354,9 +354,9 @@ symbolic consumer, exact correspondence and refusal without partial publication.
 qualified hit is an error, not permission to try live source admission or another decoder.
 Keep JSON v3 as the sole current production route until one qualified replacement moves its
 producers and consumers, then remove the old interpretation, callers and old-wire fixtures
-in the same change. B03 adopts the selected projection only if it changes. The current
-provider-free Value/First handoff restores an interpreted numerical evaluator and cannot
-serve symbolic `AdmittedBody` consumers. No change to unbounded host policy follows.
+in the same change. B03 adopts the selected projection only if it changes. The retired private
+root process's Value/First transfer only restored an interpreted numerical evaluator. It
+could not serve symbolic `AdmittedBody` consumers. No change to unbounded host policy follows.
 
 Complete original qualified recipe membership across the canonical receiving population and the
 actual prepared worker/reference consumers. Extend live prepared-body execution where D supplies
@@ -371,21 +371,17 @@ and native receiving acceptance exist. Historical readable records can retain un
 #### C02/C03/C04 — Keep only crossings needed by a complete operation
 
 For [Symbolica review I07](../plan_improvement_reviews/plan66-symbolica-leverage-2026-11-09.md#I07),
-trace deployed and supported Rust callers and explicit placement requirements before changing
-the wire. The private [root lane](../../crates/pse-runtime/src/math/native_child.rs) has an
-executable and acceptance callers but no traced first-party production caller. If the inventory
-confirms no supported caller or placement obligation, retire the launcher, root wire and its
-mechanics-only fixtures together. Keep useful supplier-transfer and settlement controls with
-their actual owners. If an isolated consumer exists, compare one complete operation on its
-existing performing owner against keeping the lane. Do not extend it just because the f64
-transfer accepts a closed provider-free profile.
+the deployment and Rust caller inventory found no supported private root caller or placement
+obligation. [ADR-0259](../adr/0259-retire-private-root-lane.md) retires its launcher, root wire
+and mechanics-only fixtures. Native-session lifecycle and supplier transfer controls stay with
+their performing owners.
 
-For run-only engineering clients, compare submitting the complete authored case and preparing
-internally under the same native owner against `PrepareCase` then `SubmitRun`. Retain independent
-Prepare only for a supported consumer of its inspection, reuse or authorization meaning. Do
-not change the current public shape until the comparison establishes equivalent original source,
-immutable preparation identity, changed-repeat refusal, lost-ACK recovery and independent
-settlement. F05 moves actual clients; B03 removes superseded roots and projections with them.
+The selected engineering contract uses one `SubmitRun` with the original source operation,
+exact parent revision, case, intent and issued run/attempt. Its retained task prepares and
+executes the case. Status reports the immutable native preparation when available, including
+after canonical reconnect. No supported caller needed standalone `PrepareCase`. B03 and F05
+own the generated and client cutover; their acceptance retains changed-repeat, stale-parent,
+lost-ACK, cancellation, settlement and protected readback.
 
 The [scientific worker](../../crates/pse-runtime/src/scientific_worker/proxy.rs) is conditional
 on actual isolated placement; ordinary engineering's in-process provider route does not need

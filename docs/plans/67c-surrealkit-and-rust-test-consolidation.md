@@ -28,13 +28,13 @@ namespace actor. Its source can grow under the existing generated schema owner. 
 fixture declarations already distinguish target-owned, runner-borrowed and preparation-only
 inputs. Borrowed cases currently consume the admitted native inventory through
 `NativeTestCommand::from_source_capture` and use isolated UUID databases after readiness.
-Current runtime fixture preparation still captures the `xtask` capsule builder and the
-`pse-native-lane` worker, each in a distinct feature composition. Selection checks the
-capsule against the original builder and current inputs. A move of SQL assertions to SurrealKit
-does not by itself remove those scientific runtime captures. [SurrealKit pin](../../.config/surrealkit.toml) ·
+Current runtime fixture preparation still captures the `xtask` capsule builder. Selection
+checks the capsule against the original builder and current inputs. Plan66 retired the
+unused private root worker and its fixture. A move of SQL assertions to SurrealKit does not
+by itself remove the remaining scientific runtime captures. [SurrealKit pin](../../.config/surrealkit.toml) ·
 [Existing TOML suite](../../scripts/tests/fixtures/surrealkit/canonical.toml) ·
 [Fixture declarations](../../crates/pse-operations/Cargo.toml) ·
-[Current standalone lane owner](../../crates/pse-host/src/fixtures/native_lane.rs) ·
+[Private root retirement](../adr/0259-retire-private-root-lane.md) ·
 [Fixture settlement](../dev/surreal-substrate.md#targeted-fixture-controls)
 
 ## Database contract lane
@@ -106,7 +106,7 @@ routine builder/lane preparation and per-invocation capture path. Keep readiness
 missing inputs, and original joined failures observable. Repeated preparation must cease
 producing redundant retained copies even when the required worker remains.
 [Scientific inputs catalog](../../tests/fixtures/scientific-inputs.toml) ·
-[Current native lane owner](../../crates/pse-host/src/fixtures/native_lane.rs)
+[Private root retirement](../adr/0259-retire-private-root-lane.md)
 
 Keep physical lifecycle, restart, persistent migration, recovery, real protocol, and scientific
 execution controls in their native owners. Generate the smallest synthetic state that exercises

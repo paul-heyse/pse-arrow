@@ -122,7 +122,7 @@ phase exclusions. This package closes all actual receiving consumers, not only s
 
 **E03 realization:** use the already generated envelope and bounded inherited framing for
 attempt/handshake/outcome correspondence; use the selected E02 body route rather than assuming
-native packing exists. [The closed-child source](../../crates/pse-runtime/src/math/native_child.rs)
+native packing exists. [The closed-child source](https://github.com/paul-heyse/pse-arrow/blob/9de6d7d94e22890bf2c8ba73c2d0b47e0d700562/crates/pse-runtime/src/math/native_child.rs)
 owns original channel/parent screening, and [ADR-0246](../adr/0246-live-admitted-body-delegation.md)
 characterizes the narrower proposed delegation premise. A proposal decoded through a generated
 envelope remains subject to independent original-coordinate verification and actual reap.
@@ -942,7 +942,7 @@ arbitrary authored identities are not treated as local occurrence tokens. Late c
 keeps the complete snapshot and allocation owner together, so actual fields drain before the
 owner releases its reservation.
 
-The private [`NativeRoot v4 protocol`](../../crates/pse-runtime/src/math/native_root_protocol.rs)
+The private [`NativeRoot v4 protocol`](https://github.com/paul-heyse/pse-arrow/blob/9de6d7d94e22890bf2c8ba73c2d0b47e0d700562/crates/pse-runtime/src/math/native_root_protocol.rs)
 replaces source/registry/receipt reconstruction fields with this snapshot and reserves the
 retired field identities. The parent retains its original `AdmittedBody`, `SourceBindings` and
 physical context, prepares through the unchanged sourceful route, and independently verifies
@@ -1023,7 +1023,7 @@ with zero failures. The initial fixture inherited signed-tag policy and correctl
 fixture-local `tag.gpgSign=false` removes that unrelated interactive requirement. No host Git
 configuration changes or measured build-speed claim follows; ordinary caching remains enabled.
 
-Sources: [parent preparation and child path](../../crates/pse-runtime/src/math/native_child.rs),
+Sources: [parent preparation and child path](https://github.com/paul-heyse/pse-arrow/blob/9de6d7d94e22890bf2c8ba73c2d0b47e0d700562/crates/pse-runtime/src/math/native_child.rs),
 [compiled stages/order selection/worker](../../crates/pse-math/src/execution.rs),
 [root construction/evaluation/verification](../../crates/pse-math/src/implicit.rs),
 [KINSOL oracle](../../crates/pse-backend-native/src/implicit.rs),

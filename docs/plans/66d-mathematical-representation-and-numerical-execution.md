@@ -99,13 +99,11 @@ math wrapper refuses Second, directional/direct/reverse products and providers. 
 the exact native product/layout/stage/worker/provider closure before extending that support;
 removing a rejection alone is insufficient. Sources: [maintained supplier contract](../../vendor/symbolica/src/evaluate/f64_transfer.rs)
 and [native math transfer owner](../../crates/pse-math/src/execution/transfer.rs).
-The traced first-party live-root callers are acceptance tests of the closed Value/First factory;
-current NLP/response work prepares its Second/actions through in-process assembly and original
-scientific-worker sessions. Higher-order live transfer therefore stays a capability candidate,
-not an extra implementation added to claim reconstruction progress. Require a concrete receiving
-consumer and its original product/seed/cotangent contract first; see
-[current live-root factory](../../crates/pse-runtime/src/math/native_child.rs) and
-[current demanded-product preparation](../../crates/pse-runtime/src/math/products.rs).
+The private Value/First root factory had no supported caller and was retired under
+[ADR-0259](../adr/0259-retire-private-root-lane.md). Current NLP and response work prepare
+Second and actions through [in-process assembly](../../crates/pse-runtime/src/math/products.rs)
+and selected scientific-worker sessions. Higher-order live transfer requires a concrete
+receiving consumer with an original product, seed and cotangent contract.
 
 That numerical product cannot replace canonical reconstruction's `AdmittedBody`, whose actual
 consumers require subsequent partial compilation, symbolic affine/quadratic evidence and exact
@@ -165,6 +163,19 @@ operation, compare bounded typed replay with supplier admission before normaliza
 and partial growth, and any pool expansion. This is a design alternative, not a runtime
 fallback. If neither route qualifies, keep binary activation closed and JSON v3 current.
 If one qualifies, C04 owns a single cutover and B03 owns any changed projection; no dual reader.
+
+The bounded-copy experiment uses the existing supplier packing inspection and raw copy
+operations on the exact fixed stages of one producer-qualified body. Its fresh receiver checks
+already registered formal identities and the requested packed backing before copying. This is
+not canonical receipt admission: the compiler still derives source-to-stage correspondence
+and ordered physical and piecewise proof requests together in `Request::admit_inner`.
+`RecordAuthority` establishes membership, not that correspondence; the compiler's physical-only
+pass suppresses proof requests. Bounded typed replay is also unqualified: arithmetic normalizes
+before the occurrence tick, shared partials differentiate before their count check, and resolving
+a new slot can allocate/register an entire formal chunk. Keep JSON v3 current. The next sealed
+route step is to extract a bounded semantic lowering and proof-request plan from the existing
+typed traversal and verify it against actual canonical producers and consumers. The experiment
+does not introduce a new receiver or a supplier feature.
 
 ### D03 response selection for current consumers
 
@@ -288,12 +299,12 @@ native quality check was weakened. The source controls are
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 separates row floors, numerical requirements and the scheme/domain conflict. Deliver remaining family demands, request-local exact objective reuse and the selected strict-domain export correction after its decision route. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. The active recipe checks cancellation before decoding and symbolic construction. Qualify bounded guarded restore or replay before C04 activation; complete shared derivative construction, exact demand reuse and the actual precision/evaluator consumers. |
+| D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction, allocation accounting, request-local objective reuse and strict-domain export are integrated. H03 separates row floors, numerical requirements and the scheme/domain conflict. Remaining family demands and assembled evidence stay with their owners. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine, shared derivative and adapter demand work is implemented. The active recipe checks cancellation before decoding and symbolic construction. The bounded-copy test does not qualify canonical receipt admission; C04 keeps JSON v3 as the only production reader. |
 | D03 | complete | Current direct factor and SVD routes and their selected consumers | Retain factors and SVD for the traced workloads. Reopen for a named large repeated-response workload with an admitted operator and preconditioner candidate. |
 | D04 | in-progress | Changed maintained arithmetic/provider consumers; confirmed strict-domain rule through the decision route for that slice | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. BT passed for liquid, two-phase and vapor with original ports and member identity; the canonical two-phase read retained the original attempt. Other provider and solver populations remain open, including strict-domain proof-path and affected demand/precision controls. |
-| D05 | planned | Selected changed D02/D04 deliveries; actual family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. Candidate composition is not required. |
-| D06 | planned | Verified published 3.0.1 archive and current tracked supplier tree | Refresh the complete Symbolica delta and source receipt together. Independently reconstruct the tracked paths, bytes and modes, preserving the build-provenance fix. No dependency change or prerequisite for unrelated science. |
+| D05 | in-progress | Selected changed D02/D04 deliveries; actual family consumers | Selected polynomial actions use staged products and no longer flatten the shared body. Retain bounded symbolic cancellation and the actual entry products. Complete remaining caller-specific retirements and hand off the enduring contracts and independent evidence to L. Candidate composition is not required. |
+| D06 | complete | Verified published 3.0.1 archive and current tracked supplier tree | The refreshed delta and receipt reproduce all 159 tracked paths, bytes and executable modes, including the build-provenance fix. No dependency change. |
 
 The canonical two-phase BT control reached the original protected read and found
 that persisted visit rows omitted the actual attempt ID. The writer projected before
@@ -326,6 +337,12 @@ Formulation, derivative source and resource context stay with their native owner
 [Native router](../../crates/pse-backend-native/src/routing.rs) ·
 [Adapter contract](../../crates/pse-backend-native/src/execution.rs) ·
 [Oracle contract](../../crates/pse-backend-native/src/lib.rs)
+
+Adapter assessment now selects and retains the callback demand for the actual candidate.
+Serial and ready conditional initialization use it to prepare the selected callback product,
+including a distinct KINSOL Jacobian action and assembled preconditioner where required.
+A derived path with a newly frozen layout reassesses that layout; the original source
+eligibility check and the derived decision are for different premises.
 
 Preserve KINSOL directional Jacobian action versus an assembled preconditioner, constrained
 optimization curvature and bounds, residual fitting eligibility, and dynamic event and
@@ -378,6 +395,14 @@ refusals. D05 deletes flattening only for migrated products with a proven replac
 do not add a second DAG/cache, write application differentiation rules or fall back after a
 selected arithmetic route refuses construction.
 
+Selected provider-free polynomial actions use the staged product over the original
+ordered axes. The guarded symbolic and requested entry paths retain the bounded direct
+calculation: a valid square-root weighted product can have a finite final answer even
+though a staged intermediate second derivative would overflow. Shared symbolic partials
+use Symbolica `replace_map` once to lift earlier bindings into unary calls, Symbolica's
+derivative, and one `replace_map` to rebind results and partials to the original slots.
+The implementation preserves joint output publication within each block.
+
 <a id="symbolica-exact-objectives"></a>
 ### D01/D02 — Carry exact objective analysis into coefficient extraction
 
@@ -392,6 +417,11 @@ degree facts, allocations and the actual fixed-value premises through one work o
 Keep existing selected-affine-row reuse, independent product admission and the
 [factorable projection](../../crates/pse-math/src/factorable.rs) with its own fidelity.
 Do not retain arbitrary objective atoms in durable facts or add a parallel cache.
+
+A joint class and coefficient request now hands the exact aggregate objective to the
+coefficient stage in the same work allowance. Class-only demand still uses degree evidence;
+a separate request for coefficients may aggregate the objective under its own allowance
+while reusing the proved affine rows.
 
 Selective exact elimination remains a candidate for a named small block. Compare
 [`Atom::system_to_matrix`](../../vendor/symbolica/src/atom/core.rs) and
@@ -427,18 +457,27 @@ rounding/escalation policy at the math owner only if actual consumers share it. 
 D03 for this work: direct factors and weighted-response SVD remain selected, and an adjoint
 objective gradient does not supply response Jacobian or covariance evidence.
 
+No traced A–F consumer needs a new evaluation domain. Exact rational guard identity,
+directed MPFR cubic proof, and routine binary64 evaluator results keep their distinct
+contracts. The next precision change requires a named consumer with a discriminating
+original-coordinate check.
+
 <a id="strict-domain-fidelity"></a>
 ### D01/D04 — Preserve strict-domain fidelity at native export
 
-Implement the [confirmed export direction](66-integrated-simulation-target.md#confirmed-strict-domain-export-direction)
-after its decision and blueprint revision. The [SCIP export owner](../../crates/pse-backend-native/src/execution/factorable.rs)
-currently passes unconditional strict ranges through `close`, narrows them by a relative
-margin, and can still issue `ExactExport`. Reuse the existing `selected_closure` pattern to
-export a sound closed superset at the original endpoint as `Relaxed` where the native expression
-can be evaluated safely. Withhold certification where it cannot, and refuse exact-only demand
-if no exact encoding exists. A margin may serve explicitly candidate-only search; it supplies
-no global proof, dual bound or infeasibility claim. Retain original-point checks, bounds and
-existing `Nonzero` semantics. Relaxed export does not itself grant original-domain permission.
+The [SCIP export owner](../../crates/pse-backend-native/src/execution/factorable.rs) implements
+[ADR-0258](../adr/0258-preserve-strict-domain-export-fidelity.md). The former inward-margin
+rule is deleted. Strict ranges now keep the original endpoint as `Relaxed`; omitted
+conditional guards and point exclusions also relax fidelity. Exact-only demand refuses a
+relaxed graph. Before native admission,
+[POUNCE's outward-rounded `fbbt::Interval`](https://github.com/paul-heyse/pounce/blob/141a9d00e1e1d3eb3aa716f7640390ecdfcbdfbe/crates/pounce-presolve/src/fbbt/interval.rs)
+checks reachable log and partial power operands on the selected closed box. The check uses
+the same minimum distance that SCIP
+10.0.2's [log](https://github.com/scipopt/scip/blob/v10.0.2/src/scip/expr_log.c)
+and [power](https://github.com/scipopt/scip/blob/v10.0.2/src/scip/expr_pow.c)
+handlers enforce; the adapter reserves and reads back both settings. This check applies
+even if a mathematically positive box already discharged the original guard. A box the
+pass cannot establish as safe refuses. The original point checks still own eligibility.
 
 Replace the exact-margin assertion with a projection/quality control for a valid point below
 the margin and `min x` on `0 < x ≤ 1` (infimum zero, unattained), and exercise refusal at an
@@ -477,14 +516,12 @@ adds a family-wide requirement, an alternate production path or a qualification 
 <a id="symbolica-supplier-provenance"></a>
 ### D06 — Refresh the maintained Symbolica source evidence
 
-The tracked `build.rs` change in `f903f0b05` is absent from the recorded complete delta and
-source receipt. Follow the [supplier archive procedure](../../vendor/deltas/readme.md) for
-published 3.0.1 (`e9a0d354…`): verify the archive checksum, derive the complete binary delta
-from the tracked tree in isolated scratch, independently reapply it to a fresh extraction,
-and compare all paths, bytes and executable modes. Derive the receipt from that verified
-population and publish both artifacts together. Preserve the build-provenance fix and the
-pin; exclude untracked build/cache files. This is independent of the 3.0.2 candidate and
-does not reopen unrelated science or claim new mathematical qualification.
+The complete delta and source receipt now include the `build.rs` change in `f903f0b05`.
+The [supplier archive procedure](../../vendor/deltas/readme.md) verified the published 3.0.1
+archive (`e9a0d354…`), derived the complete binary delta and independently reapplied it to
+a fresh extraction. All 159 tracked paths, bytes and executable modes matched. Commit
+`8401078ea` publishes the delta and receipt together with no change to the pin. This is
+source provenance evidence, independent of the 3.0.2 composition candidate.
 
 ## Verification and outcome
 
