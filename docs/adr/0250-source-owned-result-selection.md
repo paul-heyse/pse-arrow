@@ -12,7 +12,7 @@ evidence: Interface-checked
 supersedes: []
 superseded-by: null
 revisit: A selected consumer needs a different retained interpretation, larger observation, semantic rather than exact serialization comparison, or native adoption from this passive record.
-verification: Original connected-result export and portable read preserve exact run/attempt/range/predicate bits and manifest/interpretation; changed context, noncanonical encoding, mixed interpretations and duplicate schema/nested-field metadata refuse before map conversion; historical absent-v1 artifacts retain their explicit reader.
+verification: Original connected-result export and portable read preserve exact run/attempt/range/predicate bits and manifest/interpretation; absent or incomplete current context, noncanonical encoding, mixed interpretations and continued export cursors refuse; duplicate schema/nested-field metadata refuses before map conversion.
 ---
 
 # ADR-0250: Retain selected-result metadata through its source-owned observation
@@ -52,9 +52,10 @@ No general Protobuf canonical-serialization guarantee is assumed.
 New exports write `pse.canonical.selection.proto.v1`: standard padded RFC4648 base64 of the
 generated `RecordedResultSelection` message. The native source owner includes exact original
 run, attempt, relation/version, row range, optional field/predicate and recorded usability,
-plus problem/revision, closed-manifest digest and native interpretation. New writers remove
-their reserved obsolete lineage keys before emitting this single record. Unrelated schema
-metadata remains intact.
+plus the nonempty problem/revision, closed-manifest digest and native interpretation. The
+connected exporter requires a fresh reader at the start of that original selection; a suffix
+cannot inherit the original range and usability. Writers refuse inherited reserved lineage
+keys and other selected-result representation versions. Unrelated schema metadata remains intact.
 
 Use maintained Buffa 0.9.2 `Message::try_encode_bounded(65_536, &mut sink)`, which performs
 checked size/cache traversal and rejects the byte budget before writing. The existing
@@ -68,11 +69,10 @@ authenticity, scientific usability or transferable read permission.
 
 ### Consequences
 
-The real connected exporter and portable reader migrate together. Present-invalid v1 metadata
-never falls back to the historical interpretation. Mixed v1 and reserved predecessor lineage
-keys refuse as ambiguous. Only artifacts without the v1 key use the explicit historical
-reader where retained-artifact promises require it; predecessor keys have no new writer.
-Wire representation version and original native interpretation remain different meanings.
+The connected exporter and portable reader use the same current representation. Missing or
+invalid v1 metadata and mixed interpretations refuse. The predecessor keys are recognized
+only for refusal; they have no writer or reader. Wire representation version and original
+native interpretation remain different meanings.
 
 Arrow's metadata maps cannot retain duplicate-key evidence. The existing admitted IPC
 preflight therefore checks schema and nested field metadata keys before `fb_to_schema` or
@@ -83,25 +83,27 @@ inside the existing admitted schema inventory; bounds and complete-message check
 
 Check raw/text limits without decoding input. Keep the same protected native selection and
 original scope; neither successful comparison nor decoded usability constructs permission.
-Challenge duplicate keys, absent/empty optional values, nonfinite/missing predicate semantics,
-altered manifest/interpretation, mixed versions and a historical artifact independently.
+Challenge duplicate keys, optional field presence, nonfinite/missing predicate semantics,
+absent or incomplete original context, altered manifest/interpretation, mixed or absent
+representation versions and suffix export independently.
 
 ### Confirmation
 
 The maintained Buffa bounded encoder and current Arrow pre-map acquisition seam were inspected;
-Context7 confirms the upstream encoding contract. Plan65a/C02/F04 own generation, migration
-and actual functional evidence. This proposed decision precedes consumer implementation and
-does not close those packages or claim measured benefit.
+Context7 confirms the upstream encoding contract. Plan66 B04 and E02/E03 own current
+representation, migration and functional evidence. This proposed decision makes no
+qualification or measured benefit claim.
 
 ## Pros and cons
 
 One generated observation removes repeated field interpretation and retains exact bits.
 It introduces a versioned binary metadata key and a small base64 envelope; human-readable
-inspection remains a separate generated presentation. Historical reading remains explicit.
+inspection remains a separate generated presentation. Earlier metadata representations are
+outside the current reader contract.
 
 ## More information
 
-- [Plan65c](../plans/65c-storage-projections-and-history.md), [Plan65f](../plans/65f-diagnostics-and-result-delivery.md)
+- [Plan66b](../plans/66b-contracts-generation-and-interpretation.md), [Plan66e](../plans/66e-protected-data-and-result-delivery.md)
 - [Native selected-result owner](../../crates/pse-runtime/src/workflow/result_selection.rs)
 - [Maintained bounded Buffa encoder](../../vendor/buffa/src/message.rs), [upstream Message encoding](https://github.com/anthropics/buffa/blob/v0.9.2/buffa/src/message.rs)
 - [base64 Engine API](https://docs.rs/base64/0.22.1/base64/engine/trait.Engine.html)
@@ -110,3 +112,4 @@ inspection remains a separate generated presentation. Historical reading remains
 ## Status history
 
 - 2026-11-06 — proposed before the selected-result metadata cutover under authorized Plan65 execution.
+- 2026-11-09 — reconciled the proposed contract with the current-only Plan66 cutover and original selection cursor.

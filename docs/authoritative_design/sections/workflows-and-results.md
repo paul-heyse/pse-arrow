@@ -543,8 +543,9 @@ mutates package declarations.
 > connected-result Arrow exports carry one versioned, bounded generated observation of the
 > native exact selection and original interpretation. Offline exact serialization comparison
 > establishes artifact/manifest agreement; it grants no protected read or scientific use.
-> Present-invalid or mixed metadata refuses, and IPC preflight rejects duplicate schema/field
-> keys before native map conversion. Explicit predecessor reading serves retained artifacts.
+> Missing, incomplete, invalid or mixed metadata refuses, and IPC preflight rejects duplicate
+> schema/field keys before native map conversion. Finalized export requires a reader at the
+> start of the original selection so its metadata describes every row delivered.
 
 > Decision: [ADR-0227](../../adr/0227-completion-permission-and-operation-facts.md) (proposed; maintainer-authorized Plan56b completion, operation-fact and explicit-service amendment).
 
@@ -1815,3 +1816,10 @@ versioned RPC surfaces. Both use the same native Study operation, exact original
 and authenticated endpoint. Common control operations retain the original attempt and product
 permissions. The explicit client closure excludes inline authoring, while independent
 discovery retains the complete approved descriptor world.
+
+Typed source admission may select a finite set of startup-authorized native provider
+registrations. The authenticated service prepares those selections against the exact
+admitted physical context and supplies them to the same authored document owner.
+Provider-free requests select an empty set; authored names cannot activate a native
+factory. Passive inspection reports retained descriptors and configurations without
+preparing new providers.

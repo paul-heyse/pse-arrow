@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 365
+revision: 367
 date: 2026-11-09
 ---
 
@@ -24,6 +24,8 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 367 | 2026-11-09 | Join explicitly selected native provider registrations at typed engineering source admission (§21.8). | Proposed ADR-0239 under the Plan66 cutover. |
+| 366 | 2026-11-09 | Require current selected-result metadata, complete original context and an unopened original export selection (§19.2, §20.5). | Proposed ADR-0250 under the Plan66 cutover. |
 | 365 | 2026-11-09 | Reconcile the Study workflow with the two engineering input capabilities and the current durable definition (§19.3, §21.8). | Proposed ADR-0239 under the Plan66 cutover. |
 | 364 | 2026-11-08 | Refine the proposed engineering and worker boundaries to use separate Study input surfaces, consumer-scoped generation and native-owned worker demands (§4.7, §9.11, §21.8). | Proposed ADR-0239/0240 under the Plan66 cutover. Focused implementation and assembled qualification have separate evidence. |
 | 363 | 2026-11-08 | Distinguish local benchmark smoke, named prepared workloads and measurement mode (§24.3). | Plan70f F03 operating route under ADR-0160. Benchmark receiving evidence belongs to Plan70f. |

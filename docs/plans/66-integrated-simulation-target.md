@@ -218,6 +218,65 @@ routes before dependent implementation.
 
 ## Verification, current outcome and cleanup handoff
 
+### 66a–h execution checkpoint — November 9
+
+This wave applies the current-only design across the scientific, service and protected-result
+seams. [66a](66a-scientific-operations-and-product-semantics.md#packages) separates joint fit
+coordinate policy from nested steady experiments. [66b/66c](66c-preparation-execution-and-service-lifecycles.md#packages)
+give typed source admission a finite selection of startup-authorized native provider
+registrations, through the original physical and document owners. [66e](66e-protected-data-and-result-delivery.md#packages)
+requires complete current IPC selection context, prevents export from an advanced cursor,
+and reuses projected protected reads for whole and scalar permission checks.
+[66g](66g-properties-equipment-and-steady-workflows.md#packages) supplies bounded Water
+saturation jets and the authored wet turbine case. [66h](66h-inventory-distributed-and-cyclic-physics.md#packages)
+migrates the existing cascade to exact per-site initial stocks and adds an original-clock
+feed/wash/feed operating case.
+
+`just codegen` completed all 17 schema targets for the engineering contract cutover.
+**Tested, selected:** default-profile force-validated `scripts/pse test pse-runtime
+pse-backend-native --lib` (`01a1bf59-4a25-70ea-83c2-825d4ea8fd90`) settled 27 controls.
+Against the zero-failure and zero-warning target, 15 passed, 12 failed and the build
+emitted 16 warnings. The passing population includes joint/nested fit policy, original
+BT regime selection, native Water saturation, selected protected permission/IPC, and
+original run/study observation. The failures exposed the common Steam interface axis,
+aqueous inlet callback type and incomplete Water admission fixture. Protected aqueous
+reached its native preparation check after canonical publication; the prior source
+activation timeout was not reproduced. Corrections to the authored shapes, fixture
+closure and compile warnings require their focused rerun.
+
+The subsequent 16-control run compiled with zero warnings and found a shared
+authored transport declaration parse error before 13 cases could exercise their
+selected science; the three native saturation controls passed. The corrected
+Chapman–Enskog producer now passes its isolated compiler control. The all-target
+check found the native scientific target had missed the shared scalar reference
+binding and candidate return migration; the pure binder and independent process
+runner are now separate, with the native and independent targets using the current
+contract.
+
+After completing the aqueous input table declaration, the focused run
+`01a1bf7b-4b4f-75dc-a1a0-5a587e29612a` settled 17 cases: 13 passed and 4 failed
+against the zero-failure target, with zero build warnings. The passing cases include
+all three dry Steam configurations, the authored feed/wash/feed program and the
+original protected aqueous export/portable read. The remaining cases isolated the
+nominal type of the new tracer profile, wet outlet observation through the common
+interface, Water client shutdown order, and the durable BT writer's missing
+original attempt on otherwise exact provider-selection rows.
+
+The corrected two-phase BT protected read and four-cell nonuniform stock control
+passed in the default-profile force-validated selection
+`01a1bf81-177a-7550-9526-7aeffd6cfb4b`. The final focused rerun
+`01a1bf8c-3aa3-741b-ac71-14785594a48f` passed both the typed Water admission
+and the authored wet turbine, with zero failures/build warnings and complete
+settlement. The scoped `scripts/pse check pse-runtime --all-targets` passed with
+the same service and solver profile and one unused-import warning in the control;
+the final targeted build confirms that warning is removed.
+
+The selected changes do not complete the outstanding companion
+populations, the live [Study client journey](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients),
+or the bounded symbolic reconstruction prerequisite for canonical binary activation
+([66d](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation)).
+66l retains full configured qualification.
+
 ### Shared-contract cutover — November 8
 
 The maintainer authorized the shared engineering and solver contract cutover before

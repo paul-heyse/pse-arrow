@@ -865,9 +865,9 @@ bytes and is not an exported database lease or another publication catalog.
 
 > Decision: [ADR-0250](../../adr/0250-source-owned-result-selection.md) (proposed) separates
 > the versioned selected-result Arrow metadata representation from the original native
-> interpretation. The native selection owner generates the observation; historical absent-v1
-> artifacts retain their explicit reader. Exact local serialization comparison neither
-> defines semantic hashing nor constructs native admission or scientific permission.
+> interpretation. The native selection owner generates the observation. Portable admission
+> requires the current representation and complete original context. Exact local serialization
+> comparison neither defines semantic hashing nor constructs native admission or scientific permission.
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
