@@ -39,7 +39,7 @@ pub(super) enum Action {
         #[arg(long)]
         release: Option<String>,
     },
-    /// Export the selected compact result as bounded JSON to a fresh file.
+    /// Export a compact result or one committed workflow file to a fresh destination.
     #[command(add(crate::catalog::description::CommandEffect::Apply))]
     ExportResult {
         /// An exact invocation ID, unique prefix, or session-scoped latest.
@@ -49,6 +49,9 @@ pub(super) enum Action {
         /// Include this bounded detail from the original owner.
         #[arg(long, value_enum)]
         detail: Option<crate::invocation_view::ResultDetail>,
+        /// Export this exact ordinal from the original workflow-files view.
+        #[arg(long, conflicts_with = "detail")]
+        workflow_file: Option<usize>,
         /// Fresh destination file, relative to the selected checkout if not absolute.
         #[arg(long)]
         output: PathBuf,
@@ -260,11 +263,19 @@ pub(super) fn dispatch(
             invocation,
             session,
             detail,
+            workflow_file,
             output: destination,
         } => {
             output.validate_for::<crate::invocation_view::ResultExport>("tools export-result")?;
             let session = crate::invocation::select_session(session, &environment)?;
             let store = super::invocation_store(selected)?;
+            if let Some(ordinal) = workflow_file {
+                let receipt = crate::invocation_view::export_workflow_file(
+                    &store, &invocation, session.as_deref(), ordinal, &root.join(destination),
+                    &crate::envelope::RedactionPolicy::from_inputs(&environment), &output.invocation_id,
+                )?;
+                return Ok(output.emit_observation(receipt)?);
+            }
             let receipt = crate::invocation_view::export(
                 &store,
                 &invocation,

@@ -446,18 +446,28 @@ pub(crate) fn file_window(
     length: std::num::NonZeroU64,
     tail: bool,
 ) -> Result<crate::artifacts::DescriptorRead, HostError> {
+    let (mut member, identity) = select_workflow_file(workflow, files, ordinal, role)?;
+    let start = if tail { identity.byte_length.saturating_sub(length.get()) } else { offset };
+    member.read_range(start, length)
+}
+
+/// Open exactly one workflow-owned member under the caller's report lease.
+pub(crate) fn select_workflow_file(
+    workflow: &Path,
+    files: &[EvidenceFile],
+    ordinal: usize,
+    role: Option<EvidenceRole>,
+) -> Result<(OpenedFile, ContentIdentity), HostError> {
     let commitment = files
         .get(ordinal)
         .filter(|file| file.root == EvidenceRoot::Workflow && file.role != EvidenceRole::Input
             && role.is_none_or(|role| file.role == role))
         .ok_or_else(|| invalid("selector does not name an original workflow member of the requested kind"))?;
-    let mut member = opened::open_member(workflow, ordinal, commitment)?
+    let identity = commitment.content.as_ref()
         .ok_or_else(|| invalid("selected member was not captured by the original owner"))?;
-    let observed = commitment.content.as_ref()
-        .ok_or_else(|| invalid("selected member has no original extent"))?
-        .byte_length;
-    let start = if tail { observed.saturating_sub(length.get()) } else { offset };
-    member.read_range(start, length)
+    let member = opened::open_member(workflow, ordinal, commitment)?
+        .ok_or_else(|| invalid("selected member has no original descriptor"))?;
+    Ok((member, identity.clone()))
 }
 /// One original ordinal/content account for inline bytes and physically opened members.
 pub(crate) fn validate_members(
@@ -521,6 +531,17 @@ mod tests {
         assert_eq!(read.byte_range, 5..8);
         assert!(matches!(read.content, crate::artifacts::Content::Utf8(value) if value == "nal"));
         assert!(phase_window(root.path(), &files, 0, EvidenceRole::Stderr, 0, length, false).is_err());
+        let (mut member, identity) = select_workflow_file(root.path(), &files, 0, None).unwrap();
+        let destination = root.path().join("export");
+        let publish = |member: &mut OpenedFile, destination: &Path| {
+            crate::invocation::publish_file(destination, 0o600, |output| {
+                assert_eq!(member.copy_verified(output)?, identity);
+                Ok(())
+            })
+        };
+        publish(&mut member, &destination).unwrap();
+        assert!(publish(&mut member, &destination).is_err());
+        assert_eq!(fs::read(&destination).unwrap(), b"original");
         fs::remove_file(&path).unwrap();
         fs::write(&path, b"replaced").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();

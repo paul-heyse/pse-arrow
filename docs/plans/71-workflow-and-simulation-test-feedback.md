@@ -114,8 +114,10 @@ records no implementation or qualification, and no other plan status changes on 
 
 ## Execution checkpoint — November 9
 
-The implementation lives on the Plan 71 branch. Nextest 0.9.151 is installed for
-that worktree. Existing Plan 66 evidence retains its original scope.
+The implementation was integrated into `main` in `b247fc69e`. The initial
+qualification below used the isolated worktree. Normal PATH now resolves the
+same pinned Nextest 0.9.151 after an explicit managed installation. Existing
+Plan 66 evidence retains its original scope.
 
 The host now has original phase-file, phase, and test-attempt views. Attempt comparison
 uses original context and completed JUnit without replacing the performing verdict.

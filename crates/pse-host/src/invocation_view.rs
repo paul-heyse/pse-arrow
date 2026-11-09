@@ -22,7 +22,7 @@ use std::{
     fs,
     io::{Read, Seek, SeekFrom},
     num::NonZeroU64,
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 /// One metadata-only row. Operation payloads and historical results are not acquired.
@@ -483,6 +483,8 @@ pub(crate) struct ResultExport {
     original_invocation: Option<CliInvocationId>,
     retired: bool,
     published: Option<PublishedInspection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    workflow_file: Option<usize>,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -508,6 +510,7 @@ pub(crate) fn export(
         original_invocation: inspected.payload.original_invocation.clone(),
         retired: inspected.payload.retired,
         published: None,
+        workflow_file: None,
     };
     if inspected.payload.response.is_none() {
         let mut response = Envelope::response("tools export-result", inspected.summary, receipt);
@@ -525,18 +528,7 @@ pub(crate) fn export(
         OutputFormat::Json,
         &Presentation::default(),
     )?;
-    let (Some(parent), Some(name)) = (destination.parent(), destination.file_name()) else {
-        return Err(HostError::Ownership(
-            "export requires a fresh destination file".into(),
-        ));
-    };
-    let parent = fs::canonicalize(parent)?;
-    if parent.starts_with(fs::canonicalize(store.state_root())?) {
-        return Err(HostError::Ownership(
-            "export destination must be outside the invocation state".into(),
-        ));
-    }
-    let destination = parent.join(name);
+    let destination = export_destination(store, destination)?;
     crate::invocation::publish_bytes(&destination, &bytes, Some(MAX_EXPORT_BYTES), 0o600)?;
     receipt.published = Some(PublishedInspection {
         destination: policy.redact_path(destination.into()),
@@ -551,6 +543,58 @@ pub(crate) fn export(
         "original inspection exported",
         receipt,
     );
+    response.invocation_id = receipt_id.clone();
+    response.subject_state = SubjectState::Available;
+    response.settlement = Settlement::Complete;
+    Ok(response)
+}
+
+fn export_destination(store: &InvocationStore, destination: &Path) -> Result<PathBuf, HostError> {
+    let (Some(parent), Some(name)) = (destination.parent(), destination.file_name()) else {
+        return Err(HostError::Ownership(
+            "export requires a fresh destination file".into(),
+        ));
+    };
+    let parent = fs::canonicalize(parent)?;
+    if parent.starts_with(fs::canonicalize(store.state_root())?) {
+        return Err(HostError::Ownership(
+            "export destination must be outside the invocation state".into(),
+        ));
+    }
+    Ok(parent.join(name))
+}
+
+pub(crate) fn export_workflow_file(
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
+    ordinal: usize,
+    destination: &Path,
+    policy: &RedactionPolicy,
+    receipt_id: &CliInvocationId,
+) -> Result<Envelope<ResultExport>, HostError> {
+    use crate::test_workflow::execute::evidence::select_workflow_file;
+    let report = workflow_report(store, selector, session)?;
+    let commitments = report.observation.evidence()
+        .map_err(|error| HostError::Workflow(Box::new(error)))?;
+    let (mut member, identity) = select_workflow_file(&report.parent, commitments, ordinal, None)?;
+    let bytes = usize::try_from(identity.byte_length)
+        .map_err(|_| HostError::Ownership("workflow file extent exceeds platform size".into()))?;
+    let destination = export_destination(store, destination)?;
+    crate::invocation::publish_file(&destination, 0o600, |output| {
+        member.copy_verified(output).map(|_| ())
+    })?;
+    let receipt = ResultExport {
+        original_invocation: Some(report.id),
+        retired: false,
+        published: Some(PublishedInspection {
+            destination: policy.redact_path(destination.into()),
+            bytes,
+            sha256: identity.sha256,
+        }),
+        workflow_file: Some(ordinal),
+    };
+    let mut response = Envelope::response("tools export-result", "original workflow file exported", receipt);
     response.invocation_id = receipt_id.clone();
     response.subject_state = SubjectState::Available;
     response.settlement = Settlement::Complete;

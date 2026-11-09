@@ -448,8 +448,10 @@ population; add `--compare OTHER_ID` to compare that case with another original 
 For a build investigation, select `pse test --timings`. The `workflow-files` detail
 shows which original Cargo reports were captured and which were omitted. Read one
 file with `pse inspect artifact ORDINAL --from-result ID`; the response includes
-the next offset if needed. Capture is bounded, and an omission does not change
-the test outcome.
+the next offset if needed. To keep one verified file, use
+`pse tools export-result ID --workflow-file ORDINAL --output FRESH_FILE`.
+The receipt records the original ordinal, extent and digest. Capture is bounded,
+and an optional omission does not change the test outcome.
 To deliver one compact
 inspection as JSON, use `pse tools export-result ID --output FILE` with an optional
 `--detail` selector. The destination must be fresh. The receipt identifies the exact
