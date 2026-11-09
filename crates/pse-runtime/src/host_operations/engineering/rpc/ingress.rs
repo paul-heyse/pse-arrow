@@ -27,6 +27,11 @@ pub(super) fn limits() -> connectrpc::Limits {
         .with_element_memory_limit(ELEMENT_BYTES)
 }
 
+/// Allow an admitted native effect to retain the original decoded input charge
+/// after the request context and its response body leave the connection.
+#[derive(Clone)]
+pub(super) struct RequestOwner(pub(super) Arc<MemoryReservation>);
+
 pub(super) struct ResponseBody {
     body: Pin<Box<ConnectRpcBody>>,
     _owner: Option<Arc<MemoryReservation>>,
@@ -51,7 +56,7 @@ impl http_body::Body for ResponseBody {
 pub(super) async fn call<D, B>(
     mut service: ConnectRpcService<D>,
     pool: Arc<dyn MemoryPool>,
-    request: http::Request<B>,
+    mut request: http::Request<B>,
 ) -> Result<http::Response<ResponseBody>, Infallible>
 where
     D: connectrpc::Dispatcher,
@@ -88,6 +93,7 @@ where
         }));
     }
     let owner = Arc::new(reservation);
+    request.extensions_mut().insert(RequestOwner(owner.clone()));
     let response = service.call(request).await?;
     Ok(response.map(|body| ResponseBody {
         body: Box::pin(body),
@@ -143,10 +149,14 @@ mod tests {
             .route::<_, pb::EngineeringDescribeRequest, pb::EngineeringContract>(
                 "pse.engineering.v1.EngineeringService",
                 "DescribeContract",
-                connectrpc::handler::handler_fn(move |_, _: pb::EngineeringDescribeRequest| {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    async { Ok(connectrpc::Response::new(pb::EngineeringContract::default())) }
-                }),
+                connectrpc::handler::handler_fn(
+                    move |context: connectrpc::RequestContext, _: pb::EngineeringDescribeRequest| {
+                        let owner = context.extensions().get::<RequestOwner>().unwrap();
+                        assert_eq!(owner.0.size(), REQUEST_EXTENT);
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        async { Ok(connectrpc::Response::new(pb::EngineeringContract::default())) }
+                    },
+                ),
             );
         ConnectRpcService::new(router).with_limits(limits())
     }

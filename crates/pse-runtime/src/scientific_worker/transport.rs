@@ -1021,6 +1021,11 @@ pub(super) fn serve_with_preparation(
                     p::Request::Prepare(value) => Some(value.handle),
                     _ => None,
                 };
+                let evaluation = match &job.request {
+                    p::Request::Evaluate(_) => Some("Evaluate"),
+                    p::Request::EvaluateBatch(_) => Some("EvaluateBatch"),
+                    _ => None,
+                };
                 let handle = match &job.request {
                     p::Request::Prepare(value) => Some(value.handle),
                     p::Request::Evaluate(value) => Some(value.handle),
@@ -1135,13 +1140,27 @@ pub(super) fn serve_with_preparation(
                     WorkerError::Provider(error) => !error.recoverable(),
                     _ => true,
                 });
+                if let Some(handle) = preparation
+                    && matches!(&result, Err(WorkerError::Retirement { .. }))
+                {
+                    // Construction failed after acquiring a binding and its
+                    // independent native finish also failed before insertion.
+                    retirement = Some(("Prepare", handle));
+                }
                 if terminal && let Some(handle) = handle {
                     // A failed handle cannot erase unrelated prepared science. The parent
                     // still settles the actual process if this connection is abandoned.
                     if let Some(owner) = sessions.get_mut(&handle.generation) {
                         // Native refusal before mutation (for example a replayed ordinal)
                         // leaves the admitted preparation ready. Preserve that owner's decision.
-                        if owner.state() != super::SessionState::Ready
+                        if let Some(action) = evaluation
+                            && owner.state() == super::SessionState::Closed
+                            && matches!(&result, Err(WorkerError::Retirement { .. }))
+                        {
+                            // The original scope check already finished this binding.
+                            // If its method departs, the joined lane owns both causes.
+                            retirement = Some((action, handle));
+                        } else if owner.state() != super::SessionState::Ready
                             && let Err(cleanup) = owner.stop()
                         {
                             retirement = Some(("Stop", handle));
@@ -1158,12 +1177,27 @@ pub(super) fn serve_with_preparation(
                     }
                 }
                 #[cfg(test)]
-                if result.is_err()
-                    && let Some(("Close", handle)) = retirement.as_ref()
-                    && let Err(error) = observe_close_departure_for_test(&job.completion, handle)
                 {
-                    failures.push(error);
-                    break;
+                    let departure = match (&result, preparation, evaluation, retirement) {
+                        (Err(WorkerError::Retirement { .. }), Some(handle), _, _) => {
+                            Some(("prepare-refusal", handle))
+                        }
+                        (Err(WorkerError::Retirement { .. }), _, Some("Evaluate"), _) => {
+                            handle.map(|handle| ("evaluate", handle))
+                        }
+                        (Err(_), _, _, Some(("Close", handle))) => Some(("close", handle)),
+                        _ => None,
+                    };
+                    if let Some((phase, handle)) = departure
+                        && let Err(error) = observe_retirement_departure_for_test(
+                            &job.completion,
+                            phase,
+                            &handle,
+                        )
+                    {
+                        failures.push(error);
+                        break;
+                    }
                 }
                 let mut unobserved_retirement = None;
                 let response = match result {
@@ -1460,24 +1494,29 @@ fn observe_shutdown_departure_for_test(completion: &NativeCompletion) -> Result<
 }
 
 #[cfg(test)]
-fn observe_close_departure_for_test(
+fn observe_retirement_departure_for_test(
     completion: &NativeCompletion,
+    phase: &str,
     handle: &p::SessionHandle,
 ) -> Result<(), WorkerError> {
-    if std::env::var("PSE_SCIENCE_TEST_MODE").as_deref() != Ok("close-departure-retire-faults") {
+    if !std::env::var("PSE_SCIENCE_TEST_MODE")
+        .is_ok_and(|mode| mode == format!("{phase}-departure-retire-faults"))
+    {
         return Ok(());
     }
     let marker = PathBuf::from(
         std::env::var_os("PSE_SCIENCE_TEST_MARKER")
-            .ok_or_else(|| infrastructure("missing Close departure test marker"))?,
+            .ok_or_else(|| infrastructure("missing retirement departure test marker"))?,
     );
-    if marker.with_extension("close-claimed").exists() {
+    let claimed = marker.with_extension(format!("{phase}-claimed"));
+    if claimed.exists() {
         return Ok(());
     }
     let generation = handle.generation.to_string();
-    std::fs::write(marker.with_extension("close-claimed"), &generation).map_err(infrastructure)?;
+    std::fs::write(claimed, &generation).map_err(infrastructure)?;
     wait_for_method_departure_for_test(completion)?;
-    std::fs::write(marker.with_extension("close-departed"), generation).map_err(infrastructure)
+    std::fs::write(marker.with_extension(format!("{phase}-departed")), generation)
+        .map_err(infrastructure)
 }
 
 #[cfg(test)]

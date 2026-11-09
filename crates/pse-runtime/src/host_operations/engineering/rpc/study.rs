@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::host_operations::engineering_contract::EngineeringObserveStudy;
+use datafusion::execution::memory_pool::MemoryReservation;
 
 // These expand only typed generated service callbacks. The composed source graph
 // remains the sole method/effect contract; no scientific fields are mapped here.
@@ -185,10 +186,19 @@ macro_rules! control_methods {
             ServiceStream<impl connectrpc::Encodable<pb::StudyObservationPage> + Send + use<>>,
         > {
             self.authenticate(&context)?;
+            let owner = context
+                .extensions()
+                .get::<ingress::RequestOwner>()
+                .ok_or_else(|| ConnectError::internal("engineering ingress custody missing"))?;
             let request = request.to_owned_message();
             let input = crate::engineering_projection::decode_engineering_observe_study(request)
                 .map_err(study::projection_error)?;
-            let stream = study::observations(self.engine.clone(), input, context.deadline());
+            let stream = study::observations(
+                self.engine.clone(),
+                input,
+                owner.0.clone(),
+                context.deadline(),
+            );
             Ok(connectrpc::Response::new(stream))
         }
 
@@ -270,28 +280,44 @@ pub(super) fn projection_error(
 pub(super) fn observations(
     engine: Arc<EngineeringService>,
     input: EngineeringObserveStudy,
+    input_owner: Arc<MemoryReservation>,
     deadline: Option<std::time::Instant>,
 ) -> ServiceStream<AccountedResponse<pb::StudyObservationPage>> {
     use futures_util::{TryStreamExt as _, stream};
 
-    // ConnectRPC races handler setup against the request deadline by dropping
-    // its future. Admit the first native capture only in the response stream.
+    // ConnectRPC can drop setup or the response body. Admit only from a polled
+    // response stream, then let the service join any admitted native capture.
     let open = stream::once(async move {
-        let observer = settle_study_observation(deadline, engine.observe_study(input, deadline))
-            .await?
-            .ok_or_else(study_observation_deadline_error)?;
+        let native = engine.clone();
+        let observer = settle_study_observation(
+            &engine,
+            input_owner.clone(),
+            deadline,
+            async move { native.observe_study(input, deadline).await },
+        )
+        .await?
+        .ok_or_else(study_observation_deadline_error)?;
         Ok::<_, ConnectError>(stream::unfold(
-            Some((engine, observer, false)),
+            Some((engine, observer, input_owner, false)),
             move |state| async move {
-                let (engine, mut observer, follow) = state?;
+                let (engine, mut observer, input_owner, follow) = state?;
                 let next = async {
                     if follow {
                         wait_for_study_observation(deadline).await?;
                     }
-                    settle_study_observation(deadline, engine.study_observation_page(&mut observer))
-                        .await
+                    let native = engine.clone();
+                    settle_study_observation(
+                        &engine,
+                        input_owner.clone(),
+                        deadline,
+                        async move {
+                            let page = native.study_observation_page(&mut observer).await?;
+                            Ok((observer, page))
+                        },
+                    )
+                    .await
                 };
-                let output = match next.await {
+                let (observer, output) = match next.await {
                     Ok(output) => output,
                     Err(error) => return Some((Err(error), None)),
                 };
@@ -304,23 +330,33 @@ pub(super) fn observations(
                     crate::engineering_projection::encode_study_observation_page,
                 );
                 let done = done || page.is_err();
-                Some((page, (!done).then_some((engine, observer, true))))
+                Some((page, (!done).then_some((engine, observer, input_owner, true))))
             },
         ))
     });
     Box::pin(open.try_flatten())
 }
 
-async fn settle_study_observation<T>(
+async fn settle_study_observation<T: Send + 'static>(
+    engine: &EngineeringService,
+    input_owner: Arc<MemoryReservation>,
     deadline: Option<std::time::Instant>,
-    work: impl Future<Output = Result<T, EngineeringServiceError>>,
+    work: impl Future<Output = Result<T, EngineeringServiceError>> + Send + 'static,
 ) -> Result<T, ConnectError> {
     check_study_observation_deadline(deadline)?;
     // An admitted poll can issue a capture. Let it settle under its original
     // clock. A discarded success drops through its normal custody release.
-    let value = work.await.map_err(transport)?;
+    let value = engine
+        .observe_owned(input_owner, async move {
+            if check_study_observation_deadline(deadline).is_err() {
+                return Ok(None);
+            }
+            work.await.map(Some)
+        })
+        .await
+        .map_err(transport)?;
     check_study_observation_deadline(deadline)?;
-    Ok(value)
+    value.ok_or_else(study_observation_deadline_error)
 }
 
 async fn wait_for_study_observation(
@@ -366,40 +402,49 @@ mod tests {
     #[tokio::test]
     async fn engineering_study_observation_expiry_preserves_admitted_native_outcomes() {
         use connectrpc::ErrorCode;
-        use std::time::{Duration, Instant};
+        use datafusion::execution::memory_pool::MemoryConsumer;
+        use std::{
+            sync::atomic::{AtomicBool, Ordering},
+            time::{Duration, Instant},
+        };
 
-        let polled = std::cell::Cell::new(false);
-        let refused = settle_study_observation(Some(Instant::now()), async {
-            polled.set(true);
+        let (engine, _spill) = super::super::super::session::tests::service();
+        let input = Arc::new(MemoryConsumer::new("controlled observation input").register(&engine.ingress_pool()));
+        let polled = Arc::new(AtomicBool::new(false));
+        let marker = polled.clone();
+        let refused = settle_study_observation(&engine, input.clone(), Some(Instant::now()), async move {
+            marker.store(true, Ordering::Release);
             Ok(())
         })
         .await;
         assert!(matches!(refused, Err(error) if error.code == ErrorCode::DeadlineExceeded));
-        assert!(!polled.get());
+        assert!(!polled.load(Ordering::Acquire));
 
         let deadline = Instant::now() + Duration::from_secs(1);
         let after_deadline = (deadline + Duration::from_millis(25)).into();
-        let settled = std::cell::Cell::new(false);
+        let settled = Arc::new(AtomicBool::new(false));
+        let marker = settled.clone();
         let (completed, failed) = tokio::join!(
-            settle_study_observation(Some(deadline), async {
+            settle_study_observation(&engine, input.clone(), Some(deadline), async move {
                 tokio::time::sleep_until(after_deadline).await;
-                settled.set(true);
+                marker.store(true, Ordering::Release);
                 Ok(())
             }),
-            settle_study_observation(Some(deadline), async {
+            settle_study_observation(&engine, input, Some(deadline), async move {
                 tokio::time::sleep_until(after_deadline).await;
                 Err::<(), _>(EngineeringServiceError::Request(
                     "original capture refused".into(),
                 ))
             }),
         );
-        assert!(settled.get());
+        assert!(settled.load(Ordering::Acquire));
         assert!(matches!(completed, Err(error) if error.code == ErrorCode::DeadlineExceeded));
         assert!(
             matches!(failed, Err(error) if error.code == ErrorCode::InvalidArgument
             && error.message.as_deref().is_some_and(|message| message.contains("original capture refused"))
             && error.source_arc().is_some())
         );
+        engine.shutdown().await.unwrap();
     }
 
     #[test]

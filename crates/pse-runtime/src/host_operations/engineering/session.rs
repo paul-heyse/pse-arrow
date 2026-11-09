@@ -431,6 +431,22 @@ impl EngineeringService {
                     .ok_or_else(|| resource("operation future extent overflow"))?,
             )
             .map_err(owner)?;
+        self.spawn_joined(async move {
+            let outcome = match std::panic::AssertUnwindSafe(work).catch_unwind().await {
+                Ok(Ok(outcome)) => outcome,
+                Ok(Err(error)) => Outcome::Failed(Arc::new(error)),
+                Err(_) => {
+                    Outcome::Failed(Arc::new(infrastructure("original operation task panicked")))
+                }
+            };
+            let _published = operation.publish(outcome);
+        })
+    }
+
+    fn spawn_joined(
+        &self,
+        work: impl Future<Output = ()> + Send + 'static,
+    ) -> Result<(), EngineeringServiceError> {
         let mut tasks = self
             .tasks
             .lock()
@@ -446,17 +462,48 @@ impl EngineeringService {
         if self.closing.load(Ordering::Acquire) {
             return Err(request("service is closing"));
         }
-        tasks.spawn(async move {
-            let outcome = match std::panic::AssertUnwindSafe(work).catch_unwind().await {
-                Ok(Ok(outcome)) => outcome,
-                Ok(Err(error)) => Outcome::Failed(Arc::new(error)),
-                Err(_) => {
-                    Outcome::Failed(Arc::new(infrastructure("original operation task panicked")))
-                }
-            };
-            let _published = operation.publish(outcome);
-        });
+        tasks.spawn(work);
         Ok(())
+    }
+
+    /// Join an admitted native observation even if its response body departs.
+    /// Its transient reply does not consume an original operation identity.
+    pub(super) async fn observe_owned<F, T>(
+        &self,
+        input_owner: Arc<datafusion::execution::memory_pool::MemoryReservation>,
+        work: F,
+    ) -> Result<T, EngineeringServiceError>
+    where
+        F: Future<Output = Result<T, EngineeringServiceError>> + Send + 'static,
+        T: Send + 'static,
+    {
+        let extent = size_of::<F>()
+            .checked_add(size_of::<Result<T, EngineeringServiceError>>())
+            .and_then(|bytes| bytes.checked_add(1024))
+            .ok_or_else(|| resource("observation future extent overflow"))?;
+        let reservation = self
+            .shared
+            .math()
+            .reserve("engineering:observation-task", extent)
+            .map_err(owner)?;
+        let (send, receive) = tokio::sync::oneshot::channel();
+        self.spawn_joined(async move {
+            if send.is_closed() {
+                drop(work);
+                return;
+            }
+            let result = std::panic::AssertUnwindSafe(work)
+                .catch_unwind()
+                .await
+                .unwrap_or_else(|_| Err(infrastructure("original observation task panicked")));
+            // Keep both grants through delivery or the original page's
+            // custody drop if its response body departed.
+            let _delivered = send.send((result, reservation, input_owner));
+        })?;
+        let (result, _reservation, _input_owner) = receive
+            .await
+            .map_err(|_| infrastructure("original observation task failed before replying"))?;
+        result
     }
 
     /// Retain the original request before starting native source/physical admission.
@@ -1452,7 +1499,7 @@ fn owner(error: impl Into<OwnerError>) -> EngineeringServiceError {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     #![allow(
         clippy::unwrap_used,
         clippy::expect_used,
@@ -1619,6 +1666,63 @@ mod tests {
             std::io::ErrorKind::ConnectionRefused
         );
         assert!(matches!(operation.snapshot().unwrap(), Outcome::Retained));
+    }
+
+    #[tokio::test]
+    async fn engineering_departed_observation_joins_native_work_and_releases_undelivered_page() {
+        use datafusion::execution::memory_pool::{GreedyMemoryPool, MemoryConsumer, MemoryPool};
+
+        struct PageCustody {
+            released: Option<tokio::sync::oneshot::Sender<usize>>,
+            input_pool: Arc<dyn MemoryPool>,
+        }
+        impl Drop for PageCustody {
+            fn drop(&mut self) {
+                if let Some(released) = self.released.take() {
+                    let _notified = released.send(self.input_pool.reserved());
+                }
+            }
+        }
+
+        let (service, _spill) = service();
+        let input_bytes = 8192;
+        let input_pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(input_bytes));
+        let input = MemoryConsumer::new("controlled observation input").register(&input_pool);
+        input.try_grow(input_bytes).unwrap();
+        let input = Arc::new(input);
+        let panicked: Result<(), _> = service
+            .observe_owned(input.clone(), async { panic!("controlled observation panic") })
+            .await;
+        assert!(matches!(panicked, Err(EngineeringServiceError::Infrastructure(detail))
+            if detail == "original observation task panicked"));
+        let (entered, native_entered) = tokio::sync::oneshot::channel();
+        let (settle, allow_settlement) = tokio::sync::oneshot::channel();
+        let (released, page_released) = tokio::sync::oneshot::channel();
+        let observer = tokio::spawn({
+            let service = service.clone();
+            let input_pool = input_pool.clone();
+            async move {
+                service
+                    .observe_owned(input, async move {
+                        entered.send(()).unwrap();
+                        allow_settlement.await.unwrap();
+                        Ok(PageCustody { released: Some(released), input_pool })
+                    })
+                    .await
+            }
+        });
+        native_entered.await.unwrap();
+        observer.abort();
+        assert!(observer.await.err().unwrap().is_cancelled());
+        assert_eq!(input_pool.reserved(), input_bytes);
+
+        let shutdown = service.shutdown();
+        tokio::pin!(shutdown);
+        assert!(futures_util::poll!(&mut shutdown).is_pending());
+        settle.send(()).unwrap();
+        shutdown.await.unwrap();
+        assert_eq!(page_released.await.unwrap(), input_bytes);
+        assert_eq!(input_pool.reserved(), 0);
     }
 
     #[tokio::test]
@@ -1828,7 +1932,9 @@ mod tests {
         assert_eq!(next.observations_available, None);
     }
 
-    fn service() -> (Arc<EngineeringService>, tempfile::TempDir) {
+    pub(in crate::host_operations::engineering) fn service()
+        -> (Arc<EngineeringService>, tempfile::TempDir)
+    {
         service_on(None)
     }
     pub(super) fn service_on(

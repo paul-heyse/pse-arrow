@@ -92,6 +92,7 @@ impl ProviderFactory for ControlledFactory {
                 mode: self.mode.clone(),
                 marker: self.marker.clone(),
                 generation: self.generation,
+                refused_preparation: false,
             }),
         ))
     }
@@ -101,15 +102,35 @@ struct ControlledNative {
     mode: String,
     marker: std::path::PathBuf,
     generation: SemanticId,
+    refused_preparation: bool,
 }
 impl Provider for ControlledNative {
     fn finish(self: Box<Self>) -> Result<(), ProviderError> {
+        let mut expired = false;
+        if matches!(
+            self.mode.as_str(),
+            "evaluate-departure-retire-faults" | "prepare-refusal-departure-retire-faults"
+        ) {
+            let generation = self.generation.to_string();
+            writeln!(
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(self.marker.with_extension("finished"))
+                    .unwrap(),
+                "{generation}"
+            )
+            .unwrap();
+            expired = std::fs::read_to_string(self.marker.with_extension("expiring-generation"))
+                .is_ok_and(|selected| selected == generation);
+        }
         if matches!(
             self.mode.as_str(),
             "prepare-departure-retire-faults"
                 | "shutdown-departure-retire-faults"
                 | "close-departure-retire-faults"
-        ) {
+        ) || expired || self.refused_preparation
+        {
             writeln!(
                 std::fs::OpenOptions::new()
                     .create(true)
@@ -155,6 +176,15 @@ impl Provider for ControlledNative {
             return Err(ProviderError::Contract(
                 "controlled native finish failure".into(),
             ));
+        }
+        Ok(())
+    }
+    fn prepare_demand(&mut self, request: &PreparedProviderRequest) -> Result<(), ProviderError> {
+        if self.mode == "prepare-refusal-departure-retire-faults"
+            && request.order == DerivativeOrder::Second
+        {
+            self.refused_preparation = true;
+            return Err(ProviderError::Contract("controlled original provider admission refusal".into()));
         }
         Ok(())
     }
@@ -1167,6 +1197,127 @@ fn actual_abandoned_close_preserves_original_native_retirement_failure() {
             Some(Observation::Text(actual)) if actual == &expected_detail
         ));
     }
+}
+
+#[test]
+fn actual_abandoned_expired_evaluation_preserves_original_deadline_and_finish_failure() {
+    receive_abandoned_effect_retirement(true);
+}
+
+#[test]
+fn actual_abandoned_preparation_refusal_preserves_original_admission_and_finish_failure() {
+    receive_abandoned_effect_retirement(false);
+}
+
+fn receive_abandoned_effect_retirement(expired_evaluation: bool) {
+    use pse_diagnostics::DiagnosticCode;
+    use pse_model::diagnostic::{BoundaryDiagnostic, Observation};
+
+    fn descendants(value: &BoundaryDiagnostic) -> impl Iterator<Item = &BoundaryDiagnostic> {
+        let mut pending = vec![value];
+        std::iter::from_fn(move || {
+            let next = pending.pop()?;
+            pending.extend(next.causes.iter());
+            Some(next)
+        })
+    }
+
+    let directory = tempfile::tempdir().unwrap();
+    let marker = directory.path().join("native");
+    let (service, pool, _native) = service();
+    let baseline = pool.reserved();
+    let (phase, action) = if expired_evaluation {
+        ("evaluate", "Evaluate")
+    } else {
+        ("prepare-refusal", "Prepare")
+    };
+    let proxy = finish_proxy(&format!("{phase}-departure-retire-faults"), &marker, &service);
+    let remote = proxy.remote.as_ref().unwrap();
+    let pid = remote.child.pid();
+    let endpoint = remote._endpoint.path().to_path_buf();
+    let io = remote.io.as_ref().unwrap();
+    let mut request = orphan_preparation(&proxy);
+    let handle = request.handle;
+    let generation = handle.generation.to_string();
+    let lost_request = if expired_evaluation {
+        let allowance = Duration::from_secs(2);
+        request.remaining_ns = Some(u64::try_from(allowance.as_nanos()).unwrap());
+        assert!(matches!(
+            remote.exchange(p::Request::Prepare(request), &proxy.scope, None).unwrap(),
+            p::Response::Prepared(value) if value.handle == handle
+        ));
+        std::fs::write(marker.with_extension("expiring-generation"), &generation).unwrap();
+        // The original child clock started before the authenticated Prepare reply.
+        std::thread::sleep(allowance);
+        p::Request::Evaluate(p::Evaluate {
+            handle,
+            invocation: 1,
+            inputs: vec![500., 20.],
+            directions: vec![],
+            cotangents: vec![],
+            weights: vec![],
+        })
+    } else {
+        p::Request::Prepare(request)
+    };
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    runtime.block_on(async {
+        let mut exchange = Box::pin(io.departing_exchange(lost_request).unwrap());
+        tokio::select! {
+            result = &mut exchange => panic!("gated {action} unexpectedly replied: {result:?}"),
+            _ = preparation_witness(marker.with_extension(format!("{phase}-claimed")), &generation) => {},
+        }
+        drop(exchange);
+        preparation_witness(marker.with_extension(format!("{phase}-departed")), &generation).await;
+    });
+    drop(runtime);
+    let survivor = proxy.prepared[1].1;
+    let observed = io
+        .exchange(p::Request::Close(survivor), &proxy.scope, None)
+        .unwrap();
+    let mut expected: Vec<_> = proxy
+        .prepared
+        .iter()
+        .map(|(_, handle, _)| handle.generation.to_string())
+        .collect();
+    expected.push(generation.clone());
+    expected.sort();
+    assert!(Box::new(proxy).finish().is_err());
+    let mut finished: Vec<_> = std::fs::read_to_string(marker.with_extension("finished"))
+        .unwrap()
+        .lines()
+        .map(str::to_owned)
+        .collect();
+    finished.sort();
+    assert_eq!(finished, expected, "each original native binding finishes once");
+    assert!(!marker.exists(), "refused or joined work must not enter native fill");
+    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
+    assert!(!endpoint.exists());
+    assert_eq!(pool.reserved(), baseline);
+
+    let p::Response::Failure(p::Failure::Diagnostic(detail)) = observed else {
+        panic!("lost {action} must expose the original joined retirement causes: {observed:?}");
+    };
+    let text = |value: &BoundaryDiagnostic, field: &str, expected: &str| {
+        matches!(value.observations.get(field), Some(Observation::Text(actual)) if actual == expected)
+    };
+    assert!(text(&detail, "action", action));
+    assert!(text(&detail, "generation", &generation));
+    if expired_evaluation {
+        assert!(descendants(&detail).any(|cause| cause.code == DiagnosticCode::RuntimeTimeout));
+    } else {
+        assert!(descendants(&detail).any(|cause| {
+            cause.code == DiagnosticCode::KernelUnboundParameter
+                && text(cause, "detail", "provider contract: controlled original provider admission refusal")
+        }));
+    }
+    let finish = format!("provider contract: controlled native retirement failure {generation}");
+    assert!(descendants(&detail).any(|cause| {
+        cause.code == DiagnosticCode::KernelUnboundParameter && text(cause, "detail", &finish)
+    }));
 }
 
 fn receive_failed_retirement(immediate_parent_finish: bool) {

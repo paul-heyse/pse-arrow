@@ -181,10 +181,10 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | ID | Status | Prerequisites | Completion |
 |---|---|---|---|
 | C01 | complete | Existing retained bridge/provider identities and explicit native preparation | Stale standalone compiler receipt explicitly refreshed with the existing immutable-cache implementation. Root compiler/solver selection and nested reentry succeed; the separate results checkout passes the same selection and engineering generation. Nine targeted native identity/cache controls pass with complete capture/settlement, including cross-checkout survival and changed-context refusal. This closes the reproduced preparation gap without relaxed checks or a new cache path; broader C acceptance remains separate. |
-| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and identity consumers. Decide whole-case submission against actual client demand before moving or retiring any preparation call. |
-| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. Bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Complete selected session/batch/departure paths and qualify any combined crossing only for actual isolated placement. |
+| C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC correspondence and the single authored-case `SubmitRun` are in use, with selected main receiving and separately launched run-client controls. Complete the live mixed Study and remaining worker/reference consumers through their original owners. |
+| C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child controls retain the original Prepare refusal or Evaluate deadline and the independent failed native finish after the generated method departs. Exact Close/Stop ownership is retained. Complete remaining selected batch/session paths; combine crossings only for an actual isolated placement. |
 | C04 | in-progress | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D02's bounded symbolic restore or replay decision | Remaining selected live/receiving/reference contexts use exact native permission and original memberships. The unconsumed private root lane is retired. Production receiving still uses JSON v3; the replacement needs independent stage/receipt correspondence and cold canonical qualification. |
-| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token, nonblocking I/O and native error retention are integrated. `ObserveRun` bounds its passive wait by the request deadline and preserves settlement of an already admitted protected read. Verify the real UDS progress frame and terminal trailer control. Study observation still needs its effect-bearing capture and original failure to settle under its own deadline contract. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | `ObserveStudy` joins admitted open/page work under the service and retains the original ingress grant through reply or drop. Focused deadline, panic, dropped-waiter and ingress controls pass, as does the real `ObserveRun` UDS terminal trailer. An actual Study reset during an admitted canonical capture remains a distinct receiving case. |
 
 Typed engineering `AdmitSource` now takes an explicit registration set authorized by
 the service startup. The native owner rejects unknown/duplicate choices before retaining
@@ -489,6 +489,14 @@ owners; if it adds more machinery, retain the current JoinSet/vector design and 
 coverage gap instead. No task-library substitution is a package-completion requirement.
 
 ## Verification and decision limits
+
+**Tested, selected.** The default-profile `scripts/pse test pse-runtime --lib` selection
+with `property-coolprop,solver-ipopt,solver-diffsol,solver-kinsol,engineering-service,native-service,product-reader,product-operators`
+and force validation passed the eight selected service/worker controls and both fitting controls.
+The combined selection was 12/16 against the zero-failure baseline; four unrelated science
+controls failed and are owned by G/H. Original capture and settlement completed
+(`01a1c144-abf1-75b6-b44f-d3820c760ffe`). This evidence does not establish the assembled
+mixed Study or an actual Study HTTP/2 reset during capture.
 
 The Unix listener closes before native drain, and an original retirement failure remains
 visible after confirmed method departure. Run and Study observation stop admitting work at the
