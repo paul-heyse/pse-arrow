@@ -251,12 +251,16 @@ fn observe_keeper_drain(
     let native_joined = match worker {
         None => true,
         Some(Ok(terminal)) => {
-            if terminal.as_ref().is_some_and(|receipt| receipt.failure.is_some()) {
+            if terminal
+                .as_ref()
+                .is_some_and(|receipt| receipt.failure.is_some())
+            {
                 failures.push("original scientific worker reported failure; its original terminal and diagnostics are retained".into());
             }
             let joined = terminal.is_some_and(|receipt| receipt.native_joined);
             if !joined {
-                failures.push("original scientific worker application join is unestablished".into());
+                failures
+                    .push("original scientific worker application join is unestablished".into());
             }
             joined
         }
@@ -267,7 +271,10 @@ fn observe_keeper_drain(
     };
     // A scientific failure can coexist with a known native join. The original
     // terminal still governs the failure and forbids fixture disposal.
-    if physical_drained && native_joined && let Some(marker) = marker {
+    if physical_drained
+        && native_joined
+        && let Some(marker) = marker
+    {
         publish_worker_started(marker)?;
     }
     Ok(())
@@ -487,7 +494,10 @@ async fn run(args: Args) -> Result<(), Error> {
             std::panic::resume_unwind(panic);
         }
     }
-    let worker_terminal = worker.as_ref().filter(|_| worker_drained).map(NativeStudyWorker::terminal);
+    let worker_terminal = worker
+        .as_ref()
+        .filter(|_| worker_drained)
+        .map(NativeStudyWorker::terminal);
     if let Err(error) = observe_keeper_drain(
         args.drained.as_deref(),
         worker_drained && canonical_drained,
@@ -782,7 +792,14 @@ mod tests {
     #[test]
     fn scientific_keeper_cleanup_acceptance_preserves_on_stop_or_drain_failure_and_disposes_success()
      {
-        for condition in ["stopped", "failed-drain", "failed-science", "unjoined-science", "success", "late-stop"] {
+        for condition in [
+            "stopped",
+            "failed-drain",
+            "failed-science",
+            "unjoined-science",
+            "success",
+            "late-stop",
+        ] {
             let directory = tempfile::tempdir().unwrap();
             let fixture = directory.path().join("original-stopped-fixture");
             let drain = directory.path().join("drained.json");
@@ -801,11 +818,21 @@ mod tests {
                     "nonce": "original", "pid": 1, "invocation": "original",
                     "native_joined": condition == "failed-science", "processed": null,
                     "failure": "original scientific refusal"
-                })).unwrap();
+                }))
+                .unwrap();
                 Ok(Some(terminal))
             });
-            observe_keeper_drain(Some(&drain), condition != "failed-drain", worker, &mut failures).unwrap();
-            assert_eq!(start_requested(&drain).unwrap(), !matches!(condition, "failed-drain" | "unjoined-science"));
+            observe_keeper_drain(
+                Some(&drain),
+                condition != "failed-drain",
+                worker,
+                &mut failures,
+            )
+            .unwrap();
+            assert_eq!(
+                start_requested(&drain).unwrap(),
+                !matches!(condition, "failed-drain" | "unjoined-science")
+            );
             let accepted = complete_fixture_cleanup(
                 FixtureDisposition::Dispose,
                 Some(&stop),
@@ -823,7 +850,11 @@ mod tests {
             assert_eq!(fixture.exists(), !disposed);
             assert_eq!(failures.is_empty(), disposed);
             if condition == "failed-science" {
-                assert!(failures[0].to_string().contains("original scientific worker reported failure"));
+                assert!(
+                    failures[0]
+                        .to_string()
+                        .contains("original scientific worker reported failure")
+                );
             }
         }
     }

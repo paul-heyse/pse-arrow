@@ -12,7 +12,8 @@ pub(crate) use report::original_report_accounts;
 pub use report::{
     Action, Bounds, CompilerFailureAccount, CompilerFailureFact, ContentIdentity, FixturePending,
     GroupFailureAccount, Input, MAX_PREREQUISITE_FACT_ROWS, Outcome, Pending, Phase, PhaseKind,
-    Report, ReportObservation, ReportReference, TerminalRecord, TestFailureAccount, TestFailureFact,
+    Report, ReportObservation, ReportReference, TerminalRecord, TestFailureAccount,
+    TestFailureFact,
 };
 pub use runner::run;
 pub(crate) use runner::run_managed;

@@ -1280,7 +1280,8 @@ pub(crate) mod tests {
         ));
         let without_core = FileDescriptorSet::decode_from_slice(
             include_bytes!("generated/plan61/descriptor.bin").as_slice(),
-        ).unwrap();
+        )
+        .unwrap();
         let Err(EvidenceError::Interpretation { assessment }) = inspect(
             &without_core,
             "pse.developer.evidence.v1.CapturedWorkflowReport",

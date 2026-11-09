@@ -409,16 +409,19 @@ mod tests {
         let mut distributed = call.clone();
         let call_atom = call.atom().unwrap();
         let input_atom = input.atom().unwrap();
-        distributed.atom = Some(call_atom * (input_atom + Atom::num(1)) - call_atom * input_atom - call_atom);
+        distributed.atom =
+            Some(call_atom * (input_atom + Atom::num(1)) - call_atom * input_atom - call_atom);
         assert!(
             !builder
                 .retains_scientific_witness(&distributed, &witness)
                 .unwrap()
         );
         let mut quotient = call.clone();
-        quotient.atom = Some(call_atom / (input_atom + Atom::num(1))
-            + call_atom * input_atom / (input_atom + Atom::num(1))
-            - call_atom);
+        quotient.atom = Some(
+            call_atom / (input_atom + Atom::num(1))
+                + call_atom * input_atom / (input_atom + Atom::num(1))
+                - call_atom,
+        );
         assert!(
             !builder
                 .retains_scientific_witness(&quotient, &witness)

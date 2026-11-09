@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed derived views over host-verified original observations, never native verdicts.
 use super::*;
-use pse_host::{developer_evidence::InvocationFacts, envelope::ErrorRecord};
 use pse_host::test_workflow::execute::GroupFailureAccount;
+use pse_host::{developer_evidence::InvocationFacts, envelope::ErrorRecord};
 use std::borrow::Cow;
 mod prerequisites;
 pub use prerequisites::project as prerequisites;
@@ -253,7 +253,12 @@ pub fn causes(
             match group {
                 GroupFailureAccount::Check { observation, .. } => {
                     for (failure, diagnostic) in observation.failures.iter().enumerate() {
-                        record(failure, "compiler_group_failure", diagnostic.code.as_deref(), None)?;
+                        record(
+                            failure,
+                            "compiler_group_failure",
+                            diagnostic.code.as_deref(),
+                            None,
+                        )?;
                     }
                 }
                 GroupFailureAccount::Test { observation, .. } => {
@@ -262,7 +267,12 @@ pub fn causes(
                             record(failure, "test_group_failure", None, None)?;
                         }
                         for (marker, refusal) in test.target_setup_refusals.iter().enumerate() {
-                            record(failure, "test_group_setup_refusal", None, Some((marker, refusal)))?;
+                            record(
+                                failure,
+                                "test_group_setup_refusal",
+                                None,
+                                Some((marker, refusal)),
+                            )?;
                         }
                     }
                 }

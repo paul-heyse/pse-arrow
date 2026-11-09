@@ -50,9 +50,14 @@ impl<'a> Lower<'a> {
         if arguments.len() != product.formals.len() {
             return Err(contract("selected function scalar argument arity differs"));
         }
-        self.charge(product.syntax.nodes.len()
-            .saturating_add(product.syntax.predicates.len())
-            .saturating_add(arguments.len()))?;
+        self.charge(
+            product
+                .syntax
+                .nodes
+                .len()
+                .saturating_add(product.syntax.predicates.len())
+                .saturating_add(arguments.len()),
+        )?;
         let layout = product.syntax.canonical_layout().map_err(contract)?;
         let mut path = self.path.clone();
         path.push(

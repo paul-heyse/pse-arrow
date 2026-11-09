@@ -824,7 +824,10 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
             if SemanticId::read(field("symbol_id"), row).unwrap() != estimated_rate {
                 continue;
             }
-            assert!(estimate.is_none(), "one original estimator step owns the rate");
+            assert!(
+                estimate.is_none(),
+                "one original estimator step owns the rate"
+            );
             assert_eq!(i64::read(field("step"), row).unwrap(), *estimator_step);
             assert_eq!(
                 Option::<SemanticId>::read(field("quantity_id"), row).unwrap(),

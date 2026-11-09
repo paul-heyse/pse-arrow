@@ -386,17 +386,36 @@ pub(crate) fn original_report_accounts(
         let mut seen = std::collections::BTreeSet::new();
         for account in groups {
             let group = match (action, account) {
-                (Action::Check | Action::Rustdoc, GroupFailureAccount::Check { group, .. }) => *group,
-                (Action::Test, GroupFailureAccount::Test { group, observation, .. }) => {
-                    if observation.failures.iter().any(|failure| failure.identity.group != *group) {
-                        return Err(serde_json::Error::custom("test failure differs from its original group"));
+                (Action::Check | Action::Rustdoc, GroupFailureAccount::Check { group, .. }) => {
+                    *group
+                }
+                (
+                    Action::Test,
+                    GroupFailureAccount::Test {
+                        group, observation, ..
+                    },
+                ) => {
+                    if observation
+                        .failures
+                        .iter()
+                        .any(|failure| failure.identity.group != *group)
+                    {
+                        return Err(serde_json::Error::custom(
+                            "test failure differs from its original group",
+                        ));
                     }
                     *group
                 }
-                _ => return Err(serde_json::Error::custom("failure view differs from its original action")),
+                _ => {
+                    return Err(serde_json::Error::custom(
+                        "failure view differs from its original action",
+                    ));
+                }
             };
             if !seen.insert(group) {
-                return Err(serde_json::Error::custom("duplicate original group failure view"));
+                return Err(serde_json::Error::custom(
+                    "duplicate original group failure view",
+                ));
             }
         }
     }
@@ -1128,7 +1147,9 @@ mod observation_tests {
 
     #[test]
     fn original_prerequisite_projection_preserves_absent_empty_and_refuses_invalid_presence() {
-        let original_prerequisites = |bytes: &[u8]| original_report_accounts(bytes, Action::Test).map(|account| account.pending);
+        let original_prerequisites = |bytes: &[u8]| {
+            original_report_accounts(bytes, Action::Test).map(|account| account.pending)
+        };
         assert!(original_prerequisites(br#"{}"#).unwrap().is_none());
         assert!(
             original_prerequisites(br#"{"pending":[]}"#)

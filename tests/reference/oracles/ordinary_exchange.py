@@ -372,8 +372,14 @@ def _validate_physical(
     if _identity(_message(quantity, "canonical_unit")) != _identity(canonical):
         raise ValueError("quantity canonical unit differs from its actual owner")
     _identity(representation)
-    symbol = _reference_symbol(type_name) if original_unit_symbol is None else original_unit_symbol
-    if any(unit.symbol != symbol or unit.is_affine for unit in (canonical, representation)):
+    symbol = (
+        _reference_symbol(type_name)
+        if original_unit_symbol is None
+        else original_unit_symbol
+    )
+    if any(
+        unit.symbol != symbol or unit.is_affine for unit in (canonical, representation)
+    ):
         raise ValueError(
             "declared original unit spelling/affinity differs from the reference"
         )

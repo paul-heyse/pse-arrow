@@ -289,14 +289,12 @@ pub(super) fn observations(
     // response stream, then let the service join any admitted native capture.
     let open = stream::once(async move {
         let native = engine.clone();
-        let observer = settle_study_observation(
-            &engine,
-            input_owner.clone(),
-            deadline,
-            async move { native.observe_study(input, deadline).await },
-        )
-        .await?
-        .ok_or_else(study_observation_deadline_error)?;
+        let observer =
+            settle_study_observation(&engine, input_owner.clone(), deadline, async move {
+                native.observe_study(input, deadline).await
+            })
+            .await?
+            .ok_or_else(study_observation_deadline_error)?;
         Ok::<_, ConnectError>(stream::unfold(
             Some((engine, observer, input_owner, false)),
             move |state| async move {
@@ -306,15 +304,10 @@ pub(super) fn observations(
                         wait_for_study_observation(deadline).await?;
                     }
                     let native = engine.clone();
-                    settle_study_observation(
-                        &engine,
-                        input_owner.clone(),
-                        deadline,
-                        async move {
-                            let page = native.study_observation_page(&mut observer).await?;
-                            Ok((observer, page))
-                        },
-                    )
+                    settle_study_observation(&engine, input_owner.clone(), deadline, async move {
+                        let page = native.study_observation_page(&mut observer).await?;
+                        Ok((observer, page))
+                    })
                     .await
                 };
                 let (observer, output) = match next.await {
@@ -330,7 +323,10 @@ pub(super) fn observations(
                     crate::engineering_projection::encode_study_observation_page,
                 );
                 let done = done || page.is_err();
-                Some((page, (!done).then_some((engine, observer, input_owner, true))))
+                Some((
+                    page,
+                    (!done).then_some((engine, observer, input_owner, true)),
+                ))
             },
         ))
     });
@@ -355,8 +351,12 @@ async fn settle_study_observation<T: Send + 'static>(
     // The probe observes the actual request grant without retaining it. Scope
     // it inside the joined task: the detached transport waiter owns no probe.
     #[cfg(all(test, feature = "solver-kinsol"))]
-    let task = crate::workflow::StudyObserver::with_ingress_probe(Arc::downgrade(&input_owner), task);
-    let value = engine.observe_owned(input_owner, task).await.map_err(transport)?;
+    let task =
+        crate::workflow::StudyObserver::with_ingress_probe(Arc::downgrade(&input_owner), task);
+    let value = engine
+        .observe_owned(input_owner, task)
+        .await
+        .map_err(transport)?;
     check_study_observation_deadline(deadline)?;
     value.ok_or_else(study_observation_deadline_error)
 }
@@ -411,14 +411,17 @@ mod tests {
         };
 
         let (engine, _spill) = super::super::super::session::tests::service();
-        let input = Arc::new(MemoryConsumer::new("controlled observation input").register(&engine.ingress_pool()));
+        let input = Arc::new(
+            MemoryConsumer::new("controlled observation input").register(&engine.ingress_pool()),
+        );
         let polled = Arc::new(AtomicBool::new(false));
         let marker = polled.clone();
-        let refused = settle_study_observation(&engine, input.clone(), Some(Instant::now()), async move {
-            marker.store(true, Ordering::Release);
-            Ok(())
-        })
-        .await;
+        let refused =
+            settle_study_observation(&engine, input.clone(), Some(Instant::now()), async move {
+                marker.store(true, Ordering::Release);
+                Ok(())
+            })
+            .await;
         assert!(matches!(refused, Err(error) if error.code == ErrorCode::DeadlineExceeded));
         assert!(!polled.load(Ordering::Acquire));
 

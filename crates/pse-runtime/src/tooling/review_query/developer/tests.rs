@@ -131,10 +131,24 @@ async fn original_group_failure_views_preserve_setup_compiler_and_omitted_refere
         inventory_content: None,
         evidence: Some(vec![input_omission()]),
     };
-    let check = committed_member_with(root.path(), report(Action::Check), true, Some(("observations", r#"[
+    let check = committed_member_with(
+        root.path(),
+        report(Action::Check),
+        true,
+        Some((
+            "observations",
+            r#"[
         {"kind":"check","group":2,"observation":{"failures":[{"code":"E0382"}],"omitted_failure_records":3}}
-    ]"#)));
-    let run = committed_member_with(root.path(), report(Action::Test), true, Some(("observations", r#"[
+    ]"#,
+        )),
+    );
+    let run = committed_member_with(
+        root.path(),
+        report(Action::Test),
+        true,
+        Some((
+            "observations",
+            r#"[
         {"kind":"test","group":0,"observation":{"failures":[]},"omitted_failure_records":2},
         {"kind":"test","group":4,"observation":{"failures":[
             {"identity":{"group":4,"package_id":"package","binary_id":"unit","test_name":"setup"},
@@ -143,33 +157,80 @@ async fn original_group_failure_views_preserve_setup_compiler_and_omitted_refere
              "target_setup_refusals":["native_service_construction"]},
             {"identity":{"group":4,"package_id":"package","binary_id":"unit","test_name":"assertion"}}
         ]},"omitted_failure_records":0}
-    ]"#)));
+    ]"#,
+        )),
+    );
     let absent = committed_member(root.path(), report(Action::Test), false, None);
-    let answer = analyze(request(vec![check, run, absent]), &CancellationToken::new()).await.unwrap();
+    let answer = analyze(request(vec![check, run, absent]), &CancellationToken::new())
+        .await
+        .unwrap();
     let document = answer.document();
     let sources = &document.sources;
     let check = &sources[0].group_failure_views.as_ref().unwrap()[0];
     assert_eq!((check.group, check.references, check.omitted), (2, 1, 3));
     let groups = sources[1].group_failure_views.as_ref().unwrap();
     assert_eq!((groups[0].references, groups[0].omitted), (0, 2));
-    assert_eq!((groups[1].group, groups[1].pointer.as_str()), (4, "/observations/1"));
+    assert_eq!(
+        (groups[1].group, groups[1].pointer.as_str()),
+        (4, "/observations/1")
+    );
     assert!(sources[2].group_failure_views.is_none());
     for (kind, code, class, member, pointer) in [
-        ("compiler_group_failure", Some("E0382"), None, 0, "/observations/0/observation/failures/0"),
-        ("test_group_setup_refusal", None, Some("native_service_inputs"), 1, "/observations/1/observation/failures/0/target_setup_refusals/0"),
-        ("test_group_setup_refusal", None, Some("native_service_construction"), 1, "/observations/1/observation/failures/1/target_setup_refusals/0"),
-        ("test_group_failure", None, None, 1, "/observations/1/observation/failures/2"),
+        (
+            "compiler_group_failure",
+            Some("E0382"),
+            None,
+            0,
+            "/observations/0/observation/failures/0",
+        ),
+        (
+            "test_group_setup_refusal",
+            None,
+            Some("native_service_inputs"),
+            1,
+            "/observations/1/observation/failures/0/target_setup_refusals/0",
+        ),
+        (
+            "test_group_setup_refusal",
+            None,
+            Some("native_service_construction"),
+            1,
+            "/observations/1/observation/failures/1/target_setup_refusals/0",
+        ),
+        (
+            "test_group_failure",
+            None,
+            None,
+            1,
+            "/observations/1/observation/failures/2",
+        ),
     ] {
-        let pattern = document.patterns.iter().find(|row| {
-            row.diagnostic_kind.as_deref() == Some(kind) && row.class.as_deref() == class
-        }).unwrap();
+        let pattern = document
+            .patterns
+            .iter()
+            .find(|row| {
+                row.diagnostic_kind.as_deref() == Some(kind) && row.class.as_deref() == class
+            })
+            .unwrap();
         assert_eq!(pattern.code.as_deref(), code);
         assert_eq!(pattern.class.as_deref(), class);
-        assert_eq!(pattern.references, [Reference { member, pointer: Some(pointer.into()) }]);
+        assert_eq!(
+            pattern.references,
+            [Reference {
+                member,
+                pointer: Some(pointer.into())
+            }]
+        );
     }
-    let foreign_action = committed_member_with(root.path(), report(Action::List), false, Some((
-        "observations", r#"[{"kind":"check","group":0,"observation":{"failures":[],"omitted_failure_records":0}}]"#,
-    )));
+    let foreign_action = committed_member_with(
+        root.path(),
+        report(Action::List),
+        false,
+        Some((
+            "observations",
+            r#"[{"kind":"check","group":0,"observation":{"failures":[],"omitted_failure_records":0}}]"#,
+        )),
+    );
     assert!(matches!(
         analyze(request(vec![foreign_action]), &CancellationToken::new()).await,
         Err(Error::Evidence(_))
@@ -195,7 +256,8 @@ fn input_omission() -> EvidenceFile {
 }
 
 #[tokio::test]
-async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_operation_failure() {
+async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_operation_failure()
+{
     let root = tempfile::tempdir().unwrap();
     let mut failure = ErrorRecord::from_host(
         &pse_host::HostError::Ownership("original compiler-context capture refusal".into()),
@@ -245,8 +307,14 @@ async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_
     assert_eq!(
         typed.references,
         [
-            Reference { member: 0, pointer: Some("/evidence/1/failure".into()) },
-            Reference { member: 0, pointer: Some("/evidence/1/failure/related/0".into()) },
+            Reference {
+                member: 0,
+                pointer: Some("/evidence/1/failure".into())
+            },
+            Reference {
+                member: 0,
+                pointer: Some("/evidence/1/failure/related/0".into())
+            },
         ]
     );
     let ordinary = patterns
@@ -256,7 +324,10 @@ async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_
     assert_eq!(ordinary.code, None);
     assert_eq!(
         ordinary.references,
-        [Reference { member: 0, pointer: Some("/evidence/1/failure/causes/0".into()) }]
+        [Reference {
+            member: 0,
+            pointer: Some("/evidence/1/failure/causes/0".into())
+        }]
     );
 }
 

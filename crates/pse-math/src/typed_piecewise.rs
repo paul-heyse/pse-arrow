@@ -310,7 +310,8 @@ impl BodyBuilder<'_> {
                 || expected.next().is_some()
             {
                 return Err(MathError::Contract(
-                    "piecewise receipt branches differ from the exact requested topology and order".into(),
+                    "piecewise receipt branches differ from the exact requested topology and order"
+                        .into(),
                 ));
             }
         }
@@ -330,7 +331,9 @@ fn proof_requests_match<'a>(
     receipts: &mut impl Iterator<Item = &'a u8>,
 ) -> bool {
     stages.iter().all(|stage| match stage {
-        Stage::Branch { then, otherwise, .. } => {
+        Stage::Branch {
+            then, otherwise, ..
+        } => {
             receipts.next() == Some(&(order as u8))
                 && proof_requests_match(then, order, receipts)
                 && proof_requests_match(otherwise, order, receipts)

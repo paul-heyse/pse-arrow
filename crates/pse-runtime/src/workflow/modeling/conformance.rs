@@ -4197,9 +4197,15 @@ mod tests {
             &token,
         )
         .unwrap();
-        let physical = runtime.physical_from_documents(&physical, &token).await.unwrap();
+        let physical = runtime
+            .physical_from_documents(&physical, &token)
+            .await
+            .unwrap();
         let documents = OwnedDocumentSet::try_from_bundles(
-            inputs.packages().map(|(_, package)| load(&package.files)).collect(),
+            inputs
+                .packages()
+                .map(|(_, package)| load(&package.files))
+                .collect(),
             &pool,
             &token,
         )
@@ -4225,12 +4231,20 @@ mod tests {
         policy.maximum_fixtures = 1;
         policy.maximum_checks = 128;
         let report = package.conform(&services, policy, &cancel).await.unwrap();
-        assert!(report.complete && report.passed(), "{}", report_summary(&report));
+        assert!(
+            report.complete && report.passed(),
+            "{}",
+            report_summary(&report)
+        );
         assert_eq!(report.fixtures(), BTreeSet::from([selected]));
         let result = &report.results[&selected];
         assert!(result.accepted, "{:?}", result.diagnostic());
         let model = &result.prepared.model.model.compiled().model;
-        assert_eq!(model.inventory_balances.len(), 4, "only actual phase stocks evolve");
+        assert_eq!(
+            model.inventory_balances.len(),
+            4,
+            "only actual phase stocks evolve"
+        );
         let source = |id| DeclarationId::from_id(SemanticId::parse_hex(id).unwrap());
         let phase_amount = source("64e02000000000000000000000000207");
         let stock_target = |root| {
@@ -4259,7 +4273,10 @@ mod tests {
         assert!(initial.is_disjoint(&terminal));
         let phase_kind = source("7d986668d824439f9b5828046038365d");
         let species_kind = source("1c998211e5d74955863f377662f56526");
-        let entity = |id, kind| Value::Entity { id: source(id), kind };
+        let entity = |id, kind| Value::Entity {
+            id: source(id),
+            kind,
+        };
         let liquid = entity("c1ac28b6694144a890b9854d887fa26c", phase_kind);
         let vapor = entity("c2e7b1a320d24eb482bfb7301782f55c", phase_kind);
         let benzene = entity("01a0e1461e93764398a669ea78d82d27", species_kind);
@@ -4296,7 +4313,10 @@ mod tests {
             })
         };
         let near = |actual: f64, expected: f64| {
-            assert!((actual - expected).abs() <= 1e-9, "{actual} vs {expected} mol");
+            assert!(
+                (actual - expected).abs() <= 1e-9,
+                "{actual} vs {expected} mol"
+            );
         };
         // Independent 1 s transfer: a quarter mole of benzene and half a mole
         // of toluene leave liquid and enter vapor. Keep the two inventories apart.
@@ -4317,10 +4337,16 @@ mod tests {
         }
         // The independent sums do not establish the runtime's authored projections.
         // Require each original output check and each typed conservation observation too.
-        let expected = report.checks.iter().filter(|row| row.kind == Kind::Expectation);
+        let expected = report
+            .checks
+            .iter()
+            .filter(|row| row.kind == Kind::Expectation);
         assert_eq!(expected.clone().count(), 10);
         for row in expected {
-            assert_eq!((row.fixture_id, row.oracle_source_id), (selected, Some(oracle)));
+            assert_eq!(
+                (row.fixture_id, row.oracle_source_id),
+                (selected, Some(oracle))
+            );
             assert_eq!(row.status, Status::Passed);
             near(row.deviation.unwrap(), 0.);
         }
@@ -4339,7 +4365,9 @@ mod tests {
                 let check = result
                     .checks
                     .iter()
-                    .find(|check| check.target_id == closure.id && check.kind == ModelingCheckKind::Closure)
+                    .find(|check| {
+                        check.target_id == closure.id && check.kind == ModelingCheckKind::Closure
+                    })
                     .unwrap();
                 assert!(check.satisfied);
                 assert_eq!(check.source_id, closure.lineage.declaration);

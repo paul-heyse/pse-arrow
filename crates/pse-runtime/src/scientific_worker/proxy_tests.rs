@@ -129,7 +129,8 @@ impl Provider for ControlledNative {
             "prepare-departure-retire-faults"
                 | "shutdown-departure-retire-faults"
                 | "close-departure-retire-faults"
-        ) || expired || self.refused_preparation
+        ) || expired
+            || self.refused_preparation
         {
             writeln!(
                 std::fs::OpenOptions::new()
@@ -184,7 +185,9 @@ impl Provider for ControlledNative {
             && request.order == DerivativeOrder::Second
         {
             self.refused_preparation = true;
-            return Err(ProviderError::Contract("controlled original provider admission refusal".into()));
+            return Err(ProviderError::Contract(
+                "controlled original provider admission refusal".into(),
+            ));
         }
         Ok(())
     }
@@ -1231,7 +1234,11 @@ fn receive_abandoned_effect_retirement(expired_evaluation: bool) {
     } else {
         ("prepare-refusal", "Prepare")
     };
-    let proxy = finish_proxy(&format!("{phase}-departure-retire-faults"), &marker, &service);
+    let proxy = finish_proxy(
+        &format!("{phase}-departure-retire-faults"),
+        &marker,
+        &service,
+    );
     let remote = proxy.remote.as_ref().unwrap();
     let pid = remote.child.pid();
     let endpoint = remote._endpoint.path().to_path_buf();
@@ -1292,8 +1299,14 @@ fn receive_abandoned_effect_retirement(expired_evaluation: bool) {
         .map(str::to_owned)
         .collect();
     finished.sort();
-    assert_eq!(finished, expected, "each original native binding finishes once");
-    assert!(!marker.exists(), "refused or joined work must not enter native fill");
+    assert_eq!(
+        finished, expected,
+        "each original native binding finishes once"
+    );
+    assert!(
+        !marker.exists(),
+        "refused or joined work must not enter native fill"
+    );
     assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
     assert!(!endpoint.exists());
     assert_eq!(pool.reserved(), baseline);
@@ -1301,9 +1314,7 @@ fn receive_abandoned_effect_retirement(expired_evaluation: bool) {
     let p::Response::Failure(p::Failure::Diagnostic(detail)) = observed else {
         panic!("lost {action} must expose the original joined retirement causes: {observed:?}");
     };
-    let text = |value: &BoundaryDiagnostic, field: &str, expected: &str| {
-        matches!(value.observations.get(field), Some(Observation::Text(actual)) if actual == expected)
-    };
+    let text = |value: &BoundaryDiagnostic, field: &str, expected: &str| matches!(value.observations.get(field), Some(Observation::Text(actual)) if actual == expected);
     assert!(text(&detail, "action", action));
     assert!(text(&detail, "generation", &generation));
     if expired_evaluation {
@@ -1311,7 +1322,11 @@ fn receive_abandoned_effect_retirement(expired_evaluation: bool) {
     } else {
         assert!(descendants(&detail).any(|cause| {
             cause.code == DiagnosticCode::KernelUnboundParameter
-                && text(cause, "detail", "provider contract: controlled original provider admission refusal")
+                && text(
+                    cause,
+                    "detail",
+                    "provider contract: controlled original provider admission refusal",
+                )
         }));
     }
     let finish = format!("provider contract: controlled native retirement failure {generation}");

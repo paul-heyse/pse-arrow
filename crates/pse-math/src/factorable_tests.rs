@@ -1121,8 +1121,10 @@ fn equal_arithmetic_arms_keep_the_reached_nonzero_guard_at_the_closed_endpoint()
     let mut providers = pse_kernels::ProviderBindings::new();
     for point in [-1.0, 1e-12] {
         assert_eq!(
-            original.evaluate(&[point], DerivativeOrder::Value, &mut providers, &cancel)
-                .unwrap().values,
+            original
+                .evaluate(&[point], DerivativeOrder::Value, &mut providers, &cancel)
+                .unwrap()
+                .values,
             [1.0]
         );
     }
@@ -1142,11 +1144,16 @@ fn equal_arithmetic_arms_keep_the_reached_nonzero_guard_at_the_closed_endpoint()
     assert!(matches!(
         assembly.factorable_program(
             &CaseValues::default(),
-            &FactorableRequest { require_exact: true, ..Default::default() },
+            &FactorableRequest {
+                require_exact: true,
+                ..Default::default()
+            },
             100_000,
             &cancel,
         ),
-        Err(FactorableError::ExactRequired { fidelity: Fidelity::Unavailable })
+        Err(FactorableError::ExactRequired {
+            fidelity: Fidelity::Unavailable
+        })
     ));
 }
 

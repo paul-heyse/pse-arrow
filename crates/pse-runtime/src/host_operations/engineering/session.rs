@@ -1691,10 +1691,14 @@ pub(super) mod tests {
         input.try_grow(input_bytes).unwrap();
         let input = Arc::new(input);
         let panicked: Result<(), _> = service
-            .observe_owned(input.clone(), async { panic!("controlled observation panic") })
+            .observe_owned(input.clone(), async {
+                panic!("controlled observation panic")
+            })
             .await;
-        assert!(matches!(panicked, Err(EngineeringServiceError::Infrastructure(detail))
-            if detail == "original observation task panicked"));
+        assert!(
+            matches!(panicked, Err(EngineeringServiceError::Infrastructure(detail))
+            if detail == "original observation task panicked")
+        );
         let (entered, native_entered) = tokio::sync::oneshot::channel();
         let (settle, allow_settlement) = tokio::sync::oneshot::channel();
         let (released, page_released) = tokio::sync::oneshot::channel();
@@ -1706,7 +1710,10 @@ pub(super) mod tests {
                     .observe_owned(input, async move {
                         entered.send(()).unwrap();
                         allow_settlement.await.unwrap();
-                        Ok(PageCustody { released: Some(released), input_pool })
+                        Ok(PageCustody {
+                            released: Some(released),
+                            input_pool,
+                        })
                     })
                     .await
             }
@@ -1933,8 +1940,7 @@ pub(super) mod tests {
     }
 
     pub(in crate::host_operations::engineering) fn service()
-        -> (Arc<EngineeringService>, tempfile::TempDir)
-    {
+    -> (Arc<EngineeringService>, tempfile::TempDir) {
         service_on(None)
     }
     pub(super) fn service_on(

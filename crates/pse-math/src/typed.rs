@@ -52,7 +52,11 @@ pub struct TypedValue {
 }
 impl TypedValue {
     #[cfg(test)]
-    pub(crate) fn symbolic_fixture(atom: Atom, quantity: ResolvedPhysicalContract, source: SemanticId) -> Self {
+    pub(crate) fn symbolic_fixture(
+        atom: Atom,
+        quantity: ResolvedPhysicalContract,
+        source: SemanticId,
+    ) -> Self {
         Self {
             effects: BTreeSet::new(),
             atom: Some(atom),
@@ -436,11 +440,13 @@ impl<'a> BodyBuilder<'a> {
         }
         Ok(TypedValue {
             effects: BTreeSet::new(),
-            atom: self.atom_with(|| Ok(if self.physical_only {
-                Atom::num(0)
-            } else {
-                library::formal(slot)?
-            }))?,
+            atom: self.atom_with(|| {
+                Ok(if self.physical_only {
+                    Atom::num(0)
+                } else {
+                    library::formal(slot)?
+                })
+            })?,
             shape: plan::Shape::Formal,
             quantity: ResolvedPhysicalContract::named(
                 inferred.result,
@@ -479,11 +485,13 @@ impl<'a> BodyBuilder<'a> {
         }
         Ok(TypedValue {
             effects: BTreeSet::new(),
-            atom: self.atom_with(|| Ok(if self.physical_only {
-                Atom::num(0)
-            } else {
-                library::formal(slot)?
-            }))?,
+            atom: self.atom_with(|| {
+                Ok(if self.physical_only {
+                    Atom::num(0)
+                } else {
+                    library::formal(slot)?
+                })
+            })?,
             shape: plan::Shape::Formal,
             indices: quantity.indices().clone(),
             quantity,
@@ -505,14 +513,18 @@ impl<'a> BodyBuilder<'a> {
         }
         let admission = self.consume_admission(admission, &[])?;
         let canonical = conversion.apply(value)?.value();
-        let atom = self.atom_with(|| Ok(if canonical.fract() == 0.0
-            && canonical >= f64::from(i16::MIN)
-            && canonical <= f64::from(i16::MAX)
-        {
-            Atom::num(canonical as i32)
-        } else {
-            Atom::num(canonical)
-        }))?;
+        let atom = self.atom_with(|| {
+            Ok(
+                if canonical.fract() == 0.0
+                    && canonical >= f64::from(i16::MIN)
+                    && canonical <= f64::from(i16::MAX)
+                {
+                    Atom::num(canonical as i32)
+                } else {
+                    Atom::num(canonical)
+                },
+            )
+        })?;
         Ok(TypedValue {
             effects: BTreeSet::new(),
             atom,
@@ -546,14 +558,18 @@ impl<'a> BodyBuilder<'a> {
             // Preserve integral authored facts in the same exact coefficient domain
             // used by physical rational exponents. Other literals stay binary64;
             // approximate decimals are never guessed to be rational numbers.
-            atom: self.atom_with(|| Ok(if canonical.fract() == 0.0
-                && canonical >= f64::from(i16::MIN)
-                && canonical <= f64::from(i16::MAX)
-            {
-                Atom::num(canonical as i32)
-            } else {
-                Atom::num(canonical)
-            }))?,
+            atom: self.atom_with(|| {
+                Ok(
+                    if canonical.fract() == 0.0
+                        && canonical >= f64::from(i16::MIN)
+                        && canonical <= f64::from(i16::MAX)
+                    {
+                        Atom::num(canonical as i32)
+                    } else {
+                        Atom::num(canonical)
+                    },
+                )
+            })?,
             shape: plan::Shape::Number(canonical),
             quantity,
             indices,
@@ -1023,7 +1039,8 @@ impl<'a> BodyBuilder<'a> {
                     return Err(plan::unsupported());
                 }
             } else {
-                let expected = Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
+                let expected =
+                    Atom::num(i64::from(ratio.num())) / Atom::num(i64::from(ratio.den()));
                 if right.atom()? != &expected {
                     return Err(MathError::Contract(
                         "power literal fact disagrees with its value".into(),
@@ -1053,7 +1070,12 @@ impl<'a> BodyBuilder<'a> {
                 matches!(atom.as_view(), symbolica::atom::AtomView::Num(_)) && !atom.is_zero()
             };
             if !nonzero_number {
-                self.require(&mut right, Condition::Nonzero, DerivativeOrder::Value, source)?;
+                self.require(
+                    &mut right,
+                    Condition::Nonzero,
+                    DerivativeOrder::Value,
+                    source,
+                )?;
             }
         }
         if op == Binary::Pow {
@@ -1135,11 +1157,14 @@ impl<'a> BodyBuilder<'a> {
         let indices = quantity.indices().clone();
         Ok(TypedValue {
             effects: value.effects.clone(),
-            atom: self.atom_with(|| Ok(if self.physical_only {
-                Atom::num(0)
-            } else {
-                -value.atom()?.clone() * Atom::num(admission.operand_scales[0] * admission.result_scale)
-            }))?,
+            atom: self.atom_with(|| {
+                Ok(if self.physical_only {
+                    Atom::num(0)
+                } else {
+                    -value.atom()?.clone()
+                        * Atom::num(admission.operand_scales[0] * admission.result_scale)
+                })
+            })?,
             shape: plan::Shape::Unknown,
             quantity,
             indices,
@@ -1265,9 +1290,11 @@ impl<'a> BodyBuilder<'a> {
                 Unary::Exp => atom.exp(),
                 Unary::Log => atom.log(),
                 Unary::Sqrt => atom.sqrt(),
-                Unary::Abs => return Err(MathError::Contract(
-                    "absolute value must use its admitted branch".into(),
-                )),
+                Unary::Abs => {
+                    return Err(MathError::Contract(
+                        "absolute value must use its admitted branch".into(),
+                    ));
+                }
                 Unary::Sin => atom.sin(),
                 Unary::Cos => atom.cos(),
             })
@@ -1313,7 +1340,10 @@ impl<'a> BodyBuilder<'a> {
     pub fn fixed_guard(&mut self, selected: bool, source: SemanticId) -> Result<Guard, MathError> {
         Ok(Guard {
             effects: BTreeSet::new(),
-            left: self.materialize(self.atom_with(|| Ok(Atom::num(i32::from(selected))))?, source)?,
+            left: self.materialize(
+                self.atom_with(|| Ok(Atom::num(i32::from(selected))))?,
+                source,
+            )?,
             right: self.materialize(self.atom_with(|| Ok(Atom::num(1)))?, source)?,
             comparison: Comparison::Eq,
             variable: false,
@@ -1488,7 +1518,12 @@ impl<'a> BodyBuilder<'a> {
     /// # Errors
     /// Invalid analysis resource bounds.
     pub fn physical_pass(&self) -> Result<BodyBuilder<'a>, MathError> {
-        Self::type_checking(self.symbolic_context()?, self.registry, self.checker, self.limits)
+        Self::type_checking(
+            self.symbolic_context()?,
+            self.registry,
+            self.checker,
+            self.limits,
+        )
     }
 
     /// Validate smoothness and available provider derivatives independently of value execution.
@@ -1540,7 +1575,12 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        if self.planning && !matches!(kind, pse_quantity::ReductionKind::Sum | pse_quantity::ReductionKind::Prod) {
+        if self.planning
+            && !matches!(
+                kind,
+                pse_quantity::ReductionKind::Sum | pse_quantity::ReductionKind::Prod
+            )
+        {
             return Err(plan::unsupported());
         }
         let prototype_value = TypedValue {
@@ -1573,25 +1613,33 @@ impl<'a> BodyBuilder<'a> {
                 Ok(term.clone())
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let atom = self.atom_with(|| Ok(if self.physical_only {
-            Atom::num(0)
-        } else {
-            match kind {
-                pse_quantity::ReductionKind::Sum => terms.iter().try_fold(Atom::num(0), |sum, term| {
-                    Ok::<_, MathError>(sum + term.atom()? * Atom::num(admission.operand_scales[0]))
-                })?,
-                pse_quantity::ReductionKind::Prod => {
-                    terms.iter().try_fold(Atom::num(1), |product, term| {
-                        Ok::<_, MathError>(product * term.atom()? * Atom::num(admission.operand_scales[0]))
-                    })?
+        let atom = self.atom_with(|| {
+            Ok(if self.physical_only {
+                Atom::num(0)
+            } else {
+                match kind {
+                    pse_quantity::ReductionKind::Sum => {
+                        terms.iter().try_fold(Atom::num(0), |sum, term| {
+                            Ok::<_, MathError>(
+                                sum + term.atom()? * Atom::num(admission.operand_scales[0]),
+                            )
+                        })?
+                    }
+                    pse_quantity::ReductionKind::Prod => {
+                        terms.iter().try_fold(Atom::num(1), |product, term| {
+                            Ok::<_, MathError>(
+                                product * term.atom()? * Atom::num(admission.operand_scales[0]),
+                            )
+                        })?
+                    }
+                    _ => {
+                        return Err(MathError::Contract(
+                            "finite source reduction requires sum or product".into(),
+                        ));
+                    }
                 }
-                _ => {
-                    return Err(MathError::Contract(
-                        "finite source reduction requires sum or product".into(),
-                    ));
-                }
-            }
-        } * Atom::num(admission.result_scale)))?;
+            } * Atom::num(admission.result_scale))
+        })?;
         Ok(TypedValue {
             atom,
             shape: plan::Shape::Unknown,
@@ -1664,12 +1712,16 @@ impl<'a> BodyBuilder<'a> {
             Atom::num(0)
         } else {
             match kind {
-                pse_quantity::ReductionKind::Sum => terms
-                    .iter()
-                    .try_fold(Atom::num(0), |sum, term| Ok::<_, MathError>(sum + term.atom()?))?,
-                pse_quantity::ReductionKind::Prod => terms
-                    .iter()
-                    .try_fold(Atom::num(1), |product, term| Ok::<_, MathError>(product * term.atom()?))?,
+                pse_quantity::ReductionKind::Sum => {
+                    terms.iter().try_fold(Atom::num(0), |sum, term| {
+                        Ok::<_, MathError>(sum + term.atom()?)
+                    })?
+                }
+                pse_quantity::ReductionKind::Prod => {
+                    terms.iter().try_fold(Atom::num(1), |product, term| {
+                        Ok::<_, MathError>(product * term.atom()?)
+                    })?
+                }
                 pse_quantity::ReductionKind::Min | pse_quantity::ReductionKind::Max => {
                     let mut terms = terms.iter();
                     let mut value = terms

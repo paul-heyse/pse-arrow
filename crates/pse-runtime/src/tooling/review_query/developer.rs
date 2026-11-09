@@ -118,13 +118,29 @@ impl GroupFailureView {
     fn original(index: usize, account: &GroupFailureAccount) -> Self {
         let (group, kind, references, omitted) = match account {
             GroupFailureAccount::Check { group, observation } => (
-                *group, "check", observation.failures.len(), observation.omitted_failure_records,
+                *group,
+                "check",
+                observation.failures.len(),
+                observation.omitted_failure_records,
             ),
-            GroupFailureAccount::Test { group, observation, omitted_failure_records } => (
-                *group, "test", observation.failures.len(), *omitted_failure_records,
+            GroupFailureAccount::Test {
+                group,
+                observation,
+                omitted_failure_records,
+            } => (
+                *group,
+                "test",
+                observation.failures.len(),
+                *omitted_failure_records,
             ),
         };
-        Self { group, pointer: format!("/observations/{index}"), kind, references, omitted }
+        Self {
+            group,
+            pointer: format!("/observations/{index}"),
+            kind,
+            references,
+            omitted,
+        }
     }
 }
 /// One grouping of original facts, not a new verdict or present control observation.
@@ -361,7 +377,11 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             invocation: original.report.invocation.clone(),
             report_sha256: original.readback.report_sha256.clone(),
             group_failure_views: original.group_failures.as_ref().map(|groups| {
-                groups.iter().enumerate().map(|(index, account)| GroupFailureView::original(index, account)).collect()
+                groups
+                    .iter()
+                    .enumerate()
+                    .map(|(index, account)| GroupFailureView::original(index, account))
+                    .collect()
             }),
             limitations: original.readback.limitations.clone(),
         });

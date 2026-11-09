@@ -297,7 +297,14 @@ mod capture_probe {
         let previous = GATES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(study, Gate { entered, resume, completed });
+            .insert(
+                study,
+                Gate {
+                    entered,
+                    resume,
+                    completed,
+                },
+            );
         assert!(previous.is_none(), "one gate for the original Study");
         CaptureProbe {
             entered: observe_entry,
@@ -306,7 +313,10 @@ mod capture_probe {
         }
     }
 
-    pub(super) async fn pause(receipt: &StudyCohortReceipt, study: &str) -> Option<oneshot::Sender<String>> {
+    pub(super) async fn pause(
+        receipt: &StudyCohortReceipt,
+        study: &str,
+    ) -> Option<oneshot::Sender<String>> {
         let gate = GATES
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -507,7 +517,8 @@ impl StudyObserver {
             })
             .await?;
         #[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
-        let capture_probe = capture_probe::pause(status.receipt(), &self.cursor.request.study).await;
+        let capture_probe =
+            capture_probe::pause(status.receipt(), &self.cursor.request.study).await;
         let status = status_page(status).await?;
         if context(&status)? != self.cursor.context {
             return Err(contract("observer selected context changed"));

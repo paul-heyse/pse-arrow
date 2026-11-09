@@ -364,7 +364,9 @@ impl BodyBuilder<'_> {
         let mut input_slots = Vec::with_capacity(inputs.len());
         for (value, conversion) in inputs.iter().zip(&prepared.input_conversions) {
             input_slots.push(self.materialize(
-                Some(value.atom()? * Atom::num(conversion.scale()) + Atom::num(conversion.offset())),
+                Some(
+                    value.atom()? * Atom::num(conversion.scale()) + Atom::num(conversion.offset()),
+                ),
                 source,
             )?);
         }

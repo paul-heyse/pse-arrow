@@ -197,7 +197,10 @@ fn assert_wall_inlet_ph_roots(package: &ModelingPackage, result: &ModelingResult
     // Two uncoupled PH states can use an original assessment of separately
     // solved native components. An all-fixed evaluation has no such evidence.
     let Outcome::Constant(original) = &result.outcome else {
-        panic!("two independent PH roots require original component assessment: {:?}", result.outcome.state());
+        panic!(
+            "two independent PH roots require original component assessment: {:?}",
+            result.outcome.state()
+        );
     };
     assert!(result.accepted && result.validation_error.is_none() && original.quality.feasible());
     let model = &result.prepared.model.model.compiled().model;
@@ -206,12 +209,31 @@ fn assert_wall_inlet_ph_roots(package: &ModelingPackage, result: &ModelingResult
     let quantities = package.physical_context().quantities();
     let coordinate = |side: &str, field: &str, quantity: &str| {
         let full = format!("{path}.{side}.state.{field}");
-        let mut members = model.symbols.values().filter(|symbol| symbol.lineage.path == full);
-        let member = members.next().unwrap_or_else(|| panic!("original PH coordinate {full} absent"));
-        assert!(members.next().is_none(), "ambiguous original PH coordinate {full}");
-        let physical = member.ty.quantity_scheme().unwrap().resolve(quantities, &BTreeMap::new()).unwrap();
-        assert_eq!(quantities.quantity_type(physical).unwrap().name.as_deref(), Some(quantity));
-        let value = original.coordinates.iter().find(|(id, _)| *id == member.id)
+        let mut members = model
+            .symbols
+            .values()
+            .filter(|symbol| symbol.lineage.path == full);
+        let member = members
+            .next()
+            .unwrap_or_else(|| panic!("original PH coordinate {full} absent"));
+        assert!(
+            members.next().is_none(),
+            "ambiguous original PH coordinate {full}"
+        );
+        let physical = member
+            .ty
+            .quantity_scheme()
+            .unwrap()
+            .resolve(quantities, &BTreeMap::new())
+            .unwrap();
+        assert_eq!(
+            quantities.quantity_type(physical).unwrap().name.as_deref(),
+            Some(quantity)
+        );
+        let value = original
+            .coordinates
+            .iter()
+            .find(|(id, _)| *id == member.id)
             .map(|(_, value)| *value)
             .or_else(|| result.values.scalars.get(&member.id).copied())
             .unwrap_or_else(|| panic!("original PH coordinate {full} has no value"));
@@ -225,18 +247,23 @@ fn assert_wall_inlet_ph_roots(package: &ModelingPackage, result: &ModelingResult
     ] {
         let (temperature, _) = coordinate(side, "T", "Temperature");
         let (density, molar_density) = coordinate(side, "rho", "Density");
-        assert!((50_000. .. 56_000.).contains(&molar_density));
-        assert!(original.component_reports().any(|component| {
-            component.backend == Backend::Ipopt
-                && component.candidate.is_some()
-                && component.variables.contains(&temperature)
-                && component.variables.contains(&density)
-        }), "{side} PH state must retain an actual coupled liquid temperature/density root");
+        assert!((50_000. ..56_000.).contains(&molar_density));
+        assert!(
+            original.component_reports().any(|component| {
+                component.backend == Backend::Ipopt
+                    && component.candidate.is_some()
+                    && component.variables.contains(&temperature)
+                    && component.variables.contains(&density)
+            }),
+            "{side} PH state must retain an actual coupled liquid temperature/density root"
+        );
         let source = DeclarationId::from_id(SemanticId::parse_hex(expectation).unwrap());
         let mut observed = result.checks.iter().filter(|check| {
             check.source_id == source && check.kind == ModelingCheckKind::Expectation
         });
-        let check = observed.next().expect("original independent PH temperature comparison");
+        let check = observed
+            .next()
+            .expect("original independent PH temperature comparison");
         assert!(observed.next().is_none());
         assert_eq!(check.tolerance, Some(0.01));
         assert!(check.satisfied && check.value <= 0.01);
@@ -255,20 +282,33 @@ fn assert_linear_valve_liquid_root(result: &ModelingResult) {
     let root = &model.instances[&result.prepared.model.model.solved().instance()];
     let outlet = ["T", "rho"].map(|name| {
         let path = format!("{}.root.outlet.{name}", root.path);
-        let mut members = model.symbols.values().filter(|member| member.lineage.path == path);
-        let id = members.next().unwrap_or_else(|| panic!("original valve state {path} absent")).id;
+        let mut members = model
+            .symbols
+            .values()
+            .filter(|member| member.lineage.path == path);
+        let id = members
+            .next()
+            .unwrap_or_else(|| panic!("original valve state {path} absent"))
+            .id;
         assert!(members.next().is_none(), "ambiguous valve state {path}");
         id
     });
     let solves_outlet = |report: &SolveReport| {
-        report.backend == Backend::Ipopt && report.candidate.is_some()
-            && outlet.iter().all(|member| report.variables.contains(member))
+        report.backend == Backend::Ipopt
+            && report.candidate.is_some()
+            && outlet
+                .iter()
+                .all(|member| report.variables.contains(member))
     };
-    assert!(match &result.outcome {
-        Outcome::Native(report) => solves_outlet(report),
-        Outcome::Constant(report) => report.quality.feasible() && report.component_reports().any(solves_outlet),
-        Outcome::Rejected(_) => false,
-    }, "selected valve must retain the actual coupled liquid outlet root");
+    assert!(
+        match &result.outcome {
+            Outcome::Native(report) => solves_outlet(report),
+            Outcome::Constant(report) =>
+                report.quality.feasible() && report.component_reports().any(solves_outlet),
+            Outcome::Rejected(_) => false,
+        },
+        "selected valve must retain the actual coupled liquid outlet root"
+    );
 }
 
 async fn conform_case(
@@ -550,12 +590,14 @@ async fn authored_wet_water_turbine_matches_released_reference() -> Result<(), W
 }
 
 #[tokio::test]
-async fn authored_wet_water_turbine_matches_independent_iapws_binary() -> Result<(), WorkflowError> {
+async fn authored_wet_water_turbine_matches_independent_iapws_binary() -> Result<(), WorkflowError>
+{
     conform_case("wet_water_turbine", None, true).await
 }
 
 #[tokio::test]
-async fn authored_wall_inlet_ph_rebases_released_iapws95_liquid_states() -> Result<(), WorkflowError> {
+async fn authored_wall_inlet_ph_rebases_released_iapws95_liquid_states() -> Result<(), WorkflowError>
+{
     conform("released_wall_inlet_ph", None).await
 }
 
@@ -572,7 +614,8 @@ async fn authored_wall_stock_perturbation_closes_both_fluid_energy_boundaries()
 }
 
 #[tokio::test]
-async fn authored_linear_water_valve_preserves_released_rating_and_enthalpy() -> Result<(), WorkflowError> {
+async fn authored_linear_water_valve_preserves_released_rating_and_enthalpy()
+-> Result<(), WorkflowError> {
     conform("linear_water_valve_rated", None).await
 }
 
@@ -750,7 +793,10 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
             let report = reports
                 .next()
                 .unwrap_or_else(|| panic!("original Water value unavailable: {original_path}"));
-            assert!(reports.next().is_none(), "ambiguous Water report {original_path}");
+            assert!(
+                reports.next().is_none(),
+                "ambiguous Water report {original_path}"
+            );
             report.value
         };
         // These stored observations come from the published IAPWS/released-case
@@ -800,7 +846,8 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                 assert_eq!(check.tolerance, Some(1e-6));
                 assert!(check.satisfied && check.value <= 1e-6);
                 assert!(
-                    (raw("root.unit.outlet.energy_flow") - raw("root.unit.inlet.energy_flow")
+                    (raw("root.unit.outlet.energy_flow")
+                        - raw("root.unit.inlet.energy_flow")
                         - raw("root.unit.work"))
                     .abs()
                         <= 0.01

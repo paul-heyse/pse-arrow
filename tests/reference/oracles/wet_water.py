@@ -170,6 +170,7 @@ def solve(
     outlet_pressure = float(value(outlet.pressure))
     quality = float(value(outlet.vapor_frac))
     reversible_quality = float(value(reversible.vapor_frac))
+
     # These checks use only results within the independent reference datum. Shaft
     # work is compared across models without passing either one's absolute h or s.
     def near(left: float, right: float, tolerance: float) -> bool:
@@ -181,11 +182,17 @@ def solve(
         near(outlet_pressure, pressure + fixed["pressure_change"], 1e-3),
         near(float(value(reversible.pressure)), outlet_pressure, 1e-3),
         near(float(value(reversible.entr_mol)), float(value(inlet.entr_mol)), 1e-6),
-        near(flow * (float(value(outlet.enth_mol)) - float(value(inlet.enth_mol))), work, 0.01),
+        near(
+            flow * (float(value(outlet.enth_mol)) - float(value(inlet.enth_mol))),
+            work,
+            0.01,
+        ),
         work < 0.0 and 0.0 < reversible_quality < quality < 1.0,
     )
     if not all(checks):
-        raise RuntimeError("independent turbine did not retain the original wet balances")
+        raise RuntimeError(
+            "independent turbine did not retain the original wet balances"
+        )
     return {
         "outlet_temperature": float(value(outlet.temperature)),
         "isentropic_temperature": float(value(reversible.temperature)),

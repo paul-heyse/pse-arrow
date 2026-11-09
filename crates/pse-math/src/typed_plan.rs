@@ -59,26 +59,80 @@ impl ConstructionPlan {
 
 fn stages_match(planned: &[Stage], original: &[Stage]) -> bool {
     planned.len() == original.len()
-        && planned.iter().zip(original).all(|(plan, original)| match (plan, original) {
-            (
-                Stage::Block { outputs: a, source: sa, .. },
-                Stage::Block { outputs: b, source: sb, expressions },
-            ) => a == b && sa == sb && b.len() == expressions.len(),
-            (
-                Stage::Branch { continuity: ca, comparison: oa, left: la, right: ra, then: ta, otherwise: ea },
-                Stage::Branch { continuity: cb, comparison: ob, left: lb, right: rb, then: tb, otherwise: eb },
-            ) => ca == cb && oa == ob && la == lb && ra == rb && stages_match(ta, tb) && stages_match(ea, eb),
-            (
-                Stage::Domain { stages: sa, argument: aa, token: ta, lineage: la },
-                Stage::Domain { stages: sb, argument: ab, token: tb, lineage: lb },
-            ) => aa == ab && ta == tb && la == lb && stages_match(sa, sb),
-            (
-                Stage::Applicability { stages: sa, predicates: pa, inputs: ia, token: ta, plan: ea },
-                Stage::Applicability { stages: sb, predicates: pb, inputs: ib, token: tb, plan: eb },
-            ) => pa == pb && ia == ib && ta == tb && ea == eb && stages_match(sa, sb),
-            (Stage::Require { .. }, Stage::Require { .. }) => plan == original,
-            _ => false,
-        })
+        && planned
+            .iter()
+            .zip(original)
+            .all(|(plan, original)| match (plan, original) {
+                (
+                    Stage::Block {
+                        outputs: a,
+                        source: sa,
+                        ..
+                    },
+                    Stage::Block {
+                        outputs: b,
+                        source: sb,
+                        expressions,
+                    },
+                ) => a == b && sa == sb && b.len() == expressions.len(),
+                (
+                    Stage::Branch {
+                        continuity: ca,
+                        comparison: oa,
+                        left: la,
+                        right: ra,
+                        then: ta,
+                        otherwise: ea,
+                    },
+                    Stage::Branch {
+                        continuity: cb,
+                        comparison: ob,
+                        left: lb,
+                        right: rb,
+                        then: tb,
+                        otherwise: eb,
+                    },
+                ) => {
+                    ca == cb
+                        && oa == ob
+                        && la == lb
+                        && ra == rb
+                        && stages_match(ta, tb)
+                        && stages_match(ea, eb)
+                }
+                (
+                    Stage::Domain {
+                        stages: sa,
+                        argument: aa,
+                        token: ta,
+                        lineage: la,
+                    },
+                    Stage::Domain {
+                        stages: sb,
+                        argument: ab,
+                        token: tb,
+                        lineage: lb,
+                    },
+                ) => aa == ab && ta == tb && la == lb && stages_match(sa, sb),
+                (
+                    Stage::Applicability {
+                        stages: sa,
+                        predicates: pa,
+                        inputs: ia,
+                        token: ta,
+                        plan: ea,
+                    },
+                    Stage::Applicability {
+                        stages: sb,
+                        predicates: pb,
+                        inputs: ib,
+                        token: tb,
+                        plan: eb,
+                    },
+                ) => pa == pb && ia == ib && ta == tb && ea == eb && stages_match(sa, sb),
+                (Stage::Require { .. }, Stage::Require { .. }) => plan == original,
+                _ => false,
+            })
 }
 
 impl<'a> BodyBuilder<'a> {
@@ -100,7 +154,11 @@ impl<'a> BodyBuilder<'a> {
         &self,
         create: impl FnOnce() -> Result<Atom, MathError>,
     ) -> Result<Option<Atom>, MathError> {
-        if self.planning { Ok(None) } else { create().map(Some) }
+        if self.planning {
+            Ok(None)
+        } else {
+            create().map(Some)
+        }
     }
 
     pub(super) fn symbolic_context(&self) -> Result<&'a crate::SymbolicContext, MathError> {
@@ -110,7 +168,9 @@ impl<'a> BodyBuilder<'a> {
     /// Close the same ordered output layout without preparing symbolic support.
     pub fn finish_plan(mut self, values: &[TypedValue]) -> Result<ConstructionPlan, MathError> {
         if !self.planning {
-            return Err(MathError::Contract("expected a source-only construction plan".into()));
+            return Err(MathError::Contract(
+                "expected a source-only construction plan".into(),
+            ));
         }
         let outputs = values
             .iter()
@@ -121,7 +181,10 @@ impl<'a> BodyBuilder<'a> {
             slots: self.next_slot,
             input_quantities: self.input_quantities,
             outputs,
-            quantities: values.iter().map(TypedValue::quantity).collect::<Result<_, _>>()?,
+            quantities: values
+                .iter()
+                .map(TypedValue::quantity)
+                .collect::<Result<_, _>>()?,
             effects: values.iter().map(|value| value.effects.clone()).collect(),
             occurrences: self.occurrences,
         })

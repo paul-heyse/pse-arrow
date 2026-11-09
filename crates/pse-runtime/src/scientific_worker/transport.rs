@@ -1189,11 +1189,8 @@ pub(super) fn serve_with_preparation(
                         _ => None,
                     };
                     if let Some((phase, handle)) = departure
-                        && let Err(error) = observe_retirement_departure_for_test(
-                            &job.completion,
-                            phase,
-                            &handle,
-                        )
+                        && let Err(error) =
+                            observe_retirement_departure_for_test(&job.completion, phase, &handle)
                     {
                         failures.push(error);
                         break;
@@ -1515,8 +1512,11 @@ fn observe_retirement_departure_for_test(
     let generation = handle.generation.to_string();
     std::fs::write(claimed, &generation).map_err(infrastructure)?;
     wait_for_method_departure_for_test(completion)?;
-    std::fs::write(marker.with_extension(format!("{phase}-departed")), generation)
-        .map_err(infrastructure)
+    std::fs::write(
+        marker.with_extension(format!("{phase}-departed")),
+        generation,
+    )
+    .map_err(infrastructure)
 }
 
 #[cfg(test)]

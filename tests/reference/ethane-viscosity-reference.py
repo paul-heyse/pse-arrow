@@ -16,8 +16,9 @@ from idaes.models.properties.modular_properties.pure.ChapmanEnskog import (
     ChapmanEnskogLennardJones,
     collision_integral_neufeld_callback,
 )
-from oracles.reference_environment import ReferenceEnvironment
 from pyomo.environ import units, value
+
+from oracles.reference_environment import ReferenceEnvironment
 
 
 def main() -> None:
@@ -45,7 +46,9 @@ def main() -> None:
         observations.append(
             {"temperature_kelvin": temperature, "dynamic_viscosity_pa_s": viscosity}
         )
-    print(json.dumps({"environment": environment.evidence, "observations": observations}))
+    print(
+        json.dumps({"environment": environment.evidence, "observations": observations})
+    )
 
 
 if __name__ == "__main__":

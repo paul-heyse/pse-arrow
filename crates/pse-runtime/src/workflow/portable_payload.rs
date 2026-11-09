@@ -109,7 +109,11 @@ pub(crate) struct IpcExportAcknowledgement {
 
 impl OwnedMemberStage {
     pub(crate) fn create(path: PathBuf) -> std::io::Result<Self> {
-        let file = OpenOptions::new().read(true).write(true).create_new(true).open(&path)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
         Ok(Self { path, file })
     }
 
@@ -176,7 +180,9 @@ impl<W: Write> Write for Accepted<'_, W> {
     fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
         let written = self.sink.write(bytes)?;
         if written > bytes.len() {
-            return Err(std::io::Error::other("sink reported more bytes than supplied"));
+            return Err(std::io::Error::other(
+                "sink reported more bytes than supplied",
+            ));
         }
         self.digest.update(&bytes[..written]);
         self.bytes += written as u64;

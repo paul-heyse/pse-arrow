@@ -150,7 +150,8 @@ mod tests {
                 "pse.engineering.v1.EngineeringService",
                 "DescribeContract",
                 connectrpc::handler::handler_fn(
-                    move |context: connectrpc::RequestContext, _: pb::EngineeringDescribeRequest| {
+                    move |context: connectrpc::RequestContext,
+                          _: pb::EngineeringDescribeRequest| {
                         let owner = context.extensions().get::<RequestOwner>().unwrap();
                         assert_eq!(owner.0.size(), REQUEST_EXTENT);
                         calls.fetch_add(1, Ordering::SeqCst);

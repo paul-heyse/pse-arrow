@@ -87,7 +87,10 @@ impl Request<'_> {
             self.limits,
         )?;
         let (values, occurrences) = self.lower_values(&mut builder, cancelled.as_ref(), None)?;
-        let quantities = values.iter().map(TypedValue::quantity).collect::<Result<Vec<_>, _>>()?;
+        let quantities = values
+            .iter()
+            .map(TypedValue::quantity)
+            .collect::<Result<Vec<_>, _>>()?;
         let definition = self.definition_identity(&builder)?;
         let admissions = builder.admission_identity();
         let ranges = self.support.checked_ranges(self.syntax).map_err(contract)?;
@@ -99,7 +102,9 @@ impl Request<'_> {
                 .with_checked_members(members)?
                 .with_checked_sources(sources)?
                 .with_occurrence_tokens(
-                    self.syntax.occurrence_tokens(self.limits.occurrences).map_err(contract)?,
+                    self.syntax
+                        .occurrence_tokens(self.limits.occurrences)
+                        .map_err(contract)?,
                 )?,
         );
         let spec = BodySpec {
@@ -175,16 +180,29 @@ impl Request<'_> {
             || !producer.spec.providers.is_empty()
             || producer.spec.policy != pse_math::binding::guarded_real_policy()
             || occurrences != producer.occurrences
-            || &self.syntax.occurrence_tokens(self.limits.occurrences).map_err(contract)?
+            || &self
+                .syntax
+                .occurrence_tokens(self.limits.occurrences)
+                .map_err(contract)?
                 != producer.math.occurrence_tokens()
-            || &ranges.iter().map(|range| range.member).collect::<BTreeSet<_>>()
+            || &ranges
+                .iter()
+                .map(|range| range.member)
+                .collect::<BTreeSet<_>>()
                 != producer.math.checked_members()
-            || &ranges.iter().map(|range| range.source).collect::<BTreeSet<_>>()
+            || &ranges
+                .iter()
+                .map(|range| range.source)
+                .collect::<BTreeSet<_>>()
                 != producer.math.checked_sources()
         {
-            return Err(contract("planned source differs from original typed body correspondence"));
+            return Err(contract(
+                "planned source differs from original typed body correspondence",
+            ));
         }
-        builder.finish_plan(&values)?.verify_producer(&producer.math)
+        builder
+            .finish_plan(&values)?
+            .verify_producer(&producer.math)
     }
 
     fn lower_values(
@@ -314,17 +332,32 @@ impl<'a> Lower<'a> {
             if self.cancelled.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
-            remaining.set(remaining.get().checked_sub(amount)
-                .ok_or(MathError::Limit("source plan traversal work"))?);
+            remaining.set(
+                remaining
+                    .get()
+                    .checked_sub(amount)
+                    .ok_or(MathError::Limit("source plan traversal work"))?,
+            );
         }
         Ok(())
     }
     pub(super) fn fork(&self) -> Result<Self, MathError> {
-        self.charge([
-            self.inputs.len(), self.arguments.len(), self.nodes.len(), self.lexical.len(),
-            self.active.len(), self.path.len(), self.node_ordinals.len(), self.predicate_ordinals.len(),
-            self.occurrences.len(), self.ranges.len(),
-        ].into_iter().fold(1usize, usize::saturating_add))?;
+        self.charge(
+            [
+                self.inputs.len(),
+                self.arguments.len(),
+                self.nodes.len(),
+                self.lexical.len(),
+                self.active.len(),
+                self.path.len(),
+                self.node_ordinals.len(),
+                self.predicate_ordinals.len(),
+                self.occurrences.len(),
+                self.ranges.len(),
+            ]
+            .into_iter()
+            .fold(1usize, usize::saturating_add),
+        )?;
         let mut fork = self.clone();
         fork.occurrences.clear();
         Ok(fork)
