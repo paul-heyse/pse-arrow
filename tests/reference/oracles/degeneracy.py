@@ -227,7 +227,9 @@ def main() -> None:
         members.rows.extend(row_ids[f"row:{row}"] for row in expected)
         if support in reference:
             reported = members.certificate.reported
-            reported.multipliers.extend(float_bits(reference[support][row]) for row in expected)
+            reported.multipliers.extend(
+                float_bits(reference[support][row]) for row in expected
+            )
             reported.irreducible_at_tolerance = True
         else:
             members.certificate.unreported.SetInParent()

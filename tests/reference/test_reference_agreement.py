@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Controls for separating independent scientific agreement from native policy."""
-# ruff: noqa: PT009, PT027 -- named reference recipes use standard-library unittest
+# ruff: noqa: PT027 -- named reference recipes use standard-library unittest
 
 from __future__ import annotations
 

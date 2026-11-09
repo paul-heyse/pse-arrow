@@ -94,16 +94,10 @@ pub(super) fn validate(directory: &File, index: &PackIndex) -> Result<Vec<String
             .find(|m| m.selection.id == id && m.availability == PackAvailability::Available)
     };
     if let (Some(frozen), Some(analysis)) = (available("frozen"), available("analysis")) {
-        let frozen: FrozenEvidenceSet = decode_member(
-            directory,
-            frozen,
-            index.selection.maximum_document_bytes,
-        )?;
-        let analysis: AnalysisDocument = decode_member(
-            directory,
-            analysis,
-            index.selection.maximum_document_bytes,
-        )?;
+        let frozen: FrozenEvidenceSet =
+            decode_member(directory, frozen, index.selection.maximum_document_bytes)?;
+        let analysis: AnalysisDocument =
+            decode_member(directory, analysis, index.selection.maximum_document_bytes)?;
         frozen.validate().map_err(|e| invalid(e.to_string()))?;
         analysis.validate().map_err(|e| invalid(e.to_string()))?;
         let requirements = crate::tooling::review_analysis::requirements::assess(

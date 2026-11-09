@@ -7,11 +7,11 @@ pub use pse_contract::BoundaryDirection as Direction;
 
 mod passive;
 mod physical_description;
-pub use physical_description::PhysicalQuantityDescription;
 pub use passive::{
     BoundaryAlternative, BoundaryAlternativeField, BoundaryAlternatives, BoundaryDocument,
     BoundaryFieldEncoding, PassiveFieldEncoding,
 };
+pub use physical_description::PhysicalQuantityDescription;
 
 /// Actual record fields and checked reconstruction at their defining owner.
 pub trait BoundaryRecord: Sized {

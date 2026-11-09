@@ -28,7 +28,11 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
         },
         imports,
     )?;
-    let reference_roots = ["ReferenceEnvelope", "ReferenceCaseContract", "ReferenceDegeneracyResult"];
+    let reference_roots = [
+        "ReferenceEnvelope",
+        "ReferenceCaseContract",
+        "ReferenceDegeneracyResult",
+    ];
     let reference_adapters = boundary_projection::native_adapters_retaining_wire(
         &reference_graph,
         &reference_roots,

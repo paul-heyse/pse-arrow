@@ -35,7 +35,8 @@ impl metadata::InterpretationPolicy for NativeUsagePolicy {
         "pse.code_intelligence.v1/native-usage"
     }
     fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
-        crate::code_intelligence_contracts::native_policy::INTERPRETATIONS.contains(&(subject, version))
+        crate::code_intelligence_contracts::native_policy::INTERPRETATIONS
+            .contains(&(subject, version))
     }
 }
 impl DescriptorPolicy for NativeUsagePolicy {
@@ -161,7 +162,8 @@ pub fn assess(
         Policy::NativeUsage => {
             if selected_files.iter().any(|file| file != NATIVE_USAGE_FILE) {
                 return Err(SchemaError::Invalid(
-                    "native-usage policy covers only the source-owned native_usage.proto file".into(),
+                    "native-usage policy covers only the source-owned native_usage.proto file"
+                        .into(),
                 ));
             }
             compare_with_policy(current, baseline, selected_files, &NativeUsagePolicy, true)
@@ -326,16 +328,35 @@ mod tests {
 
     #[test]
     fn native_usage_semantics_refuses_foreign_file_and_requires_original_interpretation() {
-        let original = FileDescriptorSet::decode_from_slice(crate::code_intelligence_contracts::DESCRIPTORS).unwrap();
+        let original =
+            FileDescriptorSet::decode_from_slice(crate::code_intelligence_contracts::DESCRIPTORS)
+                .unwrap();
         let world = bundle(&original);
         let file = [NATIVE_USAGE_FILE.into()];
         let assessment = assess(&world, &world, &file, Policy::NativeUsage).unwrap();
-        assert_eq!(assessment.disposition, Disposition::Compatible, "{assessment:?}");
+        assert_eq!(
+            assessment.disposition,
+            Disposition::Compatible,
+            "{assessment:?}"
+        );
         assert!(assessment.native_coverage_available);
-        assert!(assess(&world, &bundle(&source()), &[FILE.into()], Policy::NativeUsage).is_err());
-        let unsupported = with_unknown_version(&original, NATIVE_USAGE_FILE, "NativeDependencyUsageAnswer");
+        assert!(
+            assess(
+                &world,
+                &bundle(&source()),
+                &[FILE.into()],
+                Policy::NativeUsage
+            )
+            .is_err()
+        );
+        let unsupported =
+            with_unknown_version(&original, NATIVE_USAGE_FILE, "NativeDependencyUsageAnswer");
         let assessment = assess(&world, &bundle(&unsupported), &file, Policy::NativeUsage).unwrap();
-        assert_eq!(assessment.disposition, Disposition::Unknown, "{assessment:?}");
+        assert_eq!(
+            assessment.disposition,
+            Disposition::Unknown,
+            "{assessment:?}"
+        );
     }
 
     #[test]

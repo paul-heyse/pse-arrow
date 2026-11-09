@@ -989,7 +989,10 @@ pub(crate) fn captured_full_report(
         .ok_or_else(|| invalid("original report exceeds the selected portable extent"))?;
     original.files = crate::test_workflow::execute::evidence::capture(
         &original.parent,
-        original.observation.evidence().map_err(|error| HostError::Workflow(Box::new(error)))?,
+        original
+            .observation
+            .evidence()
+            .map_err(|error| HostError::Workflow(Box::new(error)))?,
         budget,
     )?;
     original.scope = crate::test_workflow::execute::EvidenceScope::Full;
@@ -1022,7 +1025,10 @@ impl OpenedReport {
     pub fn dependencies(
         &self,
     ) -> Result<&[crate::test_workflow::execute::EvidenceFile], HostError> {
-        self.original.observation.evidence().map_err(|error| HostError::Workflow(Box::new(error)))
+        self.original
+            .observation
+            .evidence()
+            .map_err(|error| HostError::Workflow(Box::new(error)))
     }
     /// Exact original report bytes authenticated by the original terminal.
     pub fn report_original(&self) -> &[u8] {

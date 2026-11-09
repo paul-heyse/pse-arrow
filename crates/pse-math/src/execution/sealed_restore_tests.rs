@@ -84,7 +84,9 @@ fn produce() -> PreparedBody {
         .literal(
             2.0,
             unit,
-            LiteralContext::Explicit { quantity_type: neutral },
+            LiteralContext::Explicit {
+                quantity_type: neutral,
+            },
             occurrence(6),
         )
         .unwrap();
@@ -347,7 +349,10 @@ fn sealed_guarded_body_child() {
         assert_eq!(fixture.restore(MAX_FIXTURE_BYTES).unwrap(), body);
         let polynomial = |slot, multiplier: i32| {
             let square = library::formal(slot).unwrap().pow(Atom::num(2));
-            (Atom::num(multiplier) * square).as_view().get_data().to_vec()
+            (Atom::num(multiplier) * square)
+                .as_view()
+                .get_data()
+                .to_vec()
         };
         let mut dependency = fixture.clone();
         dependency.atoms[1] = polynomial(1, 2);
@@ -383,7 +388,10 @@ fn sealed_guarded_body_child() {
     }
     assert!(matches!(
         Fixture::decode_original(&command, expected, command.len() - 1),
-        Err(MathError::ByteLimit { resource: "sealed fixture payload", .. }),
+        Err(MathError::ByteLimit {
+            resource: "sealed fixture payload",
+            ..
+        }),
     ));
     let fixture = original.unwrap();
     crate::initialize().unwrap();
@@ -424,14 +432,13 @@ fn sealed_guarded_body_child() {
         .unwrap();
     assert!(support.derivative_operations() > 0);
     assert_eq!(support.first_for_output(0), Some(&BTreeSet::from([0])));
-    assert_eq!(support.second_for_output(0), Some(&BTreeSet::from([(0, 0)])));
+    assert_eq!(
+        support.second_for_output(0),
+        Some(&BTreeSet::from([(0, 0)]))
+    );
     assert_eq!(support.support().controls, BTreeSet::from([0]));
     let mut worker = support
-        .compile(
-            Optimization::default(),
-            EvaluationLimits::default(),
-            &scope,
-        )
+        .compile(Optimization::default(), EvaluationLimits::default(), &scope)
         .unwrap()
         .worker();
     let mut providers = ProviderBindings::new();
@@ -462,7 +469,10 @@ fn sealed_guarded_body_restores_after_typed_producer_retires() {
                 "--nocapture",
             ])
             .env(SNAPSHOT_ENV, input)
-            .env(DIGEST_ENV, digest.map(ContentHash::to_hex).unwrap_or_default())
+            .env(
+                DIGEST_ENV,
+                digest.map(ContentHash::to_hex).unwrap_or_default(),
+            )
             .env(SUBSTITUTION_ENV, if substitution { "1" } else { "0" })
             .output()
             .unwrap();
@@ -476,7 +486,10 @@ fn sealed_guarded_body_restores_after_typed_producer_retires() {
     };
     let producer = run("produce", None, false);
     let frame = |label| {
-        producer.lines().find_map(|line| line.strip_prefix(label)).unwrap()
+        producer
+            .lines()
+            .find_map(|line| line.strip_prefix(label))
+            .unwrap()
     };
     let payload = frame("SEALED_FIXTURE:");
     let digest = preimage::hash(payload.as_bytes());

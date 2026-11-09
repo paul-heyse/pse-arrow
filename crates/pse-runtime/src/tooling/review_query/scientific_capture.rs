@@ -196,10 +196,14 @@ fn invalid(error: impl std::fmt::Display) -> Error {
 /// Refuse invalid paths and oversized allocations before source access.
 pub fn validate(request: &Request) -> Result<(), Error> {
     if !request.evidence.is_absolute() {
-        return Err(invalid("scientific capture query requires an explicit absolute input path"));
+        return Err(invalid(
+            "scientific capture query requires an explicit absolute input path",
+        ));
     }
     if request.memory_bytes.get() > MAXIMUM_MEMORY_BYTES {
-        return Err(invalid("scientific capture query allocation must be at most 256 MiB"));
+        return Err(invalid(
+            "scientific capture query allocation must be at most 256 MiB",
+        ));
     }
     Ok(())
 }
@@ -236,7 +240,9 @@ fn acquire(
     let metadata = file.metadata()?;
     let length = usize::try_from(metadata.len()).map_err(invalid)?;
     if !metadata.is_file() || length > MAXIMUM_DOCUMENT_BYTES {
-        return Err(invalid("scientific capture query requires a regular evidence file within 64 MiB"));
+        return Err(invalid(
+            "scientific capture query requires a regular evidence file within 64 MiB",
+        ));
     }
     let owner = reserve(pool, "scientific-capture-query:source", extent(length, 8)?)?;
     let mut bytes = vec![0u8; length];
@@ -245,7 +251,9 @@ fn acquire(
         file.read_exact(chunk)?;
     }
     if file.read(&mut [0u8; 1])? != 0 {
-        return Err(invalid("scientific capture evidence grew during acquisition"));
+        return Err(invalid(
+            "scientific capture evidence grew during acquisition",
+        ));
     }
     cancel.checkpoint()?;
     let digest = pse_host::test_workflow::execute::ContentIdentity::of(&bytes).sha256;
@@ -263,56 +271,79 @@ fn table(
     let declaration = registry
         .relation(relation)
         .ok_or_else(|| invalid("missing declared diagnostic view"))?;
-    let declared = pse_schema::arrow::relation_schema_ref(registry, declaration).map_err(invalid)?;
+    let declared =
+        pse_schema::arrow::relation_schema_ref(registry, declaration).map_err(invalid)?;
     // Only the existing operation coordinate participates; member is a query-local row locator.
     let schema = Arc::new(Schema::new(vec![
         Field::new("member", DataType::UInt64, false),
-        declared.field_with_name("operation").map_err(invalid)?.clone(),
+        declared
+            .field_with_name("operation")
+            .map_err(invalid)?
+            .clone(),
     ]));
-    let operations = StringArray::from_iter(
-        operations.into_iter().map(|op| op.map(|op| op.to_string())),
-    );
+    let operations =
+        StringArray::from_iter(operations.into_iter().map(|op| op.map(|op| op.to_string())));
     let count = u64::try_from(operations.len()).map_err(invalid)?;
     let members = UInt64Array::from_iter_values(0..count);
-    let batch = RecordBatch::try_new(schema.clone(), vec![Arc::new(members), Arc::new(operations)])
-        .map_err(invalid)?;
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![Arc::new(members), Arc::new(operations)],
+    )
+    .map_err(invalid)?;
     Ok(Arc::new(MemTable::try_new(schema, vec![vec![batch]])?))
 }
 
 fn column<'a, T: Array + 'static>(batch: &'a RecordBatch, name: &str) -> Result<&'a T, Error> {
-    batch.column_by_name(name).and_then(|a| a.as_any().downcast_ref())
-        .ok_or_else(|| invalid(format!("scientific capture query returned unexpected column {name}")))
+    batch
+        .column_by_name(name)
+        .and_then(|a| a.as_any().downcast_ref())
+        .ok_or_else(|| {
+            invalid(format!(
+                "scientific capture query returned unexpected column {name}"
+            ))
+        })
 }
 
 /// Read exactly one supplied frozen set and execute the fixed original identity join.
 pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Analysis, Error> {
     cancel.checkpoint()?;
     validate(&request)?;
-    let pool: Arc<dyn MemoryPool> =
-        Arc::new(pse_columnar::GreedyMemoryPool::new(request.memory_bytes.get()));
+    let pool: Arc<dyn MemoryPool> = Arc::new(pse_columnar::GreedyMemoryPool::new(
+        request.memory_bytes.get(),
+    ));
     let (set, evidence_sha256, _source_owner) = acquire(&request, &pool, cancel)?;
     let rows = set.invocations.len() + set.captures.len();
     let _table_owner = reserve(&pool, "scientific-capture-query:tables", extent(rows, 512)?)?;
-    let text_bytes = set.invocations.iter().try_fold(0usize, |n, source| {
-        n.checked_add(source.clock_scope.len())
-    }).ok_or_else(|| invalid("scientific capture response text extent overflow"))?;
+    let text_bytes = set
+        .invocations
+        .iter()
+        .try_fold(0usize, |n, source| n.checked_add(source.clock_scope.len()))
+        .ok_or_else(|| invalid("scientific capture response text extent overflow"))?;
     let response_bytes = extent(rows, 2048)?
         .checked_add(extent(text_bytes, 8)?)
         .ok_or_else(|| invalid("scientific capture response extent overflow"))?;
     let owner = reserve(&pool, "scientific-capture-query:response", response_bytes)?;
     let runtime = RuntimeEnvBuilder::new()
         .with_memory_pool(pool)
-        .with_disk_manager_builder(DiskManagerBuilder::default().with_mode(DiskManagerMode::Disabled))
+        .with_disk_manager_builder(
+            DiskManagerBuilder::default().with_mode(DiskManagerMode::Disabled),
+        )
         .build_arc()?;
     let context = SessionContext::new_with_config_rt(SessionConfig::new(), runtime);
-    context.register_table("supplied_invocations", table(
-        "runtime.diagnostic_invocations",
-        set.invocations.iter().map(|source| source.operation),
-    )?)?;
-    context.register_table("supplied_captures", table(
-        "runtime.diagnostic_captures",
-        set.captures.iter().map(|source| source.operation),
-    )?)?;
+    context.register_table(
+        "supplied_invocations",
+        table(
+            "runtime.diagnostic_invocations",
+            set.invocations.iter().map(|source| source.operation),
+        )?,
+    )?;
+    context.register_table(
+        "supplied_captures",
+        table(
+            "runtime.diagnostic_captures",
+            set.captures.iter().map(|source| source.operation),
+        )?,
+    )?;
     let frame = cancel.until_cancelled(context.sql(SQL)).await??;
     let mut stream = cancel.until_cancelled(frame.execute_stream()).await??;
     let mut captures = Vec::with_capacity(set.captures.len());
@@ -324,16 +355,23 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
         for row in 0..batch.num_rows() {
             cancel.checkpoint()?;
             let index = captures.len();
-            if members.is_null(row) || usize::try_from(members.value(row)).map_err(invalid)? != index {
+            if members.is_null(row)
+                || usize::try_from(members.value(row)).map_err(invalid)? != index
+            {
                 return Err(invalid("unexpected scientific capture member order"));
             }
-            let source = set.captures.get(index).ok_or_else(|| invalid("unknown scientific capture member"))?;
+            let source = set
+                .captures
+                .get(index)
+                .ok_or_else(|| invalid("unknown scientific capture member"))?;
             let count = (!candidates.is_null(row)).then(|| candidates.value(row));
             let invocation = (!invocations.is_null(row)).then(|| invocations.value(row));
             let association = match (source.operation, count, invocation) {
                 (None, None, None) => Association::OperationUnavailable,
                 (Some(_), None, None) => Association::InvocationUnavailable,
-                (Some(_), Some(1), Some(invocation_member)) => Association::Linked { invocation_member },
+                (Some(_), Some(1), Some(invocation_member)) => {
+                    Association::Linked { invocation_member }
+                }
                 (Some(_), Some(n), None) if n > 1 => Association::Ambiguous {
                     candidates: u64::try_from(n).map_err(invalid)?,
                 },
@@ -356,18 +394,23 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
     if captures.len() != set.captures.len() {
         return Err(invalid("incomplete scientific capture query result"));
     }
-    let invocations = set.invocations.into_iter().enumerate().map(|(index, source)| InvocationFact {
-        pointer: format!("/invocations/{index}"),
-        run_id: source.run_id,
-        attempt_id: source.attempt_id,
-        operation: source.operation,
-        outcome: source.outcome,
-        clock_scope: source.clock_scope,
-        timing_unavailable: source.timing_unavailable,
-        omitted_intervals: source.omitted_intervals,
-        native_record_coverage: source.attempts.native_record_coverage,
-        omitted_native_attempts: source.attempts.omitted_native_attempts,
-    }).collect();
+    let invocations = set
+        .invocations
+        .into_iter()
+        .enumerate()
+        .map(|(index, source)| InvocationFact {
+            pointer: format!("/invocations/{index}"),
+            run_id: source.run_id,
+            attempt_id: source.attempt_id,
+            operation: source.operation,
+            outcome: source.outcome,
+            clock_scope: source.clock_scope,
+            timing_unavailable: source.timing_unavailable,
+            omitted_intervals: source.omitted_intervals,
+            native_record_coverage: source.attempts.native_record_coverage,
+            omitted_native_attempts: source.attempts.omitted_native_attempts,
+        })
+        .collect();
     cancel.checkpoint()?;
     Ok(Analysis {
         document: Document {

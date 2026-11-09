@@ -3908,9 +3908,12 @@ impl CaseWorker {
     /// Maximum original stage occurrences in the selected value-only constraint program.
     pub fn constraint_selection_capacity(&self) -> Result<usize, MathError> {
         let mut count = Some(0usize);
-        for group in self.assembly.instances.iter().filter_map(|instance| {
-            instance.groups[EvaluationDemand::Constraints].as_ref()
-        }) {
+        for group in self
+            .assembly
+            .instances
+            .iter()
+            .filter_map(|instance| instance.groups[EvaluationDemand::Constraints].as_ref())
+        {
             self.assembly.programs[group.request].visit_provider_sources(
                 DerivativeOrder::Value,
                 |_, key| {

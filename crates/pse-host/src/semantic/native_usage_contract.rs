@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Native census boundary and its shared source context and byte coordinates.
 
-use super::{AnalysisContext, Configuration, DependencyUsageAnswer, DependencyUsageQuery, NativeLocation};
+use super::{
+    AnalysisContext, Configuration, DependencyUsageAnswer, DependencyUsageQuery, NativeLocation,
+};
 use pse_contract::boundary_projection::{
     AdapterError, AdapterFailure, CheckedProjectionRecord, Direction, Field, LocalRule,
     ProjectionError, ProjectionGraph, ProjectionType, Shape, TypeRef, ValidateProjection,
@@ -21,13 +23,27 @@ pub fn dependency_usage_projection() -> Result<ProjectionGraph, ProjectionError>
 
 impl ProjectionType for NativeLocation {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-        let root = graph.declare::<Self>("NativeByteLocation", file!(), Self::VERSION, Direction::Both, &[], &[], |graph| {
-            Ok(Shape::Record(vec![
-                Field::of::<PathBuf>(graph, "path", 1, Direction::Both, vec![LocalRule::Required])?,
-                Field::of::<usize>(graph, "start", 2, Direction::Both, vec![])?,
-                Field::of::<usize>(graph, "end", 3, Direction::Both, vec![])?,
-            ]))
-        })?;
+        let root = graph.declare::<Self>(
+            "NativeByteLocation",
+            file!(),
+            Self::VERSION,
+            Direction::Both,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![
+                    Field::of::<PathBuf>(
+                        graph,
+                        "path",
+                        1,
+                        Direction::Both,
+                        vec![LocalRule::Required],
+                    )?,
+                    Field::of::<usize>(graph, "start", 2, Direction::Both, vec![])?,
+                    Field::of::<usize>(graph, "end", 3, Direction::Both, vec![])?,
+                ]))
+            },
+        )?;
         graph.public_path::<Self>(&root, "crate::semantic::NativeLocation")?;
         graph.checked_record::<Self>(&root)?;
         Ok(root)
@@ -66,15 +82,35 @@ impl CheckedProjectionRecord for NativeLocation {
 
 impl ProjectionType for AnalysisContext {
     fn projection(graph: &mut ProjectionGraph) -> Result<TypeRef, ProjectionError> {
-        let root = graph.declare::<Self>("NativeAnalysisContext", file!(), Self::VERSION, Direction::Both, &[], &[], |graph| {
-            Ok(Shape::Record(vec![
-                Field::of::<String>(graph, "backend", 1, Direction::Both, vec![])?,
-                Field::of::<Configuration>(graph, "configuration", 2, Direction::Both, vec![LocalRule::Required])?,
-                Field::of::<String>(graph, "position_encoding", 3, Direction::Both, vec![])?,
-                Field::of::<Option<Vec<u8>>>(graph, "backend_status", 4, Direction::Both, vec![])?,
-                Field::of::<String>(graph, "preparation", 5, Direction::Both, vec![])?,
-            ]))
-        })?;
+        let root = graph.declare::<Self>(
+            "NativeAnalysisContext",
+            file!(),
+            Self::VERSION,
+            Direction::Both,
+            &[],
+            &[],
+            |graph| {
+                Ok(Shape::Record(vec![
+                    Field::of::<String>(graph, "backend", 1, Direction::Both, vec![])?,
+                    Field::of::<Configuration>(
+                        graph,
+                        "configuration",
+                        2,
+                        Direction::Both,
+                        vec![LocalRule::Required],
+                    )?,
+                    Field::of::<String>(graph, "position_encoding", 3, Direction::Both, vec![])?,
+                    Field::of::<Option<Vec<u8>>>(
+                        graph,
+                        "backend_status",
+                        4,
+                        Direction::Both,
+                        vec![],
+                    )?,
+                    Field::of::<String>(graph, "preparation", 5, Direction::Both, vec![])?,
+                ]))
+            },
+        )?;
         graph.public_path::<Self>(&root, "crate::semantic::AnalysisContext")?;
         graph.checked_record::<Self>(&root)?;
         Ok(root)
@@ -83,31 +119,63 @@ impl ProjectionType for AnalysisContext {
 
 impl ValidateProjection for AnalysisContext {
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
-        self.configuration.validate_at(&pse_contract::boundary_projection::field_path(path, "configuration"))
+        self.configuration
+            .validate_at(&pse_contract::boundary_projection::field_path(
+                path,
+                "configuration",
+            ))
     }
 }
 
 impl CheckedProjectionRecord for AnalysisContext {
     const VERSION: u32 = 1;
     const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
-        (1, "backend"), (2, "configuration"), (3, "position_encoding"),
-        (4, "backend_status"), (5, "preparation"),
+        (1, "backend"),
+        (2, "configuration"),
+        (3, "position_encoding"),
+        (4, "backend_status"),
+        (5, "preparation"),
     ];
     type Fields = (String, Configuration, String, Option<Vec<u8>>, String);
 
     fn try_into_projection_fields(self) -> Result<Self::Fields, AdapterError> {
-        let status = self.backend_status.as_ref().map(serde_json::to_vec).transpose().map_err(status_error)?;
-        Ok((self.backend, self.configuration, self.position_encoding, status, self.preparation))
+        let status = self
+            .backend_status
+            .as_ref()
+            .map(serde_json::to_vec)
+            .transpose()
+            .map_err(status_error)?;
+        Ok((
+            self.backend,
+            self.configuration,
+            self.position_encoding,
+            status,
+            self.preparation,
+        ))
     }
 
     fn from_projection_fields(
         (backend, configuration, position_encoding, status, preparation): Self::Fields,
     ) -> Result<Self, AdapterError> {
-        let backend_status = status.as_deref().map(serde_json::from_slice).transpose().map_err(status_error)?;
-        Ok(Self { backend, configuration, position_encoding, backend_status, preparation })
+        let backend_status = status
+            .as_deref()
+            .map(serde_json::from_slice)
+            .transpose()
+            .map_err(status_error)?;
+        Ok(Self {
+            backend,
+            configuration,
+            position_encoding,
+            backend_status,
+            preparation,
+        })
     }
 }
 
 fn status_error(error: serde_json::Error) -> AdapterError {
-    AdapterError::refused("backend_status", AdapterFailure::InvalidValue, error.to_string())
+    AdapterError::refused(
+        "backend_status",
+        AdapterFailure::InvalidValue,
+        error.to_string(),
+    )
 }

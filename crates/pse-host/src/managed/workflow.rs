@@ -302,7 +302,10 @@ fn unlisted_builds(
     if original.observation.outcome != Outcome::Failed {
         return Ok(Vec::new());
     }
-    let builds: Vec<_> = original.observation.evidence().map_err(host)?
+    let builds: Vec<_> = original
+        .observation
+        .evidence()
+        .map_err(host)?
         .iter()
         .filter(|file| file.role == EvidenceRole::CompilerContext)
         .cloned()
@@ -367,7 +370,10 @@ fn require_fixture_settlement(original: &CapturedReport) -> Result<(), HostError
     if original.observation.action != Action::Test {
         return Ok(());
     }
-    let fixtures: Vec<_> = original.observation.evidence().map_err(host)?
+    let fixtures: Vec<_> = original
+        .observation
+        .evidence()
+        .map_err(host)?
         .iter()
         .filter(|file| file.role == EvidenceRole::FixtureOutcome)
         .cloned()
@@ -1256,7 +1262,12 @@ mod tests {
             "required_capture_complete": false, "failures": [],
             "evidence": [{"root": "invocation", "path": "workflow-input.json", "role": "input", "content": accepted_content}]
         })).unwrap();
-        assert_eq!(retained_input(&store, &id, Action::Test, &report).unwrap().profile, "alpha");
+        assert_eq!(
+            retained_input(&store, &id, Action::Test, &report)
+                .unwrap()
+                .profile,
+            "alpha"
+        );
         assert!(retained_input(&store, &id, Action::Check, &report).is_err());
         let whitespace_replacement = format!("{before} \n\t");
         fs::write(&path, &whitespace_replacement).unwrap();

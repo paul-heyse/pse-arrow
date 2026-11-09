@@ -31,7 +31,8 @@ pub(super) fn imports(root: &Path) -> Result<FileDescriptorSet> {
         );
     }
     let mut set = FileDescriptorSet::decode_from_slice(&output.stdout)?;
-    set.file.retain(|file| file.name.as_deref() != Some("imports.proto"));
+    set.file
+        .retain(|file| file.name.as_deref() != Some("imports.proto"));
     append_native_options(root, &mut set)?;
     Ok(set)
 }

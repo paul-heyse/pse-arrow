@@ -683,7 +683,10 @@ impl TableProvider for CohortProvider {
         // DataFusion retains residual filter columns in its scan projection;
         // add the native selection dependencies and original validation keys.
         if let Some(native) = &self.0.native
-            && let Some(plan) = self.0.decode.query_projection(projection, native.required_roots())?
+            && let Some(plan) = self
+                .0
+                .decode
+                .query_projection(projection, native.required_roots())?
         {
             let roots = plan.roots;
             let predicate = native.project(&self.0.services, &roots)?;
@@ -691,11 +694,14 @@ impl TableProvider for CohortProvider {
             relative = Some(plan.output);
             physical = Some(Arc::new(CohortProjection { roots, predicate }));
         }
-        StreamingTable::try_new(schema.clone(), vec![Arc::new(CohortPartition {
-            state: self.0.clone(),
-            schema,
-            projection: physical,
-        })])?
+        StreamingTable::try_new(
+            schema.clone(),
+            vec![Arc::new(CohortPartition {
+                state: self.0.clone(),
+                schema,
+                projection: physical,
+            })],
+        )?
         .scan(
             state,
             relative.as_ref().or(projection),
@@ -728,7 +734,8 @@ impl PartitionStream for CohortPartition {
                 }
                 let mut scan = match scan {
                     Some(scan) => scan,
-                    None => Scan::new(state.clone(), projection.clone()).map_err(pse_columnar::external)?,
+                    None => Scan::new(state.clone(), projection.clone())
+                        .map_err(pse_columnar::external)?,
                 };
                 let Some(batch) = scan
                     .next()

@@ -67,7 +67,12 @@ fn analysis_from_pb(value: pb::NativeAnalysisContext) -> Result<AnalysisContext>
 }
 pub(super) fn status_to_pb(value: SessionStatus) -> Result<pb::NativeSessionStatus> {
     Ok(pb::NativeSessionStatus {
-        configuration: native_into::<_, pb::NativeConfiguration>(value.configuration, "status.configuration").map_err(projection)?.into(),
+        configuration: native_into::<_, pb::NativeConfiguration>(
+            value.configuration,
+            "status.configuration",
+        )
+        .map_err(projection)?
+        .into(),
         backend: value.backend,
         position_encoding: value.position_encoding,
         generation: value.generation,
@@ -89,10 +94,11 @@ pub(super) fn status_to_pb(value: SessionStatus) -> Result<pb::NativeSessionStat
 }
 pub(super) fn status_from_pb(mut value: pb::NativeSessionStatus) -> Result<SessionStatus> {
     Ok(SessionStatus {
-        configuration: native_from(required(
-            value.configuration.take(),
+        configuration: native_from(
+            required(value.configuration.take(), "status.configuration")?,
             "status.configuration",
-        )?, "status.configuration").map_err(projection)?,
+        )
+        .map_err(projection)?,
         backend: value.backend,
         position_encoding: value.position_encoding,
         generation: value.generation,
@@ -112,9 +118,12 @@ pub(super) fn status_from_pb(mut value: pb::NativeSessionStatus) -> Result<Sessi
 pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
     use pb::native_query::Kind as K;
     let operation = match value {
-        Request::DependencyUsage(query) => pb::native_request::Operation::DependencyUsage(
-            Box::new(contracts::encode_native_dependency_usage_query(query.clone()).map_err(projection)?),
-        ),
+        Request::DependencyUsage(query) => {
+            pb::native_request::Operation::DependencyUsage(Box::new(
+                contracts::encode_native_dependency_usage_query(query.clone())
+                    .map_err(projection)?,
+            ))
+        }
         Request::Graph(value) => {
             pb::native_request::Operation::Graph(Box::new(graph::query_to_pb(value)?))
         }
@@ -222,7 +231,8 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
     use pb::native_query::Kind as K;
     Ok(match required(value.operation, "request.operation")? {
         pb::native_request::Operation::DependencyUsage(value) => {
-            let query = contracts::decode_native_dependency_usage_query(*value).map_err(projection)?;
+            let query =
+                contracts::decode_native_dependency_usage_query(*value).map_err(projection)?;
             if query.package_ids.iter().any(String::is_empty) {
                 return Err(malformed("dependency_usage.package_ids"));
             }
@@ -379,7 +389,9 @@ fn package_to_pb(value: NativePackageContext) -> Result<pb::NativePackageContext
                 ..Default::default()
             })
             .collect(),
-        dependencies: value.dependencies.into_iter()
+        dependencies: value
+            .dependencies
+            .into_iter()
             .map(|profile| native_into(profile, "package.dependency").map_err(projection))
             .collect::<Result<_>>()?,
         dependency_issues: value.dependency_issues,
@@ -441,7 +453,11 @@ pub(super) fn package_answer_to_pb(
     Ok(pb::NativePackageContextAnswer {
         session: analysis_to_pb(value.session)?.into(),
         generation: value.generation,
-        packages: value.packages.into_iter().map(package_to_pb).collect::<Result<_>>()?,
+        packages: value
+            .packages
+            .into_iter()
+            .map(package_to_pb)
+            .collect::<Result<_>>()?,
         ..Default::default()
     })
 }
@@ -478,9 +494,13 @@ fn location_to_pb(value: FactLocation) -> Result<pb::NativeLocation> {
                 path: source,
                 start,
                 end,
-            } => pb::native_location::Coordinates::Bytes(Box::new(native_location_to_pb(NativeLocation {
-                path: source, start, end,
-            })?)),
+            } => pb::native_location::Coordinates::Bytes(Box::new(native_location_to_pb(
+                NativeLocation {
+                    path: source,
+                    start,
+                    end,
+                },
+            )?)),
             FactLocation::Protocol { uri, range } => {
                 pb::native_location::Coordinates::Protocol(Box::new(pb::NativeProtocolLocation {
                     uri,
@@ -566,25 +586,31 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
             .map(investigation::to_pb)
             .transpose()?
             .into(),
-        symbols: value.symbols.into_iter().map(symbol_to_pb).collect::<Result<_>>()?,
+        symbols: value
+            .symbols
+            .into_iter()
+            .map(symbol_to_pb)
+            .collect::<Result<_>>()?,
         relationships: value
             .relationships
             .into_iter()
-            .map(|value| Ok(pb::NativeRelationshipFact {
-                relation: relation_to_pb(value.relation).into(),
-                direction: match value.direction {
-                    FactDirection::Outgoing => pb::Direction::Outgoing,
-                    FactDirection::Incoming => pb::Direction::Incoming,
-                }
-                .into(),
-                location: location_to_pb(value.location)?.into(),
-                name: value.name,
-                read: value.read,
-                write: value.write,
-                import: value.import,
-                test: value.test,
-                ..Default::default()
-            }))
+            .map(|value| {
+                Ok(pb::NativeRelationshipFact {
+                    relation: relation_to_pb(value.relation).into(),
+                    direction: match value.direction {
+                        FactDirection::Outgoing => pb::Direction::Outgoing,
+                        FactDirection::Incoming => pb::Direction::Incoming,
+                    }
+                    .into(),
+                    location: location_to_pb(value.location)?.into(),
+                    name: value.name,
+                    read: value.read,
+                    write: value.write,
+                    import: value.import,
+                    test: value.test,
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
         predicate: value
             .predicate
@@ -615,19 +641,21 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
         candidates: value
             .candidates
             .into_iter()
-            .map(|value| Ok(pb::NativeLazyCandidate {
-                kind: match value.kind {
-                    CandidateKind::Hint => pb::NativeCandidateKind::NativeHint,
-                    CandidateKind::Completion => pb::NativeCandidateKind::NativeCompletion,
-                    CandidateKind::Assist => pb::NativeCandidateKind::NativeAssist,
-                }
-                .into(),
-                index: number(value.index),
-                fingerprint: value.fingerprint,
-                label: value.label,
-                location: value.location.map(location_to_pb).transpose()?.into(),
-                ..Default::default()
-            }))
+            .map(|value| {
+                Ok(pb::NativeLazyCandidate {
+                    kind: match value.kind {
+                        CandidateKind::Hint => pb::NativeCandidateKind::NativeHint,
+                        CandidateKind::Completion => pb::NativeCandidateKind::NativeCompletion,
+                        CandidateKind::Assist => pb::NativeCandidateKind::NativeAssist,
+                    }
+                    .into(),
+                    index: number(value.index),
+                    fingerprint: value.fingerprint,
+                    label: value.label,
+                    location: value.location.map(location_to_pb).transpose()?.into(),
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
         tests: value
             .tests
@@ -1252,7 +1280,11 @@ fn target_to_pb(value: TargetFact) -> Result<pb::NativeTargetFact> {
     Ok(pb::NativeTargetFact {
         relationship: value.relationship,
         name: value.name,
-        location: value.location.map(native_location_to_pb).transpose()?.into(),
+        location: value
+            .location
+            .map(native_location_to_pb)
+            .transpose()?
+            .into(),
         precision: value.precision,
         ..Default::default()
     })
@@ -1396,29 +1428,33 @@ fn typed_to_pb(value: TypedFacts) -> Result<pb::NativeTypedFacts> {
         callable_candidates: value
             .callable_candidates
             .into_iter()
-            .map(|c| Ok(pb::NativeCallableCandidateFact {
-                target: target_to_pb(c.target)?.into(),
-                signature: c.signature,
-                receiver: type_to_pb(c.receiver).into(),
-                applicability: outcome_to_pb(c.applicability).into(),
-                required_import: c.required_import,
-                context: c.context.map(callable_context_to_pb).transpose()?.into(),
-                obligations: c
-                    .obligations
-                    .into_iter()
-                    .map(|o| Ok(pb::NativeCallableObligationFact {
-                        declared_trait: target_to_pb(o.declared_trait)?.into(),
-                        parameter: o.parameter,
-                        subject: o.subject.map(type_to_pb).into(),
-                        outcome: outcome_to_pb(o.outcome).into(),
-                        reason: o.reason,
-                        ..Default::default()
-                    }))
-                    .collect::<Result<_>>()?,
-                limitations: c.limitations,
-                reasons: c.reasons,
-                ..Default::default()
-            }))
+            .map(|c| {
+                Ok(pb::NativeCallableCandidateFact {
+                    target: target_to_pb(c.target)?.into(),
+                    signature: c.signature,
+                    receiver: type_to_pb(c.receiver).into(),
+                    applicability: outcome_to_pb(c.applicability).into(),
+                    required_import: c.required_import,
+                    context: c.context.map(callable_context_to_pb).transpose()?.into(),
+                    obligations: c
+                        .obligations
+                        .into_iter()
+                        .map(|o| {
+                            Ok(pb::NativeCallableObligationFact {
+                                declared_trait: target_to_pb(o.declared_trait)?.into(),
+                                parameter: o.parameter,
+                                subject: o.subject.map(type_to_pb).into(),
+                                outcome: outcome_to_pb(o.outcome).into(),
+                                reason: o.reason,
+                                ..Default::default()
+                            })
+                        })
+                        .collect::<Result<_>>()?,
+                    limitations: c.limitations,
+                    reasons: c.reasons,
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
         context: value
             .context
@@ -1433,8 +1469,16 @@ fn typed_to_pb(value: TypedFacts) -> Result<pb::NativeTypedFacts> {
                 ..Default::default()
             })
             .into(),
-        capture_owner: value.capture_owner.map(native_location_to_pb).transpose()?.into(),
-        callsite: value.callsite.map(native_location_to_pb).transpose()?.into(),
+        capture_owner: value
+            .capture_owner
+            .map(native_location_to_pb)
+            .transpose()?
+            .into(),
+        callsite: value
+            .callsite
+            .map(native_location_to_pb)
+            .transpose()?
+            .into(),
         callable_kind: value.callable_kind,
         layout: value.layout.map(layout_to_pb).into(),
         adjustments: value
@@ -1450,31 +1494,46 @@ fn typed_to_pb(value: TypedFacts) -> Result<pb::NativeTypedFacts> {
         captures: value
             .captures
             .into_iter()
-            .map(|c| Ok(pb::NativeCaptureFact {
-                local: c.local.map(native_location_to_pb).transpose()?.into(),
-                usages: c
-                    .usages
-                    .map(|uses| -> Result<_> { Ok(pb::NativeCaptureUsages {
-                        uses: uses
-                            .into_iter()
-                            .map(|u| Ok(pb::NativeCaptureUseFact {
-                                location: u.location.map(native_location_to_pb).transpose()?.into(),
-                                is_ref: u.is_ref,
+            .map(|c| {
+                Ok(pb::NativeCaptureFact {
+                    local: c.local.map(native_location_to_pb).transpose()?.into(),
+                    usages: c
+                        .usages
+                        .map(|uses| -> Result<_> {
+                            Ok(pb::NativeCaptureUsages {
+                                uses: uses
+                                    .into_iter()
+                                    .map(|u| {
+                                        Ok(pb::NativeCaptureUseFact {
+                                            location: u
+                                                .location
+                                                .map(native_location_to_pb)
+                                                .transpose()?
+                                                .into(),
+                                            is_ref: u.is_ref,
+                                            ..Default::default()
+                                        })
+                                    })
+                                    .collect::<Result<_>>()?,
                                 ..Default::default()
-                            }))
-                            .collect::<Result<_>>()?,
-                        ..Default::default()
-                    }) }).transpose()?
-                    .into(),
-                place: c.place,
-                has_field_projections: c.has_field_projections,
-                mode: c.mode,
-                place_type: type_to_pb(c.place_type).into(),
-                stored_type: type_to_pb(c.stored_type).into(),
-                ..Default::default()
-            }))
+                            })
+                        })
+                        .transpose()?
+                        .into(),
+                    place: c.place,
+                    has_field_projections: c.has_field_projections,
+                    mode: c.mode,
+                    place_type: type_to_pb(c.place_type).into(),
+                    stored_type: type_to_pb(c.stored_type).into(),
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
-        expression: value.expression.map(native_location_to_pb).transpose()?.into(),
+        expression: value
+            .expression
+            .map(native_location_to_pb)
+            .transpose()?
+            .into(),
         original: value.original.map(type_to_pb).into(),
         adjusted: value.adjusted.map(type_to_pb).into(),
         original_equals_adjusted: value.original_equals_adjusted,
@@ -1719,7 +1778,11 @@ pub(super) fn workspace_to_pb(value: WorkspaceAnswer) -> Result<pb::NativeWorksp
         generation: value.generation,
         symbols: section_to_pb(value.symbols)?.into(),
         limitations: value.limitations,
-        observed: value.observed.into_iter().map(symbol_to_pb).collect::<Result<_>>()?,
+        observed: value
+            .observed
+            .into_iter()
+            .map(symbol_to_pb)
+            .collect::<Result<_>>()?,
         ..Default::default()
     })
 }
@@ -2081,7 +2144,9 @@ pub(super) fn response_event(value: Response) -> Result<pb::NativeEvent> {
     })
 }
 
-pub(super) fn usage_answer_from_pb(value: pb::NativeDependencyUsageAnswer) -> Result<DependencyUsageAnswer> {
+pub(super) fn usage_answer_from_pb(
+    value: pb::NativeDependencyUsageAnswer,
+) -> Result<DependencyUsageAnswer> {
     contracts::decode_native_dependency_usage_answer(value).map_err(projection)
 }
 
@@ -2125,28 +2190,55 @@ mod tests {
             package_ids: vec!["supplier".into(), "unavailable".into()],
         });
         let encoded = request_to_pb(&request).unwrap().encode_to_vec();
-        let restored = request_from_pb(pb::NativeRequest::decode_from_slice(&encoded).unwrap()).unwrap();
-        assert!(matches!(restored, Request::DependencyUsage(query) if query.package_ids == ["supplier", "unavailable"]));
-        assert!(request_to_pb(&Request::DependencyUsage(DependencyUsageQuery { package_ids: vec![] })).is_err());
+        let restored =
+            request_from_pb(pb::NativeRequest::decode_from_slice(&encoded).unwrap()).unwrap();
+        assert!(
+            matches!(restored, Request::DependencyUsage(query) if query.package_ids == ["supplier", "unavailable"])
+        );
+        assert!(
+            request_to_pb(&Request::DependencyUsage(DependencyUsageQuery {
+                package_ids: vec![]
+            }))
+            .is_err()
+        );
 
-        let location = NativeLocation { path: raw_path(), start: 3, end: 9 };
+        let location = NativeLocation {
+            path: raw_path(),
+            start: 3,
+            end: 9,
+        };
         let response = Response::DependencyUsage(DependencyUsageAnswer {
-            session: context(), generation: 17,
+            session: context(),
+            generation: 17,
             package_ids: vec!["supplier".into(), "unavailable".into()],
             unavailable_package_ids: vec!["unavailable".into()],
             references: vec![DependencyReference {
-                definition: location.clone(), occurrence: location,
+                definition: location.clone(),
+                occurrence: location,
                 profiles: vec![NativeLibraryProfile {
-                    package_id: "supplier".into(), manifest: raw_path(),
-                    source_root: "/source".into(), library_root: raw_path(),
-                    features: BTreeSet::from(["feature".into()]), target: None, role: "lib".into(),
+                    package_id: "supplier".into(),
+                    manifest: raw_path(),
+                    source_root: "/source".into(),
+                    library_root: raw_path(),
+                    features: BTreeSet::from(["feature".into()]),
+                    target: None,
+                    role: "lib".into(),
                 }],
-                source_sha256: "original".into(), symbol_kind: "field".into(), name: None, role: "read".into(),
+                source_sha256: "original".into(),
+                symbol_kind: "field".into(),
+                name: None,
+                role: "read".into(),
             }],
-            indexed_files: 7, unmapped_definitions: 1, limitations: vec!["original limit".into()],
+            indexed_files: 7,
+            unmapped_definitions: 1,
+            limitations: vec!["original limit".into()],
         });
-        let event = pb::NativeEvent::decode_from_slice(&response_event(response).unwrap().encode_to_vec()).unwrap();
-        let Some(pb::native_event::Item::DependencyUsage(answer)) = event.item else { panic!("missing generated dependency answer") };
+        let event =
+            pb::NativeEvent::decode_from_slice(&response_event(response).unwrap().encode_to_vec())
+                .unwrap();
+        let Some(pb::native_event::Item::DependencyUsage(answer)) = event.item else {
+            panic!("missing generated dependency answer")
+        };
         let restored = usage_answer_from_pb((*answer).clone()).unwrap();
         assert_eq!(restored.generation, 17);
         assert_eq!(restored.unavailable_package_ids, ["unavailable"]);

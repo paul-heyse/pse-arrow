@@ -784,16 +784,17 @@ impl NativeCanonicalService {
         if companion.is_some() {
             private_directory(&module_root)?;
         }
-        let (module, qualification) = match companion {
-            Some(qualification) => (
-                module.copy_into_private(&path, &module_root.join("production"))?,
-                Some(qualification.copy_qualification_into_private(
-                    &path,
-                    &module_root.join("qualification"),
-                )?),
-            ),
-            None => (module.copy_into_private(&path, &module_root)?, None),
-        };
+        let (module, qualification) =
+            match companion {
+                Some(qualification) => (
+                    module.copy_into_private(&path, &module_root.join("production"))?,
+                    Some(qualification.copy_qualification_into_private(
+                        &path,
+                        &module_root.join("qualification"),
+                    )?),
+                ),
+                None => (module.copy_into_private(&path, &module_root)?, None),
+            };
         if let Some(receipt) = &qualification {
             let record = path.join(QUALIFICATION_RECORD);
             private_write(&record, receipt)?;
@@ -1986,9 +1987,9 @@ impl WorkerConnection {
     async fn disconnect(&self) -> Result<(), CanonicalError> {
         self.0
             .store()
-            .drain_owned_connection_until(crate::transport::original_deadline(
-                Duration::from_secs(30),
-            ))
+            .drain_owned_connection_until(crate::transport::original_deadline(Duration::from_secs(
+                30,
+            )))
             .await
     }
 }

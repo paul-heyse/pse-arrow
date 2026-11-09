@@ -20,10 +20,7 @@ use pse_codegen::codegen::GeneratedTree;
 use sha2::Digest as _;
 use std::path::Path;
 #[cfg(any(test, feature = "host-contracts"))]
-use std::{
-    path::PathBuf,
-    process::Command,
-};
+use std::{path::PathBuf, process::Command};
 #[cfg(any(test, feature = "host-contracts"))]
 mod associations;
 #[cfg(feature = "host-contracts")]
@@ -57,7 +54,8 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     let source = root.join(source);
     let inputs = Inputs::capture(&source)?;
     let output = tempfile::tempdir()?;
-    let native = destination.ends_with("code-intelligence")
+    let native = destination
+        .ends_with("code-intelligence")
         .then(|| pse_host::semantic::dependency_usage_projection())
         .transpose()?;
     let compile_source = match &native {
@@ -134,7 +132,13 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
                 .map(|(name, source)| (name.as_str(), source.as_str())),
         );
     let reserved: &[&str] = if destination.ends_with("code-intelligence") {
-        &["descriptor.bin", "descriptor-runtime.bin", "dispatch.rs", "native-adapters.rs", "native-policy.rs"]
+        &[
+            "descriptor.bin",
+            "descriptor-runtime.bin",
+            "dispatch.rs",
+            "native-adapters.rs",
+            "native-policy.rs",
+        ]
     } else {
         &["descriptor.bin", "descriptor-runtime.bin"]
     };
@@ -222,7 +226,10 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
 
 #[cfg(any(test, feature = "host-contracts"))]
 fn source_sha256(bytes: &[u8]) -> String {
-    sha2::Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+    sha2::Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 #[cfg(any(test, feature = "host-contracts"))]

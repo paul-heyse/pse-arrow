@@ -43,9 +43,20 @@ _VARIABLES = ("x", "y", "z")
 _PARAMETERS = ("a", "b")
 _STAGES = ("sipopt:nominal", "sipopt:prediction", "exact:nominal", "exact:prediction")
 _INPUTS = (
-    "nominal:a", "nominal:b", "perturbed:a", "perturbed:b",
-    "initial", "z:lower", "z:upper", "coupling:x", "coupling:y",
-    "objective:x*x", "objective:y*y", "objective:-b*x", "objective:z*z", "objective:a*z",
+    "nominal:a",
+    "nominal:b",
+    "perturbed:a",
+    "perturbed:b",
+    "initial",
+    "z:lower",
+    "z:upper",
+    "coupling:x",
+    "coupling:y",
+    "objective:x*x",
+    "objective:y*y",
+    "objective:-b*x",
+    "objective:z*z",
+    "objective:a*z",
 )
 SIPOPT_VALUE_ABSOLUTE_ERROR = 5e-7
 
@@ -164,8 +175,11 @@ def _case(original: ScalarCase) -> SensitivityCase:
         z_bounds=(values["z:lower"], values["z:upper"]),
         coupling=(values["coupling:x"], values["coupling:y"]),
         objective=(
-            values["objective:x*x"], values["objective:y*y"], values["objective:-b*x"],
-            values["objective:z*z"], values["objective:a*z"],
+            values["objective:x*x"],
+            values["objective:y*y"],
+            values["objective:-b*x"],
+            values["objective:z*z"],
+            values["objective:a*z"],
         ),
     )
     validate_case(case)
@@ -180,7 +194,11 @@ def main() -> None:
     case = _case(original)
     original.outputs(
         [f"{stage}:{name}" for stage in _STAGES for name in _VARIABLES]
-        + [f"derivative:{name}:{parameter}" for name in _VARIABLES for parameter in _PARAMETERS]
+        + [
+            f"derivative:{name}:{parameter}"
+            for name in _VARIABLES
+            for parameter in _PARAMETERS
+        ]
     )
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
@@ -202,7 +220,11 @@ def main() -> None:
     original.publish(
         Path(sys.argv[3]),
         [solution[name] for solution in solutions for name in _VARIABLES]
-        + [jacobian[name][parameter] for name in _VARIABLES for parameter in _PARAMETERS],
+        + [
+            jacobian[name][parameter]
+            for name in _VARIABLES
+            for parameter in _PARAMETERS
+        ],
     )
     sys.stderr.write(
         "sensitivity_reference_environment "

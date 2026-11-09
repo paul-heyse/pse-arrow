@@ -124,7 +124,11 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
             column("instance_id", T::id()).with_identity("instance"),
             documented("source_id", T::id(), "Original provider stage occurrence."),
             documented("provider", T::hash(), "Actual bound provider identity."),
-            documented("invocation", T::hash(), "Exact checked invocation identity."),
+            documented(
+                "invocation",
+                T::hash(),
+                "Exact checked invocation identity.",
+            ),
             column("selector_id", T::id()),
             column("regime_id", T::id()),
             column("policy", T::hash()),

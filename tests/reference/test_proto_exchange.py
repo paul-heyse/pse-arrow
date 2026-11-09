@@ -78,7 +78,9 @@ class ForeignProtoExchangeTests(unittest.TestCase):
         envelope = reference_type(DESCRIPTORS.read_bytes())
         pool = envelope.DESCRIPTOR.file.pool
         certificate = message_factory.GetMessageClass(
-            pool.FindMessageTypeByName("pse.reference.v1.ReferenceDegenerateCertificate")
+            pool.FindMessageTypeByName(
+                "pse.reference.v1.ReferenceDegenerateCertificate"
+            )
         )
         unreported = certificate.FromString(b"\x12\x00")
         assert unreported.WhichOneof("kind") == "unreported"

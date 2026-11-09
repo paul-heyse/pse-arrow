@@ -675,20 +675,39 @@ fn assert_wall_stock_trajectory(result: &ModelingResult, perturbed: bool) {
 
     let source = |id| DeclarationId::from_id(SemanticId::parse_hex(id).unwrap());
     let model = &result.prepared.model.model.compiled().model;
-    let quantity = |name| {
-        match result.prepared.source.physical_context().quantities().physical_name(name) {
-            Some(pse_quantity::PhysicalName::QuantityType(id)) => id,
-            _ => panic!("original physical quantity {name} absent"),
-        }
+    let quantity = |name| match result
+        .prepared
+        .source
+        .physical_context()
+        .quantities()
+        .physical_name(name)
+    {
+        Some(pse_quantity::PhysicalName::QuantityType(id)) => id,
+        _ => panic!("original physical quantity {name} absent"),
     };
     assert_eq!(model.meshes.len(), 1);
     let mesh = model.meshes.values().next().unwrap();
-    let [Value::Coordinate { id: start, bits: first, quantity: start_type }, Value::Coordinate { id: end, bits: last, quantity: end_type }] = mesh.points.as_slice() else {
+    let [
+        Value::Coordinate {
+            id: start,
+            bits: first,
+            quantity: start_type,
+        },
+        Value::Coordinate {
+            id: end,
+            bits: last,
+            quantity: end_type,
+        },
+    ] = mesh.points.as_slice()
+    else {
         panic!("the original single backward step must have both time coordinates");
     };
     assert_ne!(start, end);
     assert_eq!((*first, *last), (0_f64.to_bits(), 1_f64.to_bits()));
-    assert_eq!((*start_type, *end_type), (quantity("Time"), quantity("Time")));
+    assert_eq!(
+        (*start_type, *end_type),
+        (quantity("Time"), quantity("Time"))
+    );
 
     // The original initial condition and inventory equation distinguish the two
     // instants. Step 0 identifies their shared numerical attempt, not physical time.
@@ -697,7 +716,10 @@ fn assert_wall_stock_trajectory(result: &ModelingResult, perturbed: bool) {
     } else {
         source("66e0200000000000000000000000006a")
     };
-    let mut equations = model.equations.iter().filter(|row| row.lineage.declaration == initial);
+    let mut equations = model
+        .equations
+        .iter()
+        .filter(|row| row.lineage.declaration == initial);
     let initial = equations.next().expect("original wall initial equation");
     assert!(equations.next().is_none());
     let instance_of = |root| {
@@ -708,42 +730,82 @@ fn assert_wall_stock_trajectory(result: &ModelingResult, perturbed: bool) {
     };
     assert_eq!(model.inventory_balances.len(), 1, "wall-only stock");
     let balance = model.inventory_balances.values().next().unwrap();
-    assert_eq!(balance.lineage.declaration, source("66e02000000000000000000000000068"));
+    assert_eq!(
+        balance.lineage.declaration,
+        source("66e02000000000000000000000000068")
+    );
     let initial_cell = instance_of(model.equation_roots[&initial.id].lhs);
     let terminal_cell = instance_of(balance.inventory_root);
     assert_ne!(initial_cell, terminal_cell);
     assert_eq!(instance_of(balance.flux_root), terminal_cell);
 
     let near = |what: &str, actual: f64, expected: f64, tolerance: f64| {
-        assert!((actual - expected).abs() <= tolerance, "{what}: {actual} vs {expected}");
+        assert!(
+            (actual - expected).abs() <= tolerance,
+            "{what}: {actual} vs {expected}"
+        );
     };
     let reported = |source_id, path: &str, quantity_name| {
-        let mut matches = result.reports.iter().filter(|row| row.source_id == source_id && row.path == path);
-        let row = matches.next().unwrap_or_else(|| panic!("original wall report {path} absent"));
+        let mut matches = result
+            .reports
+            .iter()
+            .filter(|row| row.source_id == source_id && row.path == path);
+        let row = matches
+            .next()
+            .unwrap_or_else(|| panic!("original wall report {path} absent"));
         assert!(matches.next().is_none(), "duplicate wall report {path}");
         let symbol = model.symbols.get(&row.target_id).unwrap();
         assert_eq!(symbol.lineage.path, row.path);
         let quantities = result.prepared.source.physical_context().quantities();
         let quantity = quantity(quantity_name);
         assert_eq!(row.quantity_id, quantity.as_id());
-        assert_eq!(row.unit_id, quantities.quantity_type(quantity).unwrap().canonical_unit.as_id());
+        assert_eq!(
+            row.unit_id,
+            quantities
+                .quantity_type(quantity)
+                .unwrap()
+                .canonical_unit
+                .as_id()
+        );
         row.value
     };
     let endpoints = [initial_cell, terminal_cell].map(|cell| {
         let path = &model.instances[&cell].path;
-        let read = |id, member: &str, quantity_name| reported(source(id), &format!("{path}.{member}"), quantity_name);
-        let wall_temperature = read("66e0200000000000000000000000004c", "wall_temperature", "Temperature");
+        let read = |id, member: &str, quantity_name| {
+            reported(source(id), &format!("{path}.{member}"), quantity_name)
+        };
+        let wall_temperature = read(
+            "66e0200000000000000000000000004c",
+            "wall_temperature",
+            "Temperature",
+        );
         let wall_energy = read("66e0200000000000000000000000004d", "wall_energy", "Energy");
         let wall_rate = read("66e0200000000000000000000000004e", "wall_rate", "Power");
         // Reconstruct the sign and amount of each side's duty from its two
         // original transported enthalpy-flow observations, not wall_rate.
         let fluid = ["hot", "cold"].map(|side| {
-            let inlet = read("088d49042f4f4554a83507dfa54bbf74", &format!("{side}.inlet.energy_flow"), "Power");
-            let outlet = read("8714c530434c4ce1a9606eafc36b0e7c", &format!("{side}.outlet.energy_flow"), "Power");
+            let inlet = read(
+                "088d49042f4f4554a83507dfa54bbf74",
+                &format!("{side}.inlet.energy_flow"),
+                "Power",
+            );
+            let outlet = read(
+                "8714c530434c4ce1a9606eafc36b0e7c",
+                &format!("{side}.outlet.energy_flow"),
+                "Power",
+            );
             outlet - inlet
         });
-        assert!(fluid[0] < 0. && fluid[1] > 0., "hot fluid supplies the wall and cold fluid receives heat");
-        near("wall boundary power", wall_rate, -fluid[0] - fluid[1], 0.001);
+        assert!(
+            fluid[0] < 0. && fluid[1] > 0.,
+            "hot fluid supplies the wall and cold fluid receives heat"
+        );
+        near(
+            "wall boundary power",
+            wall_rate,
+            -fluid[0] - fluid[1],
+            0.001,
+        );
         (wall_temperature, wall_energy, wall_rate, fluid)
     });
     let [initial, terminal] = endpoints;
@@ -751,24 +813,47 @@ fn assert_wall_stock_trajectory(result: &ModelingResult, perturbed: bool) {
     let stock_change = terminal.1 - initial.1;
     // Published wall capacity is 1 J/K; a change avoids reusing the wall's
     // chosen zero and catches a capacity substitution on the perturbation.
-    near("1 J/K wall capacity", stock_change, terminal.0 - initial.0, 0.001);
-    near("backward-step stock from both fluids", stock_change, -dt * (terminal.3[0] + terminal.3[1]), 0.001);
+    near(
+        "1 J/K wall capacity",
+        stock_change,
+        terminal.0 - initial.0,
+        0.001,
+    );
+    near(
+        "backward-step stock from both fluids",
+        stock_change,
+        -dt * (terminal.3[0] + terminal.3[1]),
+        0.001,
+    );
     if perturbed {
         near("prescribed initial wall", initial.0, 321.5, 1e-6);
         assert!((319.53..320.).contains(&terminal.0));
         assert!((-3. ..-1.).contains(&terminal.2));
-        assert!(stock_change < -1., "the perturbed wall must actually discharge");
+        assert!(
+            stock_change < -1.,
+            "the perturbed wall must actually discharge"
+        );
     } else {
         for endpoint in endpoints {
-            near("released wall temperature", endpoint.0, 319.5278809679338, 0.01);
+            near(
+                "released wall temperature",
+                endpoint.0,
+                319.5278809679338,
+                0.01,
+            );
             near("released hot duty", endpoint.3[0], -659.509563725274, 0.1);
             near("released cold duty", endpoint.3[1], 659.509563725274, 0.1);
         }
         near("released zero-rate initial condition", initial.2, 0., 0.001);
         near("released steady wall stock", stock_change, 0., 0.001);
     }
-    for declaration in [balance.lineage.declaration, source("66e0200000000000000000000000006f")] {
-        let mut closure = result.checks.iter().filter(|check| check.source_id == declaration && check.kind == ModelingCheckKind::Closure);
+    for declaration in [
+        balance.lineage.declaration,
+        source("66e0200000000000000000000000006f"),
+    ] {
+        let mut closure = result.checks.iter().filter(|check| {
+            check.source_id == declaration && check.kind == ModelingCheckKind::Closure
+        });
         let check = closure.next().expect("original authored energy closure");
         assert!(closure.next().is_none());
         assert_eq!(check.tolerance, Some(0.001));
@@ -785,7 +870,10 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
     };
     use futures_util::FutureExt as _;
     use pse_backend_native::solve::Backend;
-    use pse_relations::{columnar::RelationRow as _, generated::runtime::{modeling_checks, modeling_reports}};
+    use pse_relations::{
+        columnar::RelationRow as _,
+        generated::runtime::{modeling_checks, modeling_reports},
+    };
 
     let runtime =
         super::super::durable_tests::durable_runtime_on(fixture::runtime_with_workspace(128 << 20));
@@ -1091,17 +1179,23 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
 
         let token = pse_columnar::CancellationToken::new();
         if let Some(expected_checks) = expected_checks {
-            let mut reader = runtime.results(
-                &run_key,
-                &attempt_key,
-                "runtime.modeling_checks",
-                0,
-                expected_checks.len() as u64,
-                token.clone(),
-            ).await.unwrap();
+            let mut reader = runtime
+                .results(
+                    &run_key,
+                    &attempt_key,
+                    "runtime.modeling_checks",
+                    0,
+                    expected_checks.len() as u64,
+                    token.clone(),
+                )
+                .await
+                .unwrap();
             let selection = reader.pack_selection().await.unwrap();
             // These are retained acceptance observations, not a second point product.
-            assert_eq!(selection.usability, crate::workflow::PackScientificState::Unknown);
+            assert_eq!(
+                selection.usability,
+                crate::workflow::PackScientificState::Unknown
+            );
             assert_eq!(selection.context.as_ref().unwrap().revision, revision);
             let mut checks = Vec::new();
             while let Some(batch) = reader.next_relation_batch().await.unwrap() {

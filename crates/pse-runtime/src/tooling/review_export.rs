@@ -137,9 +137,7 @@ pub async fn export_review_pack(
                         )
                         .await
                     {
-                        Ok(reader) => pack
-                            .export_selected_result(&selected.member, reader)
-                            .await,
+                        Ok(reader) => pack.export_selected_result(&selected.member, reader).await,
                         Err(error) => Err(pack.fail_result_acquisition(&selected.member, error)),
                     }
                 } else {
@@ -154,9 +152,7 @@ pub async fn export_review_pack(
                         )
                         .await
                     {
-                        Ok(reader) => pack
-                            .export_result(&selected.member, reader)
-                            .await,
+                        Ok(reader) => pack.export_result(&selected.member, reader).await,
                         Err(error) => Err(pack.fail_result_acquisition(&selected.member, error)),
                     }
                 }

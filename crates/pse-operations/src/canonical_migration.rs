@@ -420,7 +420,9 @@ impl SchemaMaintenance {
             ));
         }
         if predecessor.payload_incarnation != self.store.files.incarnation {
-            return Err(invalid("maintenance catalog has a different payload incarnation"));
+            return Err(invalid(
+                "maintenance catalog has a different payload incarnation",
+            ));
         }
         let pending = match value.get("pending") {
             Some(Value::Object(row)) if row.get("complete") == Some(&Value::Bool(false)) => {

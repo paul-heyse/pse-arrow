@@ -70,11 +70,8 @@ pub(super) fn orientation(
         .iter()
         .find(|m| m.selection.id == "frozen" && m.availability == PackAvailability::Available)
     {
-        let frozen: FrozenEvidenceSet = decode_member(
-            directory,
-            member,
-            index.selection.maximum_document_bytes,
-        )?;
+        let frozen: FrozenEvidenceSet =
+            decode_member(directory, member, index.selection.maximum_document_bytes)?;
         for (i, context) in frozen.contexts.iter().take(20).enumerate() {
             let mut paragraphs = vec![
                 format!(

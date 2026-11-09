@@ -1060,7 +1060,10 @@ impl RunSupervisor {
         let admitted = preflight()?;
         let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            start(Self::new(services.clone(), None, parent, deadline, history)?, admitted)
+            start(
+                Self::new(services.clone(), None, parent, deadline, history)?,
+                admitted,
+            )
         }))
     }
 
@@ -1089,13 +1092,16 @@ impl RunSupervisor {
                     Err(error) => return Err(Self::abandon_claim(attempt, error).await),
                 };
                 crate::invocation::start_scope(|| {
-                    start(Self::new(
-                        services.clone(),
-                        Some(attempt),
-                        Some(parent),
-                        deadline,
-                        history,
-                    )?, admitted)
+                    start(
+                        Self::new(
+                            services.clone(),
+                            Some(attempt),
+                            Some(parent),
+                            deadline,
+                            history,
+                        )?,
+                        admitted,
+                    )
                 })()
             })
             .await
@@ -1127,13 +1133,20 @@ impl RunSupervisor {
     ) -> Result<Option<std::time::Instant>, WorkflowError> {
         Self::check_launch_cancel(parent)?;
         let now = std::time::Instant::now();
-        if parent.and_then(crate::CancelSource::deadline).is_some_and(|deadline| deadline <= now) {
-            return Err(deadline_limit("submitted task deadline elapsed before launch"));
+        if parent
+            .and_then(crate::CancelSource::deadline)
+            .is_some_and(|deadline| deadline <= now)
+        {
+            return Err(deadline_limit(
+                "submitted task deadline elapsed before launch",
+            ));
         }
-        time_limit.map(|limit| {
-            now.checked_add(limit)
-                .ok_or_else(|| deadline_limit("submitted task deadline extent"))
-        }).transpose()
+        time_limit
+            .map(|limit| {
+                now.checked_add(limit)
+                    .ok_or_else(|| deadline_limit("submitted task deadline extent"))
+            })
+            .transpose()
     }
 
     pub(in crate::workflow) fn new(
@@ -2004,7 +2017,8 @@ impl ExecutionServices {
                         modeling_history(&steps),
                     )?;
                     supervisor.run_id = identity.run;
-                    self.start_sequence(supervisor, steps, false).map(IssuedRunStart::Started)
+                    self.start_sequence(supervisor, steps, false)
+                        .map(IssuedRunStart::Started)
                 })()
             })
             .await
@@ -2043,73 +2057,76 @@ impl ExecutionServices {
             operation.execution.analysis.solver.controls.history,
             Some(parent),
             || {
-                operation.source.check_service_bindings(self.preparation())?;
+                operation
+                    .source
+                    .check_service_bindings(self.preparation())?;
                 operation.execution.prepared_model(&operation.source)?;
                 Ok(operation)
             },
             |supervisor, operation| {
-            let request = Box::new(operation);
-            Ok(supervisor.spawn(move |supervisor| async move {
-                let RunSupervisor {
-                    services,
-                    run_id,
-                    mut durable,
-                    checks: cancel,
-                    ..
-                } = supervisor;
-                let stop = cancel.clone();
-                let admission = admit(
-                    &services.source_services(),
-                    &mut durable,
-                    run_id,
-                    &RunRequest::Initialization(&request),
-                    async { Ok(()) },
-                    Arc::new(move || stop.cancel()),
-                )
-                .await;
-                if let Err(error) = admission {
-                    return RunResult::joined(
+                let request = Box::new(operation);
+                Ok(supervisor.spawn(move |supervisor| async move {
+                    let RunSupervisor {
+                        services,
+                        run_id,
+                        mut durable,
+                        checks: cancel,
+                        ..
+                    } = supervisor;
+                    let stop = cancel.clone();
+                    let admission = admit(
+                        &services.source_services(),
+                        &mut durable,
+                        run_id,
+                        &RunRequest::Initialization(&request),
+                        async { Ok(()) },
+                        Arc::new(move || stop.cancel()),
+                    )
+                    .await;
+                    if let Err(error) = admission {
+                        return RunResult::joined(
+                            run_id,
+                            services,
+                            RunOutcome::Initialization {
+                                request,
+                                result: Err(Arc::new(error)),
+                            },
+                            None,
+                        )
+                        .refused(durable)
+                        .await;
+                    }
+                    let report = async {
+                        request
+                            .source
+                            .initialize_model_with_prepared(
+                                &services,
+                                &request.execution.analysis,
+                                request.policy()?.clone(),
+                                Some(request.execution.prepared_model(&request.source)?),
+                                Some(run_id),
+                                &cancel,
+                            )
+                            .await
+                    }
+                    .await
+                    .map(Box::new)
+                    .map_err(Arc::new);
+                    let cancelled = cancel.token().is_cancelled();
+                    RunResult::joined(
                         run_id,
                         services,
                         RunOutcome::Initialization {
                             request,
-                            result: Err(Arc::new(error)),
+                            result: report,
                         },
                         None,
                     )
-                    .refused(durable)
-                    .await;
-                }
-                let report = async {
-                    request
-                        .source
-                        .initialize_model_with_prepared(
-                            &services,
-                            &request.execution.analysis,
-                            request.policy()?.clone(),
-                            Some(request.execution.prepared_model(&request.source)?),
-                            Some(run_id),
-                            &cancel,
-                        )
-                        .await
-                }
-                .await
-                .map(Box::new)
-                .map_err(Arc::new);
-                let cancelled = cancel.token().is_cancelled();
-                RunResult::joined(
-                    run_id,
-                    services,
-                    RunOutcome::Initialization {
-                        request,
-                        result: report,
-                    },
-                    None,
-                )
-                .finished(durable, cancelled)
-                .await
-            }))
-        })
+                    .finished(durable, cancelled)
+                    .await
+                }))
+            },
+        )
     }
     fn check_sequence(
         &self,
@@ -2151,14 +2168,14 @@ impl ExecutionServices {
         steps: Vec<super::ModelingSolvePreparation>,
         continue_independent: bool,
     ) -> Result<RunHandle, WorkflowError> {
-            let opened = match supervisor.durable {
-                None => Some(super::staged::Staged::open(
-                    self,
-                    Some(supervisor.progress.clone()),
-                )?),
-                Some(_) => None,
-            };
-            Ok(supervisor.spawn(move |supervisor| async move {
+        let opened = match supervisor.durable {
+            None => Some(super::staged::Staged::open(
+                self,
+                Some(supervisor.progress.clone()),
+            )?),
+            Some(_) => None,
+        };
+        Ok(supervisor.spawn(move |supervisor| async move {
             let RunSupervisor { services, run_id, mut durable, progress: shared, checks: cancel, .. } = supervisor;
             let request = steps.clone();
             let stop = cancel.clone();
@@ -2263,7 +2280,11 @@ impl ExecutionServices {
 }
 
 fn modeling_history(steps: &[super::ModelingSolvePreparation]) -> usize {
-    steps.iter().map(|step| step.profile.controls.history).max().unwrap_or(0)
+    steps
+        .iter()
+        .map(|step| step.profile.controls.history)
+        .max()
+        .unwrap_or(0)
 }
 
 #[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
@@ -2472,7 +2493,9 @@ mod cancellation_tests {
     #[tokio::test]
     async fn initialization_launch_refuses_cancelled_and_expired_parents_before_dispatch() {
         use super::{MathRuntimeError, WorkflowError};
-        use crate::workflow::{OperationSource, PreparationSettings, RuntimeOperationRequest, tests};
+        use crate::workflow::{
+            OperationSource, PreparationSettings, RuntimeOperationRequest, tests,
+        };
 
         let runtime = tests::runtime();
         let rows = pse_authoring::language::parse(
@@ -2481,35 +2504,61 @@ mod cancellation_tests {
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         ).unwrap();
-        let case = rows.iter().find(|row| row.name == "selected").unwrap().declaration_id;
-        let source = runtime.modeling_package(rows, tests::physical()).await.unwrap();
+        let case = rows
+            .iter()
+            .find(|row| row.name == "selected")
+            .unwrap()
+            .declaration_id;
+        let source = runtime
+            .modeling_package(rows, tests::physical())
+            .await
+            .unwrap();
         let services = runtime.execution_services();
         let current = crate::CancelSource::new();
-        let operation = source.prepare_operation(
-            services.preparation(),
-            &OperationSource::of(&source),
-            &PreparationSettings { compiler: tests::compiler_profile(), limits: Default::default() },
-            RuntimeOperationRequest::DeclaredCase {
-                case,
-                settings: Box::new(crate::math::settings::SolveSettings {
-                    intent: pse_backend_native::solve::SolveIntent::Root,
-                    presolve: pse_backend_native::presolve::PolicyKind::Off,
-                    ..Default::default()
-                }),
-            },
-            None,
-            &current,
-        ).await.unwrap();
+        let operation = source
+            .prepare_operation(
+                services.preparation(),
+                &OperationSource::of(&source),
+                &PreparationSettings {
+                    compiler: tests::compiler_profile(),
+                    limits: Default::default(),
+                },
+                RuntimeOperationRequest::DeclaredCase {
+                    case,
+                    settings: Box::new(crate::math::settings::SolveSettings {
+                        intent: pse_backend_native::solve::SolveIntent::Root,
+                        presolve: pse_backend_native::presolve::PolicyKind::Off,
+                        ..Default::default()
+                    }),
+                },
+                None,
+                &current,
+            )
+            .await
+            .unwrap();
         let cancelled = crate::CancelSource::new();
         cancelled.cancel();
-        assert!(matches!(operation.start(&services, &cancelled).await,
-            Err(WorkflowError::Math(MathRuntimeError::Cancelled))));
+        assert!(matches!(
+            operation.start(&services, &cancelled).await,
+            Err(WorkflowError::Math(MathRuntimeError::Cancelled))
+        ));
         let expired = current.with_deadline(Some(std::time::Instant::now()));
-        assert!(matches!(operation.start(&services, &expired).await,
-            Err(WorkflowError::Math(MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
-                kind: pse_backend_native::LimitKind::Time, ..
-            })))));
-        let run = operation.start(&services, &current).await.unwrap().wait().await.unwrap();
+        assert!(matches!(
+            operation.start(&services, &expired).await,
+            Err(WorkflowError::Math(MathRuntimeError::Solve(
+                pse_backend_native::ProblemError::Limit {
+                    kind: pse_backend_native::LimitKind::Time,
+                    ..
+                }
+            )))
+        ));
+        let run = operation
+            .start(&services, &current)
+            .await
+            .unwrap()
+            .wait()
+            .await
+            .unwrap();
         assert!(run.usable());
     }
 

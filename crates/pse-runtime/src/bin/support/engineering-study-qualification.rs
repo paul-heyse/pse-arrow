@@ -612,7 +612,8 @@ impl Native {
             return Err(format!(
                 "native wait for {id} exited {status}; its envelope reports exit {}",
                 observed.exit_code()
-            ).into());
+            )
+            .into());
         }
         let original = self
             .store
@@ -833,8 +834,11 @@ impl Driver for Native {
         {
             return Err(format!(
                 "Study phase {} invocation {id} reported {:?} with required capture complete={}",
-                phase.name(), workflow.terminal.outcome, workflow.terminal.required_capture_complete
-            ).into());
+                phase.name(),
+                workflow.terminal.outcome,
+                workflow.terminal.required_capture_complete
+            )
+            .into());
         }
         let page = pse_host::test_inventory::read(
             &self.store,
@@ -1579,13 +1583,18 @@ mod tests {
         };
         let stop = driver.stop.clone();
         let error = execute(&mut driver, &stop).await.unwrap_err();
-        assert!(driver.calls.windows(3).any(|calls| calls == [
-            "routes",
-            "endpoint-identity",
-            "edit-run-reconnect"
-        ]));
+        assert!(
+            driver
+                .calls
+                .windows(3)
+                .any(|calls| calls == ["routes", "endpoint-identity", "edit-run-reconnect"])
+        );
         assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
-        assert!(error.to_string().contains("original edit-run-reconnect failure"));
+        assert!(
+            error
+                .to_string()
+                .contains("original edit-run-reconnect failure")
+        );
         assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
     }
     #[tokio::test]
@@ -1736,7 +1745,9 @@ mod tests {
     }
     #[test]
     fn interrupted_historical_outcome_needs_current_drain_and_preserves_native_failures() {
-        use pse_host::envelope::{CommandOutcome, Envelope, ErrorRecord, RedactionPolicy, SubjectState};
+        use pse_host::envelope::{
+            CommandOutcome, Envelope, ErrorRecord, RedactionPolicy, SubjectState,
+        };
         let id = CliInvocationId::new();
         let mut original = Envelope::response(
             "run",
@@ -1789,9 +1800,16 @@ mod tests {
             );
         }
         observed.observation.completeness = Completeness::Complete;
-        observed.observation.limitations.push("workflow image release is unresolved".into());
+        observed
+            .observation
+            .limitations
+            .push("workflow image release is unresolved".into());
         let error = settled_original(&id, &observed, &original).unwrap_err();
-        assert!(error.to_string().contains("workflow image release is unresolved"));
+        assert!(
+            error
+                .to_string()
+                .contains("workflow image release is unresolved")
+        );
         observed.observation.limitations.clear();
         original.observation.completeness = Completeness::Partial;
         assert!(settled_original(&id, &observed, &original).is_err());
@@ -1814,7 +1832,8 @@ mod tests {
         observed.failures.clone_from(&original.failures);
         observed.payload["result"] = serde_json::to_value(&original).unwrap();
         assert!(settled_original(&id, &observed, &original).is_ok());
-        let mut cancel = Envelope::response("cancel", "proved original drain", observed.payload.clone());
+        let mut cancel =
+            Envelope::response("cancel", "proved original drain", observed.payload.clone());
         cancel.settlement = Settlement::Complete;
         cancel.failures.clone_from(&original.failures);
         let exit = std::process::Command::new("true").status().unwrap();

@@ -65,7 +65,11 @@ impl ValidateProjection for DirectoryManifest {
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         self.report.validate_at(path)?;
         if !original_profile(self.report.scope, self.report.files.is_empty()) {
-            return Err(ValidationError::Rule { path: path.into(), rule: "directory.original_profile", reason: "directory metadata requires Report scope and no inline files".into() });
+            return Err(ValidationError::Rule {
+                path: path.into(),
+                rule: "directory.original_profile",
+                reason: "directory metadata requires Report scope and no inline files".into(),
+            });
         }
         Ok(())
     }
@@ -207,18 +211,25 @@ fn original_profile(scope: EvidenceScope, inline_empty: bool) -> bool {
 
 fn require_profile(verified: &VerifiedReport) -> Result<(), HostError> {
     if !original_profile(verified.readback.scope, verified.files.is_empty()) {
-        return Err(invalid("directory metadata requires Report scope and no inline files"));
+        return Err(invalid(
+            "directory metadata requires Report scope and no inline files",
+        ));
     }
     Ok(())
 }
 
 pub(crate) fn acquire_original(original: &CapturedReport) -> Result<Vec<OpenedFile>, HostError> {
     if !original_profile(original.scope, original.files.is_empty()) {
-        return Err(invalid("opened acquisition requires Report scope and no inline files"));
+        return Err(invalid(
+            "opened acquisition requires Report scope and no inline files",
+        ));
     }
     crate::test_workflow::execute::evidence::acquire(
         &original.parent,
-        original.observation.evidence().map_err(EvidenceError::from)?,
+        original
+            .observation
+            .evidence()
+            .map_err(EvidenceError::from)?,
         |member, commitment| {
             let (meaning, identity) =
                 member.with_reader(|input| read_member_meaning(commitment.role, input))?;
@@ -272,7 +283,11 @@ pub fn export_directory(
         let mut total = 0u64;
         for member in &mut files {
             let ordinal = member.dependency();
-            let role = verified.observation.evidence().map_err(EvidenceError::from)?[ordinal].role;
+            let role = verified
+                .observation
+                .evidence()
+                .map_err(EvidenceError::from)?[ordinal]
+                .role;
             let mut adopted = None;
             crate::invocation::publish_file(&members.join(ordinal.to_string()), 0o400, |output| {
                 adopted =
@@ -554,7 +569,10 @@ pub fn open_directory(
         adopt_report(required(wire.report.into_option(), "report").map_err(EvidenceError::from)?)?;
     require_profile(&verified)?;
     let members = open_at(&root, MEMBERS, true)?;
-    let commitments = verified.observation.evidence().map_err(EvidenceError::from)?;
+    let commitments = verified
+        .observation
+        .evidence()
+        .map_err(EvidenceError::from)?;
     exact_names(
         &members,
         commitments

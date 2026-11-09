@@ -240,13 +240,16 @@ impl QualifiedProducer {
             return Ok(None);
         }
         let worker = ExpectedProducerTarget::WORKER;
-        if (expected_target.package, expected_target.target, expected_target.kind)
-            == (worker.package, worker.target, worker.kind)
+        if (
+            expected_target.package,
+            expected_target.target,
+            expected_target.kind,
+        ) == (worker.package, worker.target, worker.kind)
             && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
-            || !root
-                .features
-                .iter()
-                .any(|feature| feature == "native-solvers"))
+                || !root
+                    .features
+                    .iter()
+                    .any(|feature| feature == "native-solvers"))
         {
             return Ok(None);
         }

@@ -25,7 +25,8 @@ impl NativeContext {
                 &fixtures.join("physical-primitives"),
                 &mut physical_inputs,
             )?;
-            let original_manifest = std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))?;
+            let original_manifest =
+                std::fs::read_to_string(fixtures.join("minimal_explicit/package.toml"))?;
             let manifest = manifest::named_model_manifest(
                 &original_manifest,
                 physical_inputs
@@ -59,17 +60,21 @@ impl NativeContext {
             )
             .await?;
             let cancel = CancelSource::new();
-            let package = Box::pin(
-                self.runtime
-                    .modeling_from_documents(&load(&modeling)?, physical, &cancel),
-            )
+            let package = Box::pin(self.runtime.modeling_from_documents(
+                &load(&modeling)?,
+                physical,
+                &cancel,
+            ))
             .await?;
             let mut originals = BTreeMap::from([(
                 "tests/fixtures/packages/minimal_explicit/package.toml".into(),
                 original_manifest.into_bytes(),
             )]);
             originals.extend(physical_inputs.into_iter().map(|(relative, content)| {
-                (format!("tests/fixtures/packages/physical-primitives/{relative}"), content)
+                (
+                    format!("tests/fixtures/packages/physical-primitives/{relative}"),
+                    content,
+                )
             }));
             Ok((package, originals))
         }

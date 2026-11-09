@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Public Rust KKT response in original Scalar coordinates, without Python candidates.
 
-use crate::reference_support::{NativeContext, Result};
 use crate::reference_scalar::{self, Inputs};
+use crate::reference_support::{NativeContext, Result};
 use pse_backend_native::solve::{Backend, SolveIntent};
 use pse_ids::SemanticId;
 use pse_relations::{
@@ -132,32 +132,56 @@ impl NativeCandidate {
             .unwrap()
             .declaration_id;
         let inputs = [
-            ("nominal:a", case.nominal["a"]), ("nominal:b", case.nominal["b"]),
-            ("perturbed:a", case.perturbed["a"]), ("perturbed:b", case.perturbed["b"]),
-            ("initial", case.initial), ("z:lower", case.z_bounds[0]), ("z:upper", case.z_bounds[1]),
-            ("coupling:x", case.coupling[0]), ("coupling:y", case.coupling[1]),
-            ("objective:x*x", case.objective[0]), ("objective:y*y", case.objective[1]),
-            ("objective:-b*x", case.objective[2]), ("objective:z*z", case.objective[3]),
+            ("nominal:a", case.nominal["a"]),
+            ("nominal:b", case.nominal["b"]),
+            ("perturbed:a", case.perturbed["a"]),
+            ("perturbed:b", case.perturbed["b"]),
+            ("initial", case.initial),
+            ("z:lower", case.z_bounds[0]),
+            ("z:upper", case.z_bounds[1]),
+            ("coupling:x", case.coupling[0]),
+            ("coupling:y", case.coupling[1]),
+            ("objective:x*x", case.objective[0]),
+            ("objective:y*y", case.objective[1]),
+            ("objective:-b*x", case.objective[2]),
+            ("objective:z*z", case.objective[3]),
             ("objective:a*z", case.objective[4]),
         ];
         let mut outputs = Vec::new();
-        for stage in ["sipopt:nominal", "sipopt:prediction", "exact:nominal", "exact:prediction"] {
+        for stage in [
+            "sipopt:nominal",
+            "sipopt:prediction",
+            "exact:nominal",
+            "exact:prediction",
+        ] {
             outputs.extend(case.variables.iter().map(|name| format!("{stage}:{name}")));
         }
         for name in &case.variables {
             outputs.extend(["a", "b"].map(|parameter| format!("derivative:{name}:{parameter}")));
         }
         let configuration = pse_ids::preimage::hash(&serde_json::to_vec(&(
-            &case.variables, &case.unit, inputs.map(|(key, value)| (key, value.to_bits())),
+            &case.variables,
+            &case.unit,
+            inputs.map(|(key, value)| (key, value.to_bits())),
         ))?);
-        let contract = reference_scalar::bind(reference_scalar::Case {
-            name: &case.id,
-            identity: root.as_id(),
-            source: &source,
-            configuration,
-            inputs: inputs.into_iter().map(|(key, value)| (key.into(), value)).collect(),
-            outputs: outputs.into_iter().map(|key| (key.clone(), pse_ids::named_id(root.as_id(), &key))).collect(),
-        }, package.physical_context(), originals)?;
+        let contract = reference_scalar::bind(
+            reference_scalar::Case {
+                name: &case.id,
+                identity: root.as_id(),
+                source: &source,
+                configuration,
+                inputs: inputs
+                    .into_iter()
+                    .map(|(key, value)| (key.into(), value))
+                    .collect(),
+                outputs: outputs
+                    .into_iter()
+                    .map(|key| (key.clone(), pse_ids::named_id(root.as_id(), &key)))
+                    .collect(),
+            },
+            package.physical_context(),
+            originals,
+        )?;
         let mut settings = SolveSettings {
             backend: Some(Backend::Ipopt),
             intent: SolveIntent::Optimize,
@@ -355,13 +379,16 @@ impl NativeCandidate {
                 },
             );
         }
-        Ok((CandidateReport {
-            complete: true,
-            unit: case.unit.clone(),
-            coordinates: "physical".into(),
-            parameter_scales,
-            quantities,
-        }, contract))
+        Ok((
+            CandidateReport {
+                complete: true,
+                unit: case.unit.clone(),
+                coordinates: "physical".into(),
+                parameter_scales,
+                quantities,
+            },
+            contract,
+        ))
     }
 
     pub(super) async fn close(&self) -> Result<()> {

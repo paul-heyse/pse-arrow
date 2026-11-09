@@ -445,7 +445,9 @@ pub struct PackMemberCopy {
 
 /// A provisional prefix may have reached the sink before refusal.
 #[derive(Debug, thiserror::Error)]
-#[error("review pack member {member} delivery failed after {accepted_bytes} provisional bytes: {source}")]
+#[error(
+    "review pack member {member} delivery failed after {accepted_bytes} provisional bytes: {source}"
+)]
 pub struct PackMemberCopyError {
     /// Exact requested identity, even if absent from the index.
     pub member: String,
@@ -857,7 +859,10 @@ impl PackSession {
         let directory = if self.index.publication == PackPublication::Sealed {
             // Persist the pack's name and its member directory before the
             // manifest can advertise a finalized, complete publication.
-            let parent = self.root.parent().ok_or_else(|| invalid("pack parent absent"))?;
+            let parent = self
+                .root
+                .parent()
+                .ok_or_else(|| invalid("pack parent absent"))?;
             File::open(parent)?.sync_all()?;
             File::open(self.root.join("members"))?.sync_all()?;
             let directory = File::open(&self.root)?;
@@ -913,7 +918,9 @@ impl PackSession {
                     || (acknowledged != Some(0)
                         && !matches!(error, PackError::MemberPublication(_))) =>
             {
-                stage.publish(&destination).map_err(PackError::MemberPublication)
+                stage
+                    .publish(&destination)
+                    .map_err(PackError::MemberPublication)
             }
             _ => Ok(0),
         };
@@ -959,7 +966,9 @@ impl PackSession {
             .checked_add(bytes)
             .ok_or_else(|| invalid("output byte overflow"))?;
         let destination = self.root.join(&member.relative_path);
-        stage.publish(&destination).map_err(PackError::MemberPublication)?;
+        stage
+            .publish(&destination)
+            .map_err(PackError::MemberPublication)?;
         self.written = written;
         let member = &mut self.index.members[pos];
         member.readable_bytes = bytes;
@@ -1071,7 +1080,9 @@ impl PackSession {
                 return Err(invalid("typed selected member requires its owner exporter"));
             }
             if !source.metadata()?.is_file() {
-                return Err(invalid("supplied pack member source must be a regular file"));
+                return Err(invalid(
+                    "supplied pack member source must be a regular file",
+                ));
             }
             if readable_bytes
                 > self
@@ -1309,13 +1320,21 @@ impl PackSession {
                 )
                 .await
                 .map_err(PackError::native)?;
-            let stage = acknowledged.stage.as_mut().ok_or_else(|| invalid("result writer absent"))?;
+            let stage = acknowledged
+                .stage
+                .as_mut()
+                .ok_or_else(|| invalid("result writer absent"))?;
             self.finalize_member(pos, stage, bytes)
         })
         .await;
         drop(reader);
         result.map_err(|error| {
-            self.fail_at(pos, error, acknowledged.stage.as_mut(), Some(acknowledged.bytes))
+            self.fail_at(
+                pos,
+                error,
+                acknowledged.stage.as_mut(),
+                Some(acknowledged.bytes),
+            )
         })
     }
     /// Output/field/range filtered protected reader; no separate unprotected materialization.
@@ -1347,13 +1366,21 @@ impl PackSession {
                 )
                 .await
                 .map_err(PackError::native)?;
-            let stage = acknowledged.stage.as_mut().ok_or_else(|| invalid("result writer absent"))?;
+            let stage = acknowledged
+                .stage
+                .as_mut()
+                .ok_or_else(|| invalid("result writer absent"))?;
             self.finalize_member(pos, stage, bytes)
         })
         .await;
         drop(reader);
         result.map_err(|error| {
-            self.fail_at(pos, error, acknowledged.stage.as_mut(), Some(acknowledged.bytes))
+            self.fail_at(
+                pos,
+                error,
+                acknowledged.stage.as_mut(),
+                Some(acknowledged.bytes),
+            )
         })
     }
     /// Seal only after every selected member resolves and all required writes/reports drain.
@@ -1472,7 +1499,9 @@ impl PackReader {
                 validate_encoding(member, file, member.readable_bytes, maximum_document_bytes)?;
             } else {
                 if member.finalized || member.digest.is_some() {
-                    return Err(invalid("unavailable member advertises a finalized commitment"));
+                    return Err(invalid(
+                        "unavailable member advertises a finalized commitment",
+                    ));
                 }
                 if member.readable_bytes != 0 {
                     if !matches!(member.availability, PackAvailability::Failed { .. }) {
@@ -1586,7 +1615,9 @@ impl PackReader {
             source,
         })?;
         let member = self.member(id).map_err(|_| rejected("unindexed member"))?;
-        copy_member(&self.directory, member, output, || pack_copy_checkpoint(cancel))
+        copy_member(&self.directory, member, output, || {
+            pack_copy_checkpoint(cancel)
+        })
     }
     /// Open only an acknowledged provisional prefix of a failed member.
     /// Available members use `copy_member_verified`.
@@ -1676,8 +1707,11 @@ fn decode_member<T: serde::de::DeserializeOwned>(
     member: &PackMember,
     maximum: usize,
 ) -> Result<T, PackError> {
-    if member.availability != PackAvailability::Available || member.readable_bytes > maximum as u64 {
-        return Err(invalid("typed member is unavailable or exceeds the document allowance"));
+    if member.availability != PackAvailability::Available || member.readable_bytes > maximum as u64
+    {
+        return Err(invalid(
+            "typed member is unavailable or exceeds the document allowance",
+        ));
     }
     let mut bytes = Vec::new();
     copy_member(directory, member, &mut bytes, || Ok(()))?;
@@ -1898,12 +1932,8 @@ fn validate_encoding(
         }
     }
     if member.selection.format == PackFormat::ArrowIpcStream {
-        let schema = portable_payload::finalized_ipc_schema(
-            file,
-            bytes,
-            maximum_document_bytes,
-        )
-        .map_err(contained_error)?;
+        let schema = portable_payload::finalized_ipc_schema(file, bytes, maximum_document_bytes)
+            .map_err(contained_error)?;
         if let Some(table) = &member.selection.diagnostic_table {
             let registry = pse_schema::registry().map_err(|e| invalid(e.to_string()))?;
             let relation = registry

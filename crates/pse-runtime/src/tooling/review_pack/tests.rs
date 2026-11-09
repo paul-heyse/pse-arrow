@@ -113,7 +113,11 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
     std::fs::rename(path, &moved).unwrap();
     let reader = PackReader::open(&moved, 1 << 20).unwrap();
     assert_eq!(verified_bytes(&reader, "investigation"), bytes);
-    assert!(reader.copy_member_verified("unlisted", &mut std::io::sink(), &CancellationToken::new()).is_err());
+    assert!(
+        reader
+            .copy_member_verified("unlisted", &mut std::io::sink(), &CancellationToken::new())
+            .is_err()
+    );
     assert!(reader.read_frozen().is_err());
 }
 
@@ -139,10 +143,15 @@ fn verified_pack_copy_keeps_accepted_prefix_and_requires_the_original_commitment
     let reader = PackReader::open(&path, 1 << 20).unwrap();
     let cancel = CancellationToken::new();
     let mut output = Vec::new();
-    let copy = reader.copy_member_verified("raw", &mut output, &cancel).unwrap();
+    let copy = reader
+        .copy_member_verified("raw", &mut output, &cancel)
+        .unwrap();
     assert_eq!(output, original);
     assert_eq!(copy.copied_bytes, original.len() as u64);
-    assert_eq!(copy.digest, pse_ids::encoding_checksum(original).content_hash());
+    assert_eq!(
+        copy.digest,
+        pse_ids::encoding_checksum(original).content_hash()
+    );
 
     let mut short = [0_u8; 3];
     let error = reader
@@ -156,13 +165,18 @@ fn verified_pack_copy_keeps_accepted_prefix_and_requires_the_original_commitment
     assert_eq!(replacement.len(), original.len());
     std::fs::write(&member, replacement).unwrap();
     output.clear();
-    let error = reader.copy_member_verified("raw", &mut output, &cancel).unwrap_err();
+    let error = reader
+        .copy_member_verified("raw", &mut output, &cancel)
+        .unwrap_err();
     assert_eq!(error.accepted_bytes, replacement.len() as u64);
     assert_eq!(error.source.kind(), std::io::ErrorKind::InvalidData);
     assert_eq!(output, replacement);
 
     patch_index(&path, |index| {
-        index["members"][0].as_object_mut().unwrap().remove("digest");
+        index["members"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("digest");
     });
     assert!(PackReader::open(&path, 1 << 20).is_err());
 }
@@ -181,15 +195,25 @@ fn available_empty_pack_member_requires_the_empty_commitment() {
         cancel.clone(),
     )
     .unwrap();
-    session.copy_prefix("empty", source(root.path(), b""), 0).unwrap();
+    session
+        .copy_prefix("empty", source(root.path(), b""), 0)
+        .unwrap();
     session.seal().unwrap();
     let reader = PackReader::open(&path, 1 << 20).unwrap();
-    let receipt = reader.copy_member_verified("empty", &mut std::io::sink(), &cancel).unwrap();
+    let receipt = reader
+        .copy_member_verified("empty", &mut std::io::sink(), &cancel)
+        .unwrap();
     assert_eq!(receipt.copied_bytes, 0);
-    assert_eq!(receipt.digest, pse_ids::encoding_checksum(b"").content_hash());
+    assert_eq!(
+        receipt.digest,
+        pse_ids::encoding_checksum(b"").content_hash()
+    );
     assert!(reader.open_provisional_member("empty").is_err());
     patch_index(&path, |index| {
-        index["members"][0].as_object_mut().unwrap().remove("digest");
+        index["members"][0]
+            .as_object_mut()
+            .unwrap()
+            .remove("digest");
     });
     assert!(PackReader::open(&path, 1 << 20).is_err());
 }
@@ -222,17 +246,22 @@ fn verified_pack_copy_refuses_final_cancellation_and_preserves_collision_winner(
         cancel.clone(),
     )
     .unwrap();
-    session.copy_prefix("first", source(root.path(), b"first"), 5).unwrap();
+    session
+        .copy_prefix("first", source(root.path(), b"first"), 5)
+        .unwrap();
     let collision = path.join(&session.index().members[1].relative_path);
     std::fs::write(&collision, b"unrelated destination").unwrap();
-    session.copy_prefix("second", source(root.path(), b"second"), 6).unwrap_err();
+    session
+        .copy_prefix("second", source(root.path(), b"second"), 6)
+        .unwrap_err();
     let index = session.seal().unwrap();
     assert_eq!(std::fs::read(collision).unwrap(), b"unrelated destination");
     assert_eq!(index.members[1].readable_bytes, 0);
     assert_eq!(index.members[1].digest, None);
 
     let reader = PackReader::open(&path, 1 << 20).unwrap();
-    let error = reader.copy_member_verified("first", &mut StopOnWrite(cancel.clone()), &cancel)
+    let error = reader
+        .copy_member_verified("first", &mut StopOnWrite(cancel.clone()), &cancel)
         .unwrap_err();
     assert_eq!(error.accepted_bytes, 5);
     assert_eq!(error.source.kind(), std::io::ErrorKind::Interrupted);
@@ -253,13 +282,22 @@ fn pack_prefix_retention_requires_the_original_staging_writer() {
     .unwrap();
     let staging = path.join(".staging/raw");
     std::fs::write(&staging, b"unrelated staged bytes").unwrap();
-    let error = session.copy_prefix("raw", source(root.path(), b"original"), 8).unwrap_err();
-    assert!(matches!(error, PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    let error = session
+        .copy_prefix("raw", source(root.path(), b"original"), 8)
+        .unwrap_err();
+    assert!(
+        matches!(error, PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists)
+    );
     assert_eq!(std::fs::read(staging).unwrap(), b"unrelated staged bytes");
     let member = &session.index().members[0];
     assert_eq!(member.readable_bytes, 0);
     assert!(!path.join(&member.relative_path).exists());
-    assert!(PackReader::open(&path, 1 << 20).unwrap().open_provisional_member("raw").is_err());
+    assert!(
+        PackReader::open(&path, 1 << 20)
+            .unwrap()
+            .open_provisional_member("raw")
+            .is_err()
+    );
 }
 
 #[test]
@@ -277,17 +315,29 @@ fn pack_prefix_link_and_index_failures_remain_independent_of_original_copy() {
     .unwrap();
     let member = path.join(&session.index().members[0].relative_path);
     std::fs::write(&member, b"unrelated member").unwrap();
-    std::fs::write(path.join(format!(".index-{}", session.next_index)), b"unrelated index").unwrap();
-    let error = session.copy_prefix("raw", source(root.path(), b"raw"), 4).unwrap_err();
+    std::fs::write(
+        path.join(format!(".index-{}", session.next_index)),
+        b"unrelated index",
+    )
+    .unwrap();
+    let error = session
+        .copy_prefix("raw", source(root.path(), b"raw"), 4)
+        .unwrap_err();
     let PackError::Settlement { operation, cleanup } = error else {
         panic!("incomplete index write failure required");
     };
-    assert!(matches!(cleanup.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    assert!(
+        matches!(cleanup.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists)
+    );
     let PackError::Settlement { operation, cleanup } = operation.as_ref() else {
         panic!("independent prefix publication failure required");
     };
-    assert!(matches!(operation.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof));
-    assert!(matches!(cleanup.as_ref(), PackError::MemberPublication(error) if error.kind() == std::io::ErrorKind::AlreadyExists));
+    assert!(
+        matches!(operation.as_ref(), PackError::Io(error) if error.kind() == std::io::ErrorKind::UnexpectedEof)
+    );
+    assert!(
+        matches!(cleanup.as_ref(), PackError::MemberPublication(error) if error.kind() == std::io::ErrorKind::AlreadyExists)
+    );
     assert_eq!(std::fs::read(member).unwrap(), b"unrelated member");
     assert_eq!(session.index().members[0].readable_bytes, 0);
 }
@@ -337,7 +387,10 @@ fn supplied_query_json_requires_the_current_declared_codec() {
         br#"{"version":3,"records":[]}"#.as_slice(),
         br#"{"records":[]}"#.as_slice(),
         br#"{"version":"2","records":[]}"#.as_slice(),
-    ].into_iter().enumerate() {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let mut member = raw("investigation", true, PackMemberRole::Query);
         member.format = PackFormat::Json;
         member.document_version = Some(2);
@@ -426,7 +479,11 @@ fn offline_pack_relocation_exact_integers_reports_and_unindexed_neighbors() {
     let reader = PackReader::open(&relocated, 1 << 20).unwrap();
     let copied = verified_text(&reader, "detail");
     assert_eq!(copied, "acknowledged\n");
-    assert!(reader.copy_member_verified("source", &mut std::io::sink(), &CancellationToken::new()).is_err());
+    assert!(
+        reader
+            .copy_member_verified("source", &mut std::io::sink(), &CancellationToken::new())
+            .is_err()
+    );
     assert_eq!(
         reader.read_analysis().unwrap().request.operation.sequence,
         u64::MAX
@@ -623,7 +680,15 @@ fn offline_pack_missing_context_optional_capture_and_science_are_independent() {
             .message
             .contains("scientific failure")
     );
-    assert!(reader.copy_member_verified("unrequested", &mut std::io::sink(), &CancellationToken::new()).is_err());
+    assert!(
+        reader
+            .copy_member_verified(
+                "unrequested",
+                &mut std::io::sink(),
+                &CancellationToken::new()
+            )
+            .is_err()
+    );
     assert!(matches!(
         reader
             .index
@@ -745,7 +810,10 @@ fn offline_pack_refuses_fifo_sources_before_open_can_block_or_staging_begins() {
             .iter()
             .find(|member| member.selection.id == id)
             .unwrap();
-        assert!(matches!(member.availability, PackAvailability::Failed { .. }));
+        assert!(matches!(
+            member.availability,
+            PackAvailability::Failed { .. }
+        ));
         assert_eq!(member.readable_bytes, 0);
         assert!(!member.finalized && member.digest.is_none());
         assert!(!destination.join(&member.relative_path).exists());
@@ -1072,7 +1140,10 @@ fn protected_member_refusal_keeps_original_cause_and_independent_index_failure()
         "selected",
         WorkflowError::Resource("original reader allocation".into()),
     );
-    assert_eq!(error.diagnostic_code(), Some(DiagnosticCode::RuntimeResourceLimit));
+    assert_eq!(
+        error.diagnostic_code(),
+        Some(DiagnosticCode::RuntimeResourceLimit)
+    );
     let PackError::Settlement { operation, cleanup } = error else {
         panic!("independent incomplete-index failure required");
     };
@@ -1084,9 +1155,15 @@ fn protected_member_refusal_keeps_original_cause_and_independent_index_failure()
         cleanup.as_ref(),
         PackError::Io(error) if error.kind() == std::io::ErrorKind::AlreadyExists
     ));
-    assert_eq!(std::fs::read(collision).unwrap(), b"independent destination collision");
     assert_eq!(
-        PackReader::open(&path, 1 << 20).unwrap().index().publication,
+        std::fs::read(collision).unwrap(),
+        b"independent destination collision"
+    );
+    assert_eq!(
+        PackReader::open(&path, 1 << 20)
+            .unwrap()
+            .index()
+            .publication,
         PackPublication::Incomplete
     );
 }
@@ -1116,8 +1193,14 @@ fn pack_boundary_projection_retains_canonical_settlement_and_pack_cleanup() {
         Some(Observation::Text(effect)) if effect == "unresolved"
     ));
     assert_eq!(public.causes.len(), 3);
-    assert!(matches!(public.causes[2].observations.get("detail"), Some(Observation::Text(detail)) if detail.contains("index failure")));
-    assert!(!serde_json::to_string(&public).unwrap().contains("private-request"));
+    assert!(
+        matches!(public.causes[2].observations.get("detail"), Some(Observation::Text(detail)) if detail.contains("index failure"))
+    );
+    assert!(
+        !serde_json::to_string(&public)
+            .unwrap()
+            .contains("private-request")
+    );
 }
 
 #[test]
@@ -1130,7 +1213,9 @@ fn pack_final_sync_failure_leaves_visible_seal_and_refuses_replacement() {
     };
     let mut session =
         PackSession::create_members(&path, selection.clone(), CancellationToken::new()).unwrap();
-    session.copy_prefix("raw", source(root.path(), b"raw"), 3).unwrap();
+    session
+        .copy_prefix("raw", source(root.path(), b"raw"), 3)
+        .unwrap();
     session.index.publication = PackPublication::Sealed;
     session.index.membership_complete = true;
     session.index.self_contained = true;
@@ -1138,7 +1223,9 @@ fn pack_final_sync_failure_leaves_visible_seal_and_refuses_replacement() {
         .persist_index(|_| {
             let visible = PackReader::open(&path, 1 << 20).unwrap();
             assert_eq!(visible.index().publication, PackPublication::Sealed);
-            Err(std::io::Error::other("controlled final directory sync failure"))
+            Err(std::io::Error::other(
+                "controlled final directory sync failure",
+            ))
         })
         .unwrap_err();
     assert!(matches!(error, PackError::DurabilityUnknown(source)
@@ -1231,7 +1318,11 @@ fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
         );
         let retained = if boundary == Boundary::Member {
             let mut prefix = Vec::new();
-            reader.open_provisional_member("selected").unwrap().read_to_end(&mut prefix).unwrap();
+            reader
+                .open_provisional_member("selected")
+                .unwrap()
+                .read_to_end(&mut prefix)
+                .unwrap();
             prefix
         } else {
             verified_bytes(&reader, "selected")
@@ -1246,9 +1337,15 @@ fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
         assert_eq!(selected.finalized, boundary != Boundary::Member);
         if matches!(boundary, Boundary::Report | Boundary::FinalSeal) {
             let cancel = CancellationToken::new();
-            assert!(reader.copy_member_verified("report_markdown", &mut std::io::sink(), &cancel).is_ok());
+            assert!(
+                reader
+                    .copy_member_verified("report_markdown", &mut std::io::sink(), &cancel)
+                    .is_ok()
+            );
             assert_eq!(
-                reader.copy_member_verified("report_html", &mut std::io::sink(), &cancel).is_ok(),
+                reader
+                    .copy_member_verified("report_html", &mut std::io::sink(), &cancel)
+                    .is_ok(),
                 boundary == Boundary::FinalSeal
             );
         }
@@ -1473,7 +1570,11 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
         member.diagnostic_table = Some(PackDiagnosticTable {
             request: request.clone(),
             relation: relation.into(),
-            schema_version: if mode == "invalid" { version + 1 } else { version },
+            schema_version: if mode == "invalid" {
+                version + 1
+            } else {
+                version
+            },
             source: PackSourceReference {
                 member: "frozen".into(),
                 pointer: crate::tooling::review_query::table_source(&request),
@@ -1499,21 +1600,31 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
         if mode == "mutated" {
             evidence.detail_pages[0].records[0].values[0].value = Value::Count(u64::MAX - 1);
             let batch = crate::tooling::review_query::table_arrow(
-                &evidence, &request, &CancellationToken::new(),
-            ).unwrap();
+                &evidence,
+                &request,
+                &CancellationToken::new(),
+            )
+            .unwrap();
             let member = &session.index().members[0];
             let file = File::create(path.join(&member.relative_path)).unwrap();
             let mut writer = datafusion::arrow::ipc::writer::StreamWriter::try_new(
                 file,
                 batch.schema().as_ref(),
-            ).unwrap();
+            )
+            .unwrap();
             writer.write(&batch).unwrap();
             writer.finish().unwrap();
-            assert_eq!(writer.get_ref().metadata().unwrap().len(), member.readable_bytes);
+            assert_eq!(
+                writer.get_ref().metadata().unwrap().len(),
+                member.readable_bytes
+            );
             drop(writer);
             assert!(matches!(session.seal(), Err(PackError::Copy(_))));
             assert_eq!(
-                PackReader::open(&path, 1 << 20).unwrap().index().publication,
+                PackReader::open(&path, 1 << 20)
+                    .unwrap()
+                    .index()
+                    .publication,
                 PackPublication::Incomplete
             );
             continue;
@@ -1777,7 +1888,15 @@ fn plan47f_all_table_kinds_compare_only_the_selected_finalized_source() {
                 }
                 let reader = PackReader::open(&path, MAXIMUM_PACK_DOCUMENT_BYTES).unwrap();
                 assert_eq!(reader.index().publication, PackPublication::Incomplete);
-                assert!(reader.copy_member_verified("diagnostic", &mut std::io::sink(), &CancellationToken::new()).is_err());
+                assert!(
+                    reader
+                        .copy_member_verified(
+                            "diagnostic",
+                            &mut std::io::sink(),
+                            &CancellationToken::new()
+                        )
+                        .is_err()
+                );
                 assert!(reader.read_frozen().is_ok());
             }
         }

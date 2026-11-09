@@ -79,7 +79,9 @@ class ScalarCase:
             pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
         )
         contract = contract_type.FromString(_bounded_read(source))
-        require(_message(contract, "version").value == 1, "unsupported scalar case version")
+        require(
+            _message(contract, "version").value == 1, "unsupported scalar case version"
+        )
         meaning = _message(contract, "meaning")
         for field, size in (
             ("case", 16),
@@ -89,14 +91,20 @@ class ScalarCase:
             ("configuration", 32),
         ):
             original = bytes(getattr(meaning, field))
-            require(len(original) == size and original != bytes(size), "scalar case meaning is incomplete")
+            require(
+                len(original) == size and original != bytes(size),
+                "scalar case meaning is incomplete",
+            )
         _artifacts(contract)
         return cls(envelope, contract)
 
     def inputs(self, keys: Sequence[str]) -> dict[str, float]:
         """Check the original physical inputs and return exact IEEE values."""
         fixed = self.contract.specification
-        require(tuple(item.key for item in fixed) == tuple(keys), "scalar input population differs")
+        require(
+            tuple(item.key for item in fixed) == tuple(keys),
+            "scalar input population differs",
+        )
         for item in fixed:
             _physical(item)
         return {item.key: bits_float(int(item.value)) for item in fixed}
@@ -104,11 +112,16 @@ class ScalarCase:
     def outputs(self, keys: Sequence[str]) -> None:
         """Validate exact observable identities and physical meanings before solver work."""
         observables = self.contract.observables
-        require(tuple(item.key for item in observables) == tuple(keys), "scalar output population differs")
+        require(
+            tuple(item.key for item in observables) == tuple(keys),
+            "scalar output population differs",
+        )
         output_ids = [bytes(item.output) for item in observables]
         require(
             len(set(output_ids)) == len(output_ids)
-            and all(len(identity) == 16 and identity != bytes(16) for identity in output_ids),
+            and all(
+                len(identity) == 16 and identity != bytes(16) for identity in output_ids
+            ),
             "scalar output identities are invalid or repeated",
         )
         for item in observables:
@@ -121,7 +134,9 @@ class ScalarCase:
         observables = self.contract.observables
         envelope.required.extend(item.output for item in observables)
         for coordinate, value in zip(observables, values, strict=True):
-            require(math.isfinite(value), "scalar reference returned nonfinite evidence")
+            require(
+                math.isfinite(value), "scalar reference returned nonfinite evidence"
+            )
             physical = _message(coordinate, "physical")
             envelope.outcome.completed.outputs.add(
                 id=coordinate.output,
@@ -140,7 +155,9 @@ class ScalarCase:
             result.DESCRIPTOR.file.pool is self.envelope.DESCRIPTOR.file.pool,
             "specialized result belongs to another descriptor world",
         )
-        require(result.ByteSize() <= limit, "specialized result exceeds its byte allowance")
+        require(
+            result.ByteSize() <= limit, "specialized result exceeds its byte allowance"
+        )
         encoded = result.SerializeToString(deterministic=True)
         _artifacts(self.contract)
         with destination.open("xb") as stream:

@@ -643,7 +643,11 @@ impl ModelingSimulation {
             .resolve(
                 &self.profile,
                 &self.contract.parameters,
-                self.model().compiled().model.fixtures.get(&self.solved.instance()),
+                self.model()
+                    .compiled()
+                    .model
+                    .fixtures
+                    .get(&self.solved.instance()),
                 self.coordinates.time_scale,
             )
             .map(|(_, column)| column)
@@ -1799,17 +1803,30 @@ impl IntegrationInputTarget {
                     integration.schedules.iter().any(|schedule| {
                         schedule.target == self.member
                             && schedule.control.is_none()
-                            && schedule.times.iter().any(|change| exact(change * time_scale))
+                            && schedule
+                                .times
+                                .iter()
+                                .any(|change| exact(change * time_scale))
                     })
                 });
             let admitted = profile.schedule.iter().any(|schedule| {
                 schedule.parameter == parameter && schedule.times.iter().copied().any(exact)
             });
-            if !time.is_finite() || time <= profile.start || time >= profile.end || !authored || !admitted {
-                return Err(contract("fitted schedule target is not an exact authored interval start"));
+            if !time.is_finite()
+                || time <= profile.start
+                || time >= profile.end
+                || !authored
+                || !admitted
+            {
+                return Err(contract(
+                    "fitted schedule target is not an exact authored interval start",
+                ));
             }
         }
-        Ok((parameter, profile.columns_at(parameters.len(), time)[parameter]))
+        Ok((
+            parameter,
+            profile.columns_at(parameters.len(), time)[parameter],
+        ))
     }
 }
 impl ModelingPackage {
@@ -2031,11 +2048,8 @@ impl ModelingPackage {
                         .fixtures
                         .get(&analysis.instance)
                         .ok_or_else(|| contract("authored integration controls absent"))?;
-                    let controls = self.integration_profile(
-                        &model,
-                        fixture,
-                        &analysis.solver.numerics,
-                    )?;
+                    let controls =
+                        self.integration_profile(&model, fixture, &analysis.solver.numerics)?;
                     (controls.profile, controls.provisional_quadratures)
                 };
                 self.prepare_simulation_with_controls(

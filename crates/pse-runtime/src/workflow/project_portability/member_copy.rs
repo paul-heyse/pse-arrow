@@ -96,14 +96,9 @@ impl ProjectBundleReader {
             Ok((file, member.copied_bytes, digest))
         })();
         let (file, bytes, digest) = opened.map_err(|source| failure(0, source))?;
-        let transferred = portable_payload::transfer_member(
-            file,
-            output,
-            bytes,
-            Some(digest),
-            checkpoint,
-        )
-        .map_err(|error| failure(error.accepted_bytes, error.source))?;
+        let transferred =
+            portable_payload::transfer_member(file, output, bytes, Some(digest), checkpoint)
+                .map_err(|error| failure(error.accepted_bytes, error.source))?;
         Ok(ProjectMemberCopy {
             member: id.into(),
             copied_bytes: transferred.bytes,

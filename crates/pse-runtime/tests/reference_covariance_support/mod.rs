@@ -22,8 +22,8 @@ use pse_runtime::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::reference_support::NativeContext;
 use crate::reference_scalar::{self, Inputs};
+use crate::reference_support::NativeContext;
 pub(super) use crate::reference_support::Result;
 
 #[derive(Clone)]
@@ -109,27 +109,53 @@ fn reference_contract(
 ) -> Result<Inputs> {
     let inputs = [("x", case.x.as_slice()), ("y", case.y.as_slice())]
         .into_iter()
-        .flat_map(|(axis, values)| values.iter().enumerate().map(move |(index, value)| (format!("{axis}:{index}"), *value)))
+        .flat_map(|(axis, values)| {
+            values
+                .iter()
+                .enumerate()
+                .map(move |(index, value)| (format!("{axis}:{index}"), *value))
+        })
         .chain([("sigma".into(), case.sigma)])
         .collect::<Vec<_>>();
-    let mut outputs = case.parameters.iter().map(|name| format!("estimate:{name}")).collect::<Vec<_>>();
+    let mut outputs = case
+        .parameters
+        .iter()
+        .map(|name| format!("estimate:{name}"))
+        .collect::<Vec<_>>();
     for matrix in ["covariance", "inverse_information"] {
         for row in &case.parameters {
-            outputs.extend(case.parameters.iter().map(|column| format!("{matrix}:{row}:{column}")));
+            outputs.extend(
+                case.parameters
+                    .iter()
+                    .map(|column| format!("{matrix}:{row}:{column}")),
+            );
         }
     }
     let configuration = pse_ids::preimage::hash(&serde_json::to_vec(&(
-        &case.parameters, &case.response_unit, &case.parameter_units, &case.covariance_convention,
-        inputs.iter().map(|(key, value)| (key, value.to_bits())).collect::<Vec<_>>(),
+        &case.parameters,
+        &case.response_unit,
+        &case.parameter_units,
+        &case.covariance_convention,
+        inputs
+            .iter()
+            .map(|(key, value)| (key, value.to_bits()))
+            .collect::<Vec<_>>(),
     ))?);
-    reference_scalar::bind(reference_scalar::Case {
-        name: &case.id,
-        identity: id(158),
-        source,
-        configuration,
-        inputs,
-        outputs: outputs.into_iter().map(|key| (key.clone(), pse_ids::named_id(id(158), &key))).collect(),
-    }, context, originals)
+    reference_scalar::bind(
+        reference_scalar::Case {
+            name: &case.id,
+            identity: id(158),
+            source,
+            configuration,
+            inputs,
+            outputs: outputs
+                .into_iter()
+                .map(|key| (key.clone(), pse_ids::named_id(id(158), &key)))
+                .collect(),
+        },
+        context,
+        originals,
+    )
 }
 
 fn id(byte: u8) -> SemanticId {
@@ -331,24 +357,27 @@ pub(super) fn run<'a>(
         assert_eq!(covariance.values.len(), 4);
         assert!(covariance.values.iter().all(|value| value.is_finite()));
         let contract = reference_contract(case, &source, package.physical_context(), originals)?;
-        Ok((CandidateReport {
-            complete: true,
-            estimates,
-            estimate_allowances,
-            response_unit: "1".into(),
-            covariance: Covariance {
-                parameters: covariance
-                    .parameters
-                    .iter()
-                    .map(|parameter| names[parameter].into())
-                    .collect(),
-                parameter_units: vec!["1".into(); 2],
-                parameter_scales: covariance.parameter_scales.clone(),
-                coordinates: "physical".into(),
-                layout: "row_major".into(),
-                convention: "inverse_information_known_sigma".into(),
-                values: covariance.values.clone(),
+        Ok((
+            CandidateReport {
+                complete: true,
+                estimates,
+                estimate_allowances,
+                response_unit: "1".into(),
+                covariance: Covariance {
+                    parameters: covariance
+                        .parameters
+                        .iter()
+                        .map(|parameter| names[parameter].into())
+                        .collect(),
+                    parameter_units: vec!["1".into(); 2],
+                    parameter_scales: covariance.parameter_scales.clone(),
+                    coordinates: "physical".into(),
+                    layout: "row_major".into(),
+                    convention: "inverse_information_known_sigma".into(),
+                    values: covariance.values.clone(),
+                },
             },
-        }, contract))
+            contract,
+        ))
     })
 }

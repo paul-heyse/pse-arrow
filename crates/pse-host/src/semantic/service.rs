@@ -68,7 +68,9 @@ pub struct SessionRecord {
 impl SessionRecord {
     pub(super) fn require_current(&self) -> Result<()> {
         if self.version != super::SESSION_PROTOCOL_VERSION {
-            return Err(Error::Unavailable("semantic selector uses an incompatible protocol".into()));
+            return Err(Error::Unavailable(
+                "semantic selector uses an incompatible protocol".into(),
+            ));
         }
         Ok(())
     }
@@ -367,7 +369,8 @@ mod selector_tests {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let scratch = tempfile::tempdir().unwrap();
         let environment = Environment::from([(
-            "XDG_STATE_HOME".into(), scratch.path().as_os_str().to_owned(),
+            "XDG_STATE_HOME".into(),
+            scratch.path().as_os_str().to_owned(),
         )]);
         let _lock = preparation_lock(&root, &environment).unwrap();
         let directory = state(&root, &environment).unwrap();
@@ -379,8 +382,12 @@ mod selector_tests {
             invocation: CliInvocationId::new(),
             configuration: Configuration {
                 backend: Backend::NativeSnapshot,
-                project: root.clone(), features: vec![], no_default_features: false,
-                target: None, build_macros: false, test_context: false,
+                project: root.clone(),
+                features: vec![],
+                no_default_features: false,
+                target: None,
+                build_macros: false,
+                test_context: false,
             },
         };
         assert!(prepare_record(&root, &environment, &record).is_err());
@@ -393,6 +400,9 @@ mod selector_tests {
         assert_eq!(selected.version, record.version);
         assert_eq!(selected.invocation, record.invocation);
         assert_eq!(selected.configuration, record.configuration);
-        assert_eq!(std::fs::read(other).unwrap(), b"outside current selector namespace");
+        assert_eq!(
+            std::fs::read(other).unwrap(),
+            b"outside current selector namespace"
+        );
     }
 }

@@ -30,7 +30,6 @@ impl Execution {
     ) -> Box<dyn std::error::Error + Send + Sync> {
         format!("reference {phase}: {error}\n{}", self.diagnostics).into()
     }
-
 }
 
 pub(crate) fn execute(

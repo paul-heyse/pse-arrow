@@ -3221,10 +3221,13 @@ impl ReplaySimulationConstructor {
         let mut profile = self.profile.clone();
         let forward_targets = match &self.forward_selection {
             Some(ReplayForwardSelection::SemanticParameters(parameters)) => Some(
-                parameters.iter().map(|member| super::modeling::dynamics::IntegrationInputTarget {
-                    member: *member,
-                    schedule_start: None,
-                }).collect::<Vec<_>>(),
+                parameters
+                    .iter()
+                    .map(|member| super::modeling::dynamics::IntegrationInputTarget {
+                        member: *member,
+                        schedule_start: None,
+                    })
+                    .collect::<Vec<_>>(),
             ),
             Some(ReplayForwardSelection::PhysicalAxes(axes)) => {
                 profile.forward_axes = Some(axes.clone());

@@ -1813,7 +1813,11 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
         let restored = reader.read_frozen().unwrap();
         let cancel = pse_columnar::CancellationToken::new();
         for member in ["optional_profile", "selected_result", "unrequested_result"] {
-            assert!(reader.copy_member_verified(member, &mut std::io::sink(), &cancel).is_err());
+            assert!(
+                reader
+                    .copy_member_verified(member, &mut std::io::sink(), &cancel)
+                    .is_err()
+            );
         }
         let result_scope = reader
             .index()
@@ -1860,7 +1864,9 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
             );
         }
         let mut diagnostic = Vec::new();
-        reader.copy_member_verified("diagnostic", &mut diagnostic, &cancel).unwrap();
+        reader
+            .copy_member_verified("diagnostic", &mut diagnostic, &cancel)
+            .unwrap();
         let stream = StreamReader::try_new(Cursor::new(diagnostic), None).unwrap();
         let mut rows = 0;
         for batch in stream {

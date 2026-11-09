@@ -1956,13 +1956,19 @@ mod tests {
                 &mut provider,
                 &[-2.],
                 &request,
-                ProviderRuntime { observe_selection: true, ..Default::default() },
+                ProviderRuntime {
+                    observe_selection: true,
+                    ..Default::default()
+                },
                 &context,
             )
             .unwrap();
         assert_eq!(first.values, [-1.]);
         let selected = first.selection.unwrap();
-        assert_eq!(selected.selection().regularity, pse_kernels::ProviderSelectionRegularity::CertifiedChart);
+        assert_eq!(
+            selected.selection().regularity,
+            pse_kernels::ProviderSelectionRegularity::CertifiedChart
+        );
         assert_eq!(selected.selection().selection_order, DerivativeOrder::First);
         assert_eq!(selected.requested_order(), DerivativeOrder::Second);
         let token = first

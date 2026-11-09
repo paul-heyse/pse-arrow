@@ -230,7 +230,7 @@ async fn seal_fixture_point(
             .seal_attempt(
                 &manifest,
                 &format!("seal-{point}"),
-            if succeeded {
+                if succeeded {
                     TerminalClass::Succeeded
                 } else {
                     TerminalClass::Failed
@@ -280,7 +280,10 @@ async fn scalar_cohort_reads_only_needed_roots_and_filters_before_limit() {
     let runtime = flow::durable_tests::durable_runtime();
     let physical = physical(&runtime).await;
     let store = runtime.canonical_store().unwrap();
-    let source = store.edit("cohort-scalar-model", None, "source", &[]).await.unwrap();
+    let source = store
+        .edit("cohort-scalar-model", None, "source", &[])
+        .await
+        .unwrap();
     let study = "cohort-scalar-study";
     create(&runtime, study, &source, &physical, 2).await;
     let owner = pse_operations::mint_id();
@@ -293,72 +296,118 @@ async fn scalar_cohort_reads_only_needed_roots_and_filters_before_limit() {
             runtime.registry(),
             1,
             &runtime.validation_context(),
-        ).unwrap();
-        builder.push(solve_variables::Row {
-            run_id: pse_operations::mint_id(),
-            step: 0,
-            symbol_id: owner,
-            quantity_id: Some(quantity),
-            unit_id: Some(units[key as usize]),
-            fixed: false,
-            parameter: false,
-            domain: None,
-            value: Some(value),
-            lower: None,
-            upper: None,
-            lower_violation: None,
-            upper_violation: None,
-            tolerance: None,
-            lower_dual: None,
-            upper_dual: None,
-            reduced_cost: None,
-            stationarity: None,
-            dual_qualification: DualQualification::Unavailable,
-        }).unwrap();
+        )
+        .unwrap();
+        builder
+            .push(solve_variables::Row {
+                run_id: pse_operations::mint_id(),
+                step: 0,
+                symbol_id: owner,
+                quantity_id: Some(quantity),
+                unit_id: Some(units[key as usize]),
+                fixed: false,
+                parameter: false,
+                domain: None,
+                value: Some(value),
+                lower: None,
+                upper: None,
+                lower_violation: None,
+                upper_violation: None,
+                tolerance: None,
+                lower_dual: None,
+                upper_dual: None,
+                reduced_cost: None,
+                stationarity: None,
+                dual_qualification: DualQualification::Unavailable,
+            })
+            .unwrap();
         let original = builder.finish().unwrap();
         let cursor = flow::ResultCursor::from_retained(
             original.batch().schema(),
             solve_variables::RELATION_ID,
             std::slice::from_ref(&original),
-        ).unwrap();
+        )
+        .unwrap();
         flow::result_projection::store_result_table(
-            store, &claim.fence, solve_variables::RELATION_ID, cursor,
-            &runtime.shared.pool(), &flow::durable::PublicationAcks::new(&runtime.shared.pool()),
-        ).await.unwrap();
-        seal_fixture_point(&runtime, key, &point_key(study, OccurrenceKey(key)), claim, true).await;
+            store,
+            &claim.fence,
+            solve_variables::RELATION_ID,
+            cursor,
+            &runtime.shared.pool(),
+            &flow::durable::PublicationAcks::new(&runtime.shared.pool()),
+        )
+        .await
+        .unwrap();
+        seal_fixture_point(
+            &runtime,
+            key,
+            &point_key(study, OccurrenceKey(key)),
+            claim,
+            true,
+        )
+        .await;
     }
-    let frozen = runtime.freeze_study_cohort(cohort(&physical)).await.unwrap();
-    let relation = frozen.relation(StudyKpiRequest {
-        relation: "runtime.solve_variables".into(),
-        owner,
-        field: "value".into(),
-        partition: "step:0".into(),
-        start: 0,
-        end: 1,
-    }, cancel).await.unwrap();
+    let frozen = runtime
+        .freeze_study_cohort(cohort(&physical))
+        .await
+        .unwrap();
+    let relation = frozen
+        .relation(
+            StudyKpiRequest {
+                relation: "runtime.solve_variables".into(),
+                owner,
+                field: "value".into(),
+                partition: "step:0".into(),
+                start: 0,
+                end: 1,
+            },
+            cancel,
+        )
+        .await
+        .unwrap();
     let provider = relation.table_provider();
     let full_width = provider.schema().fields().len() as u64;
     let context = SessionContext::new_with_state(relation.session_state());
     let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
     let observed = hub.start("scalar cohort residual and projection");
     let batches = pse_diagnostics::observation::scope(Some(observed.context()), async {
-        context.read_table(provider).unwrap()
-            .filter(col("value").gt(lit(4.0))).unwrap()
-            .select_columns(&["unit_id"]).unwrap()
-            .limit(0, Some(1)).unwrap()
-            .collect().await
-    }).await.unwrap();
-    assert_eq!(batches.iter().map(|batch| batch.num_rows()).sum::<usize>(), 1);
+        context
+            .read_table(provider)
+            .unwrap()
+            .filter(col("value").gt(lit(4.0)))
+            .unwrap()
+            .select_columns(&["unit_id"])
+            .unwrap()
+            .limit(0, Some(1))
+            .unwrap()
+            .collect()
+            .await
+    })
+    .await
+    .unwrap();
+    assert_eq!(
+        batches.iter().map(|batch| batch.num_rows()).sum::<usize>(),
+        1
+    );
     let selected = batches.iter().find(|batch| batch.num_rows() != 0).unwrap();
     assert_eq!(selected.num_columns(), 1);
-    let unit = selected.column(0).as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
+    let unit = selected
+        .column(0)
+        .as_any()
+        .downcast_ref::<FixedSizeBinaryArray>()
+        .unwrap();
     assert_eq!(unit.value(0), units[1].as_bytes());
     let metrics = observed.reader().snapshot(Duration::from_secs(60)).metrics;
-    let count = |name: &str| metrics.iter().filter(|metric| metric.name == name)
-        .map(|metric| match &metric.cumulative {
-            pse_diagnostics::observation::Value::Count(value) => *value,
-            _ => panic!("additive result counter required"),
-        }).sum::<u64>();
+    let count = |name: &str| {
+        metrics
+            .iter()
+            .filter(|metric| metric.name == name)
+            .map(|metric| match &metric.cumulative {
+                pse_diagnostics::observation::Value::Count(value) => *value,
+                _ => panic!("additive result counter required"),
+            })
+            .sum::<u64>()
+    };
     let decoded = count("canonical.result.native_decodes");
     assert_eq!(decoded, 2, "the first attempt cannot satisfy the residual");
     assert!(count("canonical.result.hydrated_roots") < full_width * decoded);

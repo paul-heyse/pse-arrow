@@ -76,55 +76,69 @@ pub(super) fn to_pb(v: NativeInvestigationFacts) -> Result<pb::NativeInvestigati
         documentation_links: v
             .documentation_links
             .into_iter()
-            .map(|link| Ok(pb::NativeDocumentationLinkObservation {
-                written: link.written,
-                owner: link.owner.map(native_location_to_pb).transpose()?.into(),
-                target: link.target.map(native_location_to_pb).transpose()?.into(),
-                namespace: link.namespace,
-                limitations: link.limitations,
-                ..Default::default()
-            }))
+            .map(|link| {
+                Ok(pb::NativeDocumentationLinkObservation {
+                    written: link.written,
+                    owner: link.owner.map(native_location_to_pb).transpose()?.into(),
+                    target: link.target.map(native_location_to_pb).transpose()?.into(),
+                    namespace: link.namespace,
+                    limitations: link.limitations,
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
         body: v
             .body
-            .map(|b| -> Result<_> { Ok(pb::NativeBodyObservation {
-                location: b.location.map(native_location_to_pb).transpose()?.into(),
-                kind: b.kind,
-                package_id: b.package_id,
-                role: b.role,
-                owner: b.owner.map(native_location_to_pb).transpose()?.into(),
-                limitations: b.limitations,
-                ..Default::default()
-            }) }).transpose()?
+            .map(|b| -> Result<_> {
+                Ok(pb::NativeBodyObservation {
+                    location: b.location.map(native_location_to_pb).transpose()?.into(),
+                    kind: b.kind,
+                    package_id: b.package_id,
+                    role: b.role,
+                    owner: b.owner.map(native_location_to_pb).transpose()?.into(),
+                    limitations: b.limitations,
+                    ..Default::default()
+                })
+            })
+            .transpose()?
             .into(),
         compatibility: v
             .compatibility
-            .map(|c| -> Result<_> { Ok(pb::NativeCompatibilityObservation {
-                operation: operation_to_pb(c.operation).into(),
-                left: native_location_to_pb(c.left)?.into(),
-                right: native_location_to_pb(c.right)?.into(),
-                left_type: c.left_type,
-                right_type: c.right_type,
-                result: c.result,
-                compatible_owner: c.compatible_owner,
-                limitations: c.limitations,
-                ..Default::default()
-            }) }).transpose()?
+            .map(|c| -> Result<_> {
+                Ok(pb::NativeCompatibilityObservation {
+                    operation: operation_to_pb(c.operation).into(),
+                    left: native_location_to_pb(c.left)?.into(),
+                    right: native_location_to_pb(c.right)?.into(),
+                    left_type: c.left_type,
+                    right_type: c.right_type,
+                    result: c.result,
+                    compatible_owner: c.compatible_owner,
+                    limitations: c.limitations,
+                    ..Default::default()
+                })
+            })
+            .transpose()?
             .into(),
         visible: v.visible,
         origins: v
             .origins
             .into_iter()
-            .map(|o| Ok(pb::NativeOriginObservation {
-                ordinal: number(o.ordinal),
-                target_kind: target_kind(o.target_kind).into(),
-                occurrence: o.occurrence.map(native_location_to_pb).transpose()?.into(),
-                target: o.target.map(native_location_to_pb).transpose()?.into(),
-                name: o.name,
-                originating_adt: o.originating_adt.map(native_location_to_pb).transpose()?.into(),
-                limitations: o.limitations,
-                ..Default::default()
-            }))
+            .map(|o| {
+                Ok(pb::NativeOriginObservation {
+                    ordinal: number(o.ordinal),
+                    target_kind: target_kind(o.target_kind).into(),
+                    occurrence: o.occurrence.map(native_location_to_pb).transpose()?.into(),
+                    target: o.target.map(native_location_to_pb).transpose()?.into(),
+                    name: o.name,
+                    originating_adt: o
+                        .originating_adt
+                        .map(native_location_to_pb)
+                        .transpose()?
+                        .into(),
+                    limitations: o.limitations,
+                    ..Default::default()
+                })
+            })
             .collect::<Result<_>>()?,
         limitations: v.limitations,
         ..Default::default()

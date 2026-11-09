@@ -383,7 +383,9 @@ async fn package(
         Err(error) => {
             if let WorkflowError::Canonical(
                 pse_operations::canonical::CanonicalError::SourceEditUnsettled {
-                    problem, operation, ..
+                    problem,
+                    operation,
+                    ..
                 },
             ) = &error
             {

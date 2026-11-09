@@ -8,9 +8,7 @@
 use pse_host::extraction::TargetSetupRefusal;
 use pse_operations::{
     canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
-    native_service::{
-        NativeCanonicalService, NativeServiceError, NativeServiceSpec,
-    },
+    native_service::{NativeCanonicalService, NativeServiceError, NativeServiceSpec},
 };
 use std::{
     path::PathBuf,

@@ -284,7 +284,9 @@ impl DeclaredExecution {
             ));
         };
         if !matches!(&self.procedure, DeclaredProcedure::Initialize(policy) if policy == authored) {
-            return Err(contract("initialization policy differs from authored admission"));
+            return Err(contract(
+                "initialization policy differs from authored admission",
+            ));
         }
         let mut plan = authored.clone();
         let fixture = self
@@ -482,7 +484,11 @@ impl ModelingPackage {
                 let bytes = size_of::<DeclaredPreparation>()
                     + bindings_bytes
                     + initialization.map_or(0, |policy| {
-                        policy.stages.iter().map(|stage| size_of::<String>() + stage.len()).sum()
+                        policy
+                            .stages
+                            .iter()
+                            .map(|stage| size_of::<String>() + stage.len())
+                            .sum()
                     })
                     + self.revision.revision_id().len()
                     + self.physical.sources.len() * 256

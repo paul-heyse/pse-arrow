@@ -738,7 +738,9 @@ fn substitute(
     )?;
     replacements.sort_unstable_by_key(|(symbol, _)| *symbol);
     if replacements.windows(2).any(|pair| pair[0].0 == pair[1].0) {
-        return Err(MathError::Contract("duplicate class substitution symbol".into()));
+        return Err(MathError::Contract(
+            "duplicate class substitution symbol".into(),
+        ));
     }
     let replacement = |symbol| {
         replacements
@@ -931,7 +933,12 @@ fn prove_affine(
     allowance.charge(symbols.len())?;
     let mut candidates = symbols
         .into_iter()
-        .filter_map(|symbol| formals.symbols.get(&symbol).map(|(column, formal)| (symbol, *column, formal)))
+        .filter_map(|symbol| {
+            formals
+                .symbols
+                .get(&symbol)
+                .map(|(column, formal)| (symbol, *column, formal))
+        })
         .collect::<Vec<_>>();
     candidates.sort_by_key(|(_, column, _)| *column);
     observe("candidate_coordinates", candidates.len());
@@ -1079,7 +1086,9 @@ mod affine_controls {
         let bound = substitute(&original, replacements.clone(), &mut allowance, &cancel).unwrap();
         assert_eq!(bound, av.sin() + av.cos() + bv.exp());
         let spent = limit - allowance.remaining;
-        let mut insufficient = Allowance { remaining: spent - 1 };
+        let mut insufficient = Allowance {
+            remaining: spent - 1,
+        };
         assert!(matches!(
             substitute(&original, replacements, &mut insufficient, &cancel),
             Err(MathError::WorkLimit { .. })

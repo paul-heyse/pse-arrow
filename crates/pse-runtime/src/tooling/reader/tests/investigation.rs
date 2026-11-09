@@ -292,7 +292,10 @@ fn declared_query_reports_specification_without_external_execution() {
 fn scientific_capture_query_preserves_original_identity_and_unavailable_association() {
     use crate::{
         invocation::{InvocationEndpoints, InvocationEvidenceDocument},
-        tooling::capture::{CaptureDocument, CaptureKind, CaptureLoss, CaptureOutput, CaptureOutputKind, CaptureStatus},
+        tooling::capture::{
+            CaptureDocument, CaptureKind, CaptureLoss, CaptureOutput, CaptureOutputKind,
+            CaptureStatus,
+        },
         workflow::AttemptSummary,
     };
     use pse_diagnostics::observation::RecordAvailability;
@@ -301,9 +304,18 @@ fn scientific_capture_query_preserves_original_identity_and_unavailable_associat
 
     let directory = tempfile::tempdir().unwrap();
     let embedded = directory.path().join("original-prefix-not-supplied");
-    let exact = OperationId { process_instance: [u64::MAX, 7], sequence: u64::MAX };
-    let distinct_process = OperationId { process_instance: [u64::MAX - 1, 7], ..exact };
-    let shared = OperationId { sequence: u64::MAX - 1, ..exact };
+    let exact = OperationId {
+        process_instance: [u64::MAX, 7],
+        sequence: u64::MAX,
+    };
+    let distinct_process = OperationId {
+        process_instance: [u64::MAX - 1, 7],
+        ..exact
+    };
+    let shared = OperationId {
+        sequence: u64::MAX - 1,
+        ..exact
+    };
     let invocation = |run: u8, attempt: Option<u8>, operation: Option<OperationId>| {
         let run_id = RunId::from_bytes([run; 16]);
         InvocationEvidenceDocument {
@@ -390,21 +402,42 @@ fn scientific_capture_query_preserves_original_identity_and_unavailable_associat
     for (index, row) in captures.iter().enumerate() {
         assert_eq!(row["pointer"], format!("/captures/{index}"));
     }
-    assert_eq!(captures[0]["association"], serde_json::json!({"kind":"linked","invocation_member":0}));
+    assert_eq!(
+        captures[0]["association"],
+        serde_json::json!({"kind":"linked","invocation_member":0})
+    );
     assert_eq!(captures[0]["status"], "Partial");
-    assert_eq!(captures[0]["operation"]["sequence"].as_u64(), Some(u64::MAX));
-    assert_eq!(captures[0]["loss"]["queued_packets_dropped"].as_u64(), Some(u64::MAX));
+    assert_eq!(
+        captures[0]["operation"]["sequence"].as_u64(),
+        Some(u64::MAX)
+    );
+    assert_eq!(
+        captures[0]["loss"]["queued_packets_dropped"].as_u64(),
+        Some(u64::MAX)
+    );
     assert_eq!(captures[0]["loss"]["unknown_clock"], true);
-    assert_eq!(captures[0]["observed_duration"], serde_json::to_value(set.captures[0].observed_duration).unwrap());
+    assert_eq!(
+        captures[0]["observed_duration"],
+        serde_json::to_value(set.captures[0].observed_duration).unwrap()
+    );
     assert_eq!(captures[1]["association"]["kind"], "invocation_unavailable");
     assert_eq!(captures[2]["association"]["kind"], "operation_unavailable");
-    assert_eq!(captures[3]["association"], serde_json::json!({"kind":"ambiguous","candidates":2}));
+    assert_eq!(
+        captures[3]["association"],
+        serde_json::json!({"kind":"ambiguous","candidates":2})
+    );
     assert_eq!(captures[4]["association"], captures[0]["association"]);
     let invocations = analysis["invocations"].as_array().unwrap();
     assert_eq!(invocations.len(), 4);
     assert_eq!(invocations[0]["pointer"], "/invocations/0");
-    assert_eq!(invocations[0]["run_id"], serde_json::to_value(set.invocations[0].run_id).unwrap());
-    assert_eq!(invocations[0]["attempt_id"], serde_json::to_value(set.invocations[0].attempt_id).unwrap());
+    assert_eq!(
+        invocations[0]["run_id"],
+        serde_json::to_value(set.invocations[0].run_id).unwrap()
+    );
+    assert_eq!(
+        invocations[0]["attempt_id"],
+        serde_json::to_value(set.invocations[0].attempt_id).unwrap()
+    );
     assert_eq!(invocations[0]["outcome"], "failed");
     assert_eq!(invocations[0]["clock_scope"], "original invocation 9 clock");
     assert_eq!(invocations[1]["clock_scope"], "original invocation 4 clock");
@@ -417,7 +450,11 @@ fn scientific_capture_query_preserves_original_identity_and_unavailable_associat
 fn scientific_capture_query_distinguishes_empty_evidence_from_allocation_refusal() {
     let directory = tempfile::tempdir().unwrap();
     let evidence = directory.path().join("empty-original.json");
-    std::fs::write(&evidence, serde_json::to_vec(&FrozenEvidenceSet::default()).unwrap()).unwrap();
+    std::fs::write(
+        &evidence,
+        serde_json::to_vec(&FrozenEvidenceSet::default()).unwrap(),
+    )
+    .unwrap();
     let request = |bytes| InvestigationRequest::ScientificCaptureAnalyze {
         request: crate::tooling::review_query::scientific_capture::Request {
             evidence: evidence.clone(),
@@ -426,7 +463,10 @@ fn scientific_capture_query_distinguishes_empty_evidence_from_allocation_refusal
     };
     let empty = read(request(16 << 20), Access::Passive);
     assert_eq!(empty["category"], "success", "{empty}");
-    assert_eq!(empty["payload"]["result"]["analysis"]["captures"], serde_json::json!([]));
+    assert_eq!(
+        empty["payload"]["result"]["analysis"]["captures"],
+        serde_json::json!([])
+    );
     let refused = read(request(1), Access::Passive);
     assert_eq!(refused["category"], "refused", "{refused}");
     assert_eq!(

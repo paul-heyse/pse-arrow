@@ -197,17 +197,35 @@ impl CanonicalStore {
 
     /// Retrieve only the actual primary and physical source receipts of a run.
     pub async fn analysis_run_sources(&self, run: &str) -> Result<Vec<Revision>, CanonicalError> {
-        crate::canonical::transport::metadata_scope(crate::canonical::MetadataResponse::Selection, async {
-        let activity = self.admit_activity()?;
-        activity.scope(async {
-        within_clock(original_deadline(crate::canonical::REQUEST_TIMEOUT), async {
-            identity(run)?;
-            let mut response=bounded_query(self.db.metadata_query(crate::canonical::MetadataResponse::Selection, RUN_SOURCE_KEYS).bind(("run",run.to_owned()))).await?;
-            let keys = response.take::<Vec<String>>(0)?;
-            self.resolve_run_source_revisions(keys).await
-        }).await
-            }).await
-        }).await
+        crate::canonical::transport::metadata_scope(
+            crate::canonical::MetadataResponse::Selection,
+            async {
+                let activity = self.admit_activity()?;
+                activity
+                    .scope(async {
+                        within_clock(
+                            original_deadline(crate::canonical::REQUEST_TIMEOUT),
+                            async {
+                                identity(run)?;
+                                let mut response = bounded_query(
+                                    self.db
+                                        .metadata_query(
+                                            crate::canonical::MetadataResponse::Selection,
+                                            RUN_SOURCE_KEYS,
+                                        )
+                                        .bind(("run", run.to_owned())),
+                                )
+                                .await?;
+                                let keys = response.take::<Vec<String>>(0)?;
+                                self.resolve_run_source_revisions(keys).await
+                            },
+                        )
+                        .await
+                    })
+                    .await
+            },
+        )
+        .await
     }
 
     /// Resolve the original source lineage through an exact issued result protection.
@@ -257,8 +275,11 @@ impl CanonicalStore {
         }
         let mut sources = Vec::with_capacity(keys.len());
         for key in keys {
-            sources.push(self.revision(&key).await?
-                .ok_or_else(|| invalid("analysis result source missing"))?);
+            sources.push(
+                self.revision(&key)
+                    .await?
+                    .ok_or_else(|| invalid("analysis result source missing"))?,
+            );
         }
         Ok(sources)
     }

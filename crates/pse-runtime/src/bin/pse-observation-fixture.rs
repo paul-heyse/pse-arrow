@@ -81,7 +81,9 @@ fn verify_portable(root: &Path) -> Result<()> {
         )
         .into());
     }
-    let digest: String = raw.0.finalize()
+    let digest: String = raw
+        .0
+        .finalize()
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect();

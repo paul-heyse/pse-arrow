@@ -401,16 +401,10 @@ fn take_reserved_storage(
     let extent = match selected_extent {
         Some(extent) => extent,
         None => pse_columnar::allocation_extent::algorithm_decode_extent(source)?
-            .checked_mul(take_source_copies(
-                source,
-                indices,
-                pool,
-                cancel,
-            )?)
+            .checked_mul(take_source_copies(source, indices, pool, cancel)?)
             .ok_or_else(|| mismatch("bounded take extent"))?,
     };
-    let reservation =
-        pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);
+    let reservation = pse_columnar::MemoryConsumer::new("relations:checked-take").register(pool);
     reservation
         .try_grow(extent)
         .map_err(pse_columnar::CanonError::from)?;
@@ -1051,7 +1045,13 @@ impl FieldCheckedBatch {
         pool: &Arc<dyn pse_columnar::MemoryPool>,
         cancel: &pse_columnar::CancellationToken,
     ) -> Result<Self, RelationError> {
-        let owned = take_reserved_storage(&self.storage.batch, self.storage.owned.as_ref(), indices, pool, cancel)?;
+        let owned = take_reserved_storage(
+            &self.storage.batch,
+            self.storage.owned.as_ref(),
+            indices,
+            pool,
+            cancel,
+        )?;
         Self::from_parts(
             self.relation_id,
             self.contract.clone(),

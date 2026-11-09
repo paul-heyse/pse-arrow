@@ -201,20 +201,26 @@ impl ResultBlockDecode {
         requested: Option<&Vec<usize>>,
         dependencies: impl IntoIterator<Item = usize>,
     ) -> NativeResult<Option<QueryResultProjection>> {
-        let Some(requested) = requested.filter(|roots| roots.len() < self.schema.fields().len()) else {
+        let Some(requested) = requested.filter(|roots| roots.len() < self.schema.fields().len())
+        else {
             return Ok(None);
         };
         let mut required = requested.clone();
         required.extend(dependencies);
-        let roots = self.inspection_projection(&required).map_err(pse_columnar::external)?;
+        let roots = self
+            .inspection_projection(&required)
+            .map_err(pse_columnar::external)?;
         if roots.roots().len() == self.schema.fields().len() {
             return Ok(None);
         }
-        let output = requested.iter().map(|root| {
-            roots.roots().binary_search(root).map_err(|_| {
-                DataFusionError::Plan("query root outside protected projection".into())
+        let output = requested
+            .iter()
+            .map(|root| {
+                roots.roots().binary_search(root).map_err(|_| {
+                    DataFusionError::Plan("query root outside protected projection".into())
+                })
             })
-        }).collect::<NativeResult<_>>()?;
+            .collect::<NativeResult<_>>()?;
         Ok(Some(QueryResultProjection { roots, output }))
     }
     pub(super) fn new(

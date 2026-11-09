@@ -317,7 +317,10 @@ mod tests {
             &RedactionPolicy::default(),
         );
         let input_failure = ErrorRecord::from_typed(
-            &HostError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "original workflow input")),
+            &HostError::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "original workflow input",
+            )),
             &RedactionPolicy::default(),
         );
         let bytes = serde_json::to_vec(&serde_json::json!({
@@ -426,13 +429,15 @@ mod tests {
             None,
             &full,
             crate::test_workflow::execute::EvidenceScope::Full,
-        ).unwrap();
+        )
+        .unwrap();
         let readback = crate::developer_evidence::inspect(
             &descriptors,
             &full_receipt.message,
             &std::fs::read(&full).unwrap(),
             &crate::developer_evidence::binary_options(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(readback.original_dependency_omissions, Some(1));
         assert_eq!(readback.full_original_bytes_available, Some(false));
         std::fs::set_permissions(&report_path, std::fs::Permissions::from_mode(0o600)).unwrap();

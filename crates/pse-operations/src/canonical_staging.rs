@@ -26,8 +26,8 @@ use std::time::Duration;
 use surrealdb_protocol::proto::v1 as proto;
 #[cfg(test)]
 use surrealdb_types::QueryError;
-use surrealdb_types::{Object, Value};
 use surrealdb_types::prost::Message as _;
+use surrealdb_types::{Object, Value};
 
 /// Each native request/response carries one source block below the protocol limit.
 pub const SOURCE_BLOCK_BYTES: usize = 512 * 1024;
@@ -2218,10 +2218,7 @@ mod canonical_staging_unit {
                     logical: logical.clone(),
                     scope: identity.clone(),
                     name: identity.clone(),
-                    references: vec![
-                        (identity.clone(), identity.clone());
-                        SMALL_STAGE_REFERENCES
-                    ],
+                    references: vec![(identity.clone(), identity.clone()); SMALL_STAGE_REFERENCES],
                     version: Some(ObjectVersion {
                         key: logical.clone(),
                         logical,
@@ -2245,7 +2242,9 @@ mod canonical_staging_unit {
         let mut batch = SmallStageBatch::default();
         let mut chunks = Vec::new();
         for (ordinal, (change, edit)) in plan.changes.iter().zip(&edits).enumerate() {
-            let item = staging_item(&stage, ordinal, change, edit).unwrap().unwrap();
+            let item = staging_item(&stage, ordinal, change, edit)
+                .unwrap()
+                .unwrap();
             chunks.extend(batch.push(item).unwrap());
         }
         chunks.push(batch.take());

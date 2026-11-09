@@ -1009,31 +1009,31 @@ impl ModelingPackage {
         // The fixture future already owns this state. Scope a pinned borrow so
         // generic diagnostic wrappers do not move that large state on the native stack.
         let work = std::pin::pin!(async {
-                let original = engagement::OriginalPreparationInputs::capture(
-                    services, root, instance, &bindings, limits,
-                )?;
-                bindings
-                    .demand
-                    .extend(case.values.keys().chain(case.variables.keys()).cloned());
-                bindings.demand.sort();
-                bindings.demand.dedup();
-                let mut model = self
-                    .prepare(services, root, instance, bindings, limits, cancel)
-                    .await?;
-                model.original = Some(original);
-                self.resolve_prepared_case(
-                    services,
-                    model,
-                    case,
-                    order,
-                    compiler,
-                    solver,
-                    numerical,
-                    overrides,
-                    allow_missing_free,
-                    cancel,
-                )
-                .await
+            let original = engagement::OriginalPreparationInputs::capture(
+                services, root, instance, &bindings, limits,
+            )?;
+            bindings
+                .demand
+                .extend(case.values.keys().chain(case.variables.keys()).cloned());
+            bindings.demand.sort();
+            bindings.demand.dedup();
+            let mut model = self
+                .prepare(services, root, instance, bindings, limits, cancel)
+                .await?;
+            model.original = Some(original);
+            self.resolve_prepared_case(
+                services,
+                model,
+                case,
+                order,
+                compiler,
+                solver,
+                numerical,
+                overrides,
+                allow_missing_free,
+                cancel,
+            )
+            .await
         });
         activity.scope(work).await
     }

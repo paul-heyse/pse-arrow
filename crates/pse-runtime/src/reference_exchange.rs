@@ -8,10 +8,10 @@ use pse_model::reference_exchange as native;
 
 /// Source-generated messages and validators, with the complete imported descriptor world.
 pub mod generated;
+use generated::pb::pse::reference::v1 as pb;
 pub use pse_model::reference_exchange::{
     ReferenceCaseContract, ReferenceFixedInput, ReferenceInputArtifact, ReferenceObservableContract,
 };
-use generated::pb::pse::reference::v1 as pb;
 const MAXIMUM_BYTES: usize = 16 << 20;
 const UNKNOWN_FIELDS: usize = 256;
 const RECURSION: u32 = 32;

@@ -7164,7 +7164,13 @@ status_column = 1
 path = "docs/plans/66-integrated-simulation-target.md"
 name = "shared-contract-dispositions"
 heading = "Shared engineering and solver contract dispositions"
-headers = ["ID", "Finding and scenario", "Disposition", "Work owner", "Required evidence"]
+headers = [
+  "ID",
+  "Finding and scenario",
+  "Disposition",
+  "Work owner",
+  "Required evidence",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(F[0-9]+)\b'
@@ -7175,7 +7181,13 @@ status_column = 2
 path = "docs/plans/66-integrated-simulation-target.md"
 name = "symbolica-improvement-dispositions"
 heading = "Symbolica improvement dispositions"
-headers = ["ID", "Review finding", "Disposition", "Work owner", "Required evidence or decision"]
+headers = [
+  "ID",
+  "Review finding",
+  "Disposition",
+  "Work owner",
+  "Required evidence or decision",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(I[0-9]{2})\b'
@@ -7684,7 +7696,12 @@ owner_column = 2
 path = "docs/plans/71-workflow-and-simulation-test-feedback.md"
 name = "opportunity-dispositions"
 heading = "Opportunity dispositions"
-headers = ["Opportunity", "Disposition", "Work owner", "Evidence or revisit trigger"]
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Evidence or revisit trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(O[0-9]+)\b'

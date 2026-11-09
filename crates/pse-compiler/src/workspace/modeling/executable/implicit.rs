@@ -189,7 +189,15 @@ impl Projection {
     }
     pub(super) fn annotation_rows(
         &self,
-    ) -> impl Iterator<Item = (usize, SemanticId, DeclarationId, QuantityTypeId, &SelectedRegion)> + '_ {
+    ) -> impl Iterator<
+        Item = (
+            usize,
+            SemanticId,
+            DeclarationId,
+            QuantityTypeId,
+            &SelectedRegion,
+        ),
+    > + '_ {
         self.residuals.iter().flat_map(|residual| {
             residual
                 .rows

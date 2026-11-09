@@ -1317,7 +1317,13 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
         .unwrap();
     let mut buffer = ProviderBuffer::new(&columns);
     let unobserved = buffer
-        .fill(&mut provider, &parameters, &columns, Default::default(), &context)
+        .fill(
+            &mut provider,
+            &parameters,
+            &columns,
+            Default::default(),
+            &context,
+        )
         .unwrap();
     assert!(unobserved.selection.is_none());
     let actual = buffer
@@ -1325,7 +1331,10 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
             &mut provider,
             &parameters,
             &columns,
-            ProviderRuntime { observe_selection: true, ..Default::default() },
+            ProviderRuntime {
+                observe_selection: true,
+                ..Default::default()
+            },
             &context,
         )
         .unwrap();
@@ -1344,10 +1353,16 @@ fn implicit_regime_narrow_products_keep_full_first_scientific_demand_without_ful
     assert_eq!(selected.provider(), factory.spec.key());
     assert_eq!(selected.requested_order(), DerivativeOrder::Second);
     assert_eq!(selected.selection().selector, factory.spec.id);
-    assert_eq!(selected.selection().regime, factory.alternatives[0].residual.spec.id);
+    assert_eq!(
+        selected.selection().regime,
+        factory.alternatives[0].residual.spec.id
+    );
     assert_eq!(selected.selection().policy, factory.configuration_key());
     assert_eq!(selected.selection().selection_order, DerivativeOrder::First);
-    assert_eq!(selected.selection().regularity, pse_kernels::ProviderSelectionRegularity::Local);
+    assert_eq!(
+        selected.selection().regularity,
+        pse_kernels::ProviderSelectionRegularity::Local
+    );
     for demand in [
         ProviderDemand::JacobianAction { directions: 1 },
         ProviderDemand::TransposeAction { cotangents: 1 },

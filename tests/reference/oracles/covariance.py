@@ -201,15 +201,12 @@ def main() -> None:
     require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
     original = ScalarCase.read(Path(sys.argv[1]), Path(sys.argv[2]))
     case = _case(original)
-    expected_keys = (
-        [f"estimate:{name}" for name in _PARAMETERS]
-        + [
-            f"{matrix}:{row}:{column}"
-            for matrix in ("covariance", "inverse_information")
-            for row in _PARAMETERS
-            for column in _PARAMETERS
-        ]
-    )
+    expected_keys = [f"estimate:{name}" for name in _PARAMETERS] + [
+        f"{matrix}:{row}:{column}"
+        for matrix in ("covariance", "inverse_information")
+        for row in _PARAMETERS
+        for column in _PARAMETERS
+    ]
     original.outputs(expected_keys)
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
