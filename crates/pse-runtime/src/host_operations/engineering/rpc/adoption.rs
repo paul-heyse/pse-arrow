@@ -149,8 +149,10 @@ mod tests {
 
     #[test]
     fn generated_service_adoption_requires_original_intent_and_exact_identity() {
-        let original = pb::EngineeringPrepareCase {
-            operation: "prepare-original".into(),
+        let original = pb::EngineeringSubmitRun {
+            operation: "run-original".into(),
+            run: vec![8; 16],
+            attempt: vec![9; 16],
             source_operation: "source-original".into(),
             expected_local_revision: "exact-original-parent".into(),
             case: vec![7; 16],
@@ -162,18 +164,26 @@ mod tests {
             ..Default::default()
         };
         let native =
-            crate::engineering_projection::decode_engineering_prepare_case(original.clone())
-                .unwrap();
+            crate::engineering_projection::decode_engineering_submit_run(original.clone()).unwrap();
         assert_eq!(
             native.intent,
             pse_model::generated::enums::NativeSolveIntent::Root
         );
         assert_eq!(native.backend, None);
         assert_eq!(native.case.as_bytes(), &[7; 16]);
+        assert_eq!(native.run.as_bytes(), &[8; 16]);
+        assert_eq!(native.attempt.as_bytes(), &[9; 16]);
+        // The retired preparation-operation field cannot be combined with a
+        // current authored-case request, even when the new fields are valid.
+        let mut mixed = original.encode_to_vec();
+        mixed.extend_from_slice(&[0x12, 0x01, b'p']); // Retired tag 2, length-delimited.
+        let mixed = pb::EngineeringSubmitRun::decode_from_slice(&mixed).unwrap();
+        assert!(!ReflectMessage::unknown_fields(&mixed).is_empty());
+        assert!(crate::engineering_projection::decode_engineering_submit_run(mixed).is_err());
         let mut missing_intent = original.clone();
         missing_intent.intent = Default::default();
         let failure = super::super::study::projection_error(
-            crate::engineering_projection::decode_engineering_prepare_case(missing_intent)
+            crate::engineering_projection::decode_engineering_submit_run(missing_intent)
                 .unwrap_err(),
         );
         assert_eq!(failure.code, connectrpc::ErrorCode::InvalidArgument);
@@ -191,7 +201,7 @@ mod tests {
                 .iter()
                 .any(|detail| { detail.type_url == "pse.engineering.v1.EngineeringFailure" })
         );
-        for changed in 0..3 {
+        for changed in 0..6 {
             let mut request = original.clone();
             match changed {
                 0 => request.intent = Default::default(),
@@ -202,11 +212,12 @@ mod tests {
                     }
                     .into()
                 }
-                _ => request.case = vec![7; 15],
+                2 => request.case = vec![7; 15],
+                3 => request.expected_local_revision.clear(),
+                4 => request.run = vec![8; 15],
+                _ => request.attempt = vec![9; 15],
             }
-            assert!(
-                crate::engineering_projection::decode_engineering_prepare_case(request).is_err()
-            );
+            assert!(crate::engineering_projection::decode_engineering_submit_run(request).is_err());
         }
     }
 }

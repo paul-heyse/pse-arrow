@@ -79396,460 +79396,6 @@ pub const __ENGINEERING_PACKAGE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry =
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
-pub struct EngineeringPrepareCase {
-    /// Field 1: `operation`
-    #[serde(
-        rename = "operation",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub operation: ::buffa::alloc::string::String,
-    /// Field 2: `source_operation`
-    #[serde(
-        rename = "source_operation",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub source_operation: ::buffa::alloc::string::String,
-    /// Field 3: `expected_local_revision`
-    #[serde(
-        rename = "expected_local_revision",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub expected_local_revision: ::buffa::alloc::string::String,
-    /// Field 4: `case`
-    #[serde(
-        rename = "case",
-        with = "::buffa::json_helpers::bytes",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
-    )]
-    pub case: ::buffa::alloc::vec::Vec<u8>,
-    /// Field 5: `intent`
-    #[serde(
-        rename = "intent",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
-    )]
-    pub intent: ::buffa::MessageField<
-        ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
-        ::buffa::Inline<
-            ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
-        >,
-    >,
-    /// Field 6: `backend`
-    #[serde(
-        rename = "backend",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
-    )]
-    pub backend: ::buffa::MessageField<
-        ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
-        ::buffa::Inline<
-            ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
-        >,
-    >,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for EngineeringPrepareCase {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("EngineeringPrepareCase")
-            .field("operation", &self.operation)
-            .field("source_operation", &self.source_operation)
-            .field("expected_local_revision", &self.expected_local_revision)
-            .field("case", &self.case)
-            .field("intent", &self.intent)
-            .field("backend", &self.backend)
-            .finish()
-    }
-}
-impl EngineeringPrepareCase {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPrepareCase";
-}
-::buffa::impl_default_instance!(EngineeringPrepareCase);
-impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringPrepareCase {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.operation),
-            2u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.source_operation),
-            3u32 => {
-                ::buffa_descriptor::reflect::ValueRef::String(
-                    &self.expected_local_revision,
-                )
-            }
-            4u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.case[..]),
-            5u32 => {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.intent),
-                )
-            }
-            6u32 => {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.backend),
-                )
-            }
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => !self.operation.is_empty(),
-            2u32 => !self.source_operation.is_empty(),
-            3u32 => !self.expected_local_revision.is_empty(),
-            4u32 => !self.case.is_empty(),
-            5u32 => self.intent.is_set(),
-            6u32 => self.backend.is_set(),
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for EngineeringPrepareCase {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl EngineeringPrepareCase {
-    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for EngineeringPrepareCase {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for EngineeringPrepareCase {
-    const PACKAGE: &'static str = "pse.engineering.v1";
-    const NAME: &'static str = "EngineeringPrepareCase";
-    const FULL_NAME: &'static str = "pse.engineering.v1.EngineeringPrepareCase";
-    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPrepareCase";
-}
-impl ::buffa::Message for EngineeringPrepareCase {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if !self.operation.is_empty() {
-            size += 1u64 + ::buffa::types::string_encoded_len(&self.operation) as u64;
-        }
-        if !self.source_operation.is_empty() {
-            size
-                += 1u64
-                    + ::buffa::types::string_encoded_len(&self.source_operation) as u64;
-        }
-        if !self.expected_local_revision.is_empty() {
-            size
-                += 1u64
-                    + ::buffa::types::string_encoded_len(&self.expected_local_revision)
-                        as u64;
-        }
-        if !self.case.is_empty() {
-            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.case) as u64;
-        }
-        if self.intent.is_set() {
-            let __slot = __cache.reserve();
-            let inner_size = self.intent.compute_size(__cache);
-            __cache.set(__slot, inner_size);
-            size
-                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                    + inner_size as u64;
-        }
-        if self.backend.is_set() {
-            let __slot = __cache.reserve();
-            let inner_size = self.backend.compute_size(__cache);
-            __cache.set(__slot, inner_size);
-            size
-                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                    + inner_size as u64;
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        __cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        if !self.operation.is_empty() {
-            ::buffa::types::put_string_field(1u32, &self.operation, buf);
-        }
-        if !self.source_operation.is_empty() {
-            ::buffa::types::put_string_field(2u32, &self.source_operation, buf);
-        }
-        if !self.expected_local_revision.is_empty() {
-            ::buffa::types::put_string_field(3u32, &self.expected_local_revision, buf);
-        }
-        if !self.case.is_empty() {
-            ::buffa::types::put_shared_bytes_field(4u32, &self.case, buf);
-        }
-        if self.intent.is_set() {
-            ::buffa::types::put_len_delimited_header(
-                5u32,
-                u64::from(__cache.consume_next()),
-                buf,
-            );
-            self.intent.write_to(__cache, buf);
-        }
-        if self.backend.is_set() {
-            ::buffa::types::put_len_delimited_header(
-                6u32,
-                u64::from(__cache.consume_next()),
-                buf,
-            );
-            self.backend.write_to(__cache, buf);
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.operation, buf)?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.source_operation, buf)?;
-            }
-            3u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.expected_local_revision, buf)?;
-            }
-            4u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_bytes(&mut self.case, buf)?;
-            }
-            5u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::Message::merge_length_delimited(
-                    self.intent.get_or_insert_default(),
-                    buf,
-                    ctx,
-                )?;
-            }
-            6u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::Message::merge_length_delimited(
-                    self.backend.get_or_insert_default(),
-                    buf,
-                    ctx,
-                )?;
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.operation.clear();
-        self.source_operation.clear();
-        self.expected_local_revision.clear();
-        self.case.clear();
-        self.intent = ::buffa::MessageField::none();
-        self.backend = ::buffa::MessageField::none();
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for EngineeringPrepareCase {
-    const PROTO_FQN: &'static str = "pse.engineering.v1.EngineeringPrepareCase";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for EngineeringPrepareCase {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        if !self.operation.is_empty() {
-            enc.write_field_name("operation")?;
-            enc.write_string(&self.operation)?;
-        }
-        if !self.source_operation.is_empty() {
-            enc.write_field_name("source_operation")?;
-            enc.write_string(&self.source_operation)?;
-        }
-        if !self.expected_local_revision.is_empty() {
-            enc.write_field_name("expected_local_revision")?;
-            enc.write_string(&self.expected_local_revision)?;
-        }
-        if !self.case.is_empty() {
-            enc.write_field_name("case")?;
-            enc.write_bytes(&self.case)?;
-        }
-        if self.intent.is_set() {
-            enc.write_field_name("intent")?;
-            enc.write_message(&*self.intent)?;
-        }
-        if self.backend.is_set() {
-            enc.write_field_name("backend")?;
-            enc.write_message(&*self.backend)?;
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "operation" => self.operation = dec.read_string()?.into_owned(),
-                "source_operation" => {
-                    self.source_operation = dec.read_string()?.into_owned();
-                }
-                "expected_local_revision" => {
-                    self.expected_local_revision = dec.read_string()?.into_owned();
-                }
-                "case" => self.case = dec.read_bytes()?,
-                "intent" => dec.merge_message(self.intent.get_or_insert_default())?,
-                "backend" => dec.merge_message(self.backend.get_or_insert_default())?,
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for EngineeringPrepareCase {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __ENGINEERING_PREPARE_CASE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/pse.engineering.v1.EngineeringPrepareCase",
-    to_json: ::buffa::type_registry::any_to_json::<EngineeringPrepareCase>,
-    from_json: ::buffa::type_registry::any_from_json::<EngineeringPrepareCase>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __ENGINEERING_PREPARE_CASE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/pse.engineering.v1.EngineeringPrepareCase",
-    text_encode: ::buffa::type_registry::any_encode_text::<EngineeringPrepareCase>,
-    text_merge: ::buffa::type_registry::any_merge_text::<EngineeringPrepareCase>,
-};
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-#[serde(default)]
 pub struct EngineeringPrepareExpandedStudy {
     /// Field 1: `operation`
     #[serde(
@@ -80263,338 +79809,6 @@ pub const __ENGINEERING_PREPARE_EXPANDED_STUDY_TEXT_ANY: ::buffa::type_registry:
         EngineeringPrepareExpandedStudy,
     >,
     text_merge: ::buffa::type_registry::any_merge_text::<EngineeringPrepareExpandedStudy>,
-};
-#[derive(Clone, PartialEq, Default)]
-#[derive(::serde::Serialize, ::serde::Deserialize)]
-#[serde(default)]
-pub struct EngineeringPreparedSelection {
-    /// Field 1: `operation`
-    #[serde(
-        rename = "operation",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub operation: ::buffa::alloc::string::String,
-    /// Field 2: `source`
-    #[serde(
-        rename = "source",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
-    )]
-    pub source: ::buffa::MessageField<
-        ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringSourceSelection,
-        ::buffa::Inline<
-            ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringSourceSelection,
-        >,
-    >,
-    /// Field 3: `preparation`
-    #[serde(
-        rename = "preparation",
-        with = "::buffa::json_helpers::bytes",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
-    )]
-    pub preparation: ::buffa::alloc::vec::Vec<u8>,
-    #[serde(skip)]
-    #[doc(hidden)]
-    pub __buffa_unknown_fields: ::buffa::UnknownFields,
-}
-impl ::core::fmt::Debug for EngineeringPreparedSelection {
-    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
-        f.debug_struct("EngineeringPreparedSelection")
-            .field("operation", &self.operation)
-            .field("source", &self.source)
-            .field("preparation", &self.preparation)
-            .finish()
-    }
-}
-impl EngineeringPreparedSelection {
-    /// Protobuf type URL for this message, for use with `Any::pack` and
-    /// `Any::unpack_if`.
-    ///
-    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
-    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPreparedSelection";
-}
-::buffa::impl_default_instance!(EngineeringPreparedSelection);
-impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringPreparedSelection {
-    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-        __buffa::reflect::descriptor_pool()
-            .message(Self::__buffa_reflect_message_index())
-    }
-    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-        __buffa::reflect::descriptor_pool()
-    }
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn get(
-        &self,
-        field: &::buffa_descriptor::FieldDescriptor,
-    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        match field.number() {
-            1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.operation),
-            2u32 => {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.source),
-                )
-            }
-            3u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.preparation[..]),
-            _ => {
-                ::core::debug_assert!(
-                    false,
-                    "field number {} is not a member of this message's reflect get()",
-                    field.number(),
-                );
-                ::buffa_descriptor::reflect::ValueRef::Bool(false)
-            }
-        }
-    }
-    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-        match field.number() {
-            1u32 => !self.operation.is_empty(),
-            2u32 => self.source.is_set(),
-            3u32 => !self.preparation.is_empty(),
-            _ => false,
-        }
-    }
-    fn for_each_set(
-        &self,
-        f: &mut dyn ::core::ops::FnMut(
-            &::buffa_descriptor::FieldDescriptor,
-            ::buffa_descriptor::reflect::ValueRef<'_>,
-        ),
-    ) {
-        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
-        for fd in md.fields() {
-            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
-            }
-        }
-    }
-    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-        ::buffa_descriptor::reflect::DynamicMessage::from_message(
-            self,
-            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
-            Self::__buffa_reflect_message_index(),
-        )
-    }
-}
-impl ::buffa_descriptor::reflect::ReflectElement for EngineeringPreparedSelection {
-    #[inline]
-    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-        ::buffa_descriptor::reflect::ValueRef::Message(
-            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-        )
-    }
-}
-impl EngineeringPreparedSelection {
-    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-    /// Memoized `MessageIndex` for this message type, resolved once
-    /// against the package's embedded descriptor pool.
-    #[doc(hidden)]
-    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-        *IDX
-            .get_or_init(|| {
-                __buffa::reflect::descriptor_pool()
-                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                    .expect(
-                        "generated message is registered in the embedded descriptor pool",
-                    )
-            })
-    }
-}
-impl ::buffa_descriptor::reflect::Reflectable for EngineeringPreparedSelection {
-    /// Vtable-mode reflective handle: borrows `self` directly. No
-    /// encode/decode round-trip and no allocation — the reflective
-    /// accessors read this message's fields in place.
-    #[inline]
-    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
-        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
-    }
-}
-impl ::buffa::MessageName for EngineeringPreparedSelection {
-    const PACKAGE: &'static str = "pse.engineering.v1";
-    const NAME: &'static str = "EngineeringPreparedSelection";
-    const FULL_NAME: &'static str = "pse.engineering.v1.EngineeringPreparedSelection";
-    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPreparedSelection";
-}
-impl ::buffa::Message for EngineeringPreparedSelection {
-    /// Returns the total encoded size in bytes.
-    ///
-    /// Accumulates in `u64` (which cannot overflow for in-memory
-    /// data) and saturates to `u32` at return, so a message whose
-    /// encoded size exceeds the 2 GiB protobuf limit yields a value
-    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
-    /// points reject, never a silently wrapped size.
-    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        let mut size = 0u64;
-        if !self.operation.is_empty() {
-            size += 1u64 + ::buffa::types::string_encoded_len(&self.operation) as u64;
-        }
-        if self.source.is_set() {
-            let __slot = __cache.reserve();
-            let inner_size = self.source.compute_size(__cache);
-            __cache.set(__slot, inner_size);
-            size
-                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                    + inner_size as u64;
-        }
-        if !self.preparation.is_empty() {
-            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.preparation) as u64;
-        }
-        size += self.__buffa_unknown_fields.encoded_len() as u64;
-        ::buffa::saturate_size(size)
-    }
-    fn write_to(
-        &self,
-        __cache: &mut ::buffa::SizeCache,
-        buf: &mut impl ::buffa::EncodeSink,
-    ) {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        if !self.operation.is_empty() {
-            ::buffa::types::put_string_field(1u32, &self.operation, buf);
-        }
-        if self.source.is_set() {
-            ::buffa::types::put_len_delimited_header(
-                2u32,
-                u64::from(__cache.consume_next()),
-                buf,
-            );
-            self.source.write_to(__cache, buf);
-        }
-        if !self.preparation.is_empty() {
-            ::buffa::types::put_shared_bytes_field(3u32, &self.preparation, buf);
-        }
-        self.__buffa_unknown_fields.write_to(buf);
-    }
-    fn merge_field(
-        &mut self,
-        tag: ::buffa::encoding::Tag,
-        buf: &mut impl ::buffa::bytes::Buf,
-        ctx: ::buffa::DecodeContext<'_>,
-    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::bytes::Buf as _;
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        match tag.field_number() {
-            1u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.operation, buf)?;
-            }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::Message::merge_length_delimited(
-                    self.source.get_or_insert_default(),
-                    buf,
-                    ctx,
-                )?;
-            }
-            3u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_bytes(&mut self.preparation, buf)?;
-            }
-            _ => {
-                self.__buffa_unknown_fields
-                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-    fn clear(&mut self) {
-        self.operation.clear();
-        self.source = ::buffa::MessageField::none();
-        self.preparation.clear();
-        self.__buffa_unknown_fields.clear();
-    }
-}
-impl ::buffa::ExtensionSet for EngineeringPreparedSelection {
-    const PROTO_FQN: &'static str = "pse.engineering.v1.EngineeringPreparedSelection";
-    fn unknown_fields(&self) -> &::buffa::UnknownFields {
-        &self.__buffa_unknown_fields
-    }
-    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
-        &mut self.__buffa_unknown_fields
-    }
-}
-impl ::buffa::text::TextFormat for EngineeringPreparedSelection {
-    fn encode_text(
-        &self,
-        enc: &mut ::buffa::text::TextEncoder<'_>,
-    ) -> ::core::fmt::Result {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        if !self.operation.is_empty() {
-            enc.write_field_name("operation")?;
-            enc.write_string(&self.operation)?;
-        }
-        if self.source.is_set() {
-            enc.write_field_name("source")?;
-            enc.write_message(&*self.source)?;
-        }
-        if !self.preparation.is_empty() {
-            enc.write_field_name("preparation")?;
-            enc.write_bytes(&self.preparation)?;
-        }
-        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
-        ::core::result::Result::Ok(())
-    }
-    fn merge_text(
-        &mut self,
-        dec: &mut ::buffa::text::TextDecoder<'_>,
-    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
-        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-        use ::buffa::Enumeration as _;
-        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
-            match __name {
-                "operation" => self.operation = dec.read_string()?.into_owned(),
-                "source" => dec.merge_message(self.source.get_or_insert_default())?,
-                "preparation" => self.preparation = dec.read_bytes()?,
-                _ => dec.skip_value()?,
-            }
-        }
-        ::core::result::Result::Ok(())
-    }
-}
-impl ::buffa::json_helpers::ProtoElemJson for EngineeringPreparedSelection {
-    fn serialize_proto_json<S: ::serde::Serializer>(
-        v: &Self,
-        s: S,
-    ) -> ::core::result::Result<S::Ok, S::Error> {
-        ::serde::Serialize::serialize(v, s)
-    }
-    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
-        d: D,
-    ) -> ::core::result::Result<Self, D::Error> {
-        <Self as ::serde::Deserialize>::deserialize(d)
-    }
-}
-#[doc(hidden)]
-pub const __ENGINEERING_PREPARED_SELECTION_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
-    type_url: "type.googleapis.com/pse.engineering.v1.EngineeringPreparedSelection",
-    to_json: ::buffa::type_registry::any_to_json::<EngineeringPreparedSelection>,
-    from_json: ::buffa::type_registry::any_from_json::<EngineeringPreparedSelection>,
-    is_wkt: false,
-};
-#[doc(hidden)]
-pub const __ENGINEERING_PREPARED_SELECTION_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
-    type_url: "type.googleapis.com/pse.engineering.v1.EngineeringPreparedSelection",
-    text_encode: ::buffa::type_registry::any_encode_text::<EngineeringPreparedSelection>,
-    text_merge: ::buffa::type_registry::any_merge_text::<EngineeringPreparedSelection>,
 };
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize)]
@@ -85261,6 +84475,13 @@ pub struct EngineeringRunStatus {
         EngineeringRunProgress,
         ::buffa::Inline<EngineeringRunProgress>,
     >,
+    /// Field 10: `preparation`
+    #[serde(
+        rename = "preparation",
+        with = "::buffa::json_helpers::opt_bytes",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub preparation: ::core::option::Option<::buffa::alloc::vec::Vec<u8>>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -85277,6 +84498,7 @@ impl ::core::fmt::Debug for EngineeringRunStatus {
             .field("canonical_run", &self.canonical_run)
             .field("canonical_attempt", &self.canonical_attempt)
             .field("progress", &self.progress)
+            .field("preparation", &self.preparation)
             .finish()
     }
 }
@@ -85320,6 +84542,16 @@ impl EngineeringRunStatus {
         value: impl Into<::buffa::alloc::string::String>,
     ) -> Self {
         self.canonical_attempt = Some(value.into());
+        self
+    }
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::preparation`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_preparation(
+        mut self,
+        value: impl Into<::buffa::alloc::vec::Vec<u8>>,
+    ) -> Self {
+        self.preparation = Some(value.into());
         self
     }
 }
@@ -85375,6 +84607,11 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringRunStatus {
                     ::buffa_descriptor::reflect::Reflectable::reflect(&*self.progress),
                 )
             }
+            10u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bytes(
+                    self.preparation.as_deref().unwrap_or(&[]),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -85396,6 +84633,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringRunStatus {
             7u32 => self.canonical_run.is_some(),
             8u32 => self.canonical_attempt.is_some(),
             9u32 => self.progress.is_set(),
+            10u32 => self.preparation.is_some(),
             _ => false,
         }
     }
@@ -85511,6 +84749,9 @@ impl ::buffa::Message for EngineeringRunStatus {
                 += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                     + inner_size as u64;
         }
+        if let Some(ref v) = self.preparation {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -85557,6 +84798,9 @@ impl ::buffa::Message for EngineeringRunStatus {
                 buf,
             );
             self.progress.write_to(__cache, buf);
+        }
+        if let Some(ref v) = self.preparation {
+            ::buffa::types::put_shared_bytes_field(10u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -85657,6 +84901,16 @@ impl ::buffa::Message for EngineeringRunStatus {
                     ctx,
                 )?;
             }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(
+                    self.preparation.get_or_insert_with(::buffa::alloc::vec::Vec::new),
+                    buf,
+                )?;
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -85674,6 +84928,7 @@ impl ::buffa::Message for EngineeringRunStatus {
         self.canonical_run = ::core::option::Option::None;
         self.canonical_attempt = ::core::option::Option::None;
         self.progress = ::buffa::MessageField::none();
+        self.preparation = ::core::option::Option::None;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -85729,6 +84984,10 @@ impl ::buffa::text::TextFormat for EngineeringRunStatus {
             enc.write_field_name("progress")?;
             enc.write_message(&*self.progress)?;
         }
+        if let ::core::option::Option::Some(ref __v) = self.preparation {
+            enc.write_field_name("preparation")?;
+            enc.write_bytes(__v)?;
+        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -85759,6 +85018,9 @@ impl ::buffa::text::TextFormat for EngineeringRunStatus {
                     );
                 }
                 "progress" => dec.merge_message(self.progress.get_or_insert_default())?,
+                "preparation" => {
+                    self.preparation = ::core::option::Option::Some(dec.read_bytes()?);
+                }
                 _ => dec.skip_value()?,
             }
         }
@@ -87203,13 +86465,6 @@ pub struct EngineeringSubmitRun {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub operation: ::buffa::alloc::string::String,
-    /// Field 2: `preparation_operation`
-    #[serde(
-        rename = "preparation_operation",
-        with = "::buffa::json_helpers::proto_string",
-        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
-    )]
-    pub preparation_operation: ::buffa::alloc::string::String,
     /// Field 3: `run`
     #[serde(
         rename = "run",
@@ -87224,13 +86479,49 @@ pub struct EngineeringSubmitRun {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
     )]
     pub attempt: ::buffa::alloc::vec::Vec<u8>,
-    /// Field 5: `expected_preparation`
+    /// Field 6: `source_operation`
     #[serde(
-        rename = "expected_preparation",
+        rename = "source_operation",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub source_operation: ::buffa::alloc::string::String,
+    /// Field 7: `expected_local_revision`
+    #[serde(
+        rename = "expected_local_revision",
+        with = "::buffa::json_helpers::proto_string",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+    )]
+    pub expected_local_revision: ::buffa::alloc::string::String,
+    /// Field 8: `case`
+    #[serde(
+        rename = "case",
         with = "::buffa::json_helpers::bytes",
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
     )]
-    pub expected_preparation: ::buffa::alloc::vec::Vec<u8>,
+    pub case: ::buffa::alloc::vec::Vec<u8>,
+    /// Field 9: `intent`
+    #[serde(
+        rename = "intent",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub intent: ::buffa::MessageField<
+        ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
+        ::buffa::Inline<
+            ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
+        >,
+    >,
+    /// Field 10: `backend`
+    #[serde(
+        rename = "backend",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+    )]
+    pub backend: ::buffa::MessageField<
+        ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
+        ::buffa::Inline<
+            ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
+        >,
+    >,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -87239,10 +86530,13 @@ impl ::core::fmt::Debug for EngineeringSubmitRun {
     fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
         f.debug_struct("EngineeringSubmitRun")
             .field("operation", &self.operation)
-            .field("preparation_operation", &self.preparation_operation)
             .field("run", &self.run)
             .field("attempt", &self.attempt)
-            .field("expected_preparation", &self.expected_preparation)
+            .field("source_operation", &self.source_operation)
+            .field("expected_local_revision", &self.expected_local_revision)
+            .field("case", &self.case)
+            .field("intent", &self.intent)
+            .field("backend", &self.backend)
             .finish()
     }
 }
@@ -87273,16 +86567,23 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringSubmitRun {
         use ::buffa::Enumeration as _;
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.operation),
-            2u32 => {
-                ::buffa_descriptor::reflect::ValueRef::String(
-                    &self.preparation_operation,
-                )
-            }
             3u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.run[..]),
             4u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.attempt[..]),
-            5u32 => {
-                ::buffa_descriptor::reflect::ValueRef::Bytes(
-                    &self.expected_preparation[..],
+            6u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.source_operation),
+            7u32 => {
+                ::buffa_descriptor::reflect::ValueRef::String(
+                    &self.expected_local_revision,
+                )
+            }
+            8u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.case[..]),
+            9u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.intent),
+                )
+            }
+            10u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::Reflectable::reflect(&*self.backend),
                 )
             }
             _ => {
@@ -87298,10 +86599,13 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringSubmitRun {
     fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
         match field.number() {
             1u32 => !self.operation.is_empty(),
-            2u32 => !self.preparation_operation.is_empty(),
             3u32 => !self.run.is_empty(),
             4u32 => !self.attempt.is_empty(),
-            5u32 => !self.expected_preparation.is_empty(),
+            6u32 => !self.source_operation.is_empty(),
+            7u32 => !self.expected_local_revision.is_empty(),
+            8u32 => !self.case.is_empty(),
+            9u32 => self.intent.is_set(),
+            10u32 => self.backend.is_set(),
             _ => false,
         }
     }
@@ -87376,18 +86680,12 @@ impl ::buffa::Message for EngineeringSubmitRun {
     /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
     /// points reject, never a silently wrapped size.
     #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use ::buffa::Enumeration as _;
         let mut size = 0u64;
         if !self.operation.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.operation) as u64;
-        }
-        if !self.preparation_operation.is_empty() {
-            size
-                += 1u64
-                    + ::buffa::types::string_encoded_len(&self.preparation_operation)
-                        as u64;
         }
         if !self.run.is_empty() {
             size += 1u64 + ::buffa::types::bytes_encoded_len(&self.run) as u64;
@@ -87395,18 +86693,42 @@ impl ::buffa::Message for EngineeringSubmitRun {
         if !self.attempt.is_empty() {
             size += 1u64 + ::buffa::types::bytes_encoded_len(&self.attempt) as u64;
         }
-        if !self.expected_preparation.is_empty() {
+        if !self.source_operation.is_empty() {
             size
                 += 1u64
-                    + ::buffa::types::bytes_encoded_len(&self.expected_preparation)
+                    + ::buffa::types::string_encoded_len(&self.source_operation) as u64;
+        }
+        if !self.expected_local_revision.is_empty() {
+            size
+                += 1u64
+                    + ::buffa::types::string_encoded_len(&self.expected_local_revision)
                         as u64;
+        }
+        if !self.case.is_empty() {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(&self.case) as u64;
+        }
+        if self.intent.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.intent.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
+        }
+        if self.backend.is_set() {
+            let __slot = __cache.reserve();
+            let inner_size = self.backend.compute_size(__cache);
+            __cache.set(__slot, inner_size);
+            size
+                += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                    + inner_size as u64;
         }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
     fn write_to(
         &self,
-        _cache: &mut ::buffa::SizeCache,
+        __cache: &mut ::buffa::SizeCache,
         buf: &mut impl ::buffa::EncodeSink,
     ) {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
@@ -87414,21 +86736,36 @@ impl ::buffa::Message for EngineeringSubmitRun {
         if !self.operation.is_empty() {
             ::buffa::types::put_string_field(1u32, &self.operation, buf);
         }
-        if !self.preparation_operation.is_empty() {
-            ::buffa::types::put_string_field(2u32, &self.preparation_operation, buf);
-        }
         if !self.run.is_empty() {
             ::buffa::types::put_shared_bytes_field(3u32, &self.run, buf);
         }
         if !self.attempt.is_empty() {
             ::buffa::types::put_shared_bytes_field(4u32, &self.attempt, buf);
         }
-        if !self.expected_preparation.is_empty() {
-            ::buffa::types::put_shared_bytes_field(
-                5u32,
-                &self.expected_preparation,
+        if !self.source_operation.is_empty() {
+            ::buffa::types::put_string_field(6u32, &self.source_operation, buf);
+        }
+        if !self.expected_local_revision.is_empty() {
+            ::buffa::types::put_string_field(7u32, &self.expected_local_revision, buf);
+        }
+        if !self.case.is_empty() {
+            ::buffa::types::put_shared_bytes_field(8u32, &self.case, buf);
+        }
+        if self.intent.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                9u32,
+                u64::from(__cache.consume_next()),
                 buf,
             );
+            self.intent.write_to(__cache, buf);
+        }
+        if self.backend.is_set() {
+            ::buffa::types::put_len_delimited_header(
+                10u32,
+                u64::from(__cache.consume_next()),
+                buf,
+            );
+            self.backend.write_to(__cache, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -87450,13 +86787,6 @@ impl ::buffa::Message for EngineeringSubmitRun {
                 )?;
                 ::buffa::types::merge_string(&mut self.operation, buf)?;
             }
-            2u32 => {
-                ::buffa::encoding::check_wire_type(
-                    tag,
-                    ::buffa::encoding::WireType::LengthDelimited,
-                )?;
-                ::buffa::types::merge_string(&mut self.preparation_operation, buf)?;
-            }
             3u32 => {
                 ::buffa::encoding::check_wire_type(
                     tag,
@@ -87471,12 +86801,48 @@ impl ::buffa::Message for EngineeringSubmitRun {
                 )?;
                 ::buffa::types::merge_bytes(&mut self.attempt, buf)?;
             }
-            5u32 => {
+            6u32 => {
                 ::buffa::encoding::check_wire_type(
                     tag,
                     ::buffa::encoding::WireType::LengthDelimited,
                 )?;
-                ::buffa::types::merge_bytes(&mut self.expected_preparation, buf)?;
+                ::buffa::types::merge_string(&mut self.source_operation, buf)?;
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_string(&mut self.expected_local_revision, buf)?;
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(&mut self.case, buf)?;
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.intent.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::Message::merge_length_delimited(
+                    self.backend.get_or_insert_default(),
+                    buf,
+                    ctx,
+                )?;
             }
             _ => {
                 self.__buffa_unknown_fields
@@ -87487,10 +86853,13 @@ impl ::buffa::Message for EngineeringSubmitRun {
     }
     fn clear(&mut self) {
         self.operation.clear();
-        self.preparation_operation.clear();
         self.run.clear();
         self.attempt.clear();
-        self.expected_preparation.clear();
+        self.source_operation.clear();
+        self.expected_local_revision.clear();
+        self.case.clear();
+        self.intent = ::buffa::MessageField::none();
+        self.backend = ::buffa::MessageField::none();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -87514,10 +86883,6 @@ impl ::buffa::text::TextFormat for EngineeringSubmitRun {
             enc.write_field_name("operation")?;
             enc.write_string(&self.operation)?;
         }
-        if !self.preparation_operation.is_empty() {
-            enc.write_field_name("preparation_operation")?;
-            enc.write_string(&self.preparation_operation)?;
-        }
         if !self.run.is_empty() {
             enc.write_field_name("run")?;
             enc.write_bytes(&self.run)?;
@@ -87526,9 +86891,25 @@ impl ::buffa::text::TextFormat for EngineeringSubmitRun {
             enc.write_field_name("attempt")?;
             enc.write_bytes(&self.attempt)?;
         }
-        if !self.expected_preparation.is_empty() {
-            enc.write_field_name("expected_preparation")?;
-            enc.write_bytes(&self.expected_preparation)?;
+        if !self.source_operation.is_empty() {
+            enc.write_field_name("source_operation")?;
+            enc.write_string(&self.source_operation)?;
+        }
+        if !self.expected_local_revision.is_empty() {
+            enc.write_field_name("expected_local_revision")?;
+            enc.write_string(&self.expected_local_revision)?;
+        }
+        if !self.case.is_empty() {
+            enc.write_field_name("case")?;
+            enc.write_bytes(&self.case)?;
+        }
+        if self.intent.is_set() {
+            enc.write_field_name("intent")?;
+            enc.write_message(&*self.intent)?;
+        }
+        if self.backend.is_set() {
+            enc.write_field_name("backend")?;
+            enc.write_message(&*self.backend)?;
         }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
@@ -87542,12 +86923,17 @@ impl ::buffa::text::TextFormat for EngineeringSubmitRun {
         while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
             match __name {
                 "operation" => self.operation = dec.read_string()?.into_owned(),
-                "preparation_operation" => {
-                    self.preparation_operation = dec.read_string()?.into_owned();
-                }
                 "run" => self.run = dec.read_bytes()?,
                 "attempt" => self.attempt = dec.read_bytes()?,
-                "expected_preparation" => self.expected_preparation = dec.read_bytes()?,
+                "source_operation" => {
+                    self.source_operation = dec.read_string()?.into_owned();
+                }
+                "expected_local_revision" => {
+                    self.expected_local_revision = dec.read_string()?.into_owned();
+                }
+                "case" => self.case = dec.read_bytes()?,
+                "intent" => dec.merge_message(self.intent.get_or_insert_default())?,
+                "backend" => dec.merge_message(self.backend.get_or_insert_default())?,
                 _ => dec.skip_value()?,
             }
         }
@@ -252226,659 +251612,6 @@ pub mod __buffa {
             }
         }
         #[derive(Clone, Debug, Default)]
-        pub struct EngineeringPrepareCaseView<'a> {
-            /// Field 1: `operation`
-            pub operation: &'a str,
-            /// Field 2: `source_operation`
-            pub source_operation: &'a str,
-            /// Field 3: `expected_local_revision`
-            pub expected_local_revision: &'a str,
-            /// Field 4: `case`
-            pub case: &'a [u8],
-            /// Field 5: `intent`
-            pub intent: ::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView<
-                    'a,
-                >,
-            >,
-            /// Field 6: `backend`
-            pub backend: ::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView<
-                    'a,
-                >,
-            >,
-            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
-        }
-        impl<'a> ::buffa::MessageView<'a> for EngineeringPrepareCaseView<'a> {
-            type Owned = super::super::EngineeringPrepareCase;
-            fn decode_view(
-                buf: &'a [u8],
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                let __limit = ::core::cell::Cell::new(
-                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
-                );
-                let __elem = ::core::cell::Cell::new(
-                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
-                );
-                <Self as ::buffa::MessageView>::decode_view_ctx(
-                    buf,
-                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
-                        .with_element_memory(&__elem),
-                )
-            }
-            fn decode_view_with_ctx(
-                buf: &'a [u8],
-                ctx: ::buffa::DecodeContext<'_>,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
-            }
-            #[inline]
-            fn merge_view_field(
-                &mut self,
-                tag: ::buffa::encoding::Tag,
-                cur: &'a [u8],
-                before_tag: &'a [u8],
-                ctx: ::buffa::DecodeContext<'_>,
-            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
-                let _ = ctx;
-                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                let view = self;
-                let mut cur = cur;
-                match tag.field_number() {
-                    1u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.operation = ::buffa::types::borrow_str(&mut cur)?;
-                    }
-                    2u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.source_operation = ::buffa::types::borrow_str(&mut cur)?;
-                    }
-                    3u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.expected_local_revision = ::buffa::types::borrow_str(
-                            &mut cur,
-                        )?;
-                    }
-                    4u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.case = ::buffa::types::borrow_bytes(&mut cur)?;
-                    }
-                    5u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        let __sub_ctx = ctx.descend()?;
-                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
-                        match view.intent.as_mut() {
-                            Some(existing) => {
-                                ::buffa::MessageView::merge_into_view(
-                                    existing,
-                                    sub,
-                                    __sub_ctx,
-                                )?
-                            }
-                            None => {
-                                view.intent = ::buffa::MessageFieldView::set(
-                                    <::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView as ::buffa::MessageView>::decode_view_ctx(
-                                        sub,
-                                        __sub_ctx,
-                                    )?,
-                                );
-                            }
-                        }
-                    }
-                    6u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        let __sub_ctx = ctx.descend()?;
-                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
-                        match view.backend.as_mut() {
-                            Some(existing) => {
-                                ::buffa::MessageView::merge_into_view(
-                                    existing,
-                                    sub,
-                                    __sub_ctx,
-                                )?
-                            }
-                            None => {
-                                view.backend = ::buffa::MessageFieldView::set(
-                                    <::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView as ::buffa::MessageView>::decode_view_ctx(
-                                        sub,
-                                        __sub_ctx,
-                                    )?,
-                                );
-                            }
-                        }
-                    }
-                    _ => {
-                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
-                        let span_len = before_tag.len() - cur.len();
-                        view.__buffa_unknown_fields
-                            .push_record(before_tag, span_len, ctx)?;
-                    }
-                }
-                ::core::result::Result::Ok(cur)
-            }
-            fn to_owned_message(
-                &self,
-            ) -> ::core::result::Result<
-                super::super::EngineeringPrepareCase,
-                ::buffa::DecodeError,
-            > {
-                self.to_owned_from_source(None)
-            }
-            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn to_owned_from_source(
-                &self,
-                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
-            ) -> ::core::result::Result<
-                super::super::EngineeringPrepareCase,
-                ::buffa::DecodeError,
-            > {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::alloc::string::ToString as _;
-                let _ = __buffa_src;
-                ::core::result::Result::Ok(super::super::EngineeringPrepareCase {
-                    operation: self.operation.to_string(),
-                    source_operation: self.source_operation.to_string(),
-                    expected_local_revision: self.expected_local_revision.to_string(),
-                    case: (self.case).to_vec(),
-                    intent: match self.intent.as_option() {
-                        Some(v) => {
-                            ::buffa::MessageField::<
-                                ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
-                                ::buffa::Inline<
-                                    ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
-                                >,
-                            >::some(v.to_owned_from_source(__buffa_src)?)
-                        }
-                        None => ::buffa::MessageField::none(),
-                    },
-                    backend: match self.backend.as_option() {
-                        Some(v) => {
-                            ::buffa::MessageField::<
-                                ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
-                                ::buffa::Inline<
-                                    ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
-                                >,
-                            >::some(v.to_owned_from_source(__buffa_src)?)
-                        }
-                        None => ::buffa::MessageField::none(),
-                    },
-                    __buffa_unknown_fields: self
-                        .__buffa_unknown_fields
-                        .to_owned()?
-                        .into(),
-                    ..::core::default::Default::default()
-                })
-            }
-        }
-        impl<'a> ::buffa::ViewEncode<'a> for EngineeringPrepareCaseView<'a> {
-            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                let mut size = 0u64;
-                if !self.operation.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::string_encoded_len(&self.operation) as u64;
-                }
-                if !self.source_operation.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::string_encoded_len(&self.source_operation)
-                                as u64;
-                }
-                if !self.expected_local_revision.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::string_encoded_len(
-                                &self.expected_local_revision,
-                            ) as u64;
-                }
-                if !self.case.is_empty() {
-                    size += 1u64 + ::buffa::types::bytes_encoded_len(&self.case) as u64;
-                }
-                if self.intent.is_set() {
-                    let __slot = __cache.reserve();
-                    let inner_size = self.intent.compute_size(__cache);
-                    __cache.set(__slot, inner_size);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                            + inner_size as u64;
-                }
-                if self.backend.is_set() {
-                    let __slot = __cache.reserve();
-                    let inner_size = self.backend.compute_size(__cache);
-                    __cache.set(__slot, inner_size);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                            + inner_size as u64;
-                }
-                size += self.__buffa_unknown_fields.encoded_len() as u64;
-                ::buffa::saturate_size(size)
-            }
-            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn write_to(
-                &self,
-                __cache: &mut ::buffa::SizeCache,
-                buf: &mut impl ::buffa::EncodeSink,
-            ) {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                if !self.operation.is_empty() {
-                    ::buffa::types::put_string_field(1u32, &self.operation, buf);
-                }
-                if !self.source_operation.is_empty() {
-                    ::buffa::types::put_string_field(2u32, &self.source_operation, buf);
-                }
-                if !self.expected_local_revision.is_empty() {
-                    ::buffa::types::put_string_field(
-                        3u32,
-                        &self.expected_local_revision,
-                        buf,
-                    );
-                }
-                if !self.case.is_empty() {
-                    ::buffa::types::put_shared_bytes_field(4u32, &self.case, buf);
-                }
-                if self.intent.is_set() {
-                    ::buffa::types::put_len_delimited_header(
-                        5u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    self.intent.write_to(__cache, buf);
-                }
-                if self.backend.is_set() {
-                    ::buffa::types::put_len_delimited_header(
-                        6u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    self.backend.write_to(__cache, buf);
-                }
-                self.__buffa_unknown_fields.write_to(buf);
-            }
-        }
-        /// Serializes this view as protobuf JSON.
-        ///
-        /// Implicit-presence fields with default values are omitted, `required`
-        /// fields are always emitted, explicit-presence (`optional`) fields are
-        /// emitted only when set, bytes fields are base64-encoded, and enum
-        /// values are their proto name strings.
-        ///
-        /// This impl uses `serialize_map(None)` because the number of emitted
-        /// fields depends on default-omission rules; serializers that require
-        /// known map lengths (e.g. `bincode`) will return a runtime error.
-        /// Use the owned message type for those formats.
-        impl<'__a> ::serde::Serialize for EngineeringPrepareCaseView<'__a> {
-            fn serialize<__S: ::serde::Serializer>(
-                &self,
-                __s: __S,
-            ) -> ::core::result::Result<__S::Ok, __S::Error> {
-                use ::serde::ser::SerializeMap as _;
-                let mut __map = __s.serialize_map(::core::option::Option::None)?;
-                if !::buffa::json_helpers::skip_if::is_empty_str(self.operation) {
-                    __map.serialize_entry("operation", self.operation)?;
-                }
-                if !::buffa::json_helpers::skip_if::is_empty_str(self.source_operation) {
-                    __map.serialize_entry("source_operation", self.source_operation)?;
-                }
-                if !::buffa::json_helpers::skip_if::is_empty_str(
-                    self.expected_local_revision,
-                ) {
-                    __map
-                        .serialize_entry(
-                            "expected_local_revision",
-                            self.expected_local_revision,
-                        )?;
-                }
-                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.case) {
-                    __map
-                        .serialize_entry(
-                            "case",
-                            &::buffa::json_helpers::BytesJson(self.case),
-                        )?;
-                }
-                {
-                    if let ::core::option::Option::Some(__v) = self.intent.as_option() {
-                        __map.serialize_entry("intent", __v)?;
-                    }
-                }
-                {
-                    if let ::core::option::Option::Some(__v) = self.backend.as_option() {
-                        __map.serialize_entry("backend", __v)?;
-                    }
-                }
-                __map.end()
-            }
-        }
-        impl<'a> ::buffa::MessageName for EngineeringPrepareCaseView<'a> {
-            const PACKAGE: &'static str = "pse.engineering.v1";
-            const NAME: &'static str = "EngineeringPrepareCase";
-            const FULL_NAME: &'static str = "pse.engineering.v1.EngineeringPrepareCase";
-            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPrepareCase";
-        }
-        ::buffa::impl_default_view_instance!(EngineeringPrepareCaseView);
-        ::buffa::impl_view_reborrow!(EngineeringPrepareCaseView);
-        /** Self-contained, `'static` owned view of a `EngineeringPrepareCase` message.
-
- Wraps [`::buffa::OwnedView`]`<`[`EngineeringPrepareCaseView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
-
- Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`EngineeringPrepareCaseView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
-        #[derive(Clone, Debug)]
-        pub struct EngineeringPrepareCaseOwnedView(
-            ::buffa::OwnedView<EngineeringPrepareCaseView<'static>>,
-        );
-        impl EngineeringPrepareCaseOwnedView {
-            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
-            ///
-            /// The view borrows directly from the buffer's data; the buffer is
-            /// retained inside the returned handle.
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
-            /// protobuf data.
-            pub fn decode(
-                bytes: ::buffa::bytes::Bytes,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPrepareCaseOwnedView(::buffa::OwnedView::decode(bytes)?),
-                )
-            }
-            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
-            /// max message size).
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
-            /// exceeds the configured limits.
-            pub fn decode_with_options(
-                bytes: ::buffa::bytes::Bytes,
-                opts: &::buffa::DecodeOptions,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPrepareCaseOwnedView(
-                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
-                    ),
-                )
-            }
-            /// Build from an owned message via an encode → decode round-trip.
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
-            /// message's encoded size exceeds the 2 GiB protobuf limit, or
-            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
-            /// somehow invalid (should not happen for well-formed messages).
-            pub fn from_owned(
-                msg: &super::super::EngineeringPrepareCase,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPrepareCaseOwnedView(::buffa::OwnedView::from_owned(msg)?),
-                )
-            }
-            /// Borrow the full [`EngineeringPrepareCaseView`] with its lifetime tied to `&self`.
-            #[must_use]
-            pub fn view(&self) -> &EngineeringPrepareCaseView<'_> {
-                self.0.reborrow()
-            }
-            /// Convert to the owned message type.
-            ///
-            /// Infallible: this type's constructors wire-decode their
-            /// buffer, and a view produced by wire decoding always
-            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
-            /// whose contract also governs handles converted from a raw
-            /// [`::buffa::OwnedView`].
-            #[must_use]
-            pub fn to_owned_message(&self) -> super::super::EngineeringPrepareCase {
-                self.0.to_owned_message()
-            }
-            /// The underlying bytes buffer.
-            #[must_use]
-            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
-                self.0.bytes()
-            }
-            /// Consume the handle, returning the underlying bytes buffer.
-            #[must_use]
-            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
-                self.0.into_bytes()
-            }
-            /// Field 1: `operation`
-            #[must_use]
-            pub fn operation(&self) -> &'_ str {
-                self.0.reborrow().operation
-            }
-            /// Field 2: `source_operation`
-            #[must_use]
-            pub fn source_operation(&self) -> &'_ str {
-                self.0.reborrow().source_operation
-            }
-            /// Field 3: `expected_local_revision`
-            #[must_use]
-            pub fn expected_local_revision(&self) -> &'_ str {
-                self.0.reborrow().expected_local_revision
-            }
-            /// Field 4: `case`
-            #[must_use]
-            pub fn case(&self) -> &'_ [u8] {
-                self.0.reborrow().case
-            }
-            /// Field 5: `intent`
-            #[must_use]
-            pub fn intent(
-                &self,
-            ) -> &::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView<
-                    '_,
-                >,
-            > {
-                &self.0.reborrow().intent
-            }
-            /// Field 6: `backend`
-            #[must_use]
-            pub fn backend(
-                &self,
-            ) -> &::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView<
-                    '_,
-                >,
-            > {
-                &self.0.reborrow().backend
-            }
-        }
-        impl ::core::convert::From<
-            ::buffa::OwnedView<EngineeringPrepareCaseView<'static>>,
-        > for EngineeringPrepareCaseOwnedView {
-            fn from(
-                inner: ::buffa::OwnedView<EngineeringPrepareCaseView<'static>>,
-            ) -> Self {
-                EngineeringPrepareCaseOwnedView(inner)
-            }
-        }
-        impl ::core::convert::From<EngineeringPrepareCaseOwnedView>
-        for ::buffa::OwnedView<EngineeringPrepareCaseView<'static>> {
-            fn from(wrapper: EngineeringPrepareCaseOwnedView) -> Self {
-                wrapper.0
-            }
-        }
-        impl ::core::convert::AsRef<
-            ::buffa::OwnedView<EngineeringPrepareCaseView<'static>>,
-        > for EngineeringPrepareCaseOwnedView {
-            fn as_ref(
-                &self,
-            ) -> &::buffa::OwnedView<EngineeringPrepareCaseView<'static>> {
-                &self.0
-            }
-        }
-        impl ::buffa::HasMessageView for super::super::EngineeringPrepareCase {
-            type View<'a> = EngineeringPrepareCaseView<'a>;
-            type ViewHandle = EngineeringPrepareCaseOwnedView;
-        }
-        impl ::serde::Serialize for EngineeringPrepareCaseOwnedView {
-            fn serialize<__S: ::serde::Serializer>(
-                &self,
-                __s: __S,
-            ) -> ::core::result::Result<__S::Ok, __S::Error> {
-                ::serde::Serialize::serialize(&self.0, __s)
-            }
-        }
-        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
-        for EngineeringPrepareCaseView<'a> {
-            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-                super::super::__buffa::reflect::descriptor_pool()
-                    .message(Self::__buffa_reflect_message_index())
-            }
-            fn pool(
-                &self,
-            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-                super::super::__buffa::reflect::descriptor_pool()
-            }
-            fn get(
-                &self,
-                field: &::buffa_descriptor::FieldDescriptor,
-            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                match field.number() {
-                    1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.operation),
-                    2u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::String(
-                            self.source_operation,
-                        )
-                    }
-                    3u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::String(
-                            self.expected_local_revision,
-                        )
-                    }
-                    4u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.case),
-                    5u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
-                                &*self.intent,
-                            ),
-                        )
-                    }
-                    6u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
-                                &*self.backend,
-                            ),
-                        )
-                    }
-                    _ => {
-                        ::core::debug_assert!(
-                            false,
-                            "field number {} is not a member of this view's reflect get()",
-                            field.number(),
-                        );
-                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
-                    }
-                }
-            }
-            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-                match field.number() {
-                    1u32 => !self.operation.is_empty(),
-                    2u32 => !self.source_operation.is_empty(),
-                    3u32 => !self.expected_local_revision.is_empty(),
-                    4u32 => !self.case.is_empty(),
-                    5u32 => self.intent.is_set(),
-                    6u32 => self.backend.is_set(),
-                    _ => false,
-                }
-            }
-            fn for_each_set(
-                &self,
-                f: &mut dyn ::core::ops::FnMut(
-                    &::buffa_descriptor::FieldDescriptor,
-                    ::buffa_descriptor::reflect::ValueRef<'_>,
-                ),
-            ) {
-                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
-                    self,
-                );
-                for fd in md.fields() {
-                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                        f(
-                            fd,
-                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
-                        );
-                    }
-                }
-            }
-            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
-                let options = ::buffa::DecodeOptions::new()
-                    .with_element_memory_limit(
-                        bytes
-                            .len()
-                            .saturating_mul(128)
-                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
-                    )
-                    .with_unknown_field_limit(
-                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
-                    );
-                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
-                        ::buffa::alloc::sync::Arc::clone(
-                            super::super::__buffa::reflect::descriptor_pool(),
-                        ),
-                        Self::__buffa_reflect_message_index(),
-                        &bytes,
-                        &options,
-                    )
-                    .expect(
-                        "view re-encodes to bytes decodable against its own descriptor",
-                    )
-            }
-        }
-        impl<'a> ::buffa_descriptor::reflect::ReflectElement
-        for EngineeringPrepareCaseView<'a> {
-            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-                )
-            }
-        }
-        impl<'a> EngineeringPrepareCaseView<'a> {
-            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-            /// Memoized `MessageIndex` for this view's message type, resolved
-            /// once against the package's embedded descriptor pool. An inherent
-            /// associated fn (not a free fn) so sibling views in the same module
-            /// do not collide.
-            #[doc(hidden)]
-            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-                *IDX
-                    .get_or_init(|| {
-                        super::super::__buffa::reflect::descriptor_pool()
-                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                            .expect(
-                                "generated view type is registered in the embedded descriptor pool",
-                            )
-                    })
-            }
-        }
-        #[derive(Clone, Debug, Default)]
         pub struct EngineeringPrepareExpandedStudyView<'a> {
             /// Field 1: `operation`
             pub operation: &'a str,
@@ -253471,509 +252204,6 @@ pub mod __buffa {
             }
         }
         impl<'a> EngineeringPrepareExpandedStudyView<'a> {
-            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-            /// Memoized `MessageIndex` for this view's message type, resolved
-            /// once against the package's embedded descriptor pool. An inherent
-            /// associated fn (not a free fn) so sibling views in the same module
-            /// do not collide.
-            #[doc(hidden)]
-            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
-                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
-                *IDX
-                    .get_or_init(|| {
-                        super::super::__buffa::reflect::descriptor_pool()
-                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
-                            .expect(
-                                "generated view type is registered in the embedded descriptor pool",
-                            )
-                    })
-            }
-        }
-        #[derive(Clone, Debug, Default)]
-        pub struct EngineeringPreparedSelectionView<'a> {
-            /// Field 1: `operation`
-            pub operation: &'a str,
-            /// Field 2: `source`
-            pub source: ::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringSourceSelectionView<
-                    'a,
-                >,
-            >,
-            /// Field 3: `preparation`
-            pub preparation: &'a [u8],
-            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
-        }
-        impl<'a> ::buffa::MessageView<'a> for EngineeringPreparedSelectionView<'a> {
-            type Owned = super::super::EngineeringPreparedSelection;
-            fn decode_view(
-                buf: &'a [u8],
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                let __limit = ::core::cell::Cell::new(
-                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
-                );
-                let __elem = ::core::cell::Cell::new(
-                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
-                );
-                <Self as ::buffa::MessageView>::decode_view_ctx(
-                    buf,
-                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
-                        .with_element_memory(&__elem),
-                )
-            }
-            fn decode_view_with_ctx(
-                buf: &'a [u8],
-                ctx: ::buffa::DecodeContext<'_>,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
-            }
-            #[inline]
-            fn merge_view_field(
-                &mut self,
-                tag: ::buffa::encoding::Tag,
-                cur: &'a [u8],
-                before_tag: &'a [u8],
-                ctx: ::buffa::DecodeContext<'_>,
-            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
-                let _ = ctx;
-                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                let view = self;
-                let mut cur = cur;
-                match tag.field_number() {
-                    1u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.operation = ::buffa::types::borrow_str(&mut cur)?;
-                    }
-                    2u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        let __sub_ctx = ctx.descend()?;
-                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
-                        match view.source.as_mut() {
-                            Some(existing) => {
-                                ::buffa::MessageView::merge_into_view(
-                                    existing,
-                                    sub,
-                                    __sub_ctx,
-                                )?
-                            }
-                            None => {
-                                view.source = ::buffa::MessageFieldView::set(
-                                    <::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringSourceSelectionView as ::buffa::MessageView>::decode_view_ctx(
-                                        sub,
-                                        __sub_ctx,
-                                    )?,
-                                );
-                            }
-                        }
-                    }
-                    3u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.preparation = ::buffa::types::borrow_bytes(&mut cur)?;
-                    }
-                    _ => {
-                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
-                        let span_len = before_tag.len() - cur.len();
-                        view.__buffa_unknown_fields
-                            .push_record(before_tag, span_len, ctx)?;
-                    }
-                }
-                ::core::result::Result::Ok(cur)
-            }
-            fn to_owned_message(
-                &self,
-            ) -> ::core::result::Result<
-                super::super::EngineeringPreparedSelection,
-                ::buffa::DecodeError,
-            > {
-                self.to_owned_from_source(None)
-            }
-            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn to_owned_from_source(
-                &self,
-                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
-            ) -> ::core::result::Result<
-                super::super::EngineeringPreparedSelection,
-                ::buffa::DecodeError,
-            > {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::alloc::string::ToString as _;
-                let _ = __buffa_src;
-                ::core::result::Result::Ok(super::super::EngineeringPreparedSelection {
-                    operation: self.operation.to_string(),
-                    source: match self.source.as_option() {
-                        Some(v) => {
-                            ::buffa::MessageField::<
-                                ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringSourceSelection,
-                                ::buffa::Inline<
-                                    ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringSourceSelection,
-                                >,
-                            >::some(v.to_owned_from_source(__buffa_src)?)
-                        }
-                        None => ::buffa::MessageField::none(),
-                    },
-                    preparation: (self.preparation).to_vec(),
-                    __buffa_unknown_fields: self
-                        .__buffa_unknown_fields
-                        .to_owned()?
-                        .into(),
-                    ..::core::default::Default::default()
-                })
-            }
-        }
-        impl<'a> ::buffa::ViewEncode<'a> for EngineeringPreparedSelectionView<'a> {
-            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                let mut size = 0u64;
-                if !self.operation.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::string_encoded_len(&self.operation) as u64;
-                }
-                if self.source.is_set() {
-                    let __slot = __cache.reserve();
-                    let inner_size = self.source.compute_size(__cache);
-                    __cache.set(__slot, inner_size);
-                    size
-                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
-                            + inner_size as u64;
-                }
-                if !self.preparation.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::bytes_encoded_len(&self.preparation)
-                                as u64;
-                }
-                size += self.__buffa_unknown_fields.encoded_len() as u64;
-                ::buffa::saturate_size(size)
-            }
-            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn write_to(
-                &self,
-                __cache: &mut ::buffa::SizeCache,
-                buf: &mut impl ::buffa::EncodeSink,
-            ) {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                if !self.operation.is_empty() {
-                    ::buffa::types::put_string_field(1u32, &self.operation, buf);
-                }
-                if self.source.is_set() {
-                    ::buffa::types::put_len_delimited_header(
-                        2u32,
-                        u64::from(__cache.consume_next()),
-                        buf,
-                    );
-                    self.source.write_to(__cache, buf);
-                }
-                if !self.preparation.is_empty() {
-                    ::buffa::types::put_shared_bytes_field(3u32, &self.preparation, buf);
-                }
-                self.__buffa_unknown_fields.write_to(buf);
-            }
-        }
-        /// Serializes this view as protobuf JSON.
-        ///
-        /// Implicit-presence fields with default values are omitted, `required`
-        /// fields are always emitted, explicit-presence (`optional`) fields are
-        /// emitted only when set, bytes fields are base64-encoded, and enum
-        /// values are their proto name strings.
-        ///
-        /// This impl uses `serialize_map(None)` because the number of emitted
-        /// fields depends on default-omission rules; serializers that require
-        /// known map lengths (e.g. `bincode`) will return a runtime error.
-        /// Use the owned message type for those formats.
-        impl<'__a> ::serde::Serialize for EngineeringPreparedSelectionView<'__a> {
-            fn serialize<__S: ::serde::Serializer>(
-                &self,
-                __s: __S,
-            ) -> ::core::result::Result<__S::Ok, __S::Error> {
-                use ::serde::ser::SerializeMap as _;
-                let mut __map = __s.serialize_map(::core::option::Option::None)?;
-                if !::buffa::json_helpers::skip_if::is_empty_str(self.operation) {
-                    __map.serialize_entry("operation", self.operation)?;
-                }
-                {
-                    if let ::core::option::Option::Some(__v) = self.source.as_option() {
-                        __map.serialize_entry("source", __v)?;
-                    }
-                }
-                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.preparation) {
-                    __map
-                        .serialize_entry(
-                            "preparation",
-                            &::buffa::json_helpers::BytesJson(self.preparation),
-                        )?;
-                }
-                __map.end()
-            }
-        }
-        impl<'a> ::buffa::MessageName for EngineeringPreparedSelectionView<'a> {
-            const PACKAGE: &'static str = "pse.engineering.v1";
-            const NAME: &'static str = "EngineeringPreparedSelection";
-            const FULL_NAME: &'static str = "pse.engineering.v1.EngineeringPreparedSelection";
-            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.EngineeringPreparedSelection";
-        }
-        ::buffa::impl_default_view_instance!(EngineeringPreparedSelectionView);
-        ::buffa::impl_view_reborrow!(EngineeringPreparedSelectionView);
-        /** Self-contained, `'static` owned view of a `EngineeringPreparedSelection` message.
-
- Wraps [`::buffa::OwnedView`]`<`[`EngineeringPreparedSelectionView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
-
- Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`EngineeringPreparedSelectionView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
-        #[derive(Clone, Debug)]
-        pub struct EngineeringPreparedSelectionOwnedView(
-            ::buffa::OwnedView<EngineeringPreparedSelectionView<'static>>,
-        );
-        impl EngineeringPreparedSelectionOwnedView {
-            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
-            ///
-            /// The view borrows directly from the buffer's data; the buffer is
-            /// retained inside the returned handle.
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
-            /// protobuf data.
-            pub fn decode(
-                bytes: ::buffa::bytes::Bytes,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPreparedSelectionOwnedView(
-                        ::buffa::OwnedView::decode(bytes)?,
-                    ),
-                )
-            }
-            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
-            /// max message size).
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
-            /// exceeds the configured limits.
-            pub fn decode_with_options(
-                bytes: ::buffa::bytes::Bytes,
-                opts: &::buffa::DecodeOptions,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPreparedSelectionOwnedView(
-                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
-                    ),
-                )
-            }
-            /// Build from an owned message via an encode → decode round-trip.
-            ///
-            /// # Errors
-            ///
-            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
-            /// message's encoded size exceeds the 2 GiB protobuf limit, or
-            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
-            /// somehow invalid (should not happen for well-formed messages).
-            pub fn from_owned(
-                msg: &super::super::EngineeringPreparedSelection,
-            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
-                ::core::result::Result::Ok(
-                    EngineeringPreparedSelectionOwnedView(
-                        ::buffa::OwnedView::from_owned(msg)?,
-                    ),
-                )
-            }
-            /// Borrow the full [`EngineeringPreparedSelectionView`] with its lifetime tied to `&self`.
-            #[must_use]
-            pub fn view(&self) -> &EngineeringPreparedSelectionView<'_> {
-                self.0.reborrow()
-            }
-            /// Convert to the owned message type.
-            ///
-            /// Infallible: this type's constructors wire-decode their
-            /// buffer, and a view produced by wire decoding always
-            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
-            /// whose contract also governs handles converted from a raw
-            /// [`::buffa::OwnedView`].
-            #[must_use]
-            pub fn to_owned_message(
-                &self,
-            ) -> super::super::EngineeringPreparedSelection {
-                self.0.to_owned_message()
-            }
-            /// The underlying bytes buffer.
-            #[must_use]
-            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
-                self.0.bytes()
-            }
-            /// Consume the handle, returning the underlying bytes buffer.
-            #[must_use]
-            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
-                self.0.into_bytes()
-            }
-            /// Field 1: `operation`
-            #[must_use]
-            pub fn operation(&self) -> &'_ str {
-                self.0.reborrow().operation
-            }
-            /// Field 2: `source`
-            #[must_use]
-            pub fn source(
-                &self,
-            ) -> &::buffa::MessageFieldView<
-                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringSourceSelectionView<
-                    '_,
-                >,
-            > {
-                &self.0.reborrow().source
-            }
-            /// Field 3: `preparation`
-            #[must_use]
-            pub fn preparation(&self) -> &'_ [u8] {
-                self.0.reborrow().preparation
-            }
-        }
-        impl ::core::convert::From<
-            ::buffa::OwnedView<EngineeringPreparedSelectionView<'static>>,
-        > for EngineeringPreparedSelectionOwnedView {
-            fn from(
-                inner: ::buffa::OwnedView<EngineeringPreparedSelectionView<'static>>,
-            ) -> Self {
-                EngineeringPreparedSelectionOwnedView(inner)
-            }
-        }
-        impl ::core::convert::From<EngineeringPreparedSelectionOwnedView>
-        for ::buffa::OwnedView<EngineeringPreparedSelectionView<'static>> {
-            fn from(wrapper: EngineeringPreparedSelectionOwnedView) -> Self {
-                wrapper.0
-            }
-        }
-        impl ::core::convert::AsRef<
-            ::buffa::OwnedView<EngineeringPreparedSelectionView<'static>>,
-        > for EngineeringPreparedSelectionOwnedView {
-            fn as_ref(
-                &self,
-            ) -> &::buffa::OwnedView<EngineeringPreparedSelectionView<'static>> {
-                &self.0
-            }
-        }
-        impl ::buffa::HasMessageView for super::super::EngineeringPreparedSelection {
-            type View<'a> = EngineeringPreparedSelectionView<'a>;
-            type ViewHandle = EngineeringPreparedSelectionOwnedView;
-        }
-        impl ::serde::Serialize for EngineeringPreparedSelectionOwnedView {
-            fn serialize<__S: ::serde::Serializer>(
-                &self,
-                __s: __S,
-            ) -> ::core::result::Result<__S::Ok, __S::Error> {
-                ::serde::Serialize::serialize(&self.0, __s)
-            }
-        }
-        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
-        for EngineeringPreparedSelectionView<'a> {
-            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
-                super::super::__buffa::reflect::descriptor_pool()
-                    .message(Self::__buffa_reflect_message_index())
-            }
-            fn pool(
-                &self,
-            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
-                super::super::__buffa::reflect::descriptor_pool()
-            }
-            fn get(
-                &self,
-                field: &::buffa_descriptor::FieldDescriptor,
-            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-                use ::buffa::Enumeration as _;
-                match field.number() {
-                    1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.operation),
-                    2u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::Message(
-                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
-                                &*self.source,
-                            ),
-                        )
-                    }
-                    3u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::Bytes(self.preparation)
-                    }
-                    _ => {
-                        ::core::debug_assert!(
-                            false,
-                            "field number {} is not a member of this view's reflect get()",
-                            field.number(),
-                        );
-                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
-                    }
-                }
-            }
-            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
-                match field.number() {
-                    1u32 => !self.operation.is_empty(),
-                    2u32 => self.source.is_set(),
-                    3u32 => !self.preparation.is_empty(),
-                    _ => false,
-                }
-            }
-            fn for_each_set(
-                &self,
-                f: &mut dyn ::core::ops::FnMut(
-                    &::buffa_descriptor::FieldDescriptor,
-                    ::buffa_descriptor::reflect::ValueRef<'_>,
-                ),
-            ) {
-                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
-                    self,
-                );
-                for fd in md.fields() {
-                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
-                        f(
-                            fd,
-                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
-                        );
-                    }
-                }
-            }
-            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
-            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
-                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
-                let options = ::buffa::DecodeOptions::new()
-                    .with_element_memory_limit(
-                        bytes
-                            .len()
-                            .saturating_mul(128)
-                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
-                    )
-                    .with_unknown_field_limit(
-                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
-                    );
-                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
-                        ::buffa::alloc::sync::Arc::clone(
-                            super::super::__buffa::reflect::descriptor_pool(),
-                        ),
-                        Self::__buffa_reflect_message_index(),
-                        &bytes,
-                        &options,
-                    )
-                    .expect(
-                        "view re-encodes to bytes decodable against its own descriptor",
-                    )
-            }
-        }
-        impl<'a> ::buffa_descriptor::reflect::ReflectElement
-        for EngineeringPreparedSelectionView<'a> {
-            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
-                ::buffa_descriptor::reflect::ValueRef::Message(
-                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
-                )
-            }
-        }
-        impl<'a> EngineeringPreparedSelectionView<'a> {
             #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
             /// Memoized `MessageIndex` for this view's message type, resolved
             /// once against the package's embedded descriptor pool. An inherent
@@ -260155,6 +258385,8 @@ pub mod __buffa {
             pub progress: ::buffa::MessageFieldView<
                 super::super::__buffa::view::EngineeringRunProgressView<'a>,
             >,
+            /// Field 10: `preparation`
+            pub preparation: ::core::option::Option<&'a [u8]>,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for EngineeringRunStatusView<'a> {
@@ -260296,6 +258528,13 @@ pub mod __buffa {
                             }
                         }
                     }
+                    10u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.preparation = Some(::buffa::types::borrow_bytes(&mut cur)?);
+                    }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                         let span_len = before_tag.len() - cur.len();
@@ -260352,6 +258591,7 @@ pub mod __buffa {
                         }
                         None => ::buffa::MessageField::none(),
                     },
+                    preparation: self.preparation.map(|b| (b).to_vec()),
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -260405,6 +258645,9 @@ pub mod __buffa {
                         += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                             + inner_size as u64;
                 }
+                if let Some(ref v) = self.preparation {
+                    size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+                }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
             }
@@ -260456,6 +258699,9 @@ pub mod __buffa {
                         buf,
                     );
                     self.progress.write_to(__cache, buf);
+                }
+                if let Some(ref v) = self.preparation {
+                    ::buffa::types::put_shared_bytes_field(10u32, v, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -260514,6 +258760,13 @@ pub mod __buffa {
                     {
                         __map.serialize_entry("progress", __v)?;
                     }
+                }
+                if let ::core::option::Option::Some(__v) = self.preparation {
+                    __map
+                        .serialize_entry(
+                            "preparation",
+                            &::buffa::json_helpers::BytesJson(__v),
+                        )?;
                 }
                 __map.end()
             }
@@ -260665,6 +258918,11 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().progress
             }
+            /// Field 10: `preparation`
+            #[must_use]
+            pub fn preparation(&self) -> ::core::option::Option<&'_ [u8]> {
+                self.0.reborrow().preparation
+            }
         }
         impl ::core::convert::From<::buffa::OwnedView<EngineeringRunStatusView<'static>>>
         for EngineeringRunStatusOwnedView {
@@ -260758,6 +259016,11 @@ pub mod __buffa {
                             ),
                         )
                     }
+                    10u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Bytes(
+                            self.preparation.unwrap_or(&[]),
+                        )
+                    }
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -260779,6 +259042,7 @@ pub mod __buffa {
                     7u32 => self.canonical_run.is_some(),
                     8u32 => self.canonical_attempt.is_some(),
                     9u32 => self.progress.is_set(),
+                    10u32 => self.preparation.is_some(),
                     _ => false,
                 }
             }
@@ -262761,14 +261025,28 @@ pub mod __buffa {
         pub struct EngineeringSubmitRunView<'a> {
             /// Field 1: `operation`
             pub operation: &'a str,
-            /// Field 2: `preparation_operation`
-            pub preparation_operation: &'a str,
             /// Field 3: `run`
             pub run: &'a [u8],
             /// Field 4: `attempt`
             pub attempt: &'a [u8],
-            /// Field 5: `expected_preparation`
-            pub expected_preparation: &'a [u8],
+            /// Field 6: `source_operation`
+            pub source_operation: &'a str,
+            /// Field 7: `expected_local_revision`
+            pub expected_local_revision: &'a str,
+            /// Field 8: `case`
+            pub case: &'a [u8],
+            /// Field 9: `intent`
+            pub intent: ::buffa::MessageFieldView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView<
+                    'a,
+                >,
+            >,
+            /// Field 10: `backend`
+            pub backend: ::buffa::MessageFieldView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView<
+                    'a,
+                >,
+            >,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for EngineeringSubmitRunView<'a> {
@@ -262814,15 +261092,6 @@ pub mod __buffa {
                         )?;
                         view.operation = ::buffa::types::borrow_str(&mut cur)?;
                     }
-                    2u32 => {
-                        ::buffa::encoding::check_wire_type(
-                            tag,
-                            ::buffa::encoding::WireType::LengthDelimited,
-                        )?;
-                        view.preparation_operation = ::buffa::types::borrow_str(
-                            &mut cur,
-                        )?;
-                    }
                     3u32 => {
                         ::buffa::encoding::check_wire_type(
                             tag,
@@ -262837,14 +261106,78 @@ pub mod __buffa {
                         )?;
                         view.attempt = ::buffa::types::borrow_bytes(&mut cur)?;
                     }
-                    5u32 => {
+                    6u32 => {
                         ::buffa::encoding::check_wire_type(
                             tag,
                             ::buffa::encoding::WireType::LengthDelimited,
                         )?;
-                        view.expected_preparation = ::buffa::types::borrow_bytes(
+                        view.source_operation = ::buffa::types::borrow_str(&mut cur)?;
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.expected_local_revision = ::buffa::types::borrow_str(
                             &mut cur,
                         )?;
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.case = ::buffa::types::borrow_bytes(&mut cur)?;
+                    }
+                    9u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.intent.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.intent = ::buffa::MessageFieldView::set(
+                                    <::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
+                    }
+                    10u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        match view.backend.as_mut() {
+                            Some(existing) => {
+                                ::buffa::MessageView::merge_into_view(
+                                    existing,
+                                    sub,
+                                    __sub_ctx,
+                                )?
+                            }
+                            None => {
+                                view.backend = ::buffa::MessageFieldView::set(
+                                    <::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                            }
+                        }
                     }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
@@ -262876,10 +261209,33 @@ pub mod __buffa {
                 let _ = __buffa_src;
                 ::core::result::Result::Ok(super::super::EngineeringSubmitRun {
                     operation: self.operation.to_string(),
-                    preparation_operation: self.preparation_operation.to_string(),
                     run: (self.run).to_vec(),
                     attempt: (self.attempt).to_vec(),
-                    expected_preparation: (self.expected_preparation).to_vec(),
+                    source_operation: self.source_operation.to_string(),
+                    expected_local_revision: self.expected_local_revision.to_string(),
+                    case: (self.case).to_vec(),
+                    intent: match self.intent.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
+                                ::buffa::Inline<
+                                    ::pse_host::engineering_client::pb::pse::engineering::v1::NativeSolveIntent,
+                                >,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
+                    backend: match self.backend.as_option() {
+                        Some(v) => {
+                            ::buffa::MessageField::<
+                                ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
+                                ::buffa::Inline<
+                                    ::pse_host::engineering_client::pb::pse::engineering::v1::NativeBackend,
+                                >,
+                            >::some(v.to_owned_from_source(__buffa_src)?)
+                        }
+                        None => ::buffa::MessageField::none(),
+                    },
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -262890,7 +261246,7 @@ pub mod __buffa {
         }
         impl<'a> ::buffa::ViewEncode<'a> for EngineeringSubmitRunView<'a> {
             #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
-            fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
                 #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
                 use ::buffa::Enumeration as _;
                 let mut size = 0u64;
@@ -262898,13 +261254,6 @@ pub mod __buffa {
                     size
                         += 1u64
                             + ::buffa::types::string_encoded_len(&self.operation) as u64;
-                }
-                if !self.preparation_operation.is_empty() {
-                    size
-                        += 1u64
-                            + ::buffa::types::string_encoded_len(
-                                &self.preparation_operation,
-                            ) as u64;
                 }
                 if !self.run.is_empty() {
                     size += 1u64 + ::buffa::types::bytes_encoded_len(&self.run) as u64;
@@ -262914,12 +261263,37 @@ pub mod __buffa {
                         += 1u64
                             + ::buffa::types::bytes_encoded_len(&self.attempt) as u64;
                 }
-                if !self.expected_preparation.is_empty() {
+                if !self.source_operation.is_empty() {
                     size
                         += 1u64
-                            + ::buffa::types::bytes_encoded_len(
-                                &self.expected_preparation,
+                            + ::buffa::types::string_encoded_len(&self.source_operation)
+                                as u64;
+                }
+                if !self.expected_local_revision.is_empty() {
+                    size
+                        += 1u64
+                            + ::buffa::types::string_encoded_len(
+                                &self.expected_local_revision,
                             ) as u64;
+                }
+                if !self.case.is_empty() {
+                    size += 1u64 + ::buffa::types::bytes_encoded_len(&self.case) as u64;
+                }
+                if self.intent.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.intent.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
+                }
+                if self.backend.is_set() {
+                    let __slot = __cache.reserve();
+                    let inner_size = self.backend.compute_size(__cache);
+                    __cache.set(__slot, inner_size);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                            + inner_size as u64;
                 }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
@@ -262927,7 +261301,7 @@ pub mod __buffa {
             #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
             fn write_to(
                 &self,
-                _cache: &mut ::buffa::SizeCache,
+                __cache: &mut ::buffa::SizeCache,
                 buf: &mut impl ::buffa::EncodeSink,
             ) {
                 #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
@@ -262935,25 +261309,40 @@ pub mod __buffa {
                 if !self.operation.is_empty() {
                     ::buffa::types::put_string_field(1u32, &self.operation, buf);
                 }
-                if !self.preparation_operation.is_empty() {
-                    ::buffa::types::put_string_field(
-                        2u32,
-                        &self.preparation_operation,
-                        buf,
-                    );
-                }
                 if !self.run.is_empty() {
                     ::buffa::types::put_shared_bytes_field(3u32, &self.run, buf);
                 }
                 if !self.attempt.is_empty() {
                     ::buffa::types::put_shared_bytes_field(4u32, &self.attempt, buf);
                 }
-                if !self.expected_preparation.is_empty() {
-                    ::buffa::types::put_shared_bytes_field(
-                        5u32,
-                        &self.expected_preparation,
+                if !self.source_operation.is_empty() {
+                    ::buffa::types::put_string_field(6u32, &self.source_operation, buf);
+                }
+                if !self.expected_local_revision.is_empty() {
+                    ::buffa::types::put_string_field(
+                        7u32,
+                        &self.expected_local_revision,
                         buf,
                     );
+                }
+                if !self.case.is_empty() {
+                    ::buffa::types::put_shared_bytes_field(8u32, &self.case, buf);
+                }
+                if self.intent.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        9u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.intent.write_to(__cache, buf);
+                }
+                if self.backend.is_set() {
+                    ::buffa::types::put_len_delimited_header(
+                        10u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    self.backend.write_to(__cache, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -262979,15 +261368,6 @@ pub mod __buffa {
                 if !::buffa::json_helpers::skip_if::is_empty_str(self.operation) {
                     __map.serialize_entry("operation", self.operation)?;
                 }
-                if !::buffa::json_helpers::skip_if::is_empty_str(
-                    self.preparation_operation,
-                ) {
-                    __map
-                        .serialize_entry(
-                            "preparation_operation",
-                            self.preparation_operation,
-                        )?;
-                }
                 if !::buffa::json_helpers::skip_if::is_empty_bytes(self.run) {
                     __map
                         .serialize_entry(
@@ -263002,14 +261382,34 @@ pub mod __buffa {
                             &::buffa::json_helpers::BytesJson(self.attempt),
                         )?;
                 }
-                if !::buffa::json_helpers::skip_if::is_empty_bytes(
-                    self.expected_preparation,
+                if !::buffa::json_helpers::skip_if::is_empty_str(self.source_operation) {
+                    __map.serialize_entry("source_operation", self.source_operation)?;
+                }
+                if !::buffa::json_helpers::skip_if::is_empty_str(
+                    self.expected_local_revision,
                 ) {
                     __map
                         .serialize_entry(
-                            "expected_preparation",
-                            &::buffa::json_helpers::BytesJson(self.expected_preparation),
+                            "expected_local_revision",
+                            self.expected_local_revision,
                         )?;
+                }
+                if !::buffa::json_helpers::skip_if::is_empty_bytes(self.case) {
+                    __map
+                        .serialize_entry(
+                            "case",
+                            &::buffa::json_helpers::BytesJson(self.case),
+                        )?;
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.intent.as_option() {
+                        __map.serialize_entry("intent", __v)?;
+                    }
+                }
+                {
+                    if let ::core::option::Option::Some(__v) = self.backend.as_option() {
+                        __map.serialize_entry("backend", __v)?;
+                    }
                 }
                 __map.end()
             }
@@ -263111,11 +261511,6 @@ pub mod __buffa {
             pub fn operation(&self) -> &'_ str {
                 self.0.reborrow().operation
             }
-            /// Field 2: `preparation_operation`
-            #[must_use]
-            pub fn preparation_operation(&self) -> &'_ str {
-                self.0.reborrow().preparation_operation
-            }
             /// Field 3: `run`
             #[must_use]
             pub fn run(&self) -> &'_ [u8] {
@@ -263126,10 +261521,42 @@ pub mod __buffa {
             pub fn attempt(&self) -> &'_ [u8] {
                 self.0.reborrow().attempt
             }
-            /// Field 5: `expected_preparation`
+            /// Field 6: `source_operation`
             #[must_use]
-            pub fn expected_preparation(&self) -> &'_ [u8] {
-                self.0.reborrow().expected_preparation
+            pub fn source_operation(&self) -> &'_ str {
+                self.0.reborrow().source_operation
+            }
+            /// Field 7: `expected_local_revision`
+            #[must_use]
+            pub fn expected_local_revision(&self) -> &'_ str {
+                self.0.reborrow().expected_local_revision
+            }
+            /// Field 8: `case`
+            #[must_use]
+            pub fn case(&self) -> &'_ [u8] {
+                self.0.reborrow().case
+            }
+            /// Field 9: `intent`
+            #[must_use]
+            pub fn intent(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeSolveIntentView<
+                    '_,
+                >,
+            > {
+                &self.0.reborrow().intent
+            }
+            /// Field 10: `backend`
+            #[must_use]
+            pub fn backend(
+                &self,
+            ) -> &::buffa::MessageFieldView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::NativeBackendView<
+                    '_,
+                >,
+            > {
+                &self.0.reborrow().backend
             }
         }
         impl ::core::convert::From<::buffa::OwnedView<EngineeringSubmitRunView<'static>>>
@@ -263184,16 +261611,31 @@ pub mod __buffa {
                 use ::buffa::Enumeration as _;
                 match field.number() {
                     1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.operation),
-                    2u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::String(
-                            self.preparation_operation,
-                        )
-                    }
                     3u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.run),
                     4u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.attempt),
-                    5u32 => {
-                        ::buffa_descriptor::reflect::ValueRef::Bytes(
-                            self.expected_preparation,
+                    6u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::String(
+                            self.source_operation,
+                        )
+                    }
+                    7u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::String(
+                            self.expected_local_revision,
+                        )
+                    }
+                    8u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.case),
+                    9u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.intent,
+                            ),
+                        )
+                    }
+                    10u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                &*self.backend,
+                            ),
                         )
                     }
                     _ => {
@@ -263209,10 +261651,13 @@ pub mod __buffa {
             fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
                 match field.number() {
                     1u32 => !self.operation.is_empty(),
-                    2u32 => !self.preparation_operation.is_empty(),
                     3u32 => !self.run.is_empty(),
                     4u32 => !self.attempt.is_empty(),
-                    5u32 => !self.expected_preparation.is_empty(),
+                    6u32 => !self.source_operation.is_empty(),
+                    7u32 => !self.expected_local_revision.is_empty(),
+                    8u32 => !self.case.is_empty(),
+                    9u32 => self.intent.is_set(),
+                    10u32 => self.backend.is_set(),
                     _ => false,
                 }
             }
@@ -345083,9 +343528,7 @@ pub mod __buffa {
         reg.register_json_any(super::__ENGINEERING_INSPECT_PROVIDERS_JSON_ANY);
         reg.register_json_any(super::__ENGINEERING_INSPECT_SOURCE_JSON_ANY);
         reg.register_json_any(super::__ENGINEERING_PACKAGE_JSON_ANY);
-        reg.register_json_any(super::__ENGINEERING_PREPARE_CASE_JSON_ANY);
         reg.register_json_any(super::__ENGINEERING_PREPARE_EXPANDED_STUDY_JSON_ANY);
-        reg.register_json_any(super::__ENGINEERING_PREPARED_SELECTION_JSON_ANY);
         reg.register_json_any(super::__ENGINEERING_PROGRESS_VALUE_JSON_ANY);
         reg.register_json_any(
             super::engineering_progress_value::__ALTERNATIVE1_JSON_ANY,
@@ -345819,9 +344262,7 @@ pub mod __buffa {
         reg.register_text_any(super::__ENGINEERING_INSPECT_PROVIDERS_TEXT_ANY);
         reg.register_text_any(super::__ENGINEERING_INSPECT_SOURCE_TEXT_ANY);
         reg.register_text_any(super::__ENGINEERING_PACKAGE_TEXT_ANY);
-        reg.register_text_any(super::__ENGINEERING_PREPARE_CASE_TEXT_ANY);
         reg.register_text_any(super::__ENGINEERING_PREPARE_EXPANDED_STUDY_TEXT_ANY);
-        reg.register_text_any(super::__ENGINEERING_PREPARED_SELECTION_TEXT_ANY);
         reg.register_text_any(super::__ENGINEERING_PROGRESS_VALUE_TEXT_ANY);
         reg.register_text_any(
             super::engineering_progress_value::__ALTERNATIVE1_TEXT_ANY,
@@ -346577,17 +345018,9 @@ pub use self::__buffa::view::EngineeringPackageView;
 #[doc(inline)]
 pub use self::__buffa::view::EngineeringPackageOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::EngineeringPrepareCaseView;
-#[doc(inline)]
-pub use self::__buffa::view::EngineeringPrepareCaseOwnedView;
-#[doc(inline)]
 pub use self::__buffa::view::EngineeringPrepareExpandedStudyView;
 #[doc(inline)]
 pub use self::__buffa::view::EngineeringPrepareExpandedStudyOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::EngineeringPreparedSelectionView;
-#[doc(inline)]
-pub use self::__buffa::view::EngineeringPreparedSelectionOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::EngineeringProgressValueView;
 #[doc(inline)]

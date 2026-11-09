@@ -208,6 +208,7 @@ mod tests {
             failure: None,
             canonical_run: None,
             canonical_attempt: None,
+            preparation: None,
             progress: Some(EngineeringRunProgress {
                 generation: u64::MAX,
                 highest_issued_sequence: u64::MAX,
@@ -234,6 +235,7 @@ mod tests {
         let wire = crate::engineering_projection::encode_engineering_run_status(native).unwrap();
         assert_eq!(wire.usable, Some(false));
         assert_eq!(wire.run, None);
+        assert_eq!(wire.preparation, None);
         let progress = wire.progress.as_option().unwrap();
         assert_eq!(progress.generation, u64::MAX);
         assert_eq!(progress.highest_issued_sequence, u64::MAX);

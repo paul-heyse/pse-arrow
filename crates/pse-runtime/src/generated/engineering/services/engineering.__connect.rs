@@ -46,18 +46,6 @@ pub type OwnedEngineeringDeclarationPageView = ::buffa::view::OwnedView<
         'static,
     >,
 >;
-///Shorthand for `OwnedView<EngineeringPrepareCaseView<'static>>`.
-pub type OwnedEngineeringPrepareCaseView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringPreparedSelectionView<'static>>`.
-pub type OwnedEngineeringPreparedSelectionView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
-        'static,
-    >,
->;
 ///Shorthand for `OwnedView<EngineeringSubmitRunView<'static>>`.
 pub type OwnedEngineeringSubmitRunView = ::buffa::view::OwnedView<
     crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
@@ -208,48 +196,6 @@ impl ::connectrpc::Encodable<
 >
 for ::buffa::view::OwnedView<
     crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
->
-for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
         'static,
     >,
 > {
@@ -600,12 +546,6 @@ pub const ENGINEERING_SERVICE_INSPECT_SOURCE_SPEC: ::connectrpc::Spec = ::connec
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `PrepareCase` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_PREPARE_CASE_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/PrepareCase",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
 /// Static [`Spec`](::connectrpc::Spec) for the `SubmitRun` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
 pub const ENGINEERING_SERVICE_SUBMIT_RUN_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
         "/pse.engineering.v1.EngineeringService/SubmitRun",
@@ -829,29 +769,6 @@ pub trait EngineeringService: Send + Sync + 'static {
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
                 crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the PrepareCase RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn prepare_case<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1264,35 +1181,6 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
             .with_spec(ENGINEERING_SERVICE_INSPECT_SOURCE_SPEC)
             .route_view(
                 ENGINEERING_SERVICE_SERVICE_NAME,
-                "PrepareCase",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.prepare_case(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_PREPARE_CASE_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
                 "SubmitRun",
                 {
                     let svc = ::std::sync::Arc::clone(&self);
@@ -1666,12 +1554,6 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                         .with_spec(ENGINEERING_SERVICE_INSPECT_SOURCE_SPEC),
                 )
             }
-            "PrepareCase" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_PREPARE_CASE_SPEC),
-                )
-            }
             "SubmitRun" => {
                 Some(
                     ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
@@ -1855,28 +1737,6 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                         .await?
                         .encode::<
                             crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
-                        >(format)
-                })
-            }
-            "PrepareCase" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-                    >::from_parts(&req, &body);
-                    svc.prepare_case(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
                         >(format)
                 })
             }
@@ -2454,51 +2314,6 @@ where
                 &self.transport,
                 &self.config,
                 ENGINEERING_SERVICE_INSPECT_SOURCE_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the PrepareCase RPC. Sends a request to /pse.engineering.v1.EngineeringService/PrepareCase.
-    pub async fn prepare_case(
-        &self,
-        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.prepare_case_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the PrepareCase RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn prepare_case_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_PREPARE_CASE_SPEC
                     .with_origin(::connectrpc::SpecOrigin::Client),
                 request,
                 options,

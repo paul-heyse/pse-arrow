@@ -2815,21 +2815,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `files` | 1 | `Map(Scalar(String), Scalar(Bytes))` | `Both` | `[Length { min: 1, max: 1024 }]` | `{}` |
 
-## `EngineeringPrepareCase`
-
-Rust owner: `pse_model::engineering::EngineeringPrepareCase`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Input`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
-| `source_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
-| `expected_local_revision` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
-| `case` | 4 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
-| `intent` | 5 | `Named("NativeSolveIntent")` | `Input` | `[Required]` | `{}` |
-| `backend` | 6 | `Optional(Named("NativeBackend"))` | `Input` | `[]` | `{}` |
-
 ## `EngineeringPrepareExpandedStudy`
 
 Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPrepareExpandedStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Input`.
@@ -2857,18 +2842,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `expected_source` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
 | `output` | 4 | `Named("StudyOutputDemand")` | `Input` | `[Required]` | `{}` |
 | `points` | 5 | `Repeated(Named("StudyPoint"))` | `Input` | `[Length { min: 0, max: 100000 }]` | `{}` |
-
-## `EngineeringPreparedSelection`
-
-Rust owner: `pse_model::engineering::EngineeringPreparedSelection`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Output`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `operation` | 1 | `Scalar(String)` | `Output` | `[]` | `{}` |
-| `source` | 2 | `Named("EngineeringSourceSelection")` | `Output` | `[Required]` | `{}` |
-| `preparation` | 3 | `Scalar(ContentHash)` | `Output` | `[]` | `{}` |
 
 ## `EngineeringPreparedStudy`
 
@@ -3021,7 +2994,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `EngineeringRunStatus`
 
-Rust owner: `pse_model::engineering::EngineeringRunStatus`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_model::engineering::EngineeringRunStatus`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 2. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3036,6 +3009,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `canonical_run` | 7 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 | `canonical_attempt` | 8 | `Optional(Scalar(String))` | `Output` | `[]` | `{}` |
 | `progress` | 9 | `Optional(Named("EngineeringRunProgress"))` | `Output` | `[]` | `{}` |
+| `preparation` | 10 | `Optional(Scalar(ContentHash))` | `Output` | `[]` | `{}` |
 
 ## `EngineeringScaleId`
 
@@ -3151,17 +3125,20 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `EngineeringSubmitRun`
 
-Rust owner: `pse_model::engineering::EngineeringSubmitRun`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_model::engineering::EngineeringSubmitRun`. Source: `crates/pse-model/src/engineering.rs`. Interpretation version: 2. Direction: `Input`.
 
-Reserved numbers: `[]`. Reserved names: `[]`.
+Reserved numbers: `[2, 5]`. Reserved names: `["preparation_operation", "expected_preparation"]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
-| `preparation_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `run` | 3 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
 | `attempt` | 4 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
-| `expected_preparation` | 5 | `Scalar(ContentHash)` | `Input` | `[]` | `{}` |
+| `source_operation` | 6 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_local_revision` | 7 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
+| `case` | 8 | `Scalar(SemanticId)` | `Input` | `[]` | `{}` |
+| `intent` | 9 | `Named("NativeSolveIntent")` | `Input` | `[Required]` | `{}` |
+| `backend` | 10 | `Optional(Named("NativeBackend"))` | `Input` | `[]` | `{}` |
 
 ## `EngineeringSubmitStudy`
 
@@ -7808,8 +7785,6 @@ Allowed canonical members: `["not_feasible", "structural_unavailable", "neighbor
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
 - `InspectSource`: `Named("EngineeringInspectSource")` -> `Named("EngineeringDeclarationPage")`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
-- `PrepareCase`: `Named("EngineeringPrepareCase")` -> `Named("EngineeringPreparedSelection")`.
-  Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
 - `SubmitRun`: `Named("EngineeringSubmitRun")` -> `Named("EngineeringRunStatus")`.
   Owner effects: `NativeExecution`; read only: false; idempotent: true; destructive: false.
 - `RunStatus`: `Named("EngineeringRunKey")` -> `Named("EngineeringRunStatus")`.

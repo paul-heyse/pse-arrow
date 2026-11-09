@@ -340,24 +340,6 @@ impl bindings::EngineeringService for Implementation {
             maximum_bytes: 64 << 10,
         }))
     }
-    async fn prepare_case<'a>(
-        &'a self,
-        context: connectrpc::RequestContext,
-        request: connectrpc::ServiceRequest<'_, pb::EngineeringPrepareCase>,
-    ) -> connectrpc::ServiceResult<
-        impl connectrpc::Encodable<pb::EngineeringPreparedSelection> + Send + use<'a>,
-    > {
-        self.authenticate(&context)?;
-        let input = crate::engineering_projection::decode_engineering_prepare_case(
-            request.to_owned_message(),
-        )
-        .map_err(study::projection_error)?;
-        let prepared = self.engine.prepare_case(input).await.map_err(transport)?;
-        Ok(connectrpc::Response::new(outgoing::Validated(
-            crate::engineering_projection::encode_engineering_prepared_selection(prepared)
-                .map_err(study::projection_error)?,
-        )))
-    }
     async fn submit_run<'a>(
         &'a self,
         context: connectrpc::RequestContext,

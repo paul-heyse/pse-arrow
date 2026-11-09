@@ -8,7 +8,7 @@ use crate::{
     CancelSource, SharedRuntime,
     workflow::{
         ModelingPackage, OperationSource, PreparationSettings, PreparedOperation,
-        ProjectDraftDocuments, RunHandle, Runtime, RuntimeOperationRequest,
+        PreparedStudyOperation, ProjectDraftDocuments, RunHandle, Runtime, RuntimeOperationRequest,
     },
 };
 use futures_util::FutureExt as _;
@@ -126,11 +126,10 @@ enum Outcome {
         package: Arc<ModelingPackage>,
         selection: EngineeringSourceSelection,
     },
-    Prepared {
-        prepared: Arc<PreparedOperation>,
-        selection: EngineeringPreparedSelection,
+    Run {
+        handle: RunHandle,
+        preparation: ContentHash,
     },
-    Run(RunHandle),
     PreparedStudy(Arc<study::PreparedStudy>),
     Study(Arc<crate::workflow::StudyHandle>),
     StudyCohort(Arc<crate::workflow::FrozenStudyCohort>),
@@ -141,7 +140,6 @@ enum Outcome {
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
     Source,
-    Preparation,
     Run,
     StudyPreparation,
     Study,
@@ -385,9 +383,8 @@ impl EngineeringService {
         // Snapshots share original native owners. Retain admission for their
         // indirect payloads; the existing opaque allowance also covers owner
         // bookkeeping rather than claiming an exact allocator or Arc layout.
-        let native_owner_bytes = size_of::<ModelingPackage>()
-            .max(size_of::<PreparedOperation>())
-            .max(size_of::<crate::workflow::StudyHandle>());
+        let native_owner_bytes =
+            size_of::<ModelingPackage>().max(size_of::<crate::workflow::StudyHandle>());
         reservation
             .try_grow(size_of::<Operation>() + native_owner_bytes + key.len() + 4096)
             .map_err(owner)?;
@@ -660,22 +657,40 @@ impl EngineeringService {
         Ok(pse_columnar::Leased::new(Arc::new(response), page.owner()))
     }
 
-    /// Prepare one actual authored case under its retained exact source/physical context.
+    /// Prepare and start one exact authored case under its original request identity.
     /// # Errors
-    /// Changed identity, stale parent, native contextual refusal and resource failures propagate.
-    pub async fn prepare_case(
+    /// Conflicting repetition refuses; original source, preparation and start failures are retained.
+    pub async fn submit_run(
         self: &Arc<Self>,
-        input: EngineeringPrepareCase,
-    ) -> Result<EngineeringPreparedSelection, EngineeringServiceError> {
+        input: EngineeringSubmitRun,
+    ) -> Result<EngineeringRunStatus, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
-        let source = self.operation(&input.source_operation, Kind::Source)?;
-        let (operation, fresh) = self.issue(&input.operation, Kind::Preparation, &input)?;
+        let key = EngineeringRunKey {
+            operation: input.operation.clone(),
+            run: input.run,
+            attempt: input.attempt,
+        };
+        if matches!(
+            self.runtime.durability(),
+            crate::workflow::Durability::Durable(_)
+        ) && let Some((_header_owner, _record, _attempt, stored, _preparation)) =
+            self.find_original_record(&key).await?
+        {
+            if stored.submission != fingerprint(&input)? {
+                return Err(request(
+                    "original canonical submission belongs to another request envelope",
+                ));
+            }
+            return self.run_status(&key).await;
+        }
+        let (operation, fresh) = self.issue_run(&input, &key)?;
         if fresh {
             let service = self.clone();
             let original = operation.clone();
             self.spawn(operation.clone(), async move {
-                let source = source.dependency(&original.cancel).await?;
-                let Outcome::Source { package, selection } = source else {
+                let source = service.operation(&input.source_operation, Kind::Source)?;
+                let Outcome::Source { package, .. } = source.dependency(&original.cancel).await?
+                else {
                     return Err(request(
                         "source admission did not produce an admitted package",
                     ));
@@ -703,67 +718,18 @@ impl EngineeringService {
                     )
                     .await
                     .map_err(owner)?;
-                let selection = EngineeringPreparedSelection {
-                    operation: input.operation,
-                    source: selection,
-                    preparation: prepared.identity().map_err(owner)?,
-                };
-                Ok(Outcome::Prepared {
-                    prepared: Arc::new(prepared),
-                    selection,
-                })
-            })?;
-        }
-        match operation.completed().await? {
-            Outcome::Prepared { selection, .. } => Ok(selection),
-            Outcome::Failed(error) => Err(EngineeringServiceError::Original(error)),
-            _ => Err(infrastructure(
-                "prepared operation published an incompatible outcome",
-            )),
-        }
-    }
-
-    /// Start once under the original request identity and retain the native cancellation lease.
-    /// # Errors
-    /// Conflicting repetition, absent preparation and original native start failures refuse.
-    pub async fn submit_run(
-        self: &Arc<Self>,
-        input: EngineeringSubmitRun,
-    ) -> Result<EngineeringRunStatus, EngineeringServiceError> {
-        input.validate_projection().map_err(owner)?;
-        let key = EngineeringRunKey {
-            operation: input.operation.clone(),
-            run: input.run,
-            attempt: input.attempt,
-        };
-        if matches!(
-            self.runtime.durability(),
-            crate::workflow::Durability::Durable(_)
-        ) && let Some((_header_owner, _record, _attempt, stored)) =
-            self.find_original_record(&key).await?
-        {
-            if stored.submission != fingerprint(&input)? {
-                return Err(request(
-                    "original canonical submission belongs to another request envelope",
-                ));
-            }
-            return self.run_status(&key).await;
-        }
-        let preparation = self.operation(&input.preparation_operation, Kind::Preparation)?;
-        let (operation, fresh) = self.issue_run(&input, &key)?;
-        if fresh {
-            let service = self.clone();
-            let original = operation.clone();
-            self.spawn(operation.clone(), async move {
-                let prepared = preparation.dependency(&original.cancel).await?;
-                let Outcome::Prepared { prepared, .. } = prepared else {
-                    return Err(request(
-                        "preparation did not produce an executable native operation",
+                let PreparedOperation::Study(PreparedStudyOperation::DeclaredCase(case)) =
+                    &prepared
+                else {
+                    return Err(infrastructure(
+                        "declared-case preparation returned another family",
                     ));
                 };
-                if prepared.identity().map_err(owner)? != input.expected_preparation {
-                    return Err(request("exact immutable preparation identity differs"));
-                }
+                let preparation = case
+                    .solve
+                    .preparation_identity()
+                    .map_err(crate::math::MathRuntimeError::from)
+                    .map_err(owner)?;
                 let identity = crate::workflow::IssuedRunIdentity {
                     run: pse_model::generated::identities::RunId::from_id(input.run),
                     attempt: pse_model::generated::identities::AttemptId::from_id(input.attempt),
@@ -780,7 +746,10 @@ impl EngineeringService {
                         .await
                         .map_err(owner)?
                     {
-                        crate::workflow::IssuedRunStart::Started(handle) => Outcome::Run(handle),
+                        crate::workflow::IssuedRunStart::Started(handle) => Outcome::Run {
+                            handle,
+                            preparation,
+                        },
                         crate::workflow::IssuedRunStart::Retained { .. } => Outcome::Retained,
                     },
                 )
@@ -829,8 +798,12 @@ impl EngineeringService {
                 canonical_run: None,
                 canonical_attempt: None,
                 progress: None,
+                preparation: None,
             },
-            Outcome::Run(handle) => {
+            Outcome::Run {
+                handle,
+                preparation,
+            } => {
                 check_run(&handle, key)?;
                 let result = handle.result();
                 EngineeringRunStatus {
@@ -849,6 +822,7 @@ impl EngineeringService {
                     canonical_run: handle.canonical_run_key().map(str::to_owned),
                     canonical_attempt: handle.canonical_attempt_key().map(str::to_owned),
                     progress: Some(run_progress(&handle)),
+                    preparation: Some(preparation),
                 }
             }
             Outcome::Retained => return self.recorded_status(key).await,
@@ -862,6 +836,7 @@ impl EngineeringService {
                 canonical_run: None,
                 canonical_attempt: None,
                 progress: None,
+                preparation: None,
             },
             _ => {
                 return Err(infrastructure(
@@ -887,7 +862,7 @@ impl EngineeringService {
             Err(error) => return Err(error),
         };
         match operation.snapshot()? {
-            Outcome::Run(handle) => {
+            Outcome::Run { handle, .. } => {
                 check_run(&handle, key)?;
                 tokio::select! { result = handle.wait() => { result.map_err(owner)?; }, _ = pause => {} }
             }
@@ -911,7 +886,7 @@ impl EngineeringService {
             Ok(operation) => {
                 check_issued(&operation, key)?;
                 match operation.snapshot()? {
-                    Outcome::Run(handle) => {
+                    Outcome::Run { handle, .. } => {
                         check_run(&handle, key)?;
                         handle.cancel();
                     }
@@ -929,7 +904,7 @@ impl EngineeringService {
         &self,
         key: &EngineeringRunKey,
     ) -> Result<(), EngineeringServiceError> {
-        let (reservation, original, _) = self.original_record(key).await?;
+        let (reservation, original, _, _) = self.original_record(key).await?;
         pse_operations::canonical::response_ownership_scope(
             reservation,
             self.runtime
@@ -950,16 +925,18 @@ impl EngineeringService {
             Arc<datafusion::execution::memory_pool::MemoryReservation>,
             pse_operations::canonical_execution::CanonicalRun,
             String,
+            ContentHash,
         ),
         EngineeringServiceError,
     > {
-        let Some((reservation, original, attempt, _)) = self.find_original_record(key).await?
+        let Some((reservation, original, attempt, _, preparation)) =
+            self.find_original_record(key).await?
         else {
             return Err(request(
                 "original canonical registration is unavailable; absence does not establish no effect",
             ));
         };
-        Ok((reservation, original, attempt))
+        Ok((reservation, original, attempt, preparation))
     }
 
     async fn find_original_record(
@@ -971,6 +948,7 @@ impl EngineeringService {
             pse_operations::canonical_execution::CanonicalRun,
             String,
             crate::workflow::IssuedRunIdentity,
+            ContentHash,
         )>,
         EngineeringServiceError,
     > {
@@ -1000,13 +978,14 @@ impl EngineeringService {
         else {
             return Ok(None);
         };
-        let stored =
-            crate::workflow::IssuedRunIdentity::from_canonical_request(original.request.as_slice())
-                .map_err(|error| {
-                    EngineeringServiceError::Interpretation(format!(
-                        "original canonical execution has another issuance interpretation: {error}"
-                    ))
-                })?;
+        let (stored, preparation) = crate::workflow::IssuedRunIdentity::decode_canonical_request(
+            original.request.as_slice(),
+        )
+        .map_err(|error| {
+            EngineeringServiceError::Interpretation(format!(
+                "original canonical execution has another issuance interpretation: {error}"
+            ))
+        })?;
         if stored.run.as_id() != key.run
             || stored.attempt.as_id() != key.attempt
             || stored.operation != key.operation
@@ -1015,14 +994,19 @@ impl EngineeringService {
                 "canonical original run belongs to another issued request",
             ));
         }
-        Ok(Some((reservation, original, attempt, stored)))
+        let preparation = preparation.ok_or_else(|| {
+            EngineeringServiceError::Interpretation(
+                "original declared-case run has no immutable preparation identity".into(),
+            )
+        })?;
+        Ok(Some((reservation, original, attempt, stored, preparation)))
     }
 
     async fn recorded_status(
         &self,
         key: &EngineeringRunKey,
     ) -> Result<EngineeringRunStatus, EngineeringServiceError> {
-        let (reservation, original, attempt) = self.original_record(key).await?;
+        let (reservation, original, attempt, preparation) = self.original_record(key).await?;
         let record = pse_operations::canonical::response_ownership_scope(
             reservation,
             self.runtime
@@ -1074,6 +1058,7 @@ impl EngineeringService {
             canonical_run: Some(original.key),
             canonical_attempt: Some(attempt),
             progress: None,
+            preparation: Some(preparation),
         })
     }
 
@@ -1104,7 +1089,7 @@ impl EngineeringService {
             Ok(operation) => {
                 check_issued(&operation, &key)?;
                 match operation.snapshot()? {
-                    Outcome::Run(handle) => {
+                    Outcome::Run { handle, .. } => {
                         check_run(&handle, &key)?;
                         Some(
                             handle
@@ -1126,7 +1111,7 @@ impl EngineeringService {
                     .map_err(owner)?,
             )
         } else {
-            let (_header, original, attempt) = self.original_record(&key).await?;
+            let (_header, original, attempt, _) = self.original_record(&key).await?;
             let cursor_owner = self
                 .shared
                 .math()
@@ -1232,7 +1217,7 @@ impl EngineeringService {
                 operation.cancel.cancel();
             }
             match operation.snapshot() {
-                Ok(Outcome::Run(handle)) => handle.cancel(),
+                Ok(Outcome::Run { handle, .. }) => handle.cancel(),
                 Err(error) => failures.push(error),
                 _ => {}
             }
@@ -1254,7 +1239,7 @@ impl EngineeringService {
         }
         for operation in operations {
             match operation.snapshot() {
-                Ok(Outcome::Run(handle)) => {
+                Ok(Outcome::Run { handle, .. }) => {
                     if let Err(error) = handle.wait().await {
                         failures.push(owner(error));
                     }
@@ -1531,38 +1516,18 @@ mod tests {
                 EngineeringSourceOutcome::Pending
             ));
         }
-        let preparation_service = service.clone();
-        let prepare = tokio::spawn(async move {
-            preparation_service
-                .prepare_case(EngineeringPrepareCase {
-                    operation: "dependency-preparation".into(),
-                    source_operation: "edit-second".into(),
-                    expected_local_revision: "original-parent".into(),
-                    case: pse_ids::SemanticId::from_bytes([42; 16]),
-                    intent: pse_model::generated::enums::NativeSolveIntent::Root,
-                    backend: None,
-                })
-                .await
-        });
-        tokio::time::timeout(Duration::from_secs(10), async {
-            while service
-                .operation("dependency-preparation", Kind::Preparation)
-                .is_err()
-            {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
         let submit_service = service.clone();
         let submit = tokio::spawn(async move {
             submit_service
                 .submit_run(EngineeringSubmitRun {
                     operation: "dependency-run".into(),
-                    preparation_operation: "dependency-preparation".into(),
                     run: pse_ids::SemanticId::from_bytes([43; 16]),
                     attempt: pse_ids::SemanticId::from_bytes([44; 16]),
-                    expected_preparation: ContentHash::from_bytes([45; 32]),
+                    source_operation: "edit-second".into(),
+                    expected_local_revision: "original-parent".into(),
+                    case: pse_ids::SemanticId::from_bytes([42; 16]),
+                    intent: pse_model::generated::enums::NativeSolveIntent::Root,
+                    backend: None,
                 })
                 .await
         });
@@ -1577,12 +1542,10 @@ mod tests {
             .await
             .expect("shutdown must cancel retained dependency waiters")
             .unwrap();
-        assert!(prepare.await.unwrap().is_err());
         assert!(submit.await.unwrap().unwrap().failure.is_some());
         for (key, kind) in [
             ("edit-first", Kind::Source),
             ("edit-second", Kind::Source),
-            ("dependency-preparation", Kind::Preparation),
             ("dependency-run", Kind::Run),
         ] {
             let Outcome::Failed(error) = service.operation(key, kind).unwrap().snapshot().unwrap()
@@ -1669,10 +1632,13 @@ mod tests {
         let (service, _spill) = service();
         let input = EngineeringSubmitRun {
             operation: "run-observer-deadline".into(),
-            preparation_operation: "prepared".into(),
             run: pse_ids::SemanticId::from_bytes([51; 16]),
             attempt: pse_ids::SemanticId::from_bytes([52; 16]),
-            expected_preparation: ContentHash::from_bytes([54; 32]),
+            source_operation: "source".into(),
+            expected_local_revision: "exact-parent".into(),
+            case: pse_ids::SemanticId::from_bytes([54; 16]),
+            intent: pse_model::generated::enums::NativeSolveIntent::Root,
+            backend: None,
         };
         let key = EngineeringRunKey {
             operation: input.operation.clone(),
@@ -1776,10 +1742,13 @@ mod tests {
         let (service, _spill) = service();
         let input = EngineeringSubmitRun {
             operation: "pending-original".into(),
-            preparation_operation: "preparation".into(),
             run: pse_ids::SemanticId::from_bytes([51; 16]),
             attempt: pse_ids::SemanticId::from_bytes([52; 16]),
-            expected_preparation: ContentHash::from_bytes([54; 32]),
+            source_operation: "source".into(),
+            expected_local_revision: "exact-parent".into(),
+            case: pse_ids::SemanticId::from_bytes([54; 16]),
+            intent: pse_model::generated::enums::NativeSolveIntent::Root,
+            backend: None,
         };
         let key = EngineeringRunKey {
             operation: input.operation.clone(),
@@ -1801,10 +1770,11 @@ mod tests {
         assert!(!cancelled.settled);
         assert!(cancelled.run.is_none());
         assert!(cancelled.usable.is_none());
+        assert!(cancelled.preparation.is_none());
         assert!(original.cancel.token().is_cancelled());
         assert!(!service.issue_run(&input, &key).unwrap().1);
         let mut changed_request = input;
-        changed_request.expected_preparation = ContentHash::from_bytes([55; 32]);
+        changed_request.case = pse_ids::SemanticId::from_bytes([55; 16]);
         assert!(service.issue_run(&changed_request, &key).is_err());
         service.shutdown().await.unwrap();
     }
@@ -2258,30 +2228,38 @@ mod tests {
                 .find(|declaration| declaration.name == "square")
                 .unwrap()
                 .declaration;
-            let mut preparation = EngineeringPrepareCase {
-                operation: "prepare-original".into(),
+            let submit = EngineeringSubmitRun {
+                operation: "run-original".into(),
+                run: pse_ids::SemanticId::from_bytes([21; 16]),
+                attempt: pse_ids::SemanticId::from_bytes([22; 16]),
                 source_operation: source.operation,
-                expected_local_revision: "stale-parent".into(),
+                expected_local_revision: source.local_revision,
                 case,
                 intent: pse_model::generated::enums::NativeSolveIntent::Root,
                 backend: Some(pse_model::generated::enums::NativeBackend::Kinsol),
             };
-            assert!(service.prepare_case(preparation.clone()).await.is_err());
-            preparation.operation = "prepare-current".into();
-            preparation.expected_local_revision = source.local_revision;
-            let prepared = service.prepare_case(preparation).await.unwrap();
-            let submit = EngineeringSubmitRun {
-                operation: "run-original".into(),
-                preparation_operation: prepared.operation,
-                run: pse_ids::SemanticId::from_bytes([21; 16]),
-                attempt: pse_ids::SemanticId::from_bytes([22; 16]),
-                expected_preparation: prepared.preparation,
-            };
+            let mut stale = submit.clone();
+            stale.operation = "run-stale".into();
+            stale.expected_local_revision = "stale-parent".into();
+            let refusal = service.submit_run(stale.clone()).await.unwrap();
+            assert!(refusal.run.is_none());
+            assert!(refusal.preparation.is_none());
+            assert!(
+                refusal
+                    .failure
+                    .unwrap()
+                    .message
+                    .contains("exact source parent is stale")
+            );
+            stale.expected_local_revision = submit.expected_local_revision.clone();
+            assert!(service.submit_run(stale).await.is_err());
             let first = service.submit_run(submit.clone()).await.unwrap();
             let second = service.submit_run(submit.clone()).await.unwrap();
             assert_eq!(first.run, second.run);
+            assert!(first.preparation.is_some());
+            assert_eq!(first.preparation, second.preparation);
             let original = service.operation(&submit.operation, Kind::Run).unwrap();
-            let Outcome::Run(handle) = original.snapshot().unwrap() else {
+            let Outcome::Run { handle, .. } = original.snapshot().unwrap() else {
                 panic!("actual run handle is retained")
             };
             drop(handle.observations());
@@ -2369,21 +2347,15 @@ mod tests {
             .find(|declaration| declaration.name == "square")
             .unwrap()
             .declaration;
-        let prepare = EngineeringPrepareCase {
-            operation: "prepare-recorded".into(),
+        let submit = EngineeringSubmitRun {
+            operation: "issued-recorded".into(),
+            run: pse_ids::SemanticId::from_bytes([31; 16]),
+            attempt: pse_ids::SemanticId::from_bytes([32; 16]),
             source_operation: source.operation,
             expected_local_revision: source.local_revision,
             case,
             intent: pse_model::generated::enums::NativeSolveIntent::Root,
             backend: Some(pse_model::generated::enums::NativeBackend::Kinsol),
-        };
-        let prepared = service.prepare_case(prepare).await.unwrap();
-        let submit = EngineeringSubmitRun {
-            operation: "issued-recorded".into(),
-            preparation_operation: prepared.operation,
-            run: pse_ids::SemanticId::from_bytes([31; 16]),
-            attempt: pse_ids::SemanticId::from_bytes([32; 16]),
-            expected_preparation: prepared.preparation,
         };
         let key = EngineeringRunKey {
             operation: submit.operation.clone(),
@@ -2411,7 +2383,11 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        let Outcome::Run(handle) = outcome else {
+        let Outcome::Run {
+            handle,
+            preparation,
+        } = outcome
+        else {
             panic!("original task retains its native run")
         };
         let result = tokio::time::timeout(Duration::from_secs(90), handle.wait())
@@ -2426,6 +2402,7 @@ mod tests {
         assert!(first.canonical_run.is_some());
         assert!(first.canonical_attempt.is_some());
         assert!(first.progress.is_some());
+        assert_eq!(first.preparation, Some(preparation));
         service.shutdown().await.unwrap();
         drop(handle);
         drop(original);
@@ -2436,11 +2413,12 @@ mod tests {
         // Neither the original source nor its preparation exists in this new
         // incarnation. Exact submission resolves only the canonical original.
         let mut changed_submit = submit.clone();
-        changed_submit.preparation_operation = "another-preparation".into();
+        changed_submit.source_operation = "another-source".into();
         assert!(reader.submit_run(changed_submit).await.is_err());
         let resubmitted = reader.submit_run(submit.clone()).await.unwrap();
         assert_eq!(resubmitted.canonical_run, first.canonical_run);
         assert_eq!(resubmitted.canonical_attempt, first.canonical_attempt);
+        assert_eq!(resubmitted.preparation, Some(preparation));
         assert!(
             reader.operations.lock().unwrap().is_empty(),
             "canonical replay must not create another native operation"
@@ -2470,20 +2448,10 @@ mod tests {
         else {
             panic!("new incarnation retains the changed source")
         };
-        let prepared = reader
-            .prepare_case(EngineeringPrepareCase {
-                operation: submit.preparation_operation.clone(),
-                source_operation: source.operation,
-                expected_local_revision: source.local_revision,
-                case,
-                intent: pse_model::generated::enums::NativeSolveIntent::Root,
-                backend: Some(pse_model::generated::enums::NativeBackend::Kinsol),
-            })
-            .await
-            .unwrap();
-        assert_ne!(prepared.preparation, submit.expected_preparation);
         let mut rebound = submit;
-        rebound.expected_preparation = prepared.preparation;
+        assert_ne!(rebound.expected_local_revision, source.local_revision);
+        rebound.source_operation = source.operation;
+        rebound.expected_local_revision = source.local_revision;
         assert!(matches!(
             reader.submit_run(rebound).await,
             Err(EngineeringServiceError::Request(_))

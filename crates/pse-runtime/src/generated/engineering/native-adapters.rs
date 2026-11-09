@@ -26515,137 +26515,6 @@ impl NativeFrom<
     }
 }
 impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-    crate::host_operations::engineering::NativeAdapterScope,
-> for pse_model::engineering::EngineeringPrepareCase {
-    fn into_wire(
-        self,
-        path: &str,
-    ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-        AdapterError,
-    > {
-        layout(
-            <pse_model::engineering::EngineeringPrepareCase as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::engineering::EngineeringPrepareCase as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[
-                (1, "operation"),
-                (2, "source_operation"),
-                (3, "expected_local_revision"),
-                (4, "case"),
-                (5, "intent"),
-                (6, "backend"),
-            ],
-            path,
-        )?;
-        let (field_0, field_1, field_2, field_3, field_4, field_5) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
-            self,
-        );
-        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase {
-            operation: native_into::<
-                _,
-                String,
-            >(field_0, &child_path(path, "operation"))?,
-            source_operation: native_into::<
-                _,
-                String,
-            >(field_1, &child_path(path, "source_operation"))?,
-            expected_local_revision: native_into::<
-                _,
-                String,
-            >(field_2, &child_path(path, "expected_local_revision"))?,
-            case: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_3,
-            ),
-            intent: buffa::MessageField::some(
-                native_into_in_scope::<
-                    _,
-                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSolveIntent,
-                    crate::host_operations::engineering::NativeAdapterScope,
-                >(field_4, &child_path(path, "intent"))?,
-            ),
-            backend: field_5
-                .map(|value| -> Result<_, AdapterError> {
-                    native_into_in_scope::<
-                        _,
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeBackend,
-                        crate::host_operations::engineering::NativeAdapterScope,
-                    >(value, &child_path(path, "backend"))
-                })
-                .transpose()?
-                .into(),
-            ..Default::default()
-        })
-    }
-}
-impl NativeFrom<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-    crate::host_operations::engineering::NativeAdapterScope,
-> for pse_model::engineering::EngineeringPrepareCase {
-    fn from_wire(
-        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-        path: &str,
-    ) -> Result<Self, AdapterError> {
-        unknown_fields(&wire.__buffa_unknown_fields, path)?;
-        layout(
-            <pse_model::engineering::EngineeringPrepareCase as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::engineering::EngineeringPrepareCase as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[
-                (1, "operation"),
-                (2, "source_operation"),
-                (3, "expected_local_revision"),
-                (4, "case"),
-                (5, "intent"),
-                (6, "backend"),
-            ],
-            path,
-        )?;
-        let fields = (
-            native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
-            native_from::<
-                _,
-                String,
-            >(wire.source_operation, &child_path(path, "source_operation"))?,
-            native_from::<
-                _,
-                String,
-            >(
-                wire.expected_local_revision,
-                &child_path(path, "expected_local_revision"),
-            )?,
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.case,
-                &child_path(path, "case"),
-            )?,
-            native_from_in_scope::<
-                _,
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSolveIntent,
-                crate::host_operations::engineering::NativeAdapterScope,
-            >(
-                required(wire.intent.into_option(), &child_path(path, "intent"))?,
-                &child_path(path, "intent"),
-            )?,
-            wire
-                .backend
-                .into_option()
-                .map(|value| -> Result<_, AdapterError> {
-                    native_from_in_scope::<
-                        _,
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeBackend,
-                        crate::host_operations::engineering::NativeAdapterScope,
-                    >(value, &child_path(path, "backend"))
-                })
-                .transpose()?,
-        );
-        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
-                fields,
-            )
-            .map_err(|error| error.at(path))
-    }
-}
-impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareExpandedStudy,
     crate::host_operations::engineering::NativeAdapterScope,
 > for crate::host_operations::engineering_contract::EngineeringPrepareExpandedStudy {
@@ -26878,83 +26747,6 @@ impl NativeFrom<
                     .collect::<Result<Vec<_>, _>>()?;
                 from_items(values, current_path)?
             },
-        );
-        pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
-                fields,
-            )
-            .map_err(|error| error.at(path))
-    }
-}
-impl NativeInto<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-    crate::host_operations::engineering::NativeAdapterScope,
-> for pse_model::engineering::EngineeringPreparedSelection {
-    fn into_wire(
-        self,
-        path: &str,
-    ) -> Result<
-        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-        AdapterError,
-    > {
-        layout(
-            <pse_model::engineering::EngineeringPreparedSelection as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::engineering::EngineeringPreparedSelection as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[(1, "operation"), (2, "source"), (3, "preparation")],
-            path,
-        )?;
-        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
-            self,
-        );
-        Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection {
-            operation: native_into::<
-                _,
-                String,
-            >(field_0, &child_path(path, "operation"))?,
-            source: buffa::MessageField::some(
-                native_into_in_scope::<
-                    _,
-                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceSelection,
-                    crate::host_operations::engineering::NativeAdapterScope,
-                >(field_1, &child_path(path, "source"))?,
-            ),
-            preparation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_2,
-            ),
-            ..Default::default()
-        })
-    }
-}
-impl NativeFrom<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-    crate::host_operations::engineering::NativeAdapterScope,
-> for pse_model::engineering::EngineeringPreparedSelection {
-    fn from_wire(
-        wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-        path: &str,
-    ) -> Result<Self, AdapterError> {
-        unknown_fields(&wire.__buffa_unknown_fields, path)?;
-        layout(
-            <pse_model::engineering::EngineeringPreparedSelection as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <pse_model::engineering::EngineeringPreparedSelection as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
-            &[(1, "operation"), (2, "source"), (3, "preparation")],
-            path,
-        )?;
-        let fields = (
-            native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
-            native_from_in_scope::<
-                _,
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceSelection,
-                crate::host_operations::engineering::NativeAdapterScope,
-            >(
-                required(wire.source.into_option(), &child_path(path, "source"))?,
-                &child_path(path, "source"),
-            )?,
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.preparation,
-                &child_path(path, "preparation"),
-            )?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -28276,7 +28068,7 @@ impl NativeInto<
         layout(
             <pse_model::engineering::EngineeringRunStatus as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringRunStatus as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
+            2,
             &[
                 (1, "operation"),
                 (2, "run"),
@@ -28287,6 +28079,7 @@ impl NativeInto<
                 (7, "canonical_run"),
                 (8, "canonical_attempt"),
                 (9, "progress"),
+                (10, "preparation"),
             ],
             path,
         )?;
@@ -28300,6 +28093,7 @@ impl NativeInto<
             field_6,
             field_7,
             field_8,
+            field_9,
         ) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
@@ -28360,6 +28154,15 @@ impl NativeInto<
                 })
                 .transpose()?
                 .into(),
+            preparation: field_9
+                .map(|value| -> Result<_, AdapterError> {
+                    Ok(
+                        pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                            value,
+                        ),
+                    )
+                })
+                .transpose()?,
             ..Default::default()
         })
     }
@@ -28376,7 +28179,7 @@ impl NativeFrom<
         layout(
             <pse_model::engineering::EngineeringRunStatus as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringRunStatus as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
+            2,
             &[
                 (1, "operation"),
                 (2, "run"),
@@ -28387,6 +28190,7 @@ impl NativeFrom<
                 (7, "canonical_run"),
                 (8, "canonical_attempt"),
                 (9, "progress"),
+                (10, "preparation"),
             ],
             path,
         )?;
@@ -28447,6 +28251,15 @@ impl NativeFrom<
                         crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunProgress,
                         crate::host_operations::engineering::NativeAdapterScope,
                     >(value, &child_path(path, "progress"))
+                })
+                .transpose()?,
+            wire
+                .preparation
+                .map(|value| -> Result<_, AdapterError> {
+                    pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                        value,
+                        &child_path(path, "preparation"),
+                    )
                 })
                 .transpose()?,
         );
@@ -29318,17 +29131,20 @@ impl NativeInto<
         layout(
             <pse_model::engineering::EngineeringSubmitRun as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringSubmitRun as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
+            2,
             &[
                 (1, "operation"),
-                (2, "preparation_operation"),
                 (3, "run"),
                 (4, "attempt"),
-                (5, "expected_preparation"),
+                (6, "source_operation"),
+                (7, "expected_local_revision"),
+                (8, "case"),
+                (9, "intent"),
+                (10, "backend"),
             ],
             path,
         )?;
-        let (field_0, field_1, field_2, field_3, field_4) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3, field_4, field_5, field_6, field_7) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun {
@@ -29336,19 +29152,40 @@ impl NativeInto<
                 _,
                 String,
             >(field_0, &child_path(path, "operation"))?,
-            preparation_operation: native_into::<
-                _,
-                String,
-            >(field_1, &child_path(path, "preparation_operation"))?,
             run: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_2,
+                field_1,
             ),
             attempt: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_3,
+                field_2,
             ),
-            expected_preparation: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
-                field_4,
+            source_operation: native_into::<
+                _,
+                String,
+            >(field_3, &child_path(path, "source_operation"))?,
+            expected_local_revision: native_into::<
+                _,
+                String,
+            >(field_4, &child_path(path, "expected_local_revision"))?,
+            case: pse_contract::boundary_projection::ProjectionBytes::into_projection_bytes(
+                field_5,
             ),
+            intent: buffa::MessageField::some(
+                native_into_in_scope::<
+                    _,
+                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSolveIntent,
+                    crate::host_operations::engineering::NativeAdapterScope,
+                >(field_6, &child_path(path, "intent"))?,
+            ),
+            backend: field_7
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into_in_scope::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeBackend,
+                        crate::host_operations::engineering::NativeAdapterScope,
+                    >(value, &child_path(path, "backend"))
+                })
+                .transpose()?
+                .into(),
             ..Default::default()
         })
     }
@@ -29365,22 +29202,21 @@ impl NativeFrom<
         layout(
             <pse_model::engineering::EngineeringSubmitRun as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringSubmitRun as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            1,
+            2,
             &[
                 (1, "operation"),
-                (2, "preparation_operation"),
                 (3, "run"),
                 (4, "attempt"),
-                (5, "expected_preparation"),
+                (6, "source_operation"),
+                (7, "expected_local_revision"),
+                (8, "case"),
+                (9, "intent"),
+                (10, "backend"),
             ],
             path,
         )?;
         let fields = (
             native_from::<_, String>(wire.operation, &child_path(path, "operation"))?,
-            native_from::<
-                _,
-                String,
-            >(wire.preparation_operation, &child_path(path, "preparation_operation"))?,
             pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
                 wire.run,
                 &child_path(path, "run"),
@@ -29389,10 +29225,40 @@ impl NativeFrom<
                 wire.attempt,
                 &child_path(path, "attempt"),
             )?,
-            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
-                wire.expected_preparation,
-                &child_path(path, "expected_preparation"),
+            native_from::<
+                _,
+                String,
+            >(wire.source_operation, &child_path(path, "source_operation"))?,
+            native_from::<
+                _,
+                String,
+            >(
+                wire.expected_local_revision,
+                &child_path(path, "expected_local_revision"),
             )?,
+            pse_contract::boundary_projection::ProjectionBytes::from_projection_bytes(
+                wire.case,
+                &child_path(path, "case"),
+            )?,
+            native_from_in_scope::<
+                _,
+                crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeSolveIntent,
+                crate::host_operations::engineering::NativeAdapterScope,
+            >(
+                required(wire.intent.into_option(), &child_path(path, "intent"))?,
+                &child_path(path, "intent"),
+            )?,
+            wire
+                .backend
+                .into_option()
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from_in_scope::<
+                        _,
+                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::NativeBackend,
+                        crate::host_operations::engineering::NativeAdapterScope,
+                    >(value, &child_path(path, "backend"))
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -63634,29 +63500,6 @@ pub fn decode_engineering_operation_key(
         crate::host_operations::engineering::NativeAdapterScope,
     >(wire, "EngineeringOperationKey")
 }
-/// Encode the actual native `EngineeringPrepareCase` and validate outgoing local rules.
-pub fn encode_engineering_prepare_case(
-    native: pse_model::engineering::EngineeringPrepareCase,
-) -> Result<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-    BoundaryProjectionError,
-> {
-    encode_root_in_scope::<
-        _,
-        _,
-        crate::host_operations::engineering::NativeAdapterScope,
-    >(native, "EngineeringPrepareCase")
-}
-/// Adopt known `EngineeringPrepareCase` meaning under this package's declared unknown-field policy.
-pub fn decode_engineering_prepare_case(
-    wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
-) -> Result<pse_model::engineering::EngineeringPrepareCase, BoundaryProjectionError> {
-    decode_root_in_scope::<
-        _,
-        _,
-        crate::host_operations::engineering::NativeAdapterScope,
-    >(wire, "EngineeringPrepareCase")
-}
 /// Encode the actual native `EngineeringPrepareExpandedStudy` and validate outgoing local rules.
 pub fn encode_engineering_prepare_expanded_study(
     native: crate::host_operations::engineering_contract::EngineeringPrepareExpandedStudy,
@@ -63708,32 +63551,6 @@ pub fn decode_engineering_prepare_explicit_study(
         _,
         crate::host_operations::engineering::NativeAdapterScope,
     >(wire, "EngineeringPrepareExplicitStudy")
-}
-/// Encode the actual native `EngineeringPreparedSelection` and validate outgoing local rules.
-pub fn encode_engineering_prepared_selection(
-    native: pse_model::engineering::EngineeringPreparedSelection,
-) -> Result<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-    BoundaryProjectionError,
-> {
-    encode_root_in_scope::<
-        _,
-        _,
-        crate::host_operations::engineering::NativeAdapterScope,
-    >(native, "EngineeringPreparedSelection")
-}
-/// Adopt known `EngineeringPreparedSelection` meaning under this package's declared unknown-field policy.
-pub fn decode_engineering_prepared_selection(
-    wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
-) -> Result<
-    pse_model::engineering::EngineeringPreparedSelection,
-    BoundaryProjectionError,
-> {
-    decode_root_in_scope::<
-        _,
-        _,
-        crate::host_operations::engineering::NativeAdapterScope,
-    >(wire, "EngineeringPreparedSelection")
 }
 /// Encode the actual native `EngineeringPreparedStudy` and validate outgoing local rules.
 pub fn encode_engineering_prepared_study(

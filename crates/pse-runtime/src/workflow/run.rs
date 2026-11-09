@@ -48,12 +48,18 @@ impl IssuedRunIdentity {
     /// # Errors
     /// Incorrect versions, incomplete identities and unknown fields refuse.
     pub fn from_canonical_request(bytes: &[u8]) -> Result<Self, serde_json::Error> {
-        let (_, _, issued): (
+        Self::decode_canonical_request(bytes).map(|(issued, _)| issued)
+    }
+
+    pub(crate) fn decode_canonical_request(
+        bytes: &[u8],
+    ) -> Result<(Self, Option<pse_ids::ContentHash>), serde_json::Error> {
+        let (_, (_, preparation), issued): (
             pse_model::document::Version<2>,
             super::run_outcome::RequestIdentity,
             Self,
         ) = serde_json::from_slice(bytes)?;
-        Ok(issued)
+        Ok((issued, preparation))
     }
 
     pub(super) fn claim_operation(&self) -> String {

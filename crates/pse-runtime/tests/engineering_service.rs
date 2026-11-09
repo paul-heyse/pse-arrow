@@ -253,6 +253,12 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         described
             .methods
             .iter()
+            .all(|method| method.name != "PrepareCase")
+    );
+    assert!(
+        described
+            .methods
+            .iter()
             .any(|method| method.name == "ObserveRun"
                 && method.server_streaming
                 && method.effects.read_only)
@@ -530,40 +536,29 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         final_file.original_hash,
         pse_ids::encoding_checksum(&square(16)).content_hash()
     );
-    let prepared = client
-        .generated()
-        .prepare_case(pb::EngineeringPrepareCase {
-            operation: format!("{prefix}-prepare"),
-            source_operation: removed_operation,
-            expected_local_revision: removed.local_revision,
-            case,
-            intent: pb::NativeSolveIntent {
-                value: pse_model::generated::enums::NativeSolveIntent::Root
-                    .as_str()
-                    .into(),
-                ..Default::default()
-            }
-            .into(),
-            backend: pb::NativeBackend {
-                value: pse_model::generated::enums::NativeBackend::Kinsol
-                    .as_str()
-                    .into(),
-                ..Default::default()
-            }
-            .into(),
-            ..Default::default()
-        })
-        .await
-        .unwrap()
-        .into_owned();
     let run: pse_model::generated::identities::RunId = pse_operations::mint_id();
     let attempt: pse_model::generated::identities::AttemptId = pse_operations::mint_id();
     let submit = pb::EngineeringSubmitRun {
         operation: format!("{prefix}-run"),
-        preparation_operation: prepared.operation,
         run: run.as_id().as_bytes().to_vec(),
         attempt: attempt.as_id().as_bytes().to_vec(),
-        expected_preparation: prepared.preparation,
+        source_operation: removed_operation,
+        expected_local_revision: removed.local_revision,
+        case,
+        intent: pb::NativeSolveIntent {
+            value: pse_model::generated::enums::NativeSolveIntent::Root
+                .as_str()
+                .into(),
+            ..Default::default()
+        }
+        .into(),
+        backend: pb::NativeBackend {
+            value: pse_model::generated::enums::NativeBackend::Kinsol
+                .as_str()
+                .into(),
+            ..Default::default()
+        }
+        .into(),
         ..Default::default()
     };
     let key = pb::EngineeringRunKey {
@@ -609,6 +604,7 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
     assert_eq!(finished.run.as_deref(), Some(submit.run.as_slice()));
     assert_eq!(finished.usable, Some(true));
     assert!(finished.canonical_run.is_some() && finished.canonical_attempt.is_some());
+    assert_eq!(finished.preparation.as_deref().map(<[u8]>::len), Some(32));
     let repeated = reconnected
         .generated()
         .submit_run(submit.clone())
@@ -616,8 +612,9 @@ async fn prepared_engineering_client_preserves_original_edit_run_and_reconnect()
         .unwrap()
         .into_owned();
     assert_eq!(repeated.run, finished.run);
+    assert_eq!(repeated.preparation, finished.preparation);
     let mut changed = submit.clone();
-    changed.expected_preparation[0] ^= 1;
+    changed.expected_local_revision.push_str("-foreign");
     let changed_failure = reconnected
         .generated()
         .submit_run(changed)

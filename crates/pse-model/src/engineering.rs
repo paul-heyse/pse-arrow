@@ -188,51 +188,25 @@ projection_struct! {
 }
 projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-    /// Exact-parent declared-case preparation using the native intent/backend vocabularies.
-    pub struct EngineeringPrepareCase {
-        projection: { name: "EngineeringPrepareCase", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
-        /// Original preparation request identity.
-        pub operation: String => { tag: 1, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
-        /// Original admission retaining the selected immutable package.
-        pub source_operation: String => { tag: 2, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
-        /// Exact parent token required before native preparation.
-        pub expected_local_revision: String => { tag: 3, direction: Direction::Input, rules: [LOCAL_REVISION_RULE] };
-        /// Actual authored case declaration, interpreted only by native preparation.
-        pub case: SemanticId => { tag: 4, direction: Direction::Input, rules: [] };
-        /// Actual registry-owned mathematical purpose; no service default substitutes it.
-        pub intent: crate::generated::enums::NativeSolveIntent => { tag: 5, direction: Direction::Input, rules: [LocalRule::Required] };
-        /// Optional exact native backend; absence requests existing deterministic routing.
-        pub backend: Option<crate::generated::enums::NativeBackend> => { tag: 6, direction: Direction::Input, rules: [] };
-    }
-}
-projection_struct! {
-    #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-    /// Actual native prepared-operation identity and its exact admitted source selection.
-    pub struct EngineeringPreparedSelection {
-        projection: { name: "EngineeringPreparedSelection", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
-        /// Retained original preparation operation.
-        pub operation: String => { tag: 1, direction: Direction::Output, rules: [] };
-        /// Exact actual source/physical selection consumed by preparation.
-        pub source: EngineeringSourceSelection => { tag: 2, direction: Direction::Output, rules: [LocalRule::Required] };
-        /// Identity supplied by the actual native prepared operation.
-        pub preparation: ContentHash => { tag: 3, direction: Direction::Output, rules: [] };
-    }
-}
-projection_struct! {
-    #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-    /// Caller-issued original native run/attempt coordinates, fixed before acknowledgement.
+    /// Prepare and run one exact authored case under caller-issued original coordinates.
     pub struct EngineeringSubmitRun {
-        projection: { name: "EngineeringSubmitRun", version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
-        /// Original run-start request identity, retained before native start.
+        projection: { name: "EngineeringSubmitRun", version: 2, direction: Direction::Input, reserved_tags: [2, 5], reserved_names: ["preparation_operation", "expected_preparation"] };
+        /// Original request identity, retained before native preparation or start.
         pub operation: String => { tag: 1, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
-        /// Actual preparation retained by the service incarnation.
-        pub preparation_operation: String => { tag: 2, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
         /// Caller-issued original run, fixed before a possibly lost acknowledgement.
         pub run: SemanticId => { tag: 3, direction: Direction::Input, rules: [] };
         /// Caller-issued original scientific attempt, distinct from a new execution.
         pub attempt: SemanticId => { tag: 4, direction: Direction::Input, rules: [] };
-        /// Exact immutable native preparation identity, including its source and physical context.
-        pub expected_preparation: ContentHash => { tag: 5, direction: Direction::Input, rules: [] };
+        /// Original admission retaining the selected immutable package.
+        pub source_operation: String => { tag: 6, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
+        /// Exact parent token required before native preparation.
+        pub expected_local_revision: String => { tag: 7, direction: Direction::Input, rules: [LOCAL_REVISION_RULE] };
+        /// Actual authored case declaration, interpreted only by native preparation.
+        pub case: SemanticId => { tag: 8, direction: Direction::Input, rules: [] };
+        /// Actual registry-owned mathematical purpose; no service default substitutes it.
+        pub intent: crate::generated::enums::NativeSolveIntent => { tag: 9, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Optional exact native backend; absence requests existing deterministic routing.
+        pub backend: Option<crate::generated::enums::NativeBackend> => { tag: 10, direction: Direction::Input, rules: [] };
     }
 }
 projection_struct! {
@@ -252,7 +226,7 @@ projection_struct! {
     #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
     /// Actual original execution, settlement and completion permission observations.
     pub struct EngineeringRunStatus {
-        projection: { name: "EngineeringRunStatus", version: 1, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
+        projection: { name: "EngineeringRunStatus", version: 2, direction: Direction::Output, reserved_tags: [], reserved_names: [] };
         /// Original caller identity, independent of the native run identity.
         pub operation: String => { tag: 1, direction: Direction::Output, rules: [] };
         /// Actual original native identity, available only after start acknowledgement.
@@ -271,6 +245,8 @@ projection_struct! {
         pub canonical_attempt: Option<String> => { tag: 8, direction: Direction::Output, rules: [] };
         /// Selected original live progress checkpoint; absent after service retirement.
         pub progress: Option<EngineeringRunProgress> => { tag: 9, direction: Direction::Output, rules: [] };
+        /// Immutable native preparation actually used by this execution, if started.
+        pub preparation: Option<ContentHash> => { tag: 10, direction: Direction::Output, rules: [] };
     }
 }
 projection_struct! {
@@ -383,8 +359,6 @@ pub fn service(graph: &mut ProjectionGraph) -> Result<Service, ProjectionError> 
         .effects(EffectFacts::OBSERVATION)?
         .unary::<EngineeringInspectSource, EngineeringDeclarationPage>(graph, "InspectSource")?
         .effects(EffectFacts::OBSERVATION)?
-        .unary::<EngineeringPrepareCase, EngineeringPreparedSelection>(graph, "PrepareCase")?
-        .effects(EffectFacts::SOURCE_ADMISSION)?
         .unary::<EngineeringSubmitRun, EngineeringRunStatus>(graph, "SubmitRun")?
         .effects(EffectFacts::NATIVE_EXECUTION)?
         .unary::<EngineeringRunKey, EngineeringRunStatus>(graph, "RunStatus")?
